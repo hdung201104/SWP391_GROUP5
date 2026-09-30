@@ -454,45 +454,45 @@ export default function HomePage({ user }) {
             {/* ===================================================== */}
             {/* PAGINATION & LOAD MORE BAR                            */}
             {/* ===================================================== */}
-            <div className="card-sticker bg-white rounded-2xl p-4 border-2 border-[#1E293B] shadow-pop flex flex-col sm:flex-row items-center justify-between gap-4 mt-8">
-              <div className="text-xs font-heading font-bold text-[#64748B]">
-                Hiển thị <span className="font-black text-[#1E293B]">1 - 6</span> trong <span className="font-black text-[#1E293B]">142</span> việc làm
+            <div className="bg-white/90 backdrop-blur-md rounded-2xl p-4 border border-botanical-stone shadow-soft flex flex-col sm:flex-row items-center justify-between gap-4 mt-8">
+              <div className="text-xs font-sans font-medium text-botanical-sage">
+                Hiển thị <span className="font-bold text-botanical-forest">1 - 6</span> trong <span className="font-bold text-botanical-forest">142</span> việc làm
               </div>
-              <div className="flex items-center gap-1.5 text-xs font-heading">
+              <div className="flex items-center gap-1.5 text-xs font-sans">
                 <button 
-                  className="p-2 rounded-xl bg-[#F1F5F9] text-[#64748B] border-2 border-[#CBD5E1] cursor-not-allowed opacity-50" 
+                  className="p-2 rounded-xl bg-botanical-cream/60 text-slate-400 border border-botanical-stone cursor-not-allowed opacity-50" 
                   disabled
                   type="button"
                 >
                   <span className="material-symbols-outlined text-sm">chevron_left</span>
                 </button>
                 <button 
-                  className="w-8 h-8 rounded-xl bg-[#8B5CF6] text-white font-black border-2 border-[#1E293B] shadow-[2px_2px_0px_#1E293B] cursor-pointer"
+                  className="w-8 h-8 rounded-xl bg-botanical-forest text-white font-bold border border-botanical-forest shadow-sm cursor-pointer"
                   type="button"
                 >
                   1
                 </button>
                 <button 
-                  className="w-8 h-8 rounded-xl bg-white hover:bg-[#F1F5F9] text-[#1E293B] font-bold border-2 border-[#1E293B] transition-colors cursor-pointer"
+                  className="w-8 h-8 rounded-xl bg-white hover:bg-botanical-cream/60 text-botanical-forest font-semibold border border-botanical-stone transition-colors cursor-pointer"
                   type="button"
                 >
                   2
                 </button>
                 <button 
-                  className="w-8 h-8 rounded-xl bg-white hover:bg-[#F1F5F9] text-[#1E293B] font-bold border-2 border-[#1E293B] transition-colors cursor-pointer"
+                  className="w-8 h-8 rounded-xl bg-white hover:bg-botanical-cream/60 text-botanical-forest font-semibold border border-botanical-stone transition-colors cursor-pointer"
                   type="button"
                 >
                   3
                 </button>
-                <span className="px-1 text-[#64748B] font-bold">...</span>
+                <span className="px-1 text-slate-400 font-bold">...</span>
                 <button 
-                  className="w-8 h-8 rounded-xl bg-white hover:bg-[#F1F5F9] text-[#1E293B] font-bold border-2 border-[#1E293B] transition-colors cursor-pointer"
+                  className="w-8 h-8 rounded-xl bg-white hover:bg-botanical-cream/60 text-botanical-forest font-semibold border border-botanical-stone transition-colors cursor-pointer"
                   type="button"
                 >
                   12
                 </button>
                 <button 
-                  className="btn-candy px-3.5 py-1.5 bg-[#FBBF24] text-[#1E293B] font-black transition-all flex items-center gap-1 cursor-pointer"
+                  className="px-4 py-1.5 rounded-xl bg-botanical-forest hover:bg-botanical-moss text-white font-bold transition-all flex items-center gap-1 cursor-pointer shadow-sm"
                   type="button"
                 >
                   <span>Trang kế</span>
