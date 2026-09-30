@@ -1,0 +1,44 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: hiremate
+  datasource:
+    url: jdbc:postgresql://localhost:5432/HireMateAI
+    username: postgres
+    password: 123
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  mail:
+    host: ${SPRING_MAIL_HOST:smtp.gmail.com}
+    port: ${SPRING_MAIL_PORT:587}
+    username: ${SPRING_MAIL_USERNAME:hdung201104@gmail.com}
+    password: ${SPRING_MAIL_PASSWORD:fejontaojqwexuts}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          connectiontimeout: 10000
+          timeout: 10000
+          writetimeout: 10000
+
+jwt:
+  secret: your-256-bit-secret-key-hiremate-ai-development-token-secret-2026
+  expiration-ms: 86400000
+
+gemini:
+  api:
+    key: ${GEMINI_API_KEY:YOUR_GEMINI_API_KEY}
+    model: gemini-1.5-flash
+    base-url: https://generativelanguage.googleapis.com/v1beta

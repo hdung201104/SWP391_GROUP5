@@ -1,0 +1,398 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body {
+    margin: 0;
+    padding: 0;
+  }
+  body {
+    overscroll-behavior: none;
+    background-color: #F9F8F4;
+    color: #2D3A31;
+    font-family: 'Source Sans 3', 'Plus Jakarta Sans', 'Inter', sans-serif;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Playfair Display', Georgia, serif;
+    letter-spacing: -0.01em;
+  }
+}
+
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #F9F8F4; }
+::-webkit-scrollbar-thumb { background: #DCCFC2; border: 2px solid #F9F8F4; border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: #8C9A84; }
+
+/* ==========================================================================
+   BOTANICAL / ORGANIC SERIF SYSTEM - SIGNATURE TEXTURES & UTILITIES
+   ========================================================================== */
+.paper-grain-overlay {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  opacity: 0.015;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+}
+
+/* Botanical Card */
+.card-botanical {
+  background-color: #FFFFFF;
+  border: 1px solid #E6E2DA;
+  border-radius: 1.5rem; /* rounded-3xl */
+  box-shadow: 0 4px 6px -1px rgba(45, 58, 49, 0.05);
+  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.card-botanical:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px -10px rgba(45, 58, 49, 0.08);
+}
+
+/* Botanical Buttons */
+.btn-botanical-primary {
+  font-family: 'Source Sans 3', sans-serif;
+  font-weight: 600;
+  border-radius: 9999px;
+  background-color: #2D3A31;
+  color: #FFFFFF;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  font-size: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.btn-botanical-primary:hover {
+  background-color: #C27B66;
+  transform: translateY(-1px);
+}
+
+.btn-botanical-secondary {
+  font-family: 'Source Sans 3', sans-serif;
+  font-weight: 600;
+  border-radius: 9999px;
+  background-color: transparent;
+  color: #8C9A84;
+  border: 1px solid #8C9A84;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  font-size: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.btn-botanical-secondary:hover {
+  background-color: rgba(140, 154, 132, 0.1);
+  border-color: #2D3A31;
+  color: #2D3A31;
+}
+
+/* Botanical Inputs */
+.input-botanical {
+  background-color: #F2F0EB;
+  border: 1px solid #E6E2DA;
+  border-radius: 9999px;
+  color: #2D3A31;
+  padding: 0.75rem 1.25rem;
+  transition: all 0.3s ease-out;
+}
+.input-botanical:focus {
+  outline: none;
+  background-color: #FFFFFF;
+  border-color: #8C9A84;
+  box-shadow: 0 0 0 2px rgba(140, 154, 132, 0.25);
+}
+
+/* Arch Imagery */
+.arch-frame {
+  border-top-left-radius: 200px;
+  border-top-right-radius: 200px;
+  overflow: hidden;
+}
+
+/* Botanical Pill Badge */
+.badge-sage {
+  background-color: rgba(140, 154, 132, 0.15);
+  color: #2D3A31;
+  border: 1px solid rgba(140, 154, 132, 0.4);
+  border-radius: 9999px;
+}
+
+.badge-terracotta {
+  background-color: rgba(194, 123, 102, 0.15);
+  color: #C27B66;
+  border: 1px solid rgba(194, 123, 102, 0.4);
+  border-radius: 9999px;
+}
+
+/* Hard Pop Shadow Utility Classes */
+.shadow-pop {
+  box-shadow: 4px 4px 0px 0px #1E293B;
+}
+.shadow-pop-lg {
+  box-shadow: 8px 8px 0px 0px #1E293B;
+}
+.shadow-pop-pink {
+  box-shadow: 5px 5px 0px 0px #F472B6;
+}
+.shadow-pop-yellow {
+  box-shadow: 5px 5px 0px 0px #FBBF24;
+}
+.shadow-pop-violet {
+  box-shadow: 5px 5px 0px 0px #8B5CF6;
+}
+.shadow-pop-mint {
+  box-shadow: 5px 5px 0px 0px #34D399;
+}
+
+/* The Candy Button (Memphis tactile button) */
+.btn-candy {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  border: 2px solid #1E293B;
+  box-shadow: 4px 4px 0px 0px #1E293B;
+  border-radius: 9999px;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  cursor: pointer;
+}
+.btn-candy:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0px 0px #1E293B;
+}
+.btn-candy:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0px 0px #1E293B;
+}
+
+/* The Sticker Card */
+.card-sticker {
+  background-color: #FFFFFF;
+  border: 2px solid #1E293B;
+  border-radius: 1.25rem;
+  box-shadow: 5px 5px 0px 0px #1E293B;
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.card-sticker:hover {
+  transform: translateY(-3px);
+  box-shadow: 7px 7px 0px 0px #1E293B;
+}
+
+/* Tactile Input */
+.input-playful {
+  background-color: #FFFFFF;
+  border: 2px solid #CBD5E1;
+  border-radius: 0.75rem;
+  color: #1E293B;
+  transition: all 0.15s ease;
+}
+.input-playful:focus {
+  outline: none;
+  border-color: #8B5CF6;
+  box-shadow: 4px 4px 0px 0px #8B5CF6;
+}
+
+@keyframes playfulWiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(3deg); }
+  75% { transform: rotate(-3deg); }
+}
+
+@keyframes floatSlow {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-10px) rotate(3deg); }
+}
+
+@keyframes spinSlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-wiggle {
+  animation: playfulWiggle 0.6s ease-in-out;
+}
+.animate-float-slow {
+  animation: floatSlow 6s ease-in-out infinite;
+}
+.animate-spin-slow {
+  animation: spinSlow 20s linear infinite;
+}
+
+/* ==========================================================================
+   LEGACY THEME VARIABLES FALLBACK
+   ========================================================================== */
+:root,
+[data-living-theme="sakura-sunset"] {
+  --surface-container: rgba(36, 14, 42, 0.68);
+  --surface-container-high: rgba(48, 18, 56, 0.75);
+  --surface-container-low: rgba(24, 10, 28, 0.62);
+  --surface-container-lowest: rgba(18, 7, 22, 0.62);
+  --surface-container-highest: rgba(60, 24, 70, 0.80);
+  --surface: rgba(28, 11, 32, 0.68);
+  --surface-variant: rgba(54, 20, 64, 0.65);
+  --outline-variant: rgba(255, 117, 151, 0.32);
+  --outline: rgba(255, 117, 151, 0.48);
+  --on-surface: #ffffff;
+  --on-surface-variant: #f2dbe6;
+  --theme-primary: #ff2d78;
+  --theme-secondary: #00ffcc;
+  --theme-accent: #ffb3c6;
+}
+
+[data-living-theme="living-green"] {
+  --surface-container: rgba(8, 30, 26, 0.68);
+  --surface-container-high: rgba(12, 42, 36, 0.75);
+  --surface-container-low: rgba(5, 22, 19, 0.62);
+  --surface-container-lowest: rgba(3, 16, 14, 0.62);
+  --surface-container-highest: rgba(16, 56, 48, 0.80);
+  --surface: rgba(7, 26, 22, 0.68);
+  --surface-variant: rgba(14, 50, 43, 0.65);
+  --outline-variant: rgba(0, 255, 204, 0.30);
+  --outline: rgba(0, 255, 204, 0.48);
+  --on-surface: #ffffff;
+  --on-surface-variant: #ccfbf1;
+  --theme-primary: #00ffcc;
+  --theme-secondary: #34d399;
+  --theme-accent: #a7f3d0;
+}
+
+[data-living-theme="maple-autumn"] {
+  --surface-container: rgba(36, 20, 7, 0.68);
+  --surface-container-high: rgba(48, 26, 10, 0.75);
+  --surface-container-low: rgba(26, 14, 5, 0.62);
+  --surface-container-lowest: rgba(18, 9, 3, 0.62);
+  --surface-container-highest: rgba(62, 32, 12, 0.80);
+  --surface: rgba(30, 16, 6, 0.68);
+  --surface-variant: rgba(54, 30, 11, 0.65);
+  --outline-variant: rgba(245, 158, 11, 0.30);
+  --outline: rgba(245, 158, 11, 0.48);
+  --on-surface: #ffffff;
+  --on-surface-variant: #fef3c7;
+  --theme-primary: #f59e0b;
+  --theme-secondary: #fb923c;
+  --theme-accent: #fde68a;
+}
+
+[data-living-theme="sequoia-mist"] {
+  --surface-container: rgba(7, 28, 40, 0.68);
+  --surface-container-high: rgba(11, 38, 52, 0.75);
+  --surface-container-low: rgba(5, 20, 28, 0.62);
+  --surface-container-lowest: rgba(3, 14, 20, 0.62);
+  --surface-container-highest: rgba(15, 50, 68, 0.80);
+  --surface: rgba(6, 24, 34, 0.68);
+  --surface-variant: rgba(12, 44, 60, 0.65);
+  --outline-variant: rgba(56, 189, 248, 0.30);
+  --outline: rgba(56, 189, 248, 0.48);
+  --on-surface: #ffffff;
+  --on-surface-variant: #e0f2fe;
+  --theme-primary: #38bdf8;
+  --theme-secondary: #2dd4bf;
+  --theme-accent: #bae6fd;
+}
+
+.glass-card {
+  background: var(--surface-container, rgba(32, 12, 37, 0.70));
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--outline-variant, rgba(255, 117, 151, 0.35));
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined' !important;
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+}
+
+@keyframes eqBounce {
+  0%, 100% { height: 12%; opacity: 0.55; }
+  25% { height: 75%; opacity: 0.95; }
+  50% { height: 35%; opacity: 0.7; }
+  75% { height: 95%; opacity: 1; }
+}
+@keyframes eqBounceAlt {
+  0%, 100% { height: 20%; opacity: 0.6; }
+  30% { height: 90%; opacity: 1; }
+  60% { height: 40%; opacity: 0.75; }
+  85% { height: 100%; opacity: 1; }
+}
+@keyframes eqBounceSubtle {
+  0%, 100% { height: 15%; opacity: 0.5; }
+  40% { height: 55%; opacity: 0.8; }
+  70% { height: 30%; opacity: 0.65; }
+}
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 10px rgba(0,255,204,0.3), inset 0 0 8px rgba(0,255,204,0.2); }
+  50% { box-shadow: 0 0 25px rgba(0,255,204,0.6), 0 0 40px rgba(255,45,120,0.3), inset 0 0 14px rgba(0,255,204,0.4); }
+}
+@keyframes haloSpread {
+  0% { transform: scale(0.96); opacity: 0.6; }
+  50% { transform: scale(1.08); opacity: 0.15; }
+  100% { transform: scale(0.96); opacity: 0.6; }
+}
+
+.eq-bar {
+  transform-origin: bottom;
+  will-change: height, opacity;
+}
+.synth-glow {
+  animation: glowPulse 2.8s ease-in-out infinite;
+}
+.halo-glow {
+  animation: haloSpread 2.2s ease-in-out infinite;
+}
+
+.shader-frame {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 480px;
+  overflow: hidden;
+  border-radius: 1.5rem;
+  background: #4a4d44;
+}
+
+@media print {
+  header, nav, footer, .no-print, button {
+    display: none !important;
+  }
+  body, html {
+    background: #ffffff !important;
+    color: #111827 !important;
+  }
+  .cv-document-sheet {
+    background: #ffffff !important;
+    color: #111827 !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+  }
+  .cv-document-sheet * {
+    color: #111827 !important;
+    border-color: #e5e7eb !important;
+    background-color: transparent !important;
+  }
+  .cv-document-sheet h1, .cv-document-sheet h2, .cv-document-sheet h3 {
+    color: #0f172a !important;
+  }
+}
