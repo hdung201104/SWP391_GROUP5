@@ -2,12 +2,13 @@ package com.hiremate.service.impl;
 
 import com.hiremate.dto.request.UpdateProfileRequest;
 import com.hiremate.dto.response.UserProfileResponse;
-import com.hiremate.entity.CandidateProfile;
+import com.hiremate.entity.Candidate;
 import com.hiremate.entity.Company;
+import com.hiremate.entity.Recruiter;
 import com.hiremate.entity.User;
 import com.hiremate.enums.UserRole;
-import com.hiremate.repository.CandidateProfileRepository;
-import com.hiremate.repository.CompanyRepository;
+import com.hiremate.repository.CandidateRepository;
+import com.hiremate.repository.RecruiterRepository;
 import com.hiremate.repository.UserRepository;
 import com.hiremate.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -23,8 +24,8 @@ import java.util.Optional;
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
-    private final CandidateProfileRepository candidateProfileRepository;
-    private final CompanyRepository companyRepository;
+    private final CandidateRepository candidateRepository;   // Thay thế CandidateProfileRepository
+    private final RecruiterRepository recruiterRepository;   // Thay thế CompanyRepository (cho lookup)
 
     @Override
     public UserProfileResponse getProfile(Long userId) {
@@ -40,6 +41,7 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + userId));
 
+        // Cập nhật các trường trên bảng users (base class)
         user.setFullName(request.getFullName().trim());
         if (request.getPhone() != null) user.setPhone(request.getPhone().trim());
         if (request.getDateOfBirth() != null) user.setDateOfBirth(request.getDateOfBirth().trim());
@@ -49,15 +51,16 @@ public class UserServiceImpl implements UserService {
 
         User savedUser = userRepository.save(user);
 
-        // Update candidate headline or location if candidate
+        // Cập nhật subclass-specific fields nếu là CANDIDATE
+        // Candidate.candidateId = user.userId (Shared PK)
         if (savedUser.getRole() == UserRole.CANDIDATE) {
-            Optional<CandidateProfile> profileOpt = candidateProfileRepository.findByUserId(userId);
-            if (profileOpt.isPresent()) {
-                CandidateProfile profile = profileOpt.get();
-                if (request.getHeadline() != null) profile.setHeadline(request.getHeadline());
-                if (request.getAddress() != null) profile.setLocation(request.getAddress());
-                if (request.getBio() != null) profile.setBio(request.getBio());
-                candidateProfileRepository.save(profile);
+            Optional<Candidate> candidateOpt = candidateRepository.findById(userId);
+            if (candidateOpt.isPresent()) {
+                Candidate candidate = candidateOpt.get();
+                if (request.getHeadline() != null) candidate.setHeadline(request.getHeadline());
+                if (request.getAddress() != null) candidate.setLocation(request.getAddress());
+                if (request.getBio() != null) candidate.setBio(request.getBio());
+                candidateRepository.save(candidate);
             }
         }
 
@@ -78,32 +81,44 @@ public class UserServiceImpl implements UserService {
         return buildProfileResponse(savedUser);
     }
 
+    /**
+     * Build UserProfileResponse bằng cách tra cứu subclass record.
+     * - CANDIDATE: lấy headline, location, experienceYears từ Candidate entity
+     * - RECRUITER: lấy companyId, companyName, companyWebsite từ Recruiter.company
+     */
     private UserProfileResponse buildProfileResponse(User user) {
+        // Candidate-specific fields
         Long profileId = null;
         String headline = null;
         String location = null;
         Integer experienceYears = null;
 
+        // Recruiter / Company-specific fields
         Long companyId = null;
         String companyName = null;
         String companyWebsite = null;
 
         if (user.getRole() == UserRole.CANDIDATE) {
-            Optional<CandidateProfile> candidateProfile = candidateProfileRepository.findByUserId(user.getUserId());
-            if (candidateProfile.isPresent()) {
-                CandidateProfile cp = candidateProfile.get();
-                profileId = cp.getProfileId();
-                headline = cp.getHeadline();
-                location = cp.getLocation();
-                experienceYears = cp.getExperienceYears();
+            // Candidate.candidateId = user.userId (Shared PK – lookup by same ID)
+            Optional<Candidate> candidateOpt = candidateRepository.findById(user.getUserId());
+            if (candidateOpt.isPresent()) {
+                Candidate c = candidateOpt.get();
+                // candidateId dùng làm profileId cho API response (backward compat)
+                profileId = c.getCandidateId();
+                headline = c.getHeadline();
+                location = c.getLocation();
+                experienceYears = c.getExperienceYears();
             }
         } else if (user.getRole() == UserRole.RECRUITER) {
-            Optional<Company> company = companyRepository.findByRecruiterId(user.getUserId());
-            if (company.isPresent()) {
-                Company c = company.get();
-                companyId = c.getCompanyId();
-                companyName = c.getCompanyName();
-                companyWebsite = c.getWebsite();
+            // Recruiter.recruiterId = user.userId (Shared PK – lookup by same ID)
+            Optional<Recruiter> recruiterOpt = recruiterRepository.findById(user.getUserId());
+            if (recruiterOpt.isPresent()) {
+                Company company = recruiterOpt.get().getCompany();
+                if (company != null) {
+                    companyId = company.getCompanyId();
+                    companyName = company.getCompanyName();
+                    companyWebsite = company.getWebsite();
+                }
             }
         }
 

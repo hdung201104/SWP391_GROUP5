@@ -15,9 +15,9 @@
 	<description>HireMate AI - Enterprise Recruitment &amp; AI Interview Platform</description>
 
 	<properties>
-		<java.version>17</java.version>
-		<maven.compiler.source>17</maven.compiler.source>
-		<maven.compiler.target>17</maven.compiler.target>
+		<java.version>21</java.version>
+		<maven.compiler.source>21</maven.compiler.source>
+		<maven.compiler.target>21</maven.compiler.target>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<jwt.version>0.12.5</jwt.version>
 	</properties>
@@ -50,6 +50,12 @@
 			<groupId>org.postgresql</groupId>
 			<artifactId>postgresql</artifactId>
 			<scope>runtime</scope>
+		</dependency>
+
+		<!-- Flyway – Database Migration Management -->
+		<dependency>
+			<groupId>org.flywaydb</groupId>
+			<artifactId>flyway-core</artifactId>
 		</dependency>
 
 		<!-- Lombok -->
@@ -97,8 +103,8 @@
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
 				<configuration>
-					<source>17</source>
-					<target>17</target>
+					<source>21</source>
+					<target>21</target>
 				</configuration>
 			</plugin>
 			<plugin>

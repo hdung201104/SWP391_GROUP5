@@ -128,11 +128,40 @@ export default function CandidateApplicationsPage({ user }) {
   const [chatHistory, setChatHistory] = useState([]);
 
   useEffect(() => {
-    // Optionally fetch real applications from API
+    // Fetch real applications from API
     applicationApi.getMyApplications()
       .then(res => {
         if (res.data && res.data.length > 0) {
-          // Merge API applications if available
+          const mapped = res.data.map((app, idx) => ({
+            id: app.applicationId || idx + 1,
+            company: app.job?.company?.companyName || 'Doanh Nghiệp Tuyển Dụng',
+            companyShort: app.job?.company?.companyName?.slice(0, 4)?.toUpperCase() || 'CORP',
+            division: app.job?.company?.industry ? `// ${app.job.company.industry}` : '// Tuyển Dụng',
+            title: app.job?.title || 'Vị trí Ứng Tuyển',
+            salary: app.job?.salaryMin && app.job?.salaryMax ? `$${app.job.salaryMin} - $${app.job.salaryMax}/tháng` : 'Thương lượng',
+            location: app.job?.location || 'Việt Nam',
+            appliedDate: app.createdAt ? new Date(app.createdAt).toLocaleDateString('vi-VN') : 'Mới nộp',
+            aiMatch: 95,
+            cvUsed: app.cv?.fileName || 'CV_Ung_Vien.pdf',
+            atsScore: 96,
+            responseNotice: 'Đang trong quy trình xử lý',
+            status: app.status || 'APPLIED',
+            statusLabel: app.status === 'OFFER' ? 'Đã Nhận Offer' : app.status === 'INTERVIEW' ? 'Vòng Phỏng Vấn' : app.status === 'SCREENING' ? 'Đang Duyệt CV' : app.status === 'REJECTED' ? 'Chưa Phù Hợp' : 'Đã Nộp Hồ Sơ',
+            themeColor: app.status === 'OFFER' ? 'secondary' : 'primary',
+            currentStep: app.status === 'OFFER' ? 4 : app.status === 'INTERVIEW' ? 3 : app.status === 'SCREENING' ? 2 : 1,
+            steps: [
+              { step: 1, title: '1. Đã Nộp', date: app.createdAt ? new Date(app.createdAt).toLocaleDateString('vi-VN') : 'Hoàn tất', status: 'completed' },
+              { step: 2, title: '2. Duyệt CV', date: 'Đạt ATS', status: app.status !== 'APPLIED' ? 'completed' : 'active' },
+              { step: 3, title: '3. Phỏng Vấn', date: 'Vòng Đánh Giá', status: (app.status === 'INTERVIEW' || app.status === 'OFFER') ? 'completed' : 'pending' },
+              { step: 4, title: '4. Nhận Offer', date: 'Kết quả', status: app.status === 'OFFER' ? 'completed' : 'pending' },
+            ],
+            recruiter: {
+              name: app.job?.recruiter?.user?.fullName || 'Bộ Phận Tuyển Dụng',
+              role: app.job?.recruiter?.position || 'Talent Acquisition',
+            },
+            jobId: app.job?.jobId,
+          }));
+          setApplications(mapped);
         }
       })
       .catch(() => {

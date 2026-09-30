@@ -8,6 +8,11 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 
+/**
+ * Đơn ứng tuyển của Ứng viên.
+ * THAY ĐỔI KIẾN TRÚC: candidate_id nay FK -> candidates.candidate_id (Subclass),
+ * KHÔNG còn trỏ về users.user_id (Superclass).
+ */
 @Entity
 @Table(name = "applications", uniqueConstraints = {
     @UniqueConstraint(columnNames = {"job_id", "candidate_id"})
@@ -23,14 +28,21 @@ public class Application {
     @Column(name = "application_id")
     private Long applicationId;
 
-    @Column(name = "job_id", nullable = false)
-    private Long jobId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "job_id", nullable = false)
+    private Job job;
 
-    @Column(name = "candidate_id", nullable = false)
-    private Long candidateId;
+    /**
+     * FK -> candidates.candidate_id (Subclass của users)
+     * Thay thế quan hệ cũ nối thẳng về users.user_id
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "candidate_id", nullable = false)
+    private Candidate candidate;
 
-    @Column(name = "cv_id")
-    private Long cvId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cv_id")
+    private Cv cv;
 
     @Column(name = "cover_letter", columnDefinition = "TEXT")
     private String coverLetter;

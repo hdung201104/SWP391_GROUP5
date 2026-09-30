@@ -3,14 +3,16 @@ package com.hiremate.service.impl;
 import com.hiremate.config.JwtUtil;
 import com.hiremate.dto.request.*;
 import com.hiremate.dto.response.AuthResponse;
-import com.hiremate.entity.CandidateProfile;
+import com.hiremate.entity.Candidate;
 import com.hiremate.entity.Company;
+import com.hiremate.entity.Recruiter;
 import com.hiremate.entity.User;
 import com.hiremate.enums.CompanyStatus;
 import com.hiremate.enums.UserRole;
 import com.hiremate.enums.UserStatus;
-import com.hiremate.repository.CandidateProfileRepository;
+import com.hiremate.repository.CandidateRepository;
 import com.hiremate.repository.CompanyRepository;
+import com.hiremate.repository.RecruiterRepository;
 import com.hiremate.repository.UserRepository;
 import com.hiremate.service.AuthService;
 import com.hiremate.service.OtpService;
@@ -30,7 +32,8 @@ import java.util.Optional;
 public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
-    private final CandidateProfileRepository candidateProfileRepository;
+    private final CandidateRepository candidateRepository;       // Thay thế CandidateProfileRepository
+    private final RecruiterRepository recruiterRepository;        // Mới thêm
     private final CompanyRepository companyRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
@@ -60,20 +63,27 @@ public class AuthServiceImpl implements AuthService {
         Long companyId = null;
         String companyName = null;
 
-        // Role extension tables (CandidateProfile vs Company)
+        // ============================================================
+        // KIẾN TRÚC V2: Tạo Subclass table record sau khi lưu User
+        // Candidate: candidates.candidate_id = users.user_id (Shared PK)
+        // Recruiter: recruiters.recruiter_id = users.user_id (Shared PK)
+        // ============================================================
         if (role == UserRole.CANDIDATE) {
-            CandidateProfile profile = CandidateProfile.builder()
-                    .userId(savedUser.getUserId())
+            Candidate candidate = Candidate.builder()
+                    .candidateId(savedUser.getUserId())  // Shared PK
+                    .user(savedUser)
                     .headline(request.getHeadline())
                     .location(request.getLocation())
                     .experienceYears(request.getExperienceYears() != null ? request.getExperienceYears() : 0)
                     .build();
-            candidateProfileRepository.save(profile);
+            candidateRepository.save(candidate);
+
         } else if (role == UserRole.RECRUITER) {
             companyName = request.getCompanyName() != null && !request.getCompanyName().isBlank()
                     ? request.getCompanyName()
                     : request.getFullName() + "'s Company";
 
+            // Tạo Company trước để có company_id
             Company company = Company.builder()
                     .recruiterId(savedUser.getUserId())
                     .companyName(companyName)
@@ -84,6 +94,15 @@ public class AuthServiceImpl implements AuthService {
                     .build();
             Company savedCompany = companyRepository.save(company);
             companyId = savedCompany.getCompanyId();
+
+            // Tạo Recruiter subclass record, liên kết với Company
+            Recruiter recruiter = Recruiter.builder()
+                    .recruiterId(savedUser.getUserId())  // Shared PK
+                    .user(savedUser)
+                    .company(savedCompany)
+                    .position("HR Recruiter")  // Default – RegisterRequest không có field position
+                    .build();
+            recruiterRepository.save(recruiter);
         }
 
         Map<String, Object> claims = new HashMap<>();
@@ -132,10 +151,18 @@ public class AuthServiceImpl implements AuthService {
         Long companyId = null;
         String companyName = null;
         if (user.getRole() == UserRole.RECRUITER) {
-            Optional<Company> company = companyRepository.findByRecruiterId(user.getUserId());
-            if (company.isPresent()) {
-                companyId = company.get().getCompanyId();
-                companyName = company.get().getCompanyName();
+            // Tìm company qua Recruiter subclass
+            Optional<Recruiter> recruiterOpt = recruiterRepository.findById(user.getUserId());
+            if (recruiterOpt.isPresent() && recruiterOpt.get().getCompany() != null) {
+                companyId = recruiterOpt.get().getCompany().getCompanyId();
+                companyName = recruiterOpt.get().getCompany().getCompanyName();
+            } else {
+                // fallback: tìm thẳng trong companies table
+                Optional<Company> company = companyRepository.findByRecruiterId(user.getUserId());
+                if (company.isPresent()) {
+                    companyId = company.get().getCompanyId();
+                    companyName = company.get().getCompanyName();
+                }
             }
         }
 
@@ -152,10 +179,10 @@ public class AuthServiceImpl implements AuthService {
         Long companyId = null;
         String companyName = null;
         if (user.getRole() == UserRole.RECRUITER) {
-            Optional<Company> company = companyRepository.findByRecruiterId(user.getUserId());
-            if (company.isPresent()) {
-                companyId = company.get().getCompanyId();
-                companyName = company.get().getCompanyName();
+            Optional<Recruiter> recruiterOpt = recruiterRepository.findById(user.getUserId());
+            if (recruiterOpt.isPresent() && recruiterOpt.get().getCompany() != null) {
+                companyId = recruiterOpt.get().getCompany().getCompanyId();
+                companyName = recruiterOpt.get().getCompany().getCompanyName();
             }
         }
 
@@ -284,24 +311,26 @@ public class AuthServiceImpl implements AuthService {
                     .build();
             user = userRepository.save(user);
 
+            // Tạo Candidate subclass record khi đăng ký qua Google
             if (role == UserRole.CANDIDATE) {
-                CandidateProfile profile = CandidateProfile.builder()
-                        .userId(user.getUserId())
-                        .headline("Google Authenticated Candidate")
+                Candidate candidate = Candidate.builder()
+                        .candidateId(user.getUserId())  // Shared PK
+                        .user(user)
+                        .headline("Ứng viên đang tìm cơ hội mới")
                         .location("Việt Nam")
-                        .experienceYears(1)
+                        .experienceYears(0)
                         .build();
-                candidateProfileRepository.save(profile);
+                candidateRepository.save(candidate);
             }
         }
 
         Long companyId = null;
         String companyName = null;
         if (user.getRole() == UserRole.RECRUITER) {
-            Optional<Company> company = companyRepository.findByRecruiterId(user.getUserId());
-            if (company.isPresent()) {
-                companyId = company.get().getCompanyId();
-                companyName = company.get().getCompanyName();
+            Optional<Recruiter> recruiterOpt = recruiterRepository.findById(user.getUserId());
+            if (recruiterOpt.isPresent() && recruiterOpt.get().getCompany() != null) {
+                companyId = recruiterOpt.get().getCompany().getCompanyId();
+                companyName = recruiterOpt.get().getCompany().getCompanyName();
             }
         }
 

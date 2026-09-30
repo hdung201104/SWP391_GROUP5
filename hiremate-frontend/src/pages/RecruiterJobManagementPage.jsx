@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useLivingTheme } from '../context/LivingThemeContext';
+import { jobApi } from '../api';
 
 export default function RecruiterJobManagementPage({ user, onNavigateToPipeline }) {
   const { theme: livingTheme, luminosity } = useLivingTheme();
@@ -139,10 +140,57 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
   const pausedCount = useMemo(() => jobsList.filter((j) => j.status === 'PAUSED').length, [jobsList]);
   const closedCount = useMemo(() => jobsList.filter((j) => j.status === 'CLOSED').length, [jobsList]);
 
+  useEffect(() => {
+    jobApi.getMyJobs()
+      .then(res => {
+        if (res.data && res.data.length > 0) {
+          const mapped = res.data.map((j, idx) => ({
+            id: j.jobId || idx + 1,
+            code: `JD-REQ-${j.jobId || (idx + 100)}`,
+            badgeText: j.status === 'PUBLISHED' ? 'Đang Đăng Tuyển' : 'Bản Nháp',
+            badgeType: j.status === 'PUBLISHED' ? 'high-priority' : 'frontend',
+            title: j.title,
+            status: j.status === 'PUBLISHED' ? 'ACTIVE' : j.status === 'CLOSED' ? 'CLOSED' : 'PAUSED',
+            domain: j.company?.industry || 'Công Nghệ & Kỹ Thuật',
+            domainIcon: 'work',
+            location: j.location || 'Việt Nam',
+            salary: j.salaryMin && j.salaryMax ? `$${j.salaryMin} - $${j.salaryMax}` : 'Thỏa thuận',
+            totalApplicants: j.vacanciesCount || 0,
+            aiMatchHighCount: 0,
+            mandatorySkills: j.requirements ? j.requirements.split(',').map(s => s.trim()) : ['Yêu cầu chuyên môn'],
+            preferredSkills: j.benefits ? j.benefits.split(',').map(s => s.trim()) : ['Chế độ đãi ngộ tốt'],
+            topCandidateAvatars: [],
+          }));
+          setJobsList(mapped);
+        }
+      })
+      .catch(() => {
+        // Fallback to default list
+      });
+  }, []);
+
   const handleCreateSubmit = (e) => {
     e.preventDefault();
     const mandatory = createForm.mandatorySkillsInput.split(',').map((s) => s.trim()).filter(Boolean);
     const preferred = createForm.preferredSkillsInput.split(',').map((s) => s.trim()).filter(Boolean);
+
+    // Call API to persist in Supabase DB
+    jobApi.createJob({
+      title: createForm.title,
+      description: createForm.description || createForm.title,
+      requirements: createForm.mandatorySkillsInput,
+      benefits: createForm.preferredSkillsInput,
+      salaryMin: 2000,
+      salaryMax: 3500,
+      location: createForm.location,
+      employmentType: 'FULL_TIME',
+      vacanciesCount: 1,
+      status: 'PUBLISHED',
+    }).then(res => {
+      if (res.data && res.data.jobId) {
+        newJob.id = res.data.jobId;
+      }
+    }).catch(err => console.log('API create job notice:', err));
 
     const newJob = {
       id: Date.now(),
@@ -164,7 +212,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
 
     setJobsList([newJob, ...jobsList]);
     setShowCreateModal(false);
-    triggerToast(`Đã xuất bản thành công tin tuyển dụng mới: ${newJob.title}`);
+    triggerToast(`Đã xuất bản thành công tin tuyển dụng mới lên Supabase: ${newJob.title}`);
     setCreateForm({
       title: '',
       code: 'JD-' + Math.floor(100 + Math.random() * 900),

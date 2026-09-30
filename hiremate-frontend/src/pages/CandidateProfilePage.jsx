@@ -7,8 +7,8 @@ export default function CandidateProfilePage({ user }) {
   // Active Tab: 'resume' (Bản CV Trực quan) | 'attachments' (Kho tệp PDF & Phân tích ATS)
   const [activeTab, setActiveTab] = useState('resume');
 
-  // Canvas Theme: 'living-glass' (Kính Thượng Lưu Hợp Tông Dự Án) | 'paper-white' (Giấy Trắng A4 Chuẩn In)
-  const [canvasTheme, setCanvasTheme] = useState('living-glass');
+  // Canvas Theme: 'paper-white' (Giấy Trắng A4 Chuẩn In) | 'living-glass' (Chuẩn Botanical)
+  const [canvasTheme, setCanvasTheme] = useState('paper-white');
 
   // Resume Template: 'executive' (2 Cột Cân Đối) | 'harvard' (Tối giản Harvard ATS 100%) | 'modern' (Hiện Đại Sang Trọng)
   const [cvTemplate, setCvTemplate] = useState('executive');
@@ -1060,7 +1060,7 @@ export default function CandidateProfilePage({ user }) {
                       </div>
 
                       <div className="space-y-1">
-                        <h2 className="text-xl font-headline font-black text-botanical-forest tracking-tight">
+                        <h2 className="text-lg font-serif font-bold text-botanical-forest">
                           {currentCandidate.accountName}
                         </h2>
 
@@ -1075,7 +1075,7 @@ export default function CandidateProfilePage({ user }) {
                             />
                           </div>
                         ) : (
-                          <p className="text-xs font-sans font-bold leading-snug text-botanical-terracotta">
+                          <p className="text-xs font-serif font-bold leading-snug text-botanical-terracotta">
                             {cvData.targetTitle}
                           </p>
                         )}
@@ -1089,13 +1089,13 @@ export default function CandidateProfilePage({ user }) {
                     {/* Section: Thông Tin Liên Hệ (CỦA CÙNG 1 NGƯỜI) */}
                     <div className="space-y-3 pt-2">
                       <h3 className={`text-xs font-headline font-black uppercase tracking-wider pb-1 border-b flex items-center gap-1.5 ${
-                        canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-300' : 'text-botanical-forest border-botanical-stone'
+                        canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-300' : 'text-[#2D3A31] border-[#E6E2DA]'
                       }`}>
                         <span className="material-symbols-outlined text-sm" style={{ color: livingTheme.primary }}>contact_phone</span>
                         <span>Thông Tin Liên Hệ</span>
                       </h3>
                       
-                      <div className={`space-y-2.5 text-xs ${canvasTheme === 'paper-white' ? 'text-slate-800' : 'text-botanical-forest/85 font-medium'}`}>
+                      <div className={`space-y-2.5 text-xs ${canvasTheme === 'paper-white' ? 'text-slate-800' : 'text-[#2D3A31]/90'}`}>
                         <div className="flex items-start gap-2.5">
                           <span className="material-symbols-outlined text-sm text-slate-500 mt-0.5 shrink-0">mail</span>
                           <span className="break-all font-medium">{currentCandidate.email}</span>
@@ -1126,7 +1126,7 @@ export default function CandidateProfilePage({ user }) {
                     {/* Section: Học Vấn Chính Quy */}
                     <div className="space-y-3">
                       <h3 className={`text-xs font-headline font-black uppercase tracking-wider pb-1 border-b flex items-center gap-1.5 ${
-                        canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-300' : 'text-botanical-forest border-botanical-stone'
+                        canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-300' : 'text-[#2D3A31] border-[#E6E2DA]'
                       }`}>
                         <span className="material-symbols-outlined text-sm" style={{ color: livingTheme.primary }}>school</span>
                         <span>Học Vấn Chính Quy</span>
@@ -1135,7 +1135,7 @@ export default function CandidateProfilePage({ user }) {
                       {cvData.education.map((edu, eIdx) => (
                         <div key={edu.id || eIdx} className="space-y-1.5 text-xs">
                           {isEditing ? (
-                            <div className="space-y-1.5 p-2 rounded-xl bg-black/40 border border-amber-400/40">
+                            <div className="space-y-1.5 p-2 rounded-xl bg-white border border-[#CBD5E1] shadow-sm">
                               <input
                                 type="text"
                                 value={edu.school}
@@ -1144,7 +1144,7 @@ export default function CandidateProfilePage({ user }) {
                                   newEdu[eIdx].school = e.target.value;
                                   setCvData({ ...cvData, education: newEdu });
                                 }}
-                                className="w-full bg-black/60 border border-white/20 rounded p-1 font-bold text-white text-xs"
+                                className="w-full bg-slate-50 border border-slate-200 rounded p-1 font-bold text-slate-900 text-xs"
                                 placeholder="Tên trường học"
                               />
                               <input
@@ -1155,7 +1155,7 @@ export default function CandidateProfilePage({ user }) {
                                   newEdu[eIdx].degree = e.target.value;
                                   setCvData({ ...cvData, education: newEdu });
                                 }}
-                                className="w-full bg-black/60 border border-white/20 rounded p-1 text-slate-200 text-xs"
+                                className="w-full bg-slate-50 border border-slate-200 rounded p-1 text-slate-800 text-xs"
                                 placeholder="Chuyên ngành / Bằng cấp"
                               />
                               <div className="grid grid-cols-2 gap-1.5">
@@ -1167,7 +1167,7 @@ export default function CandidateProfilePage({ user }) {
                                     newEdu[eIdx].grade = e.target.value;
                                     setCvData({ ...cvData, education: newEdu });
                                   }}
-                                  className="bg-black/60 border border-white/20 rounded p-1 text-emerald-400 text-xs font-mono"
+                                  className="bg-slate-50 border border-slate-200 rounded p-1 text-emerald-700 text-xs font-mono font-bold"
                                   placeholder="Loại tốt nghiệp / GPA"
                                 />
                                 <input
@@ -1178,20 +1178,20 @@ export default function CandidateProfilePage({ user }) {
                                     newEdu[eIdx].period = e.target.value;
                                     setCvData({ ...cvData, education: newEdu });
                                   }}
-                                  className="bg-black/60 border border-white/20 rounded p-1 text-slate-400 text-xs font-mono"
+                                  className="bg-slate-50 border border-slate-200 rounded p-1 text-slate-600 text-xs font-mono"
                                   placeholder="Niên khóa"
                                 />
                               </div>
                             </div>
                           ) : (
                             <>
-                              <h4 className={`font-headline font-bold leading-snug ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-botanical-forest'}`}>
+                              <h4 className={`font-headline font-bold leading-snug ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
                                 {edu.school}
                               </h4>
-                              <p className={`font-medium ${canvasTheme === 'paper-white' ? 'text-slate-700' : 'text-botanical-forest/80'}`}>{edu.degree}</p>
-                              <p className="text-[11px] font-sans font-bold text-emerald-700 dark:text-emerald-600">{edu.grade}</p>
-                              <p className={`text-[10px] font-sans font-medium ${canvasTheme === 'paper-white' ? 'text-slate-500' : 'text-botanical-sage'}`}>{edu.period}</p>
-                              <p className={`text-[11px] italic pt-0.5 leading-snug ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-botanical-forest/70'}`}>{edu.highlight}</p>
+                              <p className={`font-medium ${canvasTheme === 'paper-white' ? 'text-slate-700' : 'text-[#4A554D]'}`}>{edu.degree}</p>
+                              <p className="text-[11px] font-mono font-bold text-emerald-700">{edu.grade}</p>
+                              <p className={`text-[10px] font-mono ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{edu.period}</p>
+                              <p className={`text-[11px] italic pt-1 leading-snug ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{edu.highlight}</p>
                             </>
                           )}
                         </div>
@@ -1200,9 +1200,11 @@ export default function CandidateProfilePage({ user }) {
 
                     {/* Section: Chứng Chỉ Chuyên Nghiệp */}
                     <div className="space-y-3">
-                      <div className="flex items-center justify-between pb-1 border-b border-botanical-stone">
+                      <div className={`flex items-center justify-between pb-1 border-b ${
+                        canvasTheme === 'paper-white' ? 'border-slate-300' : 'border-[#E6E2DA]'
+                      }`}>
                         <h3 className={`text-xs font-headline font-black uppercase tracking-wider flex items-center gap-1.5 ${
-                          canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-300' : 'text-botanical-forest'
+                          canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'
                         }`}>
                           <span className="material-symbols-outlined text-sm" style={{ color: livingTheme.primary }}>workspace_premium</span>
                           <span>Chứng Chỉ Quốc Tế</span>
@@ -1219,7 +1221,7 @@ export default function CandidateProfilePage({ user }) {
                               };
                               setCvData({ ...cvData, certifications: [...cvData.certifications, newCert] });
                             }}
-                            className="text-[11px] font-bold text-cyan-300 hover:text-white flex items-center gap-0.5 cursor-pointer"
+                            className="text-[11px] font-bold text-emerald-700 hover:text-emerald-900 flex items-center gap-0.5 cursor-pointer"
                           >
                             + Thêm
                           </button>
@@ -1231,7 +1233,7 @@ export default function CandidateProfilePage({ user }) {
                           <div
                             key={cert.id || cIdx}
                             className={`p-2.5 rounded-xl border text-xs space-y-0.5 relative group ${
-                              canvasTheme === 'paper-white' ? 'bg-white border-slate-200 shadow-sm' : 'bg-white/90 border-botanical-stone shadow-soft'
+                              canvasTheme === 'paper-white' ? 'bg-white border-slate-200 shadow-sm' : 'bg-white/80 border-[#E6E2DA] shadow-sm'
                             }`}
                           >
                             {isEditing && (
@@ -1242,7 +1244,7 @@ export default function CandidateProfilePage({ user }) {
                                     certifications: cvData.certifications.filter((_, idx) => idx !== cIdx)
                                   });
                                 }}
-                                className="absolute top-2 right-2 text-rose-400 hover:text-rose-200 cursor-pointer"
+                                className="absolute top-2 right-2 text-rose-500 hover:text-rose-700 cursor-pointer"
                                 title="Xóa chứng chỉ"
                               >
                                 <span className="material-symbols-outlined text-sm">close</span>
@@ -1259,7 +1261,7 @@ export default function CandidateProfilePage({ user }) {
                                     nextCerts[cIdx].name = e.target.value;
                                     setCvData({ ...cvData, certifications: nextCerts });
                                   }}
-                                  className="w-full bg-black/50 border border-white/20 rounded p-1 text-white text-xs font-bold"
+                                  className="w-full bg-slate-50 border border-slate-200 rounded p-1 text-slate-900 text-xs font-bold"
                                   placeholder="Tên chứng chỉ"
                                 />
                                 <div className="grid grid-cols-2 gap-1">
@@ -1271,7 +1273,7 @@ export default function CandidateProfilePage({ user }) {
                                       nextCerts[cIdx].issuer = e.target.value;
                                       setCvData({ ...cvData, certifications: nextCerts });
                                     }}
-                                    className="bg-black/50 border border-white/20 rounded p-1 text-slate-300 text-[10px]"
+                                    className="bg-slate-50 border border-slate-200 rounded p-1 text-slate-700 text-[10px]"
                                     placeholder="Đơn vị cấp"
                                   />
                                   <input
@@ -1282,18 +1284,18 @@ export default function CandidateProfilePage({ user }) {
                                       nextCerts[cIdx].year = e.target.value;
                                       setCvData({ ...cvData, certifications: nextCerts });
                                     }}
-                                    className="bg-black/50 border border-white/20 rounded p-1 text-slate-300 text-[10px]"
+                                    className="bg-slate-50 border border-slate-200 rounded p-1 text-slate-700 text-[10px]"
                                     placeholder="Năm cấp"
                                   />
                                 </div>
                               </div>
                             ) : (
                               <>
-                                <h4 className={`font-headline font-bold text-[11px] leading-snug ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-botanical-forest'}`}>
+                                <h4 className={`font-headline font-bold text-[11px] leading-snug ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
                                   {cert.name}
                                 </h4>
-                                <p className={`text-[10px] font-sans ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-botanical-forest/75 font-medium'}`}>{cert.issuer} • {cert.year}</p>
-                                <p className="text-[10px] font-sans font-semibold truncate text-botanical-sage">{cert.code}</p>
+                                <p className={`text-[10px] font-mono ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{cert.issuer} • {cert.year}</p>
+                                <p className="text-[10px] font-mono font-semibold truncate" style={{ color: livingTheme.primary }}>{cert.code}</p>
                               </>
                             )}
                           </div>
@@ -1304,7 +1306,7 @@ export default function CandidateProfilePage({ user }) {
                     {/* Section: Ngoại Ngữ */}
                     <div className="space-y-3">
                       <h3 className={`text-xs font-headline font-black uppercase tracking-wider pb-1 border-b flex items-center gap-1.5 ${
-                        canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-300' : 'text-botanical-forest border-botanical-stone'
+                        canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-300' : 'text-[#2D3A31] border-[#E6E2DA]'
                       }`}>
                         <span className="material-symbols-outlined text-sm" style={{ color: livingTheme.primary }}>translate</span>
                         <span>Ngoại Ngữ Thành Thạo</span>
@@ -1312,9 +1314,9 @@ export default function CandidateProfilePage({ user }) {
 
                       <div className="space-y-2 text-xs">
                         {cvData.languages.map((lang, lIdx) => (
-                          <div key={lIdx} className="flex items-center justify-between border-b border-dashed border-botanical-stone/80 pb-1">
-                            <span className={`font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-botanical-forest'}`}>{lang.name}</span>
-                            <span className={`text-[10px] font-sans font-medium ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-botanical-forest/80'}`}>{lang.score}</span>
+                          <div key={lIdx} className="flex items-center justify-between border-b border-dashed border-[#E6E2DA] pb-1">
+                            <span className={`font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>{lang.name}</span>
+                            <span className={`text-[10px] font-mono ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{lang.score}</span>
                           </div>
                         ))}
                       </div>
@@ -1323,18 +1325,18 @@ export default function CandidateProfilePage({ user }) {
                   </aside>
 
                   {/* RIGHT COLUMN: MAIN CONTENT (66% / 8 COLS) */}
-                  <main className={`md:col-span-8 p-6 sm:p-9 space-y-7 ${canvasTheme === 'paper-white' ? 'bg-white' : 'bg-transparent'}`}>
+                  <main className={`md:col-span-8 p-6 sm:p-9 space-y-7 ${canvasTheme === 'paper-white' ? 'bg-white' : 'bg-[#FCFBF8]'}`}>
                     
                     {/* 1. Header Banner & Title */}
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <h1 className={`text-2xl sm:text-4xl font-headline font-black uppercase tracking-tight ${
-                          canvasTheme === 'paper-white' ? 'text-slate-950' : 'text-botanical-forest'
+                          canvasTheme === 'paper-white' ? 'text-slate-950' : 'text-[#2D3A31]'
                         }`}>
                           {currentCandidate.accountName}
                         </h1>
-                        <span className={`px-3 py-1 rounded-md text-[11px] font-sans font-bold uppercase tracking-wider border ${
-                          canvasTheme === 'paper-white' ? 'bg-slate-100 text-slate-800 border-slate-300' : 'bg-botanical-sage/15 text-botanical-forest border-botanical-sage/30'
+                        <span className={`px-3 py-1 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border ${
+                          canvasTheme === 'paper-white' ? 'bg-slate-100 text-slate-800 border-slate-300' : 'bg-[#FAF9F5] text-[#2D3A31] border-[#E6E2DA]'
                         }`}>
                           {cvData.versionBadge || 'EXECUTIVE RESUME'}
                         </span>
@@ -1348,16 +1350,16 @@ export default function CandidateProfilePage({ user }) {
 
                       {isEditing ? (
                         <div className="pt-2">
-                          <label className="text-[10px] font-mono text-slate-400 block mb-1">Tagline định vị bản thân:</label>
+                          <label className="text-[10px] font-mono text-slate-500 block mb-1">Tagline định vị bản thân:</label>
                           <textarea
                             rows={2}
                             value={cvData.tagline}
                             onChange={(e) => setCvData({ ...cvData, tagline: e.target.value })}
-                            className="w-full bg-black/40 border border-amber-400/50 rounded-xl p-2 text-xs text-white"
+                            className="w-full bg-white border border-slate-300 rounded-xl p-2 text-xs text-slate-900 font-medium focus:ring-1 focus:ring-emerald-600"
                           />
                         </div>
                       ) : (
-                        <p className={`text-xs leading-relaxed pt-1 font-medium ${canvasTheme === 'paper-white' ? 'text-slate-700' : 'text-botanical-forest/85'}`}>
+                        <p className={`text-xs leading-relaxed pt-1 font-medium ${canvasTheme === 'paper-white' ? 'text-slate-700' : 'text-[#4A554D]'}`}>
                           {cvData.tagline}
                         </p>
                       )}
@@ -1366,10 +1368,10 @@ export default function CandidateProfilePage({ user }) {
                     {/* 2. Executive Summary (Tóm tắt năng lực cốt lõi) */}
                     <section className="space-y-2.5">
                       <div className={`flex items-center justify-between pb-1 border-b ${
-                        canvasTheme === 'paper-white' ? 'border-slate-300' : 'border-botanical-stone'
+                        canvasTheme === 'paper-white' ? 'border-slate-300' : 'border-[#E6E2DA]'
                       }`}>
                         <h3 className={`text-xs font-headline font-black uppercase tracking-widest flex items-center gap-2 ${
-                          canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-botanical-forest'
+                          canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'
                         }`}>
                           <span className="material-symbols-outlined text-base" style={{ color: livingTheme.primary }}>badge</span>
                           <span>Tóm Tắt Năng Lực Cốt Lõi (Executive Summary)</span>
@@ -1378,7 +1380,7 @@ export default function CandidateProfilePage({ user }) {
                           <button
                             onClick={handleRewriteBioWithGemini}
                             disabled={isRewritingBio}
-                            className="text-[11px] text-cyan-300 hover:text-white flex items-center gap-1 font-bold cursor-pointer"
+                            className="text-[11px] text-emerald-700 hover:text-emerald-900 flex items-center gap-1 font-bold cursor-pointer"
                           >
                             <span className="material-symbols-outlined text-xs animate-pulse">auto_awesome</span>
                             <span>AI Tối Ưu Nhanh</span>
@@ -1392,10 +1394,10 @@ export default function CandidateProfilePage({ user }) {
                             rows={4}
                             value={cvData.summary}
                             onChange={(e) => setCvData({ ...cvData, summary: e.target.value })}
-                            className="w-full bg-black/40 border border-amber-400/60 rounded-xl p-3 text-xs leading-relaxed text-white focus:outline-none focus:border-amber-400"
+                            className="w-full bg-white border border-slate-300 rounded-xl p-3 text-xs leading-relaxed text-slate-900 font-medium focus:outline-none focus:border-emerald-600"
                             placeholder="Nhập phần tóm tắt năng lực, số năm kinh nghiệm và điểm mạnh cốt lõi..."
                           />
-                          <p className="text-[10px] text-slate-400 text-right font-mono">
+                          <p className="text-[10px] text-slate-500 text-right font-mono">
                             Độ dài: {cvData.summary.length} ký tự • Tối ưu chuẩn ATS
                           </p>
                         </div>
@@ -1403,10 +1405,10 @@ export default function CandidateProfilePage({ user }) {
                         <div className={`p-4 rounded-2xl text-xs sm:text-sm leading-relaxed space-y-2.5 shadow-sm ${
                           canvasTheme === 'paper-white'
                             ? 'bg-slate-50 border-l-4 border-slate-900 text-slate-800 border border-slate-200'
-                            : 'bg-[#FAF9F5] border-l-4 border-botanical-forest text-botanical-forest border border-botanical-stone'
+                            : 'bg-[#F2EFE9] border-l-4 border-[#2D3A31] text-[#2D3A31] border border-[#E6E2DA]'
                         }`}>
                           {cvData.summary.split('\n\n').map((para, pIdx) => (
-                            <p key={pIdx} className="leading-relaxed">{para}</p>
+                            <p key={pIdx} className="leading-relaxed font-medium">{para}</p>
                           ))}
                         </div>
                       )}
@@ -1415,10 +1417,10 @@ export default function CandidateProfilePage({ user }) {
                     {/* 3. Work Experience (Kinh nghiệm làm việc thực chiến) */}
                     <section className="space-y-5">
                       <div className={`flex items-center justify-between pb-1 border-b ${
-                        canvasTheme === 'paper-white' ? 'border-slate-300' : 'border-botanical-stone'
+                        canvasTheme === 'paper-white' ? 'border-slate-300' : 'border-[#E6E2DA]'
                       }`}>
                         <h3 className={`text-xs font-headline font-black uppercase tracking-widest flex items-center gap-2 ${
-                          canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-botanical-forest'
+                          canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'
                         }`}>
                           <span className="material-symbols-outlined text-base" style={{ color: livingTheme.primary }}>history_edu</span>
                           <span>Kinh Nghiệm Làm Việc (Work Experience)</span>
@@ -1426,7 +1428,7 @@ export default function CandidateProfilePage({ user }) {
                         {isEditing && (
                           <button
                             onClick={handleAddExperience}
-                            className="text-xs text-amber-300 hover:text-white flex items-center gap-1 cursor-pointer font-bold"
+                            className="text-xs text-emerald-700 hover:text-emerald-900 flex items-center gap-1 cursor-pointer font-bold"
                           >
                             <span className="material-symbols-outlined text-sm">add</span>
                             <span>Thêm vị trí mới</span>
@@ -1438,12 +1440,12 @@ export default function CandidateProfilePage({ user }) {
                         {cvData.experiences.map((exp, expIdx) => (
                           <div
                             key={exp.id || expIdx}
-                            className={`space-y-2.5 ${isEditing ? 'p-3 rounded-2xl bg-black/40 border border-amber-400/35 relative' : ''}`}
+                            className={`space-y-2.5 ${isEditing ? 'p-3 rounded-2xl bg-white border border-slate-300 shadow-sm relative' : ''}`}
                           >
                             {isEditing && (
                               <button
                                 onClick={() => handleDeleteExperience(exp.id)}
-                                className="absolute top-3 right-3 text-rose-400 hover:text-rose-200 cursor-pointer flex items-center gap-1 text-xs"
+                                className="absolute top-3 right-3 text-rose-500 hover:text-rose-700 cursor-pointer flex items-center gap-1 text-xs"
                                 title="Xóa toàn bộ vị trí này"
                               >
                                 <span className="material-symbols-outlined text-sm">delete</span>
@@ -1456,22 +1458,22 @@ export default function CandidateProfilePage({ user }) {
                               <div className="space-y-2 pr-20">
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                   <div>
-                                    <label className="text-[10px] text-slate-400 block font-mono">Chức danh / Vị trí:</label>
+                                    <label className="text-[10px] text-slate-500 block font-mono">Chức danh / Vị trí:</label>
                                     <input
                                       type="text"
                                       value={exp.role}
                                       onChange={(e) => handleUpdateExperience(exp.id, 'role', e.target.value)}
-                                      className="w-full bg-black/60 border border-white/20 rounded p-1.5 font-bold text-white text-xs"
+                                      className="w-full bg-slate-50 border border-slate-200 rounded p-1.5 font-bold text-slate-900 text-xs"
                                       placeholder="Chức danh"
                                     />
                                   </div>
                                   <div>
-                                    <label className="text-[10px] text-slate-400 block font-mono">Tên Công ty / Tổ chức:</label>
+                                    <label className="text-[10px] text-slate-500 block font-mono">Tên Công ty / Tổ chức:</label>
                                     <input
                                       type="text"
                                       value={exp.company}
                                       onChange={(e) => handleUpdateExperience(exp.id, 'company', e.target.value)}
-                                      className="w-full bg-black/60 border border-white/20 rounded p-1.5 text-cyan-300 font-semibold text-xs"
+                                      className="w-full bg-slate-50 border border-slate-200 rounded p-1.5 text-emerald-800 font-semibold text-xs"
                                       placeholder="Công ty"
                                     />
                                   </div>
@@ -1481,14 +1483,14 @@ export default function CandidateProfilePage({ user }) {
                                     type="text"
                                     value={exp.period}
                                     onChange={(e) => handleUpdateExperience(exp.id, 'period', e.target.value)}
-                                    className="bg-black/60 border border-white/20 rounded p-1 text-slate-300 text-xs font-mono"
+                                    className="bg-slate-50 border border-slate-200 rounded p-1 text-slate-700 text-xs font-mono"
                                     placeholder="Thời gian làm việc"
                                   />
                                   <input
                                     type="text"
                                     value={exp.location}
                                     onChange={(e) => handleUpdateExperience(exp.id, 'location', e.target.value)}
-                                    className="bg-black/60 border border-white/20 rounded p-1 text-slate-300 text-xs"
+                                    className="bg-slate-50 border border-slate-200 rounded p-1 text-slate-700 text-xs"
                                     placeholder="Địa điểm & Loại hình"
                                   />
                                 </div>
@@ -1497,7 +1499,7 @@ export default function CandidateProfilePage({ user }) {
                               <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
                                 <div>
                                   <h4 className={`text-base font-headline font-bold ${
-                                    canvasTheme === 'paper-white' ? 'text-slate-950' : 'text-botanical-forest'
+                                    canvasTheme === 'paper-white' ? 'text-slate-950' : 'text-[#2D3A31]'
                                   }`}>
                                     {exp.role}
                                   </h4>
@@ -1505,9 +1507,9 @@ export default function CandidateProfilePage({ user }) {
                                     {exp.company}
                                   </p>
                                 </div>
-                                <div className="text-xs sm:text-right font-sans">
-                                  <span className={`font-bold ${canvasTheme === 'paper-white' ? 'text-slate-800' : 'text-botanical-forest'}`}>{exp.period}</span>
-                                  <span className={`block text-[10px] ${canvasTheme === 'paper-white' ? 'text-slate-500' : 'text-botanical-sage'}`}>{exp.location}</span>
+                                <div className="text-xs font-mono sm:text-right">
+                                  <span className={`font-bold ${canvasTheme === 'paper-white' ? 'text-slate-800' : 'text-[#2D3A31]'}`}>{exp.period}</span>
+                                  <span className={`block text-[10px] ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{exp.location}</span>
                                 </div>
                               </div>
                             )}
@@ -1515,7 +1517,7 @@ export default function CandidateProfilePage({ user }) {
                             {/* Bullets with quantifiable results */}
                             <div className="space-y-1.5 pt-1">
                               {isEditing && (
-                                <span className="text-[11px] font-mono text-amber-300/80 block">
+                                <span className="text-[11px] font-mono text-emerald-800 block">
                                   Thành tựu chính (Phương pháp STAR - Kết quả định lượng):
                                 </span>
                               )}
@@ -1528,11 +1530,11 @@ export default function CandidateProfilePage({ user }) {
                                         rows={2}
                                         value={b}
                                         onChange={(e) => handleUpdateBullet(exp.id, bIdx, e.target.value)}
-                                        className="w-full bg-black/60 border border-white/15 rounded p-1.5 text-xs text-slate-200"
+                                        className="w-full bg-slate-50 border border-slate-200 rounded p-1.5 text-xs text-slate-800 font-medium"
                                       />
                                       <button
                                         onClick={() => handleDeleteBullet(exp.id, bIdx)}
-                                        className="text-rose-400 hover:text-rose-200 pt-1 cursor-pointer shrink-0"
+                                        className="text-rose-500 hover:text-rose-700 pt-1 cursor-pointer shrink-0"
                                         title="Xóa gạch đầu dòng này"
                                       >
                                         <span className="material-symbols-outlined text-sm">remove_circle</span>
@@ -1540,9 +1542,9 @@ export default function CandidateProfilePage({ user }) {
                                     </>
                                   ) : (
                                     <div className={`flex items-start gap-2 text-xs sm:text-sm leading-relaxed ${
-                                      canvasTheme === 'paper-white' ? 'text-slate-800 font-medium' : 'text-botanical-forest/85 font-medium'
+                                      canvasTheme === 'paper-white' ? 'text-slate-800 font-medium' : 'text-[#334155] font-medium'
                                     }`}>
-                                      <span className="w-1.5 h-1.5 rounded-full mt-2 shrink-0 bg-botanical-forest"></span>
+                                      <span className="w-1.5 h-1.5 rounded-full mt-2 shrink-0" style={{ backgroundColor: livingTheme.primary }}></span>
                                       <span>{b}</span>
                                     </div>
                                   )}
@@ -1552,7 +1554,7 @@ export default function CandidateProfilePage({ user }) {
                               {isEditing && (
                                 <button
                                   onClick={() => handleAddBullet(exp.id)}
-                                  className="text-[11px] text-cyan-300 hover:text-white flex items-center gap-1 font-bold pt-1 cursor-pointer"
+                                  className="text-[11px] text-emerald-700 hover:text-emerald-900 flex items-center gap-1 font-bold pt-1 cursor-pointer"
                                 >
                                   <span className="material-symbols-outlined text-xs">add</span>
                                   <span>Thêm gạch đầu dòng</span>
@@ -1565,10 +1567,10 @@ export default function CandidateProfilePage({ user }) {
                               {exp.tags.map((t, sIdx) => (
                                 <span
                                   key={sIdx}
-                                  className={`px-2 py-0.5 rounded text-[11px] font-sans font-medium ${
+                                  className={`px-2 py-0.5 rounded text-[11px] font-mono ${
                                     canvasTheme === 'paper-white'
                                       ? 'bg-slate-100 text-slate-800 border border-slate-300 font-semibold'
-                                      : 'bg-botanical-sage/15 text-botanical-forest border border-botanical-sage/30'
+                                      : 'bg-white text-[#2D3A31] border border-[#E6E2DA] font-semibold'
                                   }`}
                                 >
                                   {t}
@@ -1583,10 +1585,10 @@ export default function CandidateProfilePage({ user }) {
                     {/* 4. Key Projects (Dự án tiêu biểu) */}
                     <section className="space-y-3.5">
                       <div className={`flex items-center justify-between pb-1 border-b ${
-                        canvasTheme === 'paper-white' ? 'border-slate-300' : 'border-botanical-stone'
+                        canvasTheme === 'paper-white' ? 'border-slate-300' : 'border-[#E6E2DA]'
                       }`}>
                         <h3 className={`text-xs font-headline font-black uppercase tracking-widest flex items-center gap-2 ${
-                          canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-botanical-forest'
+                          canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'
                         }`}>
                           <span className="material-symbols-outlined text-base" style={{ color: livingTheme.primary }}>rocket_launch</span>
                           <span>Dự Án Trọng Điểm (Key Projects)</span>
@@ -1594,7 +1596,7 @@ export default function CandidateProfilePage({ user }) {
                         {isEditing && (
                           <button
                             onClick={handleAddProject}
-                            className="text-xs text-amber-300 hover:text-white flex items-center gap-1 cursor-pointer font-bold"
+                            className="text-xs text-emerald-700 hover:text-emerald-900 flex items-center gap-1 cursor-pointer font-bold"
                           >
                             <span className="material-symbols-outlined text-sm">add</span>
                             <span>Thêm dự án mới</span>
@@ -1606,16 +1608,16 @@ export default function CandidateProfilePage({ user }) {
                         {cvData.projects.map((proj, pIdx) => (
                           <div
                             key={proj.id || pIdx}
-                            className={`p-4 rounded-2xl border space-y-2 relative transition-all ${
+                            className={`p-4 rounded-2xl border space-y-2 relative ${
                               canvasTheme === 'paper-white'
                                 ? 'bg-slate-50 border-slate-300 shadow-sm'
-                                : 'bg-[#FAF9F5] border-botanical-stone shadow-soft hover:border-botanical-sage/50'
+                                : 'bg-white border-[#E6E2DA] shadow-sm'
                             }`}
                           >
                             {isEditing && (
                               <button
                                 onClick={() => handleDeleteProject(proj.id)}
-                                className="absolute top-2 right-2 text-rose-400 hover:text-rose-200 cursor-pointer"
+                                className="absolute top-2 right-2 text-rose-500 hover:text-rose-700 cursor-pointer"
                                 title="Xóa dự án này"
                               >
                                 <span className="material-symbols-outlined text-sm">delete</span>
@@ -1628,7 +1630,7 @@ export default function CandidateProfilePage({ user }) {
                                   type="text"
                                   value={proj.name}
                                   onChange={(e) => handleUpdateProject(proj.id, 'name', e.target.value)}
-                                  className="w-full bg-black/60 border border-white/20 rounded p-1 font-bold text-white text-xs"
+                                  className="w-full bg-slate-50 border border-slate-200 rounded p-1 font-bold text-slate-900 text-xs"
                                   placeholder="Tên dự án"
                                 />
                                 <div className="grid grid-cols-2 gap-1">
@@ -1636,14 +1638,14 @@ export default function CandidateProfilePage({ user }) {
                                     type="text"
                                     value={proj.role}
                                     onChange={(e) => handleUpdateProject(proj.id, 'role', e.target.value)}
-                                    className="bg-black/60 border border-white/20 rounded p-1 text-cyan-300 text-xs"
+                                    className="bg-slate-50 border border-slate-200 rounded p-1 text-emerald-800 text-xs font-semibold"
                                     placeholder="Vai trò"
                                   />
                                   <input
                                     type="text"
                                     value={proj.period}
                                     onChange={(e) => handleUpdateProject(proj.id, 'period', e.target.value)}
-                                    className="bg-black/60 border border-white/20 rounded p-1 text-slate-400 text-xs font-mono"
+                                    className="bg-slate-50 border border-slate-200 rounded p-1 text-slate-700 text-xs font-mono"
                                     placeholder="Năm thực hiện"
                                   />
                                 </div>
@@ -1651,7 +1653,7 @@ export default function CandidateProfilePage({ user }) {
                                   rows={2}
                                   value={proj.summary}
                                   onChange={(e) => handleUpdateProject(proj.id, 'summary', e.target.value)}
-                                  className="w-full bg-black/60 border border-white/20 rounded p-1 text-xs text-slate-200"
+                                  className="w-full bg-slate-50 border border-slate-200 rounded p-1 text-xs text-slate-800 font-medium"
                                   placeholder="Tóm tắt dự án và kết quả đạt được..."
                                 />
                               </div>
@@ -1659,20 +1661,20 @@ export default function CandidateProfilePage({ user }) {
                               <>
                                 <div className="flex items-start justify-between gap-2">
                                   <h4 className={`font-headline font-bold text-sm ${
-                                    canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-botanical-forest'
+                                    canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'
                                   }`}>
                                     {proj.name}
                                   </h4>
-                                  <span className={`text-[10px] font-sans font-medium shrink-0 ${canvasTheme === 'paper-white' ? 'text-slate-500' : 'text-botanical-sage'}`}>{proj.period}</span>
+                                  <span className={`text-[10px] font-mono shrink-0 ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{proj.period}</span>
                                 </div>
-                                <p className="text-xs font-semibold text-botanical-forest font-sans">{proj.role}</p>
-                                <p className={`text-xs leading-relaxed font-sans ${canvasTheme === 'paper-white' ? 'text-slate-700' : 'text-botanical-forest/85'}`}>{proj.summary}</p>
+                                <p className="text-xs font-semibold" style={{ color: livingTheme.primary }}>{proj.role}</p>
+                                <p className={`text-xs leading-relaxed font-body ${canvasTheme === 'paper-white' ? 'text-slate-700 font-medium' : 'text-[#4A554D] font-medium'}`}>{proj.summary}</p>
                                 <div className="flex flex-wrap gap-1 pt-1">
                                   {proj.tags.map((t, idx) => (
                                     <span
                                       key={idx}
-                                      className={`px-2 py-0.5 rounded text-[10px] font-sans font-medium ${
-                                        canvasTheme === 'paper-white' ? 'bg-white border border-slate-300 text-slate-800' : 'bg-white border border-botanical-stone text-botanical-forest'
+                                      className={`px-2 py-0.5 rounded text-[10px] font-mono ${
+                                        canvasTheme === 'paper-white' ? 'bg-white border border-slate-300 text-slate-800' : 'bg-[#FAF9F5] border border-[#E6E2DA] text-[#2D3A31]'
                                       }`}
                                     >
                                       {t}
@@ -1689,16 +1691,16 @@ export default function CandidateProfilePage({ user }) {
                     {/* 5. Technical & Core Skills Matrix */}
                     <section className="space-y-3">
                       <div className={`flex items-center justify-between pb-1 border-b ${
-                        canvasTheme === 'paper-white' ? 'border-slate-300' : 'border-botanical-stone'
+                        canvasTheme === 'paper-white' ? 'border-slate-300' : 'border-[#E6E2DA]'
                       }`}>
                         <h3 className={`text-xs font-headline font-black uppercase tracking-widest flex items-center gap-2 ${
-                          canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-botanical-forest'
+                          canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'
                         }`}>
                           <span className="material-symbols-outlined text-base" style={{ color: livingTheme.primary }}>psychology</span>
                           <span>Ma Trận Năng Lực Chuyên Môn (Skills Matrix)</span>
                         </h3>
                         {isEditing && (
-                          <span className="text-[11px] text-slate-400 font-mono">
+                          <span className="text-[11px] text-slate-500 font-mono">
                             Bấm [x] để xóa kỹ năng hoặc nhập thêm bên dưới
                           </span>
                         )}
@@ -1709,13 +1711,13 @@ export default function CandidateProfilePage({ user }) {
                           <div
                             key={catIdx}
                             className={`p-3 rounded-2xl border flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 transition-all ${
-                              canvasTheme === 'paper-white' ? 'bg-slate-50 border-slate-300' : 'bg-[#FAF9F5] border-botanical-stone'
+                              canvasTheme === 'paper-white' ? 'bg-slate-50 border-slate-300' : 'bg-white border-[#E6E2DA] shadow-sm'
                             }`}
                           >
                             <span className={`w-48 shrink-0 font-bold font-headline flex items-center gap-1.5 pt-0.5 ${
-                              canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-botanical-forest'
+                              canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'
                             }`}>
-                              <span className="w-1.5 h-1.5 rounded-full bg-botanical-forest"></span>
+                              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: livingTheme.primary }}></span>
                               {cat.category}:
                             </span>
 
@@ -1724,10 +1726,10 @@ export default function CandidateProfilePage({ user }) {
                                 {cat.items.map((item, iIdx) => (
                                   <span
                                     key={iIdx}
-                                    className={`px-2.5 py-0.5 rounded-lg text-xs font-sans font-medium flex items-center gap-1.5 ${
+                                    className={`px-2.5 py-0.5 rounded-lg text-xs font-mono font-medium flex items-center gap-1.5 ${
                                       canvasTheme === 'paper-white'
                                         ? 'bg-white text-slate-800 border border-slate-300 shadow-sm font-semibold'
-                                        : 'bg-white text-botanical-forest border border-botanical-stone shadow-sm'
+                                        : 'bg-[#FAF9F5] text-[#2D3A31] border border-[#E6E2DA] shadow-sm font-semibold'
                                     }`}
                                   >
                                     <span>{item}</span>
@@ -1735,7 +1737,7 @@ export default function CandidateProfilePage({ user }) {
                                       <button
                                         type="button"
                                         onClick={() => handleRemoveSkill(catIdx, item)}
-                                        className="text-rose-400 hover:text-white cursor-pointer"
+                                        className="text-rose-500 hover:text-rose-700 cursor-pointer"
                                         title="Xóa kỹ năng này"
                                       >
                                         <span className="material-symbols-outlined text-xs">close</span>
@@ -1758,12 +1760,12 @@ export default function CandidateProfilePage({ user }) {
                                       }
                                     }}
                                     placeholder="Gõ tên kỹ năng mới & Enter..."
-                                    className="bg-black/50 border border-white/20 rounded-lg px-2.5 py-1 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
+                                    className="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-600"
                                   />
                                   <button
                                     type="button"
                                     onClick={() => handleAddSkillToCategory(catIdx)}
-                                    className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-bold text-white cursor-pointer"
+                                    className="px-2.5 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-xs font-bold text-white cursor-pointer"
                                   >
                                     + Thêm
                                   </button>
@@ -1784,20 +1786,20 @@ export default function CandidateProfilePage({ user }) {
               {/* TEMPLATE B: HARVARD CLASSIC ATS 100% (1-COLUMN)          */}
               {/* ──────────────────────────────────────────────────────── */}
               {cvTemplate === 'harvard' && (
-                <div className={`p-8 sm:p-12 space-y-6 ${canvasTheme === 'paper-white' ? 'bg-white text-slate-850' : 'bg-transparent text-botanical-forest'}`}>
+                <div className={`p-8 sm:p-12 space-y-6 ${canvasTheme === 'paper-white' ? 'bg-white text-slate-850' : 'bg-[#FDFCF9] text-[#2D3A31]'}`}>
                   
                   {/* Top Centered Header */}
-                  <div className={`text-center space-y-1.5 pb-4 border-b-2 ${canvasTheme === 'paper-white' ? 'border-slate-800' : 'border-botanical-stone'}`}>
-                    <h1 className={`text-2xl sm:text-3xl font-headline font-black uppercase tracking-wider ${
-                      canvasTheme === 'paper-white' ? 'text-slate-950' : 'text-botanical-forest'
+                  <div className={`text-center space-y-1.5 pb-4 border-b-2 ${canvasTheme === 'paper-white' ? 'border-slate-800' : 'border-[#2D3A31]'}`}>
+                    <h1 className={`text-2xl sm:text-3xl font-serif font-black uppercase tracking-wider ${
+                      canvasTheme === 'paper-white' ? 'text-slate-950' : 'text-[#1A2520]'
                     }`}>
                       {currentCandidate.accountName}
                     </h1>
                     <p className="text-sm font-semibold tracking-wide" style={{ color: livingTheme.primary }}>
                       {cvData.targetTitle}
                     </p>
-                    <div className={`text-xs flex flex-wrap items-center justify-center gap-3 pt-1 font-sans ${
-                      canvasTheme === 'paper-white' ? 'text-slate-700' : 'text-botanical-forest/80 font-medium'
+                    <div className={`text-xs flex flex-wrap items-center justify-center gap-3 pt-1 font-mono ${
+                      canvasTheme === 'paper-white' ? 'text-slate-700' : 'text-[#4A5B4D]'
                     }`}>
                       <span>{currentCandidate.phone}</span>
                       <span>•</span>
@@ -1811,51 +1813,51 @@ export default function CandidateProfilePage({ user }) {
 
                   {/* Harvard Section 1: Summary */}
                   <section className="space-y-2">
-                    <h2 className={`text-xs font-sans font-bold uppercase tracking-wider pb-0.5 border-b ${
-                      canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-400' : 'text-botanical-forest border-botanical-stone'
+                    <h2 className={`text-xs font-serif font-bold uppercase tracking-wider pb-0.5 border-b ${
+                      canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-400' : 'text-[#2D3A31] border-[#C5C0B6]'
                     }`}>
                       TÓM TẮT NĂNG LỰC (PROFESSIONAL SUMMARY)
                     </h2>
-                    <p className={`text-xs leading-relaxed ${canvasTheme === 'paper-white' ? 'text-slate-800 font-medium' : 'text-botanical-forest/85'}`}>{cvData.summary}</p>
+                    <p className={`text-xs leading-relaxed ${canvasTheme === 'paper-white' ? 'text-slate-800 font-medium' : 'text-[#4A5B4D] font-medium'}`}>{cvData.summary}</p>
                   </section>
 
                   {/* Harvard Section 2: Education */}
                   <section className="space-y-3">
-                    <h2 className={`text-xs font-sans font-bold uppercase tracking-wider pb-0.5 border-b ${
-                      canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-400' : 'text-botanical-forest border-botanical-stone'
+                    <h2 className={`text-xs font-serif font-bold uppercase tracking-wider pb-0.5 border-b ${
+                      canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-400' : 'text-[#2D3A31] border-[#C5C0B6]'
                     }`}>
                       HỌC VẤN (EDUCATION)
                     </h2>
                     {cvData.education.map((edu, eIdx) => (
                       <div key={edu.id || eIdx} className="text-xs space-y-0.5">
-                        <div className={`flex justify-between font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-botanical-forest'}`}>
+                        <div className={`flex justify-between font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
                           <span>{edu.school}</span>
-                          <span className={`font-sans font-medium ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-botanical-sage'}`}>{edu.period}</span>
+                          <span className={`font-mono ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{edu.period}</span>
                         </div>
-                        <div className={`flex justify-between italic ${canvasTheme === 'paper-white' ? 'text-slate-700' : 'text-botanical-forest/80'}`}>
+                        <div className={`flex justify-between italic ${canvasTheme === 'paper-white' ? 'text-slate-700' : 'text-[#4A5B4D]'}`}>
                           <span>{edu.degree}</span>
-                          <span className="font-semibold not-italic text-emerald-700 dark:text-emerald-600">{edu.grade}</span>
+                          <span className="font-semibold not-italic text-emerald-600 dark:text-emerald-400">{edu.grade}</span>
                         </div>
-                        <p className={`text-[11px] pt-0.5 ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-botanical-forest/70'}`}>{edu.highlight}</p>
+                        <p className={`text-[11px] pt-0.5 ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{edu.highlight}</p>
                       </div>
                     ))}
                   </section>
 
                   {/* Harvard Section 3: Experience */}
                   <section className="space-y-4">
-                    <h2 className={`text-xs font-sans font-bold uppercase tracking-wider pb-0.5 border-b ${
-                      canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-400' : 'text-botanical-forest border-botanical-stone'
+                    <h2 className={`text-xs font-serif font-bold uppercase tracking-wider pb-0.5 border-b ${
+                      canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-400' : 'text-[#2D3A31] border-[#C5C0B6]'
                     }`}>
                       KINH NGHIỆM LÀM VIỆC (PROFESSIONAL EXPERIENCE)
                     </h2>
                     {cvData.experiences.map((exp, expIdx) => (
                       <div key={exp.id || expIdx} className="text-xs space-y-1">
-                        <div className={`flex justify-between font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-botanical-forest'}`}>
+                        <div className={`flex justify-between font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
                           <span>{exp.company} — {exp.role}</span>
-                          <span className={`font-sans font-medium ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-botanical-sage'}`}>{exp.period}</span>
+                          <span className={`font-mono ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{exp.period}</span>
                         </div>
-                        <p className={`text-[11px] italic ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-botanical-sage'}`}>{exp.location}</p>
-                        <ul className={`list-disc list-outside pl-4 space-y-1 ${canvasTheme === 'paper-white' ? 'text-slate-800 font-medium' : 'text-botanical-forest/85'}`}>
+                        <p className={`text-[11px] italic ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{exp.location}</p>
+                        <ul className={`list-disc list-outside pl-4 space-y-1 ${canvasTheme === 'paper-white' ? 'text-slate-800 font-medium' : 'text-[#4A5B4D] font-medium'}`}>
                           {exp.bullets.map((b, bIdx) => (
                             <li key={bIdx}>{b}</li>
                           ))}
@@ -1866,22 +1868,22 @@ export default function CandidateProfilePage({ user }) {
 
                   {/* Harvard Section 4: Skills & Certifications */}
                   <section className="space-y-2.5">
-                    <h2 className={`text-xs font-sans font-bold uppercase tracking-wider pb-0.5 border-b ${
-                      canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-400' : 'text-botanical-forest border-botanical-stone'
+                    <h2 className={`text-xs font-serif font-bold uppercase tracking-wider pb-0.5 border-b ${
+                      canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-400' : 'text-[#2D3A31] border-[#C5C0B6]'
                     }`}>
                       KỸ NĂNG, CHỨNG CHỈ &amp; NGOẠI NGỮ (SKILLS &amp; CERTIFICATIONS)
                     </h2>
-                    <div className={`text-xs space-y-1.5 ${canvasTheme === 'paper-white' ? 'text-slate-800' : 'text-botanical-forest/85'}`}>
+                    <div className={`text-xs space-y-1.5 ${canvasTheme === 'paper-white' ? 'text-slate-800' : 'text-[#4A5B4D]'}`}>
                       {cvData.skills.map((s, idx) => (
                         <p key={idx}>
-                          <strong className={canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-botanical-forest'}>{s.category}:</strong> {s.items.join(', ')}
+                          <strong className={canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}>{s.category}:</strong> {s.items.join(', ')}
                         </p>
                       ))}
                       <p>
-                        <strong className={canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-botanical-forest'}>Chứng chỉ quốc tế:</strong> {cvData.certifications.map(c => `${c.name} (${c.issuer})`).join('; ')}
+                        <strong className={canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}>Chứng chỉ quốc tế:</strong> {cvData.certifications.map(c => `${c.name} (${c.issuer})`).join('; ')}
                       </p>
                       <p>
-                        <strong className={canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-botanical-forest'}>Ngoại ngữ:</strong> {cvData.languages.map(l => `${l.name} (${l.score})`).join('; ')}
+                        <strong className={canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}>Ngoại ngữ:</strong> {cvData.languages.map(l => `${l.name} (${l.score})`).join('; ')}
                       </p>
                     </div>
                   </section>
@@ -1893,12 +1895,12 @@ export default function CandidateProfilePage({ user }) {
               {/* TEMPLATE C: HIỆN ĐẠI SANG TRỌNG (MODERN EDITORIAL)        */}
               {/* ──────────────────────────────────────────────────────── */}
               {cvTemplate === 'modern' && (
-                <div className={`p-6 sm:p-10 space-y-7 ${canvasTheme === 'paper-white' ? 'bg-white text-slate-800' : 'bg-transparent text-botanical-forest'}`}>
+                <div className={`p-6 sm:p-10 space-y-7 ${canvasTheme === 'paper-white' ? 'bg-white text-slate-800' : 'bg-[#FDFCF9] text-[#2D3A31]'}`}>
                   
                   {/* Modern Header Banner */}
                   <div className={`p-6 sm:p-8 rounded-3xl ${livingTheme.activeNavBg} text-white shadow-2xl flex flex-col sm:flex-row items-center sm:items-start justify-between gap-6 border ${livingTheme.border}`}>
                     <div className="space-y-2 text-center sm:text-left">
-                      <span className="px-3 py-0.5 rounded-full text-[10px] font-sans font-bold bg-white/20 uppercase tracking-widest">
+                      <span className="px-3 py-0.5 rounded-full text-[10px] font-mono font-bold bg-white/20 uppercase tracking-widest">
                         {cvData.versionBadge || 'VERIFIED PROFESSIONAL'}
                       </span>
                       <h1 className="text-3xl sm:text-4xl font-headline font-black uppercase tracking-tight">
@@ -1920,8 +1922,8 @@ export default function CandidateProfilePage({ user }) {
                   </div>
 
                   {/* Contact Band */}
-                  <div className={`p-4 rounded-2xl border flex flex-wrap items-center justify-around gap-4 text-xs font-sans font-semibold ${
-                    canvasTheme === 'paper-white' ? 'bg-slate-100 border-slate-300 text-slate-800' : 'bg-[#FAF9F5] border-botanical-stone text-botanical-forest'
+                  <div className={`p-4 rounded-2xl border flex flex-wrap items-center justify-around gap-4 text-xs font-mono font-semibold ${
+                    canvasTheme === 'paper-white' ? 'bg-slate-100 border-slate-300 text-slate-800' : 'bg-[#F2F0EB] border-[#C5C0B6] text-[#2D3A31]'
                   }`}>
                     <span>📧 {currentCandidate.email}</span>
                     <span>📞 {currentCandidate.phone}</span>
@@ -1936,18 +1938,18 @@ export default function CandidateProfilePage({ user }) {
                     <div className="md:col-span-8 space-y-7">
                       <section className="space-y-4">
                         <h3 className={`text-xs font-headline font-black uppercase tracking-widest pb-1 border-b ${
-                          canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-300' : 'text-botanical-forest border-botanical-stone'
+                          canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-300' : 'text-[#2D3A31] border-[#C5C0B6]'
                         }`}>
                           KINH NGHIỆM THỰC CHIẾN (EXPERIENCE)
                         </h3>
                         {cvData.experiences.map((exp, eIdx) => (
                           <div key={exp.id || eIdx} className="space-y-1.5 text-xs sm:text-sm">
-                            <div className={`flex justify-between font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-botanical-forest'}`}>
+                            <div className={`flex justify-between font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
                               <span>{exp.role}</span>
-                              <span className={`font-sans font-medium text-xs ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-botanical-sage'}`}>{exp.period}</span>
+                              <span className={`font-mono text-xs ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{exp.period}</span>
                             </div>
                             <p className="font-semibold text-xs" style={{ color: livingTheme.primary }}>{exp.company} — {exp.location}</p>
-                            <ul className={`list-disc list-outside pl-4 space-y-1 text-xs ${canvasTheme === 'paper-white' ? 'text-slate-800 font-medium' : 'text-botanical-forest/85'}`}>
+                            <ul className={`list-disc list-outside pl-4 space-y-1 text-xs ${canvasTheme === 'paper-white' ? 'text-slate-800 font-medium' : 'text-[#4A5B4D] font-medium'}`}>
                               {exp.bullets.map((b, idx) => (
                                 <li key={idx}>{b}</li>
                               ))}
@@ -1958,16 +1960,16 @@ export default function CandidateProfilePage({ user }) {
 
                       <section className="space-y-4">
                         <h3 className={`text-xs font-headline font-black uppercase tracking-widest pb-1 border-b ${
-                          canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-300' : 'text-botanical-forest border-botanical-stone'
+                          canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-300' : 'text-[#2D3A31] border-[#C5C0B6]'
                         }`}>
                           DỰ ÁN TRỌNG ĐIỂM (KEY PROJECTS)
                         </h3>
                         {cvData.projects.map((p, pIdx) => (
                           <div key={p.id || pIdx} className={`p-3.5 rounded-2xl border space-y-1 text-xs ${
-                            canvasTheme === 'paper-white' ? 'bg-slate-50 border-slate-300' : 'bg-[#FAF9F5] border-botanical-stone shadow-soft'
+                            canvasTheme === 'paper-white' ? 'bg-slate-50 border-slate-300' : 'bg-[#F2F0EB] border-[#C5C0B6]'
                           }`}>
-                            <h4 className={`font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-botanical-forest'}`}>{p.name}</h4>
-                            <p className={canvasTheme === 'paper-white' ? 'text-slate-700' : 'text-botanical-forest/85'}>{p.summary}</p>
+                            <h4 className={`font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>{p.name}</h4>
+                            <p className={canvasTheme === 'paper-white' ? 'text-slate-700' : 'text-[#4A5B4D]'}>{p.summary}</p>
                           </div>
                         ))}
                       </section>
@@ -1977,18 +1979,18 @@ export default function CandidateProfilePage({ user }) {
                     <div className="md:col-span-4 space-y-6">
                       <section className="space-y-3">
                         <h3 className={`text-xs font-headline font-black uppercase tracking-widest pb-1 border-b ${
-                          canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-300' : 'text-botanical-forest border-botanical-stone'
+                          canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-300' : 'text-[#2D3A31] border-[#C5C0B6]'
                         }`}>
                           KỸ NĂNG CHUYÊN SÂU
                         </h3>
                         <div className="space-y-2">
                           {cvData.skills.map((sk, idx) => (
                             <div key={idx} className="space-y-1 text-xs">
-                              <p className={`font-bold text-[11px] ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-botanical-forest'}`}>{sk.category}</p>
+                              <p className={`font-bold text-[11px] ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>{sk.category}</p>
                               <div className="flex flex-wrap gap-1">
                                 {sk.items.map((it, iIdx) => (
-                                  <span key={iIdx} className={`px-2 py-0.5 rounded text-[10px] font-sans font-medium ${
-                                    canvasTheme === 'paper-white' ? 'bg-slate-100 text-slate-800 border border-slate-300' : 'bg-botanical-sage/15 text-botanical-forest border border-botanical-sage/30'
+                                  <span key={iIdx} className={`px-2 py-0.5 rounded text-[10px] font-mono ${
+                                    canvasTheme === 'paper-white' ? 'bg-slate-100 text-slate-800 border border-slate-300' : livingTheme.tagBg
                                   }`}>
                                     {it}
                                   </span>
@@ -2001,22 +2003,22 @@ export default function CandidateProfilePage({ user }) {
 
                       <section className="space-y-3">
                         <h3 className={`text-xs font-headline font-black uppercase tracking-widest pb-1 border-b ${
-                          canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-300' : 'text-botanical-forest border-botanical-stone'
+                          canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-300' : 'text-[#2D3A31] border-[#C5C0B6]'
                         }`}>
                           HỌC VẤN &amp; CHỨNG CHỈ
                         </h3>
                         {cvData.education.map((e, idx) => (
                           <div key={e.id || idx} className="text-xs space-y-0.5">
-                            <p className={`font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-botanical-forest'}`}>{e.school}</p>
-                            <p className={canvasTheme === 'paper-white' ? 'text-slate-700' : 'text-botanical-forest/80'}>{e.degree}</p>
-                            <p className="text-emerald-700 dark:text-emerald-600 font-bold font-sans text-[10px]">{e.grade}</p>
+                            <p className={`font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>{e.school}</p>
+                            <p className={canvasTheme === 'paper-white' ? 'text-slate-700' : 'text-[#4A5B4D]'}>{e.degree}</p>
+                            <p className="text-emerald-600 dark:text-emerald-400 font-bold font-mono text-[10px]">{e.grade}</p>
                           </div>
                         ))}
                         <div className="pt-2 space-y-1.5">
                           {cvData.certifications.map((c, idx) => (
-                            <div key={c.id || idx} className={`text-[11px] border-l-2 pl-2 ${canvasTheme === 'paper-white' ? 'border-slate-400' : 'border-botanical-stone'}`}>
-                              <p className={`font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-botanical-forest'}`}>{c.name}</p>
-                              <p className={`font-sans text-[10px] ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-botanical-sage'}`}>{c.issuer} ({c.year})</p>
+                            <div key={c.id || idx} className={`text-[11px] border-l-2 pl-2 ${canvasTheme === 'paper-white' ? 'border-slate-400' : 'border-[#C5C0B6]'}`}>
+                              <p className={`font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>{c.name}</p>
+                              <p className={`font-mono text-[10px] ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{c.issuer} ({c.year})</p>
                             </div>
                           ))}
                         </div>

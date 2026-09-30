@@ -10,6 +10,11 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+/**
+ * Tin tuyển dụng.
+ * THAY ĐỔI KIẾN TRÚC: recruiter_id nay FK -> recruiters.recruiter_id (Subclass),
+ * KHÔNG còn trỏ về users.user_id (Superclass).
+ */
 @Entity
 @Table(name = "jobs")
 @Data
@@ -23,11 +28,17 @@ public class Job {
     @Column(name = "job_id")
     private Long jobId;
 
-    @Column(name = "recruiter_id", nullable = false)
-    private Long recruiterId;
+    /**
+     * FK -> recruiters.recruiter_id (Subclass của users)
+     * Thay thế quan hệ cũ nối thẳng về users.user_id
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "recruiter_id", nullable = false)
+    private Recruiter recruiter;
 
-    @Column(name = "company_id")
-    private Long companyId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "company_id")
+    private Company company;
 
     @Column(name = "title", nullable = false, length = 200)
     private String title;

@@ -5,21 +5,25 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * DTO trả về thông tin chi tiết một câu hỏi/đáp án trong phiên phỏng vấn.
+ * THAY ĐỔI KIẾN TRÚC V2:
+ * - BỎ: contentScore, deliveryScore, wordsPerMinute, clarityScore (riêng lẻ)
+ * - BỎ: sessionId dạng Long thô (không cần expose ra API)
+ * - THÊM: aiEvaluationScore (điểm tổng hợp AI, thay thế các field trên)
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class InterviewDetailResponse {
     private Long detailId;
-    private Long sessionId;
     private Integer questionNumber;
     private String questionText;
     private String candidateAnswerText;
     private String audioUrl;
-    private Float contentScore;
-    private Float deliveryScore;
-    private Float wordsPerMinute;
-    private Float clarityScore;
+    /** Điểm đánh giá tổng hợp của AI Agent (0-100) */
+    private Float aiEvaluationScore;
     private String aiFeedback;
     private String aiSuggestedAnswer;
 }

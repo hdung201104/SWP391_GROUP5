@@ -8,24 +8,30 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * @deprecated Thay thế bởi com.hiremate.entity.Candidate
+ * SUBCLASS của Users – lưu thông tin hồ sơ riêng của Ứng viên.
+ * Shared Primary Key: candidate_id = user_id (Table-per-Subclass / Joined Inheritance).
+ * FK Mapping: jobs, applications, ai_job_matches, interview_sessions ĐỀU trỏ về candidates.candidate_id
  */
-@Deprecated(since = "2.0", forRemoval = true)
-// @Entity
-// @Table(name = "candidate_profiles")
+@Entity
+@Table(name = "candidates")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class CandidateProfile {
+public class Candidate {
 
+    /**
+     * PK đồng thời là FK -> users.user_id (Shared PK / Joined pattern).
+     * Không dùng @GeneratedValue vì giá trị lấy từ users.user_id.
+     */
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "profile_id")
-    private Long profileId;
+    @Column(name = "candidate_id")
+    private Long candidateId;
 
-    @Column(name = "user_id", nullable = false, unique = true)
-    private Long userId;
+    @OneToOne(fetch = FetchType.LAZY)
+    @MapsId
+    @JoinColumn(name = "candidate_id")
+    private User user;
 
     @Column(name = "headline", length = 300)
     private String headline;

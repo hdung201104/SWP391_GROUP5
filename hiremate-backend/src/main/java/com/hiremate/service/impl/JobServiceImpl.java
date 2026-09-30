@@ -5,12 +5,14 @@ import com.hiremate.dto.response.JobResponse;
 import com.hiremate.entity.Company;
 import com.hiremate.entity.Job;
 import com.hiremate.entity.JobSkill;
+import com.hiremate.entity.Recruiter;
 import com.hiremate.entity.User;
 import com.hiremate.enums.JobStatus;
 import com.hiremate.enums.SkillImportance;
 import com.hiremate.repository.CompanyRepository;
 import com.hiremate.repository.JobRepository;
 import com.hiremate.repository.JobSkillRepository;
+import com.hiremate.repository.RecruiterRepository;
 import com.hiremate.service.JobService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -27,16 +29,22 @@ public class JobServiceImpl implements JobService {
     private final JobRepository jobRepository;
     private final JobSkillRepository jobSkillRepository;
     private final CompanyRepository companyRepository;
+    private final RecruiterRepository recruiterRepository;
 
     @Override
     @Transactional
-    public JobResponse createJob(JobCreateRequest request, User recruiter) {
-        Optional<Company> companyOpt = companyRepository.findByRecruiterId(recruiter.getUserId());
-        Long companyId = companyOpt.map(Company::getCompanyId).orElse(null);
+    public JobResponse createJob(JobCreateRequest request, User user) {
+        // Lấy Recruiter subclass – recruiter_id = user_id (Shared PK)
+        Recruiter recruiter = recruiterRepository.findById(user.getUserId())
+                .orElseThrow(() -> new IllegalStateException(
+                        "Recruiter profile not found for user: " + user.getUserId()));
+
+        // Lấy company của recruiter qua Recruiter.company
+        Company company = recruiter.getCompany();
 
         Job job = Job.builder()
-                .recruiterId(recruiter.getUserId())
-                .companyId(companyId)
+                .recruiter(recruiter)
+                .company(company)
                 .title(request.getTitle())
                 .description(request.getDescription())
                 .requirements(request.getRequirements())
@@ -52,7 +60,7 @@ public class JobServiceImpl implements JobService {
 
         Job savedJob = jobRepository.save(job);
 
-        // Save mandatory skills
+        // Lưu mandatory skills (weight = 1.0 = 70% của matching formula)
         if (request.getMandatorySkillIds() != null) {
             for (Long skillId : request.getMandatorySkillIds()) {
                 jobSkillRepository.save(JobSkill.builder()
@@ -64,7 +72,7 @@ public class JobServiceImpl implements JobService {
             }
         }
 
-        // Save preferred skills
+        // Lưu preferred skills (weight = 0.5 = 30% của matching formula)
         if (request.getPreferredSkillIds() != null) {
             for (Long skillId : request.getPreferredSkillIds()) {
                 jobSkillRepository.save(JobSkill.builder()
@@ -76,16 +84,17 @@ public class JobServiceImpl implements JobService {
             }
         }
 
-        return mapToResponse(savedJob, companyOpt.orElse(null));
+        return mapToResponse(savedJob);
     }
 
     @Override
     @Transactional
-    public JobResponse updateJob(Long jobId, JobCreateRequest request, User recruiter) {
+    public JobResponse updateJob(Long jobId, JobCreateRequest request, User user) {
         Job job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new IllegalArgumentException("Job not found: " + jobId));
 
-        if (!job.getRecruiterId().equals(recruiter.getUserId())) {
+        // Kiểm tra quyền: recruiter.recruiterId = user.userId
+        if (!job.getRecruiter().getRecruiterId().equals(user.getUserId())) {
             throw new SecurityException("You are not authorized to update this job");
         }
 
@@ -105,8 +114,7 @@ public class JobServiceImpl implements JobService {
         }
 
         Job updatedJob = jobRepository.save(job);
-        Company company = job.getCompanyId() != null ? companyRepository.findById(job.getCompanyId()).orElse(null) : null;
-        return mapToResponse(updatedJob, company);
+        return mapToResponse(updatedJob);
     }
 
     @Override
@@ -118,39 +126,47 @@ public class JobServiceImpl implements JobService {
         job.setTotalViews(job.getTotalViews() + 1);
         jobRepository.save(job);
 
-        Company company = job.getCompanyId() != null ? companyRepository.findById(job.getCompanyId()).orElse(null) : null;
-        return mapToResponse(job, company);
+        return mapToResponse(job);
     }
 
     @Override
     public List<JobResponse> getPublishedJobs(String keyword, String location) {
-        List<Job> jobs = jobRepository.searchJobs(keyword, location);
+        List<Job> jobs;
+        boolean hasKeyword = keyword != null && !keyword.trim().isEmpty();
+        boolean hasLocation = location != null && !location.trim().isEmpty();
+
+        if (!hasKeyword && !hasLocation) {
+            jobs = jobRepository.findByStatus(JobStatus.PUBLISHED);
+        } else {
+            jobs = jobRepository.searchJobs(hasKeyword ? keyword.trim() : null, hasLocation ? location.trim() : null);
+        }
+
         List<JobResponse> responses = new ArrayList<>();
         for (Job job : jobs) {
-            Company company = job.getCompanyId() != null ? companyRepository.findById(job.getCompanyId()).orElse(null) : null;
-            responses.add(mapToResponse(job, company));
+            responses.add(mapToResponse(job));
         }
         return responses;
     }
 
     @Override
     public List<JobResponse> getRecruiterJobs(Long recruiterId) {
-        List<Job> jobs = jobRepository.findByRecruiterId(recruiterId);
-        Company company = companyRepository.findByRecruiterId(recruiterId).orElse(null);
+        // Dùng method mới qua Recruiter subclass relationship
+        List<Job> jobs = jobRepository.findByRecruiter_RecruiterId(recruiterId);
         List<JobResponse> responses = new ArrayList<>();
         for (Job job : jobs) {
-            responses.add(mapToResponse(job, company));
+            responses.add(mapToResponse(job));
         }
         return responses;
     }
 
     @Override
     @Transactional
-    public void closeJob(Long jobId, User recruiter) {
+    public void closeJob(Long jobId, User user) {
         Job job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new IllegalArgumentException("Job not found: " + jobId));
 
-        if (!job.getRecruiterId().equals(recruiter.getUserId())) {
+        // Kiểm tra quyền: recruiter.recruiterId = user.userId
+        if (!job.getRecruiter().getRecruiterId().equals(user.getUserId())) {
             throw new SecurityException("You are not authorized to close this job");
         }
 
@@ -158,11 +174,18 @@ public class JobServiceImpl implements JobService {
         jobRepository.save(job);
     }
 
-    private JobResponse mapToResponse(Job job, Company company) {
+    /**
+     * Map Job entity -> JobResponse DTO.
+     * Truy xuất companyId và recruiterId qua object navigation.
+     */
+    private JobResponse mapToResponse(Job job) {
+        Company company = job.getCompany();
         return JobResponse.builder()
                 .jobId(job.getJobId())
-                .recruiterId(job.getRecruiterId())
-                .companyId(job.getCompanyId())
+                // Truy xuất qua Recruiter subclass (Shared PK: recruiterId = userId)
+                .recruiterId(job.getRecruiter() != null ? job.getRecruiter().getRecruiterId() : null)
+                // Truy xuất qua Company object
+                .companyId(company != null ? company.getCompanyId() : null)
                 .companyName(company != null ? company.getCompanyName() : "HireMate Partner")
                 .companyLogo(company != null ? company.getLogoUrl() : null)
                 .title(job.getTitle())

@@ -6,6 +6,13 @@ import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
 
+/**
+ * Lịch sử câu hỏi & câu trả lời của mỗi lượt hỏi trong phiên phỏng vấn AI.
+ * THAY ĐỔI KIẾN TRÚC:
+ * - BỎ HOÀN TOÀN question_id (FK -> question_bank) - table question_bank đã bị xóa.
+ * - THÊM question_text (TEXT): AI Agent tự sinh câu hỏi và ghi trực tiếp vào đây.
+ * - THÊM ai_evaluation_score: điểm tổng hợp thay thế content_score/delivery_score riêng lẻ.
+ */
 @Entity
 @Table(name = "interview_details")
 @Data
@@ -19,39 +26,41 @@ public class InterviewDetail {
     @Column(name = "detail_id")
     private Long detailId;
 
-    @Column(name = "session_id", nullable = false)
-    private Long sessionId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "session_id", nullable = false)
+    private InterviewSession session;
 
-    @Column(name = "question_id")
-    private Long questionId;
-
+    /** Thứ tự câu hỏi trong phiên phỏng vấn (1, 2, 3, ...) */
     @Column(name = "question_number")
     private Integer questionNumber;
 
+    /**
+     * Nội dung câu hỏi do AI Agent (Gemini) tự sinh ra theo ngữ cảnh
+     * CV ứng viên + JD của vị trí tuyển dụng. KHÔNG lấy từ question_bank.
+     */
     @Column(name = "question_text", columnDefinition = "TEXT")
     private String questionText;
 
+    /** Câu trả lời bằng văn bản của ứng viên (speech-to-text hoặc gõ trực tiếp) */
     @Column(name = "candidate_answer_text", columnDefinition = "TEXT")
     private String candidateAnswerText;
 
+    /** URL file audio ghi âm câu trả lời của ứng viên */
     @Column(name = "audio_url", length = 500)
     private String audioUrl;
 
-    @Column(name = "content_score")
-    private Float contentScore;
+    /**
+     * Điểm đánh giá tổng hợp của AI Agent cho câu trả lời này (0-100).
+     * Thay thế các trường content_score / delivery_score / clarity_score riêng lẻ.
+     */
+    @Column(name = "ai_evaluation_score")
+    private Float aiEvaluationScore;
 
-    @Column(name = "delivery_score")
-    private Float deliveryScore;
-
-    @Column(name = "words_per_minute")
-    private Float wordsPerMinute;
-
-    @Column(name = "clarity_score")
-    private Float clarityScore;
-
+    /** Nhận xét chi tiết của AI về câu trả lời (điểm mạnh, điểm yếu) */
     @Column(name = "ai_feedback", columnDefinition = "TEXT")
     private String aiFeedback;
 
+    /** Câu trả lời mẫu / gợi ý tối ưu do AI đề xuất */
     @Column(name = "ai_suggested_answer", columnDefinition = "TEXT")
     private String aiSuggestedAnswer;
 

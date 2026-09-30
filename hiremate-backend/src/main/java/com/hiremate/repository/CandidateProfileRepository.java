@@ -6,7 +6,10 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 
-@Repository
-public interface CandidateProfileRepository extends JpaRepository<CandidateProfile, Long> {
-    Optional<CandidateProfile> findByUserId(Long userId);
+/**
+ * @deprecated Thay thế bởi CandidateRepository
+ */
+@Deprecated(since = "2.0", forRemoval = true)
+public interface CandidateProfileRepository {
+    // Legacy interface
 }

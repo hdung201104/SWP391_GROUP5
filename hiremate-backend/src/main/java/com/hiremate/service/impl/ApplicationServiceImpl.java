@@ -26,92 +26,100 @@ public class ApplicationServiceImpl implements ApplicationService {
     private final CompanyRepository companyRepository;
     private final RecruitmentPipelineLogRepository pipelineLogRepository;
     private final AiJobMatchRepository aiJobMatchRepository;
+    private final CandidateRepository candidateRepository;
 
     @Override
     @Transactional
-    public ApplicationResponse applyToJob(ApplyRequest request, User candidate) {
+    public ApplicationResponse applyToJob(ApplyRequest request, User user) {
         Job job = jobRepository.findById(request.getJobId())
                 .orElseThrow(() -> new IllegalArgumentException("Job not found: " + request.getJobId()));
 
+        // Lấy Candidate subclass – candidate_id = user_id (Shared PK)
+        Candidate candidate = candidateRepository.findById(user.getUserId())
+                .orElseThrow(() -> new IllegalStateException(
+                        "Candidate profile not found for user: " + user.getUserId()));
+
         // Enforce Single Application Rule per candidate per job
-        Optional<Application> existing = applicationRepository.findByJobIdAndCandidateId(job.getJobId(), candidate.getUserId());
+        Optional<Application> existing = applicationRepository
+                .findByJob_JobIdAndCandidate_CandidateId(job.getJobId(), candidate.getCandidateId());
         if (existing.isPresent()) {
             throw new IllegalStateException("You have already submitted an application for this position.");
         }
 
-        Long cvId = request.getCvId();
-        if (cvId == null) {
-            // Find candidate's default CV
-            Optional<Cv> defaultCv = cvRepository.findByCandidateIdAndIsDefaultTrue(candidate.getUserId());
-            if (defaultCv.isPresent()) {
-                cvId = defaultCv.get().getCvId();
-            }
+        // Tìm CV mặc định nếu không chỉ định cụ thể
+        Cv cv = null;
+        if (request.getCvId() != null) {
+            cv = cvRepository.findById(request.getCvId()).orElse(null);
+        } else {
+            cv = cvRepository.findByCandidateIdAndIsDefaultTrue(candidate.getCandidateId()).orElse(null);
         }
 
         Application application = Application.builder()
-                .jobId(job.getJobId())
-                .candidateId(candidate.getUserId())
-                .cvId(cvId)
+                .job(job)
+                .candidate(candidate)
+                .cv(cv)
                 .coverLetter(request.getCoverLetter())
                 .status(ApplicationStatus.APPLIED)
                 .build();
 
         Application savedApp = applicationRepository.save(application);
 
-        // Audit Log Pipeline transition
+        // Audit Log: ghi nhận bước đầu tiên trong pipeline tuyển dụng
         pipelineLogRepository.save(RecruitmentPipelineLog.builder()
                 .applicationId(savedApp.getApplicationId())
                 .fromStage(null)
                 .toStage(ApplicationStatus.APPLIED)
                 .notes("Application submitted by candidate.")
-                .changedBy(candidate.getUserId())
+                .changedBy(user.getUserId())
                 .build());
 
-        return mapToResponse(savedApp, job, candidate);
+        return mapToResponse(savedApp);
     }
 
     @Override
     public List<ApplicationResponse> getCandidateApplications(Long candidateId) {
-        List<Application> apps = applicationRepository.findByCandidateId(candidateId);
+        // Dùng method mới qua Candidate subclass relationship
+        List<Application> apps = applicationRepository.findByCandidate_CandidateId(candidateId);
         List<ApplicationResponse> list = new ArrayList<>();
-        User candidate = userRepository.findById(candidateId).orElse(null);
-
         for (Application app : apps) {
-            Job job = jobRepository.findById(app.getJobId()).orElse(null);
-            list.add(mapToResponse(app, job, candidate));
+            list.add(mapToResponse(app));
         }
         return list;
     }
 
     @Override
-    public List<ApplicationResponse> getJobApplications(Long jobId, User recruiter) {
+    public List<ApplicationResponse> getJobApplications(Long jobId, User user) {
         Job job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new IllegalArgumentException("Job not found: " + jobId));
 
-        if (!job.getRecruiterId().equals(recruiter.getUserId())) {
+        // Kiểm tra quyền: recruiter.recruiterId = user.userId
+        if (!job.getRecruiter().getRecruiterId().equals(user.getUserId())) {
             throw new SecurityException("Unauthorized access to this job's candidates.");
         }
 
-        List<Application> apps = applicationRepository.findByJobId(jobId);
+        // Dùng method mới qua Job subclass relationship
+        List<Application> apps = applicationRepository.findByJob_JobId(jobId);
         List<ApplicationResponse> list = new ArrayList<>();
-
         for (Application app : apps) {
-            User candidate = userRepository.findById(app.getCandidateId()).orElse(null);
-            list.add(mapToResponse(app, job, candidate));
+            list.add(mapToResponse(app));
         }
         return list;
     }
 
     @Override
     @Transactional
-    public ApplicationResponse updateApplicationStatus(Long applicationId, UpdateApplicationStatusRequest request, User recruiter) {
+    public ApplicationResponse updateApplicationStatus(
+            Long applicationId,
+            UpdateApplicationStatusRequest request,
+            User user) {
+
         Application application = applicationRepository.findById(applicationId)
                 .orElseThrow(() -> new IllegalArgumentException("Application not found: " + applicationId));
 
-        Job job = jobRepository.findById(application.getJobId())
-                .orElseThrow(() -> new IllegalArgumentException("Job not found: " + application.getJobId()));
+        Job job = application.getJob();
 
-        if (!job.getRecruiterId().equals(recruiter.getUserId())) {
+        // Kiểm tra quyền: recruiter.recruiterId = user.userId
+        if (!job.getRecruiter().getRecruiterId().equals(user.getUserId())) {
             throw new SecurityException("Unauthorized to modify this application.");
         }
 
@@ -119,40 +127,39 @@ public class ApplicationServiceImpl implements ApplicationService {
         application.setStatus(request.getStatus());
         Application updated = applicationRepository.save(application);
 
-        // Log transition
+        // Log pipeline transition
         pipelineLogRepository.save(RecruitmentPipelineLog.builder()
                 .applicationId(updated.getApplicationId())
                 .fromStage(previousStatus)
                 .toStage(request.getStatus())
                 .notes(request.getNotes() != null ? request.getNotes() : "Recruiter updated pipeline stage")
-                .changedBy(recruiter.getUserId())
+                .changedBy(user.getUserId())
                 .build());
 
-        User candidate = userRepository.findById(application.getCandidateId()).orElse(null);
-        return mapToResponse(updated, job, candidate);
+        return mapToResponse(updated);
     }
 
-    private ApplicationResponse mapToResponse(Application app, Job job, User candidate) {
+    /**
+     * Map Application entity -> ApplicationResponse DTO.
+     * Truy xuất toàn bộ thông tin qua object navigation (không dùng raw Long FKs).
+     */
+    private ApplicationResponse mapToResponse(Application app) {
+        Job job = app.getJob();
+        Candidate candidate = app.getCandidate();
+        User candidateUser = candidate != null ? candidate.getUser() : null;
+        Cv cv = app.getCv();
+
         String jobTitle = job != null ? job.getTitle() : "Unknown Job";
-        String companyName = "HireMate Partner";
-        if (job != null && job.getCompanyId() != null) {
-            Optional<Company> comp = companyRepository.findById(job.getCompanyId());
-            if (comp.isPresent()) {
-                companyName = comp.get().getCompanyName();
-            }
-        }
+        Company company = job != null ? job.getCompany() : null;
+        String companyName = company != null ? company.getCompanyName() : "HireMate Partner";
 
-        String cvUrl = null;
-        if (app.getCvId() != null) {
-            Optional<Cv> cv = cvRepository.findById(app.getCvId());
-            if (cv.isPresent()) {
-                cvUrl = cv.get().getFileUrl();
-            }
-        }
-
+        // Lấy AI matching score từ cache (KHÔNG gọi lại Gemini API)
         Float score = null;
         if (job != null && candidate != null) {
-            Optional<AiJobMatch> match = aiJobMatchRepository.findByCandidateIdAndJobId(candidate.getUserId(), job.getJobId());
+            Optional<AiJobMatch> match = aiJobMatchRepository
+                    .findByCandidate_CandidateIdAndJob_JobId(
+                            candidate.getCandidateId(),
+                            job.getJobId());
             if (match.isPresent()) {
                 score = match.get().getMatchingScore();
             }
@@ -160,14 +167,14 @@ public class ApplicationServiceImpl implements ApplicationService {
 
         return ApplicationResponse.builder()
                 .applicationId(app.getApplicationId())
-                .jobId(app.getJobId())
+                .jobId(job != null ? job.getJobId() : null)
                 .jobTitle(jobTitle)
                 .companyName(companyName)
-                .candidateId(app.getCandidateId())
-                .candidateName(candidate != null ? candidate.getFullName() : "Candidate")
-                .candidateEmail(candidate != null ? candidate.getEmail() : null)
-                .cvId(app.getCvId())
-                .cvUrl(cvUrl)
+                .candidateId(candidate != null ? candidate.getCandidateId() : null)
+                .candidateName(candidateUser != null ? candidateUser.getFullName() : "Candidate")
+                .candidateEmail(candidateUser != null ? candidateUser.getEmail() : null)
+                .cvId(cv != null ? cv.getCvId() : null)
+                .cvUrl(cv != null ? cv.getFileUrl() : null)
                 .status(app.getStatus())
                 .coverLetter(app.getCoverLetter())
                 .matchingScore(score)
