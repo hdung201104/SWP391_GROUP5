@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Header from './components/common/Header';
+import RecruiterHeader from './components/common/RecruiterHeader';
 import Footer from './components/common/Footer';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import { LivingThemeProvider, useLivingTheme } from './context/LivingThemeContext';
@@ -333,16 +334,28 @@ function AppContent() {
         {/* Content Container sitting atop the botanical organic canvas */}
         <div className="relative z-10 flex flex-col min-h-screen justify-between bg-transparent">
           {!hideGlobalLayout && (
-            <Header
-              user={user}
-              currentRoute={currentRoute}
-              onLogout={handleLogout}
-              onNavigate={(r) => {
-                setCurrentRoute(r);
-                window.location.hash = r;
-              }}
-              onSwitchDemoRole={handleSwitchDemoRole}
-            />
+            (isRecruiterRoute || user?.role === 'RECRUITER') ? (
+              <RecruiterHeader
+                user={user}
+                currentRoute={currentRoute}
+                onLogout={handleLogout}
+                onNavigate={(r) => {
+                  setCurrentRoute(r);
+                  window.location.hash = r;
+                }}
+              />
+            ) : (
+              <Header
+                user={user}
+                currentRoute={currentRoute}
+                onLogout={handleLogout}
+                onNavigate={(r) => {
+                  setCurrentRoute(r);
+                  window.location.hash = r;
+                }}
+                onSwitchDemoRole={handleSwitchDemoRole}
+              />
+            )
           )}
 
           <main className={isEvaluationPage ? "h-screen overflow-hidden" : "flex-1"}>
