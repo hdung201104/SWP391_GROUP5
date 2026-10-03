@@ -133,7 +133,7 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
     <div className="min-h-screen bg-[#FAF9F6] text-[#1F2933] font-sans flex flex-col h-screen overflow-hidden">
       {toastMessage && (
         <div className="fixed top-20 right-6 z-50 px-5 py-3 rounded-xl bg-[#1F2933] text-white text-xs font-semibold shadow-lg flex items-center gap-2.5 animate-fade-in">
-          <span className="material-symbols-outlined text-[#F58220] text-base">check_circle</span>
+          <span className="material-symbols-outlined text-[#C27B66] text-base">check_circle</span>
           <span>{toastMessage}</span>
         </div>
       )}
@@ -166,7 +166,7 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
           </button>
           <button
             onClick={() => setShowInterviewModal(true)}
-            className="px-4 py-1.5 rounded-xl bg-[#F58220] hover:bg-[#E07216] text-white text-xs font-semibold shadow-sm cursor-pointer"
+            className="px-4 py-1.5 rounded-xl bg-[#C27B66] hover:bg-[#A86552] text-white text-xs font-semibold shadow-sm cursor-pointer"
           >
             Mời phỏng vấn
           </button>
@@ -197,9 +197,9 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
 
               {/* AI Match Score Badge */}
               <div className="text-right shrink-0">
-                <div className="p-3 rounded-xl bg-[#FFF7ED] border border-[#F58220]/30 text-center">
-                  <span className="text-[10px] uppercase font-bold text-[#F58220] block">AI Match</span>
-                  <span className="text-2xl font-bold text-[#F58220]">{cand.matchScore}%</span>
+                <div className="p-3 rounded-xl bg-[#FAF0ED] border border-[#C27B66]/30 text-center">
+                  <span className="text-[10px] uppercase font-bold text-[#C27B66] block">AI Match</span>
+                  <span className="text-2xl font-bold text-[#C27B66]">{cand.matchScore}%</span>
                 </div>
               </div>
             </div>
@@ -226,20 +226,20 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
           </div>
 
           {/* AI MATCHING ANALYSIS SECTION (Visually Separated) */}
-          <div className="p-6 rounded-2xl bg-white border-2 border-[#F58220]/30 shadow-sm space-y-4">
+          <div className="p-6 rounded-2xl bg-white border-2 border-[#C27B66]/30 shadow-sm space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-[#E5E1D8]">
               <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[#F58220]">auto_awesome</span>
+                <span className="material-symbols-outlined text-[#C27B66]">auto_awesome</span>
                 <h3 className="font-bold text-base text-[#1F2933]">Phân Tích AI Matching</h3>
               </div>
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#FFF7ED] text-[#F58220] border border-[#F58220]/30">
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#FAF0ED] text-[#C27B66] border border-[#C27B66]/30">
                 Độ phù hợp: {cand.matchScore}%
               </span>
             </div>
 
             {/* Overview / Summary */}
             <div className="text-xs text-[#1F2933] leading-relaxed">
-              <strong className="text-[#F58220] block mb-1">Đánh giá chung:</strong>
+              <strong className="text-[#C27B66] block mb-1">Đánh giá chung:</strong>
               <p className="text-[#6B7280]">{cand.summary}</p>
             </div>
 
@@ -257,12 +257,12 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
             </div>
 
             {/* Skill Gaps (Kỹ năng còn thiếu) */}
-            <div className="p-4 rounded-xl bg-[#FFF7ED] border border-[#F58220]/30 space-y-1.5 text-xs">
-              <div className="font-bold text-[#F58220] flex items-center gap-1.5">
+            <div className="p-4 rounded-xl bg-[#FAF0ED] border border-[#C27B66]/30 space-y-1.5 text-xs">
+              <div className="font-bold text-[#C27B66] flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-sm">warning</span>
                 <span>Kỹ Năng Cần Lưu Ý / Còn Thiếu</span>
               </div>
-              <ul className="list-disc pl-4 text-[#F58220] space-y-1">
+              <ul className="list-disc pl-4 text-[#C27B66] space-y-1">
                 {cand.skillGaps.map((gap, idx) => (
                   <li key={idx}>{gap}</li>
                 ))}
@@ -272,7 +272,7 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
             {/* Interview Suggestions (Gợi ý phỏng vấn) */}
             <div className="p-4 rounded-xl bg-[#FAF9F6] border border-[#E5E1D8] space-y-1.5 text-xs">
               <div className="font-bold text-[#1F2933] flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-sm text-[#F58220]">quiz</span>
+                <span className="material-symbols-outlined text-sm text-[#C27B66]">quiz</span>
                 <span>Gợi Ý Câu Hỏi Phỏng Vấn AI</span>
               </div>
               <ol className="list-decimal pl-4 text-[#6B7280] space-y-1">
@@ -341,7 +341,7 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
             >
               <div className="border-b border-[#E5E1D8] pb-4">
                 <h2 className="text-2xl font-bold text-[#1F2933]">{cand.name}</h2>
-                <p className="text-xs text-[#F58220] font-semibold mt-1">{cand.roleSummary}</p>
+                <p className="text-xs text-[#C27B66] font-semibold mt-1">{cand.roleSummary}</p>
                 <p className="text-xs text-[#6B7280] mt-1">{cand.email} &bull; {cand.phone} &bull; {cand.location}</p>
               </div>
 
@@ -401,7 +401,7 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
               </button>
               <button
                 onClick={handleConfirmInterview}
-                className="px-5 py-2 rounded-xl text-xs font-semibold text-white bg-[#F58220] hover:bg-[#E07216]"
+                className="px-5 py-2 rounded-xl text-xs font-semibold text-white bg-[#C27B66] hover:bg-[#A86552]"
               >
                 Xác nhận đặt lịch
               </button>
@@ -431,7 +431,7 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
               </button>
               <button
                 onClick={handleAddNote}
-                className="px-5 py-2 rounded-xl text-xs font-semibold text-white bg-[#F58220] hover:bg-[#E07216]"
+                className="px-5 py-2 rounded-xl text-xs font-semibold text-white bg-[#C27B66] hover:bg-[#A86552]"
               >
                 Lưu ghi chú
               </button>

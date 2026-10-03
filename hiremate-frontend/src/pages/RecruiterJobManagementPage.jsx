@@ -240,7 +240,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
     <div className="w-full bg-[#FAF9F6] text-[#1F2933] min-h-screen py-8 px-4 sm:px-6 lg:px-8 font-sans">
       {notification && (
         <div className="fixed bottom-6 right-6 z-50 bg-[#1F2933] text-white text-xs font-semibold px-5 py-3 rounded-xl shadow-lg flex items-center gap-2.5 animate-fade-in">
-          <span className="material-symbols-outlined text-[#F58220] text-base">check_circle</span>
+          <span className="material-symbols-outlined text-[#C27B66] text-base">check_circle</span>
           <span>{notification}</span>
         </div>
       )}
@@ -260,7 +260,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
 
           <button
             onClick={() => setShowCreateModal(true)}
-            className="bg-[#F58220] hover:bg-[#E07216] text-white text-sm py-2.5 px-5 rounded-xl font-semibold flex items-center gap-2 cursor-pointer shadow-sm transition-all shrink-0"
+            className="bg-[#C27B66] hover:bg-[#A86552] text-white text-sm py-2.5 px-5 rounded-xl font-semibold flex items-center gap-2 cursor-pointer shadow-sm transition-all shrink-0"
           >
             <span className="material-symbols-outlined text-lg">add</span>
             <span>Đăng tin tuyển dụng</span>
@@ -272,7 +272,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
           <div className="p-5 rounded-2xl bg-white border border-[#E5E1D8] shadow-sm space-y-1">
             <div className="flex items-center justify-between text-xs font-semibold text-[#6B7280] uppercase">
               <span>Đang tuyển</span>
-              <span className="material-symbols-outlined text-[#F58220]">work</span>
+              <span className="material-symbols-outlined text-[#C27B66]">work</span>
             </div>
             <div className="text-2xl font-bold text-[#1F2933]">{activeCount}</div>
             <p className="text-[11px] text-[#6B7280]">Tin đang hoạt động</p>
@@ -281,7 +281,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
           <div className="p-5 rounded-2xl bg-white border border-[#E5E1D8] shadow-sm space-y-1">
             <div className="flex items-center justify-between text-xs font-semibold text-[#6B7280] uppercase">
               <span>Tạm dừng</span>
-              <span className="material-symbols-outlined text-[#F58220]">pause_circle</span>
+              <span className="material-symbols-outlined text-[#C27B66]">pause_circle</span>
             </div>
             <div className="text-2xl font-bold text-[#1F2933]">{pausedCount}</div>
             <p className="text-[11px] text-[#6B7280]">Tạm ngưng tiếp nhận hồ sơ</p>
@@ -315,7 +315,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
             <input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-[#FAF9F6] text-[#1F2933] placeholder-[#6B7280] text-xs pl-9 pr-4 py-2.5 rounded-xl border border-[#E5E1D8] focus:outline-none focus:border-[#F58220]"
+              className="w-full bg-[#FAF9F6] text-[#1F2933] placeholder-[#6B7280] text-xs pl-9 pr-4 py-2.5 rounded-xl border border-[#E5E1D8] focus:outline-none focus:border-[#C27B66]"
               placeholder="Tìm theo tên vị trí, mã công việc, kỹ năng..."
               type="text"
             />
@@ -347,13 +347,13 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
           {filteredJobs.map((job) => (
             <div
               key={job.id}
-              className="p-6 rounded-2xl bg-white border border-[#E5E1D8] shadow-sm hover:border-[#F58220]/50 transition-all flex flex-col justify-between space-y-4"
+              className="p-6 rounded-2xl bg-white border border-[#E5E1D8] shadow-sm hover:border-[#C27B66]/50 transition-all flex flex-col justify-between space-y-4"
             >
               <div className="space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#FFF7ED] text-[#F58220] border border-[#F58220]/30">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#FAF0ED] text-[#C27B66] border border-[#C27B66]/30">
                         {job.badgeText}
                       </span>
                       <span className="text-[11px] text-[#6B7280] font-mono">{job.code}</span>
@@ -376,11 +376,11 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
 
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[#6B7280]">
                   <span className="flex items-center gap-1">
-                    <span className="material-symbols-outlined text-sm text-[#F58220]">location_on</span>
+                    <span className="material-symbols-outlined text-sm text-[#C27B66]">location_on</span>
                     {job.location}
                   </span>
                   <span className="flex items-center gap-1 font-semibold text-[#1F2933]">
-                    <span className="material-symbols-outlined text-sm text-[#F58220]">payments</span>
+                    <span className="material-symbols-outlined text-sm text-[#C27B66]">payments</span>
                     {job.salary}
                   </span>
                   <span className="flex items-center gap-1">
@@ -392,9 +392,9 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                 {/* Skills */}
                 <div className="space-y-1.5 pt-1 text-xs">
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-[10px] uppercase font-bold text-[#F58220]">Bắt buộc:</span>
+                    <span className="text-[10px] uppercase font-bold text-[#C27B66]">Bắt buộc:</span>
                     {job.mandatorySkills.map((sk) => (
-                      <span key={sk} className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#FFF7ED] text-[#F58220] border border-[#F58220]/30">
+                      <span key={sk} className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#FAF0ED] text-[#C27B66] border border-[#C27B66]/30">
                         {sk}
                       </span>
                     ))}
@@ -416,7 +416,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                   <span className="text-[#6B7280]">
                     Số ứng viên: <strong className="text-[#1F2933]">{job.totalApplicants}</strong>
                   </span>
-                  <span className="text-[#F58220] font-semibold">
+                  <span className="text-[#C27B66] font-semibold">
                     Match cao: {job.aiMatchHighCount}
                   </span>
                 </div>
@@ -426,7 +426,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                     onClick={() => {
                       if (onNavigateToPipeline) onNavigateToPipeline(job.id);
                     }}
-                    className="px-3.5 py-1.5 rounded-xl bg-[#F58220] hover:bg-[#E07216] text-white font-semibold cursor-pointer shadow-sm transition-all"
+                    className="px-3.5 py-1.5 rounded-xl bg-[#C27B66] hover:bg-[#A86552] text-white font-semibold cursor-pointer shadow-sm transition-all"
                   >
                     Xem ứng viên &rarr;
                   </button>
@@ -474,7 +474,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                   placeholder="Ví dụ: Senior Backend Engineer"
                   value={createForm.title}
                   onChange={(e) => setCreateForm({ ...createForm, title: e.target.value })}
-                  className="w-full bg-[#FAF9F6] border border-[#E5E1D8] rounded-xl p-3 text-[#1F2933] focus:outline-none focus:border-[#F58220]"
+                  className="w-full bg-[#FAF9F6] border border-[#E5E1D8] rounded-xl p-3 text-[#1F2933] focus:outline-none focus:border-[#C27B66]"
                 />
               </div>
 
@@ -486,7 +486,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                     placeholder="Ví dụ: $2,500 - $3,500"
                     value={createForm.salary}
                     onChange={(e) => setCreateForm({ ...createForm, salary: e.target.value })}
-                    className="w-full bg-[#FAF9F6] border border-[#E5E1D8] rounded-xl p-3 text-[#1F2933] focus:outline-none focus:border-[#F58220]"
+                    className="w-full bg-[#FAF9F6] border border-[#E5E1D8] rounded-xl p-3 text-[#1F2933] focus:outline-none focus:border-[#C27B66]"
                   />
                 </div>
                 <div>
@@ -496,20 +496,20 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                     placeholder="Ví dụ: TP.HCM (Hybrid)"
                     value={createForm.location}
                     onChange={(e) => setCreateForm({ ...createForm, location: e.target.value })}
-                    className="w-full bg-[#FAF9F6] border border-[#E5E1D8] rounded-xl p-3 text-[#1F2933] focus:outline-none focus:border-[#F58220]"
+                    className="w-full bg-[#FAF9F6] border border-[#E5E1D8] rounded-xl p-3 text-[#1F2933] focus:outline-none focus:border-[#C27B66]"
                   />
                 </div>
               </div>
 
-              <div className="p-3.5 rounded-xl bg-[#FFF7ED] border border-[#F58220]/30 space-y-1">
-                <label className="block font-bold text-[#F58220] uppercase">Kỹ năng bắt buộc (70%) *</label>
+              <div className="p-3.5 rounded-xl bg-[#FAF0ED] border border-[#C27B66]/30 space-y-1">
+                <label className="block font-bold text-[#C27B66] uppercase">Kỹ năng bắt buộc (70%) *</label>
                 <input
                   type="text"
                   required
                   placeholder="Java 21, Spring Boot, PostgreSQL"
                   value={createForm.mandatorySkillsInput}
                   onChange={(e) => setCreateForm({ ...createForm, mandatorySkillsInput: e.target.value })}
-                  className="w-full bg-white border border-[#F58220]/40 rounded-xl p-2.5 text-[#1F2933] focus:outline-none text-xs"
+                  className="w-full bg-white border border-[#C27B66]/40 rounded-xl p-2.5 text-[#1F2933] focus:outline-none text-xs"
                 />
               </div>
 
@@ -534,7 +534,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 rounded-xl text-xs font-semibold text-white bg-[#F58220] hover:bg-[#E07216] shadow-sm transition-all cursor-pointer"
+                  className="px-6 py-2.5 rounded-xl text-xs font-semibold text-white bg-[#C27B66] hover:bg-[#A86552] shadow-sm transition-all cursor-pointer"
                 >
                   Đăng tin ngay
                 </button>
@@ -564,7 +564,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                   required
                   value={editingJob.title}
                   onChange={(e) => setEditingJob({ ...editingJob, title: e.target.value })}
-                  className="w-full bg-[#FAF9F6] border border-[#E5E1D8] rounded-xl p-3 text-[#1F2933] focus:outline-none focus:border-[#F58220]"
+                  className="w-full bg-[#FAF9F6] border border-[#E5E1D8] rounded-xl p-3 text-[#1F2933] focus:outline-none focus:border-[#C27B66]"
                 />
               </div>
 
@@ -575,7 +575,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                     type="text"
                     value={editingJob.salary}
                     onChange={(e) => setEditingJob({ ...editingJob, salary: e.target.value })}
-                    className="w-full bg-[#FAF9F6] border border-[#E5E1D8] rounded-xl p-3 text-[#1F2933] focus:outline-none focus:border-[#F58220]"
+                    className="w-full bg-[#FAF9F6] border border-[#E5E1D8] rounded-xl p-3 text-[#1F2933] focus:outline-none focus:border-[#C27B66]"
                   />
                 </div>
                 <div>
@@ -584,7 +584,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                     type="text"
                     value={editingJob.location}
                     onChange={(e) => setEditingJob({ ...editingJob, location: e.target.value })}
-                    className="w-full bg-[#FAF9F6] border border-[#E5E1D8] rounded-xl p-3 text-[#1F2933] focus:outline-none focus:border-[#F58220]"
+                    className="w-full bg-[#FAF9F6] border border-[#E5E1D8] rounded-xl p-3 text-[#1F2933] focus:outline-none focus:border-[#C27B66]"
                   />
                 </div>
               </div>
@@ -599,7 +599,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 rounded-xl text-xs font-semibold text-white bg-[#F58220] hover:bg-[#E07216] shadow-sm transition-all cursor-pointer"
+                  className="px-6 py-2.5 rounded-xl text-xs font-semibold text-white bg-[#C27B66] hover:bg-[#A86552] shadow-sm transition-all cursor-pointer"
                 >
                   Lưu thay đổi
                 </button>

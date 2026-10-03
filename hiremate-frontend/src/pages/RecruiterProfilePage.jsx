@@ -71,7 +71,7 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
     <div className="w-full bg-[#FAF9F6] text-[#1F2933] min-h-screen py-8 px-4 sm:px-6 lg:px-8 font-sans">
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-50 bg-[#1F2933] text-white text-xs font-semibold px-5 py-3 rounded-xl shadow-lg flex items-center gap-2.5 animate-fade-in">
-          <span className="material-symbols-outlined text-[#F58220] text-base">check_circle</span>
+          <span className="material-symbols-outlined text-[#C27B66] text-base">check_circle</span>
           <span>{toastMessage}</span>
         </div>
       )}
@@ -92,7 +92,7 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
           <div className="p-6 sm:p-8 relative">
             <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-6 -mt-16 sm:-mt-20 mb-6">
               <div className="flex items-end gap-5">
-                <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-white p-2 border-2 border-[#E5E1D8] shadow-md shrink-0 flex items-center justify-center font-bold text-3xl text-[#F58220]">
+                <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-white p-2 border-2 border-[#E5E1D8] shadow-md shrink-0 flex items-center justify-center font-bold text-3xl text-[#C27B66]">
                   {companyInfo.name.charAt(0)}
                 </div>
                 <div>
@@ -120,7 +120,7 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                   });
                   setShowEditModal(true);
                 }}
-                className="px-4 py-2.5 rounded-xl bg-[#F58220] hover:bg-[#E07216] text-white text-xs font-semibold shadow-sm transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
+                className="px-4 py-2.5 rounded-xl bg-[#C27B66] hover:bg-[#A86552] text-white text-xs font-semibold shadow-sm transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
               >
                 <span className="material-symbols-outlined text-sm">edit</span>
                 <span>Chỉnh sửa thông tin</span>
@@ -147,7 +147,7 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                   href={companyInfo.website}
                   target="_blank"
                   rel="noreferrer"
-                  className="font-semibold text-[#F58220] hover:underline block truncate"
+                  className="font-semibold text-[#C27B66] hover:underline block truncate"
                 >
                   {companyInfo.website}
                 </a>
@@ -163,7 +163,7 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
           <div className="lg:col-span-2 space-y-6">
             <div className="p-6 rounded-2xl bg-white border border-[#E5E1D8] shadow-sm space-y-4">
               <h2 className="text-lg font-bold text-[#1F2933] flex items-center gap-2">
-                <span className="material-symbols-outlined text-[#F58220]">info</span>
+                <span className="material-symbols-outlined text-[#C27B66]">info</span>
                 Giới thiệu công ty
               </h2>
               <div className="text-xs text-[#6B7280] leading-relaxed whitespace-pre-line">
@@ -173,7 +173,7 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
 
             <div className="p-6 rounded-2xl bg-white border border-[#E5E1D8] shadow-sm space-y-4">
               <h2 className="text-lg font-bold text-[#1F2933] flex items-center gap-2">
-                <span className="material-symbols-outlined text-[#F58220]">location_on</span>
+                <span className="material-symbols-outlined text-[#C27B66]">location_on</span>
                 Địa điểm &amp; Chi nhánh
               </h2>
               <div className="p-4 rounded-xl bg-[#FAF9F6] border border-[#E5E1D8] text-xs text-[#1F2933] space-y-1">
@@ -194,7 +194,7 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
               />
               <div>
                 <h4 className="font-bold text-base text-[#1F2933]">{hrRepresentative.name}</h4>
-                <p className="text-xs text-[#F58220] font-semibold">{hrRepresentative.title}</p>
+                <p className="text-xs text-[#C27B66] font-semibold">{hrRepresentative.title}</p>
               </div>
               <p className="text-xs text-[#6B7280] leading-relaxed">{hrRepresentative.bio}</p>
 
@@ -266,7 +266,7 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 rounded-xl text-xs font-semibold text-white bg-[#F58220] hover:bg-[#E07216] shadow-sm"
+                  className="px-6 py-2.5 rounded-xl text-xs font-semibold text-white bg-[#C27B66] hover:bg-[#A86552] shadow-sm"
                 >
                   Lưu hồ sơ
                 </button>

@@ -127,12 +127,12 @@ export default function RecruiterHeader({
             className="flex items-center gap-2.5 group cursor-pointer text-left bg-transparent border-none p-0 shrink-0"
             title="HireMate.AI Recruiter Dashboard"
           >
-            <div className="h-9 w-9 rounded-xl bg-[#F58220] flex items-center justify-center shadow-sm group-hover:bg-[#E07216] transition-colors">
+            <div className="h-9 w-9 rounded-xl bg-[#C27B66] flex items-center justify-center shadow-sm group-hover:bg-[#A86552] transition-colors">
               <span className="material-symbols-outlined text-white text-[22px]">hub</span>
             </div>
             <div className="flex flex-col">
               <span className="text-lg font-bold tracking-tight text-[#1F2933] leading-none">
-                HireMate<span className="text-[#F58220]">.AI</span>
+                HireMate<span className="text-[#C27B66]">.AI</span>
               </span>
               <span className="text-[10px] font-semibold text-[#6B7280] tracking-wider leading-none mt-0.5 uppercase">
                 Recruiter Portal
@@ -205,7 +205,7 @@ export default function RecruiterHeader({
           {/* Primary CTA: + Đăng tin mới */}
           <button
             onClick={() => handleNav('#/recruiter-jobs?action=new')}
-            className="hidden sm:flex items-center gap-1.5 bg-[#F58220] hover:bg-[#E07216] text-white text-xs font-semibold px-4 py-2 rounded-lg shadow-sm transition-all cursor-pointer"
+            className="hidden sm:flex items-center gap-1.5 bg-[#C27B66] hover:bg-[#A86552] text-white text-xs font-semibold px-4 py-2 rounded-lg shadow-sm transition-all cursor-pointer"
           >
             <span className="material-symbols-outlined text-sm font-bold">add</span>
             <span>Đăng tin mới</span>
@@ -221,7 +221,7 @@ export default function RecruiterHeader({
             >
               <span className="material-symbols-outlined text-xl">notifications</span>
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 px-1.5 py-0.2 rounded-full bg-[#F58220] text-white text-[10px] font-bold">
+                <span className="absolute -top-1 -right-1 px-1.5 py-0.2 rounded-full bg-[#C27B66] text-white text-[10px] font-bold">
                   {unreadCount}
                 </span>
               )}
@@ -233,7 +233,7 @@ export default function RecruiterHeader({
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-sm text-[#1F2933]">Thông Báo</span>
                     {unreadCount > 0 && (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#FFF7ED] text-[#F58220] border border-[#F58220]/30">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#FAF0ED] text-[#C27B66] border border-[#C27B66]/30">
                         {unreadCount} mới
                       </span>
                     )}
@@ -241,7 +241,7 @@ export default function RecruiterHeader({
                   {unreadCount > 0 && (
                     <button
                       onClick={markAllAsRead}
-                      className="text-[11px] text-[#F58220] hover:underline cursor-pointer font-semibold"
+                      className="text-[11px] text-[#C27B66] hover:underline cursor-pointer font-semibold"
                     >
                       Đánh dấu đã đọc
                     </button>
@@ -257,10 +257,10 @@ export default function RecruiterHeader({
                         setShowNotificationPopup(false);
                         if (item.targetRoute) handleNav(item.targetRoute);
                       }}
-                      className={`p-2.5 rounded-xl transition-all cursor-pointer flex items-start gap-2.5 hover:bg-[#FAF9F6] ${!item.isRead ? 'bg-[#FFFDF5] border border-[#F58220]/20' : 'opacity-80'
+                      className={`p-2.5 rounded-xl transition-all cursor-pointer flex items-start gap-2.5 hover:bg-[#FAF9F6] ${!item.isRead ? 'bg-[#FFFDF5] border border-[#C27B66]/20' : 'opacity-80'
                         }`}
                     >
-                      <div className="w-7 h-7 rounded-lg shrink-0 flex items-center justify-center bg-[#F58220]/15 text-[#F58220] mt-0.5">
+                      <div className="w-7 h-7 rounded-lg shrink-0 flex items-center justify-center bg-[#C27B66]/15 text-[#C27B66] mt-0.5">
                         <span className="material-symbols-outlined text-sm">notifications</span>
                       </div>
 
@@ -307,7 +307,7 @@ export default function RecruiterHeader({
               </div>
 
               <div className="hidden xl:flex flex-col text-left shrink-0">
-                <span className="font-bold text-xs text-[#1F2933] flex items-center gap-1 group-hover:text-[#F58220] transition-colors">
+                <span className="font-bold text-xs text-[#1F2933] flex items-center gap-1 group-hover:text-[#C27B66] transition-colors">
                   {displayName}
                   <span className="material-symbols-outlined text-sm text-[#6B7280]">expand_more</span>
                 </span>
@@ -425,7 +425,7 @@ export default function RecruiterHeader({
           <div className="pt-2 border-t border-[#E5E1D8]">
             <button
               onClick={() => handleNav('#/recruiter-jobs?action=new')}
-              className="w-full bg-[#F58220] text-white font-semibold text-xs py-2 rounded-lg flex items-center justify-center gap-1.5"
+              className="w-full bg-[#C27B66] text-white font-semibold text-xs py-2 rounded-lg flex items-center justify-center gap-1.5"
             >
               <span className="material-symbols-outlined text-sm font-bold">add</span>
               <span>Đăng tin mới</span>

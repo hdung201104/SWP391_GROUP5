@@ -168,7 +168,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
     <div className="w-full bg-[#FAF9F6] text-[#1F2933] min-h-screen py-8 px-4 sm:px-6 lg:px-8 font-sans">
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-50 bg-[#1F2933] text-white text-xs font-semibold px-5 py-3 rounded-xl shadow-lg flex items-center gap-2.5 animate-fade-in">
-          <span className="material-symbols-outlined text-[#F58220] text-base">check_circle</span>
+          <span className="material-symbols-outlined text-[#C27B66] text-base">check_circle</span>
           <span>{toastMessage}</span>
         </div>
       )}
@@ -184,7 +184,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                   if (onBackToJobs) onBackToJobs();
                   else window.location.hash = '#/recruiter-jobs';
                 }}
-                className="hover:text-[#F58220] cursor-pointer font-semibold"
+                className="hover:text-[#C27B66] cursor-pointer font-semibold"
               >
                 &larr; Quản lý tin tuyển dụng
               </button>
@@ -204,7 +204,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
               onClick={() => setIsAiSortDescending(!isAiSortDescending)}
               className="bg-white hover:bg-[#FAF9F6] text-[#1F2933] border border-[#E5E1D8] text-xs font-semibold py-2.5 px-4 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-sm"
             >
-              <span className="material-symbols-outlined text-sm text-[#F58220]">sort</span>
+              <span className="material-symbols-outlined text-sm text-[#C27B66]">sort</span>
               <span>Sắp xếp AI Match: {isAiSortDescending ? 'Cao -> Thấp' : 'Thấp -> Cao'}</span>
             </button>
           </div>
@@ -219,7 +219,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
             <input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-[#FAF9F6] text-[#1F2933] placeholder-[#6B7280] text-xs pl-9 pr-4 py-2.5 rounded-xl border border-[#E5E1D8] focus:outline-none focus:border-[#F58220]"
+              className="w-full bg-[#FAF9F6] text-[#1F2933] placeholder-[#6B7280] text-xs pl-9 pr-4 py-2.5 rounded-xl border border-[#E5E1D8] focus:outline-none focus:border-[#C27B66]"
               placeholder="Tìm theo tên ứng viên, vị trí, kỹ năng..."
               type="text"
             />
@@ -254,7 +254,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
             return (
               <div
                 key={candidate.id}
-                className="p-6 rounded-2xl bg-white border border-[#E5E1D8] shadow-sm hover:border-[#F58220]/50 transition-all flex flex-col md:flex-row items-start md:items-center justify-between gap-6"
+                className="p-6 rounded-2xl bg-white border border-[#E5E1D8] shadow-sm hover:border-[#C27B66]/50 transition-all flex flex-col md:flex-row items-start md:items-center justify-between gap-6"
               >
                 <div className="flex items-start gap-4 flex-1">
                   <img
@@ -265,7 +265,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                   <div className="space-y-1.5 flex-1">
                     <div className="flex items-center gap-2.5 flex-wrap">
                       <h3 className="font-bold text-lg text-[#1F2933]">{candidate.name}</h3>
-                      <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#FFF7ED] text-[#F58220] border border-[#F58220]/30">
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#FAF0ED] text-[#C27B66] border border-[#C27B66]/30">
                         {candidate.matchScore}% AI Match
                       </span>
                       <span className="text-xs text-[#6B7280]">{candidate.experience}</span>
@@ -299,7 +299,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                       onClick={() => toggleBookmark(candidate.id)}
                       className={`p-2 rounded-xl border transition-all cursor-pointer ${
                         isBookmarked
-                          ? 'bg-[#FFF7ED] text-[#F58220] border-[#F58220]/40'
+                          ? 'bg-[#FAF0ED] text-[#C27B66] border-[#C27B66]/40'
                           : 'bg-[#FAF9F6] text-[#6B7280] border-[#E5E1D8] hover:text-[#1F2933]'
                       }`}
                       title={isBookmarked ? 'Bỏ đánh dấu' : 'Đánh dấu ứng viên'}
@@ -323,7 +323,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                         handleStageChange(candidate.id, 'Mời Phỏng Vấn');
                         triggerToast(`Đã gửi lời mời phỏng vấn tới ứng viên ${candidate.name}`);
                       }}
-                      className="px-4 py-2 rounded-xl bg-[#F58220] hover:bg-[#E07216] text-white text-xs font-semibold shadow-sm transition-all cursor-pointer"
+                      className="px-4 py-2 rounded-xl bg-[#C27B66] hover:bg-[#A86552] text-white text-xs font-semibold shadow-sm transition-all cursor-pointer"
                     >
                       Mời phỏng vấn
                     </button>
