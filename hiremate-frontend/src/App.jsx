@@ -20,6 +20,12 @@ import NotFoundPage from './pages/NotFoundPage';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 
+// Admin pages — loaded separately so they don't affect other teammates' code
+import AdminDashboardPage from './pages/admin/AdminDashboardPage';
+import AdminUserManagementPage from './pages/admin/AdminUserManagementPage';
+import AdminQuestionBankPage from './pages/admin/AdminQuestionBankPage';
+import AdminSystemAnalyticsPage from './pages/admin/AdminSystemAnalyticsPage';
+
 /**
  * ErrorBoundary to safeguard UI from breaking unexpectedly
  */
@@ -131,6 +137,39 @@ function AppContent() {
 
   const renderContent = () => {
     const route = currentRoute.toLowerCase();
+
+    // ── Admin routes (checked first to avoid conflicts with other patterns) ──
+    if (route.includes('admin-dashboard') || route === '#/admin') {
+      return (
+        <ProtectedRoute user={user} requiredRole="ADMIN">
+          <AdminDashboardPage />
+        </ProtectedRoute>
+      );
+    }
+
+    if (route.includes('admin-users')) {
+      return (
+        <ProtectedRoute user={user} requiredRole="ADMIN">
+          <AdminUserManagementPage />
+        </ProtectedRoute>
+      );
+    }
+
+    if (route.includes('admin-questions')) {
+      return (
+        <ProtectedRoute user={user} requiredRole="ADMIN">
+          <AdminQuestionBankPage />
+        </ProtectedRoute>
+      );
+    }
+
+    if (route.includes('admin-analytics')) {
+      return (
+        <ProtectedRoute user={user} requiredRole="ADMIN">
+          <AdminSystemAnalyticsPage />
+        </ProtectedRoute>
+      );
+    }
 
     if (route.includes('login')) {
       return (
@@ -303,6 +342,9 @@ function AppContent() {
     return <HomePage user={user} />;
   };
 
+  // Admin pages manage their own full layout (sidebar + content) — suppress global Header/Footer
+  const isAdminPage = currentRoute.toLowerCase().includes('admin');
+
   const isAuthPage = currentRoute.toLowerCase().includes('login') || currentRoute.toLowerCase().includes('register');
   const isEvaluationPage = currentRoute.toLowerCase().includes('candidate-evaluation') ||
                            currentRoute.toLowerCase().includes('candidate-dossier') ||
@@ -320,7 +362,7 @@ function AppContent() {
                            currentRoute.toLowerCase().includes('company-profile') ||
                            isEvaluationPage;
 
-  const hideGlobalLayout = isAuthPage || isEvaluationPage;
+  const hideGlobalLayout = isAuthPage || isEvaluationPage || isAdminPage;
 
   return (
     <div className={`min-h-screen relative font-body text-[#2D3A31] bg-[#F9F8F4] flex flex-col justify-between ${isEvaluationPage ? 'h-screen overflow-hidden' : ''}`}>
