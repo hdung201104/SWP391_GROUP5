@@ -100,6 +100,7 @@ function AppContent() {
     if (!role) {
       localStorage.removeItem('user');
       localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
       setUser(null);
       window.location.hash = '#/';
       return;
@@ -109,6 +110,9 @@ function AppContent() {
 
   const handleLoginSuccess = (authData) => {
     localStorage.setItem('token', authData.token);
+    if (authData.refreshToken) {
+      localStorage.setItem('refreshToken', authData.refreshToken);
+    }
     const userData = {
       userId: authData.userId,
       email: authData.email,

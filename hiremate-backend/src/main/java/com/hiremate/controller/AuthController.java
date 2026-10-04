@@ -87,6 +87,12 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.ok("Đăng nhập Google thành công", response));
     }
 
+    @PostMapping("/refresh-token")
+    public ResponseEntity<ApiResponse<AuthResponse>> refreshToken(@Valid @RequestBody com.hiremate.dto.request.RefreshTokenRequest request) {
+        AuthResponse response = authService.refreshToken(request);
+        return ResponseEntity.ok(ApiResponse.ok("Làm mới token thành công", response));
+    }
+
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<String>> logout() {
         return ResponseEntity.ok(ApiResponse.ok("Đăng xuất thành công", "LOGGED_OUT"));

@@ -30,6 +30,7 @@ public class JobServiceImpl implements JobService {
     private final JobSkillRepository jobSkillRepository;
     private final CompanyRepository companyRepository;
     private final RecruiterRepository recruiterRepository;
+    private final com.hiremate.service.NotificationService notificationService;
 
     @Override
     @Transactional
@@ -83,6 +84,16 @@ public class JobServiceImpl implements JobService {
                         .build());
             }
         }
+
+        // Gửi thông báo hệ thống cho nhà tuyển dụng
+        notificationService.createNotification(
+                user.getUserId(),
+                com.hiremate.enums.NotificationType.SYSTEM_ALERT,
+                "Đăng tin tuyển dụng thành công!",
+                "Tin tuyển dụng \"" + savedJob.getTitle() + "\" đã được đăng tải và sẵn sàng đón nhận hồ sơ ứng viên.",
+                savedJob.getJobId(),
+                "jobs"
+        );
 
         return mapToResponse(savedJob);
     }

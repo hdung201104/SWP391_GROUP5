@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLivingTheme } from '../../context/LivingThemeContext';
 
 export default function Header({ 
@@ -122,63 +122,177 @@ export default function Header({
       (activeRoute.includes('recruiter-dashboard') && activeRoute.includes('tab=company'))
     );
 
-  // Notification Center State (16 3NF schema)
+  // Notification Center State (Connected to live Spring Boot API)
   const [notificationTab, setNotificationTab] = useState('ALL'); // 'ALL' | 'UNREAD' | 'RECRUITMENT' | 'AI_STUDIO'
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      type: 'RECRUITMENT',
-      title: 'Hồ sơ đã chuyển sang vòng Phỏng Vấn',
-      body: 'FPT Software đã chuyển đơn ứng tuyển của bạn cho vị trí Senior Frontend sang chặng Phỏng Vấn Kỹ Thuật.',
-      time: '10 phút trước',
-      isRead: false,
-      targetRoute: '#/applications',
-      icon: 'calendar_today',
-      color: 'secondary',
-    },
-    {
-      id: 2,
-      type: 'AI_STUDIO',
-      title: 'Báo cáo chẩn đoán phiên #HM-9082 đã sẵn sàng',
-      body: 'Synthia AI Tech Lead đã hoàn tất chấm điểm: 85/100 PTS (Top 8% Candidate Pool).',
-      time: '25 phút trước',
-      isRead: false,
-      targetRoute: '#/ai-interview',
-      icon: 'psychology',
-      color: 'primary',
-    },
-    {
-      id: 3,
-      type: 'RECRUITMENT',
-      title: 'AI Match phát hiện việc làm phù hợp 98%',
-      body: 'Lead AI & LLM Solution Architect tại Viettel Digital đang tìm kiếm ứng viên có profile như bạn.',
-      time: '2 giờ trước',
-      isRead: false,
-      targetRoute: '#/jobs/104',
-      icon: 'auto_awesome',
-      color: 'tertiary',
-    },
-    {
-      id: 4,
-      type: 'AI_STUDIO',
-      title: 'Nhắc nhở luyện tập điểm yếu',
-      body: 'Bạn có 2 lỗ hổng cần củng cố: React 18 Concurrency & useMemo memory leak. Luyện lại ngay để tăng +20đ.',
-      time: '1 ngày trước',
-      isRead: true,
-      targetRoute: '#/ai-interview',
-      icon: 'model_training',
-      color: 'secondary',
-    },
-  ]);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
-  const unreadCount = notifications.filter(n => !n.isRead).length;
+  // Fetch real notifications from backend
+  const fetchNotifications = async () => {
+    if (!user) return;
+    try {
+      const res = await import('../../api/notificationApi').then(m => m.default.getNotifications());
+      const data = res?.data || res || [];
+      if (Array.isArray(data) && data.length > 0) {
+        const mapped = data.map((n) => {
+          let icon = 'notifications';
+          let color = 'secondary';
+          let targetRoute = '#/';
+          let category = 'RECRUITMENT';
 
-  const markAllAsRead = () => {
-    setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+          if (n.type === 'INTERVIEW_RESULT' || n.type === 'INTERVIEW_FEEDBACK') {
+            icon = 'psychology';
+            color = 'primary';
+            targetRoute = '#/ai-interview';
+            category = 'AI_STUDIO';
+          } else if (n.type === 'APPLICATION_STATUS') {
+            icon = 'calendar_today';
+            color = 'secondary';
+            targetRoute = isRoleRecruiter ? '#/recruiter-jobs' : '#/applications';
+            category = 'RECRUITMENT';
+          } else if (n.type === 'AI_MATCH_DONE') {
+            icon = 'auto_awesome';
+            color = 'tertiary';
+            targetRoute = n.refId ? `#/jobs/${n.refId}` : '#/';
+            category = 'RECRUITMENT';
+          }
+
+          // Format relative time
+          let timeStr = 'Vừa xong';
+          if (n.createdAt) {
+            const diffMs = new Date() - new Date(n.createdAt);
+            const diffMins = Math.floor(diffMs / (1000 * 60));
+            const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+            const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+            if (diffDays > 0) timeStr = `${diffDays} ngày trước`;
+            else if (diffHours > 0) timeStr = `${diffHours} giờ trước`;
+            else if (diffMins > 0) timeStr = `${diffMins} phút trước`;
+            else timeStr = 'Vừa xong';
+          }
+
+          return {
+            id: n.notificationId,
+            type: category,
+            rawType: n.type,
+            title: n.title,
+            body: n.body,
+            time: timeStr,
+            isRead: !!n.isRead,
+            targetRoute,
+            icon,
+            color,
+          };
+        });
+        setNotifications(mapped);
+        const newUnread = mapped.filter(n => !n.isRead).length;
+        if (prevUnreadCountRef.current !== -1 && newUnread > prevUnreadCountRef.current) {
+          playNotificationChime();
+        }
+        prevUnreadCountRef.current = newUnread;
+        setUnreadCount(newUnread);
+      } else {
+        // Default welcoming notification if empty
+        setNotifications([
+          {
+            id: 999,
+            type: 'RECRUITMENT',
+            title: 'Chào mừng bạn đến với HireMate AI!',
+            body: 'Hệ thống tuyển dụng và phỏng vấn AI thông minh đã sẵn sàng phục vụ bạn.',
+            time: 'Vừa xong',
+            isRead: false,
+            targetRoute: isRoleRecruiter ? '#/recruiter-jobs' : '#/',
+            icon: 'spa',
+            color: 'secondary',
+          }
+        ]);
+        setUnreadCount(1);
+      }
+    } catch (e) {
+      console.warn('Could not fetch notifications from API, using cached view', e);
+    }
   };
 
-  const markAsRead = (id) => {
-    setNotifications(notifications.map(n => n.id === id ? { ...n, isRead: true } : n));
+  const prevUnreadCountRef = useRef(-1);
+
+  const playNotificationChime = () => {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const audioCtx = new AudioCtx();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+      osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.12); // A5
+      gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.35);
+    } catch {
+      // Ignored if autoplay policy blocks audio
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 10000); // Polling every 10s
+    const handleSync = () => fetchNotifications();
+    window.addEventListener('hiremate-notification-sync', handleSync);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('hiremate-notification-sync', handleSync);
+    };
+  }, [user]);
+
+  const markAllAsRead = async () => {
+    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    setUnreadCount(0);
+    try {
+      const api = await import('../../api/notificationApi').then(m => m.default);
+      await api.markAllAsRead();
+    } catch (e) {
+      console.warn('API markAllAsRead error', e);
+    }
+  };
+
+  const markAsRead = async (id) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+    setUnreadCount(prev => Math.max(0, prev - 1));
+    try {
+      const api = await import('../../api/notificationApi').then(m => m.default);
+      await api.markAsRead(id);
+    } catch (e) {
+      console.warn('API markAsRead error', e);
+    }
+  };
+
+  const deleteNotification = async (id, e) => {
+    if (e) e.stopPropagation();
+    setNotifications(prev => prev.filter(n => n.id !== id));
+    setUnreadCount(prev => {
+      const target = notifications.find(n => n.id === id);
+      return (target && !target.isRead) ? Math.max(0, prev - 1) : prev;
+    });
+    try {
+      const api = await import('../../api/notificationApi').then(m => m.default);
+      await api.deleteNotification(id);
+    } catch (e) {
+      console.warn('API deleteNotification error', e);
+    }
+  };
+
+  const clearAllNotifications = async () => {
+    if (!window.confirm('Bạn có chắc chắn muốn xóa toàn bộ thông báo không?')) return;
+    setNotifications([]);
+    setUnreadCount(0);
+    try {
+      const api = await import('../../api/notificationApi').then(m => m.default);
+      await api.clearAll();
+    } catch (e) {
+      console.warn('API clearAll error', e);
+    }
   };
 
   // Display details
@@ -435,15 +549,28 @@ export default function Header({
                         </span>
                       )}
                     </div>
-                    {unreadCount > 0 && (
-                      <button
-                        onClick={markAllAsRead}
-                        className="text-[11px] text-[#C27B66] hover:underline cursor-pointer flex items-center gap-1 font-bold"
-                      >
-                        <span className="material-symbols-outlined text-xs">done_all</span>
-                        <span>Đánh dấu đã đọc</span>
-                      </button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {unreadCount > 0 && (
+                        <button
+                          onClick={markAllAsRead}
+                          className="text-[11px] text-[#C27B66] hover:underline cursor-pointer flex items-center gap-1 font-bold"
+                          title="Đánh dấu tất cả là đã đọc"
+                        >
+                          <span className="material-symbols-outlined text-xs">done_all</span>
+                          <span>Đã đọc</span>
+                        </button>
+                      )}
+                      {notifications.length > 0 && (
+                        <button
+                          onClick={clearAllNotifications}
+                          className="text-[11px] text-[#667067] hover:text-red-500 hover:underline cursor-pointer flex items-center gap-1 font-semibold"
+                          title="Xóa sạch toàn bộ thông báo"
+                        >
+                          <span className="material-symbols-outlined text-xs">delete_sweep</span>
+                          <span>Xóa hết</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Filter Tabs */}
@@ -485,7 +612,7 @@ export default function Header({
                             setShowNotificationPopup(false);
                             if (item.targetRoute) handleNav(item.targetRoute);
                           }}
-                          className={`pt-2.5 pb-2 px-2.5 rounded-2xl transition-all cursor-pointer flex items-start gap-3 hover:bg-[#FAF6F0] ${
+                          className={`group pt-2.5 pb-2 px-2.5 rounded-2xl transition-all cursor-pointer flex items-start gap-3 hover:bg-[#FAF6F0] relative ${
                             !item.isRead ? 'bg-[#FAF0ED] border border-[#C27B66]/30' : 'opacity-80'
                           }`}
                         >
@@ -497,7 +624,7 @@ export default function Header({
                             <span className="material-symbols-outlined text-sm">{item.icon}</span>
                           </div>
 
-                          <div className="flex-1 min-w-0">
+                          <div className="flex-1 min-w-0 pr-6">
                             <div className="flex items-center justify-between gap-1">
                               <h4 className={`text-xs truncate ${!item.isRead ? 'text-[#2D3A31] font-bold' : 'text-[#667067] font-medium'}`}>
                                 {item.title}
@@ -513,6 +640,16 @@ export default function Header({
                               {item.time}
                             </span>
                           </div>
+
+                          {/* Delete Action Button */}
+                          <button
+                            type="button"
+                            onClick={(e) => deleteNotification(item.id, e)}
+                            title="Xóa thông báo này"
+                            className="absolute top-2.5 right-2 p-1 text-[#8C9A84] hover:text-red-600 rounded-lg hover:bg-white/80 transition-all opacity-0 group-hover:opacity-100 cursor-pointer"
+                          >
+                            <span className="material-symbols-outlined text-sm">delete</span>
+                          </button>
                         </div>
                       ))}
 

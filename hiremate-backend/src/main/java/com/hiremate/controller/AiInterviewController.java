@@ -4,6 +4,7 @@ import com.hiremate.dto.request.InterviewAnswerRequest;
 import com.hiremate.dto.response.ApiResponse;
 import com.hiremate.dto.response.InterviewDetailResponse;
 import com.hiremate.dto.response.InterviewSummaryResponse;
+import com.hiremate.dto.response.PracticeProgressResponse;
 import com.hiremate.entity.User;
 import com.hiremate.enums.InterviewSessionType;
 import com.hiremate.service.AiInterviewService;
@@ -71,5 +72,12 @@ public class AiInterviewController {
     public ResponseEntity<ApiResponse<List<InterviewSummaryResponse>>> getHistory(@AuthenticationPrincipal User user) {
         List<InterviewSummaryResponse> list = aiInterviewService.getCandidateHistory(user.getUserId());
         return ResponseEntity.ok(ApiResponse.ok(list));
+    }
+
+    @GetMapping("/progress-logs")
+    @PreAuthorize("hasRole('CANDIDATE')")
+    public ResponseEntity<ApiResponse<List<PracticeProgressResponse>>> getProgressLogs(@AuthenticationPrincipal User user) {
+        List<PracticeProgressResponse> logs = aiInterviewService.getProgressLogs(user.getUserId());
+        return ResponseEntity.ok(ApiResponse.ok(logs));
     }
 }

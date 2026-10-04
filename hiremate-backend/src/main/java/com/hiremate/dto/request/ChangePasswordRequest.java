@@ -19,6 +19,5 @@ public class ChangePasswordRequest {
     @Size(min = 6, message = "Password must be at least 6 characters")
     private String newPassword;
 
-    @NotBlank(message = "Mã xác thực OTP gửi qua email là bắt buộc")
     private String otp;
 }

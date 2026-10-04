@@ -3,6 +3,7 @@ package com.hiremate.service.impl;
 import com.hiremate.dto.request.InterviewAnswerRequest;
 import com.hiremate.dto.response.InterviewDetailResponse;
 import com.hiremate.dto.response.InterviewSummaryResponse;
+import com.hiremate.dto.response.PracticeProgressResponse;
 import com.hiremate.entity.Candidate;
 import com.hiremate.entity.InterviewDetail;
 import com.hiremate.entity.InterviewSession;
@@ -33,6 +34,7 @@ public class AiInterviewServiceImpl implements AiInterviewService {
     private final InterviewDetailRepository detailRepository;
     private final PracticeProgressLogRepository progressLogRepository;
     private final CandidateRepository candidateRepository;
+    private final com.hiremate.service.NotificationService notificationService;
 
     @Override
     @Transactional
@@ -136,6 +138,17 @@ public class AiInterviewServiceImpl implements AiInterviewService {
         session.setCompletedAt(LocalDateTime.now());
 
         InterviewSession saved = sessionRepository.save(session);
+
+        // Gửi thông báo kết quả phỏng vấn AI cho ứng viên
+        notificationService.createNotification(
+                user.getUserId(),
+                com.hiremate.enums.NotificationType.INTERVIEW_RESULT,
+                "Kết quả phỏng vấn AI đã sẵn sàng!",
+                String.format("Phiên phỏng vấn vị trí %s của bạn đã hoàn thành với điểm số: %.1f/100.",
+                        saved.getTargetPosition(), saved.getOverallScore()),
+                saved.getSessionId(),
+                "interview_sessions"
+        );
 
         // Tính improvement_delta nếu là phiên retry (PRACTICE_RETRY)
         Float improvementDelta = null;
@@ -254,5 +267,25 @@ public class AiInterviewServiceImpl implements AiInterviewService {
                 .aiFeedback(d.getAiFeedback())
                 .aiSuggestedAnswer(d.getAiSuggestedAnswer())
                 .build();
+    }
+
+    @Override
+    public List<PracticeProgressResponse> getProgressLogs(Long candidateId) {
+        List<PracticeProgressLog> logs = progressLogRepository.findByCandidateIdOrderByCreatedAtDesc(candidateId);
+        List<PracticeProgressResponse> result = new ArrayList<>();
+        for (PracticeProgressLog logEntry : logs) {
+            result.add(PracticeProgressResponse.builder()
+                    .logId(logEntry.getLogId())
+                    .candidateId(logEntry.getCandidateId())
+                    .originalSessionId(logEntry.getOriginalSessionId())
+                    .retrySessionId(logEntry.getRetrySessionId())
+                    .skillTargeted(logEntry.getSkillTargeted())
+                    .scoreBefore(logEntry.getScoreBefore())
+                    .scoreAfter(logEntry.getScoreAfter())
+                    .improvementDelta(logEntry.getImprovementDelta())
+                    .createdAt(logEntry.getCreatedAt())
+                    .build());
+        }
+        return result;
     }
 }

@@ -39,6 +39,7 @@ public class AuthServiceImpl implements AuthService {
     private final JwtUtil jwtUtil;
     private final OtpService otpService;
     private final com.hiremate.service.EmailService emailService;
+    private final com.hiremate.service.NotificationService notificationService;
 
     @Override
     @Transactional
@@ -59,7 +60,7 @@ public class AuthServiceImpl implements AuthService {
                 .isEmailVerified(true)
                 .build();
 
-        User savedUser = userRepository.save(user);
+        User savedUser = userRepository.saveAndFlush(user);
         Long companyId = null;
         String companyName = null;
 
@@ -83,32 +84,37 @@ public class AuthServiceImpl implements AuthService {
                     ? request.getCompanyName()
                     : request.getFullName() + "'s Company";
 
-            // Tạo Company trước để có company_id
+            // 1. Tạo Company trước (recruiter_id tạm thời null để tránh circular FK constraint)
             Company company = Company.builder()
-                    .recruiterId(savedUser.getUserId())
+                    .recruiterId(null)
                     .companyName(companyName)
                     .website(request.getWebsite())
                     .companySize(request.getCompanySize())
                     .address(request.getCompanyAddress() != null ? request.getCompanyAddress() : request.getLocation())
                     .status(CompanyStatus.ACTIVE)
                     .build();
-            Company savedCompany = companyRepository.save(company);
+            Company savedCompany = companyRepository.saveAndFlush(company);
             companyId = savedCompany.getCompanyId();
 
-            // Tạo Recruiter subclass record, liên kết với Company
+            // 2. Tạo Recruiter subclass record, liên kết với Company vừa tạo
             Recruiter recruiter = Recruiter.builder()
                     .recruiterId(savedUser.getUserId())  // Shared PK
                     .user(savedUser)
                     .company(savedCompany)
-                    .position("HR Recruiter")  // Default – RegisterRequest không có field position
+                    .position("HR Recruiter")
                     .build();
-            recruiterRepository.save(recruiter);
+            Recruiter savedRecruiter = recruiterRepository.saveAndFlush(recruiter);
+
+            // 3. Cập nhật recruiter_id cho Company để hoàn tất liên kết 2 chiều
+            savedCompany.setRecruiterId(savedRecruiter.getRecruiterId());
+            companyRepository.save(savedCompany);
         }
 
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", savedUser.getUserId());
         claims.put("role", savedUser.getRole().name());
         String token = jwtUtil.generateToken(savedUser.getEmail(), claims);
+        String refreshToken = jwtUtil.generateRefreshToken(savedUser.getEmail(), claims);
 
         try {
             emailService.sendWelcomeEmail(savedUser.getEmail(), savedUser.getFullName(), savedUser.getRole().name());
@@ -116,7 +122,17 @@ public class AuthServiceImpl implements AuthService {
             log.error(">> [AuthService] Không thể gửi welcome email: {}", e.getMessage());
         }
 
-        return buildAuthResponse(savedUser, token, companyId, companyName);
+        // Tạo thông báo chào mừng hệ thống
+        notificationService.createNotification(
+                savedUser.getUserId(),
+                com.hiremate.enums.NotificationType.SYSTEM_ALERT,
+                "Chào mừng gia nhập HireMate AI!",
+                "Tài khoản của bạn đã được kích hoạt thành công. Bắt đầu trải nghiệm các tính năng thông minh ngay hôm nay!",
+                savedUser.getUserId(),
+                "users"
+        );
+
+        return buildAuthResponse(savedUser, token, refreshToken, companyId, companyName);
     }
 
     @Override
@@ -170,8 +186,19 @@ public class AuthServiceImpl implements AuthService {
         claims.put("userId", user.getUserId());
         claims.put("role", user.getRole().name());
         String token = jwtUtil.generateToken(user.getEmail(), claims);
+        String refreshToken = jwtUtil.generateRefreshToken(user.getEmail(), claims);
 
-        return buildAuthResponse(user, token, companyId, companyName);
+        // Ghi nhận thông báo bảo mật đăng nhập
+        notificationService.createNotification(
+                user.getUserId(),
+                com.hiremate.enums.NotificationType.SYSTEM_ALERT,
+                "Đăng nhập thành công",
+                "Hệ thống ghi nhận phiên đăng nhập an toàn vào tài khoản của bạn.",
+                user.getUserId(),
+                "users"
+        );
+
+        return buildAuthResponse(user, token, refreshToken, companyId, companyName);
     }
 
     @Override
@@ -186,7 +213,7 @@ public class AuthServiceImpl implements AuthService {
             }
         }
 
-        return buildAuthResponse(user, null, companyId, companyName);
+        return buildAuthResponse(user, null, null, companyId, companyName);
     }
 
     @Override
@@ -265,18 +292,25 @@ public class AuthServiceImpl implements AuthService {
             throw new IllegalArgumentException("Mật khẩu hiện tại không chính xác");
         }
 
-        if (request.getOtp() == null || request.getOtp().isBlank()) {
-            throw new IllegalArgumentException("Vui lòng nhập mã OTP xác thực được gửi đến email của bạn");
-        }
-
-        boolean validOtp = otpService.verifyOtp(user.getEmail(), request.getOtp().trim(), "CHANGE_PASSWORD");
-        if (!validOtp) {
-            throw new IllegalArgumentException("Mã xác thực OTP không chính xác hoặc đã hết hạn");
+        if (request.getOtp() != null && !request.getOtp().isBlank()) {
+            boolean validOtp = otpService.verifyOtp(user.getEmail(), request.getOtp().trim(), "CHANGE_PASSWORD");
+            if (!validOtp) {
+                throw new IllegalArgumentException("Mã xác thực OTP không chính xác hoặc đã hết hạn");
+            }
         }
 
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
         log.info(">> [AuthService] Password changed successfully for userId: {}", userId);
+
+        notificationService.createNotification(
+                user.getUserId(),
+                com.hiremate.enums.NotificationType.SYSTEM_ALERT,
+                "Bảo mật: Đổi mật khẩu thành công",
+                "Mật khẩu tài khoản HireMate AI của bạn vừa được cập nhật thành công.",
+                user.getUserId(),
+                "users"
+        );
 
         try {
             emailService.sendPasswordChangedNotification(user.getEmail());
@@ -338,13 +372,53 @@ public class AuthServiceImpl implements AuthService {
         claims.put("userId", user.getUserId());
         claims.put("role", user.getRole().name());
         String token = jwtUtil.generateToken(user.getEmail(), claims);
+        String refreshToken = jwtUtil.generateRefreshToken(user.getEmail(), claims);
 
-        return buildAuthResponse(user, token, companyId, companyName);
+        return buildAuthResponse(user, token, refreshToken, companyId, companyName);
     }
 
-    private AuthResponse buildAuthResponse(User user, String token, Long companyId, String companyName) {
+    @Override
+    public AuthResponse refreshToken(RefreshTokenRequest request) {
+        if (request.getRefreshToken() == null || request.getRefreshToken().isBlank()) {
+            throw new IllegalArgumentException("Refresh token is required");
+        }
+
+        String email = jwtUtil.extractEmail(request.getRefreshToken());
+        if (email == null) {
+            throw new IllegalArgumentException("Invalid refresh token");
+        }
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("User not found for refresh token"));
+
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new IllegalStateException("Account is not active");
+        }
+
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("userId", user.getUserId());
+        claims.put("role", user.getRole().name());
+
+        String newAccessToken = jwtUtil.generateToken(user.getEmail(), claims);
+        String newRefreshToken = jwtUtil.generateRefreshToken(user.getEmail(), claims);
+
+        Long companyId = null;
+        String companyName = null;
+        if (user.getRole() == UserRole.RECRUITER) {
+            Optional<Recruiter> recruiterOpt = recruiterRepository.findById(user.getUserId());
+            if (recruiterOpt.isPresent() && recruiterOpt.get().getCompany() != null) {
+                companyId = recruiterOpt.get().getCompany().getCompanyId();
+                companyName = recruiterOpt.get().getCompany().getCompanyName();
+            }
+        }
+
+        return buildAuthResponse(user, newAccessToken, newRefreshToken, companyId, companyName);
+    }
+
+    private AuthResponse buildAuthResponse(User user, String token, String refreshToken, Long companyId, String companyName) {
         return AuthResponse.builder()
                 .token(token)
+                .refreshToken(refreshToken)
                 .tokenType("Bearer")
                 .userId(user.getUserId())
                 .email(user.getEmail())

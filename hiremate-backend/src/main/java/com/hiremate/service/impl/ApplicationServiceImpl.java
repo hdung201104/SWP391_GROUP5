@@ -27,6 +27,8 @@ public class ApplicationServiceImpl implements ApplicationService {
     private final RecruitmentPipelineLogRepository pipelineLogRepository;
     private final AiJobMatchRepository aiJobMatchRepository;
     private final CandidateRepository candidateRepository;
+    private final com.hiremate.service.NotificationService notificationService;
+    private final com.hiremate.service.AiJobMatchService aiJobMatchService;
 
     @Override
     @Transactional
@@ -73,6 +75,35 @@ public class ApplicationServiceImpl implements ApplicationService {
                 .changedBy(user.getUserId())
                 .build());
 
+        // Tự động tính toán & lưu kết quả so khớp AI (70% mandatory + 30% preferred)
+        try {
+            aiJobMatchService.calculateAndSaveMatch(candidate, job, cv);
+        } catch (Exception ex) {
+            // Non-blocking fallback
+        }
+
+        // Gửi thông báo cho ứng viên
+        notificationService.createNotification(
+                user.getUserId(),
+                com.hiremate.enums.NotificationType.APPLICATION_STATUS,
+                "Ứng tuyển thành công!",
+                "Bạn đã nộp hồ sơ thành công vào vị trí: " + job.getTitle() + " tại " + (job.getCompany() != null ? job.getCompany().getCompanyName() : "công ty tuyển dụng"),
+                savedApp.getApplicationId(),
+                "applications"
+        );
+
+        // Gửi thông báo cho nhà tuyển dụng phụ trách
+        if (job.getRecruiter() != null && job.getRecruiter().getRecruiterId() != null) {
+            notificationService.createNotification(
+                    job.getRecruiter().getRecruiterId(),
+                    com.hiremate.enums.NotificationType.APPLICATION_STATUS,
+                    "Có hồ sơ ứng tuyển mới!",
+                    "Ứng viên " + user.getFullName() + " vừa nộp hồ sơ vào vị trí " + job.getTitle(),
+                    savedApp.getApplicationId(),
+                    "applications"
+            );
+        }
+
         return mapToResponse(savedApp);
     }
 
@@ -103,6 +134,14 @@ public class ApplicationServiceImpl implements ApplicationService {
         for (Application app : apps) {
             list.add(mapToResponse(app));
         }
+
+        // Sắp xếp ứng viên theo matching_score DESC (theo chuẩn UC-28: View Rank Candidates)
+        list.sort((a, b) -> {
+            float sA = a.getMatchingScore() != null ? a.getMatchingScore() : 0f;
+            float sB = b.getMatchingScore() != null ? b.getMatchingScore() : 0f;
+            return Float.compare(sB, sA);
+        });
+
         return list;
     }
 
@@ -135,6 +174,20 @@ public class ApplicationServiceImpl implements ApplicationService {
                 .notes(request.getNotes() != null ? request.getNotes() : "Recruiter updated pipeline stage")
                 .changedBy(user.getUserId())
                 .build());
+
+        // Gửi thông báo chuyển vòng cho Ứng viên
+        if (application.getCandidate() != null && application.getCandidate().getCandidateId() != null) {
+            String companyName = job.getCompany() != null ? job.getCompany().getCompanyName() : "Nhà tuyển dụng";
+            notificationService.createNotification(
+                    application.getCandidate().getCandidateId(),
+                    com.hiremate.enums.NotificationType.APPLICATION_STATUS,
+                    "Cập nhật tiến độ ứng tuyển",
+                    String.format("Công ty %s đã cập nhật hồ sơ ứng tuyển vị trí %s của bạn sang vòng: %s",
+                            companyName, job.getTitle(), request.getStatus().name()),
+                    updated.getApplicationId(),
+                    "applications"
+            );
+        }
 
         return mapToResponse(updated);
     }

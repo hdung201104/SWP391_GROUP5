@@ -51,6 +51,20 @@ public class JwtUtil {
                 .compact();
     }
 
+    public String generateRefreshToken(String email, Map<String, Object> extraClaims) {
+        var builder = Jwts.builder();
+        if (extraClaims != null && !extraClaims.isEmpty()) {
+            builder.claims().add(extraClaims);
+        }
+        long refreshExpirationMs = 7L * 24 * 60 * 60 * 1000; // 7 ngày
+        return builder
+                .subject(email)
+                .issuedAt(new Date(System.currentTimeMillis()))
+                .expiration(new Date(System.currentTimeMillis() + refreshExpirationMs))
+                .signWith(getSigningKey())
+                .compact();
+    }
+
     public String extractEmail(String token) {
         return extractClaim(token, Claims::getSubject);
     }

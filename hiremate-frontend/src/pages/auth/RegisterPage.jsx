@@ -13,30 +13,56 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
     (window.location.hash || '').toLowerCase().includes('recruiter') ? 'RECRUITER' : 'CANDIDATE'
   );
 
-  // Candidate State
-  const [candName, setCandName] = useState('Trần Bảo Long');
+  // Candidate State (Starts clean and empty)
+  const [candName, setCandName] = useState('');
   const [candEmail, setCandEmail] = useState('');
-  const [candPhone, setCandPhone] = useState('0987 654 321');
-  const [candHeadline, setCandHeadline] = useState('Fullstack Developer / AI Engineer');
+  const [candPhone, setCandPhone] = useState('');
+  const [candHeadline, setCandHeadline] = useState('');
   const [candExp, setCandExp] = useState('1_3_YEARS');
 
-  // Recruiter State (matching `companies` table spec)
-  const [recName, setRecName] = useState('Nguyễn Thị Mai');
+  // Recruiter State (Starts clean and empty)
+  const [recName, setRecName] = useState('');
   const [recEmail, setRecEmail] = useState('');
-  const [recPhone, setRecPhone] = useState('0912 345 678');
-  const [companyName, setCompanyName] = useState('FPT Software Vietnam');
-  const [companySize, setCompanySize] = useState('500_1000');
-  const [companyLocation, setCompanyLocation] = useState('Tòa nhà FPT, Khu CNC Hòa Lạc, Hà Nội');
-  const [companyWebsite, setCompanyWebsite] = useState('https://fpt-software.com');
+  const [recPhone, setRecPhone] = useState('');
+  const [companyName, setCompanyName] = useState('');
+  const [companySize, setCompanySize] = useState('50_100');
+  const [companyLocation, setCompanyLocation] = useState('');
+  const [companyWebsite, setCompanyWebsite] = useState('');
 
   // Shared Auth State
-  const [password, setPassword] = useState('Password123@');
-  const [confirmPassword, setConfirmPassword] = useState('Password123@');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [agreed, setAgreed] = useState(true);
+  const [agreed, setAgreed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+
+  // Helper for quick testing with sample data if user wishes
+  const handleFillDemo = () => {
+    if (role === 'CANDIDATE') {
+      setCandName('Trần Bảo Long');
+      setCandEmail('longtran.dev@gmail.com');
+      setCandPhone('0987 654 321');
+      setCandHeadline('Fullstack Developer / AI Engineer');
+      setCandExp('1_3_YEARS');
+      setPassword('Password123@');
+      setConfirmPassword('Password123@');
+      setAgreed(true);
+    } else {
+      setRecName('Nguyễn Thị Mai');
+      setRecEmail('mai.hr@fptsoftware.com');
+      setRecPhone('0912 345 678');
+      setCompanyName('FPT Software Vietnam');
+      setCompanySize('500_1000');
+      setCompanyLocation('Tòa nhà FPT, Khu CNC Hòa Lạc, Hà Nội');
+      setCompanyWebsite('https://fpt-software.com');
+      setPassword('Password123@');
+      setConfirmPassword('Password123@');
+      setAgreed(true);
+    }
+    setErrorMsg('');
+  };
 
   // Email OTP Verification Modal State
   const [showOtpModal, setShowOtpModal] = useState(false);
@@ -65,6 +91,30 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
     setErrorMsg('');
     setSuccessMsg('');
 
+    if (role === 'CANDIDATE') {
+      if (!candName.trim()) {
+        setErrorMsg('Vui lòng nhập họ và tên ứng viên.');
+        return;
+      }
+      if (!candPhone.trim()) {
+        setErrorMsg('Vui lòng nhập số điện thoại liên hệ.');
+        return;
+      }
+    } else {
+      if (!recName.trim()) {
+        setErrorMsg('Vui lòng nhập họ và tên người đại diện tuyển dụng.');
+        return;
+      }
+      if (!companyName.trim()) {
+        setErrorMsg('Vui lòng nhập tên công ty / doanh nghiệp.');
+        return;
+      }
+      if (!recPhone.trim()) {
+        setErrorMsg('Vui lòng nhập số điện thoại liên hệ của công ty.');
+        return;
+      }
+    }
+
     if (!targetEmail) {
       setErrorMsg('Vui lòng nhập địa chỉ email hợp lệ.');
       return;
@@ -77,6 +127,11 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
 
     if (password !== confirmPassword) {
       setErrorMsg('Mật khẩu và xác nhận mật khẩu không khớp. Vui lòng kiểm tra lại!');
+      return;
+    }
+
+    if (!agreed) {
+      setErrorMsg('Vui lòng tích chọn đồng ý với Điều khoản dịch vụ & Chính sách bảo mật.');
       return;
     }
 
@@ -327,16 +382,26 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
             </button>
           </div>
 
-          {/* Heading */}
-          <div className="space-y-0.5">
-            <h1 className="text-2xl sm:text-3xl font-bold text-[#2D3A31] font-serif tracking-tight">
-              {role === 'CANDIDATE' ? 'Đăng ký tài khoản Ứng viên' : 'Đăng ký Cổng Doanh nghiệp'}
-            </h1>
-            <p className="text-xs sm:text-sm text-[#667067] font-normal">
-              {role === 'CANDIDATE'
-                ? 'Nhập thông tin bên dưới để kích hoạt tài khoản HireMate AI miễn phí.'
-                : 'Đăng ký hồ sơ công ty và bắt đầu tiếp cận nhân tài công nghệ.'}
-            </p>
+          {/* Heading & Quick Demo Fill */}
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-0.5">
+              <h1 className="text-2xl sm:text-3xl font-bold text-[#2D3A31] font-serif tracking-tight">
+                {role === 'CANDIDATE' ? 'Đăng ký tài khoản Ứng viên' : 'Đăng ký Cổng Doanh nghiệp'}
+              </h1>
+              <p className="text-xs sm:text-sm text-[#667067] font-normal">
+                {role === 'CANDIDATE'
+                  ? 'Nhập thông tin bên dưới để kích hoạt tài khoản HireMate AI miễn phí.'
+                  : 'Đăng ký hồ sơ công ty và bắt đầu tiếp cận nhân tài công nghệ.'}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleFillDemo}
+              className="text-[11px] font-sans font-medium text-botanical-forest/70 hover:text-botanical-forest bg-[#F2F0EB] hover:bg-[#E6E2DA] px-3 py-1 rounded-full border border-botanical-stone shrink-0 transition-colors cursor-pointer"
+              title="Điền dữ liệu mẫu để thử nghiệm nhanh"
+            >
+              Điền mẫu thử
+            </button>
           </div>
 
           {/* Alerts */}
@@ -369,7 +434,7 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
                       type="text"
                       value={candName}
                       onChange={(e) => setCandName(e.target.value)}
-                      placeholder="Trần Bảo Long"
+                      placeholder="Ví dụ: Trần Bảo Long"
                       required
                       className="w-full pl-10 pr-4 py-2.5 bg-[#FAF9F5] border border-botanical-stone focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 rounded-2xl text-sm text-botanical-forest placeholder-botanical-forest/40 focus:outline-none transition-all font-sans font-medium"
                     />
@@ -387,7 +452,7 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
                         type="email"
                         value={candEmail}
                         onChange={(e) => setCandEmail(e.target.value)}
-                        placeholder="long.tran@example.com"
+                        placeholder="Ví dụ: longtran@gmail.com"
                         required
                         className="w-full pl-10 pr-3 py-2.5 bg-[#FAF9F5] border border-botanical-stone focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 rounded-2xl text-sm text-botanical-forest placeholder-botanical-forest/40 focus:outline-none transition-all font-sans font-medium"
                       />
@@ -404,7 +469,7 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
                         type="tel"
                         value={candPhone}
                         onChange={(e) => setCandPhone(e.target.value)}
-                        placeholder="0987 654 321"
+                        placeholder="Ví dụ: 0987 654 321"
                         required
                         className="w-full pl-10 pr-3 py-2.5 bg-[#FAF9F5] border border-botanical-stone focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 rounded-2xl text-sm text-botanical-forest placeholder-botanical-forest/40 focus:outline-none transition-all font-sans font-medium"
                       />
@@ -466,7 +531,7 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
                         type="text"
                         value={recName}
                         onChange={(e) => setRecName(e.target.value)}
-                        placeholder="Nguyễn Thị Mai"
+                        placeholder="Ví dụ: Nguyễn Thị Mai"
                         required
                         className="w-full pl-10 pr-3 py-2.5 bg-[#FAF9F5] border border-botanical-stone focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 rounded-2xl text-sm text-botanical-forest placeholder-botanical-forest/40 focus:outline-none transition-all font-sans font-medium"
                       />
@@ -502,7 +567,7 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
                         type="text"
                         value={companyName}
                         onChange={(e) => setCompanyName(e.target.value)}
-                        placeholder="FPT Software Vietnam"
+                        placeholder="Ví dụ: FPT Software Vietnam"
                         required
                         className="w-full pl-10 pr-3 py-2.5 bg-[#FAF9F5] border border-botanical-stone focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 rounded-2xl text-sm text-botanical-forest placeholder-botanical-forest/40 focus:outline-none transition-all font-sans font-medium"
                       />
@@ -541,7 +606,7 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
                         type="text"
                         value={companyLocation}
                         onChange={(e) => setCompanyLocation(e.target.value)}
-                        placeholder="Hà Nội / TP.HCM / Đà Nẵng"
+                        placeholder="Ví dụ: Cầu Giấy, Hà Nội"
                         required
                         className="w-full pl-10 pr-3 py-2.5 bg-[#FAF9F5] border border-botanical-stone focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 rounded-2xl text-sm text-botanical-forest placeholder-botanical-forest/40 focus:outline-none transition-all font-sans font-medium"
                       />
@@ -558,7 +623,7 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
                         type="tel"
                         value={recPhone}
                         onChange={(e) => setRecPhone(e.target.value)}
-                        placeholder="0912 345 678"
+                        placeholder="Ví dụ: 0912 345 678"
                         required
                         className="w-full pl-10 pr-3 py-2.5 bg-[#FAF9F5] border border-botanical-stone focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 rounded-2xl text-sm text-botanical-forest placeholder-botanical-forest/40 focus:outline-none transition-all font-sans font-medium"
                       />

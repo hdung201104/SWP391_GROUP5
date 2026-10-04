@@ -4,3 +4,6 @@ export { default as jobApi } from './jobApi';
 export { default as cvApi } from './cvApi';
 export { default as applicationApi } from './applicationApi';
 export { default as interviewApi } from './interviewApi';
+export { default as notificationApi } from './notificationApi';
+export { default as skillApi } from './skillApi';
+export { default as companyApi } from './companyApi';

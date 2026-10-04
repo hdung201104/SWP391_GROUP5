@@ -18,6 +18,7 @@ export const authApi = {
 
   // Social Login (Google & GitHub)
   googleLogin: (data) => axiosClient.post('/auth/google', data),
+  refreshToken: (data) => axiosClient.post('/auth/refresh-token', data),
 
   // Personal Account Profile Management (User Profile)
   getProfile: () => axiosClient.get('/users/profile'),

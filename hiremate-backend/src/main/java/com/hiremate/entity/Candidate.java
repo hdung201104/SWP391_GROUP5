@@ -12,13 +12,15 @@ import java.time.LocalDateTime;
  * Shared Primary Key: candidate_id = user_id (Table-per-Subclass / Joined Inheritance).
  * FK Mapping: jobs, applications, ai_job_matches, interview_sessions ĐỀU trỏ về candidates.candidate_id
  */
+import org.springframework.data.domain.Persistable;
+
 @Entity
 @Table(name = "candidates")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Candidate {
+public class Candidate implements Persistable<Long> {
 
     /**
      * PK đồng thời là FK -> users.user_id (Shared PK / Joined pattern).
@@ -32,6 +34,26 @@ public class Candidate {
     @MapsId
     @JoinColumn(name = "candidate_id")
     private User user;
+
+    @Transient
+    @Builder.Default
+    private boolean isNewEntity = true;
+
+    @Override
+    public Long getId() {
+        return candidateId;
+    }
+
+    @Override
+    public boolean isNew() {
+        return isNewEntity;
+    }
+
+    @PostPersist
+    @PostLoad
+    void markNotNew() {
+        this.isNewEntity = false;
+    }
 
     @Column(name = "headline", length = 300)
     private String headline;

@@ -20,7 +20,7 @@ public class Company {
     @Column(name = "company_id")
     private Long companyId;
 
-    @Column(name = "recruiter_id", nullable = false, unique = true)
+    @Column(name = "recruiter_id")
     private Long recruiterId;
 
     @Column(name = "company_name", nullable = false, length = 200)
