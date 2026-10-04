@@ -285,9 +285,9 @@ export default function Header({
             <>
               <button
                 onClick={() => handleNav('#/')}
-                className={`px-4 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all duration-500 cursor-pointer flex items-center gap-1.5 ${
+                className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all duration-300 cursor-pointer flex items-center gap-1.5 ${
                   isHomeActive
-                    ? 'bg-[#2D3A31] text-white shadow-soft border border-[#2D3A31]'
+                    ? 'bg-[#C27B66] text-white shadow-soft border border-[#C27B66]'
                     : 'border border-transparent text-[#667067] hover:text-[#2D3A31] hover:bg-[#F2F0EB]'
                 }`}
                 title="Cổng việc làm công khai trên thị trường"
@@ -298,9 +298,9 @@ export default function Header({
 
               <button
                 onClick={() => handleNav('#/recruiter-jobs')}
-                className={`px-4 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all duration-500 cursor-pointer flex items-center gap-1.5 ${
+                className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all duration-300 cursor-pointer flex items-center gap-1.5 ${
                   isRecruiterJobsActive
-                    ? 'bg-[#2D3A31] text-white shadow-soft border border-[#2D3A31]'
+                    ? 'bg-[#C27B66] text-white shadow-soft border border-[#C27B66]'
                     : 'border border-transparent text-[#667067] hover:text-[#2D3A31] hover:bg-[#F2F0EB]'
                 }`}
                 title="Quản lý tin đăng tuyển dụng & tỷ lệ 70/30"
@@ -311,9 +311,9 @@ export default function Header({
 
               <button
                 onClick={() => handleNav('#/recruiter-dashboard?tab=overview')}
-                className={`px-4 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all duration-500 cursor-pointer flex items-center gap-1.5 ${
+                className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all duration-300 cursor-pointer flex items-center gap-1.5 ${
                   isRecruiterOverviewActive
-                    ? 'bg-[#2D3A31] text-white shadow-soft border border-[#2D3A31]'
+                    ? 'bg-[#C27B66] text-white shadow-soft border border-[#C27B66]'
                     : 'border border-transparent text-[#667067] hover:text-[#2D3A31] hover:bg-[#F2F0EB]'
                 }`}
                 title="Báo cáo phân tích hiệu suất tuyển dụng & chỉ số Time-to-Hire"
@@ -324,9 +324,9 @@ export default function Header({
 
               <button
                 onClick={() => handleNav('#/recruiter-profile')}
-                className={`px-4 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-all duration-500 cursor-pointer flex items-center gap-1.5 ${
+                className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all duration-300 cursor-pointer flex items-center gap-1.5 ${
                   isRecruiterCompanyActive
-                    ? 'bg-[#2D3A31] text-white shadow-soft border border-[#2D3A31]'
+                    ? 'bg-[#C27B66] text-white shadow-soft border border-[#C27B66]'
                     : 'border border-transparent text-[#667067] hover:text-[#2D3A31] hover:bg-[#F2F0EB]'
                 }`}
                 title="Hồ sơ công ty, quy mô & thương hiệu doanh nghiệp"
@@ -381,11 +381,14 @@ export default function Header({
           {/* Quick Action Button for Recruiter: + Đăng Tin Tuyển Dụng */}
           {isRoleRecruiter && (
             <button
-              onClick={() => handleNav('#/recruiter-jobs?action=new')}
-              className="hidden md:flex btn-botanical-primary px-4 py-1.5 text-xs tracking-wider items-center gap-1.5 cursor-pointer"
+              onClick={() => {
+                const targetHash = `#/recruiter-jobs?action=new&t=${Date.now()}`;
+                handleNav(targetHash);
+              }}
+              className="hidden md:flex px-4 py-1.5 rounded-full bg-[#C27B66] hover:bg-[#A86552] text-white text-xs font-bold uppercase tracking-wider items-center gap-1.5 cursor-pointer shadow-soft transition-all"
             >
               <span className="material-symbols-outlined text-sm font-bold">add_circle</span>
-              <span>Đăng Tin Mới</span>
+              <span>ĐĂNG TIN MỚI</span>
             </button>
           )}
 
@@ -427,7 +430,7 @@ export default function Header({
                     <div className="flex items-center gap-2">
                       <span className="font-serif font-bold text-sm text-[#2D3A31]">Trung Tâm Thông Báo</span>
                       {unreadCount > 0 && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#8C9A84]/15 text-[#2D3A31] border border-[#8C9A84]/40">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#C27B66]/15 text-[#C27B66] border border-[#C27B66]/30">
                           {unreadCount} mới
                         </span>
                       )}
@@ -435,7 +438,7 @@ export default function Header({
                     {unreadCount > 0 && (
                       <button
                         onClick={markAllAsRead}
-                        className="text-[11px] text-[#8B5CF6] hover:underline cursor-pointer flex items-center gap-1 font-bold"
+                        className="text-[11px] text-[#C27B66] hover:underline cursor-pointer flex items-center gap-1 font-bold"
                       >
                         <span className="material-symbols-outlined text-xs">done_all</span>
                         <span>Đánh dấu đã đọc</span>
@@ -444,7 +447,7 @@ export default function Header({
                   </div>
 
                   {/* Filter Tabs */}
-                  <div className="flex items-center gap-1 p-1 bg-[#F1F5F9] rounded-xl border border-[#CBD5E1] text-[11px] mb-3">
+                  <div className="flex items-center gap-1 p-1 bg-[#FAF6F0] rounded-2xl border border-[#E6E2DA] text-[11px] mb-3">
                     {[
                       { id: 'ALL', label: 'Tất cả' },
                       { id: 'UNREAD', label: `Chưa đọc (${unreadCount})` },
@@ -454,10 +457,10 @@ export default function Header({
                       <button
                         key={tab.id}
                         onClick={() => setNotificationTab(tab.id)}
-                        className={`flex-1 py-1 text-center rounded-lg font-bold transition-all cursor-pointer ${
+                        className={`flex-1 py-1 text-center rounded-xl font-bold transition-all cursor-pointer ${
                           notificationTab === tab.id
-                            ? 'bg-white text-[#1E293B] shadow-[2px_2px_0px_#1E293B] border border-[#1E293B]'
-                            : 'text-[#64748B] hover:text-[#1E293B]'
+                            ? 'bg-[#C27B66] text-white shadow-soft'
+                            : 'text-[#667067] hover:text-[#2D3A31]'
                         }`}
                       >
                         {tab.label}
@@ -466,7 +469,7 @@ export default function Header({
                   </div>
 
                   {/* Notifications List */}
-                  <div className="max-h-80 overflow-y-auto space-y-2 pr-1 divide-y divide-[#E2E8F0]">
+                  <div className="max-h-80 overflow-y-auto space-y-2 pr-1 divide-y divide-[#E6E2DA]">
                     {notifications
                       .filter((n) => {
                         if (notificationTab === 'UNREAD') return !n.isRead;
@@ -482,31 +485,31 @@ export default function Header({
                             setShowNotificationPopup(false);
                             if (item.targetRoute) handleNav(item.targetRoute);
                           }}
-                          className={`pt-2.5 pb-2 px-2.5 rounded-xl transition-all cursor-pointer flex items-start gap-3 hover:bg-[#F8FAFC] ${
-                            !item.isRead ? 'bg-[#FFFDF5] border border-[#CBD5E1]' : 'opacity-80'
+                          className={`pt-2.5 pb-2 px-2.5 rounded-2xl transition-all cursor-pointer flex items-start gap-3 hover:bg-[#FAF6F0] ${
+                            !item.isRead ? 'bg-[#FAF0ED] border border-[#C27B66]/30' : 'opacity-80'
                           }`}
                         >
-                          <div className={`w-8 h-8 rounded-xl shrink-0 flex items-center justify-center border-2 border-[#1E293B] ${
-                            item.color === 'secondary' ? 'bg-[#34D399] text-[#1E293B]' :
-                            item.color === 'primary' ? 'bg-[#8B5CF6] text-white' :
-                            'bg-[#FBBF24] text-[#1E293B]'
+                          <div className={`w-8 h-8 rounded-xl shrink-0 flex items-center justify-center border border-[#E6E2DA] ${
+                            item.color === 'secondary' ? 'bg-[#8C9A84] text-white' :
+                            item.color === 'primary' ? 'bg-[#C27B66] text-white' :
+                            'bg-[#2D3A31] text-white'
                           }`}>
                             <span className="material-symbols-outlined text-sm">{item.icon}</span>
                           </div>
 
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-1">
-                              <h4 className={`text-xs truncate ${!item.isRead ? 'text-[#1E293B] font-extrabold' : 'text-[#64748B] font-medium'}`}>
+                              <h4 className={`text-xs truncate ${!item.isRead ? 'text-[#2D3A31] font-bold' : 'text-[#667067] font-medium'}`}>
                                 {item.title}
                               </h4>
                               {!item.isRead && (
-                                <span className="w-2 h-2 rounded-full bg-[#8B5CF6] shrink-0"></span>
+                                <span className="w-2 h-2 rounded-full bg-[#C27B66] shrink-0"></span>
                               )}
                             </div>
-                            <p className="text-[11px] text-[#64748B] line-clamp-2 leading-relaxed mt-0.5">
+                            <p className="text-[11px] text-[#667067] line-clamp-2 leading-relaxed mt-0.5">
                               {item.body}
                             </p>
-                            <span className="text-[10px] text-[#94A3B8] font-mono block mt-1">
+                            <span className="text-[10px] text-[#8C9A84] font-mono block mt-1">
                               {item.time}
                             </span>
                           </div>
@@ -514,21 +517,21 @@ export default function Header({
                       ))}
 
                     {notifications.filter((n) => notificationTab === 'UNREAD' ? !n.isRead : notificationTab === 'RECRUITMENT' ? n.type === 'RECRUITMENT' : notificationTab === 'AI_STUDIO' ? n.type === 'AI_STUDIO' : true).length === 0 && (
-                      <div className="py-8 text-center text-[#64748B] text-xs space-y-1">
-                        <span className="material-symbols-outlined text-2xl text-[#94A3B8]">notifications_off</span>
+                      <div className="py-8 text-center text-[#667067] text-xs space-y-1">
+                        <span className="material-symbols-outlined text-2xl text-[#8C9A84]">notifications_off</span>
                         <p>Không có thông báo nào trong mục này</p>
                       </div>
                     )}
                   </div>
 
                   {/* Footer action */}
-                  <div className="pt-3 mt-2 border-t-2 border-[#E2E8F0] text-center">
+                  <div className="pt-3 mt-2 border-t border-[#E6E2DA] text-center">
                     <button
                       onClick={() => {
                         setShowNotificationPopup(false);
                         handleNav(isRoleRecruiter ? '#/recruiter-dashboard?tab=overview' : '#/applications');
                       }}
-                      className="text-xs text-[#8B5CF6] hover:underline font-bold cursor-pointer"
+                      className="text-xs text-[#C27B66] hover:underline font-bold cursor-pointer"
                     >
                       Xem lịch sử hoạt động chi tiết →
                     </button>

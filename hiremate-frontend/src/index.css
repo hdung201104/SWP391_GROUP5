@@ -3,26 +3,78 @@
 @tailwind utilities;
 
 @layer base {
-  html, body {
+
+  html,
+  body {
     margin: 0;
     padding: 0;
   }
+
   body {
     overscroll-behavior: none;
     background-color: #F9F8F4;
     color: #2D3A31;
     font-family: 'Source Sans 3', 'Plus Jakarta Sans', 'Inter', sans-serif;
   }
-  h1, h2, h3, h4, h5, h6 {
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     font-family: 'Playfair Display', Georgia, serif;
     letter-spacing: -0.01em;
   }
 }
 
-::-webkit-scrollbar { width: 8px; }
-::-webkit-scrollbar-track { background: #F9F8F4; }
-::-webkit-scrollbar-thumb { background: #DCCFC2; border: 2px solid #F9F8F4; border-radius: 9999px; }
-::-webkit-scrollbar-thumb:hover { background: #8C9A84; }
+/* Scoped Recruiter Portal Font System (Zero impact on HomePage) */
+.recruiter-page {
+  font-size: 1.38rem;
+}
+
+.recruiter-page .font-serif,
+.recruiter-page .font-heading,
+.recruiter-page .font-display,
+.recruiter-page .font-headline,
+.recruiter-page h1,
+.recruiter-page h2,
+.recruiter-page h3,
+.recruiter-page h4,
+.recruiter-page h5,
+.recruiter-page h6 {
+  font-family: 'Charis SIL', Georgia, serif !important;
+  font-weight: 700 !important;
+}
+
+/* Trang Tin Đăng (Job Management) dùng font Playfair Display cho tiêu đề */
+.recruiter-job-page h1,
+.recruiter-job-page h2,
+.recruiter-job-page h3,
+.recruiter-job-page h4,
+.recruiter-job-page h5,
+.recruiter-job-page h6,
+.recruiter-job-page .font-serif {
+  font-family: 'Charis SIL', Georgia, serif !important;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F9F8F4;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #DCCFC2;
+  border: 2px solid #F9F8F4;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #8C9A84;
+}
 
 /* ==========================================================================
    BOTANICAL / ORGANIC SERIF SYSTEM - SIGNATURE TEXTURES & UTILITIES
@@ -41,10 +93,12 @@
 .card-botanical {
   background-color: #FFFFFF;
   border: 1px solid #E6E2DA;
-  border-radius: 1.5rem; /* rounded-3xl */
+  border-radius: 1.5rem;
+  /* rounded-3xl */
   box-shadow: 0 4px 6px -1px rgba(45, 58, 49, 0.05);
   transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
+
 .card-botanical:hover {
   transform: translateY(-4px);
   box-shadow: 0 20px 40px -10px rgba(45, 58, 49, 0.08);
@@ -68,6 +122,7 @@
   cursor: pointer;
   border: 1px solid transparent;
 }
+
 .btn-botanical-primary:hover {
   background-color: #C27B66;
   transform: translateY(-1px);
@@ -90,6 +145,7 @@
   justify-content: center;
   cursor: pointer;
 }
+
 .btn-botanical-secondary:hover {
   background-color: rgba(140, 154, 132, 0.1);
   border-color: #2D3A31;
@@ -105,6 +161,7 @@
   padding: 0.75rem 1.25rem;
   transition: all 0.3s ease-out;
 }
+
 .input-botanical:focus {
   outline: none;
   background-color: #FFFFFF;
@@ -138,18 +195,23 @@
 .shadow-pop {
   box-shadow: 4px 4px 0px 0px #1E293B;
 }
+
 .shadow-pop-lg {
   box-shadow: 8px 8px 0px 0px #1E293B;
 }
+
 .shadow-pop-pink {
   box-shadow: 5px 5px 0px 0px #F472B6;
 }
+
 .shadow-pop-yellow {
   box-shadow: 5px 5px 0px 0px #FBBF24;
 }
+
 .shadow-pop-violet {
   box-shadow: 5px 5px 0px 0px #8B5CF6;
 }
+
 .shadow-pop-mint {
   box-shadow: 5px 5px 0px 0px #34D399;
 }
@@ -164,10 +226,12 @@
   transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
   cursor: pointer;
 }
+
 .btn-candy:hover {
   transform: translate(-2px, -2px);
   box-shadow: 6px 6px 0px 0px #1E293B;
 }
+
 .btn-candy:active {
   transform: translate(2px, 2px);
   box-shadow: 2px 2px 0px 0px #1E293B;
@@ -181,6 +245,7 @@
   box-shadow: 5px 5px 0px 0px #1E293B;
   transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
+
 .card-sticker:hover {
   transform: translateY(-3px);
   box-shadow: 7px 7px 0px 0px #1E293B;
@@ -194,6 +259,7 @@
   color: #1E293B;
   transition: all 0.15s ease;
 }
+
 .input-playful:focus {
   outline: none;
   border-color: #8B5CF6;
@@ -201,27 +267,51 @@
 }
 
 @keyframes playfulWiggle {
-  0%, 100% { transform: rotate(0deg); }
-  25% { transform: rotate(3deg); }
-  75% { transform: rotate(-3deg); }
+
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+
+  25% {
+    transform: rotate(3deg);
+  }
+
+  75% {
+    transform: rotate(-3deg);
+  }
 }
 
 @keyframes floatSlow {
-  0%, 100% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(-10px) rotate(3deg); }
+
+  0%,
+  100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+
+  50% {
+    transform: translateY(-10px) rotate(3deg);
+  }
 }
 
 @keyframes spinSlow {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .animate-wiggle {
   animation: playfulWiggle 0.6s ease-in-out;
 }
+
 .animate-float-slow {
   animation: floatSlow 6s ease-in-out infinite;
 }
+
 .animate-spin-slow {
   animation: spinSlow 20s linear infinite;
 }
@@ -323,39 +413,110 @@
 }
 
 @keyframes eqBounce {
-  0%, 100% { height: 12%; opacity: 0.55; }
-  25% { height: 75%; opacity: 0.95; }
-  50% { height: 35%; opacity: 0.7; }
-  75% { height: 95%; opacity: 1; }
+
+  0%,
+  100% {
+    height: 12%;
+    opacity: 0.55;
+  }
+
+  25% {
+    height: 75%;
+    opacity: 0.95;
+  }
+
+  50% {
+    height: 35%;
+    opacity: 0.7;
+  }
+
+  75% {
+    height: 95%;
+    opacity: 1;
+  }
 }
+
 @keyframes eqBounceAlt {
-  0%, 100% { height: 20%; opacity: 0.6; }
-  30% { height: 90%; opacity: 1; }
-  60% { height: 40%; opacity: 0.75; }
-  85% { height: 100%; opacity: 1; }
+
+  0%,
+  100% {
+    height: 20%;
+    opacity: 0.6;
+  }
+
+  30% {
+    height: 90%;
+    opacity: 1;
+  }
+
+  60% {
+    height: 40%;
+    opacity: 0.75;
+  }
+
+  85% {
+    height: 100%;
+    opacity: 1;
+  }
 }
+
 @keyframes eqBounceSubtle {
-  0%, 100% { height: 15%; opacity: 0.5; }
-  40% { height: 55%; opacity: 0.8; }
-  70% { height: 30%; opacity: 0.65; }
+
+  0%,
+  100% {
+    height: 15%;
+    opacity: 0.5;
+  }
+
+  40% {
+    height: 55%;
+    opacity: 0.8;
+  }
+
+  70% {
+    height: 30%;
+    opacity: 0.65;
+  }
 }
+
 @keyframes glowPulse {
-  0%, 100% { box-shadow: 0 0 10px rgba(0,255,204,0.3), inset 0 0 8px rgba(0,255,204,0.2); }
-  50% { box-shadow: 0 0 25px rgba(0,255,204,0.6), 0 0 40px rgba(255,45,120,0.3), inset 0 0 14px rgba(0,255,204,0.4); }
+
+  0%,
+  100% {
+    box-shadow: 0 0 10px rgba(0, 255, 204, 0.3), inset 0 0 8px rgba(0, 255, 204, 0.2);
+  }
+
+  50% {
+    box-shadow: 0 0 25px rgba(0, 255, 204, 0.6), 0 0 40px rgba(255, 45, 120, 0.3), inset 0 0 14px rgba(0, 255, 204, 0.4);
+  }
 }
+
 @keyframes haloSpread {
-  0% { transform: scale(0.96); opacity: 0.6; }
-  50% { transform: scale(1.08); opacity: 0.15; }
-  100% { transform: scale(0.96); opacity: 0.6; }
+  0% {
+    transform: scale(0.96);
+    opacity: 0.6;
+  }
+
+  50% {
+    transform: scale(1.08);
+    opacity: 0.15;
+  }
+
+  100% {
+    transform: scale(0.96);
+    opacity: 0.6;
+  }
 }
 
 .eq-bar {
   transform-origin: bottom;
   will-change: height, opacity;
 }
+
 .synth-glow {
   animation: glowPulse 2.8s ease-in-out infinite;
 }
+
 .halo-glow {
   animation: haloSpread 2.2s ease-in-out infinite;
 }
@@ -371,13 +532,21 @@
 }
 
 @media print {
-  header, nav, footer, .no-print, button {
+
+  header,
+  nav,
+  footer,
+  .no-print,
+  button {
     display: none !important;
   }
-  body, html {
+
+  body,
+  html {
     background: #ffffff !important;
     color: #111827 !important;
   }
+
   .cv-document-sheet {
     background: #ffffff !important;
     color: #111827 !important;
@@ -387,12 +556,16 @@
     margin: 0 !important;
     max-width: 100% !important;
   }
+
   .cv-document-sheet * {
     color: #111827 !important;
     border-color: #e5e7eb !important;
     background-color: transparent !important;
   }
-  .cv-document-sheet h1, .cv-document-sheet h2, .cv-document-sheet h3 {
+
+  .cv-document-sheet h1,
+  .cv-document-sheet h2,
+  .cv-document-sheet h3 {
     color: #0f172a !important;
   }
 }

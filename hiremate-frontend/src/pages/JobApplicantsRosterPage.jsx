@@ -279,7 +279,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
   }, [filteredCandidates, validCurrentPage]);
 
   return (
-    <div className="w-full bg-transparent font-body text-[#2D3A31] antialiased min-h-screen pb-16 selection:bg-[#8C9A84] selection:text-white">
+    <div className="recruiter-page w-full bg-transparent font-body text-[#2D3A31] antialiased min-h-screen pb-16 selection:bg-[#8C9A84] selection:text-white">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-50 bg-[#2D3A31] text-white border border-[#E6E2DA] text-xs font-medium px-5 py-3 rounded-2xl shadow-soft-xl flex items-center gap-2.5 backdrop-blur-xl animate-fade-in">
@@ -432,9 +432,6 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                 <div>
                   <h2 className="font-serif font-bold text-base text-[#2D3A31] flex items-center gap-2">
                     Bảng Xếp Hạng AI — Top Ứng Viên Được Đề Cử
-                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#8C9A84]/15 text-[#2D3A31] border border-[#8C9A84]/30">
-                      Chuẩn 70/30
-                    </span>
                   </h2>
                   <p className="text-xs text-[#2D3A31]/60 mt-0.5">
                     Xếp hạng tự động theo công thức: 70% Kỹ năng bắt buộc + 30% Kỹ năng ưu tiên

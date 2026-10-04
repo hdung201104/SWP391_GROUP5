@@ -221,7 +221,7 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
   };
 
   return (
-    <div className="w-full flex-1 bg-transparent text-[#2D3A31] antialiased font-body pb-20 selection:bg-[#8C9A84] selection:text-white">
+    <div className="recruiter-page w-full flex-1 bg-transparent text-[#2D3A31] antialiased font-body pb-20 selection:bg-[#8C9A84] selection:text-white">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed top-20 right-6 z-50 px-5 py-3 rounded-2xl bg-[#2D3A31] text-white text-xs font-semibold shadow-soft-xl flex items-center gap-2.5 animate-fade-in border border-[#E6E2DA]">
@@ -261,33 +261,33 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
           </div>
 
           {/* Company Brand Strip */}
-          <div className="relative px-6 sm:px-8 pb-6 sm:pb-8 pt-0 -mt-16 sm:-mt-20">
+          <div className="relative px-6 sm:px-8 pb-6 sm:pb-8 pt-4 bg-white">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
               <div className="flex flex-col sm:flex-row items-start sm:items-end gap-5">
                 {/* Logo Box */}
-                <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-white border border-[#E6E2DA] shadow-soft-xl p-2.5 flex items-center justify-center shrink-0">
+                <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-white border-4 border-white shadow-soft-xl p-2 flex items-center justify-center shrink-0 -mt-16 sm:-mt-20 z-10">
                   <div className="w-full h-full rounded-2xl bg-[#2D3A31] flex flex-col items-center justify-center text-center p-2 text-white">
                     <span className="text-xl sm:text-2xl font-serif font-bold tracking-wider">
                       FPT<span className="text-[#C27B66]">.</span>
                     </span>
-                    <span className="text-[9px] font-medium uppercase tracking-widest text-[#8C9A84]">
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-[#8C9A84]">
                       Software
                     </span>
                   </div>
                 </div>
 
                 {/* Company Title & Slogan */}
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 pt-1">
                   <div className="flex items-center gap-3 flex-wrap">
                     <h1 className="text-2xl sm:text-3xl font-serif font-bold text-[#2D3A31] tracking-tight">
                       {companyInfo.name}
                     </h1>
-                    <span className="inline-flex items-center gap-1 px-3 py-0.5 rounded-full bg-[#8C9A84]/15 text-[#2D3A31] text-xs font-semibold border border-[#8C9A84]/30">
-                      <span className="material-symbols-outlined text-[15px] text-[#8C9A84]">verified</span>
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#C27B66]/15 text-[#C27B66] text-xs font-bold border border-[#C27B66]/30">
+                      <span className="material-symbols-outlined text-[15px] text-[#C27B66]">verified</span>
                       <span>{companyInfo.badge}</span>
                     </span>
                   </div>
-                  <p className="text-xs sm:text-sm text-[#2D3A31]/70 font-light max-w-2xl leading-relaxed">
+                  <p className="text-xs sm:text-sm text-[#2D3A31]/80 font-medium max-w-2xl leading-relaxed">
                     {companyInfo.tagline}
                   </p>
                 </div>
@@ -298,10 +298,10 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                 <button
                   type="button"
                   onClick={handleCopyShareLink}
-                  className="px-4 py-2.5 rounded-full bg-white hover:bg-[#F9F8F4] text-xs font-semibold text-[#2D3A31] transition-all flex items-center gap-2 border border-[#E6E2DA] cursor-pointer shadow-soft"
+                  className="px-4 py-2.5 rounded-full bg-white hover:bg-[#FAF6F0] text-xs font-semibold text-[#2D3A31] transition-all flex items-center gap-2 border border-[#E6E2DA] cursor-pointer shadow-soft"
                   title="Sao chép liên kết trang công ty"
                 >
-                  <span className="material-symbols-outlined text-[16px] text-[#8C9A84]">share</span>
+                  <span className="material-symbols-outlined text-[16px] text-[#C27B66]">share</span>
                   <span>Chia sẻ</span>
                 </button>
                 <button
@@ -320,7 +320,7 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                     });
                     setShowEditModal(true);
                   }}
-                  className="px-5 py-2.5 rounded-full bg-[#2D3A31] hover:bg-[#C27B66] text-white text-xs font-semibold tracking-wider uppercase transition-all flex items-center gap-2 shadow-soft hover:shadow-soft-md cursor-pointer"
+                  className="px-5 py-2.5 rounded-full bg-[#C27B66] hover:bg-[#A86552] text-white text-xs font-bold tracking-wider uppercase transition-all flex items-center gap-2 shadow-soft hover:shadow-soft-md cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[16px]">edit</span>
                   <span>Chỉnh sửa thông tin</span>
@@ -466,7 +466,7 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
               <div className="pt-2">
                 <a
                   href={`mailto:${hrRepresentative.email}?subject=Ứng tuyển vị trí tại ${companyInfo.name}`}
-                  className="w-full py-2.5 px-4 rounded-full bg-[#2D3A31] hover:bg-[#C27B66] text-white text-xs font-semibold tracking-wider uppercase transition-all flex items-center justify-center gap-2 shadow-soft cursor-pointer"
+                  className="w-full py-2.5 px-4 rounded-full bg-[#C27B66] hover:bg-[#A86552] text-white text-xs font-bold tracking-wider uppercase transition-all flex items-center justify-center gap-2 shadow-soft cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-base">send</span>
                   <span>Gửi thư trao đổi với {hrRepresentative.name}</span>
@@ -513,10 +513,10 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
               <button
                 type="button"
                 onClick={() => setActiveTab('overview')}
-                className={`flex-1 py-2.5 px-4 rounded-full text-xs font-semibold tracking-wide transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                className={`flex-1 py-2.5 px-4 rounded-full text-xs font-bold tracking-wide transition-all flex items-center justify-center gap-2 cursor-pointer ${
                   activeTab === 'overview'
-                    ? 'bg-[#2D3A31] text-white shadow-soft'
-                    : 'text-[#2D3A31]/70 hover:text-[#2D3A31] hover:bg-[#F9F8F4]'
+                    ? 'bg-[#C27B66] text-white shadow-soft'
+                    : 'text-[#667067] hover:text-[#2D3A31] hover:bg-[#FAF6F0]'
                 }`}
               >
                 <span className="material-symbols-outlined text-base">info</span>
@@ -526,10 +526,10 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
               <button
                 type="button"
                 onClick={() => setActiveTab('jobs')}
-                className={`flex-1 py-2.5 px-4 rounded-full text-xs font-semibold tracking-wide transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                className={`flex-1 py-2.5 px-4 rounded-full text-xs font-bold tracking-wide transition-all flex items-center justify-center gap-2 cursor-pointer ${
                   activeTab === 'jobs'
-                    ? 'bg-[#2D3A31] text-white shadow-soft'
-                    : 'text-[#2D3A31]/70 hover:text-[#2D3A31] hover:bg-[#F9F8F4]'
+                    ? 'bg-[#C27B66] text-white shadow-soft'
+                    : 'text-[#667067] hover:text-[#2D3A31] hover:bg-[#FAF6F0]'
                 }`}
               >
                 <span className="material-symbols-outlined text-base">work</span>
@@ -539,10 +539,10 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
               <button
                 type="button"
                 onClick={() => setActiveTab('locations')}
-                className={`flex-1 py-2.5 px-4 rounded-full text-xs font-semibold tracking-wide transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                className={`flex-1 py-2.5 px-4 rounded-full text-xs font-bold tracking-wide transition-all flex items-center justify-center gap-2 cursor-pointer ${
                   activeTab === 'locations'
-                    ? 'bg-[#2D3A31] text-white shadow-soft'
-                    : 'text-[#2D3A31]/70 hover:text-[#2D3A31] hover:bg-[#F9F8F4]'
+                    ? 'bg-[#C27B66] text-white shadow-soft'
+                    : 'text-[#667067] hover:text-[#2D3A31] hover:bg-[#FAF6F0]'
                 }`}
               >
                 <span className="material-symbols-outlined text-base">apartment</span>

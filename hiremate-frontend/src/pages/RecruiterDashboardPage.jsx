@@ -250,7 +250,7 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
     .sort((a, b) => b.aiMatchScore - a.aiMatchScore);
 
   return (
-    <div className="min-h-screen bg-[#F9F8F4] text-[#2D3A31] py-8 px-4 sm:px-6 lg:px-8 font-sans">
+    <div className="recruiter-page min-h-screen bg-[#F9F8F4] text-[#2D3A31] py-8 px-4 sm:px-6 lg:px-8 font-sans">
       <div className="max-w-7xl mx-auto space-y-8">
         
         {/* Recruiter Portal Top Banner */}
@@ -264,42 +264,33 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                 <h1 className="font-serif font-bold text-2xl sm:text-3xl text-[#2D3A31]">
                   {user?.fullName || 'Nguyễn Minh Anh'}
                 </h1>
-                <span className="px-3 py-0.5 rounded-full text-[11px] font-sans font-medium bg-[#8C9A84]/20 text-[#2D3A31] border border-[#8C9A84]/40">
-                  RECRUITER ENTERPRISE
-                </span>
-                <span className="px-3 py-0.5 rounded-full text-[11px] font-sans font-medium bg-[#C27B66]/15 text-[#C27B66] border border-[#C27B66]/30">
-                  AI ATS 4.2 CONNECTED
-                </span>
               </div>
-              <p className="text-xs text-[#2D3A31]/70 mt-1 font-sans">
-                {companyProfile.name} &bull; Hệ thống quản trị tuyển dụng thông minh &amp; Phễu ứng viên AI 70/30.
-              </p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={() => setShowCreateModal(true)}
-              className="bg-[#2D3A31] hover:bg-[#232e27] text-white text-xs py-2.5 px-5 rounded-full font-medium flex items-center gap-2 cursor-pointer shadow-soft transition-all"
+              className="bg-[#C27B66] hover:bg-[#A86552] text-white text-xs py-2.5 px-5 rounded-full font-bold uppercase tracking-wider flex items-center gap-2 cursor-pointer shadow-soft transition-all"
             >
               <span className="material-symbols-outlined text-base">add_circle</span>
-              <span>Đăng Tin Mới (Chuẩn 70/30)</span>
+              <span>Đăng Tin Mới</span>
             </button>
 
             <button
               onClick={() => setActiveTab('PIPELINE')}
-              className="bg-white hover:bg-[#F9F8F4] text-[#2D3A31] border border-[#E6E2DA] text-xs py-2.5 px-5 rounded-full font-medium flex items-center gap-1.5 cursor-pointer shadow-soft transition-all"
+              className="bg-white hover:bg-[#FAF6F0] text-[#2D3A31] border border-[#E6E2DA] text-xs py-2.5 px-5 rounded-full font-semibold flex items-center gap-1.5 cursor-pointer shadow-soft transition-all"
             >
-              <span className="material-symbols-outlined text-base text-[#8C9A84]">view_kanban</span>
+              <span className="material-symbols-outlined text-base text-[#C27B66]">view_kanban</span>
               <span>Xem Phễu Kanban</span>
             </button>
           </div>
         </div>
 
         {notification && (
-          <div className="p-4 rounded-2xl bg-[#8C9A84]/15 border border-[#8C9A84]/30 text-[#2D3A31] text-xs flex items-center justify-between shadow-soft animate-fade-in">
+          <div className="p-4 rounded-2xl bg-[#FAF0ED] border border-[#C27B66]/30 text-[#2D3A31] text-xs flex items-center justify-between shadow-soft animate-fade-in">
             <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-base text-[#8C9A84]">check_circle</span>
+              <span className="material-symbols-outlined text-base text-[#C27B66]">check_circle</span>
               <span>{notification}</span>
             </div>
             <button onClick={() => setNotification('')} className="text-sm cursor-pointer hover:text-[#2D3A31]/70">&times;</button>
@@ -307,13 +298,13 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
         )}
 
         {/* Recruiter Navigation Tabs */}
-        <div className="flex flex-wrap items-center gap-2 border-b border-[#E6E2DA] pb-3 text-xs">
+        <div className="flex flex-wrap items-center gap-2 border-b border-[#E6E2DA] pb-3 text-xs font-sans">
           <button
             onClick={() => setActiveTab('OVERVIEW')}
-            className={`px-5 py-2.5 rounded-full font-medium transition-all cursor-pointer flex items-center gap-2 ${
+            className={`px-5 py-2.5 rounded-full font-bold transition-all cursor-pointer flex items-center gap-2 ${
               activeTab === 'OVERVIEW'
-                ? 'bg-[#2D3A31] text-white shadow-soft'
-                : 'bg-white text-[#2D3A31]/70 hover:text-[#2D3A31] border border-[#E6E2DA]'
+                ? 'bg-[#C27B66] text-white shadow-soft'
+                : 'bg-white text-[#667067] hover:text-[#2D3A31] border border-[#E6E2DA]'
             }`}
           >
             <span className="material-symbols-outlined text-base">analytics</span>
@@ -322,10 +313,10 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
 
           <button
             onClick={() => setActiveTab('JOBS')}
-            className={`px-5 py-2.5 rounded-full font-medium transition-all cursor-pointer flex items-center gap-2 ${
+            className={`px-5 py-2.5 rounded-full font-bold transition-all cursor-pointer flex items-center gap-2 ${
               activeTab === 'JOBS'
-                ? 'bg-[#2D3A31] text-white shadow-soft'
-                : 'bg-white text-[#2D3A31]/70 hover:text-[#2D3A31] border border-[#E6E2DA]'
+                ? 'bg-[#C27B66] text-white shadow-soft'
+                : 'bg-white text-[#667067] hover:text-[#2D3A31] border border-[#E6E2DA]'
             }`}
           >
             <span className="material-symbols-outlined text-base">work_outline</span>
@@ -334,26 +325,14 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
 
           <button
             onClick={() => setActiveTab('PIPELINE')}
-            className={`px-5 py-2.5 rounded-full font-medium transition-all cursor-pointer flex items-center gap-2 ${
+            className={`px-5 py-2.5 rounded-full font-bold transition-all cursor-pointer flex items-center gap-2 ${
               activeTab === 'PIPELINE'
-                ? 'bg-[#2D3A31] text-white shadow-soft'
-                : 'bg-white text-[#2D3A31]/70 hover:text-[#2D3A31] border border-[#E6E2DA]'
+                ? 'bg-[#C27B66] text-white shadow-soft'
+                : 'bg-white text-[#667067] hover:text-[#2D3A31] border border-[#E6E2DA]'
             }`}
           >
             <span className="material-symbols-outlined text-base">view_kanban</span>
             <span>3. Phễu Ứng Viên Kanban ({candidates.length})</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('COMPANY')}
-            className={`px-5 py-2.5 rounded-full font-medium transition-all cursor-pointer flex items-center gap-2 ${
-              activeTab === 'COMPANY'
-                ? 'bg-[#2D3A31] text-white shadow-soft'
-                : 'bg-white text-[#2D3A31]/70 hover:text-[#2D3A31] border border-[#E6E2DA]'
-            }`}
-          >
-            <span className="material-symbols-outlined text-base">domain</span>
-            <span>4. Hồ Sơ Doanh Nghiệp</span>
           </button>
         </div>
 
@@ -366,23 +345,17 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
             <div className="p-5 rounded-[24px] bg-white border border-[#E6E2DA] flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 shadow-soft">
               <div className="space-y-1">
                 <div className="flex items-center gap-2.5 flex-wrap">
-                  <span className="material-symbols-outlined text-[#8C9A84] text-xl">query_stats</span>
+                  <span className="material-symbols-outlined text-[#C27B66] text-xl">query_stats</span>
                   <h2 className="text-lg font-serif font-bold text-[#2D3A31] tracking-tight">
                     Trung Tâm Báo Cáo &amp; Hiệu Suất Tuyển Dụng AI
                   </h2>
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-sans font-semibold bg-[#8C9A84]/15 text-[#2D3A31] border border-[#8C9A84]/30">
-                    Sức Khỏe Phễu: 94.6/100 (Rất Tốt)
-                  </span>
                 </div>
-                <p className="text-xs text-[#2D3A31]/70 font-sans">
-                  Bóc tách tỷ lệ chuyển đổi, phân bổ kỹ năng 70/30, thời gian tuyển dụng và chất lượng ứng viên real-time.
-                </p>
               </div>
 
               {/* Toolbar Controls */}
-              <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
+              <div className="flex items-center gap-2 flex-wrap xl:flex-nowrap shrink-0 max-w-full">
                 {/* Timeframe selector */}
-                <div className="inline-flex rounded-xl bg-[#F9F8F4] border border-[#E6E2DA] p-1 text-xs">
+                <div className="inline-flex rounded-full bg-[#FAF6F0] border border-[#E6E2DA] p-1 text-xs shrink-0">
                   {[
                     { id: '7_DAYS', label: '7 Ngày' },
                     { id: '30_DAYS', label: '30 Ngày' },
@@ -392,10 +365,10 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                     <button
                       key={t.id}
                       onClick={() => setReportTimeframe(t.id)}
-                      className={`px-3 py-1 rounded-lg transition-all cursor-pointer font-medium ${
+                      className={`px-2.5 py-1 rounded-full transition-all cursor-pointer font-bold whitespace-nowrap ${
                         reportTimeframe === t.id
-                          ? 'bg-[#2D3A31] text-white shadow-soft'
-                          : 'text-[#2D3A31]/70 hover:text-[#2D3A31]'
+                          ? 'bg-[#C27B66] text-white shadow-soft'
+                          : 'text-[#667067] hover:text-[#2D3A31]'
                       }`}
                     >
                       {t.label}
@@ -407,7 +380,7 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                 <select
                   value={reportJobFilter}
                   onChange={(e) => setReportJobFilter(e.target.value)}
-                  className="px-3 py-2 rounded-xl bg-[#F9F8F4] border border-[#E6E2DA] text-xs text-[#2D3A31] focus:outline-none focus:border-[#2D3A31] cursor-pointer"
+                  className="px-3 py-1.5 rounded-full bg-[#FAF6F0] border border-[#E6E2DA] text-xs font-semibold text-[#2D3A31] focus:outline-none focus:border-[#C27B66] cursor-pointer shrink-0"
                 >
                   <option value="ALL">Tất cả vị trí (3 jobs)</option>
                   <option value="101">Senior Backend Engineer</option>
@@ -419,10 +392,10 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                 <button
                   type="button"
                   onClick={handleRefreshReport}
-                  className="p-2 rounded-xl bg-[#F9F8F4] hover:bg-[#E6E2DA]/50 border border-[#E6E2DA] text-[#2D3A31] transition-all cursor-pointer flex items-center justify-center"
+                  className="p-1.5 rounded-full bg-[#FAF6F0] hover:bg-[#E6E2DA]/50 border border-[#E6E2DA] text-[#2D3A31] transition-all cursor-pointer flex items-center justify-center shrink-0"
                   title="Làm mới dữ liệu AI"
                 >
-                  <span className={`material-symbols-outlined text-lg ${isRefreshing ? 'animate-spin text-[#8C9A84]' : ''}`}>
+                  <span className={`material-symbols-outlined text-lg ${isRefreshing ? 'animate-spin text-[#C27B66]' : ''}`}>
                     sync
                   </span>
                 </button>
@@ -431,7 +404,7 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                 <button
                   type="button"
                   onClick={() => setShowExportModal(true)}
-                  className="px-4 py-2 rounded-xl bg-[#2D3A31] hover:bg-[#232e27] text-white font-medium text-xs shadow-soft transition-all flex items-center gap-1.5 cursor-pointer"
+                  className="px-4 py-1.5 rounded-full bg-[#C27B66] hover:bg-[#A86552] text-white font-bold text-xs uppercase tracking-wider shadow-soft transition-all flex items-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap"
                 >
                   <span className="material-symbols-outlined text-base">download</span>
                   <span>Xuất Báo Cáo</span>
@@ -440,100 +413,112 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
             </div>
 
             {/* 6 Core Executive KPI Metrics Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 items-stretch">
               {/* Metric 1: Total Applicants */}
-              <div className="p-5 rounded-[24px] bg-white border border-[#E6E2DA] shadow-soft relative overflow-hidden group">
-                <div className="flex items-center justify-between text-xs text-[#8C9A84] font-medium uppercase tracking-wider">
-                  <span>Tổng Hồ Sơ</span>
-                  <span className="material-symbols-outlined text-[#8C9A84] text-lg">folder_shared</span>
+              <div className="p-5 rounded-[24px] bg-white border border-[#E6E2DA] shadow-soft relative overflow-hidden group flex flex-col justify-between h-full">
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-[11px] text-[#8C9A84] font-bold uppercase tracking-wider min-h-[28px]">
+                    <span className="line-clamp-1">Tổng Hồ Sơ</span>
+                    <span className="material-symbols-outlined text-[#8C9A84] text-lg shrink-0">folder_shared</span>
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-serif font-bold text-[#2D3A31] pt-1">41</div>
+                  <div className="flex items-center gap-1 text-[11px] text-[#8C9A84] font-semibold min-h-[22px]">
+                    <span className="material-symbols-outlined text-xs">trending_up</span>
+                    <span>+18.4% vs tháng trước</span>
+                  </div>
                 </div>
-                <div className="text-2xl sm:text-3xl font-serif font-bold text-[#2D3A31] mt-2">41</div>
-                <div className="flex items-center gap-1 text-[11px] text-[#8C9A84] font-medium mt-1">
-                  <span className="material-symbols-outlined text-xs">trending_up</span>
-                  <span>+18.4% vs tháng trước</span>
-                </div>
-                <div className="w-full bg-[#E6E2DA] h-1.5 rounded-full mt-3 overflow-hidden">
+                <div className="w-full bg-[#E6E2DA] h-1.5 rounded-full mt-4 overflow-hidden shrink-0">
                   <div className="bg-[#2D3A31] h-full rounded-full" style={{ width: '85%' }}></div>
                 </div>
               </div>
 
               {/* Metric 2: Time to Hire */}
-              <div className="p-5 rounded-[24px] bg-white border border-[#E6E2DA] shadow-soft relative overflow-hidden group">
-                <div className="flex items-center justify-between text-xs text-[#C27B66] font-medium uppercase tracking-wider">
-                  <span>Time-to-Hire</span>
-                  <span className="material-symbols-outlined text-[#C27B66] text-lg">speed</span>
+              <div className="p-5 rounded-[24px] bg-white border border-[#E6E2DA] shadow-soft relative overflow-hidden group flex flex-col justify-between h-full">
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-[11px] text-[#C27B66] font-bold uppercase tracking-wider min-h-[28px]">
+                    <span className="line-clamp-1">Time-to-Hire</span>
+                    <span className="material-symbols-outlined text-[#C27B66] text-lg shrink-0">speed</span>
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-serif font-bold text-[#C27B66] pt-1">
+                    12.5 <span className="text-xs font-normal text-[#2D3A31]/60">ngày</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-[11px] text-[#8C9A84] font-semibold min-h-[22px]">
+                    <span className="material-symbols-outlined text-xs">bolt</span>
+                    <span>Nhanh hơn 4.2 ngày (-25%)</span>
+                  </div>
                 </div>
-                <div className="text-2xl sm:text-3xl font-serif font-bold text-[#C27B66] mt-2">
-                  12.5 <span className="text-xs font-normal text-[#2D3A31]/60">ngày</span>
-                </div>
-                <div className="flex items-center gap-1 text-[11px] text-[#8C9A84] font-medium mt-1">
-                  <span className="material-symbols-outlined text-xs">bolt</span>
-                  <span>Nhanh hơn 4.2 ngày (-25%)</span>
-                </div>
-                <div className="w-full bg-[#E6E2DA] h-1.5 rounded-full mt-3 overflow-hidden">
+                <div className="w-full bg-[#E6E2DA] h-1.5 rounded-full mt-4 overflow-hidden shrink-0">
                   <div className="bg-[#C27B66] h-full rounded-full" style={{ width: '92%' }}></div>
                 </div>
               </div>
 
               {/* Metric 3: Average AI Match Score */}
-              <div className="p-5 rounded-[24px] bg-white border border-[#E6E2DA] shadow-soft relative overflow-hidden group">
-                <div className="flex items-center justify-between text-xs text-[#8C9A84] font-medium uppercase tracking-wider">
-                  <span>AI Match TB</span>
-                  <span className="material-symbols-outlined text-[#8C9A84] text-lg">auto_awesome</span>
+              <div className="p-5 rounded-[24px] bg-white border border-[#E6E2DA] shadow-soft relative overflow-hidden group flex flex-col justify-between h-full">
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-[11px] text-[#8C9A84] font-bold uppercase tracking-wider min-h-[28px]">
+                    <span className="line-clamp-1">AI Match TB</span>
+                    <span className="material-symbols-outlined text-[#8C9A84] text-lg shrink-0">auto_awesome</span>
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-serif font-bold text-[#2D3A31] pt-1">91.4%</div>
+                  <div className="flex items-center gap-1 text-[11px] text-[#2D3A31]/70 font-semibold min-h-[22px]">
+                    <span>70% Bắt buộc + 30% Ưu tiên</span>
+                  </div>
                 </div>
-                <div className="text-2xl sm:text-3xl font-serif font-bold text-[#2D3A31] mt-2">91.4%</div>
-                <div className="flex items-center gap-1 text-[11px] text-[#2D3A31]/70 font-medium mt-1">
-                  <span>70% Bắt buộc + 30% Ưu tiên</span>
-                </div>
-                <div className="w-full bg-[#E6E2DA] h-1.5 rounded-full mt-3 overflow-hidden">
+                <div className="w-full bg-[#E6E2DA] h-1.5 rounded-full mt-4 overflow-hidden shrink-0">
                   <div className="bg-[#8C9A84] h-full rounded-full" style={{ width: '91.4%' }}></div>
                 </div>
               </div>
 
               {/* Metric 4: Interview Pass Rate */}
-              <div className="p-5 rounded-[24px] bg-white border border-[#E6E2DA] shadow-soft relative overflow-hidden group">
-                <div className="flex items-center justify-between text-xs text-[#8C9A84] font-medium uppercase tracking-wider">
-                  <span>Pass Phỏng Vấn</span>
-                  <span className="material-symbols-outlined text-[#8C9A84] text-lg">how_to_reg</span>
+              <div className="p-5 rounded-[24px] bg-white border border-[#E6E2DA] shadow-soft relative overflow-hidden group flex flex-col justify-between h-full">
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-[11px] text-[#8C9A84] font-bold uppercase tracking-wider min-h-[28px]">
+                    <span className="line-clamp-1">Pass Phỏng Vấn</span>
+                    <span className="material-symbols-outlined text-[#8C9A84] text-lg shrink-0">how_to_reg</span>
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-serif font-bold text-[#2D3A31] pt-1">45.5%</div>
+                  <div className="flex items-center gap-1 text-[11px] text-[#2D3A31]/70 font-semibold min-h-[22px]">
+                    <span>5 trúng tuyển / 11 phỏng vấn</span>
+                  </div>
                 </div>
-                <div className="text-2xl sm:text-3xl font-serif font-bold text-[#2D3A31] mt-2">45.5%</div>
-                <div className="flex items-center gap-1 text-[11px] text-[#2D3A31]/70 font-medium mt-1">
-                  <span>5 trúng tuyển / 11 phỏng vấn</span>
-                </div>
-                <div className="w-full bg-[#E6E2DA] h-1.5 rounded-full mt-3 overflow-hidden">
+                <div className="w-full bg-[#E6E2DA] h-1.5 rounded-full mt-4 overflow-hidden shrink-0">
                   <div className="bg-[#2D3A31] h-full rounded-full" style={{ width: '45.5%' }}></div>
                 </div>
               </div>
 
               {/* Metric 5: Cost per Hire */}
-              <div className="p-5 rounded-[24px] bg-white border border-[#E6E2DA] shadow-soft relative overflow-hidden group">
-                <div className="flex items-center justify-between text-xs text-[#8C9A84] font-medium uppercase tracking-wider">
-                  <span>Chi Phí / Tuyển Dụng</span>
-                  <span className="material-symbols-outlined text-[#8C9A84] text-lg">payments</span>
+              <div className="p-5 rounded-[24px] bg-white border border-[#E6E2DA] shadow-soft relative overflow-hidden group flex flex-col justify-between h-full">
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-[11px] text-[#8C9A84] font-bold uppercase tracking-wider min-h-[28px]">
+                    <span className="line-clamp-1">Chi Phí / Tuyển Dụng</span>
+                    <span className="material-symbols-outlined text-[#8C9A84] text-lg shrink-0">payments</span>
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-serif font-bold text-[#2D3A31] pt-1">
+                    $380 <span className="text-xs font-normal text-[#2D3A31]/60">USD</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-[11px] text-[#8C9A84] font-semibold min-h-[22px]">
+                    <span className="material-symbols-outlined text-xs">savings</span>
+                    <span>Tiết kiệm 72% chi phí</span>
+                  </div>
                 </div>
-                <div className="text-2xl sm:text-3xl font-serif font-bold text-[#2D3A31] mt-2">
-                  $380 <span className="text-xs font-normal text-[#2D3A31]/60">USD</span>
-                </div>
-                <div className="flex items-center gap-1 text-[11px] text-[#8C9A84] font-medium mt-1">
-                  <span className="material-symbols-outlined text-xs">savings</span>
-                  <span>Tiết kiệm 72% chi phí</span>
-                </div>
-                <div className="w-full bg-[#E6E2DA] h-1.5 rounded-full mt-3 overflow-hidden">
+                <div className="w-full bg-[#E6E2DA] h-1.5 rounded-full mt-4 overflow-hidden shrink-0">
                   <div className="bg-[#8C9A84] h-full rounded-full" style={{ width: '72%' }}></div>
                 </div>
               </div>
 
               {/* Metric 6: Offer Acceptance */}
-              <div className="p-5 rounded-[24px] bg-white border border-[#E6E2DA] shadow-soft relative overflow-hidden group">
-                <div className="flex items-center justify-between text-xs text-[#8C9A84] font-medium uppercase tracking-wider">
-                  <span>Tỷ Lệ Nhận Offer</span>
-                  <span className="material-symbols-outlined text-[#8C9A84] text-lg">verified</span>
+              <div className="p-5 rounded-[24px] bg-white border border-[#E6E2DA] shadow-soft relative overflow-hidden group flex flex-col justify-between h-full">
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-[11px] text-[#8C9A84] font-bold uppercase tracking-wider min-h-[28px]">
+                    <span className="line-clamp-1">Tỷ Lệ Nhận Offer</span>
+                    <span className="material-symbols-outlined text-[#8C9A84] text-lg shrink-0">verified</span>
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-serif font-bold text-[#2D3A31] pt-1">100%</div>
+                  <div className="flex items-center gap-1 text-[11px] text-[#2D3A31]/70 font-semibold min-h-[22px]">
+                    <span>5/5 ứng viên chấp thuận</span>
+                  </div>
                 </div>
-                <div className="text-2xl sm:text-3xl font-serif font-bold text-[#2D3A31] mt-2">100%</div>
-                <div className="flex items-center gap-1 text-[11px] text-[#2D3A31]/70 font-medium mt-1">
-                  <span>5/5 ứng viên chấp thuận</span>
-                </div>
-                <div className="w-full bg-[#E6E2DA] h-1.5 rounded-full mt-3 overflow-hidden">
+                <div className="w-full bg-[#E6E2DA] h-1.5 rounded-full mt-4 overflow-hidden shrink-0">
                   <div className="bg-[#2D3A31] h-full rounded-full" style={{ width: '100%' }}></div>
                 </div>
               </div>
@@ -547,9 +532,6 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                     <span className="material-symbols-outlined text-[#8C9A84]">filter_alt</span>
                     Phễu Chuyển Đổi Tuyển Dụng Đa Tầng (Deep Recruitment Conversion Funnel)
                   </h3>
-                  <p className="text-xs text-[#2D3A31]/70 font-sans mt-0.5">
-                    Đối chiếu tỷ lệ lọt qua từng chặng tuyển dụng và phân tích nguyên nhân loại hồ sơ tự động bởi AI.
-                  </p>
                 </div>
                 <span className="px-3 py-1 rounded-full bg-[#8C9A84]/15 text-[#2D3A31] border border-[#8C9A84]/30 text-xs font-semibold flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-[#8C9A84] animate-pulse"></span>
@@ -1147,7 +1129,7 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
             </button>
 
             <h2 className="text-xl font-serif font-bold text-[#2D3A31] mb-1">
-              Đăng Tin Tuyển Dụng Mới (Chuẩn AI 70/30)
+              Đăng Tin Tuyển Dụng Mới
             </h2>
             <p className="text-xs text-[#2D3A31]/70 mb-6 font-sans">
               Điền thông tin và nhập trọng số kỹ năng để AI tự động so khớp điểm % Match với hồ sơ ứng viên.

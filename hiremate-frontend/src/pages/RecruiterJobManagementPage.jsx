@@ -169,6 +169,17 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
       });
   }, []);
 
+  useEffect(() => {
+    const handleCheckHash = () => {
+      if (window.location.hash.includes('action=new')) {
+        setShowCreateModal(true);
+      }
+    };
+    handleCheckHash();
+    window.addEventListener('hashchange', handleCheckHash);
+    return () => window.removeEventListener('hashchange', handleCheckHash);
+  }, []);
+
   const handleCreateSubmit = (e) => {
     e.preventDefault();
     const mandatory = createForm.mandatorySkillsInput.split(',').map((s) => s.trim()).filter(Boolean);
@@ -259,7 +270,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
   };
 
   return (
-    <div className="w-full bg-transparent font-body text-[#2D3A31] antialiased min-h-screen pb-16 selection:bg-[#8C9A84] selection:text-white">
+    <div className="recruiter-job-page recruiter-page w-full bg-transparent font-body text-[#2D3A31] antialiased min-h-screen pb-16 selection:bg-[#8C9A84] selection:text-white">
       {/* Toast Notification */}
       {notification && (
         <div className="fixed bottom-6 right-6 z-50 bg-[#2D3A31] text-white border border-[#E6E2DA] text-xs font-medium px-5 py-3 rounded-2xl shadow-soft-xl flex items-center gap-2.5 backdrop-blur-xl animate-fade-in">
@@ -278,14 +289,11 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
           <div className="space-y-1.5">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-[#8C9A84]/15 text-[#2D3A31] border border-[#8C9A84]/30 uppercase tracking-wider">
               <span className="inline-block w-2 h-2 rounded-full bg-[#8C9A84] animate-pulse" />
-              <span>Hệ Thống Quản Trị Tuyển Dụng AI 70/30</span>
+              <span>Hệ Thống Quản Trị Tuyển Dụng AI</span>
             </div>
             <h1 className="text-3xl lg:text-4xl font-serif font-bold text-[#2D3A31] tracking-tight">
               Quản Lý Tin Tuyển Dụng
             </h1>
-            <p className="text-sm text-[#2D3A31]/70 font-light max-w-2xl">
-              Theo dõi, sàng lọc và điều phối ứng viên tự động bằng thuật toán AI matching chuẩn xác theo thời gian thực.
-            </p>
           </div>
 
           {/* Live Activity Ticker Chip */}
@@ -306,7 +314,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
               <div>
                 <p className="text-xs uppercase tracking-wider text-[#2D3A31]/60 font-semibold">Vị Trí Đang Mở</p>
                 <div className="flex items-baseline gap-2 mt-2">
-                  <span className="text-3xl lg:text-4xl font-serif font-bold text-[#2D3A31]">12</span>
+                  <span className="text-3xl lg:text-4xl font-sans font-bold text-[#2D3A31]">12</span>
                   <span className="text-xs text-[#8C9A84] font-medium">+2 tuần này</span>
                 </div>
               </div>
@@ -328,17 +336,17 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
               <div>
                 <p className="text-xs uppercase tracking-wider text-[#2D3A31]/60 font-semibold">Tổng Hồ Sơ Đã Nộp</p>
                 <div className="flex items-baseline gap-2 mt-2">
-                  <span className="text-3xl lg:text-4xl font-serif font-bold text-[#2D3A31]">156</span>
-                  <span className="text-xs text-[#C27B66] font-medium">+28% MoM</span>
+                  <span className="text-3xl lg:text-4xl font-sans font-bold text-[#2D3A31]">156</span>
+                  <span className="text-xs text-[#2D3A31]/60 font-medium">+28% MoM</span>
                 </div>
               </div>
-              <div className="w-11 h-11 rounded-2xl bg-[#C27B66]/15 border border-[#C27B66]/30 flex items-center justify-center text-[#C27B66] group-hover:scale-105 transition-transform">
+              <div className="w-11 h-11 rounded-2xl bg-[#8C9A84]/15 border border-[#8C9A84]/30 flex items-center justify-center text-[#2D3A31] group-hover:scale-105 transition-transform">
                 <span className="material-symbols-outlined text-[22px]">folder_shared</span>
               </div>
             </div>
             <div className="mt-4 pt-3 flex items-center justify-between text-xs text-[#2D3A31]/70 border-t border-[#E6E2DA]">
               <span>Trung bình 13 hồ sơ/job</span>
-              <span className="text-[#C27B66] font-semibold">Tăng Trưởng Tốt</span>
+              <span className="text-[#8C9A84] font-semibold">Tăng Trưởng Tốt</span>
             </div>
           </div>
 
@@ -347,9 +355,9 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-xs uppercase tracking-wider text-[#2D3A31]/60 font-semibold">AI Match &gt; 80%</p>
-                <div className="flex items-baseline gap-2 mt-2">
-                  <span className="text-3xl lg:text-4xl font-serif font-bold text-[#2D3A31]">38</span>
-                  <span className="text-xs text-[#2D3A31]/60">ứng viên tiềm năng</span>
+                <div className="flex items-baseline gap-2 mt-2 flex-nowrap">
+                  <span className="text-3xl lg:text-4xl font-sans font-bold text-[#2D3A31] shrink-0">38</span>
+                  <span className="text-xs text-[#2D3A31]/60 whitespace-nowrap">ứng viên tiềm năng</span>
                 </div>
               </div>
               <div className="w-11 h-11 rounded-2xl bg-[#8C9A84]/15 border border-[#8C9A84]/30 flex items-center justify-center text-[#2D3A31] group-hover:scale-105 transition-transform">
@@ -369,9 +377,9 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-xs uppercase tracking-wider text-[#2D3A31]/60 font-semibold">Tốc Độ Tuyển Dụng</p>
-                <div className="flex items-baseline gap-2 mt-2">
-                  <span className="text-3xl lg:text-4xl font-serif font-bold text-[#2D3A31]">14</span>
-                  <span className="text-xs text-[#2D3A31]/60 font-medium">ngày / offer</span>
+                <div className="flex items-baseline gap-2 mt-2 flex-nowrap">
+                  <span className="text-3xl lg:text-4xl font-sans font-bold text-[#2D3A31] shrink-0">14</span>
+                  <span className="text-xs text-[#2D3A31]/60 font-medium whitespace-nowrap">ngày / offer</span>
                 </div>
               </div>
               <div className="w-11 h-11 rounded-2xl bg-[#C27B66]/15 border border-[#C27B66]/30 flex items-center justify-center text-[#C27B66] group-hover:scale-105 transition-transform">
@@ -386,32 +394,31 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
         </div>
 
         {/* Filter, Search & Action Bar */}
-        <div className="relative z-10 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 p-4 rounded-[28px] bg-white border border-[#E6E2DA] shadow-soft">
+        <div className="relative z-10 flex flex-wrap items-center justify-between gap-3 p-3.5 sm:p-4 rounded-[28px] bg-white border border-[#E6E2DA] shadow-soft overflow-hidden">
           {/* Search Box & Filter Tabs */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
-            <div className="relative min-w-[260px] lg:w-72">
+          <div className="flex flex-wrap items-center gap-3 flex-1 min-w-[280px]">
+            <div className="relative flex-1 min-w-[220px] max-w-sm">
               <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[#2D3A31]/50 text-[18px]">
                 search
               </span>
               <input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-[#F9F8F4] text-[#2D3A31] placeholder-[#2D3A31]/40 text-xs pl-10 pr-4 py-2.5 rounded-full focus:outline-none focus:border-[#8C9A84] focus:ring-2 focus:ring-[#8C9A84]/20 focus:bg-white transition-all border border-[#E6E2DA]"
+                className="w-full bg-[#F9F8F4] text-[#2D3A31] placeholder-[#2D3A31]/40 text-xs pl-10 pr-4 py-2.5 rounded-full focus:outline-none focus:border-[#C27B66] focus:ring-2 focus:ring-[#C27B66]/20 focus:bg-white transition-all border border-[#E6E2DA]"
                 placeholder="Tìm theo chức danh, tech stack (Java, React...)"
                 type="text"
               />
             </div>
 
             {/* Segmented Category Tabs */}
-            <div className="flex items-center gap-1 p-1 bg-[#F9F8F4] rounded-full overflow-x-auto text-xs border border-[#E6E2DA]">
+            <div className="flex items-center gap-1 p-1 bg-[#FAF6F0] rounded-full overflow-x-auto text-xs border border-[#E6E2DA] shrink-0">
               <button
                 type="button"
                 onClick={() => setSelectedCategory('ALL')}
-                className={`px-4 py-1.5 rounded-full font-medium transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-                  selectedCategory === 'ALL'
-                    ? 'bg-[#2D3A31] text-white shadow-soft font-semibold'
-                    : 'text-[#2D3A31]/70 hover:text-[#2D3A31]'
-                }`}
+                className={`px-3.5 py-1.5 rounded-full font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${selectedCategory === 'ALL'
+                    ? 'bg-[#C27B66] text-white shadow-soft'
+                    : 'text-[#667067] hover:text-[#2D3A31]'
+                  }`}
               >
                 <span>Tất cả</span>
                 <span className="px-1.5 py-0.2 rounded-full bg-white/20 text-[10px] font-bold">12</span>
@@ -420,11 +427,10 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
               <button
                 type="button"
                 onClick={() => setSelectedCategory('ACTIVE')}
-                className={`px-4 py-1.5 rounded-full font-medium transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-                  selectedCategory === 'ACTIVE'
-                    ? 'bg-[#2D3A31] text-white shadow-soft font-semibold'
-                    : 'text-[#2D3A31]/70 hover:text-[#2D3A31]'
-                }`}
+                className={`px-3.5 py-1.5 rounded-full font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${selectedCategory === 'ACTIVE'
+                    ? 'bg-[#C27B66] text-white shadow-soft'
+                    : 'text-[#667067] hover:text-[#2D3A31]'
+                  }`}
               >
                 <span>Đang bật tuyển</span>
                 <span className="text-[10px] opacity-80">({activeCount})</span>
@@ -433,11 +439,10 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
               <button
                 type="button"
                 onClick={() => setSelectedCategory('PAUSED')}
-                className={`px-4 py-1.5 rounded-full font-medium transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-                  selectedCategory === 'PAUSED'
-                    ? 'bg-[#2D3A31] text-white shadow-soft font-semibold'
-                    : 'text-[#2D3A31]/70 hover:text-[#2D3A31]'
-                }`}
+                className={`px-3.5 py-1.5 rounded-full font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${selectedCategory === 'PAUSED'
+                    ? 'bg-[#C27B66] text-white shadow-soft'
+                    : 'text-[#667067] hover:text-[#2D3A31]'
+                  }`}
               >
                 <span>Tạm dừng</span>
                 <span className="text-[10px] opacity-80">({pausedCount})</span>
@@ -446,11 +451,10 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
               <button
                 type="button"
                 onClick={() => setSelectedCategory('CLOSED')}
-                className={`px-4 py-1.5 rounded-full font-medium transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-                  selectedCategory === 'CLOSED'
-                    ? 'bg-[#2D3A31] text-white shadow-soft font-semibold'
-                    : 'text-[#2D3A31]/70 hover:text-[#2D3A31]'
-                }`}
+                className={`px-3.5 py-1.5 rounded-full font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${selectedCategory === 'CLOSED'
+                    ? 'bg-[#C27B66] text-white shadow-soft'
+                    : 'text-[#667067] hover:text-[#2D3A31]'
+                  }`}
               >
                 <span>Đã đóng</span>
                 <span className="text-[10px] opacity-80">({closedCount})</span>
@@ -459,23 +463,23 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2.5 shrink-0 ml-auto">
             <button
               onClick={() => setShowExportModal(true)}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-white hover:bg-[#F9F8F4] text-[#2D3A31] text-xs font-semibold transition-all border border-[#E6E2DA] cursor-pointer shadow-soft"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white hover:bg-[#FAF6F0] text-[#2D3A31] text-xs font-semibold transition-all border border-[#E6E2DA] cursor-pointer shadow-soft whitespace-nowrap"
               type="button"
             >
-              <span className="material-symbols-outlined text-[18px] text-[#8C9A84]">ios_share</span>
+              <span className="material-symbols-outlined text-[18px] text-[#C27B66]">ios_share</span>
               <span>Xuất Báo Cáo</span>
             </button>
 
             <button
               onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#2D3A31] hover:bg-[#C27B66] text-white text-xs font-semibold tracking-wider uppercase shadow-soft hover:shadow-soft-md transition-all cursor-pointer"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#C27B66] hover:bg-[#A86552] text-white text-xs font-bold tracking-wider uppercase shadow-soft hover:shadow-soft-md transition-all cursor-pointer whitespace-nowrap"
               type="button"
             >
               <span className="material-symbols-outlined text-[18px]">add_circle</span>
-              <span>Đăng Tin Mới (Chuẩn 70/30)</span>
+              <span>Đăng Tin Mới</span>
             </button>
           </div>
         </div>
@@ -493,13 +497,12 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span
-                        className={`px-3 py-0.5 rounded-full text-[11px] font-medium border ${
-                          job.badgeType === 'high-priority'
+                        className={`px-3 py-0.5 rounded-full text-[11px] font-medium border ${job.badgeType === 'high-priority'
                             ? 'bg-[#C27B66]/15 text-[#C27B66] border-[#C27B66]/30'
                             : job.badgeType === 'executive'
-                            ? 'bg-[#2D3A31]/10 text-[#2D3A31] border-[#2D3A31]/20'
-                            : 'bg-[#8C9A84]/15 text-[#2D3A31] border-[#8C9A84]/30'
-                        }`}
+                              ? 'bg-[#2D3A31]/10 text-[#2D3A31] border-[#2D3A31]/20'
+                              : 'bg-[#8C9A84]/15 text-[#2D3A31] border-[#8C9A84]/30'
+                          }`}
                       >
                         {job.badgeText}
                       </span>
@@ -521,11 +524,10 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                   <button
                     type="button"
                     onClick={() => handleToggleStatus(job.id)}
-                    className={`shrink-0 flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-medium border transition-colors cursor-pointer ${
-                      job.status === 'ACTIVE'
+                    className={`shrink-0 flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-medium border transition-colors cursor-pointer ${job.status === 'ACTIVE'
                         ? 'bg-[#8C9A84]/15 text-[#2D3A31] border-[#8C9A84]/40 hover:bg-[#8C9A84]/25'
                         : 'bg-[#F2F0EB] text-[#2D3A31]/60 border-[#E6E2DA] hover:bg-[#E6E2DA]'
-                    }`}
+                      }`}
                     title="Nhấp để chuyển trạng thái Đang bật / Tạm dừng"
                   >
                     <span className={`w-1.5 h-1.5 rounded-full ${job.status === 'ACTIVE' ? 'bg-[#8C9A84]' : 'bg-stone-400'}`} />
@@ -612,13 +614,13 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
               </div>
 
               {/* Action CTAs */}
-              <div className="flex items-center justify-between gap-3 pt-4 border-t border-[#E6E2DA] flex-wrap">
-                <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center justify-between gap-2 pt-4 border-t border-[#E6E2DA] flex-wrap sm:flex-nowrap overflow-x-auto">
+                <div className="flex items-center gap-1.5 shrink-0">
                   <button
                     onClick={() => {
                       window.location.hash = `#/jobs/${job.id}`;
                     }}
-                    className="px-3.5 py-2 rounded-full bg-white hover:bg-[#F9F8F4] text-[#2D3A31] text-xs font-medium transition-colors flex items-center gap-1.5 border border-[#E6E2DA] cursor-pointer shadow-soft"
+                    className="px-3 py-1.5 rounded-full bg-white hover:bg-[#F9F8F4] text-[#2D3A31] text-xs font-medium transition-colors flex items-center gap-1 border border-[#E6E2DA] cursor-pointer shadow-soft whitespace-nowrap shrink-0"
                     type="button"
                     title="Xem chi tiết bài đăng tuyển dụng"
                   >
@@ -631,7 +633,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                       setEditingJob({ ...job });
                       setShowEditModal(true);
                     }}
-                    className="px-3.5 py-2 rounded-full bg-white hover:bg-[#F9F8F4] text-[#2D3A31] text-xs font-medium transition-colors flex items-center gap-1.5 border border-[#E6E2DA] cursor-pointer shadow-soft"
+                    className="px-3 py-1.5 rounded-full bg-white hover:bg-[#F9F8F4] text-[#2D3A31] text-xs font-medium transition-colors flex items-center gap-1 border border-[#E6E2DA] cursor-pointer shadow-soft whitespace-nowrap shrink-0"
                     type="button"
                   >
                     <span className="material-symbols-outlined text-[16px] text-[#2D3A31]/60">edit</span>
@@ -640,7 +642,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
 
                   <button
                     onClick={() => handleCopyLink(job.code)}
-                    className="p-2 rounded-full bg-white hover:bg-[#F9F8F4] text-[#2D3A31]/60 hover:text-[#2D3A31] transition-colors border border-[#E6E2DA] cursor-pointer shadow-soft"
+                    className="p-1.5 rounded-full bg-white hover:bg-[#F9F8F4] text-[#2D3A31]/60 hover:text-[#2D3A31] transition-colors border border-[#E6E2DA] cursor-pointer shadow-soft shrink-0 flex items-center justify-center"
                     title="Sao chép link ứng tuyển"
                     type="button"
                   >
@@ -652,7 +654,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                   onClick={() => {
                     window.location.hash = `#/applicants-management?jobId=${job.id}`;
                   }}
-                  className="px-5 py-2.5 rounded-full bg-[#2D3A31] hover:bg-[#C27B66] text-white text-xs font-semibold shadow-soft hover:shadow-soft-md transition-all flex items-center gap-2 cursor-pointer"
+                  className="px-4 py-1.5 rounded-full bg-[#C27B66] hover:bg-[#A86552] text-white text-xs font-bold uppercase tracking-wider shadow-soft hover:shadow-soft-md transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0 ml-auto"
                   type="button"
                 >
                   <span className="material-symbols-outlined text-[16px]">group</span>
@@ -662,28 +664,6 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
               </div>
             </div>
           ))}
-        </div>
-
-        {/* Quick Footer Status Summary */}
-        <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-4 py-4 px-6 rounded-2xl bg-white text-xs text-[#2D3A31]/70 border border-[#E6E2DA] shadow-soft">
-          <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1.5 text-[#2D3A31] font-semibold">
-              <span className="material-symbols-outlined text-[16px] text-[#8C9A84]">psychology</span>
-              Thuật toán AI Matching: HireMate 4.2
-            </span>
-            <span className="hidden sm:inline">&bull;</span>
-            <span>Trọng số 70% Bắt buộc + 30% Ưu tiên tuân thủ chặt chẽ</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <span>Hiển thị {filteredJobs.length} trong số 12 vị trí</span>
-            <button
-              onClick={() => setSelectedCategory('ALL')}
-              className="text-[#C27B66] hover:underline flex items-center gap-1 font-semibold cursor-pointer"
-            >
-              <span>Xem tất cả tin</span>
-              <span className="material-symbols-outlined text-[14px]">chevron_right</span>
-            </button>
-          </div>
         </div>
       </div>
 
@@ -700,13 +680,10 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
               <span className="material-symbols-outlined text-base">close</span>
             </button>
 
-            <h2 className="text-2xl font-serif font-bold text-[#2D3A31] flex items-center gap-2 mb-1">
+            <h2 className="text-2xl font-serif font-bold text-[#2D3A31] flex items-center gap-2 mb-6">
               <span className="material-symbols-outlined text-[#C27B66]">add_circle</span>
-              Tạo Tin Tuyển Dụng Mới (Chuẩn AI 70/30)
+              Tạo Tin Tuyển Dụng Mới
             </h2>
-            <p className="text-xs text-[#2D3A31]/70 mb-6">
-              Khai báo tiêu đề, mức lương và phân bổ trọng số kỹ năng (70% Bắt buộc / 30% Ưu tiên) để AI matching chính xác hồ sơ ứng viên.
-            </p>
 
             <form onSubmit={handleCreateSubmit} className="space-y-4 text-xs">
               <div>
@@ -775,12 +752,9 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                   <div className="flex items-center gap-2">
                     <span className="material-symbols-outlined text-[#8C9A84] text-base">psychology</span>
                     <span className="font-serif font-bold text-sm text-[#2D3A31]">
-                      Cấu Hình Trọng Số AI Job Matcher (Chuẩn 70/30)
+                      Cấu Hình Trọng Số AI Job Matcher
                     </span>
                   </div>
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono text-[#2D3A31] bg-white border border-[#E6E2DA]">
-                    Formula: (M × 0.70) + (P × 0.30)
-                  </span>
                 </div>
 
                 {/* 70% MANDATORY SKILLS */}
@@ -802,7 +776,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                     onChange={(e) => setCreateForm({ ...createForm, mandatorySkillsInput: e.target.value })}
                     className="w-full bg-[#F9F8F4] border border-[#E6E2DA] rounded-xl p-2.5 text-[#2D3A31] placeholder-[#2D3A31]/40 focus:outline-none focus:border-[#8C9A84] text-xs"
                   />
-                  
+
                   {/* Quick Suggestions */}
                   <div className="flex flex-wrap items-center gap-1.5 pt-1">
                     <span className="text-[10px] text-[#2D3A31]/60">Gợi ý nhanh:</span>
@@ -825,9 +799,6 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                       </button>
                     ))}
                   </div>
-                  <p className="text-[11px] text-[#2D3A31]/70 leading-relaxed">
-                    Ứng viên bắt buộc phải có các kỹ năng này để đạt ngưỡng qua vòng hồ sơ (tối đa 70 điểm).
-                  </p>
                 </div>
 
                 {/* 30% PREFERRED SKILLS */}
@@ -848,7 +819,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                     onChange={(e) => setCreateForm({ ...createForm, preferredSkillsInput: e.target.value })}
                     className="w-full bg-[#F9F8F4] border border-[#E6E2DA] rounded-xl p-2.5 text-[#2D3A31] placeholder-[#2D3A31]/40 focus:outline-none focus:border-[#C27B66] text-xs"
                   />
-                  
+
                   {/* Quick Suggestions */}
                   <div className="flex flex-wrap items-center gap-1.5 pt-1">
                     <span className="text-[10px] text-[#2D3A31]/60">Gợi ý nhanh:</span>
@@ -871,9 +842,6 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                       </button>
                     ))}
                   </div>
-                  <p className="text-[11px] text-[#2D3A31]/70 leading-relaxed">
-                    Kỹ năng cộng điểm giúp xếp hạng ứng viên xuất sắc từ 80% - 98% Match trong Talent Pipeline.
-                  </p>
                 </div>
               </div>
 
