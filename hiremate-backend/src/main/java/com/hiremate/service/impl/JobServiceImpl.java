@@ -13,6 +13,7 @@ import com.hiremate.repository.CompanyRepository;
 import com.hiremate.repository.JobRepository;
 import com.hiremate.repository.JobSkillRepository;
 import com.hiremate.repository.RecruiterRepository;
+import com.hiremate.repository.SkillRepository;
 import com.hiremate.service.JobService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,7 @@ public class JobServiceImpl implements JobService {
 
     private final JobRepository jobRepository;
     private final JobSkillRepository jobSkillRepository;
+    private final SkillRepository skillRepository;
     private final CompanyRepository companyRepository;
     private final RecruiterRepository recruiterRepository;
     private final com.hiremate.service.NotificationService notificationService;
@@ -125,6 +127,32 @@ public class JobServiceImpl implements JobService {
         }
 
         Job updatedJob = jobRepository.save(job);
+
+        // Update skills if provided
+        if (request.getMandatorySkillIds() != null || request.getPreferredSkillIds() != null) {
+            jobSkillRepository.deleteByJobId(jobId);
+            if (request.getMandatorySkillIds() != null) {
+                for (Long skillId : request.getMandatorySkillIds()) {
+                    jobSkillRepository.save(JobSkill.builder()
+                            .jobId(jobId)
+                            .skillId(skillId)
+                            .importance(SkillImportance.MANDATORY)
+                            .weight(1.0f)
+                            .build());
+                }
+            }
+            if (request.getPreferredSkillIds() != null) {
+                for (Long skillId : request.getPreferredSkillIds()) {
+                    jobSkillRepository.save(JobSkill.builder()
+                            .jobId(jobId)
+                            .skillId(skillId)
+                            .importance(SkillImportance.PREFERRED)
+                            .weight(0.5f)
+                            .build());
+                }
+            }
+        }
+
         return mapToResponse(updatedJob);
     }
 
@@ -191,6 +219,19 @@ public class JobServiceImpl implements JobService {
      */
     private JobResponse mapToResponse(Job job) {
         Company company = job.getCompany();
+
+        // Load skills list for this job
+        List<String> skillNames = new ArrayList<>();
+        try {
+            List<JobSkill> jobSkills = jobSkillRepository.findByJobId(job.getJobId());
+            for (JobSkill js : jobSkills) {
+                if (js.getSkillId() != null) {
+                    skillRepository.findById(js.getSkillId())
+                            .ifPresent(s -> skillNames.add(s.getSkillName()));
+                }
+            }
+        } catch (Exception ignored) {}
+
         return JobResponse.builder()
                 .jobId(job.getJobId())
                 // Truy xuất qua Recruiter subclass (Shared PK: recruiterId = userId)
@@ -211,6 +252,7 @@ public class JobServiceImpl implements JobService {
                 .vacanciesCount(job.getVacanciesCount())
                 .totalViews(job.getTotalViews())
                 .deadlineDate(job.getDeadlineDate())
+                .skills(skillNames)
                 .createdAt(job.getCreatedAt())
                 .build();
     }
