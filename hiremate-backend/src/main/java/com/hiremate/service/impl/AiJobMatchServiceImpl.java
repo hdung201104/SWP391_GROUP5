@@ -202,10 +202,18 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
         if (m.getSkillGapJson() != null && !m.getSkillGapJson().isBlank()) {
             try {
                 Map<String, Object> map = objectMapper.readValue(m.getSkillGapJson(), new TypeReference<>() {});
-                if (map.containsKey("matchedMandatory")) matchedMandatory = (List<String>) map.get("matchedMandatory");
-                if (map.containsKey("missingMandatory")) missingMandatory = (List<String>) map.get("missingMandatory");
-                if (map.containsKey("matchedPreferred")) matchedPreferred = (List<String>) map.get("matchedPreferred");
-                if (map.containsKey("missingPreferred")) missingPreferred = (List<String>) map.get("missingPreferred");
+                if (map.get("matchedMandatory") != null) {
+                    matchedMandatory = objectMapper.convertValue(map.get("matchedMandatory"), new TypeReference<List<String>>() {});
+                }
+                if (map.get("missingMandatory") != null) {
+                    missingMandatory = objectMapper.convertValue(map.get("missingMandatory"), new TypeReference<List<String>>() {});
+                }
+                if (map.get("matchedPreferred") != null) {
+                    matchedPreferred = objectMapper.convertValue(map.get("matchedPreferred"), new TypeReference<List<String>>() {});
+                }
+                if (map.get("missingPreferred") != null) {
+                    missingPreferred = objectMapper.convertValue(map.get("missingPreferred"), new TypeReference<List<String>>() {});
+                }
             } catch (Exception ignored) {}
         }
 

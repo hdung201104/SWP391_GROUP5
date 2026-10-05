@@ -1,8 +1,7 @@
 package com.hiremate.dto.request;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.hiremate.enums.UserRole;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -13,11 +12,19 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder
 public class GoogleAuthRequest {
-    @NotBlank(message = "Email is required")
-    @Email(message = "Invalid email format")
+
+    /**
+     * Google ID Token / Credential trả về từ Google Sign-In SDK (GIS - Google Identity Services) ở Frontend.
+     * Khi truyền trường này, Backend sẽ giải mã và xác thực trực tiếp chữ ký số với Google API.
+     */
+    @JsonAlias({"credential", "token", "googleToken"})
+    private String idToken;
+
+    /**
+     * Trường fallback khi không dùng idToken hoặc trong môi trường test nội bộ.
+     */
     private String email;
 
-    @NotBlank(message = "Full name is required")
     private String fullName;
 
     private String avatarUrl;
@@ -27,3 +34,4 @@ public class GoogleAuthRequest {
     @Builder.Default
     private UserRole role = UserRole.CANDIDATE;
 }
+

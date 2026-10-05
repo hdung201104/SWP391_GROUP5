@@ -15,6 +15,7 @@ import com.hiremate.repository.CompanyRepository;
 import com.hiremate.repository.RecruiterRepository;
 import com.hiremate.repository.UserRepository;
 import com.hiremate.service.AuthService;
+import com.hiremate.service.GoogleTokenVerifierService;
 import com.hiremate.service.OtpService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -40,6 +42,7 @@ public class AuthServiceImpl implements AuthService {
     private final OtpService otpService;
     private final com.hiremate.service.EmailService emailService;
     private final com.hiremate.service.NotificationService notificationService;
+    private final com.hiremate.service.GoogleTokenVerifierService googleTokenVerifierService;
 
     @Override
     @Transactional
@@ -322,40 +325,99 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResponse googleLogin(GoogleAuthRequest request) {
-        String email = request.getEmail().toLowerCase().trim();
+        String email;
+        String fullName;
+        String avatarUrl;
+
+        if (request.getIdToken() != null && !request.getIdToken().isBlank()) {
+            // Xác thực token chính thức với Google API
+            GoogleTokenVerifierService.GoogleUserInfo googleUser = googleTokenVerifierService.verify(request.getIdToken());
+            email = googleUser.getEmail().toLowerCase().trim();
+            fullName = googleUser.getFullName();
+            avatarUrl = googleUser.getAvatarUrl();
+        } else if (request.getEmail() != null && !request.getEmail().isBlank()) {
+            // Fallback khi chạy test nội bộ hoặc môi trường dev
+            log.warn(">> [AuthService] Google login sử dụng fallback email trực tiếp (không kèm idToken): {}", request.getEmail());
+            email = request.getEmail().toLowerCase().trim();
+            fullName = (request.getFullName() != null && !request.getFullName().isBlank())
+                    ? request.getFullName()
+                    : email.split("@")[0];
+            avatarUrl = request.getAvatarUrl();
+        } else {
+            throw new IllegalArgumentException("Vui lòng cung cấp mã Google ID Token (idToken) hoặc email đăng nhập hợp lệ");
+        }
+
         Optional<User> existingUserOpt = userRepository.findByEmail(email);
 
         User user;
         if (existingUserOpt.isPresent()) {
             user = existingUserOpt.get();
-            if (request.getAvatarUrl() != null && (user.getAvatarUrl() == null || user.getAvatarUrl().isBlank())) {
-                user.setAvatarUrl(request.getAvatarUrl());
+            if (user.getStatus() != UserStatus.ACTIVE) {
+                throw new IllegalStateException("Tài khoản của bạn đã bị khóa hoặc ngừng kích hoạt. Vui lòng liên hệ quản trị viên.");
+            }
+            if (avatarUrl != null && (user.getAvatarUrl() == null || user.getAvatarUrl().isBlank())) {
+                user.setAvatarUrl(avatarUrl);
                 userRepository.save(user);
             }
+            log.info(">> [AuthService] Đăng nhập Google thành công cho tài khoản: {}", email);
         } else {
             UserRole role = request.getRole() != null ? request.getRole() : UserRole.CANDIDATE;
             user = User.builder()
                     .email(email)
-                    .passwordHash(passwordEncoder.encode("GoogleOAuth2_" + System.currentTimeMillis()))
-                    .fullName(request.getFullName())
-                    .avatarUrl(request.getAvatarUrl())
+                    .passwordHash(passwordEncoder.encode("GoogleOAuth2_" + UUID.randomUUID()))
+                    .fullName(fullName)
+                    .avatarUrl(avatarUrl)
                     .role(role)
                     .status(UserStatus.ACTIVE)
                     .isEmailVerified(true)
                     .build();
             user = userRepository.save(user);
 
-            // Tạo Candidate subclass record khi đăng ký qua Google
+            // Tạo Candidate subclass record khi đăng ký mới qua Google
             if (role == UserRole.CANDIDATE) {
                 Candidate candidate = Candidate.builder()
                         .candidateId(user.getUserId())  // Shared PK
                         .user(user)
-                        .headline("Ứng viên đang tìm cơ hội mới")
+                        .headline("Ứng viên tiềm năng")
                         .location("Việt Nam")
                         .experienceYears(0)
                         .build();
                 candidateRepository.save(candidate);
+            } else if (role == UserRole.RECRUITER) {
+                Company company = Company.builder()
+                        .companyName(fullName + "'s Company")
+                        .address("Việt Nam")
+                        .status(CompanyStatus.ACTIVE)
+                        .build();
+                Company savedCompany = companyRepository.saveAndFlush(company);
+
+                Recruiter recruiter = Recruiter.builder()
+                        .recruiterId(user.getUserId())
+                        .user(user)
+                        .company(savedCompany)
+                        .position("HR Recruiter")
+                        .build();
+                Recruiter savedRecruiter = recruiterRepository.saveAndFlush(recruiter);
+                savedCompany.setRecruiterId(savedRecruiter.getRecruiterId());
+                companyRepository.save(savedCompany);
             }
+
+            try {
+                emailService.sendWelcomeEmail(user.getEmail(), user.getFullName(), user.getRole().name());
+            } catch (Exception e) {
+                log.error(">> [AuthService] Không thể gửi welcome email cho user Google: {}", e.getMessage());
+            }
+
+            notificationService.createNotification(
+                    user.getUserId(),
+                    com.hiremate.enums.NotificationType.SYSTEM_ALERT,
+                    "Chào mừng gia nhập HireMate AI qua tài khoản Google!",
+                    "Tài khoản của bạn đã được liên kết và kích hoạt thành công.",
+                    user.getUserId(),
+                    "users"
+            );
+
+            log.info(">> [AuthService] Khởi tạo tài khoản mới thành công qua Google OAuth2: {}", email);
         }
 
         Long companyId = null;
@@ -383,7 +445,15 @@ public class AuthServiceImpl implements AuthService {
             throw new IllegalArgumentException("Refresh token is required");
         }
 
-        String email = jwtUtil.extractEmail(request.getRefreshToken());
+        String email;
+        try {
+            email = jwtUtil.extractEmail(request.getRefreshToken());
+        } catch (io.jsonwebtoken.ExpiredJwtException e) {
+            throw new IllegalArgumentException("Refresh token đã hết hạn, vui lòng đăng nhập lại");
+        } catch (io.jsonwebtoken.JwtException e) {
+            throw new IllegalArgumentException("Refresh token không hợp lệ hoặc đã bị thay đổi");
+        }
+
         if (email == null) {
             throw new IllegalArgumentException("Invalid refresh token");
         }

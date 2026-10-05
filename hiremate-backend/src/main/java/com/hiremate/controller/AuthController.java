@@ -43,7 +43,7 @@ public class AuthController {
 
     @PostMapping("/send-otp")
     public ResponseEntity<ApiResponse<Map<String, String>>> sendOtp(@Valid @RequestBody SendOtpRequest request) {
-        String otp = authService.sendOtp(request);
+        authService.sendOtp(request);
         Map<String, String> data = new java.util.HashMap<>();
         data.put("email", request.getEmail());
         data.put("purpose", request.getPurpose());
@@ -58,7 +58,7 @@ public class AuthController {
 
     @PostMapping("/forgot-password")
     public ResponseEntity<ApiResponse<Map<String, String>>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
-        String otp = authService.forgotPassword(request);
+        authService.forgotPassword(request);
         Map<String, String> data = new java.util.HashMap<>();
         data.put("email", request.getEmail());
         return ResponseEntity.ok(ApiResponse.ok("Mã OTP khôi phục mật khẩu đã được gửi đến email", data));
