@@ -6,4 +6,14 @@
             <class name="com.hiremate.testng.AuthServiceTestNGTest"/>
         </classes>
     </test>
+    <test name="Job-Posting-Management-UnitTests">
+        <classes>
+            <class name="com.hiremate.testng.JobServiceTestNGTest"/>
+        </classes>
+    </test>
+    <test name="Application-Pipeline-Management-UnitTests">
+        <classes>
+            <class name="com.hiremate.testng.ApplicationServiceTestNGTest"/>
+        </classes>
+    </test>
 </suite>
