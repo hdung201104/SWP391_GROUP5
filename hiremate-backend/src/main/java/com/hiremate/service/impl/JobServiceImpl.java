@@ -9,7 +9,6 @@ import com.hiremate.entity.Recruiter;
 import com.hiremate.entity.User;
 import com.hiremate.enums.JobStatus;
 import com.hiremate.enums.SkillImportance;
-import com.hiremate.repository.CompanyRepository;
 import com.hiremate.repository.JobRepository;
 import com.hiremate.repository.JobSkillRepository;
 import com.hiremate.repository.RecruiterRepository;
