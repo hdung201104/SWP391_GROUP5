@@ -1,11 +1,5 @@
 package com.hiremate.entity;
 
-import jakarta.persistence.*;
-import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
-
-import java.time.LocalDateTime;
-
 /**
  * @deprecated LOẠI BỎ THEO QUYẾT ĐỊNH KIẾN TRÚC V2
  *

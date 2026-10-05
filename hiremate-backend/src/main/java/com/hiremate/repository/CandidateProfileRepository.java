@@ -1,11 +1,5 @@
 package com.hiremate.repository;
 
-import com.hiremate.entity.CandidateProfile;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
-
-import java.util.Optional;
-
 /**
  * @deprecated Thay thế bởi CandidateRepository
  */
@@ -13,3 +7,4 @@ import java.util.Optional;
 public interface CandidateProfileRepository {
     // Legacy interface
 }
+

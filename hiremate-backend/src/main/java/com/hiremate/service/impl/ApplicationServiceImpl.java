@@ -22,8 +22,6 @@ public class ApplicationServiceImpl implements ApplicationService {
     private final ApplicationRepository applicationRepository;
     private final JobRepository jobRepository;
     private final CvRepository cvRepository;
-    private final UserRepository userRepository;
-    private final CompanyRepository companyRepository;
     private final RecruitmentPipelineLogRepository pipelineLogRepository;
     private final AiJobMatchRepository aiJobMatchRepository;
     private final CandidateRepository candidateRepository;

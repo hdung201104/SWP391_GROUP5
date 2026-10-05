@@ -21,7 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -30,7 +29,6 @@ public class JobServiceImpl implements JobService {
     private final JobRepository jobRepository;
     private final JobSkillRepository jobSkillRepository;
     private final SkillRepository skillRepository;
-    private final CompanyRepository companyRepository;
     private final RecruiterRepository recruiterRepository;
     private final com.hiremate.service.NotificationService notificationService;
 
