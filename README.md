@@ -14,24 +14,57 @@
 | **JDK (Java)** | **Java 21 (LTS)** | 🔗 [Tải Temurin 21 (.msi)](https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.4%2B7/OpenJDK21U-jdk_x64_windows_hotspot_21.0.4_7.msi) *(Hoặc [Oracle JDK 21](https://www.oracle.com/java/technologies/downloads/#java21))* | Chạy Backend **Spring Boot 3.2.4**. *(Bắt buộc Java 21, không dùng Java 8/11/17)* |
 | **Node.js** | **v20.x (LTS)** | 🔗 [Tải Node.js 20.x LTS (.msi)](https://nodejs.org/dist/v20.18.0/node-v20.18.0-x64.msi) *(Hoặc trang [Node.js](https://nodejs.org/en/download))* | Chạy Frontend **React 18 & Vite** |
 | **Git** | **Latest (Mới nhất)** | 🔗 [Tải Git 64-bit (.exe)](https://github.com/git-for-windows/git/releases/latest) | Quản lý mã nguồn & phối hợp nhóm trên GitHub |
-| **IDE Khuyên dùng** | **IntelliJ IDEA** hoặc **VS Code** | 🔗 [Tải IntelliJ Community](https://www.jetbrains.com/idea/download/) / [Tải VS Code](https://code.visualstudio.com/Download) | Soạn thảo code, kiểm thử & debug dự án |
+| **Apache Maven** | **3.9.x** *(Tùy chọn)* | 🔗 [Tải Apache Maven 3.9.9 (.zip)](https://dlcdn.apache.org/maven/maven-3/3.9.9/binaries/apache-maven-3.9.9-bin.zip) | Dành cho chạy lệnh `mvn` ngoài terminal. *(Nếu dùng IntelliJ / VS Code thì đã tích hợp sẵn, KHÔNG CẦN CÀI RỜI)* |
+| **IDE Khuyên dùng** | **IntelliJ IDEA** hoặc **VS Code** | 🔗 [Tải IntelliJ Community](https://www.jetbrains.com/idea/download/) / [Tải VS Code](https://code.visualstudio.com/Download) | Soạn thảo code, tự động tải thư viện Maven & debug |
+
+---
+
+### 🔍 Checklist Kiểm Tra Phiên Bản Trên Máy Trước Khi Chạy (BẮT BUỘC KHỚP 100%)
+Mở PowerShell / Terminal gõ các lệnh sau để kiểm tra máy của bạn:
+
+```bash
+# 1. Kiểm tra Java (Bắt buộc phải là Java 21)
+java -version
+# 👉 Kết quả chuẩn: openjdk version "21.0.x" ... (Nếu hiện Java 8/11/17 là SAI, cần cài lại Java 21)
+
+# 2. Kiểm tra Node.js (Phiên bản v20 LTS hoặc v18+)
+node -v
+# 👉 Kết quả chuẩn: v20.x.x (hoặc v18.18+)
+
+# 3. Kiểm tra npm
+npm -v
+# 👉 Kết quả chuẩn: 10.x.x
+
+# 4. Kiểm tra Git
+git --version
+# 👉 Kết quả chuẩn: git version 2.x.x
+```
 
 ---
 
 ### ⚙️ Danh Mục Phiên Bản & Thư Viện Chuẩn Của Dự Án (ĐÃ CẤU HÌNH SẴN TRONG `pom.xml`)
-> ⚠️ **LƯU Ý QUAN TRỌNG:** Toàn bộ thành viên **GIỮ NGUYÊN cấu hình dependencies trong `pom.xml`**, không tự ý nâng version để tránh lỗi xung đột hệ thống:
-> - **Spring Boot:** `3.2.4` (Chạy trên nền **Java 21**)
-> - **Lombok:** Tự động đồng bộ theo Spring Boot BOM *(Xem hướng dẫn cấu hình IDE bên dưới để không bị gạch đỏ)*
-> - **Apache PDFBox `3.0.2`:** Thư viện trích xuất text từ CV ứng viên tải lên *(Bắt buộc cho tính năng tuyển dụng)*
-> - **SpringDoc OpenAPI `2.5.0`:** Swagger UI tự động tại `http://localhost:8080/swagger-ui/index.html`
-> - **TestNG `7.9.0` & JaCoCo `0.8.11`:** Bộ công cụ kiểm thử tự động & xuất báo cáo Code Coverage phục vụ đồ án SWP391
+> ⚠️ **LƯU Ý ĐẶC BIỆT DÀNH CHO CẢ TEAM:** Toàn bộ thành viên **GIỮ NGUYÊN cấu hình trong `pom.xml`**, tuyệt đối không tự ý nâng hạ version để tránh xung đột mã nguồn:
+> 
+> | Công nghệ / Thư viện | Phiên bản chuẩn | Cách thức hoạt động |
+> | :--- | :---: | :--- |
+> | **Spring Boot** | **`3.2.4`** | Framework Backend chính (Bắt buộc chạy trên **Java 21**) |
+> | **Java SDK** | **`21 (LTS)`** | Ngôn ngữ backend (source/target: 21) |
+> | **Maven** | **`3.9.x`** | Trình quản lý build & tải tự động các dependencies |
+> | **Lombok** | **Theo Spring Boot BOM** | Tự sinh Getter/Setter *(Phải bật Annotation Processing trong IDE)* |
+> | **Apache PDFBox** | **`3.0.2`** | Xử lý trích xuất văn bản từ CV file PDF của ứng viên |
+> | **SpringDoc OpenAPI** | **`2.5.0`** | Tự sinh Swagger UI tra cứu API tại: `http://localhost:8080/swagger-ui/index.html` |
+> | **JJWT (Auth Token)** | **`0.12.5`** | Mã hóa & xác thực Token đăng nhập JWT |
+> | **TestNG & JaCoCo** | **`7.9.0` / `0.8.11`** | Bộ công cụ viết test & đo % độ bao phủ code phục vụ chấm điểm đồ án SWP391 |
+> | **Cơ sở dữ liệu** | **PostgreSQL (Supabase Cloud)** | Đám mây đồng bộ 100%, có Flyway tự chạy migration schema `V1__init_schema.sql` |
+> | **Frontend** | **React `18.3.1` + Vite `5.4.x`** | Cổng dev server: `http://localhost:3000` |
 
 ---
 
 ### 🛠️ Cài Đặt IDE Để Không Bị Lỗi Đỏ Lombok (Bắt Buộc Làm 1 Lần)
-* **Nếu dùng IntelliJ IDEA:**
-  1. Vào `Settings` (Ctrl + Alt + S) -> Tìm kiếm `Annotation Processors`.
+* **Nếu dùng IntelliJ IDEA (Khuyên Dùng):**
+  1. Vào `Settings` (phím tắt `Ctrl + Alt + S`) -> Tìm kiếm từ khóa: `Annotation Processors`.
   2. Tích chọn ô **Enable annotation processing** -> Bấm `Apply` & `OK`.
+  3. Cấu hình SDK: Vào `File` -> `Project Structure` -> `Project` -> Chọn **SDK 21**.
 * **Nếu dùng VS Code:**
   1. Cài đặt Extension: **Extension Pack for Java** (của Microsoft).
   2. Cài đặt thêm Extension: **Lombok Annotations Support for VS Code**.
@@ -73,15 +106,24 @@ npm run dev
 ---
 
 ### Bước 3: Khởi chạy Backend (Spring Boot 3 & Java 21)
-Mở một cửa sổ Terminal **thứ hai**:
-```bash
-# 1. Di chuyển vào thư mục backend
-cd hiremate-backend
 
-# 2. Biên dịch và khởi chạy Spring Boot
-mvn spring-boot:run
-```
-* 🔌 **Backend REST API:** `http://localhost:8080`
+Thành viên có thể chọn **1 trong 2 cách** sau để chạy Backend:
+
+* **Cách 1: Khởi chạy bằng IntelliJ IDEA (Khuyên dùng - Đơn giản nhất, không cần cài Maven rời):**
+  1. Mở thư mục dự án `SWP391_GROUP5` bằng IntelliJ IDEA.
+  2. Chờ IntelliJ tự động đồng bộ Maven dependencies (thấy thanh dưới góc phải chạy xong).
+  3. Mở file `hiremate-backend/src/main/java/com/hiremate/HiremateApplication.java`.
+  4. Bấm vào nút **Run** (biểu tượng tam giác xanh ▶️ bên cạnh hàm `main`).
+
+* **Cách 2: Khởi chạy bằng Terminal (Nếu máy đã cài Apache Maven):**
+  Mở cửa sổ Terminal thứ hai:
+  ```bash
+  cd hiremate-backend
+  mvn spring-boot:run
+  ```
+
+* 🔌 **Backend REST API:** `http://localhost:8080`  
+* 📄 **Swagger UI tra cứu API:** `http://localhost:8080/swagger-ui/index.html`  
 * Backend sẽ tự động kết nối tới **Supabase Cloud PostgreSQL** qua SSL và tự động chạy Flyway Migration tạo 16 bảng chuẩn hóa.
 
 ---
