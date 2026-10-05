@@ -121,6 +121,14 @@
 			<artifactId>spring-security-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+
+		<!-- TestNG Framework (Thuyết trình & Kiểm thử theo yêu cầu đề bài) -->
+		<dependency>
+			<groupId>org.testng</groupId>
+			<artifactId>testng</artifactId>
+			<version>7.9.0</version>
+			<scope>test</scope>
+		</dependency>
 	</dependencies>
 
 	<build>
@@ -144,6 +152,46 @@
 						</exclude>
 					</excludes>
 				</configuration>
+			</plugin>
+
+			<!-- Maven Surefire Plugin: Điều khiển chạy TestNG Suite -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<version>3.2.5</version>
+				<dependencies>
+					<dependency>
+						<groupId>org.apache.maven.surefire</groupId>
+						<artifactId>surefire-testng</artifactId>
+						<version>3.2.5</version>
+					</dependency>
+				</dependencies>
+				<configuration>
+					<suiteXmlFiles>
+						<suiteXmlFile>src/test/resources/testng.xml</suiteXmlFile>
+					</suiteXmlFiles>
+				</configuration>
+			</plugin>
+
+			<!-- JaCoCo Plugin: Đo lường độ bao phủ mã nguồn (Code Coverage Report) -->
+			<plugin>
+				<groupId>org.jacoco</groupId>
+				<artifactId>jacoco-maven-plugin</artifactId>
+				<version>0.8.11</version>
+				<executions>
+					<execution>
+						<goals>
+							<goal>prepare-agent</goal>
+						</goals>
+					</execution>
+					<execution>
+						<id>report</id>
+						<phase>test</phase>
+						<goals>
+							<goal>report</goal>
+						</goals>
+					</execution>
+				</executions>
 			</plugin>
 		</plugins>
 	</build>
