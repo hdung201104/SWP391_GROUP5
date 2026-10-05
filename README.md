@@ -7,18 +7,40 @@
 
 ## 📥 1. Yêu Cầu Môi Trường & Link Tải Phần Mềm (Prerequisites)
 
-Để toàn bộ thành viên trong nhóm chạy được dự án mượt mà, **mỗi thành viên CHỈ CẦN cài đặt 3 phần mềm sau vào máy tính cá nhân** (tải 1 lần duy nhất):
+Để toàn bộ thành viên trong nhóm chạy được dự án mượt mà, **mỗi thành viên CHỈ CẦN cài đặt các phần mềm sau vào máy tính cá nhân** (chỉ tải & cài đặt 1 lần duy nhất):
 
-| Phần mềm | Phiên bản yêu cầu | Link tải chính thức | Mục đích |
+| Phần mềm | Phiên bản chuẩn của nhóm | Link tải trực tiếp (Windows x64) | Mục đích & Lưu ý |
 | :--- | :---: | :---: | :--- |
-| **JDK (Java)** | **Java 21 (LTS)** | 🔗 [Tải Eclipse Adoptium Temurin 21](https://adoptium.net/temurin/releases/?version=21) *(hoặc Oracle JDK 21)* | Chạy Backend Spring Boot 3.2.4 |
-| **Node.js** | **v20.x (LTS)** *(hoặc v18+)* | 🔗 [Tải Node.js LTS Installer](https://nodejs.org/en/download) | Chạy Frontend React 18 & Vite |
-| **Git** | **Latest** | 🔗 [Tải Git for Windows/Mac](https://git-scm.com/downloads) | Quản lý mã nguồn & làm việc nhóm |
-| **IDE Khuyên dùng** | **VS Code** hoặc **IntelliJ IDEA** | 🔗 [VS Code](https://code.visualstudio.com/) / [IntelliJ IDEA](https://www.jetbrains.com/idea/) | Soạn thảo code & debug |
+| **JDK (Java)** | **Java 21 (LTS)** | 🔗 [Tải Temurin 21 (.msi)](https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.4%2B7/OpenJDK21U-jdk_x64_windows_hotspot_21.0.4_7.msi) *(Hoặc [Oracle JDK 21](https://www.oracle.com/java/technologies/downloads/#java21))* | Chạy Backend **Spring Boot 3.2.4**. *(Bắt buộc Java 21, không dùng Java 8/11/17)* |
+| **Node.js** | **v20.x (LTS)** | 🔗 [Tải Node.js 20.x LTS (.msi)](https://nodejs.org/dist/v20.18.0/node-v20.18.0-x64.msi) *(Hoặc trang [Node.js](https://nodejs.org/en/download))* | Chạy Frontend **React 18 & Vite** |
+| **Git** | **Latest (Mới nhất)** | 🔗 [Tải Git 64-bit (.exe)](https://github.com/git-for-windows/git/releases/latest) | Quản lý mã nguồn & phối hợp nhóm trên GitHub |
+| **IDE Khuyên dùng** | **IntelliJ IDEA** hoặc **VS Code** | 🔗 [Tải IntelliJ Community](https://www.jetbrains.com/idea/download/) / [Tải VS Code](https://code.visualstudio.com/Download) | Soạn thảo code, kiểm thử & debug dự án |
+
+---
+
+### ⚙️ Danh Mục Phiên Bản & Thư Viện Chuẩn Của Dự Án (ĐÃ CẤU HÌNH SẴN TRONG `pom.xml`)
+> ⚠️ **LƯU Ý QUAN TRỌNG:** Toàn bộ thành viên **GIỮ NGUYÊN cấu hình dependencies trong `pom.xml`**, không tự ý nâng version để tránh lỗi xung đột hệ thống:
+> - **Spring Boot:** `3.2.4` (Chạy trên nền **Java 21**)
+> - **Lombok:** Tự động đồng bộ theo Spring Boot BOM *(Xem hướng dẫn cấu hình IDE bên dưới để không bị gạch đỏ)*
+> - **Apache PDFBox `3.0.2`:** Thư viện trích xuất text từ CV ứng viên tải lên *(Bắt buộc cho tính năng tuyển dụng)*
+> - **SpringDoc OpenAPI `2.5.0`:** Swagger UI tự động tại `http://localhost:8080/swagger-ui/index.html`
+> - **TestNG `7.9.0` & JaCoCo `0.8.11`:** Bộ công cụ kiểm thử tự động & xuất báo cáo Code Coverage phục vụ đồ án SWP391
+
+---
+
+### 🛠️ Cài Đặt IDE Để Không Bị Lỗi Đỏ Lombok (Bắt Buộc Làm 1 Lần)
+* **Nếu dùng IntelliJ IDEA:**
+  1. Vào `Settings` (Ctrl + Alt + S) -> Tìm kiếm `Annotation Processors`.
+  2. Tích chọn ô **Enable annotation processing** -> Bấm `Apply` & `OK`.
+* **Nếu dùng VS Code:**
+  1. Cài đặt Extension: **Extension Pack for Java** (của Microsoft).
+  2. Cài đặt thêm Extension: **Lombok Annotations Support for VS Code**.
+
+---
 
 > [!IMPORTANT]
 > 🌟 **LƯU Ý ĐẶC BIỆT VỀ CƠ SỞ DỮ LIỆU (DATABASE):**  
-> Team **KHÔNG CẦN CÀI ĐẶT PostgreSQL hay pgAdmin trên máy local**. Cơ sở dữ liệu đã được cấu hình chạy trực tiếp trên **Supabase Cloud**. Toàn bộ team dùng chung 1 CSDL đám mây duy nhất, tự động đồng bộ 100% dữ liệu.
+> Team **KHÔNG CẦN CÀI ĐẶT PostgreSQL hay pgAdmin trên máy local**. Cơ sở dữ liệu đã được cấu hình chạy trực tiếp trên **Supabase Cloud**. Toàn bộ team dùng chung 1 CSDL đám mây duy nhất, tự động đồng bộ 100% dữ liệu qua Flyway Migration khi khởi chạy backend.
 
 ---
 
