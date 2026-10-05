@@ -38,14 +38,33 @@ public class CvServiceImpl implements CvService {
         List<Cv> existingCvs = cvRepository.findByCandidateId(candidate.getUserId());
         boolean isFirst = existingCvs.isEmpty();
 
+        String parsedText = null;
+        if ("pdf".equalsIgnoreCase(fileType)) {
+            try (org.apache.pdfbox.pdmodel.PDDocument document = org.apache.pdfbox.Loader.loadPDF(file.getBytes())) {
+                org.apache.pdfbox.text.PDFTextStripper stripper = new org.apache.pdfbox.text.PDFTextStripper();
+                String rawText = stripper.getText(document);
+                if (rawText != null && !rawText.isBlank()) {
+                    parsedText = rawText.trim();
+                    log.info(">> [CvService] Đã trích xuất thành công {} ký tự text từ CV PDF: {}", parsedText.length(), originalName);
+                }
+            } catch (Exception e) {
+                log.warn(">> [CvService] Không thể bóc tách text từ file PDF: {}", e.getMessage());
+            }
+        }
+
+        String summaryText = (parsedText != null && parsedText.length() > 300)
+                ? parsedText.substring(0, 300).replaceAll("\\s+", " ") + "..."
+                : "Uploaded via HireMate AI Candidate Portal";
+
         Cv cv = Cv.builder()
                 .candidateId(candidate.getUserId())
                 .fileName(originalName)
                 .fileUrl(fileUrl)
                 .fileType(fileType)
                 .fileSizeBytes((int) file.getSize())
+                .parsedText(parsedText)
                 .parseStatus(CvParseStatus.DONE)
-                .summary("Uploaded via HireMate AI Candidate Portal")
+                .summary(summaryText)
                 .isDefault(isFirst)
                 .build();
 
