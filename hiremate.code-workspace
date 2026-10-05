@@ -1,0 +1,26 @@
+{
+  "folders": [
+    {
+      "name": "hiremate-backend",
+      "path": "hiremate-backend"
+    },
+    {
+      "name": "hiremate-frontend",
+      "path": "hiremate-frontend"
+    },
+    {
+      "name": "hiremate-root",
+      "path": "."
+    }
+  ],
+  "settings": {
+    "java.jdt.ls.java.home": "C:\\Program Files\\Eclipse Adoptium\\jdk-21.0.12.101-hotspot",
+    "java.configuration.updateBuildConfiguration": "automatic",
+    "java.import.maven.enabled": true,
+    "java.errors.incompleteClasspath.severity": "ignore",
+    "maven.executable.preferMavenWrapper": true,
+    "terminal.integrated.env.windows": {
+      "JAVA_HOME": "C:\\Program Files\\Eclipse Adoptium\\jdk-21.0.12.101-hotspot"
+    }
+  }
+}
