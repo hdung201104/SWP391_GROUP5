@@ -47,6 +47,7 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
         if (candidate.getExperiencesJson() != null) candText.append(" ").append(candidate.getExperiencesJson());
         if (candidate.getEducationsJson() != null) candText.append(" ").append(candidate.getEducationsJson());
         if (cv != null) {
+            if (cv.getParsedText() != null) candText.append(" ").append(cv.getParsedText());
             if (cv.getSummary() != null) candText.append(" ").append(cv.getSummary());
             if (cv.getFileName() != null) candText.append(" ").append(cv.getFileName());
         }

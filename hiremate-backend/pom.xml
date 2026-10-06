@@ -115,6 +115,7 @@
 			<version>1.44.1</version>
 		</dependency>
 
+<<<<<<< HEAD
 		<!-- Apache PDFBox (CV Parsing) -->
 		<dependency>
 			<groupId>org.apache.pdfbox</groupId>
@@ -123,12 +124,25 @@
 		</dependency>
 
 		<!-- SpringDoc OpenAPI (Swagger UI) -->
+=======
+		<!-- SpringDoc OpenAPI 3 (Swagger UI) -->
+>>>>>>> 48438e9be0cf9a8cd26617d93f979358c2bb9e82
 		<dependency>
 			<groupId>org.springdoc</groupId>
 			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
 			<version>2.5.0</version>
 		</dependency>
 
+<<<<<<< HEAD
+=======
+		<!-- Apache PDFBox (PDF Text Extraction) -->
+		<dependency>
+			<groupId>org.apache.pdfbox</groupId>
+			<artifactId>pdfbox</artifactId>
+			<version>3.0.2</version>
+		</dependency>
+
+>>>>>>> 48438e9be0cf9a8cd26617d93f979358c2bb9e82
 		<!-- Testing -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -140,6 +154,11 @@
 			<artifactId>spring-security-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+<<<<<<< HEAD
+=======
+
+		<!-- TestNG Framework (Thuyết trình & Kiểm thử theo yêu cầu đề bài) -->
+>>>>>>> 48438e9be0cf9a8cd26617d93f979358c2bb9e82
 		<dependency>
 			<groupId>org.testng</groupId>
 			<artifactId>testng</artifactId>
@@ -178,6 +197,30 @@
 					</excludes>
 				</configuration>
 			</plugin>
+<<<<<<< HEAD
+=======
+
+			<!-- Maven Surefire Plugin: Điều khiển chạy TestNG Suite -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<version>3.2.5</version>
+				<dependencies>
+					<dependency>
+						<groupId>org.apache.maven.surefire</groupId>
+						<artifactId>surefire-testng</artifactId>
+						<version>3.2.5</version>
+					</dependency>
+				</dependencies>
+				<configuration>
+					<suiteXmlFiles>
+						<suiteXmlFile>src/test/resources/testng.xml</suiteXmlFile>
+					</suiteXmlFiles>
+				</configuration>
+			</plugin>
+
+			<!-- JaCoCo Plugin: Đo lường độ bao phủ mã nguồn (Code Coverage Report) -->
+>>>>>>> 48438e9be0cf9a8cd26617d93f979358c2bb9e82
 			<plugin>
 				<groupId>org.jacoco</groupId>
 				<artifactId>jacoco-maven-plugin</artifactId>

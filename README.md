@@ -7,18 +7,91 @@
 
 ## 📥 1. Yêu Cầu Môi Trường & Link Tải Phần Mềm (Prerequisites)
 
-Để toàn bộ thành viên trong nhóm chạy được dự án mượt mà, **mỗi thành viên CHỈ CẦN cài đặt 3 phần mềm sau vào máy tính cá nhân** (tải 1 lần duy nhất):
+Để toàn bộ thành viên trong nhóm chạy được dự án mượt mà, **mỗi thành viên BẮT BUỘC phải dùng đúng các phiên bản sau** (để tránh lỗi mỗi người một phiên bản không chạy được):
 
-| Phần mềm | Phiên bản yêu cầu | Link tải chính thức | Mục đích |
+| Phần mềm / Môi trường | Phiên bản BẮT BUỘC của nhóm | Link tải chính thức (Windows x64) | Mục đích & Lưu ý |
 | :--- | :---: | :---: | :--- |
-| **JDK (Java)** | **Java 21 (LTS)** | 🔗 [Tải Eclipse Adoptium Temurin 21](https://adoptium.net/temurin/releases/?version=21) *(hoặc Oracle JDK 21)* | Chạy Backend Spring Boot 3.2.4 |
-| **Node.js** | **v20.x (LTS)** *(hoặc v18+)* | 🔗 [Tải Node.js LTS Installer](https://nodejs.org/en/download) | Chạy Frontend React 18 & Vite |
-| **Git** | **Latest** | 🔗 [Tải Git for Windows/Mac](https://git-scm.com/downloads) | Quản lý mã nguồn & làm việc nhóm |
-| **IDE Khuyên dùng** | **VS Code** hoặc **IntelliJ IDEA** | 🔗 [VS Code](https://code.visualstudio.com/) / [IntelliJ IDEA](https://www.jetbrains.com/idea/) | Soạn thảo code & debug |
+| **JDK (Java SDK)** | **Java 21 (LTS)** | 🔗 [Tải Temurin 21 (.msi)](https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.4%2B7/OpenJDK21U-jdk_x64_windows_hotspot_21.0.4_7.msi) *(Hoặc [Oracle JDK 21](https://www.oracle.com/java/technologies/downloads/#java21))* | Chạy Backend **Spring Boot 3.2.4**. *(Tuyệt đối không dùng Java 8/11/17 - sẽ lỗi compile ngay)* |
+| **Spring Boot Framework** | **`3.2.4`** | *(Đã cấu hình sẵn trong `pom.xml`)* | Khung ứng dụng Backend. **Tất cả thành viên giữ nguyên `3.2.4`, không tự ý đổi lên 3.3.x hay xuống 3.1.x** |
+| **Apache Maven** | **`3.9.x`** *(Khuyên dùng 3.9.9 / 3.9.16)* | 🔗 [Tải Apache Maven 3.9.9 (.zip)](https://dlcdn.apache.org/maven/maven-3/3.9.9/binaries/apache-maven-3.9.9-bin.zip) | Build & quản lý thư viện. *(Tối thiểu 3.8.x, khuyên dùng 3.9.x. Nếu dùng IntelliJ thì đã có sẵn trong IDE)* |
+| **Node.js** | **`v20.x (LTS)`** | 🔗 [Tải Node.js 20.x LTS (.msi)](https://nodejs.org/dist/v20.18.0/node-v20.18.0-x64.msi) *(Hoặc [Node.js](https://nodejs.org/en/download))* | Chạy Frontend **React 18 & Vite** |
+| **Git** | **Latest (Mới nhất)** | 🔗 [Tải Git 64-bit (.exe)](https://github.com/git-for-windows/git/releases/latest) | Đồng bộ mã nguồn nhóm qua GitHub |
+| **IDE Khuyên dùng** | **IntelliJ IDEA** *(hoặc VS Code)* | 🔗 [Tải IntelliJ Community](https://www.jetbrains.com/idea/download/) / [Tải VS Code](https://code.visualstudio.com/Download) | Soạn thảo, tự động nhận diện Java 21 & Maven |
+
+---
+
+### 🔍 Checklist Kiểm Tra Phiên Bản Trên Máy Trước Khi Chạy (BẮT BUỘC PHẢI KHỚP)
+Mở PowerShell / Terminal gõ các lệnh sau để kiểm tra môi trường máy của bạn:
+
+```bash
+# 1. Kiểm tra Java (Bắt buộc phải là Java 21)
+java -version
+# 👉 Kết quả chuẩn: openjdk version "21.0.x" ... (Nếu hiện Java 8/11/17 là SAI, phải chuyển sang Java 21)
+
+# 2. Kiểm tra Maven (Bắt buộc Maven 3.8+ hoặc 3.9+ và Java runtime là 21)
+mvn -v
+# 👉 Kết quả chuẩn:
+# Apache Maven 3.9.x ...
+# Java version: 21.0.x ... (LƯU Ý: Nếu Maven báo "Java version: 17/11/8" là sai môi trường, phải sửa JAVA_HOME)
+
+# 3. Kiểm tra Spring Boot (Xem dòng 8 trong hiremate-backend/pom.xml)
+# 👉 Chuẩn toàn nhóm: <version>3.2.4</version>
+
+# 4. Kiểm tra Node.js (Bắt buộc v20 LTS hoặc v18.18+)
+node -v
+# 👉 Kết quả chuẩn: v20.x.x
+
+# 5. Kiểm tra npm
+npm -v
+# 👉 Kết quả chuẩn: 10.x.x
+
+# 6. Kiểm tra Git
+git --version
+# 👉 Kết quả chuẩn: git version 2.x.x
+```
+
+---
+
+### ⚠️ CÁC LỖI THƯỜNG GẶP NẾU BỊ LỆCH PHIÊN BẢN MAVEN HOẶC SPRING BOOT:
+1. **Dùng Maven cũ (< 3.8.x) hoặc Maven trỏ nhầm Java 17/11:**
+   - ❌ Lỗi: `Fatal error compiling: invalid target release: 21` hoặc `Unsupported class file major version`.
+   - ✅ Sửa: Cập nhật biến môi trường `JAVA_HOME` trỏ đúng vào thư mục cài `jdk-21`.
+2. **Tự ý sửa version Spring Boot trong `pom.xml`:**
+   - ❌ Lỗi: Khi một bạn đổi Spring Boot lên `3.3.4` còn các bạn khác ở `3.2.4`, khi `git pull` sẽ bị xung đột conflict và lỗi không tương thích phiên bản thư viện con.
+   - ✅ Quy tắc: **Không ai được sửa thẻ `<parent><version>3.2.4</version></parent>` trong `pom.xml`**.
+
+---
+
+### ⚙️ Danh Mục Toàn Bộ Thư Viện Chuẩn Trong `pom.xml` (Đã đồng bộ)
+| Công nghệ / Thư viện | Phiên bản chuẩn | Cách thức hoạt động |
+| :--- | :---: | :--- |
+| **Spring Boot** | **`3.2.4`** | Framework Backend chính (Bắt buộc chạy trên **Java 21**) |
+| **Java SDK** | **`21 (LTS)`** | Ngôn ngữ backend (source/target: 21) |
+| **Apache Maven** | **`3.9.x`** | Trình quản lý build & tải tự động các dependencies |
+| **Lombok** | **Theo Spring Boot BOM** | Tự sinh Getter/Setter *(Phải bật Annotation Processing trong IDE)* |
+| **Apache PDFBox** | **`3.0.2`** | Xử lý trích xuất văn bản từ CV file PDF của ứng viên |
+| **SpringDoc OpenAPI** | **`2.5.0`** | Tự sinh Swagger UI tra cứu API tại: `http://localhost:8080/swagger-ui/index.html` |
+| **JJWT (Auth Token)** | **`0.12.5`** | Mã hóa & xác thực Token đăng nhập JWT |
+| **TestNG & JaCoCo** | **`7.9.0` / `0.8.11`** | Bộ công cụ viết test & đo % độ bao phủ code phục vụ chấm điểm đồ án SWP391 |
+| **Cơ sở dữ liệu** | **PostgreSQL (Supabase Cloud)** | Đám mây đồng bộ 100%, có Flyway tự chạy migration schema `V1__init_schema.sql` |
+| **Frontend** | **React `18.3.1` + Vite `5.4.x`** | Cổng dev server: `http://localhost:3000` |
+
+---
+
+### 🛠️ Cài Đặt IDE Để Không Bị Lỗi Đỏ Lombok (Bắt Buộc Làm 1 Lần)
+* **Nếu dùng IntelliJ IDEA (Khuyên Dùng):**
+  1. Vào `Settings` (phím tắt `Ctrl + Alt + S`) -> Tìm kiếm từ khóa: `Annotation Processors`.
+  2. Tích chọn ô **Enable annotation processing** -> Bấm `Apply` & `OK`.
+  3. Cấu hình SDK: Vào `File` -> `Project Structure` -> `Project` -> Chọn **SDK 21**.
+* **Nếu dùng VS Code:**
+  1. Cài đặt Extension: **Extension Pack for Java** (của Microsoft).
+  2. Cài đặt thêm Extension: **Lombok Annotations Support for VS Code**.
+
+---
 
 > [!IMPORTANT]
 > 🌟 **LƯU Ý ĐẶC BIỆT VỀ CƠ SỞ DỮ LIỆU (DATABASE):**  
-> Team **KHÔNG CẦN CÀI ĐẶT PostgreSQL hay pgAdmin trên máy local**. Cơ sở dữ liệu đã được cấu hình chạy trực tiếp trên **Supabase Cloud**. Toàn bộ team dùng chung 1 CSDL đám mây duy nhất, tự động đồng bộ 100% dữ liệu.
+> Team **KHÔNG CẦN CÀI ĐẶT PostgreSQL hay pgAdmin trên máy local**. Cơ sở dữ liệu đã được cấu hình chạy trực tiếp trên **Supabase Cloud**. Toàn bộ team dùng chung 1 CSDL đám mây duy nhất, tự động đồng bộ 100% dữ liệu qua Flyway Migration khi khởi chạy backend.
 
 ---
 
@@ -51,15 +124,24 @@ npm run dev
 ---
 
 ### Bước 3: Khởi chạy Backend (Spring Boot 3 & Java 21)
-Mở một cửa sổ Terminal **thứ hai**:
-```bash
-# 1. Di chuyển vào thư mục backend
-cd hiremate-backend
 
-# 2. Biên dịch và khởi chạy Spring Boot
-mvn spring-boot:run
-```
-* 🔌 **Backend REST API:** `http://localhost:8080`
+Thành viên có thể chọn **1 trong 2 cách** sau để chạy Backend:
+
+* **Cách 1: Khởi chạy bằng IntelliJ IDEA (Khuyên dùng - Đơn giản nhất, không cần cài Maven rời):**
+  1. Mở thư mục dự án `SWP391_GROUP5` bằng IntelliJ IDEA.
+  2. Chờ IntelliJ tự động đồng bộ Maven dependencies (thấy thanh dưới góc phải chạy xong).
+  3. Mở file `hiremate-backend/src/main/java/com/hiremate/HiremateApplication.java`.
+  4. Bấm vào nút **Run** (biểu tượng tam giác xanh ▶️ bên cạnh hàm `main`).
+
+* **Cách 2: Khởi chạy bằng Terminal (Nếu máy đã cài Apache Maven):**
+  Mở cửa sổ Terminal thứ hai:
+  ```bash
+  cd hiremate-backend
+  mvn spring-boot:run
+  ```
+
+* 🔌 **Backend REST API:** `http://localhost:8080`  
+* 📄 **Swagger UI tra cứu API:** `http://localhost:8080/swagger-ui/index.html`  
 * Backend sẽ tự động kết nối tới **Supabase Cloud PostgreSQL** qua SSL và tự động chạy Flyway Migration tạo 16 bảng chuẩn hóa.
 
 ---

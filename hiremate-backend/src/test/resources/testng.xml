@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<<<<<<< HEAD
 <!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
 <suite name="HireMate Test Suite" verbose="1">
 
@@ -14,4 +15,23 @@
         </classes>
     </test>
 
+=======
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd" >
+<suite name="HireMate-Backend-TestSuite" verbose="2">
+    <test name="Authentication-Register-Login-UnitTests">
+        <classes>
+            <class name="com.hiremate.testng.AuthServiceTestNGTest"/>
+        </classes>
+    </test>
+    <test name="Job-Posting-Management-UnitTests">
+        <classes>
+            <class name="com.hiremate.testng.JobServiceTestNGTest"/>
+        </classes>
+    </test>
+    <test name="Application-Pipeline-Management-UnitTests">
+        <classes>
+            <class name="com.hiremate.testng.ApplicationServiceTestNGTest"/>
+        </classes>
+    </test>
+>>>>>>> 48438e9be0cf9a8cd26617d93f979358c2bb9e82
 </suite>

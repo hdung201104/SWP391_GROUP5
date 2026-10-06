@@ -16,6 +16,7 @@ import RecruiterDashboardPage from './pages/RecruiterDashboardPage';
 import CandidateEvaluationPage from './pages/CandidateEvaluationPage';
 import AiInterviewStudioPage from './pages/AiInterviewStudioPage';
 import AccountSettingsPage from './pages/AccountSettingsPage';
+import CareerInsightsPage from './pages/CareerInsightsPage';
 import NotFoundPage from './pages/NotFoundPage';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
