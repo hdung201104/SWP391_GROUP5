@@ -221,11 +221,11 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
   };
 
   return (
-    <div className="recruiter-page w-full flex-1 bg-transparent text-[#2D3A31] antialiased font-body pb-20 selection:bg-[#8C9A84] selection:text-white">
+    <div className="recruiter-page w-full flex-1 bg-transparent text-slate-800 antialiased font-sans pb-20 selection:bg-purple-200 selection:text-purple-900">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-20 right-6 z-50 px-5 py-3 rounded-2xl bg-[#2D3A31] text-white text-xs font-semibold shadow-soft-xl flex items-center gap-2.5 animate-fade-in border border-[#E6E2DA]">
-          <span className="material-symbols-outlined text-[#8C9A84] text-base">check_circle</span>
+        <div className="fixed top-20 right-6 z-50 px-5 py-3 rounded-2xl bg-[#221d47] text-white text-xs font-semibold shadow-xl flex items-center gap-2.5 animate-fade-in border border-purple-200">
+          <span className="material-symbols-outlined text-emerald-400 text-base">check_circle</span>
           <span>{toastMessage}</span>
         </div>
       )}
@@ -236,25 +236,25 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
         {/* =================================================================== */}
         {/* 1. HERO COMPANY COVER & BRAND IDENTITY HEADER                       */}
         {/* =================================================================== */}
-        <div className="relative rounded-[32px] overflow-hidden bg-white border border-[#E6E2DA] shadow-soft">
+        <div className="relative rounded-[32px] overflow-hidden bg-white border border-purple-100 shadow-sm">
           {/* Cover Landscape */}
-          <div className="relative w-full h-56 sm:h-72 md:h-80 overflow-hidden bg-[#F2F0EB]">
+          <div className="relative w-full h-56 sm:h-72 md:h-80 overflow-hidden bg-slate-100">
             <img
               src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1600&auto=format&fit=crop&q=80"
               alt="FPT Software Campus Cover"
               className="w-full h-full object-cover object-center"
             />
-            {/* Subtle Gradient Scrim */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+            {/* Gradient Scrim */}
+            <div className="absolute inset-0 bg-gradient-to-t from-[#221d47]/70 via-[#221d47]/20 to-transparent" />
 
             {/* Quick Top Badges */}
             <div className="absolute top-4 left-4 right-4 flex items-center justify-between flex-wrap gap-2 pointer-events-none">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/90 backdrop-blur-md border border-[#E6E2DA] text-xs text-[#2D3A31] font-medium shadow-soft">
-                <span className="w-2 h-2 rounded-full bg-[#8C9A84] animate-pulse" />
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/90 backdrop-blur-md border border-purple-100 text-xs text-[#221d47] font-semibold shadow-sm">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 <span>Trực thuộc Tập đoàn FPT &bull; Top 1 Doanh Nghiệp Công Nghệ Việt Nam</span>
               </div>
-              <div className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/90 backdrop-blur-md text-[#2D3A31] text-xs font-semibold border border-[#E6E2DA] shadow-soft">
-                <span className="material-symbols-outlined text-sm text-[#8C9A84]">verified</span>
+              <div className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/90 backdrop-blur-md text-[#221d47] text-xs font-bold border border-purple-100 shadow-sm">
+                <span className="material-symbols-outlined text-sm text-[#5b48bd]">verified</span>
                 <span>Doanh Nghiệp Đã Xác Thực Pháp Nhân</span>
               </div>
             </div>
@@ -265,12 +265,12 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
               <div className="flex flex-col sm:flex-row items-start sm:items-end gap-5">
                 {/* Logo Box */}
-                <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-white border-4 border-white shadow-soft-xl p-2 flex items-center justify-center shrink-0 -mt-16 sm:-mt-20 z-10">
-                  <div className="w-full h-full rounded-2xl bg-[#2D3A31] flex flex-col items-center justify-center text-center p-2 text-white">
-                    <span className="text-xl sm:text-2xl font-serif font-bold tracking-wider">
-                      FPT<span className="text-[#C27B66]">.</span>
+                <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-white border-4 border-white shadow-lg p-1.5 flex items-center justify-center shrink-0 -mt-16 sm:-mt-20 z-10">
+                  <div className="w-full h-full rounded-2xl bg-gradient-to-br from-[#5b48bd] to-[#3b2b8e] flex flex-col items-center justify-center text-center p-2 text-white shadow-inner">
+                    <span className="text-xl sm:text-2xl font-bold tracking-wider font-display">
+                      FPT<span className="text-orange-400">.</span>
                     </span>
-                    <span className="text-[9px] font-bold uppercase tracking-widest text-[#8C9A84]">
+                    <span className="text-[9px] font-extrabold uppercase tracking-widest text-purple-200">
                       Software
                     </span>
                   </div>
@@ -279,15 +279,15 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                 {/* Company Title & Slogan */}
                 <div className="space-y-1.5 pt-1">
                   <div className="flex items-center gap-3 flex-wrap">
-                    <h1 className="text-2xl sm:text-3xl font-serif font-bold text-[#2D3A31] tracking-tight">
+                    <h1 className="text-2xl sm:text-3xl font-extrabold text-[#221d47] tracking-tight">
                       {companyInfo.name}
                     </h1>
-                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#C27B66]/15 text-[#C27B66] text-xs font-bold border border-[#C27B66]/30">
-                      <span className="material-symbols-outlined text-[15px] text-[#C27B66]">verified</span>
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-purple-50 text-[#5b48bd] text-xs font-bold border border-purple-200">
+                      <span className="material-symbols-outlined text-[15px] text-[#5b48bd]">verified</span>
                       <span>{companyInfo.badge}</span>
                     </span>
                   </div>
-                  <p className="text-xs sm:text-sm text-[#2D3A31]/80 font-medium max-w-2xl leading-relaxed">
+                  <p className="text-xs sm:text-sm text-slate-600 font-medium max-w-2xl leading-relaxed">
                     {companyInfo.tagline}
                   </p>
                 </div>
@@ -298,10 +298,10 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                 <button
                   type="button"
                   onClick={handleCopyShareLink}
-                  className="px-4 py-2.5 rounded-full bg-white hover:bg-[#FAF6F0] text-xs font-semibold text-[#2D3A31] transition-all flex items-center gap-2 border border-[#E6E2DA] cursor-pointer shadow-soft"
+                  className="px-4 py-2.5 rounded-full bg-white hover:bg-purple-50 text-xs font-semibold text-slate-700 transition-all flex items-center gap-2 border border-purple-200 cursor-pointer shadow-sm hover:border-purple-300"
                   title="Sao chép liên kết trang công ty"
                 >
-                  <span className="material-symbols-outlined text-[16px] text-[#C27B66]">share</span>
+                  <span className="material-symbols-outlined text-[16px] text-[#5b48bd]">share</span>
                   <span>Chia sẻ</span>
                 </button>
                 <button
@@ -320,7 +320,7 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                     });
                     setShowEditModal(true);
                   }}
-                  className="px-5 py-2.5 rounded-full bg-[#C27B66] hover:bg-[#A86552] text-white text-xs font-bold tracking-wider uppercase transition-all flex items-center gap-2 shadow-soft hover:shadow-soft-md cursor-pointer"
+                  className="px-5 py-2.5 rounded-full bg-gradient-to-r from-[#5b48bd] to-[#7c66dc] hover:from-[#47369f] hover:to-[#6852ca] text-white text-xs font-bold tracking-wider uppercase transition-all flex items-center gap-2 shadow-md hover:shadow-lg hover:shadow-purple-200 cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[16px]">edit</span>
                   <span>Chỉnh sửa thông tin</span>
@@ -329,40 +329,40 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
             </div>
 
             {/* Quick Meta Pills Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 pt-6 mt-6 border-t border-[#E6E2DA] text-xs">
-              <div className="p-3.5 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA]">
-                <div className="text-[10px] uppercase text-[#2D3A31]/50 tracking-wider font-semibold">Lĩnh vực chính</div>
-                <div className="text-xs font-serif font-bold text-[#2D3A31] mt-1 truncate">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 pt-6 mt-6 border-t border-slate-100 text-xs">
+              <div className="p-3.5 rounded-2xl bg-purple-50/50 border border-purple-100">
+                <div className="text-[10px] uppercase text-slate-500 tracking-wider font-bold">Lĩnh vực chính</div>
+                <div className="text-xs font-bold text-[#221d47] mt-1 truncate">
                   {companyInfo.industry}
                 </div>
               </div>
-              <div className="p-3.5 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA]">
-                <div className="text-[10px] uppercase text-[#2D3A31]/50 tracking-wider font-semibold">Quy mô nhân sự</div>
-                <div className="text-xs font-serif font-bold text-[#2D3A31] mt-1 truncate">
+              <div className="p-3.5 rounded-2xl bg-purple-50/50 border border-purple-100">
+                <div className="text-[10px] uppercase text-slate-500 tracking-wider font-bold">Quy mô nhân sự</div>
+                <div className="text-xs font-bold text-[#221d47] mt-1 truncate">
                   {companyInfo.headcount}
                 </div>
               </div>
-              <div className="p-3.5 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA]">
-                <div className="text-[10px] uppercase text-[#2D3A31]/50 tracking-wider font-semibold">Năm thành lập</div>
-                <div className="text-xs font-serif font-bold text-[#2D3A31] mt-1 truncate">
+              <div className="p-3.5 rounded-2xl bg-purple-50/50 border border-purple-100">
+                <div className="text-[10px] uppercase text-slate-500 tracking-wider font-bold">Năm thành lập</div>
+                <div className="text-xs font-bold text-[#221d47] mt-1 truncate">
                   {companyInfo.establishedYear}
                 </div>
               </div>
-              <div className="p-3.5 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA]">
-                <div className="text-[10px] uppercase text-[#2D3A31]/50 tracking-wider font-semibold">Website chính thức</div>
+              <div className="p-3.5 rounded-2xl bg-purple-50/50 border border-purple-100">
+                <div className="text-[10px] uppercase text-slate-500 tracking-wider font-bold">Website chính thức</div>
                 <a
                   href={companyInfo.website}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs font-semibold text-[#8C9A84] hover:text-[#2D3A31] transition-colors mt-1 flex items-center gap-1 truncate"
+                  className="text-xs font-bold text-[#5b48bd] hover:underline transition-colors mt-1 flex items-center gap-1 truncate"
                 >
                   <span>fpt-software.com</span>
                   <span className="material-symbols-outlined text-[13px]">open_in_new</span>
                 </a>
               </div>
-              <div className="p-3.5 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] col-span-2 sm:col-span-1">
-                <div className="text-[10px] uppercase text-[#2D3A31]/50 tracking-wider font-semibold">Thị trường hoạt động</div>
-                <div className="text-xs font-serif font-bold text-[#2D3A31] mt-1 truncate">
+              <div className="p-3.5 rounded-2xl bg-purple-50/50 border border-purple-100 col-span-2 sm:col-span-1">
+                <div className="text-[10px] uppercase text-slate-500 tracking-wider font-bold">Thị trường hoạt động</div>
+                <div className="text-xs font-bold text-[#221d47] mt-1 truncate">
                   {companyInfo.markets}
                 </div>
               </div>
@@ -379,15 +379,15 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
           {/* CỘT TRÁI (4 CỘT): ĐẠI DIỆN TUYỂN DỤNG CHÍNH (HR REPRESENTATIVE)    */}
           {/* ================================================================= */}
           <aside className="lg:col-span-4 space-y-6">
-            <div className="rounded-[28px] p-6 bg-white border border-[#E6E2DA] shadow-soft space-y-5">
+            <div className="rounded-[28px] p-6 bg-white border border-purple-100 shadow-sm space-y-5">
               {/* Title & Status */}
-              <div className="flex items-center justify-between pb-4 border-b border-[#E6E2DA]">
-                <span className="text-xs uppercase tracking-widest text-[#2D3A31] font-bold flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-[16px] text-[#8C9A84]">badge</span>
+              <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                <span className="text-xs uppercase tracking-widest text-[#221d47] font-bold flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[16px] text-[#5b48bd]">badge</span>
                   Đại Diện Tuyển Dụng
                 </span>
-                <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-[#8C9A84]/15 text-[#2D3A31] text-[11px] font-semibold border border-[#8C9A84]/30">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#8C9A84] animate-ping" />
+                <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-bold border border-emerald-200">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                   Đang nhận hồ sơ
                 </span>
               </div>
@@ -398,10 +398,10 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                   <img
                     src={hrRepresentative.avatar}
                     alt={hrRepresentative.name}
-                    className="w-24 h-24 rounded-3xl object-cover ring-2 ring-[#8C9A84]/40 shadow-soft"
+                    className="w-24 h-24 rounded-3xl object-cover ring-4 ring-purple-100 shadow-md"
                   />
                   <span
-                    className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-[#2D3A31] flex items-center justify-center text-white shadow-soft text-[14px] font-bold"
+                    className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-[#5b48bd] flex items-center justify-center text-white shadow-md text-[14px] font-bold"
                     title="Đã xác thực ủy quyền tuyển dụng chính thức"
                   >
                     ✓
@@ -409,53 +409,53 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                 </div>
 
                 <div>
-                  <h3 className="text-lg font-serif font-bold text-[#2D3A31]">
+                  <h3 className="text-lg font-bold text-[#221d47]">
                     {hrRepresentative.name}
                   </h3>
-                  <p className="text-xs text-[#8C9A84] font-semibold mt-0.5">
+                  <p className="text-xs text-[#5b48bd] font-bold mt-0.5">
                     {hrRepresentative.title}
                   </p>
-                  <p className="text-xs text-[#2D3A31]/70 font-sans mt-1">
+                  <p className="text-xs text-slate-500 font-sans mt-1">
                     {hrRepresentative.division}
                   </p>
                 </div>
               </div>
 
               {/* HR Bio Quote */}
-              <p className="text-xs text-[#2D3A31]/80 italic leading-relaxed bg-[#F9F8F4] p-4 rounded-2xl border border-[#E6E2DA]">
+              <p className="text-xs text-slate-600 italic leading-relaxed bg-purple-50/50 p-4 rounded-2xl border border-purple-100/80">
                 "{hrRepresentative.bio}"
               </p>
 
               {/* Direct Contact List */}
               <div className="space-y-3 pt-1 text-xs">
-                <div className="p-3 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] flex items-start gap-3">
-                  <span className="material-symbols-outlined text-[#8C9A84] text-lg mt-0.5">mail</span>
+                <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/60 flex items-start gap-3">
+                  <span className="material-symbols-outlined text-[#5b48bd] text-lg mt-0.5">mail</span>
                   <div className="min-w-0 flex-1">
-                    <span className="text-[10px] uppercase text-[#2D3A31]/50 font-semibold">Email tiếp nhận hồ sơ</span>
+                    <span className="text-[10px] uppercase text-slate-400 font-bold">Email tiếp nhận hồ sơ</span>
                     <a
                       href={`mailto:${hrRepresentative.email}`}
-                      className="text-xs font-semibold text-[#2D3A31] hover:text-[#8C9A84] transition-colors block truncate mt-0.5"
+                      className="text-xs font-bold text-[#221d47] hover:text-[#5b48bd] transition-colors block truncate mt-0.5"
                     >
                       {hrRepresentative.email}
                     </a>
                   </div>
                 </div>
 
-                <div className="p-3 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] flex items-start gap-3">
-                  <span className="material-symbols-outlined text-[#C27B66] text-lg mt-0.5">call</span>
+                <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/60 flex items-start gap-3">
+                  <span className="material-symbols-outlined text-orange-500 text-lg mt-0.5">call</span>
                   <div className="min-w-0 flex-1">
-                    <span className="text-[10px] uppercase text-[#2D3A31]/50 font-semibold">Hotline / Zalo Tuyển Dụng</span>
-                    <p className="text-xs font-bold text-[#2D3A31] mt-0.5">
+                    <span className="text-[10px] uppercase text-slate-400 font-bold">Hotline / Zalo Tuyển Dụng</span>
+                    <p className="text-xs font-extrabold text-[#221d47] mt-0.5">
                       {hrRepresentative.hotline}
                     </p>
                   </div>
                 </div>
 
-                <div className="p-3 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] flex items-start gap-3">
-                  <span className="material-symbols-outlined text-[#8C9A84] text-lg mt-0.5">schedule</span>
+                <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/60 flex items-start gap-3">
+                  <span className="material-symbols-outlined text-[#5b48bd] text-lg mt-0.5">schedule</span>
                   <div className="min-w-0 flex-1">
-                    <span className="text-[10px] uppercase text-[#2D3A31]/50 font-semibold">Thời gian phản hồi</span>
-                    <p className="text-xs font-medium text-[#2D3A31]/80 mt-0.5">
+                    <span className="text-[10px] uppercase text-slate-400 font-bold">Thời gian phản hồi</span>
+                    <p className="text-xs font-semibold text-slate-700 mt-0.5">
                       {hrRepresentative.responseTime}
                     </p>
                   </div>
@@ -466,7 +466,7 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
               <div className="pt-2">
                 <a
                   href={`mailto:${hrRepresentative.email}?subject=Ứng tuyển vị trí tại ${companyInfo.name}`}
-                  className="w-full py-2.5 px-4 rounded-full bg-[#C27B66] hover:bg-[#A86552] text-white text-xs font-bold tracking-wider uppercase transition-all flex items-center justify-center gap-2 shadow-soft cursor-pointer"
+                  className="w-full py-2.5 px-4 rounded-full bg-gradient-to-r from-[#5b48bd] to-[#7c66dc] hover:from-[#47369f] text-white text-xs font-bold tracking-wider uppercase transition-all flex items-center justify-center gap-2 shadow-md cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-base">send</span>
                   <span>Gửi thư trao đổi với {hrRepresentative.name}</span>
@@ -475,27 +475,27 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
             </div>
 
             {/* Quick Links Card */}
-            <div className="p-6 rounded-[28px] bg-white border border-[#E6E2DA] shadow-soft space-y-3">
-              <span className="text-xs uppercase tracking-widest text-[#2D3A31]/60 font-bold">
+            <div className="p-6 rounded-[28px] bg-white border border-purple-100 shadow-sm space-y-3">
+              <span className="text-xs uppercase tracking-widest text-slate-400 font-bold">
                 Kênh Tuyển Dụng Nhanh
               </span>
               <div className="space-y-2 text-xs">
                 <a
                   href="#/recruiter-jobs"
-                  className="p-3 rounded-2xl bg-[#F9F8F4] hover:bg-[#E6E2DA] transition-colors flex items-center justify-between text-[#2D3A31] font-semibold border border-[#E6E2DA]"
+                  className="p-3 rounded-2xl bg-slate-50 hover:bg-purple-50 transition-colors flex items-center justify-between text-[#221d47] font-bold border border-slate-200/60 hover:border-purple-200"
                 >
                   <span className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-sm text-[#8C9A84]">view_agenda</span>
+                    <span className="material-symbols-outlined text-sm text-[#5b48bd]">view_agenda</span>
                     <span>Quản lý tin tuyển dụng công ty</span>
                   </span>
                   <span className="material-symbols-outlined text-xs">arrow_forward</span>
                 </a>
                 <a
                   href="#/applicants-management"
-                  className="p-3 rounded-2xl bg-[#F9F8F4] hover:bg-[#E6E2DA] transition-colors flex items-center justify-between text-[#2D3A31] font-semibold border border-[#E6E2DA]"
+                  className="p-3 rounded-2xl bg-slate-50 hover:bg-purple-50 transition-colors flex items-center justify-between text-[#221d47] font-bold border border-slate-200/60 hover:border-purple-200"
                 >
                   <span className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-sm text-[#C27B66]">groups</span>
+                    <span className="material-symbols-outlined text-sm text-orange-500">groups</span>
                     <span>Phễu ứng viên &amp; hồ sơ đã nộp</span>
                   </span>
                   <span className="material-symbols-outlined text-xs">arrow_forward</span>
@@ -509,14 +509,14 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
           {/* ================================================================= */}
           <main className="lg:col-span-8 space-y-6">
             {/* Navigation Tabs */}
-            <div className="flex items-center gap-2 p-1.5 rounded-full bg-white border border-[#E6E2DA] shadow-soft">
+            <div className="flex items-center gap-2 p-1.5 rounded-full bg-white border border-purple-100 shadow-sm">
               <button
                 type="button"
                 onClick={() => setActiveTab('overview')}
                 className={`flex-1 py-2.5 px-4 rounded-full text-xs font-bold tracking-wide transition-all flex items-center justify-center gap-2 cursor-pointer ${
                   activeTab === 'overview'
-                    ? 'bg-[#C27B66] text-white shadow-soft'
-                    : 'text-[#667067] hover:text-[#2D3A31] hover:bg-[#FAF6F0]'
+                    ? 'bg-[#5b48bd] text-white shadow-sm'
+                    : 'text-slate-600 hover:text-[#5b48bd] hover:bg-purple-50/60'
                 }`}
               >
                 <span className="material-symbols-outlined text-base">info</span>
@@ -528,8 +528,8 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                 onClick={() => setActiveTab('jobs')}
                 className={`flex-1 py-2.5 px-4 rounded-full text-xs font-bold tracking-wide transition-all flex items-center justify-center gap-2 cursor-pointer ${
                   activeTab === 'jobs'
-                    ? 'bg-[#C27B66] text-white shadow-soft'
-                    : 'text-[#667067] hover:text-[#2D3A31] hover:bg-[#FAF6F0]'
+                    ? 'bg-[#5b48bd] text-white shadow-sm'
+                    : 'text-slate-600 hover:text-[#5b48bd] hover:bg-purple-50/60'
                 }`}
               >
                 <span className="material-symbols-outlined text-base">work</span>
@@ -541,8 +541,8 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                 onClick={() => setActiveTab('locations')}
                 className={`flex-1 py-2.5 px-4 rounded-full text-xs font-bold tracking-wide transition-all flex items-center justify-center gap-2 cursor-pointer ${
                   activeTab === 'locations'
-                    ? 'bg-[#C27B66] text-white shadow-soft'
-                    : 'text-[#667067] hover:text-[#2D3A31] hover:bg-[#FAF6F0]'
+                    ? 'bg-[#5b48bd] text-white shadow-sm'
+                    : 'text-slate-600 hover:text-[#5b48bd] hover:bg-purple-50/60'
                 }`}
               >
                 <span className="material-symbols-outlined text-base">apartment</span>
@@ -556,63 +556,63 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
             {activeTab === 'overview' && (
               <div className="space-y-6">
                 {/* 1. About Company */}
-                <div className="p-6 sm:p-8 rounded-[28px] bg-white border border-[#E6E2DA] shadow-soft space-y-4">
-                  <div className="flex items-center gap-2.5 border-b border-[#E6E2DA] pb-4">
-                    <span className="material-symbols-outlined text-[#8C9A84] text-xl">auto_stories</span>
-                    <h2 className="text-lg font-serif font-bold text-[#2D3A31]">
+                <div className="p-6 sm:p-8 rounded-[28px] bg-white border border-purple-100 shadow-sm space-y-4">
+                  <div className="flex items-center gap-2.5 border-b border-slate-100 pb-4">
+                    <span className="material-symbols-outlined text-[#5b48bd] text-xl">auto_stories</span>
+                    <h2 className="text-lg font-bold text-[#221d47]">
                       Về FPT Software
                     </h2>
                   </div>
-                  <div className="text-sm font-sans text-[#2D3A31]/80 leading-relaxed space-y-3 whitespace-pre-line">
+                  <div className="text-sm font-sans text-slate-700 leading-relaxed space-y-3 whitespace-pre-line">
                     {companyInfo.overviewText}
                   </div>
                 </div>
 
                 {/* 2. Core Cultural Values (4 Cards) */}
-                <div className="p-6 sm:p-8 rounded-[28px] bg-white border border-[#E6E2DA] shadow-soft space-y-4">
-                  <div className="flex items-center gap-2.5 border-b border-[#E6E2DA] pb-4">
-                    <span className="material-symbols-outlined text-[#8C9A84] text-xl">psychology</span>
-                    <h2 className="text-lg font-serif font-bold text-[#2D3A31]">
+                <div className="p-6 sm:p-8 rounded-[28px] bg-white border border-purple-100 shadow-sm space-y-4">
+                  <div className="flex items-center gap-2.5 border-b border-slate-100 pb-4">
+                    <span className="material-symbols-outlined text-[#5b48bd] text-xl">psychology</span>
+                    <h2 className="text-lg font-bold text-[#221d47]">
                       Văn Hóa &amp; Giá Trị Cốt Lõi
                     </h2>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-                    <div className="p-5 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] space-y-2">
-                      <div className="flex items-center gap-2 text-[#2D3A31] font-bold text-xs uppercase">
-                        <span className="material-symbols-outlined text-base text-[#8C9A84]">lightbulb</span>
+                    <div className="p-5 rounded-2xl bg-purple-50/50 border border-purple-100 space-y-2">
+                      <div className="flex items-center gap-2 text-[#5b48bd] font-bold text-xs uppercase">
+                        <span className="material-symbols-outlined text-base text-[#5b48bd]">lightbulb</span>
                         <span>Đổi Mới Sáng Tạo (Innovation First)</span>
                       </div>
-                      <p className="text-xs text-[#2D3A31]/75 leading-relaxed">
+                      <p className="text-xs text-slate-600 leading-relaxed">
                         Không ngừng thử nghiệm các công nghệ mới nhất: GenAI, RAG, Microservices, Cloud Architecture và khuyến khích mọi ý tưởng đột phá từ kỹ sư.
                       </p>
                     </div>
 
-                    <div className="p-5 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] space-y-2">
-                      <div className="flex items-center gap-2 text-[#2D3A31] font-bold text-xs uppercase">
-                        <span className="material-symbols-outlined text-base text-[#C27B66]">diversity_3</span>
+                    <div className="p-5 rounded-2xl bg-orange-50/50 border border-orange-100 space-y-2">
+                      <div className="flex items-center gap-2 text-orange-600 font-bold text-xs uppercase">
+                        <span className="material-symbols-outlined text-base text-orange-500">diversity_3</span>
                         <span>Đồng Đội &amp; Trao Quyền (Team Empowerment)</span>
                       </div>
-                      <p className="text-xs text-[#2D3A31]/75 leading-relaxed">
+                      <p className="text-xs text-slate-600 leading-relaxed">
                         Xây dựng môi trường bình đẳng, không khoảng cách cấp bậc, trao quyền tự chủ kỹ thuật tối đa cho các squad công nghệ.
                       </p>
                     </div>
 
-                    <div className="p-5 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] space-y-2">
-                      <div className="flex items-center gap-2 text-[#2D3A31] font-bold text-xs uppercase">
-                        <span className="material-symbols-outlined text-base text-[#8C9A84]">verified_user</span>
+                    <div className="p-5 rounded-2xl bg-emerald-50/50 border border-emerald-100 space-y-2">
+                      <div className="flex items-center gap-2 text-emerald-700 font-bold text-xs uppercase">
+                        <span className="material-symbols-outlined text-base text-emerald-600">verified_user</span>
                         <span>Cam Kết Chất Lượng (Customer Centricity)</span>
                       </div>
-                      <p className="text-xs text-[#2D3A31]/75 leading-relaxed">
+                      <p className="text-xs text-slate-600 leading-relaxed">
                         Đảm bảo độ tin cậy và an toàn bảo mật ở mức cao nhất cho các hệ thống phần mềm lõi phục vụ hàng triệu người dùng trên toàn cầu.
                       </p>
                     </div>
 
-                    <div className="p-5 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] space-y-2">
-                      <div className="flex items-center gap-2 text-[#2D3A31] font-bold text-xs uppercase">
-                        <span className="material-symbols-outlined text-base text-[#C27B66]">school</span>
+                    <div className="p-5 rounded-2xl bg-indigo-50/50 border border-indigo-100 space-y-2">
+                      <div className="flex items-center gap-2 text-indigo-700 font-bold text-xs uppercase">
+                        <span className="material-symbols-outlined text-base text-indigo-600">school</span>
                         <span>Phát Triển Không Giới Hạn (Continuous Growth)</span>
                       </div>
-                      <p className="text-xs text-[#2D3A31]/75 leading-relaxed">
+                      <p className="text-xs text-slate-600 leading-relaxed">
                         Hỗ trợ 100% học phí chứng chỉ quốc tế (AWS, GCP, CKA) và các chương trình đào tạo kỹ năng lãnh đạo chuyên sâu.
                       </p>
                     </div>
@@ -620,37 +620,37 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                 </div>
 
                 {/* 3. Employee Benefits & Perks */}
-                <div className="p-6 sm:p-8 rounded-[28px] bg-white border border-[#E6E2DA] shadow-soft space-y-4">
-                  <div className="flex items-center gap-2.5 border-b border-[#E6E2DA] pb-4">
-                    <span className="material-symbols-outlined text-[#8C9A84] text-xl">card_giftcard</span>
-                    <h2 className="text-lg font-serif font-bold text-[#2D3A31]">
+                <div className="p-6 sm:p-8 rounded-[28px] bg-white border border-purple-100 shadow-sm space-y-4">
+                  <div className="flex items-center gap-2.5 border-b border-slate-100 pb-4">
+                    <span className="material-symbols-outlined text-[#5b48bd] text-xl">card_giftcard</span>
+                    <h2 className="text-lg font-bold text-[#221d47]">
                       Chế Độ Đãi Ngộ &amp; Phúc Lợi Đặc Quyền
                     </h2>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 pt-1">
                     {companyBenefits.map((b, i) => (
-                      <div key={i} className="p-5 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] space-y-2.5">
-                        <div className="w-10 h-10 rounded-2xl bg-white border border-[#E6E2DA] flex items-center justify-center text-[#2D3A31] shadow-soft">
-                          <span className="material-symbols-outlined text-xl text-[#8C9A84]">{b.icon}</span>
+                      <div key={i} className="p-5 rounded-2xl bg-slate-50 border border-slate-200/80 hover:border-purple-200 transition-all space-y-2.5">
+                        <div className="w-10 h-10 rounded-2xl bg-purple-50 border border-purple-100 flex items-center justify-center text-[#5b48bd] shadow-sm">
+                          <span className="material-symbols-outlined text-xl text-[#5b48bd]">{b.icon}</span>
                         </div>
-                        <h4 className="text-xs font-bold text-[#2D3A31]">{b.title}</h4>
-                        <p className="text-xs text-[#2D3A31]/70 leading-relaxed">{b.desc}</p>
+                        <h4 className="text-xs font-bold text-[#221d47]">{b.title}</h4>
+                        <p className="text-xs text-slate-600 leading-relaxed">{b.desc}</p>
                       </div>
                     ))}
                   </div>
                 </div>
 
                 {/* 4. Workplace Photos Gallery */}
-                <div className="p-6 sm:p-8 rounded-[28px] bg-white border border-[#E6E2DA] shadow-soft space-y-4">
-                  <div className="flex items-center gap-2.5 border-b border-[#E6E2DA] pb-4">
-                    <span className="material-symbols-outlined text-[#8C9A84] text-xl">photo_library</span>
-                    <h2 className="text-lg font-serif font-bold text-[#2D3A31]">
+                <div className="p-6 sm:p-8 rounded-[28px] bg-white border border-purple-100 shadow-sm space-y-4">
+                  <div className="flex items-center gap-2.5 border-b border-slate-100 pb-4">
+                    <span className="material-symbols-outlined text-[#5b48bd] text-xl">photo_library</span>
+                    <h2 className="text-lg font-bold text-[#221d47]">
                       Không Gian Làm Việc &amp; Trải Nghiệm Thực Tế
                     </h2>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
                     {workplacePhotos.map((p, idx) => (
-                      <div key={idx} className="rounded-2xl overflow-hidden border border-[#E6E2DA] bg-[#F9F8F4] group shadow-soft">
+                      <div key={idx} className="rounded-2xl overflow-hidden border border-slate-200 bg-white group shadow-sm hover:shadow-md transition-all">
                         <div className="h-44 sm:h-48 overflow-hidden relative">
                           <img
                             src={p.url}
@@ -659,8 +659,8 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                           />
                         </div>
                         <div className="p-4 space-y-1">
-                          <h4 className="text-xs font-bold text-[#2D3A31]">{p.title}</h4>
-                          <p className="text-xs text-[#2D3A31]/70">{p.desc}</p>
+                          <h4 className="text-xs font-bold text-[#221d47]">{p.title}</h4>
+                          <p className="text-xs text-slate-500">{p.desc}</p>
                         </div>
                       </div>
                     ))}
@@ -675,12 +675,12 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
             {activeTab === 'jobs' && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between pb-2">
-                  <h3 className="text-lg font-serif font-bold text-[#2D3A31]">
+                  <h3 className="text-lg font-bold text-[#221d47]">
                     Các Vị Trí Công Nghệ Đang Mở Tuyển ({jobsList.length})
                   </h3>
                   <a
                     href="#/recruiter-jobs"
-                    className="text-xs text-[#8C9A84] hover:text-[#2D3A31] font-semibold flex items-center gap-1"
+                    className="text-xs text-[#5b48bd] hover:underline font-bold flex items-center gap-1"
                   >
                     <span>Quản lý tin tuyển dụng</span>
                     <span className="material-symbols-outlined text-xs">arrow_forward</span>
@@ -691,40 +691,40 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                   {jobsList.map((job) => (
                     <div
                       key={job.id}
-                      className="p-6 rounded-[28px] bg-white border border-[#E6E2DA] shadow-soft hover:shadow-soft-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-5 group"
+                      className="p-6 rounded-[28px] bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-purple-200 transition-all flex flex-col md:flex-row md:items-center justify-between gap-5 group"
                     >
                       <div className="space-y-2">
                         <div className="flex items-center gap-2 flex-wrap">
                           {job.isHot && (
-                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#C27B66]/15 text-[#C27B66] border border-[#C27B66]/30 uppercase tracking-wider">
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-orange-50 text-orange-600 border border-orange-200 uppercase tracking-wider">
                               Hot Opening
                             </span>
                           )}
-                          <span className="text-xs text-[#2D3A31]/60 font-sans">{job.level}</span>
-                          <span className="text-xs text-[#2D3A31]/40">&bull;</span>
-                          <span className="text-xs text-[#2D3A31]/60">{job.postedTime}</span>
+                          <span className="text-xs text-slate-500 font-sans">{job.level}</span>
+                          <span className="text-xs text-slate-300">&bull;</span>
+                          <span className="text-xs text-slate-400">{job.postedTime}</span>
                         </div>
 
                         <h4
                           onClick={() => (window.location.hash = `#/jobs/${job.id}`)}
-                          className="text-base sm:text-lg font-serif font-bold text-[#2D3A31] group-hover:text-[#C27B66] transition-colors cursor-pointer"
+                          className="text-base sm:text-lg font-bold text-[#221d47] group-hover:text-[#5b48bd] transition-colors cursor-pointer"
                         >
                           {job.title}
                         </h4>
 
-                        <div className="flex items-center gap-4 text-xs text-[#2D3A31]/70 font-sans flex-wrap">
-                          <span className="font-semibold text-[#2D3A31]">{job.salary}</span>
+                        <div className="flex items-center gap-4 text-xs text-slate-600 font-sans flex-wrap">
+                          <span className="font-extrabold text-orange-600">{job.salary}</span>
                           <span>&bull;</span>
                           <span>{job.location}</span>
                           <span>&bull;</span>
-                          <span className="text-[#8C9A84] font-semibold">{job.applicantCount} hồ sơ đã nộp</span>
+                          <span className="text-[#5b48bd] font-bold">{job.applicantCount} hồ sơ đã nộp</span>
                         </div>
 
                         <div className="flex flex-wrap gap-1.5 pt-1">
                           {job.tags.map((t, idx) => (
                             <span
                               key={idx}
-                              className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#F9F8F4] text-[#2D3A31] border border-[#E6E2DA]"
+                              className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-purple-50 text-purple-900 border border-purple-100"
                             >
                               {t}
                             </span>
@@ -735,13 +735,13 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                       <div className="flex items-center gap-2 shrink-0">
                         <a
                           href={`#/jobs/${job.id}`}
-                          className="px-4 py-2 rounded-full bg-white hover:bg-[#F9F8F4] text-xs font-semibold text-[#2D3A31] border border-[#E6E2DA] transition-all shadow-soft"
+                          className="px-4 py-2 rounded-xl bg-white hover:bg-purple-50 text-xs font-semibold text-slate-700 border border-slate-200 transition-all shadow-sm hover:border-purple-300"
                         >
                           Xem bài JD
                         </a>
                         <a
                           href={`#/applicants-management?jobId=${job.id}`}
-                          className="px-5 py-2 rounded-full bg-[#2D3A31] hover:bg-[#C27B66] text-xs font-semibold text-white shadow-soft transition-all"
+                          className="px-5 py-2 rounded-xl bg-gradient-to-r from-[#5b48bd] to-[#7c66dc] hover:from-[#47369f] text-xs font-bold text-white shadow-sm transition-all"
                         >
                           Quản lý hồ sơ
                         </a>
@@ -758,7 +758,7 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
             {activeTab === 'locations' && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between pb-2">
-                  <h3 className="text-lg font-serif font-bold text-[#2D3A31]">
+                  <h3 className="text-lg font-bold text-[#221d47]">
                     Hệ Thống Trụ Sở &amp; Campus Sinh Thái Toàn Cầu
                   </h3>
                 </div>
@@ -767,19 +767,19 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                   {officeLocations.map((loc, i) => (
                     <div
                       key={i}
-                      className="p-6 rounded-[28px] bg-white border border-[#E6E2DA] shadow-soft space-y-3"
+                      className="p-6 rounded-[28px] bg-white border border-purple-100 shadow-sm space-y-3"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="px-3 py-0.5 rounded-full text-xs font-semibold bg-[#8C9A84]/15 text-[#2D3A31] border border-[#8C9A84]/30">
+                        <span className="px-3 py-0.5 rounded-full text-xs font-bold bg-purple-50 text-[#5b48bd] border border-purple-200">
                           {loc.badge}
                         </span>
-                        <span className="material-symbols-outlined text-xl text-[#8C9A84]">{loc.icon}</span>
+                        <span className="material-symbols-outlined text-xl text-[#5b48bd]">{loc.icon}</span>
                       </div>
-                      <h4 className="text-sm font-serif font-bold text-[#2D3A31]">{loc.name}</h4>
-                      <p className="text-xs text-[#2D3A31]/75 leading-relaxed">{loc.address}</p>
-                      <div className="pt-2 border-t border-[#E6E2DA] text-xs text-[#2D3A31]/60 space-y-1">
+                      <h4 className="text-sm font-bold text-[#221d47]">{loc.name}</h4>
+                      <p className="text-xs text-slate-600 leading-relaxed">{loc.address}</p>
+                      <div className="pt-2 border-t border-slate-100 text-xs text-slate-500 space-y-1">
                         <div>&bull; {loc.scale}</div>
-                        <div>&bull; Hotline: <span className="text-[#2D3A31] font-semibold">{loc.hotline}</span></div>
+                        <div>&bull; Hotline: <span className="text-[#221d47] font-bold">{loc.hotline}</span></div>
                       </div>
                     </div>
                   ))}
@@ -794,16 +794,16 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
       {/* MODAL: CHỈNH SỬA THÔNG TIN DOANH NGHIỆP                             */}
       {/* =================================================================== */}
       {showEditModal && (
-        <div className="fixed inset-0 z-[120] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white border border-[#E6E2DA] rounded-[32px] max-w-xl w-full p-6 sm:p-8 space-y-5 shadow-soft-xl max-h-[90vh] overflow-y-auto text-[#2D3A31]">
-            <div className="flex items-center justify-between pb-3 border-b border-[#E6E2DA]">
+        <div className="fixed inset-0 z-[120] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white border border-purple-100 rounded-[32px] max-w-xl w-full p-6 sm:p-8 space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto text-slate-800">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-2xl text-[#8C9A84]">edit</span>
-                <h3 className="font-serif font-bold text-xl text-[#2D3A31]">Chỉnh Sửa Hồ Sơ Doanh Nghiệp</h3>
+                <span className="material-symbols-outlined text-2xl text-[#5b48bd]">edit</span>
+                <h3 className="font-bold text-xl text-[#221d47]">Chỉnh Sửa Hồ Sơ Doanh Nghiệp</h3>
               </div>
               <button
                 onClick={() => setShowEditModal(false)}
-                className="w-8 h-8 rounded-full bg-[#F9F8F4] hover:bg-[#E6E2DA] text-[#2D3A31] border border-[#E6E2DA] flex items-center justify-center cursor-pointer"
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 flex items-center justify-center cursor-pointer"
               >
                 <span className="material-symbols-outlined text-base">close</span>
               </button>
@@ -811,88 +811,88 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
 
             <form onSubmit={handleSaveEdit} className="space-y-4 text-xs">
               <div>
-                <label className="text-[#2D3A31]/70 block mb-1 font-semibold uppercase">Tên doanh nghiệp</label>
+                <label className="text-slate-500 block mb-1 font-bold uppercase">Tên doanh nghiệp</label>
                 <input
                   type="text"
                   required
                   value={editForm.companyName}
                   onChange={(e) => setEditForm({ ...editForm, companyName: e.target.value })}
-                  className="w-full bg-[#F9F8F4] border border-[#E6E2DA] rounded-xl px-3 py-2 text-[#2D3A31] focus:outline-none focus:border-[#8C9A84]"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-[#221d47] font-medium focus:outline-none focus:border-[#5b48bd] focus:ring-2 focus:ring-purple-100"
                 />
               </div>
 
               <div>
-                <label className="text-[#2D3A31]/70 block mb-1 font-semibold uppercase">Khẩu hiệu / Tagline</label>
+                <label className="text-slate-500 block mb-1 font-bold uppercase">Khẩu hiệu / Tagline</label>
                 <input
                   type="text"
                   value={editForm.tagline}
                   onChange={(e) => setEditForm({ ...editForm, tagline: e.target.value })}
-                  className="w-full bg-[#F9F8F4] border border-[#E6E2DA] rounded-xl px-3 py-2 text-[#2D3A31] focus:outline-none focus:border-[#8C9A84]"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-[#221d47] font-medium focus:outline-none focus:border-[#5b48bd] focus:ring-2 focus:ring-purple-100"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[#2D3A31]/70 block mb-1 font-semibold uppercase">Website</label>
+                  <label className="text-slate-500 block mb-1 font-bold uppercase">Website</label>
                   <input
                     type="text"
                     value={editForm.website}
                     onChange={(e) => setEditForm({ ...editForm, website: e.target.value })}
-                    className="w-full bg-[#F9F8F4] border border-[#E6E2DA] rounded-xl px-3 py-2 text-[#2D3A31] focus:outline-none focus:border-[#8C9A84]"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-[#221d47] font-medium focus:outline-none focus:border-[#5b48bd] focus:ring-2 focus:ring-purple-100"
                   />
                 </div>
                 <div>
-                  <label className="text-[#2D3A31]/70 block mb-1 font-semibold uppercase">Hotline HR</label>
+                  <label className="text-slate-500 block mb-1 font-bold uppercase">Hotline HR</label>
                   <input
                     type="text"
                     value={editForm.hrHotline}
                     onChange={(e) => setEditForm({ ...editForm, hrHotline: e.target.value })}
-                    className="w-full bg-[#F9F8F4] border border-[#E6E2DA] rounded-xl px-3 py-2 text-[#2D3A31] focus:outline-none focus:border-[#8C9A84]"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-[#221d47] font-medium focus:outline-none focus:border-[#5b48bd] focus:ring-2 focus:ring-purple-100"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-[#2D3A31]/70 block mb-1 font-semibold uppercase">Người đại diện tuyển dụng</label>
+                <label className="text-slate-500 block mb-1 font-bold uppercase">Người đại diện tuyển dụng</label>
                 <input
                   type="text"
                   value={editForm.hrName}
                   onChange={(e) => setEditForm({ ...editForm, hrName: e.target.value })}
-                  className="w-full bg-[#F9F8F4] border border-[#E6E2DA] rounded-xl px-3 py-2 text-[#2D3A31] focus:outline-none focus:border-[#8C9A84]"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-[#221d47] font-medium focus:outline-none focus:border-[#5b48bd] focus:ring-2 focus:ring-purple-100"
                 />
               </div>
 
               <div>
-                <label className="text-[#2D3A31]/70 block mb-1 font-semibold uppercase">Email liên hệ HR</label>
+                <label className="text-slate-500 block mb-1 font-bold uppercase">Email liên hệ HR</label>
                 <input
                   type="email"
                   value={editForm.hrEmail}
                   onChange={(e) => setEditForm({ ...editForm, hrEmail: e.target.value })}
-                  className="w-full bg-[#F9F8F4] border border-[#E6E2DA] rounded-xl px-3 py-2 text-[#2D3A31] focus:outline-none focus:border-[#8C9A84]"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-[#221d47] font-medium focus:outline-none focus:border-[#5b48bd] focus:ring-2 focus:ring-purple-100"
                 />
               </div>
 
               <div>
-                <label className="text-[#2D3A31]/70 block mb-1 font-semibold uppercase">Giới thiệu tổng quan</label>
+                <label className="text-slate-500 block mb-1 font-bold uppercase">Giới thiệu tổng quan</label>
                 <textarea
                   rows={4}
                   value={editForm.overviewText}
                   onChange={(e) => setEditForm({ ...editForm, overviewText: e.target.value })}
-                  className="w-full bg-[#F9F8F4] border border-[#E6E2DA] rounded-xl p-3 text-[#2D3A31] leading-relaxed focus:outline-none focus:border-[#8C9A84]"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-[#221d47] leading-relaxed focus:outline-none focus:border-[#5b48bd] focus:ring-2 focus:ring-purple-100"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#E6E2DA]">
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setShowEditModal(false)}
-                  className="px-5 py-2.5 rounded-full bg-[#F2F0EB] text-[#2D3A31] text-xs font-semibold cursor-pointer"
+                  className="px-5 py-2.5 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold cursor-pointer hover:bg-slate-200"
                 >
                   Hủy bỏ
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 rounded-full bg-[#2D3A31] hover:bg-[#C27B66] text-white text-xs font-semibold tracking-wider uppercase shadow-soft cursor-pointer transition-all"
+                  className="px-6 py-2.5 rounded-full bg-gradient-to-r from-[#5b48bd] to-[#7c66dc] hover:from-[#47369f] text-white text-xs font-bold tracking-wider uppercase shadow-md cursor-pointer transition-all"
                 >
                   Lưu Thông Tin
                 </button>

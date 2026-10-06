@@ -532,79 +532,80 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
           {/* ======================================================== */}
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-4 rounded-[28px] border border-[#E6E2DA] shadow-soft">
             {/* Quick Filter Tabs */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 lg:pb-0" id="filter-tabs">
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 lg:pb-0" id="filter-tabs">
               <button
                 type="button"
                 onClick={() => setActiveFilter('ALL')}
-                className={`px-4 py-2 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                className={`px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer ${
                   activeFilter === 'ALL'
-                    ? 'bg-[#2D3A31] text-white shadow-soft'
-                    : 'text-[#2D3A31]/70 hover:text-[#2D3A31] hover:bg-[#F9F8F4]'
+                    ? 'mindskills-active-pill'
+                    : 'text-[#47369f] hover:bg-purple-100/50'
                 }`}
               >
-                Tất cả <span className="ml-1 opacity-70">24</span>
+                Tất cả <span className="ml-1 opacity-80">24</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setActiveFilter('NEW')}
-                className={`px-4 py-2 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                className={`px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer ${
                   activeFilter === 'NEW'
-                    ? 'bg-[#2D3A31] text-white shadow-soft'
-                    : 'text-[#2D3A31]/70 hover:text-[#2D3A31] hover:bg-[#F9F8F4]'
+                    ? 'bg-[#10b981] text-white shadow-md'
+                    : 'text-[#47369f] hover:bg-purple-100/50'
                 }`}
               >
-                Mới nộp <span className="ml-1 opacity-70">10</span>
+                Mới nộp <span className="ml-1 opacity-80">10</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setActiveFilter('REVIEWING')}
-                className={`px-4 py-2 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                className={`px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer ${
                   activeFilter === 'REVIEWING'
-                    ? 'bg-[#2D3A31] text-white shadow-soft'
-                    : 'text-[#2D3A31]/70 hover:text-[#2D3A31] hover:bg-[#F9F8F4]'
+                    ? 'bg-[#06b6d4] text-white shadow-md'
+                    : 'text-[#47369f] hover:bg-purple-100/50'
                 }`}
               >
-                Đang xem <span className="ml-1 opacity-70">5</span>
+                Đang xem <span className="ml-1 opacity-80">5</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setActiveFilter('INTERVIEW')}
-                className={`px-4 py-2 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                className={`px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer ${
                   activeFilter === 'INTERVIEW'
-                    ? 'bg-[#2D3A31] text-white shadow-soft'
-                    : 'text-[#2D3A31]/70 hover:text-[#2D3A31] hover:bg-[#F9F8F4]'
+                    ? 'bg-[#8b5cf6] text-white shadow-md'
+                    : 'text-[#47369f] hover:bg-purple-100/50'
                 }`}
               >
-                Phỏng vấn <span className="ml-1 opacity-70">4</span>
+                Phỏng vấn <span className="ml-1 opacity-80">4</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setActiveFilter('PASSED')}
-                className={`px-4 py-2 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                className={`px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer ${
                   activeFilter === 'PASSED'
-                    ? 'bg-[#2D3A31] text-white shadow-soft'
-                    : 'text-[#2D3A31]/70 hover:text-[#2D3A31] hover:bg-[#F9F8F4]'
+                    ? 'bg-[#10b981] text-white shadow-md'
+                    : 'text-[#47369f] hover:bg-purple-100/50'
                 }`}
               >
-                Đạt yêu cầu <span className="ml-1 opacity-70">2</span>
+                Đạt yêu cầu <span className="ml-1 opacity-80">2</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setActiveFilter('REJECTED')}
-                className={`px-4 py-2 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                className={`px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer ${
                   activeFilter === 'REJECTED'
-                    ? 'bg-[#2D3A31] text-white shadow-soft'
-                    : 'text-[#2D3A31]/70 hover:text-[#2D3A31] hover:bg-[#F9F8F4]'
+                    ? 'bg-[#ef4444] text-white shadow-md'
+                    : 'text-[#47369f] hover:bg-purple-100/50'
                 }`}
               >
-                Từ chối <span className="ml-1 opacity-70">3</span>
+                Từ chối <span className="ml-1 opacity-80">3</span>
               </button>
             </div>
+
 
             {/* Search & AI Sort Toggle */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">

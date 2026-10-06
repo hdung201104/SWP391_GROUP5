@@ -327,15 +327,13 @@ function AppContent() {
   const hideGlobalLayout = isAuthPage || isEvaluationPage;
 
   return (
-    <div className={`min-h-screen relative font-body text-[#2D3A31] bg-[#F9F8F4] flex flex-col justify-between ${isEvaluationPage ? 'h-screen overflow-hidden' : ''}`}>
+    <div className={`min-h-screen relative font-sans text-[#1e1b4b] bg-[#3b2b8e] p-2 sm:p-4 md:p-6 flex flex-col justify-between ${isEvaluationPage ? 'h-screen overflow-hidden' : ''}`}>
         
-        {/* =================================================================== */}
-        {/* BOTANICAL / ORGANIC SERIF BACKGROUND (Paper Grain & Ambient Glow)   */}
-        {/* =================================================================== */}
+        {/* Ambient Radial Lights */}
         <BotanicalBackground />
 
-        {/* Content Container sitting atop the botanical organic canvas */}
-        <div className="relative z-10 flex flex-col min-h-screen justify-between bg-transparent">
+        {/* Outer Mindskills Canvas Container */}
+        <div className="relative z-10 flex flex-col min-h-[calc(100vh-2rem)] md:min-h-[calc(100vh-3rem)] justify-between bg-[#f4f2fd] rounded-2xl md:rounded-3xl shadow-2xl overflow-hidden border border-white/20">
           {!hideGlobalLayout && (
             <Header
               user={user}
@@ -349,7 +347,7 @@ function AppContent() {
             />
           )}
 
-          <main className={isEvaluationPage ? "h-screen overflow-hidden" : "flex-1"}>
+          <main className={isEvaluationPage ? "h-screen overflow-hidden" : "flex-1 p-3 sm:p-6"}>
             {renderContent()}
           </main>
 
@@ -357,6 +355,7 @@ function AppContent() {
         </div>
       </div>
   );
+
 }
 
 export default function App() {
