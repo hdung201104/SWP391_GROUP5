@@ -1,21 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<<<<<<< HEAD
-<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
-<suite name="HireMate Test Suite" verbose="1">
-
-    <test name="Auth Service Tests">
-        <classes>
-            <class name="com.hiremate.service.AuthServiceTest"/>
-        </classes>
-    </test>
-
-    <test name="Job Service Tests">
-        <classes>
-            <class name="com.hiremate.service.JobServiceTest"/>
-        </classes>
-    </test>
-
-=======
 <!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd" >
 <suite name="HireMate-Backend-TestSuite" verbose="2">
     <test name="Authentication-Register-Login-UnitTests">
@@ -33,5 +16,4 @@
             <class name="com.hiremate.testng.ApplicationServiceTestNGTest"/>
         </classes>
     </test>
->>>>>>> 48438e9be0cf9a8cd26617d93f979358c2bb9e82
 </suite>
