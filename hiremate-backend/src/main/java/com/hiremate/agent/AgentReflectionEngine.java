@@ -101,10 +101,18 @@ public class AgentReflectionEngine {
         int techKeywordCount = 0;
         List<String> detectedTechTerms = new ArrayList<>();
         String[] coreTechKeywords = {
+                // Testing, QA & QC
+                "test case", "test plan", "test suite", "test scenario", "boundary value", "equivalence partitioning",
+                "regression", "smoke test", "sanity test", "selenium", "postman", "jmeter", "cypress", "playwright",
+                "testng", "junit", "mock", "bug", "defect", "severity", "priority", "uat", "automation", "manual",
+                "api test", "performance test", "load test", "stress test", "black-box", "white-box", "ci/cd",
+                // Backend & Architecture
                 "b-tree", "index", "cluster", "acid", "mutex", "lock", "thread", "concurrency",
                 "kafka", "rabbitmq", "redis", "postgres", "sql", "nosql", "sharding", "replication",
                 "spring", "docker", "kubernetes", "k8s", "microservices", "rest", "grpc", "websocket",
-                "memory leak", "garbage collection", "jvm", "event-driven", "async", "cache", "circuit breaker"
+                "memory leak", "garbage collection", "jvm", "event-driven", "async", "cache", "circuit breaker", "transaction",
+                // Frontend & Web
+                "react", "vue", "angular", "javascript", "typescript", "css", "html", "dom", "redux", "state", "hook", "component", "vite", "nextjs"
         };
 
         for (String kw : coreTechKeywords) {
