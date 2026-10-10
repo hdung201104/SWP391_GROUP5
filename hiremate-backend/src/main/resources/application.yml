@@ -55,3 +55,8 @@ google:
     client-id: ${GOOGLE_CLIENT_ID:647076772224-84rpqgs802aifka8dpasqp4nr14h7dhv.apps.googleusercontent.com}
     client-secret: ${GOOGLE_CLIENT_SECRET:}
 
+cloudinary:
+  cloud-name: ${CLOUDINARY_CLOUD_NAME:mezrtcb7}
+  api-key: ${CLOUDINARY_API_KEY:632312897439654}
+  api-secret: ${CLOUDINARY_API_SECRET:8xXBIOnHqHLocisqNwH_3f4Aykw}
+

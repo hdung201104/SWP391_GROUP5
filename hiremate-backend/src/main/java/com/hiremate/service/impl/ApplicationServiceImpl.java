@@ -12,9 +12,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
+@lombok.extern.slf4j.Slf4j
 @Service
 @RequiredArgsConstructor
 public class ApplicationServiceImpl implements ApplicationService {
@@ -25,8 +28,10 @@ public class ApplicationServiceImpl implements ApplicationService {
     private final RecruitmentPipelineLogRepository pipelineLogRepository;
     private final AiJobMatchRepository aiJobMatchRepository;
     private final CandidateRepository candidateRepository;
+    private final UserRepository userRepository;
     private final com.hiremate.service.NotificationService notificationService;
     private final com.hiremate.service.AiJobMatchService aiJobMatchService;
+    private final com.hiremate.service.EmailService emailService;
 
     @Override
     @Transactional
@@ -118,6 +123,11 @@ public class ApplicationServiceImpl implements ApplicationService {
 
     @Override
     public List<ApplicationResponse> getJobApplications(Long jobId, User user) {
+        return getJobApplications(jobId, null, user);
+    }
+
+    @Override
+    public List<ApplicationResponse> getJobApplications(Long jobId, ApplicationStatus status, User user) {
         Job job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new IllegalArgumentException("Job not found: " + jobId));
 
@@ -126,8 +136,10 @@ public class ApplicationServiceImpl implements ApplicationService {
             throw new SecurityException("Unauthorized access to this job's candidates.");
         }
 
-        // Dùng method mới qua Job subclass relationship
-        List<Application> apps = applicationRepository.findByJob_JobId(jobId);
+        List<Application> apps = (status != null)
+                ? applicationRepository.findByJob_JobIdAndStatus(jobId, status)
+                : applicationRepository.findByJob_JobId(jobId);
+
         List<ApplicationResponse> list = new ArrayList<>();
         for (Application app : apps) {
             list.add(mapToResponse(app));
@@ -141,6 +153,30 @@ public class ApplicationServiceImpl implements ApplicationService {
         });
 
         return list;
+    }
+
+    @Override
+    @Transactional
+    public List<ApplicationResponse> batchUpdateApplicationStatus(
+            com.hiremate.dto.request.BatchUpdateStatusRequest request,
+            User user) {
+        if (request.getApplicationIds() == null || request.getApplicationIds().isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        List<ApplicationResponse> updatedResponses = new ArrayList<>();
+        for (Long appId : request.getApplicationIds()) {
+            try {
+                UpdateApplicationStatusRequest singleRequest = new UpdateApplicationStatusRequest();
+                singleRequest.setStatus(request.getStatus());
+                singleRequest.setNotes(request.getNotes());
+                ApplicationResponse res = updateApplicationStatus(appId, singleRequest, user);
+                updatedResponses.add(res);
+            } catch (Exception e) {
+                log.warn(">> [ApplicationService] Không thể cập nhật trạng thái đơn ID {}: {}", appId, e.getMessage());
+            }
+        }
+        return updatedResponses;
     }
 
     @Override
@@ -173,11 +209,14 @@ public class ApplicationServiceImpl implements ApplicationService {
                 .changedBy(user.getUserId())
                 .build());
 
-        // Gửi thông báo chuyển vòng cho Ứng viên
+        // Gửi thông báo chuyển vòng cho Ứng viên (Chuông in-app + Email tự động)
         if (application.getCandidate() != null && application.getCandidate().getCandidateId() != null) {
+            Long candidateId = application.getCandidate().getCandidateId();
             String companyName = job.getCompany() != null ? job.getCompany().getCompanyName() : "Nhà tuyển dụng";
+
+            // 1. Gửi thông báo chuông trên ứng dụng
             notificationService.createNotification(
-                    application.getCandidate().getCandidateId(),
+                    candidateId,
                     com.hiremate.enums.NotificationType.APPLICATION_STATUS,
                     "Cập nhật tiến độ ứng tuyển",
                     String.format("Công ty %s đã cập nhật hồ sơ ứng tuyển vị trí %s của bạn sang vòng: %s",
@@ -185,9 +224,97 @@ public class ApplicationServiceImpl implements ApplicationService {
                     updated.getApplicationId(),
                     "applications"
             );
+
+            // 2. Gửi Email thông báo trực tiếp đến hộp thư của ứng viên (đặc biệt khi INTERVIEWING hoặc OFFERED)
+            try {
+                User candidateUser = application.getCandidate().getUser();
+                if (candidateUser == null || candidateUser.getEmail() == null) {
+                    candidateUser = userRepository.findById(candidateId).orElse(null);
+                }
+
+                if (candidateUser != null && candidateUser.getEmail() != null) {
+                    emailService.sendApplicationStatusEmail(
+                            candidateUser.getEmail(),
+                            candidateUser.getFullName(),
+                            job.getTitle(),
+                            companyName,
+                            request.getStatus(),
+                            request.getNotes()
+                    );
+                }
+            } catch (Exception ex) {
+                // Email gửi lỗi hoặc chưa cấu hình SMTP không làm gián đoạn transaction
+            }
         }
 
         return mapToResponse(updated);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<com.hiremate.dto.response.PipelineLogResponse> getApplicationTimeline(Long applicationId, User user) {
+        Application application = applicationRepository.findById(applicationId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đơn ứng tuyển với ID: " + applicationId));
+
+        // Phân quyền bảo mật:
+        // 1. Chính ứng viên đã nộp đơn
+        // 2. Nhà tuyển dụng phụ trách tin tuyển dụng này
+        // 3. Quản trị viên (ADMIN)
+        boolean isCandidate = application.getCandidate() != null
+                && application.getCandidate().getCandidateId().equals(user.getUserId());
+        boolean isRecruiter = application.getJob() != null
+                && application.getJob().getRecruiter() != null
+                && application.getJob().getRecruiter().getRecruiterId().equals(user.getUserId());
+        boolean isAdmin = user.getRole() == com.hiremate.enums.UserRole.ADMIN;
+
+        if (!isCandidate && !isRecruiter && !isAdmin) {
+            throw new SecurityException("Bạn không có quyền xem lịch sử tiến trình của đơn ứng tuyển này");
+        }
+
+        List<RecruitmentPipelineLog> logs = pipelineLogRepository.findByApplicationIdOrderByCreatedAtAsc(applicationId);
+        List<com.hiremate.dto.response.PipelineLogResponse> result = new ArrayList<>();
+
+        Map<Long, String> userNameCache = new HashMap<>();
+
+        for (RecruitmentPipelineLog logItem : logs) {
+            String changerName = "Hệ thống";
+            if (logItem.getChangedBy() != null) {
+                changerName = userNameCache.computeIfAbsent(logItem.getChangedBy(), id ->
+                        userRepository.findById(id)
+                                .map(User::getFullName)
+                                .orElse("Người dùng #" + id)
+                );
+            }
+
+            String stageLabel = getStageLabel(logItem.getToStage());
+
+            result.add(com.hiremate.dto.response.PipelineLogResponse.builder()
+                    .logId(logItem.getLogId())
+                    .applicationId(logItem.getApplicationId())
+                    .fromStage(logItem.getFromStage())
+                    .toStage(logItem.getToStage())
+                    .stageLabel(stageLabel)
+                    .notes(logItem.getNotes())
+                    .changedBy(logItem.getChangedBy())
+                    .changedByName(changerName)
+                    .createdAt(logItem.getCreatedAt())
+                    .build());
+        }
+
+        return result;
+    }
+
+    private String getStageLabel(ApplicationStatus status) {
+        if (status == null) return "Khởi tạo hồ sơ";
+        return switch (status) {
+            case APPLIED -> "Nộp hồ sơ";
+            case SCREENING -> "Sàng lọc CV";
+            case SHORTLISTED -> "Vào danh sách rút gọn";
+            case INTERVIEWING -> "Phỏng vấn";
+            case OFFERED -> "Nhận đề nghị nhận việc (Offer)";
+            case HIRED -> "Trúng tuyển chính thức";
+            case REJECTED -> "Từ chối hồ sơ";
+        };
     }
 
     /**
@@ -231,5 +358,82 @@ public class ApplicationServiceImpl implements ApplicationService {
                 .matchingScore(score)
                 .createdAt(app.getCreatedAt())
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public ApplicationResponse withdrawApplication(Long applicationId, User candidate) {
+        Application application = applicationRepository.findById(applicationId)
+                .orElseThrow(() -> new IllegalArgumentException("Application not found: " + applicationId));
+
+        // Kiểm tra quyền: candidate.candidateId = candidate.getUserId()
+        if (!application.getCandidate().getCandidateId().equals(candidate.getUserId())) {
+            throw new SecurityException("Unauthorized to withdraw this application.");
+        }
+
+        if (application.getStatus() == ApplicationStatus.OFFERED || application.getStatus() == ApplicationStatus.HIRED) {
+            throw new IllegalStateException("Không thể rút đơn khi đã nhận được lời mời làm việc (OFFERED/HIRED). Vui lòng liên hệ trực tiếp nhà tuyển dụng!");
+        }
+
+        ApplicationStatus oldStatus = application.getStatus();
+        application.setStatus(ApplicationStatus.REJECTED);
+        Application updated = applicationRepository.save(application);
+
+        // Ghi log vào recruitment_pipeline_logs
+        pipelineLogRepository.save(com.hiremate.entity.RecruitmentPipelineLog.builder()
+                .applicationId(application.getApplicationId())
+                .fromStage(oldStatus != null ? oldStatus : ApplicationStatus.APPLIED)
+                .toStage(ApplicationStatus.REJECTED)
+                .changedBy(candidate.getUserId())
+                .notes("Ứng viên đã chủ động rút đơn ứng tuyển.")
+                .build());
+
+        // Gửi thông báo chuông cho Nhà tuyển dụng
+        if (application.getJob() != null && application.getJob().getRecruiter() != null) {
+            notificationService.createNotification(
+                    application.getJob().getRecruiter().getRecruiterId(),
+                    com.hiremate.enums.NotificationType.APPLICATION_STATUS,
+                    "Ứng viên rút đơn ứng tuyển",
+                    "Ứng viên " + (candidate.getFullName() != null ? candidate.getFullName() : candidate.getEmail())
+                            + " đã rút đơn ứng tuyển vị trí " + application.getJob().getTitle() + ".",
+                    application.getApplicationId(),
+                    "applications"
+            );
+        }
+
+        log.info(">> [ApplicationService] Ứng viên {} đã rút đơn ứng tuyển ID {}", candidate.getUserId(), applicationId);
+        return mapToResponse(updated);
+    }
+
+    @Override
+    public byte[] exportJobApplicationsCsv(Long jobId, User recruiter) {
+        // Tận dụng getJobApplications đã có quyền kiểm tra, sắp xếp matching score giảm dần
+        List<ApplicationResponse> apps = getJobApplications(jobId, recruiter);
+
+        StringBuilder csv = new StringBuilder();
+        // UTF-8 BOM để Excel hiển thị đúng dấu tiếng Việt không bị lỗi font
+        csv.append("\uFEFF");
+        csv.append("Mã đơn,Họ và tên,Email,Số điện thoại,Điểm Match (%),Trạng thái,Đường dẫn CV,Ngày nộp\n");
+
+        for (ApplicationResponse app : apps) {
+            String fullName = app.getCandidateName() != null ? app.getCandidateName().replace(",", " ") : "N/A";
+            String email = app.getCandidateEmail() != null ? app.getCandidateEmail() : "N/A";
+            String phone = "N/A"; // DTO ApplicationResponse
+            String score = app.getMatchingScore() != null ? String.format("%.1f", app.getMatchingScore()) : "0";
+            String status = app.getStatus() != null ? app.getStatus().name() : "APPLIED";
+            String cvUrl = app.getCvUrl() != null ? app.getCvUrl() : "N/A";
+            String createdAt = app.getCreatedAt() != null ? app.getCreatedAt().toString() : "";
+
+            csv.append(app.getApplicationId()).append(",")
+               .append("\"").append(fullName).append("\",")
+               .append(email).append(",")
+               .append(phone).append(",")
+               .append(score).append(",")
+               .append(status).append(",")
+               .append("\"").append(cvUrl).append("\",")
+               .append(createdAt).append("\n");
+        }
+
+        return csv.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
     }
 }

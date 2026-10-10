@@ -18,9 +18,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.hiremate.dto.response.PageResponse;
+import com.hiremate.repository.ApplicationRepository;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
+@lombok.extern.slf4j.Slf4j
 @Service
 @RequiredArgsConstructor
 public class JobServiceImpl implements JobService {
@@ -29,6 +33,7 @@ public class JobServiceImpl implements JobService {
     private final JobSkillRepository jobSkillRepository;
     private final SkillRepository skillRepository;
     private final RecruiterRepository recruiterRepository;
+    private final ApplicationRepository applicationRepository;
     private final com.hiremate.service.NotificationService notificationService;
 
     @Override
@@ -185,6 +190,41 @@ public class JobServiceImpl implements JobService {
     }
 
     @Override
+    public PageResponse<JobResponse> getPublishedJobsPaged(
+            String keyword,
+            String location,
+            int page,
+            int size,
+            String sortBy,
+            String sortDir
+    ) {
+        int pageNumber = Math.max(0, page);
+        int pageSize = size > 0 ? Math.min(size, 100) : 10;
+        org.springframework.data.domain.Sort.Direction direction =
+                "asc".equalsIgnoreCase(sortDir) ? org.springframework.data.domain.Sort.Direction.ASC : org.springframework.data.domain.Sort.Direction.DESC;
+        String sortProperty = (sortBy != null && !sortBy.isBlank()) ? sortBy.trim() : "createdAt";
+
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(
+                pageNumber, pageSize, org.springframework.data.domain.Sort.by(direction, sortProperty));
+
+        boolean hasKeyword = keyword != null && !keyword.trim().isEmpty();
+        boolean hasLocation = location != null && !location.trim().isEmpty();
+
+        org.springframework.data.domain.Page<Job> jobPage;
+        if (!hasKeyword && !hasLocation) {
+            jobPage = jobRepository.findByStatus(JobStatus.PUBLISHED, pageable);
+        } else {
+            jobPage = jobRepository.searchJobsPaged(hasKeyword ? keyword.trim() : null, hasLocation ? location.trim() : null, pageable);
+        }
+
+        List<JobResponse> mapped = jobPage.getContent().stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+
+        return PageResponse.of(jobPage, mapped);
+    }
+
+    @Override
     public List<JobResponse> getRecruiterJobs(Long recruiterId) {
         // Dùng method mới qua Recruiter subclass relationship
         List<Job> jobs = jobRepository.findByRecruiter_RecruiterId(recruiterId);
@@ -193,6 +233,21 @@ public class JobServiceImpl implements JobService {
             responses.add(mapToResponse(job));
         }
         return responses;
+    }
+
+    @Override
+    public PageResponse<JobResponse> getRecruiterJobsPaged(Long recruiterId, int page, int size) {
+        int pageNumber = Math.max(0, page);
+        int pageSize = size > 0 ? Math.min(size, 100) : 10;
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(
+                pageNumber, pageSize, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt"));
+
+        org.springframework.data.domain.Page<Job> jobPage = jobRepository.findByRecruiter_RecruiterId(recruiterId, pageable);
+        List<JobResponse> mapped = jobPage.getContent().stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+
+        return PageResponse.of(jobPage, mapped);
     }
 
     @Override
@@ -208,6 +263,109 @@ public class JobServiceImpl implements JobService {
 
         job.setStatus(JobStatus.CLOSED);
         jobRepository.save(job);
+    }
+
+    @Override
+    @Transactional
+    public JobResponse updateJobStatus(Long jobId, JobStatus status, User user) {
+        Job job = jobRepository.findById(jobId)
+                .orElseThrow(() -> new IllegalArgumentException("Job not found: " + jobId));
+
+        // Kiểm tra quyền: recruiter.recruiterId = user.userId
+        if (!job.getRecruiter().getRecruiterId().equals(user.getUserId())) {
+            throw new SecurityException("You are not authorized to update this job status");
+        }
+
+        if (status != null) {
+            job.setStatus(status);
+            Job updated = jobRepository.save(job);
+            log.info(">> [JobService] Tin tuyển dụng ID {} đã được cập nhật trạng thái: {}", jobId, status);
+            return mapToResponse(updated);
+        }
+        return mapToResponse(job);
+    }
+
+    @Override
+    public PageResponse<JobResponse> getPublishedJobsPagedAdvanced(
+            String keyword,
+            String location,
+            com.hiremate.enums.EmploymentType employmentType,
+            java.math.BigDecimal minSalary,
+            java.math.BigDecimal maxSalary,
+            int page,
+            int size,
+            String sortBy,
+            String sortDir
+    ) {
+        int pageNumber = Math.max(0, page);
+        int pageSize = size > 0 ? Math.min(size, 100) : 10;
+        org.springframework.data.domain.Sort.Direction direction =
+                "asc".equalsIgnoreCase(sortDir) ? org.springframework.data.domain.Sort.Direction.ASC : org.springframework.data.domain.Sort.Direction.DESC;
+        String sortProperty = (sortBy != null && !sortBy.isBlank()) ? sortBy.trim() : "createdAt";
+
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(
+                pageNumber, pageSize, org.springframework.data.domain.Sort.by(direction, sortProperty));
+
+        String cleanKeyword = (keyword != null && !keyword.trim().isEmpty()) ? keyword.trim() : null;
+        String cleanLocation = (location != null && !location.trim().isEmpty()) ? location.trim() : null;
+
+        org.springframework.data.domain.Page<Job> jobPage = jobRepository.searchJobsAdvancedPaged(
+                cleanKeyword, cleanLocation, employmentType, minSalary, maxSalary, pageable);
+
+        List<JobResponse> mapped = jobPage.getContent().stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+
+        return PageResponse.of(jobPage, mapped);
+    }
+
+    @Override
+    @Transactional
+    public JobResponse cloneJob(Long jobId, User user) {
+        Job originalJob = jobRepository.findById(jobId)
+                .orElseThrow(() -> new IllegalArgumentException("Job not found: " + jobId));
+
+        // Kiểm tra quyền: recruiter.recruiterId = user.userId
+        if (!originalJob.getRecruiter().getRecruiterId().equals(user.getUserId())) {
+            throw new SecurityException("You are not authorized to clone this job");
+        }
+
+        Job cloned = Job.builder()
+                .recruiter(originalJob.getRecruiter())
+                .company(originalJob.getCompany())
+                .title("[Bản sao] " + originalJob.getTitle())
+                .description(originalJob.getDescription())
+                .requirements(originalJob.getRequirements())
+                .benefits(originalJob.getBenefits())
+                .salaryMin(originalJob.getSalaryMin())
+                .salaryMax(originalJob.getSalaryMax())
+                .location(originalJob.getLocation())
+                .employmentType(originalJob.getEmploymentType())
+                .vacanciesCount(originalJob.getVacanciesCount())
+                .deadlineDate(originalJob.getDeadlineDate())
+                .status(JobStatus.DRAFT)
+                .totalViews(0)
+                .build();
+
+        Job savedJob = jobRepository.save(cloned);
+
+        // Sao chép kỹ năng liên kết từ job cũ
+        try {
+            List<JobSkill> originalSkills = jobSkillRepository.findByJobId(jobId);
+            for (JobSkill js : originalSkills) {
+                jobSkillRepository.save(JobSkill.builder()
+                        .jobId(savedJob.getJobId())
+                        .skillId(js.getSkillId())
+                        .importance(js.getImportance())
+                        .weight(js.getWeight())
+                        .build());
+            }
+        } catch (Exception e) {
+            log.warn(">> [JobService] Không thể sao chép skills cho job clone: {}", e.getMessage());
+        }
+
+        log.info(">> [JobService] Tin tuyển dụng ID {} đã được sao chép thành công thành Job ID {}", jobId, savedJob.getJobId());
+        return mapToResponse(savedJob);
     }
 
     /**
@@ -239,8 +397,8 @@ public class JobServiceImpl implements JobService {
                 .companyLogo(company != null ? company.getLogoUrl() : null)
                 .title(job.getTitle())
                 .description(job.getDescription())
-                .requirements(job.getRequirements())
-                .benefits(job.getBenefits())
+                .requirements(parseCleanList(job.getRequirements()))
+                .benefits(parseCleanList(job.getBenefits()))
                 .salaryMin(job.getSalaryMin())
                 .salaryMax(job.getSalaryMax())
                 .location(job.getLocation())
@@ -248,9 +406,55 @@ public class JobServiceImpl implements JobService {
                 .status(job.getStatus())
                 .vacanciesCount(job.getVacanciesCount())
                 .totalViews(job.getTotalViews())
+                .applicantCount(applicationRepository != null ? applicationRepository.countByJob_JobId(job.getJobId()) : 0L)
                 .deadlineDate(job.getDeadlineDate())
                 .skills(skillNames)
                 .createdAt(job.getCreatedAt())
                 .build();
+    }
+
+    /**
+     * Chuẩn hóa và bóc tách chuỗi thô thành mảng danh sách sạch:
+     * - Xử lý các biến thể newline: '/n', '\n', '\r\n'
+     * - Loại bỏ dấu gạch đầu dòng (-, *), bullet point (•), số thứ tự (1., 2.)
+     * - Hỗ trợ cả danh sách phân tách bằng dấu phẩy
+     */
+    private List<String> parseCleanList(String raw) {
+        if (raw == null || raw.trim().isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        // Chuẩn hóa tất cả các ký tự/chuỗi xuống dòng thành \n đơn
+        String normalized = raw.replace("/n", "\n")
+                               .replace("\\n", "\n")
+                               .replace("\r", "");
+
+        List<String> list = new ArrayList<>();
+        String[] lines = normalized.split("\n");
+        for (String line : lines) {
+            String trimmed = line.trim();
+            // Loại bỏ ký tự bullet point, gạch đầu dòng, số thứ tự ở đầu dòng
+            trimmed = trimmed.replaceFirst("^[-*•·–—]+\\s*", "");
+            trimmed = trimmed.replaceFirst("^\\d+[.)]\\s*", "");
+            trimmed = trimmed.trim();
+
+            if (!trimmed.isEmpty()) {
+                list.add(trimmed);
+            }
+        }
+
+        // Nếu chuỗi là một dòng đơn phân cách bằng dấu phẩy
+        if (list.size() == 1 && list.get(0).contains(",")) {
+            String[] commaParts = list.get(0).split(",");
+            list.clear();
+            for (String part : commaParts) {
+                String p = part.trim().replaceFirst("^[-*•·–—]+\\s*", "").trim();
+                if (!p.isEmpty()) {
+                    list.add(p);
+                }
+            }
+        }
+
+        return list;
     }
 }

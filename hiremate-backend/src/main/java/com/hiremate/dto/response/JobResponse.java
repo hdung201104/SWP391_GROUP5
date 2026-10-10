@@ -24,8 +24,8 @@ public class JobResponse {
     private String companyLogo;
     private String title;
     private String description;
-    private String requirements;
-    private String benefits;
+    private List<String> requirements;
+    private List<String> benefits;
     private BigDecimal salaryMin;
     private BigDecimal salaryMax;
     private String location;
@@ -33,6 +33,7 @@ public class JobResponse {
     private JobStatus status;
     private Integer vacanciesCount;
     private Integer totalViews;
+    private Long applicantCount;
     private LocalDate deadlineDate;
     private List<String> skills;
     private LocalDateTime createdAt;

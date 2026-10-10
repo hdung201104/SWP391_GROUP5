@@ -49,8 +49,10 @@ public class ApplicationServiceTestNGTest {
     private RecruitmentPipelineLogRepository pipelineLogRepository;
     private AiJobMatchRepository aiJobMatchRepository;
     private CandidateRepository candidateRepository;
+    private UserRepository userRepository;
     private NotificationService notificationService;
     private AiJobMatchService aiJobMatchService;
+    private com.hiremate.service.EmailService emailService;
 
     private ApplicationServiceImpl applicationService;
 
@@ -71,8 +73,10 @@ public class ApplicationServiceTestNGTest {
         pipelineLogRepository = mock(RecruitmentPipelineLogRepository.class);
         aiJobMatchRepository = mock(AiJobMatchRepository.class);
         candidateRepository = mock(CandidateRepository.class);
+        userRepository = mock(UserRepository.class);
         notificationService = mock(NotificationService.class);
         aiJobMatchService = mock(AiJobMatchService.class);
+        emailService = mock(com.hiremate.service.EmailService.class);
 
         applicationService = new ApplicationServiceImpl(
                 applicationRepository,
@@ -81,8 +85,10 @@ public class ApplicationServiceTestNGTest {
                 pipelineLogRepository,
                 aiJobMatchRepository,
                 candidateRepository,
+                userRepository,
                 notificationService,
-                aiJobMatchService
+                aiJobMatchService,
+                emailService
         );
 
         // Khởi tạo Candidate
@@ -386,5 +392,69 @@ public class ApplicationServiceTestNGTest {
 
         // Act (Ném IllegalArgumentException)
         applicationService.updateApplicationStatus(9999L, request, sampleRecruiterUser);
+    }
+
+    /**
+     * TEST CASE 9: Lấy lịch sử tiến trình ứng tuyển (Recruitment Pipeline Timeline) thành công
+     * Kỹ thuật: AssertX, verify trả về đầy đủ các mốc chuyển vòng (APPLIED -> INTERVIEWING)
+     */
+    @Test(priority = 9, description = "TC09: Lấy lịch sử timeline ứng tuyển thành công cho Ứng viên hoặc NTD")
+    public void testGetApplicationTimelineSuccess() {
+        // Arrange: 2 log chuyển vòng
+        RecruitmentPipelineLog log1 = RecruitmentPipelineLog.builder()
+                .logId(1L)
+                .applicationId(701L)
+                .fromStage(null)
+                .toStage(ApplicationStatus.APPLIED)
+                .notes("Ứng viên nộp hồ sơ trực tuyến")
+                .changedBy(101L)
+                .createdAt(java.time.LocalDateTime.now().minusDays(3))
+                .build();
+
+        RecruitmentPipelineLog log2 = RecruitmentPipelineLog.builder()
+                .logId(2L)
+                .applicationId(701L)
+                .fromStage(ApplicationStatus.APPLIED)
+                .toStage(ApplicationStatus.INTERVIEWING)
+                .notes("Mời phỏng vấn kỹ thuật")
+                .changedBy(201L)
+                .createdAt(java.time.LocalDateTime.now().minusDays(1))
+                .build();
+
+        when(applicationRepository.findById(701L)).thenReturn(Optional.of(sampleApp));
+        when(pipelineLogRepository.findByApplicationIdOrderByCreatedAtAsc(701L))
+                .thenReturn(Arrays.asList(log1, log2));
+        when(userRepository.findById(101L)).thenReturn(Optional.of(sampleCandidateUser));
+        when(userRepository.findById(201L)).thenReturn(Optional.of(sampleRecruiterUser));
+
+        // Act: Ứng viên xem timeline
+        List<com.hiremate.dto.response.PipelineLogResponse> timeline =
+                applicationService.getApplicationTimeline(701L, sampleCandidateUser);
+
+        // Assert
+        Assert.assertNotNull(timeline);
+        Assert.assertEquals(timeline.size(), 2, "Timeline phải có 2 mốc chuyển vòng");
+        Assert.assertEquals(timeline.get(0).getToStage(), ApplicationStatus.APPLIED);
+        Assert.assertEquals(timeline.get(0).getStageLabel(), "Nộp hồ sơ");
+        Assert.assertEquals(timeline.get(0).getChangedByName(), "Nguyen Van Candidate");
+
+        Assert.assertEquals(timeline.get(1).getToStage(), ApplicationStatus.INTERVIEWING);
+        Assert.assertEquals(timeline.get(1).getStageLabel(), "Phỏng vấn");
+        Assert.assertEquals(timeline.get(1).getChangedByName(), "Le Thi Recruiter");
+    }
+
+    /**
+     * TEST CASE 10: Bắt lỗi bảo mật khi người lạ cố xem timeline của đơn không thuộc về mình
+     * Kỹ thuật: expectedExceptions = SecurityException.class
+     */
+    @Test(priority = 10, expectedExceptions = SecurityException.class,
+          description = "TC10: Ngăn chặn truy cập trái phép vào timeline của ứng viên khác")
+    public void testGetApplicationTimelineUnauthorized() {
+        // Arrange: Người lạ có userId = 888L (CANDIDATE)
+        User stranger = User.builder().userId(888L).role(UserRole.CANDIDATE).build();
+        when(applicationRepository.findById(701L)).thenReturn(Optional.of(sampleApp));
+
+        // Act (Ném SecurityException)
+        applicationService.getApplicationTimeline(701L, stranger);
     }
 }

@@ -16,4 +16,9 @@
             <class name="com.hiremate.testng.ApplicationServiceTestNGTest"/>
         </classes>
     </test>
+    <test name="AI-Interview-Gemini-UnitTests">
+        <classes>
+            <class name="com.hiremate.testng.AiServiceTestNGTest"/>
+        </classes>
+    </test>
 </suite>

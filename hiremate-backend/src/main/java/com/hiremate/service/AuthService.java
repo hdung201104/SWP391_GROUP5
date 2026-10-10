@@ -15,4 +15,5 @@ public interface AuthService {
     void changePassword(Long userId, ChangePasswordRequest request);
     AuthResponse googleLogin(GoogleAuthRequest request);
     AuthResponse refreshToken(RefreshTokenRequest request);
+    void logout(String authHeader);
 }

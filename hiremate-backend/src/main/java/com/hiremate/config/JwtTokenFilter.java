@@ -25,6 +25,7 @@ public class JwtTokenFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
     private final UserRepository userRepository;
+    private final com.hiremate.service.TokenBlacklistService tokenBlacklistService;
 
     @Override
     protected void doFilterInternal(
@@ -41,6 +42,14 @@ public class JwtTokenFilter extends OncePerRequestFilter {
         }
 
         final String token = authHeader.substring(7);
+
+        // Kiểm tra Token Blacklist (ngăn chặn token đã logout)
+        if (tokenBlacklistService.isBlacklisted(token)) {
+            SecurityContextHolder.clearContext();
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         try {
             final String userEmail = jwtUtil.extractEmail(token);
 

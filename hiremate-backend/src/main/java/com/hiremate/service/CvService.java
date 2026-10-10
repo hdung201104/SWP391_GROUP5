@@ -12,4 +12,6 @@ public interface CvService {
     CvResponse setDefaultCv(Long cvId, User candidate);
     void deleteCv(Long cvId, User candidate);
     CvResponse getCvById(Long cvId);
+    CvResponse analyzeCv(Long cvId, User candidate);
+    CvResponse renameCv(Long cvId, String newName, User candidate);
 }

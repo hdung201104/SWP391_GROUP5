@@ -23,4 +23,17 @@ public interface AiJobMatchRepository extends JpaRepository<AiJobMatch, Long> {
 
     /** Lấy tất cả matches của một candidate, sắp xếp điểm cao nhất trước */
     List<AiJobMatch> findByCandidate_CandidateIdOrderByMatchingScoreDesc(Long candidateId);
+
+    /** Lấy danh sách việc làm gợi ý cho candidate: Job PUBLISHED, chưa hết hạn, matchingScore >= minScore */
+    @org.springframework.data.jpa.repository.Query("SELECT m FROM AiJobMatch m " +
+            "JOIN m.job j " +
+            "WHERE m.candidate.candidateId = :candidateId " +
+            "AND m.matchingScore >= :minScore " +
+            "AND j.status = com.hiremate.enums.JobStatus.PUBLISHED " +
+            "AND (j.deadlineDate IS NULL OR j.deadlineDate >= CURRENT_DATE) " +
+            "ORDER BY m.matchingScore DESC")
+    List<AiJobMatch> findRecommendations(
+            @org.springframework.data.repository.query.Param("candidateId") Long candidateId,
+            @org.springframework.data.repository.query.Param("minScore") Float minScore
+    );
 }

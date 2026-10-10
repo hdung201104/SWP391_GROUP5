@@ -4,4 +4,12 @@ public interface EmailService {
     void sendOtpEmail(String toEmail, String otp, String purpose);
     void sendWelcomeEmail(String toEmail, String fullName, String role);
     void sendPasswordChangedNotification(String toEmail);
+    void sendApplicationStatusEmail(
+            String toEmail,
+            String candidateName,
+            String jobTitle,
+            String companyName,
+            com.hiremate.enums.ApplicationStatus status,
+            String notes
+    );
 }

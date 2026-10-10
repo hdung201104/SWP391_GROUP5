@@ -36,6 +36,16 @@ public class CompanyController {
         return ResponseEntity.ok(ApiResponse.ok("Cập nhật thông tin công ty thành công", response));
     }
 
+    @PostMapping(value = "/my/logo/upload", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('RECRUITER')")
+    public ResponseEntity<ApiResponse<CompanyResponse>> uploadLogo(
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+            @AuthenticationPrincipal User user
+    ) {
+        CompanyResponse response = companyService.uploadLogo(file, user);
+        return ResponseEntity.ok(ApiResponse.ok("Tải lên và cập nhật logo công ty thành công", response));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<CompanyResponse>> getCompanyById(@PathVariable Long id) {
         CompanyResponse response = companyService.getCompanyById(id);

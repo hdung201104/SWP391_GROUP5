@@ -54,6 +54,31 @@ public class CvController {
         return ResponseEntity.ok(ApiResponse.ok("Default CV updated", response));
     }
 
+    @PostMapping("/{id}/analyze")
+    @PreAuthorize("hasRole('CANDIDATE')")
+    public ResponseEntity<ApiResponse<CvResponse>> analyzeCv(
+            @PathVariable Long id,
+            @AuthenticationPrincipal User user
+    ) {
+        CvResponse response = cvService.analyzeCv(id, user);
+        return ResponseEntity.ok(ApiResponse.ok("CV analyzed successfully by AI", response));
+    }
+
+    @PutMapping("/{id}/rename")
+    @PreAuthorize("hasRole('CANDIDATE')")
+    public ResponseEntity<ApiResponse<CvResponse>> renameCv(
+            @PathVariable Long id,
+            @RequestBody java.util.Map<String, String> request,
+            @AuthenticationPrincipal User user
+    ) {
+        String newName = request.get("fileName");
+        if (newName == null || newName.isBlank()) {
+            newName = request.get("name");
+        }
+        CvResponse response = cvService.renameCv(id, newName, user);
+        return ResponseEntity.ok(ApiResponse.ok("CV renamed successfully", response));
+    }
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('CANDIDATE')")
     public ResponseEntity<ApiResponse<Void>> deleteCv(

@@ -43,6 +43,7 @@ public class AuthServiceImpl implements AuthService {
     private final com.hiremate.service.EmailService emailService;
     private final com.hiremate.service.NotificationService notificationService;
     private final com.hiremate.service.GoogleTokenVerifierService googleTokenVerifierService;
+    private final com.hiremate.service.TokenBlacklistService tokenBlacklistService;
 
     @Override
     @Transactional
@@ -483,6 +484,21 @@ public class AuthServiceImpl implements AuthService {
         }
 
         return buildAuthResponse(user, newAccessToken, newRefreshToken, companyId, companyName);
+    }
+
+    @Override
+    public void logout(String authHeader) {
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7).trim();
+            try {
+                java.util.Date expiration = jwtUtil.extractExpiration(token);
+                long expirationTimeMs = expiration != null ? expiration.getTime() : (System.currentTimeMillis() + 86400000L);
+                tokenBlacklistService.blacklistToken(token, expirationTimeMs);
+                log.info(">> [AuthService] Người dùng đăng xuất thành công, token đã bị vô hiệu hóa.");
+            } catch (Exception e) {
+                log.warn(">> [AuthService] Lỗi khi trích xuất thời hạn token đăng xuất: {}", e.getMessage());
+            }
+        }
     }
 
     private AuthResponse buildAuthResponse(User user, String token, String refreshToken, Long companyId, String companyName) {

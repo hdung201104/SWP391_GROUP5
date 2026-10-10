@@ -7,6 +7,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * HireMate AI - Main Entry Point Class
  * Spec: PROJECT_MASTER_SPECIFICATION.md
  */
+@org.springframework.scheduling.annotation.EnableAsync
 @SpringBootApplication
 public class HireMateApplication {
 

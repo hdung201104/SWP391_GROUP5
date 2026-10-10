@@ -21,6 +21,34 @@ public class FileStorageConfig implements WebMvcConfigurer {
     @Value("${hiremate.upload.dir:D:/hiremate_uploads/}")
     private String uploadDir;
 
+    @Value("${cloudinary.cloud-name:}")
+    private String cloudinaryCloudName;
+
+    @Value("${cloudinary.api-key:}")
+    private String cloudinaryApiKey;
+
+    @Value("${cloudinary.api-secret:}")
+    private String cloudinaryApiSecret;
+
+    public boolean isCloudinaryEnabled() {
+        return cloudinaryCloudName != null && !cloudinaryCloudName.isBlank()
+                && cloudinaryApiKey != null && !cloudinaryApiKey.isBlank()
+                && cloudinaryApiSecret != null && !cloudinaryApiSecret.isBlank();
+    }
+
+    @org.springframework.context.annotation.Bean
+    public com.cloudinary.Cloudinary cloudinary() {
+        if (!isCloudinaryEnabled()) {
+            return null;
+        }
+        return new com.cloudinary.Cloudinary(com.cloudinary.utils.ObjectUtils.asMap(
+                "cloud_name", cloudinaryCloudName,
+                "api_key", cloudinaryApiKey,
+                "api_secret", cloudinaryApiSecret,
+                "secure", true
+        ));
+    }
+
     @PostConstruct
     public void init() {
         try {

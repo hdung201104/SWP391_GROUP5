@@ -21,6 +21,7 @@ public class CompanyServiceImpl implements CompanyService {
 
     private final CompanyRepository companyRepository;
     private final RecruiterRepository recruiterRepository;
+    private final com.hiremate.service.FileStorageService fileStorageService;
 
     @Override
     public CompanyResponse getMyCompany(User recruiterUser) {
@@ -74,6 +75,37 @@ public class CompanyServiceImpl implements CompanyService {
 
         log.info("Company profile updated for recruiter: {}, companyId: {}", recruiterUser.getEmail(), company.getCompanyId());
         return mapToResponse(company, recruiterUser.getFullName());
+    }
+
+    @Override
+    @Transactional
+    public CompanyResponse uploadLogo(org.springframework.web.multipart.MultipartFile file, User recruiterUser) {
+        Recruiter recruiter = recruiterRepository.findById(recruiterUser.getUserId())
+                .orElseThrow(() -> new IllegalStateException("Recruiter profile not found for user: " + recruiterUser.getUserId()));
+
+        Company company = recruiter.getCompany();
+        if (company == null) {
+            company = companyRepository.findByRecruiterId(recruiterUser.getUserId())
+                    .orElse(null);
+        }
+
+        if (company == null) {
+            throw new IllegalArgumentException("Vui lòng tạo thông tin công ty trước khi tải logo!");
+        }
+
+        // Tải ảnh logo lên thư mục 'logos' trên Cloudinary CDN
+        String logoUrl = fileStorageService.storeFile(file, "logos");
+
+        // Xóa logo cũ nếu có
+        if (company.getLogoUrl() != null && !company.getLogoUrl().isBlank()) {
+            fileStorageService.deleteFile(company.getLogoUrl());
+        }
+
+        company.setLogoUrl(logoUrl);
+        Company saved = companyRepository.save(company);
+
+        log.info(">> [CompanyService] Logo công ty ID {} đã được cập nhật thành công: {}", company.getCompanyId(), logoUrl);
+        return mapToResponse(saved, recruiterUser.getFullName());
     }
 
     @Override

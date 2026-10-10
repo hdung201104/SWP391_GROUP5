@@ -26,4 +26,12 @@ public class InterviewDetailResponse {
     private Float aiEvaluationScore;
     private String aiFeedback;
     private String aiSuggestedAnswer;
+    /** Mức độ tin cậy của đánh giá AI: HIGH, MEDIUM, LOW */
+    private String confidenceLevel;
+    /** Cờ cảnh báo: true nếu câu trả lời nghi vấn gian lận hoặc thiếu căn cứ chuyên môn */
+    private Boolean requiresHumanReview;
+    /** Đánh giá phong thái / giọng điệu âm thanh thực tế: Tự tin, Lưu loát, Hơi ngập ngừng... */
+    private String tone;
+    /** Nhận xét chi tiết về ngữ điệu, nhịp điệu, tốc độ nói và khoảng ngập ngừng */
+    private String intonationFeedback;
 }

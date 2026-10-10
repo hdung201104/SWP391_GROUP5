@@ -57,6 +57,7 @@ public class AuthServiceTestNGTest {
     private EmailService emailService;
     private NotificationService notificationService;
     private GoogleTokenVerifierService googleTokenVerifierService;
+    private com.hiremate.service.TokenBlacklistService tokenBlacklistService;
 
     private AuthServiceImpl authService;
     private User sampleCandidate;
@@ -73,6 +74,7 @@ public class AuthServiceTestNGTest {
         emailService = mock(EmailService.class);
         notificationService = mock(NotificationService.class);
         googleTokenVerifierService = mock(GoogleTokenVerifierService.class);
+        tokenBlacklistService = mock(com.hiremate.service.TokenBlacklistService.class);
 
         authService = new AuthServiceImpl(
                 userRepository,
@@ -84,7 +86,8 @@ public class AuthServiceTestNGTest {
                 otpService,
                 emailService,
                 notificationService,
-                googleTokenVerifierService
+                googleTokenVerifierService,
+                tokenBlacklistService
         );
 
         sampleCandidate = User.builder()
