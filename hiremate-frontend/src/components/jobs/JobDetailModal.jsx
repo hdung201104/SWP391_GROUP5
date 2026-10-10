@@ -74,7 +74,7 @@ export default function JobDetailModal({ job, onClose, onApply }) {
               Mô tả công việc
             </h3>
             <div className="p-4 rounded-2xl bg-[#f8f7ff] border border-purple-100 whitespace-pre-line leading-relaxed text-slate-700 text-xs font-sans">
-              {job.description || 'Chưa có thông tin mô tả chi tiết.'}
+              {job.description ? String(job.description).replaceAll('\\n', '\n') : 'Chưa có thông tin mô tả chi tiết.'}
             </div>
           </div>
 
@@ -84,7 +84,7 @@ export default function JobDetailModal({ job, onClose, onApply }) {
               Yêu cầu ứng viên
             </h3>
             <div className="p-4 rounded-2xl bg-[#f8f7ff] border border-purple-100 whitespace-pre-line leading-relaxed text-slate-700 text-xs font-sans">
-              {job.requirements || 'Chưa có yêu cầu cụ thể.'}
+              {job.requirements ? String(job.requirements).replaceAll('\\n', '\n') : 'Chưa có yêu cầu cụ thể.'}
             </div>
           </div>
 
@@ -94,7 +94,7 @@ export default function JobDetailModal({ job, onClose, onApply }) {
               Quyền lợi được hưởng
             </h3>
             <div className="p-4 rounded-2xl bg-[#f8f7ff] border border-purple-100 whitespace-pre-line leading-relaxed text-slate-700 text-xs font-sans">
-              {job.benefits || 'Đãi ngộ hấp dẫn, bảo hiểm toàn diện, lộ trình thăng tiến rõ ràng.'}
+              {job.benefits ? String(job.benefits).replaceAll('\\n', '\n') : 'Đãi ngộ hấp dẫn, bảo hiểm toàn diện, lộ trình thăng tiến rõ ràng.'}
             </div>
           </div>
         </div>

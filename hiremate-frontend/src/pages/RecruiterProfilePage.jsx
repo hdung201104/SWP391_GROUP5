@@ -293,8 +293,18 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                 </div>
               </div>
 
-              {/* Action Buttons: Edit & Share */}
-              <div className="flex items-center gap-3 shrink-0">
+              {/* Action Buttons: Edit, Pricing & Share */}
+              <div className="flex items-center gap-2.5 flex-wrap shrink-0">
+                <button
+                  type="button"
+                  onClick={() => { window.location.hash = '#/recruiter-pricing'; }}
+                  className="px-4 py-2.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-extrabold tracking-wider flex items-center gap-1.5 cursor-pointer shadow-md transition-all hover:scale-105 border border-amber-300/40"
+                  title="Nâng cấp gói cước dịch vụ tuyển dụng"
+                >
+                  <span className="material-symbols-outlined text-[16px] font-bold animate-bounce">workspace_premium</span>
+                  <span>Nâng Cấp Gói VIP</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={handleCopyShareLink}

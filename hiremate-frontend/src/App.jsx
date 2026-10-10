@@ -17,6 +17,8 @@ import CandidateEvaluationPage from './pages/CandidateEvaluationPage';
 import AiInterviewStudioPage from './pages/AiInterviewStudioPage';
 import AccountSettingsPage from './pages/AccountSettingsPage';
 import CareerInsightsPage from './pages/CareerInsightsPage';
+import RecruiterPricingPage from './pages/RecruiterPricingPage';
+import CandidatePricingPage from './pages/CandidatePricingPage';
 import NotFoundPage from './pages/NotFoundPage';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
@@ -171,6 +173,14 @@ function AppContent() {
       );
     }
 
+    if (route.includes('candidate-pricing') || route.includes('candidate-subscription') || route.includes('goi-ung-vien') || route.includes('mua-goi-candidate')) {
+      return (
+        <ProtectedRoute user={user} requiredRole="CANDIDATE">
+          <CandidatePricingPage user={user} onNavigate={(r) => setCurrentRoute(r)} />
+        </ProtectedRoute>
+      );
+    }
+
     if (route.includes('recruiter-profile') || route.includes('company-profile') || route.includes('ho-so-doanh-nghiep')) {
       return (
         <ProtectedRoute user={user} requiredRole="RECRUITER">
@@ -276,6 +286,14 @@ function AppContent() {
               window.location.hash = '#/recruiter-jobs';
             }}
           />
+        </ProtectedRoute>
+      );
+    }
+
+    if (route.includes('recruiter-pricing') || route.includes('pricing') || route.includes('subscription') || route.includes('goi-dich-vu') || route.includes('mua-goi')) {
+      return (
+        <ProtectedRoute user={user} requiredRole="RECRUITER">
+          <RecruiterPricingPage user={user} onNavigate={(r) => setCurrentRoute(r)} />
         </ProtectedRoute>
       );
     }

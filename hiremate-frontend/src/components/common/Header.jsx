@@ -67,6 +67,13 @@ export default function Header({
       (activeRoute.includes('candidate-dashboard') && activeRoute.includes('tab=applications'))
     );
 
+  const isCandidatePricingActive = 
+    isRoleCandidate && (
+      activeRoute.includes('candidate-pricing') || 
+      activeRoute.includes('candidate-subscription') || 
+      activeRoute.includes('goi-ung-vien')
+    );
+
   const isSettingsActive = 
     activeRoute.includes('settings') || 
     activeRoute.includes('cai-dat') || 
@@ -120,6 +127,15 @@ export default function Header({
       activeRoute.includes('company-profile') || 
       activeRoute.includes('ho-so-doanh-nghiep') || 
       (activeRoute.includes('recruiter-dashboard') && activeRoute.includes('tab=company'))
+    );
+
+  const isRecruiterPricingActive = 
+    isRoleRecruiter && (
+      activeRoute.includes('recruiter-pricing') || 
+      activeRoute.includes('pricing') || 
+      activeRoute.includes('subscription') || 
+      activeRoute.includes('goi-dich-vu') || 
+      activeRoute.includes('mua-goi')
     );
 
   // Notification Center State (Connected to live Spring Boot API)
@@ -322,25 +338,25 @@ export default function Header({
     <header className="sticky top-0 z-50 w-full bg-[#32247b] text-white shadow-xl transition-all duration-500 rounded-t-2xl md:rounded-t-3xl border-b border-indigo-900/50">
       <div className="w-full max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
         {/* Left: Brand Logo & Status Indicator */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <button 
             onClick={() => handleNav('#/')} 
-            className="flex items-center gap-2.5 group cursor-pointer text-left bg-transparent border-none p-0 shrink-0"
+            className="flex items-center gap-2 group cursor-pointer text-left bg-transparent border-none p-0 shrink-0"
             title="HireMate AI Mindskills Portal"
           >
-            <div className="h-9 w-9 rounded-xl bg-white text-[#32247b] flex items-center justify-center shadow-lg group-hover:scale-105 transition-all duration-300">
-              <span className="material-symbols-outlined text-[22px] font-bold text-[#5b48bd]">psychology</span>
+            <div className="h-8.5 w-8.5 sm:h-9 sm:w-9 rounded-xl bg-white text-[#32247b] flex items-center justify-center shadow-lg group-hover:scale-105 transition-all duration-300">
+              <span className="material-symbols-outlined text-[20px] sm:text-[22px] font-bold text-[#5b48bd]">psychology</span>
             </div>
             <div className="flex flex-col">
               <div className="flex items-center gap-1.5">
-                <span className="text-lg font-bold tracking-tight text-white leading-none">
+                <span className="text-base sm:text-lg font-bold tracking-tight text-white leading-none">
                   HireMate<span className="text-[#10b981]">.AI</span>
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-white/10 text-purple-200 text-[10px] font-semibold border border-white/10">
+                <span className="px-1.5 py-0.2 rounded-full bg-white/10 text-purple-200 text-[9px] font-semibold border border-white/10">
                   v2.0
                 </span>
               </div>
-              <span className="text-[10px] font-medium text-purple-200 tracking-wider leading-none mt-0.5 uppercase">
+              <span className="hidden 2xl:block text-[9px] font-medium text-purple-200 tracking-wider leading-none mt-0.5 uppercase">
                 Mindskills Matching Platform
               </span>
             </div>
@@ -348,7 +364,7 @@ export default function Header({
         </div>
 
         {/* Center: Synchronized Role-Based Navigation */}
-        <nav className="hidden lg:flex items-center gap-2 font-sans text-xs uppercase tracking-wider shrink-0">
+        <nav className="hidden lg:flex items-center gap-1 xl:gap-1.5 font-sans text-[11px] xl:text-xs uppercase tracking-wider shrink-0">
           {/* =================================================== */}
           {/* 1. CANDIDATE NAVBAR LINKS                           */}
           {/* =================================================== */}
@@ -356,47 +372,64 @@ export default function Header({
             <>
               <button
                 onClick={() => handleNav('#/')}
-                className={`px-4 py-2 rounded-full transition-all duration-300 cursor-pointer font-bold ${
+                className={`px-2.5 py-1.5 xl:px-3.5 xl:py-1.5 rounded-full transition-all duration-300 cursor-pointer font-bold flex items-center gap-1.5 ${
                   isHomeActive
                     ? 'mindskills-active-pill'
                     : 'mindskills-inactive-pill'
                 }`}
               >
-                CỔNG VIỆC LÀM
+                <span className="material-symbols-outlined text-[16px]">travel_explore</span>
+                <span>VIỆC LÀM</span>
               </button>
 
               <button
                 onClick={() => handleNav('#/applications')}
-                className={`px-4 py-2 rounded-full transition-all duration-300 cursor-pointer font-bold ${
+                className={`px-2.5 py-1.5 xl:px-3.5 xl:py-1.5 rounded-full transition-all duration-300 cursor-pointer font-bold flex items-center gap-1.5 ${
                   isCandidateAppsActive
                     ? 'mindskills-active-pill'
                     : 'mindskills-inactive-pill'
                 }`}
               >
-                ỨNG TUYỂN CỦA TÔI
+                <span className="material-symbols-outlined text-[16px]">fact_check</span>
+                <span>ỨNG TUYỂN</span>
               </button>
 
               <button
                 onClick={() => handleNav('#/ai-interview')}
-                className={`px-4 py-2 rounded-full transition-all duration-300 cursor-pointer font-bold ${
+                className={`px-2.5 py-1.5 xl:px-3.5 xl:py-1.5 rounded-full transition-all duration-300 cursor-pointer font-bold flex items-center gap-1.5 ${
                   isInterviewActive
                     ? 'mindskills-active-pill'
                     : 'mindskills-inactive-pill'
                 }`}
               >
-                AI PRACTICE STUDIO
+                <span className="material-symbols-outlined text-[16px]">psychology</span>
+                <span>AI STUDIO</span>
               </button>
 
               <button
                 onClick={() => handleNav('#/profile')}
-                className={`px-4 py-2 rounded-full transition-all duration-300 cursor-pointer font-bold ${
+                className={`px-2.5 py-1.5 xl:px-3.5 xl:py-1.5 rounded-full transition-all duration-300 cursor-pointer font-bold flex items-center gap-1.5 ${
                   isCandidateProfileActive
                     ? 'mindskills-active-pill'
                     : 'mindskills-inactive-pill'
                 }`}
                 title="Tạo và quản lý các bản CV ứng tuyển việc làm"
               >
-                QUẢN LÝ CV (CV BUILDER)
+                <span className="material-symbols-outlined text-[16px]">description</span>
+                <span>QUẢN LÝ CV</span>
+              </button>
+
+              <button
+                onClick={() => handleNav('#/candidate-pricing')}
+                className={`px-2.5 py-1.5 xl:px-3.5 xl:py-1.5 rounded-full transition-all duration-300 cursor-pointer font-bold flex items-center gap-1.5 ${
+                  isCandidatePricingActive
+                    ? 'mindskills-active-pill'
+                    : 'mindskills-inactive-pill text-amber-300 hover:text-amber-200'
+                }`}
+                title="Bảng giá các gói ứng viên &amp; lượt AI Voice Mock Interview"
+              >
+                <span className="material-symbols-outlined text-[16px] text-amber-400">workspace_premium</span>
+                <span>GÓI DỊCH VỤ</span>
               </button>
             </>
           )}
@@ -408,7 +441,7 @@ export default function Header({
             <>
               <button
                 onClick={() => handleNav('#/')}
-                className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all duration-300 cursor-pointer flex items-center gap-1.5 ${
+                className={`px-2.5 py-1.5 xl:px-3.5 xl:py-1.5 rounded-full text-[11px] xl:text-xs font-bold uppercase tracking-wider transition-all duration-300 cursor-pointer flex items-center gap-1.5 ${
                   isHomeActive
                     ? 'mindskills-active-pill'
                     : 'mindskills-inactive-pill'
@@ -416,12 +449,12 @@ export default function Header({
                 title="Cổng việc làm công khai trên thị trường"
               >
                 <span className="material-symbols-outlined text-[16px]">travel_explore</span>
-                <span>CỔNG VIỆC LÀM</span>
+                <span>VIỆC LÀM</span>
               </button>
 
               <button
                 onClick={() => handleNav('#/recruiter-jobs')}
-                className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all duration-300 cursor-pointer flex items-center gap-1.5 ${
+                className={`px-2.5 py-1.5 xl:px-3.5 xl:py-1.5 rounded-full text-[11px] xl:text-xs font-bold uppercase tracking-wider transition-all duration-300 cursor-pointer flex items-center gap-1.5 ${
                   isRecruiterJobsActive
                     ? 'mindskills-active-pill'
                     : 'mindskills-inactive-pill'
@@ -434,7 +467,7 @@ export default function Header({
 
               <button
                 onClick={() => handleNav('#/recruiter-dashboard?tab=overview')}
-                className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all duration-300 cursor-pointer flex items-center gap-1.5 ${
+                className={`px-2.5 py-1.5 xl:px-3.5 xl:py-1.5 rounded-full text-[11px] xl:text-xs font-bold uppercase tracking-wider transition-all duration-300 cursor-pointer flex items-center gap-1.5 ${
                   isRecruiterOverviewActive
                     ? 'mindskills-active-pill'
                     : 'mindskills-inactive-pill'
@@ -447,7 +480,7 @@ export default function Header({
 
               <button
                 onClick={() => handleNav('#/recruiter-profile')}
-                className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all duration-300 cursor-pointer flex items-center gap-1.5 ${
+                className={`px-2.5 py-1.5 xl:px-3.5 xl:py-1.5 rounded-full text-[11px] xl:text-xs font-bold uppercase tracking-wider transition-all duration-300 cursor-pointer flex items-center gap-1.5 ${
                   isRecruiterCompanyActive
                     ? 'mindskills-active-pill'
                     : 'mindskills-inactive-pill'
@@ -456,6 +489,19 @@ export default function Header({
               >
                 <span className="material-symbols-outlined text-[16px]">domain</span>
                 <span>HỒ SƠ CÔNG TY</span>
+              </button>
+
+              <button
+                onClick={() => handleNav('#/recruiter-pricing')}
+                className={`px-2.5 py-1.5 xl:px-3.5 xl:py-1.5 rounded-full text-[11px] xl:text-xs font-bold uppercase tracking-wider transition-all duration-300 cursor-pointer flex items-center gap-1.5 ${
+                  isRecruiterPricingActive
+                    ? 'mindskills-active-pill'
+                    : 'mindskills-inactive-pill text-amber-300 hover:text-amber-200'
+                }`}
+                title="Bảng giá các gói dịch vụ & mua thêm lượt AI Matching"
+              >
+                <span className="material-symbols-outlined text-[16px] text-amber-400">workspace_premium</span>
+                <span>GÓI DỊCH VỤ</span>
               </button>
             </>
           )}
@@ -467,31 +513,34 @@ export default function Header({
             <>
               <button
                 onClick={() => handleNav('#/')}
-                className={`px-4 py-2 rounded-full transition-all duration-300 cursor-pointer font-bold uppercase tracking-wider ${
+                className={`px-2.5 py-1.5 xl:px-3.5 xl:py-1.5 rounded-full transition-all duration-300 cursor-pointer font-bold uppercase tracking-wider flex items-center gap-1.5 ${
                   isHomeActive
                     ? 'mindskills-active-pill'
                     : 'mindskills-inactive-pill'
                 }`}
               >
-                CỔNG VIỆC LÀM
+                <span className="material-symbols-outlined text-[16px]">travel_explore</span>
+                <span>VIỆC LÀM</span>
               </button>
 
               <button
                 onClick={() => handleNav('#/ai-interview')}
-                className={`px-4 py-2 rounded-full transition-all duration-300 cursor-pointer font-bold uppercase tracking-wider ${
+                className={`px-2.5 py-1.5 xl:px-3.5 xl:py-1.5 rounded-full transition-all duration-300 cursor-pointer font-bold uppercase tracking-wider flex items-center gap-1.5 ${
                   isInterviewActive
                     ? 'mindskills-active-pill'
                     : 'mindskills-inactive-pill'
                 }`}
               >
-                AI PRACTICE STUDIO
+                <span className="material-symbols-outlined text-[16px]">psychology</span>
+                <span>AI STUDIO</span>
               </button>
 
               <button
                 onClick={() => handleNav('#/login')}
-                className="px-4 py-2 rounded-full text-emerald-300 hover:bg-emerald-500/20 border border-emerald-400/40 transition-all duration-300 cursor-pointer font-bold uppercase tracking-wider"
+                className="px-3 py-1.5 rounded-full text-emerald-300 hover:bg-emerald-500/20 border border-emerald-400/40 transition-all duration-300 cursor-pointer font-bold uppercase tracking-wider flex items-center gap-1.5"
               >
-                DÀNH CHO DOANH NGHIỆP
+                <span className="material-symbols-outlined text-[16px]">business_center</span>
+                <span>DOANH NGHIỆP</span>
               </button>
             </>
           )}
@@ -499,35 +548,57 @@ export default function Header({
 
 
         {/* Right Actions: Quick Role Switcher, Alerts, Profile */}
-        <div className="flex items-center gap-2.5 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
 
 
-          {/* Quick Action Button for Recruiter: + Đăng Tin Tuyển Dụng */}
+          {/* Quick Action Buttons for Recruiter: + Nâng Cấp Gói & Đăng Tin Tuyển Dụng */}
           {isRoleRecruiter && (
-            <button
-              onClick={() => {
-                const targetHash = `#/recruiter-jobs?action=new&t=${Date.now()}`;
-                handleNav(targetHash);
-              }}
-              className="hidden md:flex px-4 py-2 rounded-full bg-[#10b981] hover:bg-[#059669] text-white text-xs font-bold tracking-wider items-center gap-1.5 cursor-pointer shadow-md transition-all hover:scale-105"
-            >
-              <span className="material-symbols-outlined text-sm font-bold">add_circle</span>
-              <span>ĐĂNG TIN MỚI</span>
-            </button>
+            <div className="hidden lg:flex items-center gap-1.5">
+              <button
+                onClick={() => handleNav('#/recruiter-pricing')}
+                className="px-2.5 py-1.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-[11px] font-extrabold tracking-wider flex items-center gap-1 cursor-pointer shadow-md transition-all hover:scale-105 border border-amber-300/40"
+                title="Xem bảng giá và nâng cấp gói tuyển dụng VIP"
+              >
+                <span className="material-symbols-outlined text-xs font-bold animate-bounce">workspace_premium</span>
+                <span>NÂNG CẤP GÓI</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  const targetHash = `#/recruiter-jobs?action=new&t=${Date.now()}`;
+                  handleNav(targetHash);
+                }}
+                className="px-2.5 py-1.5 rounded-full bg-[#10b981] hover:bg-[#059669] text-white text-[11px] font-bold tracking-wider flex items-center gap-1 cursor-pointer shadow-md transition-all hover:scale-105"
+              >
+                <span className="material-symbols-outlined text-xs font-bold">add_circle</span>
+                <span>ĐĂNG TIN MỚI</span>
+              </button>
+            </div>
           )}
 
-          {/* Saved Jobs (for Candidate) */}
+          {/* Saved Jobs (for Candidate) & Quick Upgrade Pro */}
           {isRoleCandidate && (
-            <button
-              onClick={() => handleNav('#/candidate-dashboard?tab=applications')}
-              className="relative p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all duration-300 flex items-center justify-center cursor-pointer border border-white/20"
-              title="Việc làm đã lưu"
-            >
-              <span className="material-symbols-outlined text-xl">bookmark</span>
-              <span className="absolute -top-1 -right-1 px-1.5 py-0.2 rounded-full bg-[#f97316] text-white text-[10px] font-bold">
-                5
-              </span>
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => handleNav('#/candidate-pricing')}
+                className="hidden lg:flex px-2.5 py-1.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-[11px] font-extrabold tracking-wider flex items-center gap-1 cursor-pointer shadow-md transition-all hover:scale-105 border border-amber-300/40"
+                title="Xem bảng giá và nâng cấp gói Candidate Pro AI"
+              >
+                <span className="material-symbols-outlined text-xs font-bold animate-bounce">workspace_premium</span>
+                <span>NÂNG CẤP PRO</span>
+              </button>
+
+              <button
+                onClick={() => handleNav('#/candidate-dashboard?tab=applications')}
+                className="relative p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all duration-300 flex items-center justify-center cursor-pointer border border-white/20"
+                title="Việc làm đã lưu"
+              >
+                <span className="material-symbols-outlined text-lg">bookmark</span>
+                <span className="absolute -top-1 -right-1 px-1.5 py-0.2 rounded-full bg-[#f97316] text-white text-[9px] font-bold">
+                  5
+                </span>
+              </button>
+            </div>
           )}
 
           {/* Notifications Center Bell */}
@@ -713,12 +784,12 @@ export default function Header({
                   }`}></span>
                 </div>
 
-                <div className="hidden xl:flex flex-col text-left shrink-0">
-                  <span className="font-serif font-bold text-xs text-[#2D3A31] flex items-center gap-1 group-hover:text-[#C27B66] transition-colors">
-                    {displayName}
-                    <span className="material-symbols-outlined text-sm text-[#8C9A84]">expand_more</span>
+                <div className="hidden xl:flex flex-col text-left shrink-0 max-w-[110px]">
+                  <span className="font-serif font-bold text-xs text-[#2D3A31] flex items-center gap-0.5 group-hover:text-[#C27B66] transition-colors truncate">
+                    <span className="truncate">{displayName}</span>
+                    <span className="material-symbols-outlined text-sm text-[#8C9A84] shrink-0">expand_more</span>
                   </span>
-                  <span className="font-body text-[10px] font-semibold text-[#8C9A84]">
+                  <span className="hidden 2xl:block font-body text-[10px] font-semibold text-[#8C9A84] truncate">
                     {displaySubtitle}
                   </span>
                 </div>
@@ -782,6 +853,13 @@ export default function Header({
                   {isRoleCandidate && (
                     <div className="py-1">
                       <button
+                        onClick={() => { setShowProfileMenu(false); handleNav('#/candidate-pricing'); }}
+                        className="w-full text-left px-4 py-2 text-xs text-[#d97706] font-bold hover:bg-[#fffbeb] flex items-center gap-2.5 transition-colors cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-sm text-[#f59e0b]">workspace_premium</span>
+                        <span>Nâng Cấp Gói Pro AI &amp; Pass</span>
+                      </button>
+                      <button
                         onClick={() => { setShowProfileMenu(false); handleNav('#/profile'); }}
                         className="w-full text-left px-4 py-2 text-xs text-[#64748B] hover:text-[#1E293B] hover:bg-[#F1F5F9] flex items-center gap-2.5 transition-colors cursor-pointer"
                       >
@@ -807,6 +885,13 @@ export default function Header({
 
                   {isRoleRecruiter && (
                     <div className="py-1">
+                      <button
+                        onClick={() => { setShowProfileMenu(false); handleNav('#/recruiter-pricing'); }}
+                        className="w-full text-left px-4 py-2 text-xs text-[#d97706] font-bold hover:bg-[#fffbeb] flex items-center gap-2.5 transition-colors cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-sm text-[#f59e0b]">workspace_premium</span>
+                        <span>Gói Dịch Vụ &amp; Nâng Cấp VIP</span>
+                      </button>
                       <button
                         onClick={() => { setShowProfileMenu(false); handleNav('#/recruiter-profile'); }}
                         className="w-full text-left px-4 py-2 text-xs text-[#64748B] hover:text-[#1E293B] hover:bg-[#F1F5F9] flex items-center gap-2.5 transition-colors cursor-pointer"
@@ -930,6 +1015,18 @@ export default function Header({
               </button>
 
               <button
+                onClick={() => handleNav('#/candidate-pricing')}
+                className={`w-full text-left px-3.5 py-2.5 rounded-xl flex items-center gap-3 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                  isCandidatePricingActive
+                    ? 'bg-[#FBBF24] text-[#1E293B] shadow-[2px_2px_0px_#1E293B] border-2 border-[#1E293B] font-black'
+                    : 'text-[#d97706] hover:text-[#b45309] hover:bg-amber-50'
+                }`}
+              >
+                <span className="material-symbols-outlined text-base text-amber-500">workspace_premium</span>
+                <span>Gói Dịch Vụ Ứng Viên</span>
+              </button>
+
+              <button
                 onClick={() => handleNav('#/settings?tab=profile')}
                 className={`w-full text-left px-3.5 py-2.5 rounded-xl flex items-center gap-3 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
                   isSettingsActive
@@ -992,6 +1089,18 @@ export default function Header({
               >
                 <span className="material-symbols-outlined text-base">domain</span>
                 <span>Hồ Sơ Doanh Nghiệp</span>
+              </button>
+
+              <button
+                onClick={() => handleNav('#/recruiter-pricing')}
+                className={`w-full text-left px-3.5 py-2.5 rounded-xl flex items-center gap-3 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                  isRecruiterPricingActive
+                    ? 'bg-[#FBBF24] text-[#1E293B] shadow-[2px_2px_0px_#1E293B] border-2 border-[#1E293B] font-black'
+                    : 'text-[#d97706] hover:text-[#b45309] hover:bg-amber-50'
+                }`}
+              >
+                <span className="material-symbols-outlined text-base text-amber-500">workspace_premium</span>
+                <span>Gói Dịch Vụ Tuyển Dụng</span>
               </button>
             </>
           )}

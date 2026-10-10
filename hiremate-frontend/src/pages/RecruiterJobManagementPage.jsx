@@ -157,8 +157,8 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
             salary: j.salaryMin && j.salaryMax ? `$${j.salaryMin} - $${j.salaryMax}` : 'Thỏa thuận',
             totalApplicants: j.vacanciesCount || 0,
             aiMatchHighCount: 0,
-            mandatorySkills: j.requirements ? j.requirements.split(',').map(s => s.trim()) : ['Yêu cầu chuyên môn'],
-            preferredSkills: j.benefits ? j.benefits.split(',').map(s => s.trim()) : ['Chế độ đãi ngộ tốt'],
+            mandatorySkills: j.requirements ? j.requirements.split(/,|\r?\n|\\n/).map(s => s.replace(/^[\s\-\u2022]+/, '').trim()).filter(Boolean) : ['Yêu cầu chuyên môn'],
+            preferredSkills: j.benefits ? j.benefits.split(/,|\r?\n|\\n/).map(s => s.replace(/^[\s\-\u2022]+/, '').trim()).filter(Boolean) : ['Chế độ đãi ngộ tốt'],
             topCandidateAvatars: [],
           }));
           setJobsList(mapped);
@@ -296,12 +296,23 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
             </h1>
           </div>
 
-          {/* Live Activity Ticker Chip */}
-          <div className="flex items-center gap-3 px-4 py-2.5 rounded-full bg-white/90 border border-purple-100 shadow-sm text-xs backdrop-blur-md">
-            <div className="w-2.5 h-2.5 rounded-full bg-[#10b981] animate-ping" />
-            <div className="text-xs">
-              <span className="text-slate-500">Đồng bộ AI Engine:</span>
-              <span className="text-[#221d47] font-semibold ml-1">2 phút trước</span>
+          {/* Live Activity & Subscription Status Badge */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => { window.location.hash = '#/recruiter-pricing'; }}
+              className="px-4 py-2 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-extrabold flex items-center gap-1.5 cursor-pointer shadow-md transition-all hover:scale-105 border border-amber-300/40"
+              title="Mua gói dịch vụ hoặc mua thêm tin tuyển dụng nổi bật"
+            >
+              <span className="material-symbols-outlined text-sm font-bold animate-bounce">workspace_premium</span>
+              <span>Nâng Cấp Gói &amp; Mua Tin</span>
+            </button>
+
+            <div className="hidden sm:flex items-center gap-3 px-4 py-2 rounded-full bg-white/90 border border-purple-100 shadow-sm text-xs backdrop-blur-md">
+              <div className="w-2.5 h-2.5 rounded-full bg-[#10b981] animate-ping" />
+              <div className="text-xs">
+                <span className="text-slate-500">Đồng bộ AI Engine:</span>
+                <span className="text-[#221d47] font-semibold ml-1">2 phút trước</span>
+              </div>
             </div>
           </div>
         </div>

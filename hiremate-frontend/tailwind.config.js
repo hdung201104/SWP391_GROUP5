@@ -46,6 +46,14 @@ export default {
           accent: '#10b981',
           purple: '#8b5cf6'
         },
+        botanical: {
+          forest: '#2D3A31',
+          sage: '#4E6545',
+          terracotta: '#B35D46',
+          stone: '#D4CEBE',
+          cream: '#FAF9F5',
+          clay: '#C7AC9F',
+        },
       },
       fontFamily: {
         sans: ["Plus Jakarta Sans", "Inter", "Source Sans 3", "sans-serif"],

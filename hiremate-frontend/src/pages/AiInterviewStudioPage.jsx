@@ -595,6 +595,8 @@ export default function AiInterviewStudioPage({ user }) {
   const videoPreviewRef = useRef(null);
   const recognitionRef = useRef(null);
 
+  const topic = customTopic.trim() || selectedTopic;
+
   const showToast = (m) => {
     setToast(m);
     setTimeout(() => setToast(''), 3500);
@@ -875,22 +877,23 @@ export default function AiInterviewStudioPage({ user }) {
       )}
 
       {/* Sub-Navbar Điều Hướng 4 Bước */}
-      <div className="w-full bg-[#FAF9F5]/90 border-b border-botanical-stone sticky top-16 z-30 backdrop-blur-2xl px-4 sm:px-6 lg:px-8 py-3 transition-colors duration-300">
+      <div className="w-full bg-white/90 border-b border-purple-100 sticky top-16 z-30 backdrop-blur-2xl px-4 sm:px-6 lg:px-8 py-3 transition-colors duration-300 font-sans shadow-sm">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3 shrink-0">
-            <div className="h-10 w-10 rounded-2xl bg-botanical-forest text-white flex items-center justify-center shadow-soft">
+            <div className="h-10 w-10 rounded-2xl bg-[#32247b] text-white flex items-center justify-center shadow-sm">
               <span className="material-symbols-outlined text-white text-xl">psychology</span>
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-serif font-bold text-botanical-forest tracking-wide">AI Practice Studio</span>
-                <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full badge-sage font-bold">Đa Ngành Nghề v4.5</span>
-              </div>
-              <p className="text-[11px] text-botanical-forest/70 flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-botanical-terracotta animate-pulse"></span>
-                Kinh tế • Marketing • Sales • Nhân sự HR • Logistics • IT
-              </p>
+              <span className="text-sm font-sans font-extrabold text-[#1e1b4b] tracking-wide block">AI Practice Studio</span>
             </div>
+            <button
+              onClick={() => { window.location.hash = '#/candidate-pricing'; }}
+              className="ml-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-[11px] font-extrabold tracking-wider flex items-center gap-1 cursor-pointer shadow-sm transition-all hover:scale-105 border border-amber-300/40"
+              title="Nâng cấp gói Candidate Pro AI để mở khóa 30+ lượt phỏng vấn thử"
+            >
+              <span className="material-symbols-outlined text-xs font-bold animate-bounce">workspace_premium</span>
+              <span>Nâng Cấp Pro AI</span>
+            </button>
           </div>
 
           <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none font-sans text-xs">
@@ -912,10 +915,10 @@ export default function AiInterviewStudioPage({ user }) {
                   }}
                   className={`px-4 py-2 rounded-full font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap text-xs ${
                     isActive
-                      ? 'bg-botanical-forest text-white shadow-soft border border-botanical-forest'
+                      ? 'bg-[#32247b] text-white shadow-sm'
                       : locked
-                      ? 'text-botanical-forest/30 cursor-not-allowed bg-transparent'
-                      : 'text-botanical-forest/70 hover:text-botanical-forest hover:bg-botanical-stone/30'
+                      ? 'text-slate-300 cursor-not-allowed bg-transparent'
+                      : 'text-[#1e1b4b] hover:text-[#5b48bd] hover:bg-purple-50/60'
                   }`}
                 >
                   <span className="material-symbols-outlined text-base">{tab.icon}</span>
@@ -931,37 +934,28 @@ export default function AiInterviewStudioPage({ user }) {
       {/* 1. VIEW SETUP (CẤU HÌNH PHỎNG VẤN)                                    */}
       {/* ===================================================================== */}
       {view === 'setup' && (
-        <main className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 space-y-7">
+        <main className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 space-y-7 font-sans">
           <div className="space-y-1.5">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full badge-sage">
-              <span className="w-2 h-2 rounded-full bg-botanical-terracotta animate-pulse"></span>
-              <span className="text-[11px] font-bold tracking-widest text-botanical-forest uppercase">Bước 1 — Thiết Lập Chủ Đề Phỏng Vấn</span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-serif font-bold text-botanical-forest">
+            <h1 className="text-2xl sm:text-3xl font-sans font-extrabold text-[#1e1b4b]">
               Chọn Lĩnh Vực & Ngành Nghề Bạn Muốn Luyện Tập
             </h1>
-            <p className="text-sm text-botanical-forest/75 max-w-2xl leading-relaxed">
-              HireMate AI hỗ trợ phỏng vấn đa chuyên ngành: từ <strong className="text-botanical-forest font-bold">Kinh tế, Tài chính, Ngân hàng</strong>, <strong className="text-botanical-terracotta font-bold">Marketing</strong>, <strong className="text-botanical-forest font-bold">B2B Sales</strong> đến <strong className="text-botanical-forest font-bold">Nhân sự HR</strong> và <strong className="text-botanical-forest font-bold">Công nghệ Phần mềm</strong>.
+            <p className="text-sm text-slate-600 max-w-2xl leading-relaxed font-sans">
+              HireMate AI hỗ trợ phỏng vấn đa chuyên ngành: từ <strong className="text-[#1e1b4b] font-extrabold">Kinh tế, Tài chính, Ngân hàng</strong>, <strong className="text-[#f97316] font-extrabold">Marketing</strong>, <strong className="text-[#1e1b4b] font-extrabold">B2B Sales</strong> đến <strong className="text-[#1e1b4b] font-extrabold">Nhân sự HR</strong> và <strong className="text-[#1e1b4b] font-extrabold">Công nghệ Phần mềm</strong>.
             </p>
           </div>
 
           {/* CHỌN LĨNH VỰC */}
-          <section className="card-botanical bg-white/95 rounded-3xl border border-botanical-stone p-6 sm:p-7 space-y-4 shadow-soft-xl transition-all duration-300">
+          <section className="bg-white rounded-3xl border border-purple-100 p-6 sm:p-7 space-y-4 shadow-sm transition-all duration-300 font-sans">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold ${selectedDomain ? 'bg-botanical-forest text-white' : 'bg-botanical-terracotta text-white'}`}>
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-sm font-extrabold ${selectedDomain ? 'bg-[#32247b] text-white' : 'bg-[#f97316] text-white'}`}>
                   {selectedDomain ? '✓' : '1'}
                 </div>
                 <div>
-                  <h2 className="font-serif font-bold text-base text-botanical-forest">Lựa Chọn Ngành Nghề Của Bạn</h2>
-                  <p className="text-xs text-botanical-forest/65">AI sẽ tự động nạp ngân hàng câu hỏi chuyên sâu theo đúng ngành bạn chọn.</p>
+                  <h2 className="font-sans font-extrabold text-base text-[#1e1b4b]">Lựa Chọn Ngành Nghề Của Bạn</h2>
+                  <p className="text-xs text-slate-500 font-medium">AI sẽ tự động nạp ngân hàng câu hỏi chuyên sâu theo đúng ngành bạn chọn.</p>
                 </div>
               </div>
-              {selectedDomain && (
-                <span className="text-xs font-mono font-bold px-3 py-1 rounded-full badge-sage">
-                  Đã chọn: {selectedDomain.label}
-                </span>
-              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 pt-2">
@@ -977,25 +971,25 @@ export default function AiInterviewStudioPage({ user }) {
                     }}
                     className={`p-4 rounded-2xl text-left flex flex-col justify-between gap-3 transition-all cursor-pointer border hover:-translate-y-0.5 relative overflow-hidden group ${
                       isSel 
-                        ? 'bg-[#FAF9F5] border-botanical-forest shadow-soft ring-2 ring-botanical-forest/20' 
-                        : 'bg-white border-botanical-stone hover:bg-[#FAF9F5] hover:border-botanical-sage/60'
+                        ? 'bg-[#f8f7ff] border-[#32247b] shadow-md ring-2 ring-[#32247b]/20' 
+                        : 'bg-white border-purple-100 hover:bg-[#f8f7ff] hover:border-[#5b48bd]'
                     }`}
                   >
                     <div className="flex items-center justify-between w-full">
-                      <span className="material-symbols-outlined text-[28px] p-2 rounded-xl bg-botanical-cream text-botanical-forest">
+                      <span className="material-symbols-outlined text-[28px] p-2 rounded-xl bg-purple-100 text-[#5b48bd]">
                         {d.icon}
                       </span>
                       {isSel && (
-                        <span className="material-symbols-outlined text-sm font-bold text-white bg-botanical-forest rounded-full p-1">
+                        <span className="material-symbols-outlined text-sm font-bold text-white bg-[#32247b] rounded-full p-1">
                           check
                         </span>
                       )}
                     </div>
                     <div>
-                      <div className="text-xs font-serif font-bold text-botanical-forest group-hover:text-botanical-terracotta leading-tight">
+                      <div className="text-xs font-sans font-extrabold text-[#1e1b4b] group-hover:text-[#5b48bd] leading-tight">
                         {d.label}
                       </div>
-                      <p className="text-[11px] text-botanical-forest/65 mt-1.5 leading-snug line-clamp-2">
+                      <p className="text-[11px] text-slate-500 mt-1.5 leading-snug line-clamp-2 font-medium">
                         {d.desc}
                       </p>
                     </div>
@@ -1007,16 +1001,16 @@ export default function AiInterviewStudioPage({ user }) {
 
           {/* CHỌN CHỦ ĐỀ HOẶC TỰ ĐIỀN */}
           {selectedDomain && (
-            <section className="card-botanical bg-white/95 rounded-3xl border border-botanical-stone p-6 sm:p-7 space-y-5 shadow-soft-xl animate-fadeIn transition-all duration-300">
+            <section className="bg-white rounded-3xl border border-purple-100 p-6 sm:p-7 space-y-5 shadow-sm animate-fadeIn transition-all duration-300 font-sans">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-botanical-forest text-white flex items-center justify-center text-sm font-bold">
+                <div className="w-8 h-8 rounded-xl bg-[#32247b] text-white flex items-center justify-center text-sm font-extrabold">
                   2
                 </div>
                 <div>
-                  <h2 className="font-serif font-bold text-base text-botanical-forest">
-                    Chọn Chủ Đề Chuyên Môn Trong Ngành: <span className="text-botanical-terracotta">{selectedDomain.label}</span>
+                  <h2 className="font-sans font-extrabold text-base text-[#1e1b4b]">
+                    Chọn Chủ Đề Chuyên Môn Trong Ngành: <span className="text-[#f97316]">{selectedDomain.label}</span>
                   </h2>
-                  <p className="text-xs text-botanical-forest/65">Chọn một chủ đề phổ biến hoặc nhập nội dung tùy ý bạn muốn thử sức.</p>
+                  <p className="text-xs text-slate-500 font-medium">Chọn một chủ đề phổ biến hoặc nhập nội dung tùy ý bạn muốn thử sức.</p>
                 </div>
               </div>
 
@@ -1030,10 +1024,10 @@ export default function AiInterviewStudioPage({ user }) {
                         setSelectedTopic(t);
                         setCustomTopic('');
                       }}
-                      className={`p-3.5 rounded-2xl text-left text-xs font-sans font-semibold border transition-all cursor-pointer flex items-center justify-between gap-2 ${
+                      className={`p-3.5 rounded-2xl text-left text-xs font-sans font-bold border transition-all cursor-pointer flex items-center justify-between gap-2 ${
                         isChecked
-                          ? 'bg-botanical-forest text-white border-botanical-forest shadow-soft'
-                          : 'bg-[#FAF9F5] border-botanical-stone text-botanical-forest hover:bg-white hover:border-botanical-sage/60'
+                          ? 'bg-[#32247b] text-white border-[#32247b] shadow-md'
+                          : 'bg-[#f8f7ff] border-purple-100 text-[#1e1b4b] hover:bg-purple-50 hover:border-[#5b48bd]'
                       }`}
                     >
                       <span>{t}</span>
@@ -1047,24 +1041,25 @@ export default function AiInterviewStudioPage({ user }) {
                 })}
               </div>
 
+              {/* OR Custom Topic Input */}
               <div className="pt-2">
-                <label className="block text-xs font-bold text-botanical-forest mb-2">
-                  Hoặc tự nhập chủ đề / vị trí phỏng vấn tùy chỉnh của bạn:
+                <label className="text-xs font-sans font-bold text-[#1e1b4b] block mb-1.5">
+                  Hoặc tự nhập chủ đề phỏng vấn theo mong muốn của bạn:
                 </label>
                 <div className="relative">
                   <input
                     type="text"
-                    placeholder="Ví dụ: Giám đốc Chi nhánh Ngân hàng, Trưởng phòng Digital Marketing, B2B Key Account..."
+                    placeholder="Ví dụ: Lập kế hoạch tài chính năm 2026, Chiến lược SEO E-commerce, Kỹ năng đàm phán hợp đồng..."
                     value={customTopic}
                     onChange={(e) => {
                       setCustomTopic(e.target.value);
-                      if (e.target.value) setSelectedTopic('');
+                      setSelectedTopic('');
                     }}
-                    className="w-full bg-[#FAF9F5] border border-botanical-stone rounded-2xl px-4 py-3 text-sm text-botanical-forest placeholder:text-botanical-forest/40 focus:outline-none focus:ring-2 focus:ring-botanical-sage/50 focus:bg-white transition-colors"
+                    className="w-full bg-[#f8f7ff] border border-purple-100 focus:border-[#5b48bd] focus:bg-white rounded-2xl px-4 py-3 text-xs sm:text-sm text-[#1e1b4b] font-medium placeholder:text-slate-400 focus:outline-none transition-all shadow-sm"
                   />
                   {customTopic && (
-                    <span className="absolute right-3 top-3 text-[10px] font-mono px-2 py-0.5 rounded-full badge-sage">
-                      Custom Topic
+                    <span className="absolute right-3 top-3 text-xs font-sans font-bold text-[#5b48bd] bg-purple-100 px-2 py-0.5 rounded-full border border-purple-200">
+                      Tự điền
                     </span>
                   )}
                 </div>
@@ -1072,230 +1067,232 @@ export default function AiInterviewStudioPage({ user }) {
             </section>
           )}
 
-          {/* CẤP ĐỘ & MỤC TIÊU */}
-          {selectedDomain && (
-            <section className="card-botanical bg-white/95 rounded-3xl border border-botanical-stone p-6 sm:p-7 space-y-6 shadow-soft-xl animate-fadeIn transition-all duration-300">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-botanical-terracotta text-white flex items-center justify-center text-sm font-bold">
-                  3
-                </div>
-                <div>
-                  <h2 className="font-serif font-bold text-base text-botanical-forest">Cấp Bậc & Mục Tiêu Phỏng Vấn</h2>
-                  <p className="text-xs text-botanical-forest/65">AI sẽ điều chỉnh độ sâu và độ khó câu hỏi theo kinh nghiệm của bạn.</p>
-                </div>
+          {/* CHỌN CẤP ĐỘ KINH NGHIỆM */}
+          <section className="bg-white rounded-3xl border border-purple-100 p-6 sm:p-7 space-y-4 shadow-sm font-sans">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-[#32247b] text-white flex items-center justify-center text-sm font-extrabold">
+                3
               </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-botanical-forest uppercase tracking-wider">Cấp Độ Ứng Tuyển:</label>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                  {LEVELS.map((lvl) => {
-                    const isSel = selectedLevel === lvl.id;
-                    return (
-                      <button
-                        key={lvl.id}
-                        onClick={() => setSelectedLevel(lvl.id)}
-                        className={`p-3 rounded-2xl text-center border transition-all cursor-pointer ${
-                          isSel
-                            ? 'bg-botanical-forest text-white border-botanical-forest shadow-soft font-bold'
-                            : 'bg-[#FAF9F5] border-botanical-stone text-botanical-forest hover:bg-white'
-                        }`}
-                      >
-                        <div className="text-xs font-serif font-bold">{lvl.label}</div>
-                        <div className="text-[10px] opacity-75 mt-0.5">{lvl.sub}</div>
-                      </button>
-                    );
-                  })}
-                </div>
+              <div>
+                <h2 className="font-sans font-extrabold text-base text-[#1e1b4b]">Chọn Trình Độ &amp; Cấp Bậc Phỏng Vấn</h2>
+                <p className="text-xs text-slate-500 font-medium">Độ khó của câu hỏi và tiêu chuẩn đánh giá của AI sẽ điều chỉnh tương ứng.</p>
               </div>
+            </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold text-botanical-forest uppercase tracking-wider block mb-2">
-                    Số lượng câu hỏi:
-                  </label>
-                  <div className="flex gap-2">
-                    {[3, 5, 8].map((n) => (
-                      <button
-                        key={n}
-                        onClick={() => setNumQuestions(n)}
-                        className={`flex-1 py-2 rounded-2xl text-xs font-bold border transition-all cursor-pointer ${
-                          numQuestions === n
-                            ? 'bg-botanical-terracotta text-white border-botanical-terracotta shadow-soft'
-                            : 'bg-[#FAF9F5] text-botanical-forest border-botanical-stone hover:bg-white'
-                        }`}
-                      >
-                        {n} câu ({n * 4} - {n * 6} phút)
-                      </button>
-                    ))}
-                  </div>
-                </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 pt-1">
+              {LEVELS.map((lvl) => {
+                const isSelLvl = selectedLevel === lvl.id;
+                return (
+                  <button
+                    key={lvl.id}
+                    onClick={() => setSelectedLevel(lvl.id)}
+                    className={`p-3.5 rounded-2xl text-left border transition-all cursor-pointer flex flex-col justify-between gap-1.5 ${
+                      isSelLvl
+                        ? 'bg-[#32247b] text-white border-[#32247b] shadow-md'
+                        : 'bg-[#f8f7ff] border-purple-100 text-[#1e1b4b] hover:bg-purple-50 hover:border-[#5b48bd]'
+                    }`}
+                  >
+                    <span className="text-xs font-sans font-extrabold">{lvl.label}</span>
+                    <span className={`text-[10px] font-medium ${isSelLvl ? 'text-purple-200' : 'text-slate-500'}`}>
+                      {lvl.sub}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
 
-                <div>
-                  <label className="text-xs font-bold text-botanical-forest uppercase tracking-wider block mb-2">
-                    Mục tiêu đặc biệt cần AI lưu ý (Tùy chọn):
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Ví dụ: Tập trung xoáy sâu vào kỹ năng đàm phán hợp đồng hoặc xử lý nợ..."
-                    value={interviewGoal}
-                    onChange={(e) => setInterviewGoal(e.target.value)}
-                    className="w-full bg-[#FAF9F5] border border-botanical-stone rounded-2xl px-3.5 py-2.5 text-xs text-botanical-forest placeholder:text-botanical-forest/40 focus:outline-none focus:ring-2 focus:ring-botanical-sage/50 focus:bg-white"
-                  />
-                </div>
+          {/* MỤC TIÊU & YÊU CẦU CỤ THỂ */}
+          <section className="bg-white rounded-3xl border border-purple-100 p-6 sm:p-7 space-y-4 shadow-sm font-sans">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-[#32247b] text-white flex items-center justify-center text-sm font-extrabold">
+                4
               </div>
-
-              <div className="pt-4 border-t border-botanical-stone/80 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="text-xs text-botanical-forest/75">
-                  🎯 Đã sẵn sàng bộ câu hỏi tình huống chuyên sâu cho <strong className="text-botanical-forest">{customTopic || selectedTopic || 'Chủ đề đã chọn'}</strong>.
-                </div>
-                <button
-                  onClick={handleStart}
-                  className="btn-botanical-primary rounded-full px-8 py-3.5 text-xs uppercase tracking-wider shadow-soft hover:shadow-soft-lg flex items-center justify-center gap-2 cursor-pointer w-full sm:w-auto"
-                >
-                  <span className="material-symbols-outlined text-lg">rocket_launch</span>
-                  Bắt Đầu Phỏng Vấn Với AI Ngay
-                </button>
+              <div>
+                <h2 className="font-sans font-extrabold text-base text-[#1e1b4b]">Mục Tiêu &amp; Yêu Cầu Phỏng Vấn Cụ Thể (Tùy chọn)</h2>
+                <p className="text-xs text-slate-500 font-medium">Nhập mong muốn hoặc tình huống thực tế bạn muốn AI xoáy sâu phân tích kỹ lưỡng.</p>
               </div>
-            </section>
-          )}
+            </div>
+
+            <div className="pt-1">
+              <textarea
+                rows={2}
+                placeholder="Ví dụ: Tôi chuẩn bị phỏng vấn vào doanh nghiệp lớn, muốn tập trung hỏi kỹ về kỹ năng quản lý rủi ro và giải quyết xung đột nhóm..."
+                value={interviewGoal}
+                onChange={(e) => setInterviewGoal(e.target.value)}
+                className="w-full bg-[#f8f7ff] border border-purple-100 focus:border-[#5b48bd] focus:bg-white rounded-2xl p-4 text-xs sm:text-sm text-[#1e1b4b] font-medium placeholder:text-slate-400 focus:outline-none transition-all shadow-sm resize-none"
+              />
+            </div>
+          </section>
+
+          {/* CHỌN SỐ CÂU HỎI */}
+          <section className="bg-white rounded-3xl border border-purple-100 p-6 sm:p-7 space-y-4 shadow-sm font-sans">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-[#32247b] text-white flex items-center justify-center text-sm font-extrabold">
+                5
+              </div>
+              <div>
+                <h2 className="font-sans font-extrabold text-base text-[#1e1b4b]">Số Lượng Câu Hỏi Cho Buổi Luyện Tập</h2>
+                <p className="text-xs text-slate-500 font-medium">Mỗi câu hỏi phỏng vấn sẽ có phần phân tích chẩn đoán lỗi sai riêng biệt.</p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-3 pt-1">
+              {[
+                { count: 3, label: '3 Câu (Thử nghiệm nhanh ~10-15 phút)' },
+                { count: 5, label: '5 Câu (Chuẩn mực chuyên sâu ~20-30 phút)' },
+                { count: 8, label: '8 Câu (Phỏng vấn thực chiến ~45 phút)' },
+              ].map((qOpt) => {
+                const isSelCount = numQuestions === qOpt.count;
+                return (
+                  <button
+                    key={qOpt.count}
+                    onClick={() => setNumQuestions(qOpt.count)}
+                    className={`px-5 py-3 rounded-2xl text-xs font-sans font-extrabold border transition-all cursor-pointer ${
+                      isSelCount
+                        ? 'bg-[#32247b] text-white border-[#32247b] shadow-md'
+                        : 'bg-[#f8f7ff] border-purple-100 text-[#1e1b4b] hover:bg-purple-50 hover:border-[#5b48bd]'
+                    }`}
+                  >
+                    {qOpt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* START CTA BUTTON */}
+          <div className="pt-2 flex justify-center">
+            <button
+              onClick={handleStart}
+              disabled={!selectedDomain || (!selectedTopic && !customTopic)}
+              className="w-full sm:w-auto px-10 py-4 rounded-full bg-[#32247b] hover:bg-[#271a66] text-white text-sm uppercase tracking-wider font-extrabold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-3 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed font-sans"
+            >
+              <span className="material-symbols-outlined text-xl">play_circle</span>
+              <span>Bắt Đầu Phỏng Vấn Với Synthia AI</span>
+            </button>
+          </div>
         </main>
       )}
 
       {/* ===================================================================== */}
-      {/* 2. VIEW LIVE (PHÒNG PHỎNG VẤN TRỰC TUYẾN CHUYÊN NGHIỆP THẾ HỆ MỚI)    */}
+      {/* 2. VIEW LIVE ROOM (PHÒNG THI AI STAGE)                                */}
       {/* ===================================================================== */}
       {view === 'live' && (
-        <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 space-y-5 animate-fadeIn">
-          {/* 1. TOP EXECUTIVE STATUS BAR */}
-          <div className="card-botanical bg-white/95 rounded-3xl border border-botanical-stone p-3.5 sm:p-4 flex flex-wrap items-center justify-between gap-4 shadow-soft-xl transition-all duration-300">
-            {/* Left: Domain & Live indicator */}
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <div 
-                  className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shadow-soft overflow-hidden bg-botanical-forest" 
-                >
-                  <span className="material-symbols-outlined text-xl">smart_toy</span>
-                </div>
-                <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-botanical-terracotta opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-botanical-terracotta"></span>
+        <main className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6 font-sans">
+          {/* ROOM HEADER CARD */}
+          <div className="bg-white rounded-3xl border border-purple-100 p-4 sm:p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 font-sans">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-base sm:text-lg font-sans font-extrabold text-[#1e1b4b] tracking-wide">
+                  {topic}
+                </h2>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-sans font-extrabold bg-[#32247b] text-white">
+                  {LEVELS.find((l) => l.id === selectedLevel)?.label || 'SENIOR'}
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-sans font-extrabold bg-emerald-100 text-emerald-700 border border-emerald-200">
+                  LIVE ROOM
                 </span>
               </div>
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-serif font-bold text-botanical-forest tracking-wide">
-                    {customTopic || selectedTopic}
-                  </span>
-                  <span 
-                    className="text-[10px] font-mono px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider badge-sage"
-                  >
-                    {selectedLevel.toUpperCase()} LEVEL
-                  </span>
-                  <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-botanical-terracotta/15 text-botanical-terracotta border border-botanical-terracotta/30 font-bold flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-botanical-terracotta animate-pulse"></span>
-                    LIVE ROOM
-                  </span>
+              <p className="text-xs text-slate-500 font-medium">
+                {selectedDomain?.label} • Phòng thi số <span className="font-mono text-[#1e1b4b] font-bold">#HM-{selectedDomain?.id?.toUpperCase()}</span>
+              </p>
+            </div>
+
+            <div className="flex items-center gap-4 flex-wrap">
+              {/* Stepper Dots & Progress */}
+              <div className="flex items-center gap-2 bg-[#f8f7ff] px-4 py-2 rounded-full border border-purple-100">
+                <span className="text-[11px] font-sans font-bold text-slate-600 mr-1">
+                  Tiến độ:
+                </span>
+                <div className="flex items-center gap-1.5">
+                  {questions.map((_, idx) => {
+                    const isDone = idx < currentIdx;
+                    const isCurrent = idx === currentIdx;
+                    return (
+                      <div 
+                        key={idx}
+                        className={`h-2 rounded-full transition-all duration-300 ${
+                          isCurrent 
+                            ? 'w-7 bg-[#f97316] shadow-sm' 
+                            : isDone 
+                            ? 'w-4 bg-[#32247b]' 
+                            : 'w-2 bg-purple-200'
+                        }`}
+                        title={`Câu ${idx + 1}/${questions.length}`}
+                      />
+                    );
+                  })}
                 </div>
-                <p className="text-[11px] text-botanical-forest/70 flex items-center gap-1.5 mt-0.5">
-                  <span>{selectedDomain?.label}</span>
-                  <span className="text-botanical-stone">•</span>
-                  <span>Phòng thi số #HM-{selectedDomain?.id?.toUpperCase() || 'PRO'}</span>
-                </p>
-              </div>
-            </div>
-
-            {/* Center: Stepper Dots & Progress */}
-            <div className="hidden md:flex items-center gap-2 bg-[#FAF9F5] px-4 py-2 rounded-full border border-botanical-stone">
-              <span className="text-[11px] font-mono font-bold text-botanical-forest/70 mr-1">
-                Tiến độ:
-              </span>
-              <div className="flex items-center gap-1.5">
-                {questions.map((_, idx) => {
-                  const isDone = idx < currentIdx;
-                  const isCurrent = idx === currentIdx;
-                  return (
-                    <div 
-                      key={idx}
-                      className={`h-2 rounded-full transition-all duration-300 ${
-                        isCurrent 
-                          ? 'w-7 bg-botanical-terracotta shadow-soft' 
-                          : isDone 
-                          ? 'w-4 bg-botanical-forest' 
-                          : 'w-2 bg-botanical-stone'
-                      }`}
-                      title={`Câu ${idx + 1}/${questions.length}`}
-                    />
-                  );
-                })}
-              </div>
-              <span className="text-xs font-mono font-bold ml-2 text-botanical-forest">
-                {currentIdx + 1}/{questions.length}
-              </span>
-            </div>
-
-            {/* Right: Timer & Action controls */}
-            <div className="flex items-center gap-2.5">
-              <div className="flex items-center gap-1.5 font-mono text-xs font-bold px-3.5 py-1.5 rounded-full bg-[#FAF9F5] border border-botanical-stone text-botanical-forest shadow-soft">
-                <span className="material-symbols-outlined text-sm animate-pulse text-botanical-terracotta">timer</span>
-                <span>{fmt(timerSec)}</span>
+                <span className="text-xs font-mono font-bold ml-2 text-[#1e1b4b]">
+                  {currentIdx + 1}/{questions.length}
+                </span>
               </div>
 
-              {/* Mute AI Speech Toggle */}
-              <button
-                onClick={() => {
-                  setIsMuted(!isMuted);
-                  if (!isMuted) stopSpeaking();
-                  showToast(!isMuted ? 'Đã tắt giọng nói AI' : 'Đã bật giọng nói AI');
-                }}
-                className={`p-2 rounded-full border transition-all cursor-pointer ${
-                  isMuted 
-                    ? 'bg-botanical-terracotta/15 text-botanical-terracotta border-botanical-terracotta/30' 
-                    : 'bg-botanical-cream text-botanical-forest border-botanical-stone hover:bg-botanical-stone/60'
-                }`}
-                title={isMuted ? 'Bật giọng đọc AI' : 'Tắt tiếng AI'}
-              >
-                <span className="material-symbols-outlined text-base">{isMuted ? 'volume_off' : 'volume_up'}</span>
-              </button>
+              {/* Timer & Action controls */}
+              <div className="flex items-center gap-2.5 font-sans">
+                <div className="flex items-center gap-1.5 font-mono text-xs font-bold px-3.5 py-1.5 rounded-full bg-[#f8f7ff] border border-purple-100 text-[#1e1b4b] shadow-sm">
+                  <span className="material-symbols-outlined text-sm animate-pulse text-[#f97316]">timer</span>
+                  <span>{fmt(timerSec)}</span>
+                </div>
 
-              {/* Quit / Exit Modal Trigger */}
-              <button
-                onClick={() => {
-                  if (window.confirm('Bạn có chắc muốn tạm dừng và thoát buổi phỏng vấn này không? Toàn bộ tiến trình sẽ không được lưu.')) {
-                    stopSpeaking();
-                    setView('setup');
-                    setTimerOn(false);
-                  }
-                }}
-                className="px-3.5 py-1.5 rounded-full bg-botanical-cream hover:bg-botanical-terracotta/15 text-botanical-forest hover:text-botanical-terracotta border border-botanical-stone hover:border-botanical-terracotta/30 transition-all text-xs font-bold flex items-center gap-1 cursor-pointer"
-                title="Rời khỏi phòng phỏng vấn"
-              >
-                <span className="material-symbols-outlined text-sm">logout</span>
-                <span className="hidden sm:inline">Rời Phòng</span>
-              </button>
+                {/* Mute AI Speech Toggle */}
+                <button
+                  onClick={() => {
+                    setIsMuted(!isMuted);
+                    if (!isMuted) stopSpeaking();
+                    showToast(!isMuted ? 'Đã tắt giọng nói AI' : 'Đã bật giọng nói AI');
+                  }}
+                  className={`p-2 rounded-full border transition-all cursor-pointer ${
+                    isMuted 
+                      ? 'bg-orange-50 text-[#f97316] border-orange-200' 
+                      : 'bg-[#f8f7ff] text-[#1e1b4b] border-purple-100 hover:bg-purple-50'
+                  }`}
+                  title={isMuted ? 'Bật giọng đọc AI' : 'Tắt tiếng AI'}
+                >
+                  <span className="material-symbols-outlined text-base">{isMuted ? 'volume_off' : 'volume_up'}</span>
+                </button>
+
+                {/* Quit / Exit Modal Trigger */}
+                <button
+                  onClick={() => {
+                    if (window.confirm('Bạn có chắc muốn tạm dừng và thoát buổi phỏng vấn này không? Toàn bộ tiến trình sẽ không được lưu.')) {
+                      stopSpeaking();
+                      setView('setup');
+                      setTimerOn(false);
+                    }
+                  }}
+                  className="px-3.5 py-1.5 rounded-full bg-[#f8f7ff] hover:bg-rose-50 text-[#1e1b4b] hover:text-rose-600 border border-purple-100 hover:border-rose-200 transition-all text-xs font-bold flex items-center gap-1 cursor-pointer"
+                  title="Rời khỏi phòng phỏng vấn"
+                >
+                  <span className="material-symbols-outlined text-sm">logout</span>
+                  <span className="hidden sm:inline">Rời Phòng</span>
+                </button>
+              </div>
             </div>
           </div>
 
           {!done ? (
             /* 2-COLUMN MAIN STAGE */
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start font-sans">
               {/* LEFT STAGE: AI PERSONA & CANDIDATE WORKSPACE (8 Columns) */}
               <div className="lg:col-span-8 space-y-5">
                 
                 {/* 2.1 AI INTERVIEWER PERSONA STAGE CARD */}
-                <div className="card-botanical bg-white/95 rounded-3xl border border-botanical-stone p-5 sm:p-6 shadow-soft-xl relative overflow-hidden transition-all duration-300">
+                <div className="bg-white rounded-3xl border border-purple-100 p-5 sm:p-6 shadow-sm relative overflow-hidden transition-all duration-300 font-sans">
                   {/* AI Persona Header Banner */}
-                  <div className="flex items-center justify-between gap-4 pb-4 border-b border-botanical-stone/80">
+                  <div className="flex items-center justify-between gap-4 pb-4 border-b border-purple-100">
                     <div className="flex items-center gap-3.5">
                       <div className="relative">
                         <img 
                           src={getPersona(selectedDomain?.id).avatar} 
                           alt={getPersona(selectedDomain?.id).name}
-                          className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl object-cover border-2 border-botanical-stone shadow-soft ring-2 ring-botanical-forest/10"
+                          className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl object-cover border-2 border-purple-100 shadow-sm ring-2 ring-purple-500/10"
                         />
                         {isAiSpeaking && (
                           <span className="absolute -bottom-1 -right-1 flex h-4 w-4">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-botanical-terracotta opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-4 w-4 bg-botanical-terracotta border-2 border-white flex items-center justify-center">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#f97316] opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-4 w-4 bg-[#f97316] border-2 border-white flex items-center justify-center">
                               <span className="material-symbols-outlined text-[10px] text-white">volume_up</span>
                             </span>
                           </span>
@@ -1304,24 +1301,24 @@ export default function AiInterviewStudioPage({ user }) {
 
                       <div>
                         <div className="flex items-center gap-2">
-                          <h3 className="text-sm sm:text-base font-serif font-bold text-botanical-forest tracking-wide">
+                          <h3 className="text-sm sm:text-base font-sans font-extrabold text-[#1e1b4b] tracking-wide">
                             {getPersona(selectedDomain?.id).name}
                           </h3>
                           <span 
-                            className="text-[10px] font-mono px-2 py-0.5 rounded-full font-bold border badge-sage"
+                            className="text-[10px] font-sans px-2.5 py-0.5 rounded-full font-bold border bg-purple-100 text-[#5b48bd] border-purple-200"
                           >
                             AI ASSESSOR
                           </span>
                         </div>
-                        <p className="text-xs text-botanical-forest/70 font-medium">
-                          {getPersona(selectedDomain?.id).roleTitle} • <span className="text-botanical-forest/50">{getPersona(selectedDomain?.id).company}</span>
+                        <p className="text-xs text-slate-500 font-medium">
+                          {getPersona(selectedDomain?.id).roleTitle} • <span className="text-slate-400">{getPersona(selectedDomain?.id).company}</span>
                         </p>
                       </div>
                     </div>
 
                     {/* Animated Neural Audio Equalizer */}
-                    <div className="hidden sm:flex items-center gap-2 bg-[#FAF9F5] px-3.5 py-1.5 rounded-full border border-botanical-stone">
-                      <span className="text-[11px] font-mono text-botanical-forest/70">
+                    <div className="hidden sm:flex items-center gap-2 bg-[#f8f7ff] px-3.5 py-1.5 rounded-full border border-purple-100">
+                      <span className="text-[11px] font-sans font-bold text-slate-600">
                         {isAiSpeaking ? 'AI Đang Nói' : 'AI Lắng Nghe'}
                       </span>
                       <div className="flex items-end gap-1 h-4 w-10">
@@ -1331,7 +1328,7 @@ export default function AiInterviewStudioPage({ user }) {
                             className={`w-1 rounded-full transition-all duration-150 ${isAiSpeaking ? 'animate-bounce' : 'opacity-40'}`}
                             style={{ 
                               height: isAiSpeaking ? `${h}%` : '30%',
-                              backgroundColor: '#C27B66',
+                              backgroundColor: '#f97316',
                               animationDelay: `${i * 100}ms`
                             }}
                           />
@@ -1341,10 +1338,10 @@ export default function AiInterviewStudioPage({ user }) {
                   </div>
 
                   {/* Question Display Callout */}
-                  <div className="py-4 space-y-3">
+                  <div className="py-4 space-y-3 font-sans">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-mono font-bold tracking-wider uppercase text-botanical-forest/70 flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-botanical-terracotta"></span>
+                      <span className="text-xs font-mono font-bold tracking-wider uppercase text-[#f97316] flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-[#f97316]"></span>
                         CÂU HỎI SỐ #{currentIdx + 1} / {questions.length}
                       </span>
 
@@ -1352,51 +1349,51 @@ export default function AiInterviewStudioPage({ user }) {
                       <button
                         onClick={() => speakQuestionText(questions[currentIdx])}
                         disabled={isAiSpeaking}
-                        className="text-xs font-mono px-3.5 py-1 rounded-full bg-botanical-cream hover:bg-botanical-stone/60 border border-botanical-stone text-botanical-forest transition-all flex items-center gap-1.5 cursor-pointer shadow-soft disabled:opacity-50"
+                        className="text-xs font-sans px-3.5 py-1 rounded-full bg-[#f8f7ff] hover:bg-purple-50 border border-purple-100 text-[#1e1b4b] font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50"
                         title="Bấm để AI đọc lại câu hỏi"
                       >
-                        <span className="material-symbols-outlined text-sm text-botanical-terracotta">record_voice_over</span>
+                        <span className="material-symbols-outlined text-sm text-[#f97316]">record_voice_over</span>
                         <span>{isAiSpeaking ? 'Đang đọc...' : 'Nghe lại giọng AI'}</span>
                       </button>
                     </div>
 
-                    <div className="p-5 sm:p-6 rounded-2xl bg-[#FAF9F5] border border-botanical-stone/80 shadow-soft relative">
-                      <span className="absolute -top-3.5 left-4 text-3xl font-serif text-botanical-forest/20 select-none">“</span>
-                      <p className="text-base sm:text-lg font-serif font-semibold text-botanical-forest leading-relaxed tracking-wide">
+                    <div className="p-5 sm:p-6 rounded-2xl bg-[#f8f7ff] border border-purple-100 shadow-sm relative text-[#1e1b4b]">
+                      <span className="absolute -top-3.5 left-4 text-3xl font-serif text-purple-300 select-none">“</span>
+                      <p className="text-base sm:text-lg font-sans font-bold text-[#1e1b4b] leading-relaxed tracking-wide">
                         {questions[currentIdx]}
                       </p>
                     </div>
 
                     {/* STAR Structural Recommendation Pills */}
-                    <div className="flex flex-wrap items-center gap-1.5 pt-1 text-xs">
-                      <span className="text-botanical-forest/70 font-medium flex items-center gap-1 text-[11px] mr-1">
-                        <span className="material-symbols-outlined text-botanical-terracotta text-sm">stars</span>
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1 text-xs font-sans">
+                      <span className="text-slate-600 font-bold flex items-center gap-1 text-[11px] mr-1">
+                        <span className="material-symbols-outlined text-[#f97316] text-sm">stars</span>
                         Khung STAR chuẩn mực:
                       </span>
-                      <span className="px-2.5 py-0.5 rounded-full bg-white border border-botanical-stone text-botanical-forest text-[11px] font-mono">
-                        <strong className="text-botanical-terracotta">S:</strong> Bối cảnh thực tế
+                      <span className="px-2.5 py-0.5 rounded-full bg-white border border-purple-100 text-[#1e1b4b] text-[11px] font-mono font-bold">
+                        <strong className="text-[#f97316]">S:</strong> Bối cảnh thực tế
                       </span>
-                      <span className="px-2.5 py-0.5 rounded-full bg-white border border-botanical-stone text-botanical-forest text-[11px] font-mono">
-                        <strong className="text-botanical-forest">T:</strong> Nhiệm vụ cốt lõi
+                      <span className="px-2.5 py-0.5 rounded-full bg-white border border-purple-100 text-[#1e1b4b] text-[11px] font-mono font-bold">
+                        <strong className="text-[#5b48bd]">T:</strong> Nhiệm vụ cốt lõi
                       </span>
-                      <span className="px-2.5 py-0.5 rounded-full bg-white border border-botanical-stone text-botanical-forest text-[11px] font-mono">
-                        <strong className="text-botanical-sage">A:</strong> Hành động 3 bước
+                      <span className="px-2.5 py-0.5 rounded-full bg-white border border-purple-100 text-[#1e1b4b] text-[11px] font-mono font-bold">
+                        <strong className="text-[#10b981]">A:</strong> Hành động 3 bước
                       </span>
-                      <span className="px-2.5 py-0.5 rounded-full bg-white border border-botanical-stone text-botanical-forest text-[11px] font-mono">
-                        <strong className="text-botanical-terracotta">R:</strong> Kết quả &amp; KPI %
+                      <span className="px-2.5 py-0.5 rounded-full bg-white border border-purple-100 text-[#1e1b4b] text-[11px] font-mono font-bold">
+                        <strong className="text-[#f97316]">R:</strong> Kết quả &amp; KPI %
                       </span>
                     </div>
                   </div>
                 </div>
 
                 {/* 2.2 CANDIDATE WORKSPACE: VIDEO HUD & ANSWER COMPOSER */}
-                <div className="card-botanical bg-white/95 rounded-3xl border border-botanical-stone p-5 sm:p-6 shadow-soft-xl space-y-4 transition-all duration-300">
+                <div className="bg-white rounded-3xl border border-purple-100 p-5 sm:p-6 shadow-sm space-y-4 transition-all duration-300 font-sans">
                   
                   {/* Top Bar: Camera HUD & Mic status */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-botanical-stone/80">
+                  <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-purple-100">
                     <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-botanical-sage animate-pulse"></span>
-                      <label className="text-xs font-serif font-bold text-botanical-forest uppercase tracking-wider">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#10b981] animate-pulse"></span>
+                      <label className="text-xs font-sans font-extrabold text-[#1e1b4b] uppercase tracking-wider">
                         Phòng Thi &amp; Không Gian Trả Lời Của Bạn
                       </label>
                     </div>
@@ -1408,10 +1405,10 @@ export default function AiInterviewStudioPage({ user }) {
                           setIsCamOn(!isCamOn);
                           showToast(!isCamOn ? 'Đã bật camera phỏng vấn' : 'Đã tắt camera');
                         }}
-                        className={`px-3.5 py-1.5 rounded-full text-xs font-mono font-bold border transition-all cursor-pointer flex items-center gap-1.5 ${
+                        className={`px-3.5 py-1.5 rounded-full text-xs font-sans font-bold border transition-all cursor-pointer flex items-center gap-1.5 ${
                           isCamOn 
-                            ? 'bg-botanical-forest text-white border-botanical-forest shadow-soft' 
-                            : 'bg-botanical-cream text-botanical-forest/70 border-botanical-stone hover:text-botanical-forest'
+                            ? 'bg-[#32247b] text-white border-[#32247b] shadow-sm' 
+                            : 'bg-[#f8f7ff] text-[#1e1b4b] border-purple-100 hover:bg-purple-50'
                         }`}
                         title="Bật/Tắt Camera"
                       >
@@ -1422,10 +1419,10 @@ export default function AiInterviewStudioPage({ user }) {
                       {/* Microphone Voice Recognition Toggle */}
                       <button
                         onClick={toggleMic}
-                        className={`px-4 py-1.5 rounded-full text-xs font-mono font-bold border transition-all cursor-pointer flex items-center gap-1.5 shadow-soft ${
+                        className={`px-4 py-1.5 rounded-full text-xs font-sans font-bold border transition-all cursor-pointer flex items-center gap-1.5 shadow-sm ${
                           isMicOn
-                            ? 'bg-botanical-terracotta text-white border-botanical-terracotta animate-pulse'
-                            : 'bg-botanical-cream text-botanical-forest border-botanical-stone hover:bg-botanical-stone/60'
+                            ? 'bg-[#f97316] text-white border-[#f97316] animate-pulse'
+                            : 'bg-[#f8f7ff] text-[#1e1b4b] border-purple-100 hover:bg-purple-50'
                         }`}
                         title="Bật/Tắt Voice Speech Recognition"
                       >
@@ -1436,9 +1433,9 @@ export default function AiInterviewStudioPage({ user }) {
                   </div>
 
                   {/* Compact Interactive Candidate Camera PIP preview & Voice waves */}
-                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center font-sans">
                     {/* Simulated / Real Candidate Feed */}
-                    <div className="sm:col-span-5 relative rounded-2xl overflow-hidden bg-botanical-forest border border-botanical-stone aspect-video sm:aspect-auto sm:h-36 flex items-center justify-center shadow-soft group">
+                    <div className="sm:col-span-5 relative rounded-2xl overflow-hidden bg-[#1e1b4b] border border-purple-100 aspect-video sm:aspect-auto sm:h-36 flex items-center justify-center shadow-sm group">
                       {isCamOn ? (
                         <>
                           <video 
@@ -1450,44 +1447,44 @@ export default function AiInterviewStudioPage({ user }) {
                           />
                           {/* Face tracking reticle overlay */}
                           <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                            <div className="w-20 h-24 border border-dashed border-botanical-sage/70 rounded-2xl relative animate-pulse">
-                              <span className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-botanical-sage"></span>
-                              <span className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-botanical-sage"></span>
-                              <span className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-botanical-sage"></span>
-                              <span className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-botanical-sage"></span>
+                            <div className="w-20 h-24 border border-dashed border-purple-300 rounded-2xl relative animate-pulse">
+                              <span className="absolute top-0 left-0 w-2 h-2 border-t-2 border-l-2 border-purple-300"></span>
+                              <span className="absolute top-0 right-0 w-2 h-2 border-t-2 border-r-2 border-purple-300"></span>
+                              <span className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-purple-300"></span>
+                              <span className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-purple-300"></span>
                             </div>
                           </div>
                           {/* HUD Badges */}
-                          <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-botanical-forest/80 backdrop-blur-md text-[9px] font-mono text-botanical-cream font-bold border border-white/20 flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-botanical-sage"></span>
+                          <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-[#1e1b4b]/80 backdrop-blur-md text-[9px] font-mono text-white font-bold border border-white/20 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#10b981]"></span>
                             AI VISION: TRACKING
                           </div>
-                          <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded-full bg-botanical-forest/80 backdrop-blur-md text-[9px] font-mono text-white/80">
+                          <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded-full bg-[#1e1b4b]/80 backdrop-blur-md text-[9px] font-mono text-white/80">
                             1080P • 60 FPS
                           </div>
                         </>
                       ) : (
                         <div className="text-center p-4 space-y-1">
-                          <span className="material-symbols-outlined text-3xl text-botanical-cream/40">videocam_off</span>
-                          <p className="text-[11px] text-botanical-cream/60 font-mono">Camera đang tắt</p>
+                          <span className="material-symbols-outlined text-3xl text-purple-300/40">videocam_off</span>
+                          <p className="text-[11px] text-purple-200/60 font-mono">Camera đang tắt</p>
                         </div>
                       )}
                     </div>
 
                     {/* STAR Quick Scaffold Inserter Bar */}
-                    <div className="sm:col-span-7 bg-[#FAF9F5] rounded-2xl p-3 border border-botanical-stone space-y-2">
+                    <div className="sm:col-span-7 bg-[#f8f7ff] rounded-2xl p-3 border border-purple-100 space-y-2 font-sans">
                       <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-mono text-botanical-forest font-bold flex items-center gap-1">
-                          <span className="material-symbols-outlined text-xs text-botanical-terracotta">auto_fix_high</span>
+                        <span className="text-[11px] font-sans text-[#1e1b4b] font-bold flex items-center gap-1">
+                          <span className="material-symbols-outlined text-xs text-[#f97316]">auto_fix_high</span>
                           Chèn Mẫu Cấu Trúc Trả Lời (STAR):
                         </span>
-                        <span className="text-[10px] text-botanical-forest/50">1-Click</span>
+                        <span className="text-[10px] text-slate-400">1-Click</span>
                       </div>
                       <div className="grid grid-cols-2 gap-1.5">
                         <button 
                           onClick={() => insertStarScaffold('S')}
                           type="button"
-                          className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-botanical-cream border border-botanical-stone text-[11px] font-mono text-botanical-terracotta text-left transition-all cursor-pointer truncate font-bold"
+                          className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-purple-50 border border-purple-100 text-[11px] font-sans text-[#f97316] text-left transition-all cursor-pointer truncate font-bold"
                           title="Chèn mục Bối cảnh / Tình huống (Situation)"
                         >
                           + [S] Tình huống
@@ -1495,7 +1492,7 @@ export default function AiInterviewStudioPage({ user }) {
                         <button 
                           onClick={() => insertStarScaffold('T')}
                           type="button"
-                          className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-botanical-cream border border-botanical-stone text-[11px] font-mono text-botanical-forest text-left transition-all cursor-pointer truncate font-bold"
+                          className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-purple-50 border border-purple-100 text-[11px] font-sans text-[#5b48bd] text-left transition-all cursor-pointer truncate font-bold"
                           title="Chèn mục Nhiệm vụ cốt lõi (Task)"
                         >
                           + [T] Nhiệm vụ
@@ -1503,7 +1500,7 @@ export default function AiInterviewStudioPage({ user }) {
                         <button 
                           onClick={() => insertStarScaffold('A')}
                           type="button"
-                          className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-botanical-cream border border-botanical-stone text-[11px] font-mono text-botanical-sage text-left transition-all cursor-pointer truncate font-bold"
+                          className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-purple-50 border border-purple-100 text-[11px] font-sans text-[#10b981] text-left transition-all cursor-pointer truncate font-bold"
                           title="Chèn mục Hành động 3 bước (Action)"
                         >
                           + [A] Hành động
@@ -1511,7 +1508,7 @@ export default function AiInterviewStudioPage({ user }) {
                         <button 
                           onClick={() => insertStarScaffold('R')}
                           type="button"
-                          className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-botanical-cream border border-botanical-stone text-[11px] font-mono text-botanical-terracotta text-left transition-all cursor-pointer truncate font-bold"
+                          className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-purple-50 border border-purple-100 text-[11px] font-sans text-[#f97316] text-left transition-all cursor-pointer truncate font-bold"
                           title="Chèn mục Kết quả số liệu (Result)"
                         >
                           + [R] Kết quả &amp; KPI
@@ -1521,7 +1518,7 @@ export default function AiInterviewStudioPage({ user }) {
                   </div>
 
                   {/* Main Rich Textarea Workspace */}
-                  <div className="space-y-2">
+                  <div className="space-y-2 font-sans">
                     <div className="relative">
                       <textarea
                         rows={7}
@@ -1534,7 +1531,7 @@ export default function AiInterviewStudioPage({ user }) {
                             handleNext();
                           }
                         }}
-                        className="w-full bg-[#FAF9F5] border border-botanical-stone focus:border-botanical-sage focus:bg-white rounded-2xl p-4 sm:p-5 text-sm sm:text-base text-botanical-forest placeholder:text-botanical-forest/40 focus:outline-none leading-relaxed resize-none shadow-soft transition-all font-sans"
+                        className="w-full bg-[#f8f7ff] border border-purple-100 focus:border-[#5b48bd] focus:bg-white rounded-2xl p-4 sm:p-5 text-sm sm:text-base text-[#1e1b4b] font-semibold placeholder:text-slate-400 focus:outline-none leading-relaxed resize-none shadow-sm transition-all font-sans"
                       />
                       {currentAnswer && (
                         <button
@@ -1543,7 +1540,7 @@ export default function AiInterviewStudioPage({ user }) {
                               setCurrentAnswer('');
                             }
                           }}
-                          className="absolute top-3 right-3 p-1.5 rounded-full bg-botanical-cream hover:bg-botanical-terracotta/20 text-botanical-forest/60 hover:text-botanical-terracotta transition-all text-xs cursor-pointer border border-botanical-stone/60"
+                          className="absolute top-3 right-3 p-1.5 rounded-full bg-white hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-all text-xs cursor-pointer border border-purple-100"
                           title="Xóa nội dung trả lời"
                         >
                           <span className="material-symbols-outlined text-sm">delete</span>
@@ -1552,21 +1549,21 @@ export default function AiInterviewStudioPage({ user }) {
                     </div>
 
                     {/* Bottom Status Bar of Answer */}
-                    <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                    <div className="flex flex-wrap items-center justify-between gap-3 pt-1 font-sans">
                       <div className="flex items-center gap-3">
-                        <span className="text-xs font-mono text-botanical-forest/70 font-bold">
+                        <span className="text-xs font-mono text-slate-600 font-bold">
                           {currentAnswer.length} ký tự
                         </span>
                         <div className="hidden sm:flex items-center gap-1.5">
-                          <div className="w-24 h-1.5 bg-botanical-stone/80 rounded-full overflow-hidden">
+                          <div className="w-24 h-1.5 bg-purple-100 rounded-full overflow-hidden">
                             <div 
                               className={`h-full transition-all duration-300 ${
-                                currentAnswer.length < 50 ? 'bg-botanical-clay' : currentAnswer.length < 200 ? 'bg-botanical-sage' : 'bg-botanical-forest'
+                                currentAnswer.length < 50 ? 'bg-amber-400' : currentAnswer.length < 200 ? 'bg-emerald-400' : 'bg-[#32247b]'
                               }`}
                               style={{ width: `${Math.min(100, (currentAnswer.length / 300) * 100)}%` }}
                             />
                           </div>
-                          <span className="text-[10px] font-mono text-botanical-forest/60">
+                          <span className="text-[10px] font-sans text-slate-500 font-semibold">
                             {currentAnswer.length < 50 ? 'Cần thêm ý' : currentAnswer.length < 200 ? 'Khá tốt' : '✓ Độ sâu tuyệt vời'}
                           </span>
                         </div>
@@ -1576,7 +1573,7 @@ export default function AiInterviewStudioPage({ user }) {
                       <button
                         onClick={handleNext}
                         disabled={isAiTyping}
-                        className="btn-botanical-primary rounded-full px-6 sm:px-8 py-3 text-xs sm:text-sm uppercase tracking-wider font-bold shadow-soft hover:shadow-soft-lg flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                        className="rounded-full px-6 sm:px-8 py-3 text-xs sm:text-sm uppercase tracking-wider font-extrabold shadow-md hover:shadow-lg flex items-center gap-2 cursor-pointer disabled:opacity-50 bg-[#32247b] text-white hover:bg-[#271a66] transition-all font-sans"
                       >
                         {isAiTyping ? (
                           <>
@@ -1601,18 +1598,18 @@ export default function AiInterviewStudioPage({ user }) {
               </div>
 
               {/* RIGHT STAGE: REAL-TIME TELEMETRY & COACHING MATRIX (4 Columns) */}
-              <div className="lg:col-span-4 space-y-5">
+              <div className="lg:col-span-4 space-y-5 font-sans">
                 
                 {/* 2.3 REAL-TIME AI TELEMETRY PANEL */}
-                <div className="card-botanical bg-white/95 rounded-3xl border border-botanical-stone p-5 shadow-soft-xl space-y-4 transition-all duration-300">
+                <div className="bg-white rounded-3xl border border-purple-100 p-5 shadow-sm space-y-4 transition-all duration-300 font-sans">
                   
                   {/* Tab Selector inside Telemetry */}
-                  <div className="flex items-center justify-between pb-3 border-b border-botanical-stone/80">
-                    <span className="text-xs font-serif font-bold text-botanical-forest uppercase tracking-wider flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-sm text-botanical-terracotta">query_stats</span>
+                  <div className="flex items-center justify-between pb-3 border-b border-purple-100">
+                    <span className="text-xs font-sans font-extrabold text-[#1e1b4b] uppercase tracking-wider flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-sm text-[#f97316]">query_stats</span>
                       Tín Hiệu Đo Lường Trực Tiếp
                     </span>
-                    <span className="badge-sage px-2 py-0.5 rounded-full text-[10px] font-mono font-bold">
+                    <span className="bg-emerald-100 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 rounded-full text-[10px] font-sans font-bold">
                       ACTIVE
                     </span>
                   </div>
@@ -1621,20 +1618,20 @@ export default function AiInterviewStudioPage({ user }) {
                   {(() => {
                     const starSignals = detectStarSignals(currentAnswer);
                     return (
-                      <div className="bg-[#FAF9F5] rounded-2xl p-4 border border-botanical-stone space-y-2.5">
+                      <div className="bg-[#f8f7ff] rounded-2xl p-4 border border-purple-100 space-y-2.5 font-sans">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-mono text-botanical-forest/80 font-bold flex items-center gap-1">
-                            <span className="material-symbols-outlined text-xs text-botanical-terracotta">verified</span>
+                          <span className="text-xs font-sans text-[#1e1b4b] font-bold flex items-center gap-1">
+                            <span className="material-symbols-outlined text-xs text-[#f97316]">verified</span>
                             Chỉ số cấu trúc STAR
                           </span>
-                          <span className="text-sm font-serif font-bold text-botanical-forest">
+                          <span className="text-sm font-sans font-extrabold text-[#1e1b4b]">
                             {starSignals.score}%
                           </span>
                         </div>
 
-                        <div className="w-full h-2 bg-botanical-stone/60 rounded-full overflow-hidden">
+                        <div className="w-full h-2 bg-purple-100 rounded-full overflow-hidden">
                           <div 
-                            className="h-full rounded-full transition-all duration-500 bg-botanical-forest"
+                            className="h-full rounded-full transition-all duration-500 bg-[#32247b]"
                             style={{
                               width: `${starSignals.score}%`,
                             }}
@@ -1642,16 +1639,16 @@ export default function AiInterviewStudioPage({ user }) {
                         </div>
 
                         <div className="grid grid-cols-4 gap-1.5 pt-1 text-[10px] font-mono text-center">
-                          <span className={`p-1 rounded-lg border ${starSignals.s ? 'bg-botanical-forest text-white border-botanical-forest font-bold' : 'bg-white border-botanical-stone text-botanical-forest/50'}`}>
+                          <span className={`p-1 rounded-lg border ${starSignals.s ? 'bg-[#32247b] text-white border-[#32247b] font-bold' : 'bg-white border-purple-100 text-slate-400 font-semibold'}`}>
                             S {starSignals.s ? '✓' : '...'}
                           </span>
-                          <span className={`p-1 rounded-lg border ${starSignals.t ? 'bg-botanical-forest text-white border-botanical-forest font-bold' : 'bg-white border-botanical-stone text-botanical-forest/50'}`}>
+                          <span className={`p-1 rounded-lg border ${starSignals.t ? 'bg-[#32247b] text-white border-[#32247b] font-bold' : 'bg-white border-purple-100 text-slate-400 font-semibold'}`}>
                             T {starSignals.t ? '✓' : '...'}
                           </span>
-                          <span className={`p-1 rounded-lg border ${starSignals.a ? 'bg-botanical-forest text-white border-botanical-forest font-bold' : 'bg-white border-botanical-stone text-botanical-forest/50'}`}>
+                          <span className={`p-1 rounded-lg border ${starSignals.a ? 'bg-[#32247b] text-white border-[#32247b] font-bold' : 'bg-white border-purple-100 text-slate-400 font-semibold'}`}>
                             A {starSignals.a ? '✓' : '...'}
                           </span>
-                          <span className={`p-1 rounded-lg border ${starSignals.r ? 'bg-botanical-forest text-white border-botanical-forest font-bold' : 'bg-white border-botanical-stone text-botanical-forest/50'}`}>
+                          <span className={`p-1 rounded-lg border ${starSignals.r ? 'bg-[#32247b] text-white border-[#32247b] font-bold' : 'bg-white border-purple-100 text-slate-400 font-semibold'}`}>
                             R {starSignals.r ? '✓' : '...'}
                           </span>
                         </div>
@@ -1663,9 +1660,9 @@ export default function AiInterviewStudioPage({ user }) {
                   {(() => {
                     const detectedKws = getDetectedKeywords(currentAnswer, selectedDomain?.id);
                     return (
-                      <div className="bg-[#FAF9F5] rounded-2xl p-4 border border-botanical-stone space-y-2">
-                        <span className="text-xs font-mono text-botanical-forest/80 font-bold flex items-center gap-1">
-                          <span className="material-symbols-outlined text-xs text-botanical-sage">label</span>
+                      <div className="bg-[#f8f7ff] rounded-2xl p-4 border border-purple-100 space-y-2 font-sans">
+                        <span className="text-xs font-sans text-[#1e1b4b] font-bold flex items-center gap-1">
+                          <span className="material-symbols-outlined text-xs text-[#5b48bd]">label</span>
                           Từ khóa chuyên môn bắt được ({detectedKws.length}):
                         </span>
                         <div className="flex flex-wrap gap-1.5 min-h-[38px]">
@@ -1673,13 +1670,13 @@ export default function AiInterviewStudioPage({ user }) {
                             detectedKws.map((kw, idx) => (
                               <span 
                                 key={idx} 
-                                className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-botanical-forest/10 text-botanical-forest border border-botanical-forest/20 shadow-soft"
+                                className="px-2.5 py-0.5 rounded-full text-[10px] font-sans font-bold bg-purple-100 text-[#5b48bd] border border-purple-200 shadow-sm"
                               >
                                 ✓ {kw}
                               </span>
                             ))
                           ) : (
-                            <span className="text-[11px] text-botanical-forest/50 italic">
+                            <span className="text-[11px] text-slate-400 font-medium italic">
                               Chưa phát hiện từ khóa chuyên ngành. Hãy nhắc đến các công cụ &amp; chỉ số thực tế.
                             </span>
                           )}
@@ -1689,51 +1686,51 @@ export default function AiInterviewStudioPage({ user }) {
                   })()}
 
                   {/* Meter 3: Contextual AI Advice */}
-                  <div className="bg-[#FAF9F5] rounded-2xl p-4 border border-botanical-stone space-y-1.5">
-                    <span className="text-xs font-mono text-botanical-terracotta font-bold flex items-center gap-1">
+                  <div className="bg-[#f8f7ff] rounded-2xl p-4 border border-purple-100 space-y-1.5 font-sans">
+                    <span className="text-xs font-sans text-[#f97316] font-bold flex items-center gap-1">
                       <span className="material-symbols-outlined text-sm">lightbulb</span>
                       Lời khuyên từ {getPersona(selectedDomain?.id).name}:
                     </span>
-                    <p className="text-xs text-botanical-forest/75 leading-relaxed font-sans">
+                    <p className="text-xs text-slate-600 leading-relaxed font-sans font-medium">
                       {getPersona(selectedDomain?.id).greeting} Hãy trả lời súc tích và kết thúc bằng một chỉ số định lượng cụ thể.
                     </p>
                   </div>
                 </div>
 
                 {/* 2.4 QUESTION NAVIGATOR & TIMELINE PREVIEW */}
-                <div className="card-botanical bg-white/95 rounded-3xl border border-botanical-stone p-5 shadow-soft-xl space-y-3 transition-all duration-300">
-                  <div className="flex items-center justify-between pb-2 border-b border-botanical-stone/80">
-                    <span className="text-xs font-serif font-bold text-botanical-forest uppercase tracking-wider flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-sm text-botanical-terracotta">format_list_numbered</span>
+                <div className="bg-white rounded-3xl border border-purple-100 p-5 shadow-sm space-y-3 font-sans">
+                  <div className="flex items-center justify-between pb-2 border-b border-purple-100">
+                    <span className="text-xs font-sans font-extrabold text-[#1e1b4b] uppercase tracking-wider flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-sm text-[#f97316]">format_list_numbered</span>
                       Lộ Trình Buổi Phỏng Vấn
                     </span>
-                    <span className="badge-sage px-2 py-0.5 rounded-full text-[10px] font-mono">
+                    <span className="bg-purple-100 text-[#5b48bd] border border-purple-200 px-2 py-0.5 rounded-full text-[10px] font-sans font-bold">
                       {questions.length} Câu
                     </span>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-2 font-sans">
                     {questions.map((q, idx) => {
                       const isPast = idx < currentIdx;
                       const isNow = idx === currentIdx;
                       return (
                         <div 
                           key={idx}
-                          className={`p-2.5 rounded-2xl border text-xs transition-all flex items-start gap-2.5 ${
+                          className={`p-2.5 rounded-2xl border text-xs transition-all flex items-start gap-2.5 font-sans ${
                             isNow 
-                              ? 'bg-botanical-forest text-white border-botanical-forest font-bold shadow-soft' 
+                              ? 'bg-[#32247b] text-white border-[#32247b] font-bold shadow-sm' 
                               : isPast 
-                              ? 'bg-[#FAF9F5] border-botanical-stone text-botanical-forest' 
-                              : 'bg-white/60 border-botanical-stone/60 text-botanical-forest/40'
+                              ? 'bg-[#f8f7ff] border-purple-100 text-[#1e1b4b] font-semibold' 
+                              : 'bg-white border-purple-100 text-slate-400'
                           }`}
                         >
                           <span 
                             className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-mono shrink-0 ${
                               isNow 
-                                ? 'bg-botanical-terracotta text-white font-bold' 
+                                ? 'bg-[#f97316] text-white font-bold' 
                                 : isPast 
-                                ? 'bg-botanical-cream text-botanical-forest font-bold' 
-                                : 'bg-botanical-stone/40 text-botanical-forest/50'
+                                ? 'bg-purple-100 text-[#5b48bd] font-bold' 
+                                : 'bg-slate-100 text-slate-400'
                             }`}
                           >
                             {isPast ? '✓' : idx + 1}
@@ -1750,31 +1747,21 @@ export default function AiInterviewStudioPage({ user }) {
             </div>
           ) : (
             /* AI GRADING SPINNER & BRAINWAVE SIMULATION */
-            <div className="card-botanical bg-white/95 rounded-3xl border border-botanical-stone p-12 text-center space-y-6 shadow-soft-xl transition-all duration-300 my-8">
+            <div className="bg-white rounded-3xl border border-purple-100 p-12 text-center space-y-6 shadow-sm transition-all duration-300 my-8 font-sans">
               <div className="relative w-28 h-28 mx-auto">
-                <div className="absolute inset-0 rounded-full border-4 border-dashed border-botanical-terracotta animate-spin" style={{ animationDuration: '8s' }}></div>
-                <div className="w-full h-full rounded-full bg-botanical-cream flex items-center justify-center border border-botanical-stone">
-                  <span className="material-symbols-outlined text-5xl text-botanical-terracotta animate-pulse">psychology</span>
+                <div className="absolute inset-0 rounded-full border-4 border-dashed border-[#f97316] animate-spin" style={{ animationDuration: '8s' }}></div>
+                <div className="w-full h-full rounded-full bg-[#f8f7ff] flex items-center justify-center border border-purple-100">
+                  <span className="material-symbols-outlined text-5xl text-[#f97316] animate-pulse">psychology</span>
                 </div>
               </div>
               
-              <div className="space-y-2 max-w-lg mx-auto">
-                <h3 className="text-2xl font-serif font-bold text-botanical-forest tracking-wide">
+              <div className="space-y-2 max-w-lg mx-auto font-sans">
+                <h3 className="text-2xl font-sans font-extrabold text-[#1e1b4b] tracking-wide">
                   Hệ Thống Synthia AI Đang Chấm Điểm Chuyên Sâu...
                 </h3>
-                <p className="text-sm text-botanical-forest/75 font-sans leading-relaxed">
+                <p className="text-sm text-slate-600 font-sans leading-relaxed">
                   Đang bóc tách từng luận điểm, đối chiếu khung năng lực STAR và tự động tổng hợp báo cáo chẩn đoán điểm mạnh &amp; điểm yếu.
                 </p>
-              </div>
-
-              <div className="flex justify-center gap-2 pt-2">
-                {[0, 1, 2, 3, 4].map((i) => (
-                  <div
-                    key={i}
-                    className="w-3 h-3 rounded-full bg-botanical-terracotta animate-bounce"
-                    style={{ animationDelay: `${i * 120}ms` }}
-                  />
-                ))}
               </div>
             </div>
           )}
@@ -1785,40 +1772,40 @@ export default function AiInterviewStudioPage({ user }) {
       {/* 3. VIEW RESULT (KẾT QUẢ VỪA THI XONG)                                  */}
       {/* ===================================================================== */}
       {view === 'result' && result && (
-        <main className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 py-8 space-y-7 animate-fadeIn">
+        <main className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 py-8 space-y-7 animate-fadeIn font-sans">
           {/* Top Banner Điểm Số */}
-          <div className="card-botanical bg-white/95 rounded-3xl border border-botanical-stone p-6 sm:p-8 text-center space-y-4 shadow-soft-xl">
-            <div className="w-28 h-28 rounded-full mx-auto flex flex-col items-center justify-center border-4 border-botanical-stone bg-[#FAF9F5] shadow-soft">
-              <span className="font-serif font-black text-4xl text-botanical-forest">
+          <div className="bg-white rounded-3xl border border-purple-100 p-6 sm:p-8 text-center space-y-4 shadow-sm">
+            <div className="w-28 h-28 rounded-full mx-auto flex flex-col items-center justify-center border-4 border-purple-100 bg-[#f8f7ff] shadow-sm">
+              <span className="font-sans font-extrabold text-4xl text-[#1e1b4b]">
                 {result.totalScore}
               </span>
-              <span className="text-[10px] font-mono text-botanical-forest/60">/100 Điểm</span>
+              <span className="text-[10px] font-mono text-slate-500">/100 Điểm</span>
             </div>
 
             <div>
-              <div className="text-xs font-mono uppercase tracking-widest text-botanical-forest/60">Đánh Giá Tổng Quan Từ AI</div>
-              <div className="text-2xl sm:text-3xl font-serif font-bold mt-1 text-botanical-forest">
-                Xếp Loại: <span className="text-botanical-terracotta">{result.grade}</span>
+              <div className="text-xs font-mono uppercase tracking-widest text-slate-500 font-bold">Đánh Giá Tổng Quan Từ AI</div>
+              <div className="text-2xl sm:text-3xl font-sans font-extrabold mt-1 text-[#1e1b4b]">
+                Xếp Loại: <span className="text-[#f97316]">{result.grade}</span>
               </div>
             </div>
 
-            <div className="flex flex-wrap justify-center gap-3 text-xs text-botanical-forest/80">
-              <span className="px-3.5 py-1 rounded-full bg-[#FAF9F5] border border-botanical-stone">Chủ đề: <strong className="text-botanical-forest">{result.topic}</strong></span>
-              <span className="px-3.5 py-1 rounded-full bg-[#FAF9F5] border border-botanical-stone">Thời gian: <strong className="text-botanical-forest">{result.duration}</strong></span>
-              <span className="px-3.5 py-1 rounded-full bg-[#FAF9F5] border border-botanical-stone">Cấp bậc: <strong className="text-botanical-forest">{result.level}</strong></span>
-              <span className="px-3.5 py-1 rounded-full bg-[#FAF9F5] border border-botanical-stone font-mono">Mã bài: <strong className="text-botanical-terracotta">#{result.id}</strong></span>
+            <div className="flex flex-wrap justify-center gap-3 text-xs text-slate-600 font-medium">
+              <span className="px-3.5 py-1 rounded-full bg-[#f8f7ff] border border-purple-100">Chủ đề: <strong className="text-[#1e1b4b] font-bold">{result.topic}</strong></span>
+              <span className="px-3.5 py-1 rounded-full bg-[#f8f7ff] border border-purple-100">Thời gian: <strong className="text-[#1e1b4b] font-bold">{result.duration}</strong></span>
+              <span className="px-3.5 py-1 rounded-full bg-[#f8f7ff] border border-purple-100">Cấp bậc: <strong className="text-[#1e1b4b] font-bold">{result.level}</strong></span>
+              <span className="px-3.5 py-1 rounded-full bg-[#f8f7ff] border border-purple-100 font-mono">Mã bài: <strong className="text-[#f97316] font-bold">#{result.id}</strong></span>
             </div>
 
-            <p className="text-sm text-botanical-forest/75 max-w-2xl mx-auto leading-relaxed">{result.aiSummary}</p>
+            <p className="text-sm text-slate-600 max-w-2xl mx-auto leading-relaxed font-sans">{result.aiSummary}</p>
 
-            <div className="pt-2 flex flex-wrap justify-center gap-3">
+            <div className="pt-2 flex flex-wrap justify-center gap-3 font-sans">
               <button
                 onClick={() => {
                   setSelectedHistorySession(result);
                   setView('history');
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
-                className="btn-botanical-primary rounded-full px-6 py-2.5 text-xs uppercase font-bold shadow-soft hover:shadow-soft-lg flex items-center gap-2 cursor-pointer"
+                className="bg-[#32247b] hover:bg-[#271a66] text-white rounded-full px-6 py-2.5 text-xs uppercase font-extrabold shadow-md hover:shadow-lg flex items-center gap-2 cursor-pointer transition-all"
               >
                 <span className="material-symbols-outlined text-base">analytics</span>
                 Xem Toàn Bộ Chi Tiết Lỗi Sai &amp; Câu Trả Lời Mẫu
@@ -1827,7 +1814,7 @@ export default function AiInterviewStudioPage({ user }) {
                 onClick={() => {
                   setView('setup');
                 }}
-                className="btn-botanical-secondary rounded-full px-5 py-2.5 text-xs uppercase font-bold flex items-center gap-2 cursor-pointer"
+                className="bg-[#f8f7ff] hover:bg-purple-50 text-[#1e1b4b] border border-purple-100 rounded-full px-5 py-2.5 text-xs uppercase font-extrabold flex items-center gap-2 cursor-pointer transition-all"
               >
                 <span className="material-symbols-outlined text-base">refresh</span>
                 Luyện Lại Chủ Đề Khác
@@ -1841,22 +1828,22 @@ export default function AiInterviewStudioPage({ user }) {
       {/* 4. VIEW HISTORY & BÁO CÁO CHI TIẾT LỖI SAI / GỢI Ý CÂU TRẢ LỜI MẪU     */}
       {/* ===================================================================== */}
       {view === 'history' && !selectedHistorySession && (
-        <main className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 py-8 space-y-6 animate-fadeIn">
+        <main className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 py-8 space-y-6 animate-fadeIn font-sans">
           <div className="space-y-1.5">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full badge-sage">
-              <span className="material-symbols-outlined text-sm text-botanical-forest">history</span>
-              <span className="text-[11px] font-bold text-botanical-forest uppercase">Nhật Ký Các Buổi Phỏng Vấn AI</span>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-100 text-[#5b48bd] border border-purple-200">
+              <span className="material-symbols-outlined text-sm text-[#5b48bd]">history</span>
+              <span className="text-[11px] font-extrabold uppercase">Nhật Ký Các Buổi Phỏng Vấn AI</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-serif font-bold text-botanical-forest">
+            <h1 className="text-2xl sm:text-3xl font-sans font-extrabold text-[#1e1b4b]">
               Lịch Sử Bài Phỏng Vấn &amp; Đánh Giá Chi Tiết
             </h1>
-            <p className="text-sm text-botanical-forest/75">
-              Chọn bất kỳ buổi phỏng vấn nào để mở <strong className="text-botanical-forest">Trang Phân Tích Chuyên Sâu</strong>: chỉ rõ chi tiết lỗi sai từng câu, lý do bị trừ điểm và gợi ý câu trả lời mẫu điểm 10 theo mô hình STAR.
+            <p className="text-sm text-slate-600 font-medium">
+              Chọn bất kỳ buổi phỏng vấn nào để mở <strong className="text-[#1e1b4b] font-bold">Trang Phân Tích Chuyên Sâu</strong>: chỉ rõ chi tiết lỗi sai từng câu, lý do bị trừ điểm và gợi ý câu trả lời mẫu điểm 10 theo mô hình STAR.
             </p>
           </div>
 
           {/* Filter Pills */}
-          <div className="flex flex-wrap gap-2 pt-1">
+          <div className="flex flex-wrap gap-2 pt-1 font-sans">
             {[
               { id: 'ALL', label: 'Tất cả lĩnh vực (' + historyList.length + ')' },
               { id: 'kinh-te', label: 'Kinh tế & Tài chính' },
@@ -1868,10 +1855,10 @@ export default function AiInterviewStudioPage({ user }) {
               <button
                 key={f.id}
                 onClick={() => setHistFilter(f.id)}
-                className={`px-4 py-1.5 rounded-full text-xs font-bold cursor-pointer border transition-all ${
+                className={`px-4 py-1.5 rounded-full text-xs font-extrabold cursor-pointer border transition-all ${
                   histFilter === f.id
-                    ? 'bg-botanical-forest text-white border-botanical-forest shadow-soft'
-                    : 'bg-[#FAF9F5] text-botanical-forest/75 border-botanical-stone hover:text-botanical-forest hover:bg-white'
+                    ? 'bg-[#32247b] text-white border-[#32247b] shadow-sm'
+                    : 'bg-[#f8f7ff] text-[#1e1b4b] border-purple-100 hover:bg-purple-50'
                 }`}
               >
                 {f.label}
@@ -1880,18 +1867,18 @@ export default function AiInterviewStudioPage({ user }) {
           </div>
 
           {/* Danh Sách Các Buổi Đã Thi */}
-          <div className="space-y-4">
+          <div className="space-y-4 font-sans">
             {historyList
               .filter((s) => histFilter === 'ALL' || s.domainId === histFilter || s.domain.toLowerCase().includes(histFilter.toLowerCase()))
               .map((session) => (
                 <div
                   key={session.id}
-                  className="card-botanical bg-white/95 rounded-3xl border border-botanical-stone p-5 sm:p-6 transition-all hover:border-botanical-sage/60 hover:shadow-soft-xl space-y-4 shadow-soft"
+                  className="bg-white rounded-3xl border border-purple-100 p-5 sm:p-6 transition-all hover:border-[#5b48bd] space-y-4 shadow-sm"
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-start gap-4">
                       <div
-                        className="w-16 h-16 rounded-2xl flex flex-col items-center justify-center shrink-0 border-2 border-botanical-stone bg-[#FAF9F5] font-serif font-black text-xl text-botanical-forest shadow-soft"
+                        className="w-16 h-16 rounded-2xl flex flex-col items-center justify-center shrink-0 border-2 border-purple-100 bg-[#f8f7ff] font-sans font-extrabold text-xl text-[#1e1b4b] shadow-sm"
                       >
                         {session.totalScore}
                         <span className="text-[9px] font-mono font-normal opacity-70">/100</span>
@@ -1899,26 +1886,26 @@ export default function AiInterviewStudioPage({ user }) {
 
                       <div className="space-y-1">
                         <div className="flex items-center gap-2.5 flex-wrap">
-                          <h3 className="font-serif font-bold text-base text-botanical-forest">{session.topic}</h3>
+                          <h3 className="font-sans font-extrabold text-base text-[#1e1b4b]">{session.topic}</h3>
                           <span
-                            className="px-2.5 py-0.5 rounded-full text-[10px] font-bold border badge-sage"
+                            className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-[#5b48bd] border border-purple-200"
                           >
                             {session.grade}
                           </span>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-2 text-xs text-botanical-forest/65">
-                          <span className="text-botanical-terracotta font-bold">{session.domain}</span>
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 font-medium">
+                          <span className="text-[#f97316] font-bold">{session.domain}</span>
                           <span>•</span>
                           <span>Cấp độ: {session.level}</span>
                           <span>•</span>
                           <span>Thời lượng: {session.duration}</span>
                           <span>•</span>
                           <span>{session.date}</span>
-                          <span className="font-mono text-botanical-forest font-bold">#{session.id}</span>
+                          <span className="font-mono text-[#1e1b4b] font-bold">#{session.id}</span>
                         </div>
 
-                        <p className="text-xs text-botanical-forest/75 leading-relaxed pt-1 line-clamp-2">
+                        <p className="text-xs text-slate-600 leading-relaxed pt-1 line-clamp-2 font-medium">
                           {session.aiSummary}
                         </p>
                       </div>
@@ -1930,7 +1917,7 @@ export default function AiInterviewStudioPage({ user }) {
                           setSelectedHistorySession(session);
                           window.scrollTo({ top: 0, behavior: 'smooth' });
                         }}
-                        className="btn-botanical-primary rounded-full w-full sm:w-auto px-5 py-2.5 font-bold text-xs uppercase tracking-wider shadow-soft hover:shadow-soft-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
+                        className="bg-[#32247b] hover:bg-[#271a66] text-white rounded-full w-full sm:w-auto px-5 py-2.5 font-extrabold text-xs uppercase tracking-wider shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
                       >
                         <span>Mở Báo Cáo Chi Tiết Lỗi Sai</span>
                         <span className="material-symbols-outlined text-base">arrow_forward</span>
@@ -1939,22 +1926,22 @@ export default function AiInterviewStudioPage({ user }) {
                   </div>
 
                   {/* 4 Mini Progress Pills */}
-                  <div className="pt-3 border-t border-botanical-stone/80 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                    <div className="bg-[#FAF9F5] rounded-2xl p-2.5 border border-botanical-stone">
-                      <div className="text-[10px] text-botanical-forest/65 uppercase">Chuyên Môn Ngành:</div>
-                      <div className="font-bold text-botanical-forest mt-0.5">{session.competencies?.domainKnowledge || 80}%</div>
+                  <div className="pt-3 border-t border-purple-100 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-sans">
+                    <div className="bg-[#f8f7ff] rounded-2xl p-2.5 border border-purple-100">
+                      <div className="text-[10px] text-slate-500 uppercase font-bold">Chuyên Môn Ngành:</div>
+                      <div className="font-extrabold text-[#1e1b4b] mt-0.5">{session.competencies?.domainKnowledge || 80}%</div>
                     </div>
-                    <div className="bg-[#FAF9F5] rounded-2xl p-2.5 border border-botanical-stone">
-                      <div className="text-[10px] text-botanical-forest/65 uppercase">Tư Duy Giải Quyết:</div>
-                      <div className="font-bold text-botanical-forest mt-0.5">{session.competencies?.problemSolving || 75}%</div>
+                    <div className="bg-[#f8f7ff] rounded-2xl p-2.5 border border-purple-100">
+                      <div className="text-[10px] text-slate-500 uppercase font-bold">Tư Duy Giải Quyết:</div>
+                      <div className="font-extrabold text-[#1e1b4b] mt-0.5">{session.competencies?.problemSolving || 75}%</div>
                     </div>
-                    <div className="bg-[#FAF9F5] rounded-2xl p-2.5 border border-botanical-stone">
-                      <div className="text-[10px] text-botanical-forest/65 uppercase">Cấu Trúc STAR:</div>
-                      <div className="font-bold text-botanical-forest mt-0.5">{session.competencies?.structureSTAR || 70}%</div>
+                    <div className="bg-[#f8f7ff] rounded-2xl p-2.5 border border-purple-100">
+                      <div className="text-[10px] text-slate-500 uppercase font-bold">Cấu Trúc STAR:</div>
+                      <div className="font-extrabold text-[#1e1b4b] mt-0.5">{session.competencies?.structureSTAR || 70}%</div>
                     </div>
-                    <div className="bg-[#FAF9F5] rounded-2xl p-2.5 border border-botanical-stone">
-                      <div className="text-[10px] text-botanical-forest/65 uppercase">Độ Tự Tin &amp; Phong Thái:</div>
-                      <div className="font-bold text-botanical-forest mt-0.5">{session.competencies?.deliveryTone || 80}%</div>
+                    <div className="bg-[#f8f7ff] rounded-2xl p-2.5 border border-purple-100">
+                      <div className="text-[10px] text-slate-500 uppercase font-bold">Độ Tự Tin &amp; Phong Thái:</div>
+                      <div className="font-extrabold text-[#1e1b4b] mt-0.5">{session.competencies?.deliveryTone || 80}%</div>
                     </div>
                   </div>
                 </div>
@@ -1967,7 +1954,7 @@ export default function AiInterviewStudioPage({ user }) {
       {/* 4B. TRANG CHI TIẾT ĐÁNH GIÁ CHUYÊN SÂU & GỢI Ý CẢI THIỆN TỪNG CÂU       */}
       {/* ===================================================================== */}
       {view === 'history' && selectedHistorySession && (
-        <main className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 py-8 space-y-7 animate-fadeIn">
+        <main className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 py-8 space-y-7 animate-fadeIn font-sans">
           {/* Top Breadcrumb & Back */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <button
@@ -1975,7 +1962,7 @@ export default function AiInterviewStudioPage({ user }) {
                 setSelectedHistorySession(null);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
-              className="btn-botanical-secondary rounded-full inline-flex items-center gap-2 px-5 py-2 text-xs font-bold transition-all cursor-pointer w-fit"
+              className="bg-[#f8f7ff] hover:bg-purple-50 text-[#1e1b4b] border border-purple-100 rounded-full inline-flex items-center gap-2 px-5 py-2 text-xs font-extrabold transition-all cursor-pointer w-fit"
             >
               <span className="material-symbols-outlined text-base">arrow_back</span>
               Quay Lại Danh Sách Lịch Sử
@@ -1989,14 +1976,14 @@ export default function AiInterviewStudioPage({ user }) {
                   setSelectedLevel(selectedHistorySession.level.toLowerCase().includes('senior') ? 'senior' : 'middle');
                   setView('setup');
                 }}
-                className="btn-botanical-primary rounded-full px-4 py-2 text-xs font-bold cursor-pointer flex items-center gap-1.5 transition-all shadow-soft"
+                className="bg-[#32247b] hover:bg-[#271a66] text-white rounded-full px-4 py-2 text-xs font-extrabold cursor-pointer flex items-center gap-1.5 transition-all shadow-sm"
               >
                 <span className="material-symbols-outlined text-sm">model_training</span>
                 Luyện Lại Chủ Đề Này
               </button>
               <button
                 onClick={() => showToast('Đang tạo file PDF Báo cáo đánh giá chi tiết...')}
-                className="btn-botanical-secondary rounded-full px-4 py-2 text-xs font-bold cursor-pointer flex items-center gap-1.5 transition-all"
+                className="bg-[#f8f7ff] hover:bg-purple-50 text-[#1e1b4b] border border-purple-100 rounded-full px-4 py-2 text-xs font-extrabold cursor-pointer flex items-center gap-1.5 transition-all"
               >
                 <span className="material-symbols-outlined text-sm">download</span>
                 Xuất Báo Cáo PDF
@@ -2005,42 +1992,42 @@ export default function AiInterviewStudioPage({ user }) {
           </div>
 
           {/* Banner Thông Tin Bài Phỏng Vấn */}
-          <section className="card-botanical bg-white/95 rounded-3xl border border-botanical-stone p-6 sm:p-7 shadow-soft-xl relative overflow-hidden">
+          <section className="bg-white rounded-3xl border border-purple-100 p-6 sm:p-7 shadow-sm relative overflow-hidden font-sans">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
               <div className="space-y-2">
                 <div className="flex items-center gap-2.5 flex-wrap">
-                  <span className="px-3 py-1 rounded-full text-xs font-bold border badge-sage">
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-purple-100 text-[#5b48bd] border border-purple-200">
                     {selectedHistorySession.grade}
                   </span>
-                  <span className="text-xs font-mono text-botanical-forest/60">Mã hồ sơ: #{selectedHistorySession.id}</span>
+                  <span className="text-xs font-mono text-slate-500">Mã hồ sơ: #{selectedHistorySession.id}</span>
                 </div>
-                <h1 className="text-2xl sm:text-3xl font-serif font-bold text-botanical-forest">
+                <h1 className="text-2xl sm:text-3xl font-sans font-extrabold text-[#1e1b4b]">
                   {selectedHistorySession.topic}
                 </h1>
-                <div className="flex flex-wrap gap-3 text-xs text-botanical-forest/70">
-                  <span>Ngành: <strong className="text-botanical-terracotta">{selectedHistorySession.domain}</strong></span>
+                <div className="flex flex-wrap gap-3 text-xs text-slate-600 font-medium">
+                  <span>Ngành: <strong className="text-[#f97316] font-bold">{selectedHistorySession.domain}</strong></span>
                   <span>•</span>
-                  <span>Cấp bậc: <strong className="text-botanical-forest">{selectedHistorySession.level}</strong></span>
+                  <span>Cấp bậc: <strong className="text-[#1e1b4b] font-bold">{selectedHistorySession.level}</strong></span>
                   <span>•</span>
-                  <span>Thời lượng: <strong className="text-botanical-forest">{selectedHistorySession.duration}</strong></span>
+                  <span>Thời lượng: <strong className="text-[#1e1b4b] font-bold">{selectedHistorySession.duration}</strong></span>
                   <span>•</span>
-                  <span>Ngày thi: <strong className="text-botanical-forest">{selectedHistorySession.date}</strong></span>
+                  <span>Ngày thi: <strong className="text-[#1e1b4b] font-bold">{selectedHistorySession.date}</strong></span>
                 </div>
               </div>
 
-              <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full flex flex-col items-center justify-center shrink-0 border-4 border-botanical-stone bg-[#FAF9F5] shadow-soft">
-                <span className="font-serif font-black text-3xl sm:text-4xl text-botanical-forest">
+              <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full flex flex-col items-center justify-center shrink-0 border-4 border-purple-100 bg-[#f8f7ff] shadow-sm">
+                <span className="font-sans font-extrabold text-3xl sm:text-4xl text-[#1e1b4b]">
                   {selectedHistorySession.totalScore}
                 </span>
-                <span className="text-[10px] font-mono text-botanical-forest/60">/100 ĐIỂM</span>
+                <span className="text-[10px] font-mono text-slate-500">/100 ĐIỂM</span>
               </div>
             </div>
           </section>
 
           {/* 4 Trụ Cột Năng Lực Đo Lường Bằng AI */}
-          <section className="space-y-3">
-            <h2 className="font-serif font-bold text-base text-botanical-forest flex items-center gap-2">
-              <span className="material-symbols-outlined text-botanical-terracotta">speed</span>
+          <section className="space-y-3 font-sans">
+            <h2 className="font-sans font-extrabold text-base text-[#1e1b4b] flex items-center gap-2">
+              <span className="material-symbols-outlined text-[#f97316]">speed</span>
               Đánh Giá 4 Trụ Cột Năng Lực Cốt Lõi
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
@@ -2049,58 +2036,58 @@ export default function AiInterviewStudioPage({ user }) {
                   label: 'Kiến Thức Chuyên Môn',
                   score: selectedHistorySession.competencies?.domainKnowledge || 80,
                   desc: 'Độ chính xác thuật ngữ & nguyên lý ngành',
-                  color: '#2D3A31',
+                  color: '#32247b',
                 },
                 {
                   label: 'Tư Duy Giải Quyết Vấn Đề',
                   score: selectedHistorySession.competencies?.problemSolving || 75,
                   desc: 'Tính khả thi & kinh nghiệm thực chiến',
-                  color: '#588157',
+                  color: '#5b48bd',
                 },
                 {
                   label: 'Cấu Trúc Trả Lời (STAR)',
                   score: selectedHistorySession.competencies?.structureSTAR || 70,
                   desc: 'Mạch lạc, có số liệu & minh chứng',
-                  color: '#C27B66',
+                  color: '#f97316',
                 },
                 {
                   label: 'Phong Thái & Thuyết Phục',
                   score: selectedHistorySession.competencies?.deliveryTone || 80,
                   desc: 'Tự tin, chuyên nghiệp & đĩnh đạc',
-                  color: '#8C5E58',
+                  color: '#10b981',
                 },
               ].map((c) => (
-                <div key={c.label} className="card-botanical bg-white/95 rounded-2xl border border-botanical-stone p-4 space-y-2 shadow-soft">
+                <div key={c.label} className="bg-white rounded-2xl border border-purple-100 p-4 space-y-2 shadow-sm font-sans">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-serif font-bold text-botanical-forest">{c.label}</span>
-                    <span className="font-serif font-bold text-sm text-botanical-forest">
+                    <span className="text-xs font-sans font-extrabold text-[#1e1b4b]">{c.label}</span>
+                    <span className="font-sans font-extrabold text-sm text-[#1e1b4b]">
                       {c.score}/100
                     </span>
                   </div>
-                  <div className="w-full h-2 bg-botanical-stone/80 rounded-full overflow-hidden">
+                  <div className="w-full h-2 bg-purple-100 rounded-full overflow-hidden">
                     <div className="h-full rounded-full transition-all duration-500" style={{ width: c.score + '%', backgroundColor: c.color }} />
                   </div>
-                  <p className="text-[11px] text-botanical-forest/65 leading-snug">{c.desc}</p>
+                  <p className="text-[11px] text-slate-500 leading-snug font-medium">{c.desc}</p>
                 </div>
               ))}
             </div>
           </section>
 
           {/* Bảng Đánh Giá Cốt Lõi: Điểm Mạnh, Lỗi Sai & Lộ Trình Cải Thiện */}
-          <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <section className="grid grid-cols-1 md:grid-cols-3 gap-4 font-sans">
             {/* Điểm Mạnh */}
-            <div className="card-botanical bg-white/95 rounded-3xl border border-botanical-stone p-5 space-y-3 shadow-soft">
-              <div className="flex items-center gap-2 text-botanical-forest">
+            <div className="bg-white rounded-3xl border border-purple-100 p-5 space-y-3 shadow-sm">
+              <div className="flex items-center gap-2 text-[#10b981]">
                 <span className="material-symbols-outlined text-lg">verified</span>
-                <h3 className="font-serif font-bold text-xs uppercase tracking-wider">Điểm Sáng Nổi Bật</h3>
+                <h3 className="font-sans font-extrabold text-xs uppercase tracking-wider text-[#1e1b4b]">Điểm Sáng Nổi Bật</h3>
               </div>
-              <ul className="space-y-2 text-xs text-botanical-forest/80 leading-relaxed">
+              <ul className="space-y-2 text-xs text-slate-600 leading-relaxed font-medium">
                 {(selectedHistorySession.strengths || [
                   'Nắm được các khái niệm chuyên môn nền tảng.',
                   'Tác phong trả lời tự tin, giao tiếp gãy gọn.',
                 ]).map((st, i) => (
                   <li key={i} className="flex items-start gap-2">
-                    <span className="text-botanical-forest font-bold">✓</span>
+                    <span className="text-[#10b981] font-bold">✓</span>
                     <span>{st}</span>
                   </li>
                 ))}
@@ -2108,18 +2095,18 @@ export default function AiInterviewStudioPage({ user }) {
             </div>
 
             {/* Lỗi Sai & Thiếu Sót */}
-            <div className="card-botanical bg-[#FAF9F5] rounded-3xl border border-botanical-terracotta/40 p-5 space-y-3 shadow-soft">
-              <div className="flex items-center gap-2 text-botanical-terracotta">
+            <div className="bg-orange-50/60 rounded-3xl border border-orange-200/80 p-5 space-y-3 shadow-sm">
+              <div className="flex items-center gap-2 text-[#f97316]">
                 <span className="material-symbols-outlined text-lg">warning</span>
-                <h3 className="font-serif font-bold text-xs uppercase tracking-wider">Lỗi Sai Cần Sửa Ngay</h3>
+                <h3 className="font-sans font-extrabold text-xs uppercase tracking-wider text-[#f97316]">Lỗi Sai Cần Sửa Ngay</h3>
               </div>
-              <ul className="space-y-2 text-xs text-botanical-forest/80 leading-relaxed">
+              <ul className="space-y-2 text-xs text-slate-700 leading-relaxed font-medium">
                 {(selectedHistorySession.criticalFlaws || [
                   'Câu trả lời còn mang tính chung chung, thiếu số liệu định lượng.',
                   'Chưa tuân thủ cấu trúc STAR dẫn đến việc thiếu kết quả đo lường.',
                 ]).map((fl, i) => (
                   <li key={i} className="flex items-start gap-2">
-                    <span className="text-botanical-terracotta font-bold">✕</span>
+                    <span className="text-[#f97316] font-bold">✕</span>
                     <span>{fl}</span>
                   </li>
                 ))}
@@ -2127,18 +2114,18 @@ export default function AiInterviewStudioPage({ user }) {
             </div>
 
             {/* Lộ Trình Cải Thiện */}
-            <div className="card-botanical bg-white/95 rounded-3xl border border-botanical-stone p-5 space-y-3 shadow-soft">
-              <div className="flex items-center gap-2 text-botanical-sage">
+            <div className="bg-white rounded-3xl border border-purple-100 p-5 space-y-3 shadow-sm">
+              <div className="flex items-center gap-2 text-[#5b48bd]">
                 <span className="material-symbols-outlined text-lg">route</span>
-                <h3 className="font-serif font-bold text-xs uppercase tracking-wider">Hành Động Khắc Phục</h3>
+                <h3 className="font-sans font-extrabold text-xs uppercase tracking-wider text-[#1e1b4b]">Hành Động Khắc Phục</h3>
               </div>
-              <ul className="space-y-2 text-xs text-botanical-forest/80 leading-relaxed">
+              <ul className="space-y-2 text-xs text-slate-600 leading-relaxed font-medium">
                 {(selectedHistorySession.improvementPlan || [
                   'Học thuộc các từ khóa chuyên ngành theo gợi ý bên dưới.',
                   'Luyện lại câu hỏi tình huống với số liệu doanh thu/chi phí cụ thể.',
                 ]).map((pl, i) => (
                   <li key={i} className="flex items-start gap-2">
-                    <span className="text-botanical-forest font-bold">→</span>
+                    <span className="text-[#5b48bd] font-bold">→</span>
                     <span>{pl}</span>
                   </li>
                 ))}
@@ -2147,18 +2134,18 @@ export default function AiInterviewStudioPage({ user }) {
           </section>
 
           {/* Phân Tích Chi Tiết Từng Câu Hỏi & Gợi Ý Câu Trả Lời Mẫu */}
-          <section className="space-y-6 pt-2">
+          <section className="space-y-6 pt-2 font-sans">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="font-serif font-bold text-lg text-botanical-forest flex items-center gap-2">
-                  <span className="material-symbols-outlined text-botanical-terracotta">quiz</span>
+                <h2 className="font-sans font-extrabold text-lg text-[#1e1b4b] flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[#f97316]">quiz</span>
                   Phân Tích Chi Tiết Từng Câu Hỏi &amp; Gợi Ý Trả Lời Chuẩn Điểm 10
                 </h2>
-                <p className="text-xs text-botanical-forest/70">
+                <p className="text-xs text-slate-500 font-medium">
                   Dưới đây là lời phân tích chi tiết của AI: chỉ rõ vì sao bạn bị trừ điểm và cách trả lời chuẩn mực giúp ghi điểm tối đa với nhà tuyển dụng.
                 </p>
               </div>
-              <span className="badge-sage px-3 py-1 rounded-full text-xs font-mono">
+              <span className="bg-purple-100 text-[#5b48bd] border border-purple-200 px-3 py-1 rounded-full text-xs font-bold">
                 {selectedHistorySession.questions.length} Câu Hỏi
               </span>
             </div>
@@ -2169,91 +2156,91 @@ export default function AiInterviewStudioPage({ user }) {
                 return (
                   <div
                     key={idx}
-                    className="card-botanical bg-white/95 rounded-3xl border border-botanical-stone overflow-hidden shadow-soft-xl"
+                    className="bg-white rounded-3xl border border-purple-100 overflow-hidden shadow-sm font-sans"
                   >
                     {/* Header Câu Hỏi */}
-                    <div className="p-5 sm:p-6 border-b border-botanical-stone/80 bg-[#FAF9F5] space-y-2">
+                    <div className="p-5 sm:p-6 border-b border-purple-100 bg-[#f8f7ff] space-y-2">
                       <div className="flex items-center justify-between gap-4">
                         <div className="flex items-center gap-3">
                           <span
-                            className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold shrink-0 shadow-soft bg-botanical-forest text-white"
+                            className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-extrabold shrink-0 shadow-sm bg-[#32247b] text-white"
                           >
                             Q{idx + 1}
                           </span>
-                          <span className="text-xs font-sans uppercase tracking-wider text-botanical-forest/65">
-                            Mục tiêu đánh giá: <strong className="text-botanical-forest">{item.intent || 'Năng lực chuyên môn và xử lý tình huống'}</strong>
+                          <span className="text-xs font-sans uppercase tracking-wider text-slate-500 font-bold">
+                            Mục tiêu đánh giá: <strong className="text-[#1e1b4b]">{item.intent || 'Năng lực chuyên môn và xử lý tình huống'}</strong>
                           </span>
                         </div>
 
                         <div className="text-right shrink-0">
-                          <div className="text-xl font-serif font-bold text-botanical-forest">
+                          <div className="text-xl font-sans font-extrabold text-[#1e1b4b]">
                             {item.score}
-                            <span className="text-xs font-normal text-botanical-forest/60">/100</span>
+                            <span className="text-xs font-normal text-slate-400">/100</span>
                           </div>
-                          <div className="w-24 h-1.5 bg-botanical-stone/80 rounded-full mt-1 overflow-hidden">
+                          <div className="w-24 h-1.5 bg-purple-100 rounded-full mt-1 overflow-hidden">
                             <div className="h-full rounded-full" style={{ width: item.score + '%', backgroundColor: c }} />
                           </div>
                         </div>
                       </div>
 
-                      <h3 className="text-sm sm:text-base font-serif font-bold text-botanical-forest leading-relaxed pt-1">
+                      <h3 className="text-sm sm:text-base font-sans font-extrabold text-[#1e1b4b] leading-relaxed pt-1">
                         "{item.q}"
                       </h3>
                     </div>
 
                     <div className="p-5 sm:p-6 space-y-5">
                       {/* 1. Câu Trả Lời Của Bạn */}
-                      <div className="bg-[#FAF9F5] rounded-2xl p-4 border border-botanical-stone space-y-1.5">
-                        <div className="text-[11px] font-sans font-bold text-botanical-forest/70 uppercase flex items-center gap-1.5">
-                          <span className="material-symbols-outlined text-sm text-botanical-sage">person</span>
+                      <div className="bg-[#f8f7ff] rounded-2xl p-4 border border-purple-100 space-y-1.5">
+                        <div className="text-[11px] font-sans font-bold text-slate-600 uppercase flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-sm text-[#5b48bd]">person</span>
                           Câu Trả Lời Thực Tế Của Bạn:
                         </div>
-                        <p className="text-xs sm:text-sm text-botanical-forest leading-relaxed italic">
+                        <p className="text-xs sm:text-sm text-[#1e1b4b] leading-relaxed italic font-medium">
                           "{item.answer}"
                         </p>
                       </div>
 
                       {/* 2. AI Bóc Tách Lỗi Sai & Nguyên Nhân Bị Trừ Điểm */}
-                      <div className="bg-botanical-terracotta/10 rounded-2xl p-4 border border-botanical-terracotta/30 space-y-2.5">
-                        <div className="text-[11px] font-sans font-bold text-botanical-terracotta uppercase flex items-center gap-1.5">
+                      <div className="bg-orange-50/80 rounded-2xl p-4 border border-orange-200/80 space-y-2.5">
+                        <div className="text-[11px] font-sans font-bold text-[#f97316] uppercase flex items-center gap-1.5">
                           <span className="material-symbols-outlined text-sm">error</span>
                           Phân Tích Chi Tiết Lỗi Sai &amp; Thiếu Sót (AI Diagnostic):
                         </div>
-                        <p className="text-xs text-botanical-forest/85 leading-relaxed">
+                        <p className="text-xs text-slate-700 leading-relaxed font-medium">
                           {item.criticalFeedback?.flaws || 'Câu trả lời còn thiếu các ý then chốt và chưa áp dụng mô hình STAR để chứng minh kết quả.'}
                         </p>
                         {item.criticalFeedback?.interviewerImpression && (
-                          <div className="text-[11px] text-botanical-forest/75 pt-1 border-t border-botanical-terracotta/20 flex items-start gap-1.5">
-                            <strong className="shrink-0 text-botanical-terracotta">Góc nhìn Nhà Tuyển Dụng:</strong>
+                          <div className="text-[11px] text-slate-600 pt-1 border-t border-orange-200 flex items-start gap-1.5 font-medium">
+                            <strong className="shrink-0 text-[#f97316]">Góc nhìn Nhà Tuyển Dụng:</strong>
                             <span>{item.criticalFeedback.interviewerImpression}</span>
                           </div>
                         )}
                       </div>
 
                       {/* 3. Gợi Ý Câu Trả Lời Mẫu Chuẩn Điểm 10 (Model Answer) */}
-                      <div className="bg-white rounded-2xl p-5 border border-botanical-stone space-y-3 shadow-soft">
+                      <div className="bg-white rounded-2xl p-5 border border-purple-100 space-y-3 shadow-sm">
                         <div className="flex items-center justify-between">
-                          <div className="text-[11px] font-sans font-bold text-botanical-forest uppercase flex items-center gap-1.5">
-                            <span className="material-symbols-outlined text-sm text-botanical-terracotta">auto_awesome</span>
+                          <div className="text-[11px] font-sans font-bold text-[#1e1b4b] uppercase flex items-center gap-1.5">
+                            <span className="material-symbols-outlined text-sm text-[#f97316]">auto_awesome</span>
                             Gợi Ý Cách Trả Lời Chuẩn Điểm 10 (Mô Hình STAR / Chuẩn Ngành):
                           </div>
-                          <span className="badge-sage px-2 py-0.5 rounded-full text-[10px] font-mono">
+                          <span className="bg-purple-100 text-[#5b48bd] border border-purple-200 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold">
                             Model Answer
                           </span>
                         </div>
 
-                        <div className="text-xs sm:text-sm text-botanical-forest/90 leading-relaxed whitespace-pre-line font-sans bg-[#FAF9F5] p-4 rounded-xl border border-botanical-stone/80">
+                        <div className="text-xs sm:text-sm text-[#1e1b4b] leading-relaxed whitespace-pre-line font-sans bg-[#f8f7ff] p-4 rounded-xl border border-purple-100 font-medium">
                           {item.modelAnswer || 'Áp dụng mô hình STAR với số liệu định lượng cụ thể để thuyết phục người phỏng vấn.'}
                         </div>
 
                         {/* Từ khóa đắt giá */}
                         {item.goldenKeywords && item.goldenKeywords.length > 0 && (
                           <div className="pt-2 flex flex-wrap items-center gap-1.5">
-                            <span className="text-[10px] text-botanical-forest/75 font-bold uppercase mr-1">Thuật Ngữ Vàng Nên Đưa Vào:</span>
+                            <span className="text-[10px] text-slate-500 font-bold uppercase mr-1">Thuật Ngữ Vàng Nên Đưa Vào:</span>
                             {item.goldenKeywords.map((kw, kIdx) => (
                               <span
                                 key={kIdx}
-                                className="px-2.5 py-0.5 rounded-full badge-sage text-[10px] font-mono font-bold"
+                                className="px-2.5 py-0.5 rounded-full bg-purple-100 text-[#5b48bd] border border-purple-200 text-[10px] font-mono font-bold"
                               >
                                 {kw}
                               </span>
@@ -2268,13 +2255,13 @@ export default function AiInterviewStudioPage({ user }) {
             </div>
 
             {/* Bottom Actions */}
-            <div className="pt-6 border-t border-botanical-stone/80 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="pt-6 border-t border-purple-100 flex flex-col sm:flex-row items-center justify-between gap-4 font-sans">
               <button
                 onClick={() => {
                   setSelectedHistorySession(null);
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
-                className="btn-botanical-secondary rounded-full w-full sm:w-auto px-6 py-3 text-xs font-bold uppercase transition-all flex items-center justify-center gap-2 cursor-pointer"
+                className="bg-[#f8f7ff] hover:bg-purple-50 text-[#1e1b4b] border border-purple-100 rounded-full w-full sm:w-auto px-6 py-3 text-xs font-extrabold uppercase transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 <span className="material-symbols-outlined text-base">arrow_back</span>
                 Trở Về Danh Sách Lịch Sử
@@ -2288,7 +2275,7 @@ export default function AiInterviewStudioPage({ user }) {
                   setView('setup');
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
-                className="btn-botanical-primary rounded-full w-full sm:w-auto px-8 py-3 text-xs uppercase tracking-wider font-bold shadow-soft hover:shadow-soft-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
+                className="bg-[#32247b] hover:bg-[#271a66] text-white rounded-full w-full sm:w-auto px-8 py-3 text-xs uppercase tracking-wider font-extrabold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 <span className="material-symbols-outlined text-base">replay</span>
                 Luyện Lại Bài Phỏng Vấn Này Để Nâng Điểm
