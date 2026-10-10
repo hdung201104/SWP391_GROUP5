@@ -1,51 +1,47 @@
 import React from 'react';
 
 /**
- * BotanicalBackground
- * Implements the Botanical / Organic Serif design system background:
- * 1. Warm Alabaster canvas (#F9F8F4)
- * 2. Mandatory Full-Screen SVG Fractal Noise Paper Grain Overlay (opacity-[0.015])
- * 3. Soft organic ambient lights (Sage Green & Terracotta warm glows)
+ * MindskillsBackground (formerly BotanicalBackground)
+ * Implements the Mindskills Purple / Indigo UI Design System Background:
+ * 1. Deep Royal Purple / Indigo Shell (#3b2b8e)
+ * 2. Soft Ambient Radial Light Wells (Violet & Mint glowing halos)
  */
 export default function BotanicalBackground() {
   return (
     <>
-      {/* 1. Base Canvas */}
+      {/* 1. Base Shell Canvas */}
       <div 
-        className="fixed inset-0 pointer-events-none z-0 bg-[#F9F8F4]" 
+        className="fixed inset-0 pointer-events-none z-0 bg-[#3b2b8e]" 
         aria-hidden="true" 
       />
 
-      {/* 2. Mandatory Paper Grain Texture Overlay */}
-      <div
-        className="pointer-events-none fixed inset-0 z-50 opacity-[0.015]"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
-          backgroundRepeat: "repeat",
-        }}
-        aria-hidden="true"
-      />
-
-      {/* 3. Organic Ambient Radiance (Soft Sage & Terracotta light wells) */}
+      {/* 2. Soft Ambient Radiance (Violet & Mint Light Wells) */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden" aria-hidden="true">
-        {/* Soft Sage radiance in upper-right */}
+        {/* Upper-left Indigo Glow */}
         <div 
-          className="absolute -top-32 -right-32 w-[600px] h-[600px] rounded-full blur-[120px] opacity-25"
-          style={{ background: 'radial-gradient(circle, #8C9A84 0%, transparent 70%)' }}
+          className="absolute -top-32 -left-32 w-[700px] h-[700px] rounded-full blur-[140px] opacity-40"
+          style={{ background: 'radial-gradient(circle, #6366f1 0%, transparent 70%)' }}
         />
 
-        {/* Terracotta sun-warmed accent in lower-left */}
+        {/* Upper-right Violet Glow */}
         <div 
-          className="absolute top-1/2 -left-48 w-[500px] h-[500px] rounded-full blur-[140px] opacity-15"
-          style={{ background: 'radial-gradient(circle, #C27B66 0%, transparent 70%)' }}
+          className="absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full blur-[130px] opacity-30"
+          style={{ background: 'radial-gradient(circle, #8b5cf6 0%, transparent 70%)' }}
         />
 
-        {/* Soft Clay / Mushroom warmth at bottom-right */}
+        {/* Lower-left Mint Accent Glow */}
         <div 
-          className="absolute -bottom-40 right-1/4 w-[700px] h-[500px] rounded-full blur-[130px] opacity-20"
-          style={{ background: 'radial-gradient(circle, #DCCFC2 0%, transparent 70%)' }}
+          className="absolute bottom-10 -left-48 w-[500px] h-[500px] rounded-full blur-[150px] opacity-15"
+          style={{ background: 'radial-gradient(circle, #10b981 0%, transparent 70%)' }}
+        />
+
+        {/* Lower-right Royal Purple Glow */}
+        <div 
+          className="absolute -bottom-40 right-10 w-[700px] h-[600px] rounded-full blur-[140px] opacity-35"
+          style={{ background: 'radial-gradient(circle, #4f46e5 0%, transparent 70%)' }}
         />
       </div>
     </>
   );
 }
+

@@ -3,8 +3,8 @@ import authApi from '../../api/authApi';
 import { useLivingTheme } from '../../context/LivingThemeContext';
 
 /**
- * HireMate AI - Executive Frosted Glass Register Page
- * Seamlessly integrated with 3D Living World Backdrop & LivingThemeContext
+ * HireMate AI - Modern Glass Executive Register Page
+ * Styled with Billage Split-Screen Reference & Skyscraper Architecture Visual Backdrop
  * Real Database Authentication via Spring Boot PostgreSQL
  */
 export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
@@ -63,6 +63,9 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
     }
     setErrorMsg('');
   };
+
+  // Demo Video Modal State
+  const [showVideoModal, setShowVideoModal] = useState(false);
 
   // Email OTP Verification Modal State
   const [showOtpModal, setShowOtpModal] = useState(false);
@@ -252,92 +255,81 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
     }
   };
 
-  const cardStyle = "bg-white border border-[#E6E2DA] rounded-[32px] shadow-soft-xl";
-
   return (
-    <div className="w-full min-h-screen relative flex items-center justify-center p-4 sm:p-6 lg:p-8 bg-transparent text-[#2D3A31] font-body selection:bg-[#8C9A84] selection:text-white">
+    <div className="w-full min-h-screen relative flex items-center justify-center p-4 sm:p-6 lg:p-8 bg-[#f8fafc] text-[#1e1b4b] font-sans selection:bg-[#5b48bd] selection:text-white">
       {/* Decorative Organic Ambient Glows */}
-      <div className="absolute top-12 right-16 w-32 h-32 rounded-full bg-[#8C9A84]/10 blur-3xl pointer-events-none" />
-      <div className="absolute bottom-16 left-16 w-40 h-40 rounded-full bg-[#C27B66]/10 blur-3xl pointer-events-none" />
+      <div className="absolute top-10 right-10 w-96 h-96 rounded-full bg-[#5b48bd]/10 blur-3xl pointer-events-none" />
+      <div className="absolute bottom-10 left-10 w-96 h-96 rounded-full bg-[#10b981]/10 blur-3xl pointer-events-none" />
 
-      {/* Main Botanical Master Card */}
-      <div className={`w-full max-w-5xl ${cardStyle} overflow-hidden grid grid-cols-1 lg:grid-cols-12 relative z-10`}>
+      {/* Main Split-Screen Card (Billage Reference Style) */}
+      <div className="w-full max-w-[1040px] bg-white border border-purple-100 rounded-[32px] shadow-2xl shadow-purple-950/10 overflow-hidden grid grid-cols-1 lg:grid-cols-12 relative z-10 min-h-[640px]">
         
         {/* ============================================================
-            LEFT PANEL (5 cols): BOTANICAL ART & BRAND SHOWCASE
+            LEFT PANEL (5 cols): Skyscraper Backdrop + Brand Overlay
         ============================================================ */}
-        <div className="lg:col-span-5 p-8 sm:p-10 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-[#E6E2DA] relative overflow-hidden bg-[#F9F8F4]">
-          {/* Brand Logo */}
+        <div className="lg:col-span-5 relative p-8 sm:p-10 flex flex-col justify-between overflow-hidden min-h-[380px] lg:min-h-full">
+          {/* Image 3: Skyscraper Backdrop */}
+          <img
+            src="/assets/auth-bg.jpg"
+            alt="HireMate AI Corporate Architecture"
+            className="absolute inset-0 w-full h-full object-cover filter blur-[1.5px] scale-105"
+          />
+          {/* Deep Indigo Glass Gradient Overlay */}
+          <div className="absolute inset-0 bg-gradient-to-br from-[#1e1b4b]/85 via-[#32247b]/80 to-[#47369f]/90 backdrop-blur-[2px]" />
+
+          {/* Top Logo */}
           <div className="relative z-10">
             <button
               type="button"
               onClick={() => { window.location.hash = '#/'; }}
               className="inline-flex items-center gap-3 group text-left cursor-pointer"
             >
-              <div className="w-12 h-12 rounded-2xl bg-[#2D3A31] border border-[#E6E2DA] shadow-soft flex items-center justify-center group-hover:scale-105 transition-transform duration-500">
-                <span className="material-symbols-outlined text-[#8C9A84] text-2xl">
-                  spa
-                </span>
+              <div className="w-11 h-11 rounded-2xl bg-white/10 backdrop-blur-md text-white border border-white/20 shadow-lg flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
+                <span className="material-symbols-outlined text-white text-2xl">psychology</span>
               </div>
-              <div>
-                <div className="flex items-baseline">
-                  <span className="text-2xl font-bold tracking-tight text-[#2D3A31] font-serif">HireMate</span>
-                  <span className="text-2xl italic font-normal text-[#C27B66] ml-1">.AI</span>
-                </div>
-                <span className="inline-block mt-0.5 px-2.5 py-0.5 bg-[#F2F0EB] border border-[#E6E2DA] text-[10px] font-semibold text-[#8C9A84] rounded-full uppercase tracking-wider">
-                  Botanical Talent Studio
-                </span>
+              <div className="flex items-baseline">
+                <span className="text-2xl font-bold tracking-tight text-white">HireMate</span>
+                <span className="text-2xl font-bold text-[#10b981] ml-1">.AI</span>
               </div>
             </button>
           </div>
 
-          {/* Central Editorial Art: Iconic Arch Frame */}
-          <div className="relative flex-1 w-full my-6 flex flex-col items-center justify-center min-h-[300px]">
-            <div className="w-64 h-80 arch-frame bg-[#F2F0EB] border border-[#E6E2DA] shadow-soft flex flex-col items-center justify-center p-6 text-center relative overflow-hidden group">
-              <div className="absolute inset-0 bg-gradient-to-b from-[#8C9A84]/15 via-transparent to-[#C27B66]/10 pointer-events-none" />
-
-              <div className="w-20 h-20 rounded-full bg-white border border-[#E6E2DA] shadow-soft flex items-center justify-center text-[#2D3A31] mb-4 group-hover:scale-105 transition-transform duration-500">
-                <span className="material-symbols-outlined text-3xl text-[#8C9A84]">eco</span>
+          {/* Central Play Button (Billage Reference Style) */}
+          <div className="relative z-10 my-auto flex flex-col items-center justify-center py-8">
+            <button
+              type="button"
+              onClick={() => setShowVideoModal(true)}
+              className="relative group cursor-pointer flex items-center justify-center focus:outline-none"
+              title="Xem Video Trải Nghiệm HireMate AI"
+            >
+              {/* Outer Pulsing Ripple Rings */}
+              <div className="absolute w-20 h-20 rounded-full bg-white/30 animate-ping opacity-75 group-hover:opacity-100" />
+              <div className="absolute w-24 h-24 rounded-full bg-white/10 group-hover:scale-110 transition-transform duration-500" />
+              
+              {/* Main White Play Circle */}
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white/95 backdrop-blur-md border border-white/40 shadow-[0_10px_25px_rgba(0,0,0,0.3)] flex items-center justify-center text-[#5b48bd] group-hover:scale-110 transition-all duration-300 relative z-10 pl-1">
+                <span className="material-symbols-outlined text-3xl sm:text-4xl text-[#5b48bd] group-hover:text-[#32247b] transition-colors">
+                  play_arrow
+                </span>
               </div>
-
-              <h3 className="font-serif font-bold text-xl text-[#2D3A31] leading-tight mb-2">
-                Flourish in Your <br /><span className="italic font-normal text-[#C27B66]">True Potential</span>
-              </h3>
-              <p className="text-xs text-[#667067] font-normal leading-relaxed max-w-[200px]">
-                Tham gia cộng đồng nhân tài và đón nhận cơ hội việc làm tự nhiên.
-              </p>
-
-              {/* Floating Pill Highlights */}
-              <div className="mt-4 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[#E6E2DA] text-[11px] font-semibold text-[#2D3A31] shadow-soft">
-                <span className="w-2 h-2 rounded-full bg-[#8C9A84]"></span>
-                <span>100% Free Lifetime</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Bottom Callout */}
-          <div className="relative z-10 p-3.5 bg-white border border-[#E6E2DA] shadow-soft rounded-2xl flex items-center gap-3">
-            <span className="material-symbols-outlined text-lg text-[#8C9A84]">verified</span>
-            <p className="text-xs text-[#667067] font-normal leading-snug">
-              Tạo hồ sơ chuyên nghiệp &amp; mở khóa cơ hội việc làm AI bền vững!
-            </p>
+            </button>
           </div>
         </div>
 
         {/* ============================================================
-            RIGHT PANEL (7 cols): HUMANIST REGISTRATION FORM
+            RIGHT PANEL (7 cols): Clean Humanist Billage Form
         ============================================================ */}
-        <div className="lg:col-span-7 p-8 sm:p-10 xl:p-11 flex flex-col justify-between space-y-4 bg-white">
+        <div className="lg:col-span-7 p-8 sm:p-10 xl:p-12 flex flex-col justify-between space-y-5 bg-white relative z-10">
           
-          {/* Top Bar: Return to Home & Login Link */}
-          <div className="flex items-center justify-between pb-3 border-b border-[#E6E2DA]">
+          {/* Top Navigation Controls */}
+          <div className="flex items-center justify-between pb-3 border-b border-purple-100">
             <button
               type="button"
               onClick={() => { window.location.hash = '#/'; }}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#2D3A31] px-3.5 py-1.5 rounded-full bg-[#F9F8F4] hover:bg-[#F2F0EB] border border-[#E6E2DA] transition-all duration-300 cursor-pointer group"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-[#221d47] px-3.5 py-1.5 rounded-full bg-purple-50/60 hover:bg-purple-100/80 border border-purple-100 transition-all duration-300 cursor-pointer group"
               title="Quay lại Trang Chủ"
             >
-              <span className="material-symbols-outlined text-sm text-[#2D3A31] group-hover:-translate-x-1 transition-transform">
+              <span className="material-symbols-outlined text-sm text-[#5b48bd] group-hover:-translate-x-1 transition-transform">
                 arrow_back
               </span>
               <span>Trang Chủ</span>
@@ -346,22 +338,22 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
             <button
               type="button"
               onClick={handleGoToLogin}
-              className="inline-flex items-center gap-1 text-xs font-semibold text-[#8C9A84] hover:text-[#C27B66] transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1 text-xs font-bold text-[#5b48bd] hover:text-[#32247b] transition-colors cursor-pointer"
             >
               <span>Đã có tài khoản? Đăng nhập</span>
               <span className="material-symbols-outlined text-sm">arrow_forward</span>
             </button>
           </div>
 
-          {/* Role Switcher */}
-          <div className="p-1 rounded-full bg-[#F2F0EB] border border-[#E6E2DA] grid grid-cols-2 gap-1">
+          {/* Role Switcher Pill */}
+          <div className="p-1 rounded-full bg-purple-50/80 border border-purple-100 grid grid-cols-2 gap-1">
             <button
               type="button"
               onClick={() => setRole('CANDIDATE')}
-              className={`py-2 px-3 rounded-full text-xs font-serif font-bold flex items-center justify-center gap-2 transition-all duration-300 cursor-pointer ${
+              className={`py-2 px-3 rounded-full text-xs font-bold flex items-center justify-center gap-2 transition-all duration-300 cursor-pointer ${
                 role === 'CANDIDATE'
-                  ? 'bg-[#2D3A31] text-white shadow-soft'
-                  : 'text-[#667067] hover:text-[#2D3A31]'
+                  ? 'bg-[#5b48bd] text-white shadow-md'
+                  : 'text-slate-600 hover:text-[#221d47]'
               }`}
             >
               <span className="material-symbols-outlined text-base">person</span>
@@ -371,10 +363,10 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
             <button
               type="button"
               onClick={() => setRole('RECRUITER')}
-              className={`py-2 px-3 rounded-full text-xs font-serif font-bold flex items-center justify-center gap-2 transition-all duration-300 cursor-pointer ${
+              className={`py-2 px-3 rounded-full text-xs font-bold flex items-center justify-center gap-2 transition-all duration-300 cursor-pointer ${
                 role === 'RECRUITER'
-                  ? 'bg-[#2D3A31] text-white shadow-soft'
-                  : 'text-[#667067] hover:text-[#2D3A31]'
+                  ? 'bg-[#5b48bd] text-white shadow-md'
+                  : 'text-slate-600 hover:text-[#221d47]'
               }`}
             >
               <span className="material-symbols-outlined text-base">apartment</span>
@@ -385,10 +377,10 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
           {/* Heading & Quick Demo Fill */}
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-0.5">
-              <h1 className="text-2xl sm:text-3xl font-bold text-[#2D3A31] font-serif tracking-tight">
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-[#221d47] tracking-tight">
                 {role === 'CANDIDATE' ? 'Đăng ký tài khoản Ứng viên' : 'Đăng ký Cổng Doanh nghiệp'}
               </h1>
-              <p className="text-xs sm:text-sm text-[#667067] font-normal">
+              <p className="text-xs sm:text-sm text-slate-500 font-normal">
                 {role === 'CANDIDATE'
                   ? 'Nhập thông tin bên dưới để kích hoạt tài khoản HireMate AI miễn phí.'
                   : 'Đăng ký hồ sơ công ty và bắt đầu tiếp cận nhân tài công nghệ.'}
@@ -397,7 +389,7 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
             <button
               type="button"
               onClick={handleFillDemo}
-              className="text-[11px] font-sans font-medium text-botanical-forest/70 hover:text-botanical-forest bg-[#F2F0EB] hover:bg-[#E6E2DA] px-3 py-1 rounded-full border border-botanical-stone shrink-0 transition-colors cursor-pointer"
+              className="text-[11px] font-bold text-[#5b48bd] hover:text-[#32247b] bg-purple-50 hover:bg-purple-100 px-3 py-1 rounded-full border border-purple-200 shrink-0 transition-colors cursor-pointer"
               title="Điền dữ liệu mẫu để thử nghiệm nhanh"
             >
               Điền mẫu thử
@@ -406,15 +398,15 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
 
           {/* Alerts */}
           {errorMsg && (
-            <div className="p-3.5 rounded-2xl bg-[#C27B66]/10 border border-[#C27B66]/40 text-[#C27B66] text-xs font-medium flex items-center gap-2.5 shadow-soft">
-              <span className="material-symbols-outlined text-base text-[#C27B66] shrink-0">error</span>
+            <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-center gap-2.5 shadow-sm">
+              <span className="material-symbols-outlined text-base text-rose-600 shrink-0">error</span>
               <span>{errorMsg}</span>
             </div>
           )}
 
           {successMsg && (
-            <div className="p-3.5 rounded-2xl bg-[#8C9A84]/15 border border-[#8C9A84]/40 text-[#2D3A31] text-xs font-medium flex items-center gap-2.5 shadow-soft">
-              <span className="material-symbols-outlined text-base text-[#8C9A84] shrink-0">check_circle</span>
+            <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium flex items-center gap-2.5 shadow-sm">
+              <span className="material-symbols-outlined text-base text-emerald-600 shrink-0">check_circle</span>
               <span>{successMsg}</span>
             </div>
           )}
@@ -425,53 +417,53 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
             {role === 'CANDIDATE' && (
               <>
                 <div className="space-y-1">
-                  <label className="text-[11px] font-serif font-bold uppercase tracking-wider text-botanical-forest/80 block">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
                     Họ và tên ứng viên
                   </label>
                   <div className="relative flex items-center">
-                    <span className="material-symbols-outlined absolute left-3.5 text-botanical-sage text-base pointer-events-none">person</span>
+                    <span className="material-symbols-outlined absolute left-3.5 text-[#5b48bd] text-base pointer-events-none">person</span>
                     <input
                       type="text"
                       value={candName}
                       onChange={(e) => setCandName(e.target.value)}
                       placeholder="Ví dụ: Trần Bảo Long"
                       required
-                      className="w-full pl-10 pr-4 py-2.5 bg-[#FAF9F5] border border-botanical-stone focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 rounded-2xl text-sm text-botanical-forest placeholder-botanical-forest/40 focus:outline-none transition-all font-sans font-medium"
+                      className="w-full pl-10 pr-4 py-2.5 bg-purple-50/40 border border-purple-100 focus:border-[#5b48bd] focus:bg-white focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] placeholder-slate-400 focus:outline-none transition-all font-sans"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-[11px] font-serif font-bold uppercase tracking-wider text-botanical-forest/80 block">
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
                       Email đăng ký
                     </label>
                     <div className="relative flex items-center">
-                      <span className="material-symbols-outlined absolute left-3.5 text-botanical-sage text-base pointer-events-none">mail</span>
+                      <span className="material-symbols-outlined absolute left-3.5 text-[#5b48bd] text-base pointer-events-none">mail</span>
                       <input
                         type="email"
                         value={candEmail}
                         onChange={(e) => setCandEmail(e.target.value)}
                         placeholder="Ví dụ: longtran@gmail.com"
                         required
-                        className="w-full pl-10 pr-3 py-2.5 bg-[#FAF9F5] border border-botanical-stone focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 rounded-2xl text-sm text-botanical-forest placeholder-botanical-forest/40 focus:outline-none transition-all font-sans font-medium"
+                        className="w-full pl-10 pr-3 py-2.5 bg-purple-50/40 border border-purple-100 focus:border-[#5b48bd] focus:bg-white focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] placeholder-slate-400 focus:outline-none transition-all font-sans"
                       />
                     </div>
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[11px] font-serif font-bold uppercase tracking-wider text-botanical-forest/80 block">
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
                       Số điện thoại
                     </label>
                     <div className="relative flex items-center">
-                      <span className="material-symbols-outlined absolute left-3.5 text-botanical-sage text-base pointer-events-none">call</span>
+                      <span className="material-symbols-outlined absolute left-3.5 text-[#5b48bd] text-base pointer-events-none">call</span>
                       <input
                         type="tel"
                         value={candPhone}
                         onChange={(e) => setCandPhone(e.target.value)}
                         placeholder="Ví dụ: 0987 654 321"
                         required
-                        className="w-full pl-10 pr-3 py-2.5 bg-[#FAF9F5] border border-botanical-stone focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 rounded-2xl text-sm text-botanical-forest placeholder-botanical-forest/40 focus:outline-none transition-all font-sans font-medium"
+                        className="w-full pl-10 pr-3 py-2.5 bg-purple-50/40 border border-purple-100 focus:border-[#5b48bd] focus:bg-white focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] placeholder-slate-400 focus:outline-none transition-all font-sans"
                       />
                     </div>
                   </div>
@@ -479,32 +471,32 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-[11px] font-serif font-bold uppercase tracking-wider text-botanical-forest/80 block">
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
                       Vị trí chuyên môn (Headline)
                     </label>
                     <div className="relative flex items-center">
-                      <span className="material-symbols-outlined absolute left-3.5 text-botanical-sage text-base pointer-events-none">badge</span>
+                      <span className="material-symbols-outlined absolute left-3.5 text-[#5b48bd] text-base pointer-events-none">badge</span>
                       <input
                         type="text"
                         value={candHeadline}
                         onChange={(e) => setCandHeadline(e.target.value)}
                         placeholder="Fullstack Dev / AI Engineer"
                         required
-                        className="w-full pl-10 pr-3 py-2.5 bg-[#FAF9F5] border border-botanical-stone focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 rounded-2xl text-sm text-botanical-forest placeholder-botanical-forest/40 focus:outline-none transition-all font-sans font-medium"
+                        className="w-full pl-10 pr-3 py-2.5 bg-purple-50/40 border border-purple-100 focus:border-[#5b48bd] focus:bg-white focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] placeholder-slate-400 focus:outline-none transition-all font-sans"
                       />
                     </div>
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[11px] font-serif font-bold uppercase tracking-wider text-botanical-forest/80 block">
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
                       Kinh nghiệm làm việc
                     </label>
                     <div className="relative flex items-center">
-                      <span className="material-symbols-outlined absolute left-3.5 text-botanical-sage text-base pointer-events-none">work_history</span>
+                      <span className="material-symbols-outlined absolute left-3.5 text-[#5b48bd] text-base pointer-events-none">work_history</span>
                       <select
                         value={candExp}
                         onChange={(e) => setCandExp(e.target.value)}
-                        className="w-full pl-10 pr-3 py-2.5 bg-[#FAF9F5] border border-botanical-stone focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 rounded-2xl text-sm text-botanical-forest focus:outline-none transition-all cursor-pointer font-sans font-medium"
+                        className="w-full pl-10 pr-3 py-2.5 bg-purple-50/40 border border-purple-100 focus:border-[#5b48bd] focus:bg-white focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] focus:outline-none transition-all cursor-pointer font-sans"
                       >
                         <option value="FRESHER">Mới tốt nghiệp / Dưới 1 năm</option>
                         <option value="1_3_YEARS">1 - 3 năm kinh nghiệm</option>
@@ -522,35 +514,35 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-[11px] font-serif font-bold uppercase tracking-wider text-botanical-forest/80 block">
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
                       Họ tên HR / Người phụ trách
                     </label>
                     <div className="relative flex items-center">
-                      <span className="material-symbols-outlined absolute left-3.5 text-botanical-sage text-base pointer-events-none">person</span>
+                      <span className="material-symbols-outlined absolute left-3.5 text-[#5b48bd] text-base pointer-events-none">person</span>
                       <input
                         type="text"
                         value={recName}
                         onChange={(e) => setRecName(e.target.value)}
                         placeholder="Ví dụ: Nguyễn Thị Mai"
                         required
-                        className="w-full pl-10 pr-3 py-2.5 bg-[#FAF9F5] border border-botanical-stone focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 rounded-2xl text-sm text-botanical-forest placeholder-botanical-forest/40 focus:outline-none transition-all font-sans font-medium"
+                        className="w-full pl-10 pr-3 py-2.5 bg-purple-50/40 border border-purple-100 focus:border-[#5b48bd] focus:bg-white focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] placeholder-slate-400 focus:outline-none transition-all font-sans"
                       />
                     </div>
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[11px] font-serif font-bold uppercase tracking-wider text-botanical-forest/80 block">
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
                       Email doanh nghiệp (Work Email)
                     </label>
                     <div className="relative flex items-center">
-                      <span className="material-symbols-outlined absolute left-3.5 text-botanical-sage text-base pointer-events-none">mail</span>
+                      <span className="material-symbols-outlined absolute left-3.5 text-[#5b48bd] text-base pointer-events-none">mail</span>
                       <input
                         type="email"
                         value={recEmail}
                         onChange={(e) => setRecEmail(e.target.value)}
                         placeholder="recruitment@company.com"
                         required
-                        className="w-full pl-10 pr-3 py-2.5 bg-[#FAF9F5] border border-botanical-stone focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 rounded-2xl text-sm text-botanical-forest placeholder-botanical-forest/40 focus:outline-none transition-all font-sans font-medium"
+                        className="w-full pl-10 pr-3 py-2.5 bg-purple-50/40 border border-purple-100 focus:border-[#5b48bd] focus:bg-white focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] placeholder-slate-400 focus:outline-none transition-all font-sans"
                       />
                     </div>
                   </div>
@@ -558,32 +550,32 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-[11px] font-serif font-bold uppercase tracking-wider text-botanical-forest/80 block">
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
                       Tên Công ty / Tập đoàn
                     </label>
                     <div className="relative flex items-center">
-                      <span className="material-symbols-outlined absolute left-3.5 text-botanical-sage text-base pointer-events-none">apartment</span>
+                      <span className="material-symbols-outlined absolute left-3.5 text-[#5b48bd] text-base pointer-events-none">apartment</span>
                       <input
                         type="text"
                         value={companyName}
                         onChange={(e) => setCompanyName(e.target.value)}
                         placeholder="Ví dụ: FPT Software Vietnam"
                         required
-                        className="w-full pl-10 pr-3 py-2.5 bg-[#FAF9F5] border border-botanical-stone focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 rounded-2xl text-sm text-botanical-forest placeholder-botanical-forest/40 focus:outline-none transition-all font-sans font-medium"
+                        className="w-full pl-10 pr-3 py-2.5 bg-purple-50/40 border border-purple-100 focus:border-[#5b48bd] focus:bg-white focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] placeholder-slate-400 focus:outline-none transition-all font-sans"
                       />
                     </div>
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[11px] font-serif font-bold uppercase tracking-wider text-botanical-forest/80 block">
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
                       Quy mô nhân sự
                     </label>
                     <div className="relative flex items-center">
-                      <span className="material-symbols-outlined absolute left-3.5 text-botanical-sage text-base pointer-events-none">groups</span>
+                      <span className="material-symbols-outlined absolute left-3.5 text-[#5b48bd] text-base pointer-events-none">groups</span>
                       <select
                         value={companySize}
                         onChange={(e) => setCompanySize(e.target.value)}
-                        className="w-full pl-10 pr-3 py-2.5 bg-[#FAF9F5] border border-botanical-stone focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 rounded-2xl text-sm text-botanical-forest focus:outline-none transition-all cursor-pointer font-sans font-medium"
+                        className="w-full pl-10 pr-3 py-2.5 bg-purple-50/40 border border-purple-100 focus:border-[#5b48bd] focus:bg-white focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] focus:outline-none transition-all cursor-pointer font-sans"
                       >
                         <option value="1_50">1 - 50 nhân viên (Startup)</option>
                         <option value="50_200">50 - 200 nhân viên (SME)</option>
@@ -597,35 +589,35 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-[11px] font-serif font-bold uppercase tracking-wider text-botanical-forest/80 block">
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
                       Trụ sở chính
                     </label>
                     <div className="relative flex items-center">
-                      <span className="material-symbols-outlined absolute left-3.5 text-botanical-sage text-base pointer-events-none">location_on</span>
+                      <span className="material-symbols-outlined absolute left-3.5 text-[#5b48bd] text-base pointer-events-none">location_on</span>
                       <input
                         type="text"
                         value={companyLocation}
                         onChange={(e) => setCompanyLocation(e.target.value)}
                         placeholder="Ví dụ: Cầu Giấy, Hà Nội"
                         required
-                        className="w-full pl-10 pr-3 py-2.5 bg-[#FAF9F5] border border-botanical-stone focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 rounded-2xl text-sm text-botanical-forest placeholder-botanical-forest/40 focus:outline-none transition-all font-sans font-medium"
+                        className="w-full pl-10 pr-3 py-2.5 bg-purple-50/40 border border-purple-100 focus:border-[#5b48bd] focus:bg-white focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] placeholder-slate-400 focus:outline-none transition-all font-sans"
                       />
                     </div>
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[11px] font-serif font-bold uppercase tracking-wider text-botanical-forest/80 block">
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
                       Số điện thoại liên hệ
                     </label>
                     <div className="relative flex items-center">
-                      <span className="material-symbols-outlined absolute left-3.5 text-botanical-sage text-base pointer-events-none">call</span>
+                      <span className="material-symbols-outlined absolute left-3.5 text-[#5b48bd] text-base pointer-events-none">call</span>
                       <input
                         type="tel"
                         value={recPhone}
                         onChange={(e) => setRecPhone(e.target.value)}
                         placeholder="Ví dụ: 0912 345 678"
                         required
-                        className="w-full pl-10 pr-3 py-2.5 bg-[#FAF9F5] border border-botanical-stone focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 rounded-2xl text-sm text-botanical-forest placeholder-botanical-forest/40 focus:outline-none transition-all font-sans font-medium"
+                        className="w-full pl-10 pr-3 py-2.5 bg-purple-50/40 border border-purple-100 focus:border-[#5b48bd] focus:bg-white focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] placeholder-slate-400 focus:outline-none transition-all font-sans"
                       />
                     </div>
                   </div>
@@ -636,23 +628,23 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
             {/* SHARED PASSWORD FIELDS */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="text-[11px] font-serif font-bold uppercase tracking-wider text-botanical-forest/80 block">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
                   Mật khẩu đăng nhập
                 </label>
                 <div className="relative flex items-center">
-                  <span className="material-symbols-outlined absolute left-3.5 text-botanical-sage text-base pointer-events-none">lock</span>
+                  <span className="material-symbols-outlined absolute left-3.5 text-[#5b48bd] text-base pointer-events-none">lock</span>
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Tối thiểu 6 ký tự"
                     required
-                    className="w-full pl-10 pr-10 py-2.5 bg-[#FAF9F5] border border-botanical-stone focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 rounded-2xl text-sm text-botanical-forest placeholder-botanical-forest/40 focus:outline-none transition-all font-sans font-medium"
+                    className="w-full pl-10 pr-10 py-2.5 bg-purple-50/40 border border-purple-100 focus:border-[#5b48bd] focus:bg-white focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] placeholder-slate-400 focus:outline-none transition-all font-sans"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 text-botanical-forest/60 hover:text-botanical-forest transition-colors cursor-pointer"
+                    className="absolute right-3 text-slate-400 hover:text-[#221d47] transition-colors cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-base">
                       {showPassword ? 'visibility_off' : 'visibility'}
@@ -662,18 +654,18 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[11px] font-serif font-bold uppercase tracking-wider text-botanical-forest/80 block">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
                   Xác nhận mật khẩu
                 </label>
                 <div className="relative flex items-center">
-                  <span className="material-symbols-outlined absolute left-3.5 text-botanical-sage text-base pointer-events-none">verified_user</span>
+                  <span className="material-symbols-outlined absolute left-3.5 text-[#5b48bd] text-base pointer-events-none">verified_user</span>
                   <input
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Nhập lại mật khẩu"
                     required
-                    className="w-full pl-10 pr-3 py-2.5 bg-[#FAF9F5] border border-botanical-stone focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 rounded-2xl text-sm text-botanical-forest placeholder-botanical-forest/40 focus:outline-none transition-all font-sans font-medium"
+                    className="w-full pl-10 pr-3 py-2.5 bg-purple-50/40 border border-purple-100 focus:border-[#5b48bd] focus:bg-white focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] placeholder-slate-400 focus:outline-none transition-all font-sans"
                   />
                 </div>
               </div>
@@ -687,22 +679,22 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
                 onChange={(e) => setAgreed(e.target.checked)}
                 id="terms"
                 required
-                className="mt-0.5 w-4 h-4 rounded border-[#E6E2DA] text-[#8C9A84] focus:ring-0 cursor-pointer"
+                className="mt-0.5 w-4 h-4 rounded border-purple-200 text-[#5b48bd] focus:ring-[#5b48bd] cursor-pointer"
               />
-              <label htmlFor="terms" className="text-xs text-[#667067] font-normal select-none leading-relaxed cursor-pointer">
-                Tôi đồng ý với <a href="#/" className="text-[#8C9A84] hover:underline font-semibold">Điều khoản dịch vụ</a> &amp; <a href="#/" className="text-[#8C9A84] hover:underline font-semibold">Chính sách bảo mật AI</a> của HireMate.
+              <label htmlFor="terms" className="text-xs text-slate-600 font-normal select-none leading-relaxed cursor-pointer">
+                Tôi đồng ý với <a href="#/" className="text-[#5b48bd] hover:underline font-bold">Điều khoản dịch vụ</a> &amp; <a href="#/" className="text-[#5b48bd] hover:underline font-bold">Chính sách bảo mật AI</a> của HireMate.
               </label>
             </div>
 
-            {/* Submit Button */}
+            {/* Primary Submit Button */}
             <button
               type="submit"
               disabled={isLoading}
-              className="btn-botanical-primary w-full py-3.5 text-xs uppercase tracking-widest font-semibold flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-3 px-6 rounded-full bg-gradient-to-r from-[#5b48bd] via-[#47369f] to-[#32247b] hover:from-[#47369f] hover:to-[#1e1b4b] text-white text-xs uppercase tracking-widest font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#5b48bd]/25 hover:shadow-xl transition-all duration-300 cursor-pointer"
             >
               {isLoading ? (
                 <>
-                  <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   <span>Đang gửi mã xác thực OTP...</span>
                 </>
               ) : (
@@ -717,12 +709,12 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
           </form>
 
           {/* Footer Note */}
-          <div className="text-center pt-2 text-xs text-[#667067] font-normal">
+          <div className="text-center pt-2 text-xs text-slate-500 font-normal">
             Đã có tài khoản?{' '}
             <button
               type="button"
               onClick={handleGoToLogin}
-              className="text-[#8C9A84] hover:text-[#C27B66] font-semibold underline transition-colors cursor-pointer"
+              className="text-[#5b48bd] hover:text-[#32247b] font-bold underline transition-colors cursor-pointer"
             >
               Đăng nhập ngay →
             </button>
@@ -734,45 +726,45 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
           EMAIL OTP VERIFICATION MODAL
       ============================================================ */}
       {showOtpModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#2D3A31]/50 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-md bg-white border border-[#E6E2DA] rounded-3xl p-6 shadow-soft-xl space-y-5 relative">
-            <div className="flex items-center justify-between pb-3 border-b border-[#E6E2DA]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-md bg-white border border-purple-100 rounded-[28px] p-6 shadow-2xl space-y-5 relative">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
-                <span className="w-8 h-8 rounded-full bg-[#2D3A31] text-white flex items-center justify-center material-symbols-outlined text-base">mark_email_read</span>
-                <span className="font-serif font-bold text-sm text-[#2D3A31]">Xác thực Địa chỉ Email</span>
+                <span className="w-8 h-8 rounded-full bg-[#5b48bd] text-white flex items-center justify-center material-symbols-outlined text-base">mark_email_read</span>
+                <span className="font-bold text-sm text-[#221d47]">Xác thực Địa chỉ Email</span>
               </div>
               <button
                 type="button"
                 onClick={() => setShowOtpModal(false)}
-                className="w-8 h-8 rounded-full bg-[#F2F0EB] hover:bg-[#E6E2DA] flex items-center justify-center text-[#2D3A31] font-bold transition-colors cursor-pointer"
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-[#221d47] font-bold transition-colors cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
-            <div className="p-4 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] shadow-soft space-y-2 text-xs">
-              <div className="flex items-center gap-2 text-[#8C9A84] font-medium">
+            <div className="p-4 rounded-2xl bg-purple-50/60 border border-purple-100 shadow-sm space-y-2 text-xs">
+              <div className="flex items-center gap-2 text-[#5b48bd] font-semibold">
                 <span className="material-symbols-outlined text-base">outgoing_mail</span>
                 <span>Email xác thực đã được gửi đến:</span>
               </div>
-              <p className="font-bold text-[#2D3A31] font-mono break-all text-sm px-3 py-2 bg-white rounded-xl border border-[#E6E2DA]">
+              <p className="font-bold text-[#221d47] font-mono break-all text-sm px-3 py-2 bg-white rounded-xl border border-purple-100">
                 {targetEmail}
               </p>
-              <p className="text-[11px] text-[#667067] leading-relaxed pt-1">
+              <p className="text-[11px] text-slate-500 leading-relaxed pt-1">
                 Vui lòng kiểm tra <strong>Hộp thư đến (Inbox)</strong> hoặc thư mục <strong>Thư rác/Spam</strong> và nhập mã 6 số để hoàn tất đăng ký.
               </p>
             </div>
 
             {otpError && (
-              <div className="p-3 rounded-2xl bg-[#C27B66]/10 border border-[#C27B66]/40 text-[#C27B66] text-xs font-medium flex items-center gap-2 shadow-soft">
-                <span className="material-symbols-outlined text-base text-[#C27B66] shrink-0">error</span>
+              <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-center gap-2 shadow-sm">
+                <span className="material-symbols-outlined text-base text-rose-600 shrink-0">error</span>
                 <span>{otpError}</span>
               </div>
             )}
 
             <form onSubmit={handleVerifyAndRegister} className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-[11px] font-serif font-bold text-[#2D3A31] uppercase tracking-wider block">
+                <label className="text-[11px] font-bold text-[#221d47] uppercase tracking-wider block">
                   NHẬP MÃ OTP TỪ EMAIL (6 CHỮ SỐ)
                 </label>
                 <input
@@ -783,21 +775,21 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
                   maxLength={6}
                   placeholder="••••••"
                   autoFocus
-                  className="w-full px-4 py-3 bg-[#F9F8F4] border border-[#E6E2DA] focus:border-[#8C9A84] focus:shadow-[0_0_0_2px_rgba(140,154,132,0.2)] rounded-full text-center text-2xl font-mono tracking-[0.5em] text-[#2D3A31] placeholder-[#9BA39B] focus:outline-none font-bold"
+                  className="w-full px-4 py-3 bg-purple-50/40 border border-purple-100 focus:border-[#5b48bd] focus:bg-white rounded-full text-center text-2xl font-mono tracking-[0.5em] text-[#221d47] placeholder-slate-300 focus:outline-none font-bold"
                 />
               </div>
 
               {/* Resend OTP button */}
               <div className="flex items-center justify-between text-xs pt-1">
-                <span className="text-[#667067]">Chưa nhận được mã?</span>
+                <span className="text-slate-500">Chưa nhận được mã?</span>
                 <button
                   type="button"
                   onClick={handleResendOtp}
                   disabled={resendCooldown > 0 || isResending}
-                  className={`font-medium flex items-center gap-1 cursor-pointer transition-colors ${
+                  className={`font-semibold flex items-center gap-1 cursor-pointer transition-colors ${
                     resendCooldown > 0 || isResending
-                      ? 'text-[#667067]/60 cursor-not-allowed'
-                      : 'text-[#8C9A84] hover:text-[#2D3A31] hover:underline'
+                      ? 'text-slate-400 cursor-not-allowed'
+                      : 'text-[#5b48bd] hover:text-[#32247b] hover:underline'
                   }`}
                 >
                   <span className={`material-symbols-outlined text-sm ${isResending ? 'animate-spin' : ''}`}>sync</span>
@@ -809,19 +801,70 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
                 <button
                   type="button"
                   onClick={() => setShowOtpModal(false)}
-                  className="btn-botanical-secondary px-4 py-2 text-xs font-semibold cursor-pointer"
+                  className="px-4 py-2 rounded-full border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 text-xs font-semibold cursor-pointer"
                 >
                   Sửa thông tin
                 </button>
                 <button
                   type="submit"
                   disabled={isVerifyingOtp}
-                  className="btn-botanical-primary px-5 py-2 text-xs uppercase tracking-wider font-semibold cursor-pointer flex items-center gap-1.5"
+                  className="px-5 py-2 rounded-full bg-[#5b48bd] hover:bg-[#47369f] text-white text-xs font-bold uppercase tracking-wider cursor-pointer shadow-md flex items-center gap-1.5"
                 >
                   {isVerifyingOtp ? 'Đang xác thực...' : 'Xác Thực & Kích Hoạt'}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================
+          VIDEO PRESENTATION MODAL
+      ============================================================ */}
+      {showVideoModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
+          <div className="w-full max-w-3xl bg-slate-900 border border-purple-500/30 rounded-[28px] overflow-hidden shadow-2xl relative space-y-0">
+            <div className="p-4 bg-[#1e1b4b] border-b border-purple-900/40 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-white">
+                <span className="material-symbols-outlined text-emerald-400">smart_display</span>
+                <span className="font-bold text-sm">HireMate AI - Trải Nghiệm Nền Tảng Tuyển Dụng Smart</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowVideoModal(false)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="relative aspect-video bg-gradient-to-br from-[#1e1b4b] via-[#32247b] to-[#110d2e] flex flex-col items-center justify-center p-8 text-center text-white space-y-4">
+              <div className="w-20 h-20 rounded-full bg-[#5b48bd]/30 border border-[#5b48bd]/50 flex items-center justify-center shadow-inner">
+                <span className="material-symbols-outlined text-5xl text-emerald-400 animate-pulse">psychology</span>
+              </div>
+              <div className="space-y-1 max-w-lg">
+                <h3 className="text-xl sm:text-2xl font-bold text-white">Mindskills Platform v2.0 Overview</h3>
+                <p className="text-xs text-slate-300 font-normal leading-relaxed">
+                  Tự động xếp hạng ứng viên chuẩn 70/30 (Mandatory &amp; Preferred Skills), phòng phỏng vấn giả lập AI AI-Powered Mock Interview và phễu tuyển dụng Kanban thời gian thực.
+                </p>
+              </div>
+              <div className="flex items-center justify-center gap-3 pt-2 flex-wrap">
+                <span className="px-3.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                  98% ATS Precision
+                </span>
+                <span className="px-3.5 py-1 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs font-bold flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-purple-400"></span>
+                  AI System Design &amp; Coding Eval
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowVideoModal(false)}
+                className="mt-4 px-6 py-2.5 rounded-full bg-[#5b48bd] hover:bg-[#47369f] text-white text-xs font-bold shadow-lg transition-all cursor-pointer"
+              >
+                Đóng Video &amp; Tiếp Tục Đăng Ký
+              </button>
+            </div>
           </div>
         </div>
       )}

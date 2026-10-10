@@ -17,6 +17,8 @@ import CandidateEvaluationPage from './pages/CandidateEvaluationPage';
 import AiInterviewStudioPage from './pages/AiInterviewStudioPage';
 import AccountSettingsPage from './pages/AccountSettingsPage';
 import CareerInsightsPage from './pages/CareerInsightsPage';
+import RecruiterPricingPage from './pages/RecruiterPricingPage';
+import CandidatePricingPage from './pages/CandidatePricingPage';
 import NotFoundPage from './pages/NotFoundPage';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
@@ -171,6 +173,14 @@ function AppContent() {
       );
     }
 
+    if (route.includes('candidate-pricing') || route.includes('candidate-subscription') || route.includes('goi-ung-vien') || route.includes('mua-goi-candidate')) {
+      return (
+        <ProtectedRoute user={user} requiredRole="CANDIDATE">
+          <CandidatePricingPage user={user} onNavigate={(r) => setCurrentRoute(r)} />
+        </ProtectedRoute>
+      );
+    }
+
     if (route.includes('recruiter-profile') || route.includes('company-profile') || route.includes('ho-so-doanh-nghiep')) {
       return (
         <ProtectedRoute user={user} requiredRole="RECRUITER">
@@ -280,6 +290,14 @@ function AppContent() {
       );
     }
 
+    if (route.includes('recruiter-pricing') || route.includes('pricing') || route.includes('subscription') || route.includes('goi-dich-vu') || route.includes('mua-goi')) {
+      return (
+        <ProtectedRoute user={user} requiredRole="RECRUITER">
+          <RecruiterPricingPage user={user} onNavigate={(r) => setCurrentRoute(r)} />
+        </ProtectedRoute>
+      );
+    }
+
     if (route.includes('recruiter-dashboard')) {
       return (
         <ProtectedRoute user={user} requiredRole="RECRUITER">
@@ -328,15 +346,13 @@ function AppContent() {
   const hideGlobalLayout = isAuthPage || isEvaluationPage;
 
   return (
-    <div className={`min-h-screen relative font-body text-[#2D3A31] bg-[#F9F8F4] flex flex-col justify-between ${isEvaluationPage ? 'h-screen overflow-hidden' : ''}`}>
+    <div className={`min-h-screen relative font-sans text-[#1e1b4b] bg-[#3b2b8e] p-2 sm:p-4 md:p-6 flex flex-col justify-between ${isEvaluationPage ? 'h-screen overflow-hidden' : ''}`}>
         
-        {/* =================================================================== */}
-        {/* BOTANICAL / ORGANIC SERIF BACKGROUND (Paper Grain & Ambient Glow)   */}
-        {/* =================================================================== */}
+        {/* Ambient Radial Lights */}
         <BotanicalBackground />
 
-        {/* Content Container sitting atop the botanical organic canvas */}
-        <div className="relative z-10 flex flex-col min-h-screen justify-between bg-transparent">
+        {/* Outer Mindskills Canvas Container */}
+        <div className="relative z-10 flex flex-col min-h-[calc(100vh-2rem)] md:min-h-[calc(100vh-3rem)] justify-between bg-[#f4f2fd] rounded-2xl md:rounded-3xl shadow-2xl overflow-hidden border border-white/20">
           {!hideGlobalLayout && (
             <Header
               user={user}
@@ -350,7 +366,7 @@ function AppContent() {
             />
           )}
 
-          <main className={isEvaluationPage ? "h-screen overflow-hidden" : "flex-1"}>
+          <main className={isEvaluationPage ? "h-screen overflow-hidden" : "flex-1 p-3 sm:p-6"}>
             {renderContent()}
           </main>
 
@@ -358,6 +374,7 @@ function AppContent() {
         </div>
       </div>
   );
+
 }
 
 export default function App() {

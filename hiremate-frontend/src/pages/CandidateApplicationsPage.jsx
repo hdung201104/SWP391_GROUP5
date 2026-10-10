@@ -352,14 +352,14 @@ export default function CandidateApplicationsPage({ user }) {
         {/* ========================================================= */}
         {/* 2. FILTER & TOOLBAR SECTION                               */}
         {/* ========================================================= */}
-        <section className="card-botanical p-4 sm:p-5 rounded-3xl bg-white/95 border border-botanical-stone shadow-soft flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+        <section className="p-4 sm:p-5 rounded-3xl bg-white border border-purple-100 shadow-sm flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 font-sans">
           {/* Search Input */}
           <div className="relative flex-1 min-w-[260px]">
-            <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-botanical-forest/40 text-lg">search</span>
+            <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
             <input 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 text-xs bg-[#FAF9F5] border border-botanical-stone rounded-full text-botanical-forest placeholder:text-botanical-forest/40 focus:outline-none focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 transition-all font-sans" 
+              className="w-full pl-10 pr-4 py-2.5 text-xs bg-[#f8f7ff] border border-purple-100 rounded-full text-[#1e1b4b] font-semibold placeholder:text-slate-400 focus:outline-none focus:border-[#5b48bd] focus:ring-2 focus:ring-purple-100 transition-all font-sans" 
               placeholder="Tìm theo công ty, vị trí ứng tuyển..." 
               type="text"
             />
@@ -368,53 +368,53 @@ export default function CandidateApplicationsPage({ user }) {
           {/* Filters & Actions */}
           <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
             {/* Status Tabs (Segmented) */}
-            <div className="flex items-center p-1 rounded-full bg-[#FAF9F5] border border-botanical-stone overflow-x-auto text-xs font-sans">
+            <div className="flex items-center p-1 rounded-full bg-[#f8f7ff] border border-purple-100 overflow-x-auto text-xs font-sans">
               <button 
                 onClick={() => setActiveFilter('ALL')}
-                className={`px-4 py-1.5 rounded-full font-medium transition-all whitespace-nowrap cursor-pointer ${
+                className={`px-4 py-1.5 rounded-full font-bold transition-all whitespace-nowrap cursor-pointer ${
                   activeFilter === 'ALL'
-                    ? 'bg-botanical-forest text-white shadow-soft'
-                    : 'text-botanical-forest/70 hover:text-botanical-forest'
+                    ? 'bg-[#32247b] text-white shadow-sm'
+                    : 'text-[#1e1b4b] hover:text-[#5b48bd] hover:bg-purple-50/60'
                 }`}
               >
                 Tất cả (14)
               </button>
               <button 
                 onClick={() => setActiveFilter('APPLIED')}
-                className={`px-4 py-1.5 rounded-full font-medium transition-all whitespace-nowrap cursor-pointer ${
+                className={`px-4 py-1.5 rounded-full font-bold transition-all whitespace-nowrap cursor-pointer ${
                   activeFilter === 'APPLIED'
-                    ? 'bg-botanical-forest text-white shadow-soft'
-                    : 'text-botanical-forest/70 hover:text-botanical-forest'
+                    ? 'bg-[#32247b] text-white shadow-sm'
+                    : 'text-[#1e1b4b] hover:text-[#5b48bd] hover:bg-purple-50/60'
                 }`}
               >
                 Chờ duyệt (5)
               </button>
               <button 
                 onClick={() => setActiveFilter('INTERVIEW')}
-                className={`px-4 py-1.5 rounded-full font-medium transition-all whitespace-nowrap cursor-pointer ${
+                className={`px-4 py-1.5 rounded-full font-bold transition-all whitespace-nowrap cursor-pointer ${
                   activeFilter === 'INTERVIEW'
-                    ? 'bg-botanical-forest text-white shadow-soft'
-                    : 'text-botanical-forest/70 hover:text-botanical-forest'
+                    ? 'bg-[#32247b] text-white shadow-sm'
+                    : 'text-[#1e1b4b] hover:text-[#5b48bd] hover:bg-purple-50/60'
                 }`}
               >
                 Phỏng vấn (4)
               </button>
               <button 
                 onClick={() => setActiveFilter('OFFER')}
-                className={`px-4 py-1.5 rounded-full font-medium transition-all whitespace-nowrap cursor-pointer ${
+                className={`px-4 py-1.5 rounded-full font-bold transition-all whitespace-nowrap cursor-pointer ${
                   activeFilter === 'OFFER'
-                    ? 'bg-botanical-forest text-white shadow-soft'
-                    : 'text-botanical-forest/70 hover:text-botanical-forest'
+                    ? 'bg-[#32247b] text-white shadow-sm'
+                    : 'text-[#1e1b4b] hover:text-[#5b48bd] hover:bg-purple-50/60'
                 }`}
               >
                 Đã nhận Offer (2)
               </button>
               <button 
                 onClick={() => setActiveFilter('REJECTED')}
-                className={`px-4 py-1.5 rounded-full font-medium transition-all whitespace-nowrap cursor-pointer ${
+                className={`px-4 py-1.5 rounded-full font-bold transition-all whitespace-nowrap cursor-pointer ${
                   activeFilter === 'REJECTED'
-                    ? 'bg-botanical-forest text-white shadow-soft'
-                    : 'text-botanical-forest/70 hover:text-botanical-forest'
+                    ? 'bg-[#32247b] text-white shadow-sm'
+                    : 'text-[#1e1b4b] hover:text-[#5b48bd] hover:bg-purple-50/60'
                 }`}
               >
                 Từ chối (3)
@@ -426,21 +426,21 @@ export default function CandidateApplicationsPage({ user }) {
               <select 
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="appearance-none pl-3.5 pr-8 py-2 text-xs font-sans bg-white border border-botanical-stone rounded-full text-botanical-forest focus:outline-none focus:border-botanical-sage cursor-pointer shadow-soft"
+                className="appearance-none pl-3.5 pr-8 py-2 text-xs font-sans font-bold bg-white border border-purple-100 rounded-full text-[#1e1b4b] focus:outline-none focus:border-[#5b48bd] cursor-pointer shadow-sm"
               >
                 <option value="RECENT">Gần đây nhất</option>
                 <option value="ACTION">Cần hành động ngay</option>
                 <option value="MATCH">AI Match: Cao nhất</option>
               </select>
-              <span className="material-symbols-outlined pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-botanical-forest/60">expand_more</span>
+              <span className="material-symbols-outlined pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-[#1e1b4b]/70">expand_more</span>
             </div>
 
             {/* View Toggle (List vs Kanban) */}
-            <div className="flex items-center rounded-full bg-white border border-botanical-stone p-0.5 shadow-soft">
+            <div className="flex items-center rounded-full bg-[#f8f7ff] border border-purple-100 p-0.5 shadow-sm">
               <button 
                 onClick={() => setViewMode('list')}
                 className={`p-1.5 rounded-full transition-colors cursor-pointer ${
-                  viewMode === 'list' ? 'bg-botanical-forest text-white font-bold' : 'text-botanical-forest/50 hover:text-botanical-forest'
+                  viewMode === 'list' ? 'bg-[#32247b] text-white font-bold' : 'text-slate-400 hover:text-[#32247b]'
                 }`}
                 title="Chế độ Danh sách"
               >
@@ -449,7 +449,7 @@ export default function CandidateApplicationsPage({ user }) {
               <button 
                 onClick={() => setViewMode('kanban')}
                 className={`p-1.5 rounded-full transition-colors cursor-pointer ${
-                  viewMode === 'kanban' ? 'bg-botanical-forest text-white font-bold' : 'text-botanical-forest/50 hover:text-botanical-forest'
+                  viewMode === 'kanban' ? 'bg-[#32247b] text-white font-bold' : 'text-slate-400 hover:text-[#32247b]'
                 }`}
                 title="Chế độ Kanban"
               >
@@ -594,65 +594,68 @@ export default function CandidateApplicationsPage({ user }) {
                       </div>
 
                       {/* STEPPER PIPELINE TRACKER */}
-                      <div className="p-4 sm:p-5 rounded-2xl bg-[#FAF9F5] border border-botanical-stone">
-                        <div className="text-[11px] font-serif font-bold uppercase tracking-wider text-botanical-forest/70 mb-3">Tiến Trình Ứng Tuyển</div>
+                      <div className="p-4 sm:p-5 rounded-2xl bg-white border border-purple-100 shadow-sm font-sans">
+                        <div className="text-[11px] font-sans font-extrabold uppercase tracking-wider text-[#1e1b4b] mb-3.5 flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-[#f97316]"></span>
+                          Tiến Trình Ứng Tuyển
+                        </div>
                         <div className="grid grid-cols-4 gap-2 relative">
                           {/* Step 1 (Done) */}
                           <div className="flex flex-col items-center sm:items-start text-center sm:text-left">
-                            <div className="w-full flex items-center mb-1.5">
-                              <div className="w-6 h-6 rounded-full bg-botanical-forest text-white flex items-center justify-center text-xs font-bold shadow-soft">
-                                <span className="material-symbols-outlined text-xs">check</span>
+                            <div className="w-full flex items-center mb-2">
+                              <div className="w-7 h-7 rounded-full bg-[#32247b] text-white flex items-center justify-center text-xs font-extrabold shadow-sm shrink-0">
+                                <span className="material-symbols-outlined text-sm font-extrabold">check</span>
                               </div>
-                              <div className="flex-1 h-0.5 bg-botanical-forest mx-1"></div>
+                              <div className="flex-1 h-1 bg-[#32247b] mx-1 rounded-full"></div>
                             </div>
-                            <div className="text-xs font-serif font-bold text-botanical-forest">1. Đã Nộp</div>
-                            <div className="text-[10px] text-botanical-forest/60 font-sans">10/04/2026</div>
+                            <div className="text-xs font-sans font-extrabold text-[#1e1b4b]">1. Đã Nộp</div>
+                            <div className="text-[11px] font-sans text-slate-500 font-semibold mt-0.5">10/04/2026</div>
                           </div>
 
                           {/* Step 2 (Done) */}
                           <div className="flex flex-col items-center sm:items-start text-center sm:text-left">
-                            <div className="w-full flex items-center mb-1.5">
-                              <div className="w-6 h-6 rounded-full bg-botanical-forest text-white flex items-center justify-center text-xs font-bold shadow-soft">
-                                <span className="material-symbols-outlined text-xs">check</span>
+                            <div className="w-full flex items-center mb-2">
+                              <div className="w-7 h-7 rounded-full bg-[#32247b] text-white flex items-center justify-center text-xs font-extrabold shadow-sm shrink-0">
+                                <span className="material-symbols-outlined text-sm font-extrabold">check</span>
                               </div>
-                              <div className="flex-1 h-0.5 bg-botanical-terracotta mx-1"></div>
+                              <div className="flex-1 h-1 bg-[#f97316] mx-1 rounded-full"></div>
                             </div>
-                            <div className="text-xs font-serif font-bold text-botanical-forest">2. Duyệt CV</div>
-                            <div className="text-[10px] text-botanical-sage font-sans font-medium">Đạt 94%</div>
+                            <div className="text-xs font-sans font-extrabold text-[#1e1b4b]">2. Duyệt CV</div>
+                            <div className="text-[11px] font-sans text-[#10b981] font-bold mt-0.5">Đạt 94%</div>
                           </div>
 
                           {/* Step 3 (Active) */}
                           <div className="flex flex-col items-center sm:items-start text-center sm:text-left">
-                            <div className="w-full flex items-center mb-1.5">
-                              <div className="w-6 h-6 rounded-full bg-botanical-terracotta text-white flex items-center justify-center text-xs font-bold shadow-soft ring-4 ring-botanical-terracotta/20 animate-pulse">
+                            <div className="w-full flex items-center mb-2">
+                              <div className="w-7 h-7 rounded-full bg-[#f97316] text-white flex items-center justify-center text-xs font-extrabold shadow-md ring-4 ring-orange-500/20 animate-pulse shrink-0">
                                 3
                               </div>
-                              <div className="flex-1 h-0.5 bg-botanical-stone mx-1"></div>
+                              <div className="flex-1 h-1 bg-purple-100 mx-1 rounded-full"></div>
                             </div>
-                            <div className="text-xs font-serif font-bold text-botanical-terracotta">3. Phỏng Vấn Tech</div>
-                            <div className="text-[10px] text-botanical-forest/70 font-sans font-medium">15/04 • 14:00</div>
+                            <div className="text-xs font-sans font-extrabold text-[#f97316]">3. Phỏng Vấn Tech</div>
+                            <div className="text-[11px] font-sans text-[#1e1b4b] font-bold mt-0.5">15/04 • 14:00</div>
                           </div>
 
                           {/* Step 4 (Pending) */}
                           <div className="flex flex-col items-center sm:items-start text-center sm:text-left">
-                            <div className="w-full flex items-center mb-1.5">
-                              <div className="w-6 h-6 rounded-full bg-botanical-stone text-botanical-forest/50 flex items-center justify-center text-xs font-bold">
+                            <div className="w-full flex items-center mb-2">
+                              <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center text-xs font-extrabold border border-purple-100 shrink-0">
                                 4
                               </div>
                             </div>
-                            <div className="text-xs font-sans text-botanical-forest/50">4. Nhận Offer</div>
-                            <div className="text-[10px] text-botanical-forest/40 font-sans">Chờ kết quả</div>
+                            <div className="text-xs font-sans font-bold text-slate-500">4. Nhận Offer</div>
+                            <div className="text-[11px] font-sans text-slate-400 font-medium mt-0.5">Chờ kết quả</div>
                           </div>
                         </div>
                       </div>
 
                       {/* Highlight Next Action Callout */}
-                      <div className="p-4 rounded-2xl bg-botanical-sage/15 border border-botanical-sage/30 flex items-start gap-3.5">
-                        <span className="material-symbols-outlined text-botanical-forest text-xl mt-0.5">event_upcoming</span>
+                      <div className="p-4 rounded-2xl bg-purple-50/80 border border-purple-100 flex items-start gap-3.5 font-sans">
+                        <span className="material-symbols-outlined text-[#5b48bd] text-xl mt-0.5">event_upcoming</span>
                         <div className="text-xs font-sans">
-                          <span className="font-serif font-bold text-botanical-forest">Lịch phỏng vấn kỹ thuật trực tuyến:</span>
-                          <span className="text-botanical-terracotta font-semibold ml-1.5">14:00 - Thứ Tư, 15/04/2026</span>
-                          <span className="text-botanical-forest/70 block mt-0.5">Hình thức: Trực tuyến qua Google Meet (Người phỏng vấn: Tech Lead &amp; Solution Architect).</span>
+                          <span className="font-sans font-bold text-[#1e1b4b]">Lịch phỏng vấn kỹ thuật trực tuyến:</span>
+                          <span className="text-[#f97316] font-bold ml-1.5">14:00 - Thứ Tư, 15/04/2026</span>
+                          <span className="text-slate-600 block mt-0.5">Hình thức: Trực tuyến qua Google Meet (Người phỏng vấn: Tech Lead &amp; Solution Architect).</span>
                         </div>
                       </div>
 
