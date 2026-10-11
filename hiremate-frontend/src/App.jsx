@@ -19,6 +19,7 @@ import AccountSettingsPage from './pages/AccountSettingsPage';
 import CareerInsightsPage from './pages/CareerInsightsPage';
 import RecruiterPricingPage from './pages/RecruiterPricingPage';
 import CandidatePricingPage from './pages/CandidatePricingPage';
+import AdminDashboardPage from './pages/AdminDashboardPage';
 import NotFoundPage from './pages/NotFoundPage';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
@@ -129,7 +130,9 @@ function AppContent() {
     setUser(userData);
 
     // Dynamic redirection based on role
-    if (userData.role === 'RECRUITER') {
+    if (userData.role === 'ADMIN') {
+      window.location.hash = '#/admin-dashboard';
+    } else if (userData.role === 'RECRUITER') {
       window.location.hash = '#/recruiter-dashboard';
     } else {
       window.location.hash = '#/';
@@ -138,6 +141,14 @@ function AppContent() {
 
   const renderContent = () => {
     const route = currentRoute.toLowerCase();
+
+    if (route.includes('admin-dashboard') || route.includes('admin') || route.includes('quan-tri')) {
+      return (
+        <ProtectedRoute user={user} requiredRole="ADMIN">
+          <AdminDashboardPage user={user} onLogout={handleLogout} />
+        </ProtectedRoute>
+      );
+    }
 
     if (route.includes('login')) {
       return (
@@ -342,6 +353,10 @@ function AppContent() {
                            currentRoute.toLowerCase().includes('job-applicants') ||
                            currentRoute.toLowerCase().includes('company-profile') ||
                            isEvaluationPage;
+
+  const isAdminPage = currentRoute.toLowerCase().includes('admin-dashboard') ||
+                      currentRoute.toLowerCase().includes('admin') ||
+                      currentRoute.toLowerCase().includes('quan-tri');
 
   const hideGlobalLayout = isAuthPage || isEvaluationPage;
 

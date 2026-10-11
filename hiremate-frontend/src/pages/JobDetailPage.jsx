@@ -424,7 +424,7 @@ export default function JobDetailPage({ user, jobId }) {
               {[
                 { id: 'ALL', label: 'Tất cả nội dung', icon: 'view_agenda' },
                 { id: 'RESPONSIBILITIES', label: 'Dự án & Trách nhiệm', icon: 'hub' },
-                { id: 'REQUIREMENTS', label: 'Yêu cầu (70/30)', icon: 'fact_check' },
+                { id: 'REQUIREMENTS', label: 'Yêu cầu kỹ năng', icon: 'fact_check' },
                 { id: 'BENEFITS', label: 'Đãi ngộ & Phúc lợi', icon: 'card_giftcard' },
                 { id: 'PROCESS', label: 'Lộ trình phỏng vấn', icon: 'route' },
               ].map(tab => (

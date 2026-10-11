@@ -254,43 +254,13 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
       <div className="max-w-7xl mx-auto space-y-6">
         
         {/* Recruiter Portal Top Banner */}
-        <div className="bg-white border border-purple-100 rounded-3xl p-6 sm:p-8 shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-[#5b48bd] text-white shadow-lg shrink-0 flex items-center justify-center font-bold text-2xl">
-              FPT
-            </div>
-            <div>
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <h1 className="font-bold text-2xl sm:text-3xl text-[#1e1b4b]">
-                  {user?.fullName || 'Nguyễn Minh Anh'}
-                </h1>
-                <span className="px-3 py-1 rounded-full bg-[#10b981]/15 text-[#059669] font-semibold text-xs border border-[#10b981]/30">
-                  Verified Recruiter
-                </span>
-              </div>
-              <p className="text-xs text-[#64748b] mt-1 font-medium">
-                Cổng Quản Trị Tuyển Dụng Smart Hiring & AI Matching
-              </p>
-            </div>
+        <div className="bg-white border border-purple-100 rounded-3xl p-5 sm:p-6 shadow-md flex items-center gap-4">
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#5b48bd] text-white shadow-lg shrink-0 flex items-center justify-center font-bold text-2xl">
+            FPT
           </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="bg-[#10b981] hover:bg-[#059669] text-white text-xs py-2.5 px-5 rounded-full font-bold uppercase tracking-wider flex items-center gap-2 cursor-pointer shadow-md transition-all hover:scale-105"
-            >
-              <span className="material-symbols-outlined text-base">add_circle</span>
-              <span>Đăng Tin Mới</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('PIPELINE')}
-              className="bg-[#5b48bd] hover:bg-[#4a39a8] text-white text-xs py-2.5 px-5 rounded-full font-bold flex items-center gap-1.5 cursor-pointer shadow-md transition-all"
-            >
-              <span className="material-symbols-outlined text-base">view_kanban</span>
-              <span>Xem Phễu Kanban</span>
-            </button>
-          </div>
+          <h1 className="font-bold text-2xl sm:text-3xl text-[#1e1b4b]">
+            {user?.fullName || 'Nguyễn Minh Anh'}
+          </h1>
         </div>
 
         {notification && (
@@ -532,7 +502,7 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                 </div>
                 <span className="px-3.5 py-1 rounded-full bg-purple-50 text-[#5b48bd] border border-purple-200 text-xs font-bold flex items-center gap-1.5 shadow-sm">
                   <span className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse"></span>
-                  AI 70/30 FILTER ACTIVE
+                  AI FILTER ACTIVE
                 </span>
               </div>
 
@@ -563,7 +533,7 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                       <span>CHẶNG 2</span>
                       <span className="text-orange-600 font-extrabold">53.7%</span>
                     </div>
-                    <div className="text-sm font-bold text-[#221d47] mt-1">Sàng Lọc AI 70/30</div>
+                    <div className="text-sm font-bold text-[#221d47] mt-1">Sàng Lọc AI Chuẩn Xác</div>
                     <div className="text-2xl sm:text-3xl font-extrabold text-orange-600 mt-2">
                       22 <span className="text-xs font-normal text-slate-500">đạt chuẩn</span>
                     </div>
@@ -1290,7 +1260,7 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer text-[#2D3A31]">
                     <input type="checkbox" defaultChecked className="accent-[#2D3A31] rounded" />
-                    <span>Bảng điểm kỹ năng trọng số 70/30 theo từng vị trí</span>
+                    <span>Bảng điểm kỹ năng trọng số theo từng vị trí</span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer text-[#2D3A31]">
                     <input type="checkbox" defaultChecked className="accent-[#2D3A31] rounded" />

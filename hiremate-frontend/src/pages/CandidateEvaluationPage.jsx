@@ -227,7 +227,7 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
         <div className="flex items-center gap-4">
           <div className="hidden xl:flex items-center gap-2 text-xs text-[#2D3A31] bg-[#8C9A84]/15 px-3.5 py-1.5 rounded-full border border-[#8C9A84]/30 font-medium">
             <span className="material-symbols-outlined text-[16px] text-[#8C9A84]">verified_user</span>
-            <span>Đã thẩm định chuẩn 70/30</span>
+            <span>Đã thẩm định AI Matching</span>
           </div>
 
           <button

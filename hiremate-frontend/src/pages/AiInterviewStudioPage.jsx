@@ -855,10 +855,10 @@ export default function AiInterviewStudioPage({ user }) {
   };
 
   const tabs = [
-    { id: 'setup', icon: 'tune', label: '1. Cấu Hình Phỏng Vấn' },
-    { id: 'live', icon: 'videocam', label: '2. Phòng Thi AI' },
-    { id: 'result', icon: 'analytics', label: '3. Kết Quả & Đánh Giá' },
-    { id: 'history', icon: 'history', label: '4. Lịch Sử & Chi Tiết Lỗi Sai' },
+    { id: 'setup', icon: 'tune', label: '1. Cấu Hình' },
+    { id: 'live', icon: 'videocam', label: '2. Phòng Thi' },
+    { id: 'result', icon: 'analytics', label: '3. Kết Quả' },
+    { id: 'history', icon: 'history', label: '4. Lịch Sử' },
   ];
 
   const scoreColor = (sc) => (sc >= 85 ? '#2D3A31' : sc >= 70 ? '#C27B66' : '#8C5E58');
@@ -896,7 +896,7 @@ export default function AiInterviewStudioPage({ user }) {
             </button>
           </div>
 
-          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none font-sans text-xs">
+          <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden font-sans text-xs">
             {tabs.map((tab) => {
               const isActive = view === tab.id;
               const locked = (tab.id === 'live' && view === 'setup') || (tab.id === 'result' && !result && view !== 'result');
@@ -913,7 +913,7 @@ export default function AiInterviewStudioPage({ user }) {
                     }
                     setView(tab.id);
                   }}
-                  className={`px-4 py-2 rounded-full font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap text-xs ${
+                  className={`px-3 sm:px-3.5 py-1.5 rounded-full font-bold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap text-xs ${
                     isActive
                       ? 'bg-[#32247b] text-white shadow-sm'
                       : locked
@@ -940,7 +940,7 @@ export default function AiInterviewStudioPage({ user }) {
               Chọn Lĩnh Vực & Ngành Nghề Bạn Muốn Luyện Tập
             </h1>
             <p className="text-sm text-slate-600 max-w-2xl leading-relaxed font-sans">
-              HireMate AI hỗ trợ phỏng vấn đa chuyên ngành: từ <strong className="text-[#1e1b4b] font-extrabold">Kinh tế, Tài chính, Ngân hàng</strong>, <strong className="text-[#f97316] font-extrabold">Marketing</strong>, <strong className="text-[#1e1b4b] font-extrabold">B2B Sales</strong> đến <strong className="text-[#1e1b4b] font-extrabold">Nhân sự HR</strong> và <strong className="text-[#1e1b4b] font-extrabold">Công nghệ Phần mềm</strong>.
+              HireMate AI hỗ trợ phỏng vấn đa chuyên ngành: từ Kinh tế, Tài chính, Ngân hàng, Marketing, B2B Sales đến Nhân sự HR và Công nghệ Phần mềm.
             </p>
           </div>
 
@@ -1793,7 +1793,6 @@ export default function AiInterviewStudioPage({ user }) {
               <span className="px-3.5 py-1 rounded-full bg-[#f8f7ff] border border-purple-100">Chủ đề: <strong className="text-[#1e1b4b] font-bold">{result.topic}</strong></span>
               <span className="px-3.5 py-1 rounded-full bg-[#f8f7ff] border border-purple-100">Thời gian: <strong className="text-[#1e1b4b] font-bold">{result.duration}</strong></span>
               <span className="px-3.5 py-1 rounded-full bg-[#f8f7ff] border border-purple-100">Cấp bậc: <strong className="text-[#1e1b4b] font-bold">{result.level}</strong></span>
-              <span className="px-3.5 py-1 rounded-full bg-[#f8f7ff] border border-purple-100 font-mono">Mã bài: <strong className="text-[#f97316] font-bold">#{result.id}</strong></span>
             </div>
 
             <p className="text-sm text-slate-600 max-w-2xl mx-auto leading-relaxed font-sans">{result.aiSummary}</p>

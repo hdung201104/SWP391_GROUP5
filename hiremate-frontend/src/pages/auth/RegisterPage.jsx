@@ -844,7 +844,7 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
               <div className="space-y-1 max-w-lg">
                 <h3 className="text-xl sm:text-2xl font-bold text-white">Mindskills Platform v2.0 Overview</h3>
                 <p className="text-xs text-slate-300 font-normal leading-relaxed">
-                  Tự động xếp hạng ứng viên chuẩn 70/30 (Mandatory &amp; Preferred Skills), phòng phỏng vấn giả lập AI AI-Powered Mock Interview và phễu tuyển dụng Kanban thời gian thực.
+                  Tự động xếp hạng ứng viên (Mandatory &amp; Preferred Skills), phòng phỏng vấn giả lập AI AI-Powered Mock Interview và phễu tuyển dụng Kanban thời gian thực.
                 </p>
               </div>
               <div className="flex items-center justify-center gap-3 pt-2 flex-wrap">
