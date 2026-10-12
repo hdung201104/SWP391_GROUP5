@@ -25,6 +25,9 @@ dist-ssr/
 *.sw?
 
 # Environment configurations
+.env
+.env.*
+!.env.example
 .env.local
 .env.*.local
 
