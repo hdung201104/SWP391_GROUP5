@@ -9,6 +9,9 @@ export const jobApi = {
   updateJob: (id, jobData) => axiosClient.put(`/jobs/${id}`, jobData),
   closeJob: (id) => axiosClient.delete(`/jobs/${id}`),
   getMyJobs: () => axiosClient.get('/jobs/recruiter/my'),
+  getMyJobsPaged: (params) => axiosClient.get('/jobs/recruiter/my/paged', { params }),
+  updateJobStatus: (id, status) => axiosClient.patch(`/jobs/${id}/status?status=${status}`),
+  cloneJob: (id) => axiosClient.post(`/jobs/${id}/clone`),
 };
 
 export default jobApi;

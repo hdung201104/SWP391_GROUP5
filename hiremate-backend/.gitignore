@@ -34,6 +34,8 @@ mvnw.cmd
 # Log files
 *.log
 logs/
+.env.local
+*.local
 
 # Temporary and Upload files
 uploads/

@@ -8,3 +8,4 @@ export { default as notificationApi } from './notificationApi';
 export { default as skillApi } from './skillApi';
 export { default as companyApi } from './companyApi';
 export { default as candidateApi } from './candidateApi';
+export { default as aiMatchApi } from './aiMatchApi';

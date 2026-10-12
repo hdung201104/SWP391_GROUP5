@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { jobApi } from '../api';
 
 const RECRUITER_SUBSCRIPTION_PLANS = [
   {
@@ -167,7 +168,24 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
   // Current active plan simulation
   const [activePlan, setActivePlan] = useState('BASIC');
   const [userCredits, setUserCredits] = useState(42);
-  const [userActiveJobsCount, setUserActiveJobsCount] = useState(2);
+  const [userActiveJobsCount, setUserActiveJobsCount] = useState(0);
+
+  useEffect(() => {
+    const fetchActiveJobsCount = async () => {
+      try {
+        const res = await jobApi.getMyJobs();
+        if (Array.isArray(res?.data)) {
+          const activeJobs = res.data.filter(
+            (j) => j.status === 'PUBLISHED' || j.status === 'ACTIVE'
+          );
+          setUserActiveJobsCount(activeJobs.length);
+        }
+      } catch (err) {
+        console.error('Không thể tải số lượng tin đang mở từ Supabase:', err);
+      }
+    };
+    fetchActiveJobsCount();
+  }, []);
 
   const handleApplyPromo = () => {
     if (promoCode.trim().toUpperCase() === 'HIREMATE20' || promoCode.trim().toUpperCase() === 'SWP391') {
