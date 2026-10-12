@@ -16,5 +16,6 @@ public interface AiInterviewService {
     InterviewSummaryResponse getSessionSummary(Long sessionId, User candidate);
     List<InterviewSummaryResponse> getCandidateHistory(Long candidateId);
     List<PracticeProgressResponse> getProgressLogs(Long candidateId);
+    String getNextAdaptiveQuestion(Long sessionId, User candidate);
 }
 

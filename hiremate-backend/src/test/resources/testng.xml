@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd" >
-<suite name="HireMate-Backend-TestSuite" verbose="2">
+<suite name="HireMate-Backend-TestSuite" verbose="2" parallel="tests" thread-count="3">
     <test name="Authentication-Register-Login-UnitTests">
         <classes>
             <class name="com.hiremate.testng.AuthServiceTestNGTest"/>
@@ -14,6 +14,11 @@
     <test name="Application-Pipeline-Management-UnitTests">
         <classes>
             <class name="com.hiremate.testng.ApplicationServiceTestNGTest"/>
+        </classes>
+    </test>
+    <test name="AI-Interview-Gemini-UnitTests">
+        <classes>
+            <class name="com.hiremate.testng.AiServiceTestNGTest"/>
         </classes>
     </test>
 </suite>

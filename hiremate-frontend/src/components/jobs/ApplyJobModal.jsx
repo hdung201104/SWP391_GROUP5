@@ -57,32 +57,32 @@ export default function ApplyJobModal({ job, user, onClose, onSuccess }) {
   if (!job) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-botanical-forest/40 backdrop-blur-sm animate-fade-in">
-      <div className="relative w-full max-w-lg bg-[#FAF9F5] border border-botanical-stone rounded-3xl p-6 sm:p-8 shadow-soft-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in font-sans">
+      <div className="relative w-full max-w-lg bg-white border border-purple-100 rounded-[32px] p-6 sm:p-8 shadow-2xl text-[#221d47]">
         <button
           onClick={onClose}
-          className="absolute top-6 right-6 w-9 h-9 rounded-full bg-white/60 hover:bg-white border border-botanical-stone text-botanical-forest/60 hover:text-botanical-forest flex items-center justify-center transition-colors cursor-pointer"
+          className="absolute top-6 right-6 w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
         >
           <span className="material-symbols-outlined text-base">close</span>
         </button>
 
-        <h2 className="text-2xl font-serif font-bold text-botanical-forest mb-1">
+        <h2 className="text-2xl font-sans font-extrabold text-[#221d47] mb-1">
           Nộp hồ sơ ứng tuyển
         </h2>
-        <p className="text-xs text-botanical-forest/70 mb-6 font-sans">
-          Vị trí: <span className="text-botanical-terracotta font-semibold">{job.title}</span> ({job.companyName || 'HireMate Partner'})
+        <p className="text-xs text-slate-500 mb-6 font-sans">
+          Vị trí: <span className="text-[#5b48bd] font-bold">{job.title}</span> ({job.companyName || 'HireMate Partner'})
         </p>
 
         {submitted ? (
-          <div className="py-8 text-center">
-            <div className="w-14 h-14 mx-auto rounded-full bg-botanical-sage/20 text-botanical-forest border border-botanical-sage/40 flex items-center justify-center mb-3">
-              <span className="material-symbols-outlined text-3xl text-botanical-sage">check_circle</span>
+          <div className="py-8 text-center font-sans">
+            <div className="w-14 h-14 mx-auto rounded-full bg-emerald-50 text-[#10b981] border border-emerald-200 flex items-center justify-center mb-3">
+              <span className="material-symbols-outlined text-3xl">check_circle</span>
             </div>
-            <h3 className="text-lg font-serif font-bold text-botanical-forest mb-1">Nộp hồ sơ thành công!</h3>
-            <p className="text-xs text-botanical-forest/70 font-sans">Nhà tuyển dụng sẽ nhận được hồ sơ của bạn ngay lập tức.</p>
+            <h3 className="text-lg font-sans font-bold text-[#221d47] mb-1">Nộp hồ sơ thành công!</h3>
+            <p className="text-xs text-slate-500 font-sans">Nhà tuyển dụng sẽ nhận được hồ sơ của bạn ngay lập tức.</p>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4 font-sans">
             {error && (
               <div className="p-3 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs">
                 {error}
@@ -91,7 +91,7 @@ export default function ApplyJobModal({ job, user, onClose, onSuccess }) {
 
             {/* Select CV */}
             <div>
-              <label className="block text-xs font-semibold text-botanical-forest uppercase tracking-wider mb-2">
+              <label className="block text-xs font-bold text-[#221d47] uppercase tracking-wider mb-2">
                 Chọn CV ứng tuyển
               </label>
               {cvList.length > 0 ? (
@@ -101,8 +101,8 @@ export default function ApplyJobModal({ job, user, onClose, onSuccess }) {
                       key={cv.cvId}
                       className={`flex items-center justify-between p-3 rounded-2xl border text-xs cursor-pointer transition-all ${
                         selectedCvId === cv.cvId
-                          ? 'bg-botanical-sage/15 border-botanical-sage text-botanical-forest font-medium'
-                          : 'bg-white border-botanical-stone text-botanical-forest/70 hover:bg-[#F2F0EB]'
+                          ? 'bg-[#edeafd] border-[#5b48bd] text-[#5b48bd] font-bold'
+                          : 'bg-[#f8f7ff] border-purple-100 text-slate-600 hover:bg-white'
                       }`}
                     >
                       <div className="flex items-center gap-2 truncate">
@@ -111,13 +111,13 @@ export default function ApplyJobModal({ job, user, onClose, onSuccess }) {
                           name="cvSelect"
                           checked={selectedCvId === cv.cvId}
                           onChange={() => setSelectedCvId(cv.cvId)}
-                          className="accent-botanical-forest"
+                          className="accent-[#5b48bd]"
                         />
-                        <span className="material-symbols-outlined text-base text-botanical-sage">description</span>
+                        <span className="material-symbols-outlined text-base text-[#5b48bd]">description</span>
                         <span className="truncate">{cv.fileName}</span>
                       </div>
                       {cv.isDefault && (
-                        <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-botanical-sage/20 text-botanical-forest border border-botanical-sage/30 font-sans">
+                        <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-sans font-bold">
                           Mặc định
                         </span>
                       )}
@@ -125,11 +125,11 @@ export default function ApplyJobModal({ job, user, onClose, onSuccess }) {
                   ))}
                 </div>
               ) : (
-                <div className="p-4 rounded-2xl bg-white border border-botanical-stone text-center text-xs text-botanical-forest/70">
+                <div className="p-4 rounded-2xl bg-[#f8f7ff] border border-purple-100 text-center text-xs text-slate-500 font-sans">
                   <p className="mb-2">Bạn chưa có CV nào trong hồ sơ.</p>
                   <a
                     href="#/candidate-dashboard"
-                    className="text-botanical-terracotta hover:underline font-semibold"
+                    className="text-[#5b48bd] hover:underline font-bold"
                   >
                     + Tải lên CV mới tại Dashboard
                   </a>
@@ -139,7 +139,7 @@ export default function ApplyJobModal({ job, user, onClose, onSuccess }) {
 
             {/* Cover letter */}
             <div>
-              <label className="block text-xs font-semibold text-botanical-forest uppercase tracking-wider mb-2">
+              <label className="block text-xs font-bold text-[#221d47] uppercase tracking-wider mb-2">
                 Thư giới thiệu (Cover Letter)
               </label>
               <textarea
@@ -147,7 +147,7 @@ export default function ApplyJobModal({ job, user, onClose, onSuccess }) {
                 placeholder="Nêu bật lý do bạn phù hợp với vị trí này và những kinh nghiệm tương đồng..."
                 value={coverLetter}
                 onChange={(e) => setCoverLetter(e.target.value)}
-                className="w-full bg-white border border-botanical-stone rounded-2xl p-3 text-xs text-botanical-forest placeholder-botanical-forest/40 focus:outline-none focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 transition-all"
+                className="w-full bg-[#f8f7ff] border border-purple-200 rounded-2xl p-3 text-xs text-[#221d47] placeholder-slate-400 focus:outline-none focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 transition-all font-sans"
               />
             </div>
 
@@ -156,14 +156,14 @@ export default function ApplyJobModal({ job, user, onClose, onSuccess }) {
               <button
                 type="button"
                 onClick={onClose}
-                className="btn-botanical-secondary !text-xs !py-2.5 !px-5 cursor-pointer"
+                className="px-5 py-2.5 rounded-full text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 border border-slate-200 cursor-pointer transition-colors"
               >
                 Hủy
               </button>
               <button
                 type="submit"
                 disabled={loading}
-                className="btn-botanical-primary !text-xs !py-2.5 !px-6 disabled:opacity-50 cursor-pointer flex items-center gap-2"
+                className="px-6 py-2.5 rounded-full text-xs font-bold text-white bg-[#5b48bd] hover:bg-[#47369f] shadow-md hover:scale-[1.02] disabled:opacity-50 cursor-pointer transition-all flex items-center gap-2"
               >
                 {loading ? 'Đang gửi...' : 'Xác nhận nộp hồ sơ'}
                 <span className="material-symbols-outlined text-sm">send</span>

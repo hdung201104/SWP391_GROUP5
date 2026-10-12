@@ -33,6 +33,7 @@ public class UserProfileResponse {
     private String headline;
     private String location;
     private Integer experienceYears;
+    private java.util.List<CandidateSkillResponse> skills;
 
     // Optional Recruiter fields
     private Long companyId;

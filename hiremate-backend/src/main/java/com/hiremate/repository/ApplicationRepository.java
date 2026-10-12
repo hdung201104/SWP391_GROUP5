@@ -27,4 +27,7 @@ public interface ApplicationRepository extends JpaRepository<Application, Long> 
 
     /** Lọc đơn ứng tuyển theo job và status */
     List<Application> findByJob_JobIdAndStatus(Long jobId, ApplicationStatus status);
+
+    /** Đếm tổng số lượng ứng viên đã nộp đơn vào job này */
+    long countByJob_JobId(Long jobId);
 }

@@ -22,18 +22,49 @@ import java.util.List;
 public class AiInterviewController {
 
     private final AiInterviewService aiInterviewService;
+    private final com.hiremate.service.GeminiAiService geminiAiService;
+
+    @GetMapping("/generate-questions")
+    public ResponseEntity<ApiResponse<List<String>>> generateQuestions(
+            @RequestParam(required = false, defaultValue = "Software Engineer") String targetPosition,
+            @RequestParam(required = false, defaultValue = "Middle") String level,
+            @RequestParam(required = false, defaultValue = "5") int count
+    ) {
+        List<String> questions = geminiAiService.generateInterviewQuestions(targetPosition, level, count);
+        return ResponseEntity.ok(ApiResponse.ok("Generated interview questions", questions));
+    }
 
     @PostMapping("/start")
     @PreAuthorize("hasRole('CANDIDATE')")
     public ResponseEntity<ApiResponse<InterviewSummaryResponse>> startSession(
-            @RequestParam(required = false, defaultValue = "Senior Fullstack Engineer") String targetPosition,
+            @RequestParam(required = false, defaultValue = "Fullstack Engineer") String targetPosition,
+            @RequestParam(required = false) String level,
+            @RequestParam(required = false) String interviewType,
             @RequestParam(required = false) Long jobId,
             @RequestParam(required = false, defaultValue = "MOCK") InterviewSessionType sessionType,
             @RequestParam(required = false) Long parentSessionId,
             @AuthenticationPrincipal User user
     ) {
-        InterviewSummaryResponse response = aiInterviewService.startSession(targetPosition, jobId, sessionType, parentSessionId, user);
+        String configuredPosition = targetPosition;
+        if (level != null && !level.isBlank() && !targetPosition.toLowerCase().contains(level.toLowerCase())) {
+            configuredPosition = level.trim() + " " + targetPosition.trim();
+        }
+        if (interviewType != null && !interviewType.isBlank() && !"MIXED".equalsIgnoreCase(interviewType)) {
+            configuredPosition += " [" + interviewType.trim() + "]";
+        }
+
+        InterviewSummaryResponse response = aiInterviewService.startSession(configuredPosition, jobId, sessionType, parentSessionId, user);
         return ResponseEntity.ok(ApiResponse.ok("Interview session started", response));
+    }
+
+    @GetMapping("/{sessionId}/next-question")
+    @PreAuthorize("hasRole('CANDIDATE')")
+    public ResponseEntity<ApiResponse<String>> getNextAdaptiveQuestion(
+            @PathVariable Long sessionId,
+            @AuthenticationPrincipal User user
+    ) {
+        String question = aiInterviewService.getNextAdaptiveQuestion(sessionId, user);
+        return ResponseEntity.ok(ApiResponse.ok("Next adaptive question generated", question));
     }
 
     @PostMapping("/{sessionId}/submit-answer")

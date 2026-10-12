@@ -250,28 +250,34 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
     .sort((a, b) => b.aiMatchScore - a.aiMatchScore);
 
   return (
-    <div className="recruiter-page min-h-screen bg-[#F9F8F4] text-[#2D3A31] py-8 px-4 sm:px-6 lg:px-8 font-sans">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <div className="recruiter-page min-h-screen bg-transparent text-[#1e1b4b] py-6 px-3 sm:px-6 lg:px-8 font-sans">
+      <div className="max-w-7xl mx-auto space-y-6">
         
         {/* Recruiter Portal Top Banner */}
-        <div className="bg-white border border-[#E6E2DA] rounded-[32px] p-6 sm:p-8 shadow-soft flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+        <div className="bg-white border border-purple-100 rounded-3xl p-6 sm:p-8 shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-[#8C9A84]/15 border border-[#8C9A84]/30 shadow-soft shrink-0 flex items-center justify-center font-serif font-bold text-2xl text-[#2D3A31]">
+            <div className="w-16 h-16 rounded-2xl bg-[#5b48bd] text-white shadow-lg shrink-0 flex items-center justify-center font-bold text-2xl">
               FPT
             </div>
             <div>
               <div className="flex items-center gap-2.5 flex-wrap">
-                <h1 className="font-serif font-bold text-2xl sm:text-3xl text-[#2D3A31]">
+                <h1 className="font-bold text-2xl sm:text-3xl text-[#1e1b4b]">
                   {user?.fullName || 'Nguyễn Minh Anh'}
                 </h1>
+                <span className="px-3 py-1 rounded-full bg-[#10b981]/15 text-[#059669] font-semibold text-xs border border-[#10b981]/30">
+                  Verified Recruiter
+                </span>
               </div>
+              <p className="text-xs text-[#64748b] mt-1 font-medium">
+                Cổng Quản Trị Tuyển Dụng Smart Hiring & AI Matching
+              </p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={() => setShowCreateModal(true)}
-              className="bg-[#C27B66] hover:bg-[#A86552] text-white text-xs py-2.5 px-5 rounded-full font-bold uppercase tracking-wider flex items-center gap-2 cursor-pointer shadow-soft transition-all"
+              className="bg-[#10b981] hover:bg-[#059669] text-white text-xs py-2.5 px-5 rounded-full font-bold uppercase tracking-wider flex items-center gap-2 cursor-pointer shadow-md transition-all hover:scale-105"
             >
               <span className="material-symbols-outlined text-base">add_circle</span>
               <span>Đăng Tin Mới</span>
@@ -279,32 +285,32 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
 
             <button
               onClick={() => setActiveTab('PIPELINE')}
-              className="bg-white hover:bg-[#FAF6F0] text-[#2D3A31] border border-[#E6E2DA] text-xs py-2.5 px-5 rounded-full font-semibold flex items-center gap-1.5 cursor-pointer shadow-soft transition-all"
+              className="bg-[#5b48bd] hover:bg-[#4a39a8] text-white text-xs py-2.5 px-5 rounded-full font-bold flex items-center gap-1.5 cursor-pointer shadow-md transition-all"
             >
-              <span className="material-symbols-outlined text-base text-[#C27B66]">view_kanban</span>
+              <span className="material-symbols-outlined text-base">view_kanban</span>
               <span>Xem Phễu Kanban</span>
             </button>
           </div>
         </div>
 
         {notification && (
-          <div className="p-4 rounded-2xl bg-[#FAF0ED] border border-[#C27B66]/30 text-[#2D3A31] text-xs flex items-center justify-between shadow-soft animate-fade-in">
+          <div className="p-4 rounded-2xl bg-purple-50 border border-purple-200 text-[#5b48bd] text-xs flex items-center justify-between shadow-sm animate-fade-in">
             <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-base text-[#C27B66]">check_circle</span>
+              <span className="material-symbols-outlined text-base text-[#10b981]">check_circle</span>
               <span>{notification}</span>
             </div>
-            <button onClick={() => setNotification('')} className="text-sm cursor-pointer hover:text-[#2D3A31]/70">&times;</button>
+            <button onClick={() => setNotification('')} className="text-sm cursor-pointer hover:text-[#5b48bd]/70">&times;</button>
           </div>
         )}
 
         {/* Recruiter Navigation Tabs */}
-        <div className="flex flex-wrap items-center gap-2 border-b border-[#E6E2DA] pb-3 text-xs font-sans">
+        <div className="flex flex-wrap items-center gap-2 border-b border-purple-100 pb-3 text-xs font-sans">
           <button
             onClick={() => setActiveTab('OVERVIEW')}
             className={`px-5 py-2.5 rounded-full font-bold transition-all cursor-pointer flex items-center gap-2 ${
               activeTab === 'OVERVIEW'
-                ? 'bg-[#C27B66] text-white shadow-soft'
-                : 'bg-white text-[#667067] hover:text-[#2D3A31] border border-[#E6E2DA]'
+                ? 'bg-[#5b48bd] text-white shadow-md'
+                : 'bg-white text-[#47369f] hover:bg-purple-50 border border-purple-100'
             }`}
           >
             <span className="material-symbols-outlined text-base">analytics</span>
@@ -312,50 +318,41 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
           </button>
 
           <button
-            onClick={() => setActiveTab('JOBS')}
-            className={`px-5 py-2.5 rounded-full font-bold transition-all cursor-pointer flex items-center gap-2 ${
-              activeTab === 'JOBS'
-                ? 'bg-[#C27B66] text-white shadow-soft'
-                : 'bg-white text-[#667067] hover:text-[#2D3A31] border border-[#E6E2DA]'
-            }`}
-          >
-            <span className="material-symbols-outlined text-base">work_outline</span>
-            <span>2. Quản Lý Tin Tuyển Dụng ({jobs.length})</span>
-          </button>
-
-          <button
             onClick={() => setActiveTab('PIPELINE')}
             className={`px-5 py-2.5 rounded-full font-bold transition-all cursor-pointer flex items-center gap-2 ${
               activeTab === 'PIPELINE'
-                ? 'bg-[#C27B66] text-white shadow-soft'
-                : 'bg-white text-[#667067] hover:text-[#2D3A31] border border-[#E6E2DA]'
+                ? 'bg-[#5b48bd] text-white shadow-md'
+                : 'bg-white text-[#47369f] hover:bg-purple-50 border border-purple-100'
             }`}
           >
             <span className="material-symbols-outlined text-base">view_kanban</span>
-            <span>3. Phễu Ứng Viên Kanban ({candidates.length})</span>
+            <span>2. Phễu Ứng Viên Kanban ({candidates.length})</span>
           </button>
         </div>
+
 
         {/* ========================================================= */}
         {/* TAB 1: EXECUTIVE RECRUITMENT ANALYTICS & REPORTS SUITE     */}
         {/* ========================================================= */}
         {activeTab === 'OVERVIEW' && (
-          <div className="space-y-8 animate-fade-in">
+          <div className="space-y-8 animate-fade-in font-sans">
             {/* Top Control Bar: Filters, Date Picker, Refresh & Export */}
-            <div className="p-5 rounded-[24px] bg-white border border-[#E6E2DA] flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 shadow-soft">
+            <div className="p-5 sm:p-6 rounded-[24px] bg-white border border-purple-100 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 shadow-sm">
               <div className="space-y-1">
                 <div className="flex items-center gap-2.5 flex-wrap">
-                  <span className="material-symbols-outlined text-[#C27B66] text-xl">query_stats</span>
-                  <h2 className="text-lg font-serif font-bold text-[#2D3A31] tracking-tight">
+                  <div className="w-9 h-9 rounded-2xl bg-purple-50 flex items-center justify-center border border-purple-100">
+                    <span className="material-symbols-outlined text-[#5b48bd] text-xl">query_stats</span>
+                  </div>
+                  <h2 className="text-lg sm:text-xl font-bold text-[#221d47] tracking-tight">
                     Trung Tâm Báo Cáo &amp; Hiệu Suất Tuyển Dụng AI
                   </h2>
                 </div>
               </div>
 
               {/* Toolbar Controls */}
-              <div className="flex items-center gap-2 flex-wrap xl:flex-nowrap shrink-0 max-w-full">
+              <div className="flex items-center gap-2.5 flex-wrap xl:flex-nowrap shrink-0 max-w-full">
                 {/* Timeframe selector */}
-                <div className="inline-flex rounded-full bg-[#FAF6F0] border border-[#E6E2DA] p-1 text-xs shrink-0">
+                <div className="inline-flex rounded-full bg-purple-50/60 border border-purple-100 p-1 text-xs shrink-0">
                   {[
                     { id: '7_DAYS', label: '7 Ngày' },
                     { id: '30_DAYS', label: '30 Ngày' },
@@ -365,10 +362,10 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                     <button
                       key={t.id}
                       onClick={() => setReportTimeframe(t.id)}
-                      className={`px-2.5 py-1 rounded-full transition-all cursor-pointer font-bold whitespace-nowrap ${
+                      className={`px-3 py-1.5 rounded-full transition-all cursor-pointer font-bold whitespace-nowrap ${
                         reportTimeframe === t.id
-                          ? 'bg-[#C27B66] text-white shadow-soft'
-                          : 'text-[#667067] hover:text-[#2D3A31]'
+                          ? 'bg-[#5b48bd] text-white shadow-sm'
+                          : 'text-slate-600 hover:text-[#5b48bd]'
                       }`}
                     >
                       {t.label}
@@ -380,7 +377,7 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                 <select
                   value={reportJobFilter}
                   onChange={(e) => setReportJobFilter(e.target.value)}
-                  className="px-3 py-1.5 rounded-full bg-[#FAF6F0] border border-[#E6E2DA] text-xs font-semibold text-[#2D3A31] focus:outline-none focus:border-[#C27B66] cursor-pointer shrink-0"
+                  className="px-3.5 py-2 rounded-full bg-white border border-purple-200 text-xs font-semibold text-[#221d47] focus:outline-none focus:border-[#5b48bd] focus:ring-2 focus:ring-purple-100 cursor-pointer shrink-0 shadow-sm"
                 >
                   <option value="ALL">Tất cả vị trí (3 jobs)</option>
                   <option value="101">Senior Backend Engineer</option>
@@ -392,10 +389,10 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                 <button
                   type="button"
                   onClick={handleRefreshReport}
-                  className="p-1.5 rounded-full bg-[#FAF6F0] hover:bg-[#E6E2DA]/50 border border-[#E6E2DA] text-[#2D3A31] transition-all cursor-pointer flex items-center justify-center shrink-0"
+                  className="p-2 rounded-full bg-white hover:bg-purple-50 border border-purple-200 text-[#5b48bd] transition-all cursor-pointer flex items-center justify-center shrink-0 shadow-sm"
                   title="Làm mới dữ liệu AI"
                 >
-                  <span className={`material-symbols-outlined text-lg ${isRefreshing ? 'animate-spin text-[#C27B66]' : ''}`}>
+                  <span className={`material-symbols-outlined text-lg ${isRefreshing ? 'animate-spin text-[#5b48bd]' : ''}`}>
                     sync
                   </span>
                 </button>
@@ -404,7 +401,7 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                 <button
                   type="button"
                   onClick={() => setShowExportModal(true)}
-                  className="px-4 py-1.5 rounded-full bg-[#C27B66] hover:bg-[#A86552] text-white font-bold text-xs uppercase tracking-wider shadow-soft transition-all flex items-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap"
+                  className="px-5 py-2 rounded-full bg-gradient-to-r from-[#5b48bd] to-[#7c66dc] hover:from-[#47369f] hover:to-[#6852ca] text-white font-bold text-xs uppercase tracking-wider shadow-md hover:shadow-lg hover:shadow-purple-200 transition-all flex items-center gap-2 cursor-pointer shrink-0 whitespace-nowrap"
                 >
                   <span className="material-symbols-outlined text-base">download</span>
                   <span>Xuất Báo Cáo</span>
@@ -415,126 +412,126 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
             {/* 6 Core Executive KPI Metrics Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 items-stretch">
               {/* Metric 1: Total Applicants */}
-              <div className="p-5 rounded-[24px] bg-white border border-[#E6E2DA] shadow-soft relative overflow-hidden group flex flex-col justify-between h-full">
+              <div className="p-5 rounded-[24px] bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-purple-200 transition-all relative overflow-hidden group flex flex-col justify-between h-full">
                 <div className="space-y-1">
-                  <div className="flex items-center justify-between text-[11px] text-[#8C9A84] font-bold uppercase tracking-wider min-h-[28px]">
+                  <div className="flex items-center justify-between text-[11px] text-slate-500 font-bold uppercase tracking-wider min-h-[28px]">
                     <span className="line-clamp-1">Tổng Hồ Sơ</span>
-                    <span className="material-symbols-outlined text-[#8C9A84] text-lg shrink-0">folder_shared</span>
+                    <span className="material-symbols-outlined text-[#5b48bd] text-lg shrink-0">folder_shared</span>
                   </div>
-                  <div className="text-2xl sm:text-3xl font-serif font-bold text-[#2D3A31] pt-1">41</div>
-                  <div className="flex items-center gap-1 text-[11px] text-[#8C9A84] font-semibold min-h-[22px]">
+                  <div className="text-2xl sm:text-3xl font-extrabold text-[#221d47] pt-1">41</div>
+                  <div className="flex items-center gap-1 text-[11px] text-emerald-600 font-semibold min-h-[22px]">
                     <span className="material-symbols-outlined text-xs">trending_up</span>
                     <span>+18.4% vs tháng trước</span>
                   </div>
                 </div>
-                <div className="w-full bg-[#E6E2DA] h-1.5 rounded-full mt-4 overflow-hidden shrink-0">
-                  <div className="bg-[#2D3A31] h-full rounded-full" style={{ width: '85%' }}></div>
+                <div className="w-full bg-slate-100 h-1.5 rounded-full mt-4 overflow-hidden shrink-0">
+                  <div className="bg-[#5b48bd] h-full rounded-full" style={{ width: '85%' }}></div>
                 </div>
               </div>
 
               {/* Metric 2: Time to Hire */}
-              <div className="p-5 rounded-[24px] bg-white border border-[#E6E2DA] shadow-soft relative overflow-hidden group flex flex-col justify-between h-full">
+              <div className="p-5 rounded-[24px] bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-orange-200 transition-all relative overflow-hidden group flex flex-col justify-between h-full">
                 <div className="space-y-1">
-                  <div className="flex items-center justify-between text-[11px] text-[#C27B66] font-bold uppercase tracking-wider min-h-[28px]">
+                  <div className="flex items-center justify-between text-[11px] text-orange-600 font-bold uppercase tracking-wider min-h-[28px]">
                     <span className="line-clamp-1">Time-to-Hire</span>
-                    <span className="material-symbols-outlined text-[#C27B66] text-lg shrink-0">speed</span>
+                    <span className="material-symbols-outlined text-orange-500 text-lg shrink-0">speed</span>
                   </div>
-                  <div className="text-2xl sm:text-3xl font-serif font-bold text-[#C27B66] pt-1">
-                    12.5 <span className="text-xs font-normal text-[#2D3A31]/60">ngày</span>
+                  <div className="text-2xl sm:text-3xl font-extrabold text-orange-600 pt-1">
+                    12.5 <span className="text-xs font-normal text-slate-500">ngày</span>
                   </div>
-                  <div className="flex items-center gap-1 text-[11px] text-[#8C9A84] font-semibold min-h-[22px]">
+                  <div className="flex items-center gap-1 text-[11px] text-emerald-600 font-semibold min-h-[22px]">
                     <span className="material-symbols-outlined text-xs">bolt</span>
                     <span>Nhanh hơn 4.2 ngày (-25%)</span>
                   </div>
                 </div>
-                <div className="w-full bg-[#E6E2DA] h-1.5 rounded-full mt-4 overflow-hidden shrink-0">
-                  <div className="bg-[#C27B66] h-full rounded-full" style={{ width: '92%' }}></div>
+                <div className="w-full bg-slate-100 h-1.5 rounded-full mt-4 overflow-hidden shrink-0">
+                  <div className="bg-orange-500 h-full rounded-full" style={{ width: '92%' }}></div>
                 </div>
               </div>
 
               {/* Metric 3: Average AI Match Score */}
-              <div className="p-5 rounded-[24px] bg-white border border-[#E6E2DA] shadow-soft relative overflow-hidden group flex flex-col justify-between h-full">
+              <div className="p-5 rounded-[24px] bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-purple-200 transition-all relative overflow-hidden group flex flex-col justify-between h-full">
                 <div className="space-y-1">
-                  <div className="flex items-center justify-between text-[11px] text-[#8C9A84] font-bold uppercase tracking-wider min-h-[28px]">
+                  <div className="flex items-center justify-between text-[11px] text-[#5b48bd] font-bold uppercase tracking-wider min-h-[28px]">
                     <span className="line-clamp-1">AI Match TB</span>
-                    <span className="material-symbols-outlined text-[#8C9A84] text-lg shrink-0">auto_awesome</span>
+                    <span className="material-symbols-outlined text-[#5b48bd] text-lg shrink-0">auto_awesome</span>
                   </div>
-                  <div className="text-2xl sm:text-3xl font-serif font-bold text-[#2D3A31] pt-1">91.4%</div>
-                  <div className="flex items-center gap-1 text-[11px] text-[#2D3A31]/70 font-semibold min-h-[22px]">
+                  <div className="text-2xl sm:text-3xl font-extrabold text-[#5b48bd] pt-1">91.4%</div>
+                  <div className="flex items-center gap-1 text-[11px] text-slate-500 font-semibold min-h-[22px]">
                     <span>70% Bắt buộc + 30% Ưu tiên</span>
                   </div>
                 </div>
-                <div className="w-full bg-[#E6E2DA] h-1.5 rounded-full mt-4 overflow-hidden shrink-0">
-                  <div className="bg-[#8C9A84] h-full rounded-full" style={{ width: '91.4%' }}></div>
+                <div className="w-full bg-slate-100 h-1.5 rounded-full mt-4 overflow-hidden shrink-0">
+                  <div className="bg-[#5b48bd] h-full rounded-full" style={{ width: '91.4%' }}></div>
                 </div>
               </div>
 
               {/* Metric 4: Interview Pass Rate */}
-              <div className="p-5 rounded-[24px] bg-white border border-[#E6E2DA] shadow-soft relative overflow-hidden group flex flex-col justify-between h-full">
+              <div className="p-5 rounded-[24px] bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-emerald-200 transition-all relative overflow-hidden group flex flex-col justify-between h-full">
                 <div className="space-y-1">
-                  <div className="flex items-center justify-between text-[11px] text-[#8C9A84] font-bold uppercase tracking-wider min-h-[28px]">
+                  <div className="flex items-center justify-between text-[11px] text-emerald-600 font-bold uppercase tracking-wider min-h-[28px]">
                     <span className="line-clamp-1">Pass Phỏng Vấn</span>
-                    <span className="material-symbols-outlined text-[#8C9A84] text-lg shrink-0">how_to_reg</span>
+                    <span className="material-symbols-outlined text-emerald-600 text-lg shrink-0">how_to_reg</span>
                   </div>
-                  <div className="text-2xl sm:text-3xl font-serif font-bold text-[#2D3A31] pt-1">45.5%</div>
-                  <div className="flex items-center gap-1 text-[11px] text-[#2D3A31]/70 font-semibold min-h-[22px]">
+                  <div className="text-2xl sm:text-3xl font-extrabold text-[#221d47] pt-1">45.5%</div>
+                  <div className="flex items-center gap-1 text-[11px] text-slate-500 font-semibold min-h-[22px]">
                     <span>5 trúng tuyển / 11 phỏng vấn</span>
                   </div>
                 </div>
-                <div className="w-full bg-[#E6E2DA] h-1.5 rounded-full mt-4 overflow-hidden shrink-0">
-                  <div className="bg-[#2D3A31] h-full rounded-full" style={{ width: '45.5%' }}></div>
+                <div className="w-full bg-slate-100 h-1.5 rounded-full mt-4 overflow-hidden shrink-0">
+                  <div className="bg-emerald-500 h-full rounded-full" style={{ width: '45.5%' }}></div>
                 </div>
               </div>
 
               {/* Metric 5: Cost per Hire */}
-              <div className="p-5 rounded-[24px] bg-white border border-[#E6E2DA] shadow-soft relative overflow-hidden group flex flex-col justify-between h-full">
+              <div className="p-5 rounded-[24px] bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-purple-200 transition-all relative overflow-hidden group flex flex-col justify-between h-full">
                 <div className="space-y-1">
-                  <div className="flex items-center justify-between text-[11px] text-[#8C9A84] font-bold uppercase tracking-wider min-h-[28px]">
+                  <div className="flex items-center justify-between text-[11px] text-slate-500 font-bold uppercase tracking-wider min-h-[28px]">
                     <span className="line-clamp-1">Chi Phí / Tuyển Dụng</span>
-                    <span className="material-symbols-outlined text-[#8C9A84] text-lg shrink-0">payments</span>
+                    <span className="material-symbols-outlined text-[#5b48bd] text-lg shrink-0">payments</span>
                   </div>
-                  <div className="text-2xl sm:text-3xl font-serif font-bold text-[#2D3A31] pt-1">
-                    $380 <span className="text-xs font-normal text-[#2D3A31]/60">USD</span>
+                  <div className="text-2xl sm:text-3xl font-extrabold text-[#221d47] pt-1">
+                    $380 <span className="text-xs font-normal text-slate-400">USD</span>
                   </div>
-                  <div className="flex items-center gap-1 text-[11px] text-[#8C9A84] font-semibold min-h-[22px]">
+                  <div className="flex items-center gap-1 text-[11px] text-emerald-600 font-semibold min-h-[22px]">
                     <span className="material-symbols-outlined text-xs">savings</span>
                     <span>Tiết kiệm 72% chi phí</span>
                   </div>
                 </div>
-                <div className="w-full bg-[#E6E2DA] h-1.5 rounded-full mt-4 overflow-hidden shrink-0">
-                  <div className="bg-[#8C9A84] h-full rounded-full" style={{ width: '72%' }}></div>
+                <div className="w-full bg-slate-100 h-1.5 rounded-full mt-4 overflow-hidden shrink-0">
+                  <div className="bg-[#5b48bd] h-full rounded-full" style={{ width: '72%' }}></div>
                 </div>
               </div>
 
               {/* Metric 6: Offer Acceptance */}
-              <div className="p-5 rounded-[24px] bg-white border border-[#E6E2DA] shadow-soft relative overflow-hidden group flex flex-col justify-between h-full">
+              <div className="p-5 rounded-[24px] bg-white border border-slate-200/80 shadow-sm hover:shadow-md hover:border-emerald-200 transition-all relative overflow-hidden group flex flex-col justify-between h-full">
                 <div className="space-y-1">
-                  <div className="flex items-center justify-between text-[11px] text-[#8C9A84] font-bold uppercase tracking-wider min-h-[28px]">
+                  <div className="flex items-center justify-between text-[11px] text-emerald-600 font-bold uppercase tracking-wider min-h-[28px]">
                     <span className="line-clamp-1">Tỷ Lệ Nhận Offer</span>
-                    <span className="material-symbols-outlined text-[#8C9A84] text-lg shrink-0">verified</span>
+                    <span className="material-symbols-outlined text-emerald-600 text-lg shrink-0">verified</span>
                   </div>
-                  <div className="text-2xl sm:text-3xl font-serif font-bold text-[#2D3A31] pt-1">100%</div>
-                  <div className="flex items-center gap-1 text-[11px] text-[#2D3A31]/70 font-semibold min-h-[22px]">
+                  <div className="text-2xl sm:text-3xl font-extrabold text-[#221d47] pt-1">100%</div>
+                  <div className="flex items-center gap-1 text-[11px] text-slate-500 font-semibold min-h-[22px]">
                     <span>5/5 ứng viên chấp thuận</span>
                   </div>
                 </div>
-                <div className="w-full bg-[#E6E2DA] h-1.5 rounded-full mt-4 overflow-hidden shrink-0">
-                  <div className="bg-[#2D3A31] h-full rounded-full" style={{ width: '100%' }}></div>
+                <div className="w-full bg-slate-100 h-1.5 rounded-full mt-4 overflow-hidden shrink-0">
+                  <div className="bg-emerald-500 h-full rounded-full" style={{ width: '100%' }}></div>
                 </div>
               </div>
             </div>
 
             {/* Deep Recruitment Funnel Visualizer (5 Stages with Drop-off & Conversion) */}
-            <div className="p-6 sm:p-8 rounded-[28px] bg-white border border-[#E6E2DA] shadow-soft space-y-6">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-[#E6E2DA]">
+            <div className="p-6 sm:p-8 rounded-[28px] bg-white border border-purple-100 shadow-sm space-y-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
                 <div>
-                  <h3 className="font-serif font-bold text-lg text-[#2D3A31] flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[#8C9A84]">filter_alt</span>
+                  <h3 className="font-bold text-lg text-[#221d47] flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[#5b48bd]">filter_alt</span>
                     Phễu Chuyển Đổi Tuyển Dụng Đa Tầng (Deep Recruitment Conversion Funnel)
                   </h3>
                 </div>
-                <span className="px-3 py-1 rounded-full bg-[#8C9A84]/15 text-[#2D3A31] border border-[#8C9A84]/30 text-xs font-semibold flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-[#8C9A84] animate-pulse"></span>
+                <span className="px-3.5 py-1 rounded-full bg-purple-50 text-[#5b48bd] border border-purple-200 text-xs font-bold flex items-center gap-1.5 shadow-sm">
+                  <span className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse"></span>
                   AI 70/30 FILTER ACTIVE
                 </span>
               </div>
@@ -542,127 +539,120 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
               {/* 5 Funnel Stages Connected Grid */}
               <div className="grid grid-cols-1 md:grid-cols-5 gap-3.5 relative">
                 {/* Step 1: Applied */}
-                <div className="p-4 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] hover:border-[#8C9A84] transition-all flex flex-col justify-between space-y-3">
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 hover:border-purple-300 transition-all flex flex-col justify-between space-y-3">
                   <div>
-                    <div className="flex items-center justify-between text-xs font-medium text-[#8C9A84]">
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-500">
                       <span>CHẶNG 1</span>
-                      <span className="text-[#2D3A31] font-bold">100%</span>
+                      <span className="text-[#221d47] font-extrabold">100%</span>
                     </div>
-                    <div className="text-sm font-serif font-bold text-[#2D3A31] mt-1">Hồ Sơ Nộp Mới</div>
-                    <div className="text-2xl sm:text-3xl font-serif font-bold text-[#2D3A31] mt-2">
-                      41 <span className="text-xs font-normal text-[#2D3A31]/60">CV</span>
+                    <div className="text-sm font-bold text-[#221d47] mt-1">Hồ Sơ Nộp Mới</div>
+                    <div className="text-2xl sm:text-3xl font-extrabold text-[#221d47] mt-2">
+                      41 <span className="text-xs font-normal text-slate-400">CV</span>
                     </div>
-                    <p className="text-[11px] text-[#2D3A31]/70 mt-1">Nguồn: Cổng việc làm, LinkedIn &amp; FPT Portal.</p>
+                    <p className="text-[11px] text-slate-500 mt-1">Nguồn: Cổng việc làm, LinkedIn &amp; FPT Portal.</p>
                   </div>
-                  <div className="pt-2 border-t border-[#E6E2DA] text-[11px] font-medium text-[#8C9A84]">
+                  <div className="pt-2 border-t border-slate-200/60 text-[11px] font-semibold text-slate-500">
                     Bắt đầu quy trình sàng lọc
                   </div>
                 </div>
 
                 {/* Step 2: AI Screening 70/30 */}
-                <div className="p-4 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] hover:border-[#C27B66] transition-all flex flex-col justify-between space-y-3">
+                <div className="p-4 rounded-2xl bg-orange-50/60 border border-orange-200 hover:border-orange-300 transition-all flex flex-col justify-between space-y-3">
                   <div>
-                    <div className="flex items-center justify-between text-xs font-medium text-[#C27B66]">
+                    <div className="flex items-center justify-between text-xs font-bold text-orange-600">
                       <span>CHẶNG 2</span>
-                      <span className="text-[#C27B66] font-bold">53.7%</span>
+                      <span className="text-orange-600 font-extrabold">53.7%</span>
                     </div>
-                    <div className="text-sm font-serif font-bold text-[#2D3A31] mt-1">Sàng Lọc AI 70/30</div>
-                    <div className="text-2xl sm:text-3xl font-serif font-bold text-[#C27B66] mt-2">
-                      22 <span className="text-xs font-normal text-[#2D3A31]/60">đạt chuẩn</span>
+                    <div className="text-sm font-bold text-[#221d47] mt-1">Sàng Lọc AI 70/30</div>
+                    <div className="text-2xl sm:text-3xl font-extrabold text-orange-600 mt-2">
+                      22 <span className="text-xs font-normal text-slate-500">đạt chuẩn</span>
                     </div>
-                    <p className="text-[11px] text-[#2D3A31]/70 mt-1">Loại 19 hồ sơ (thiếu Java 21 / Microservices).</p>
+                    <p className="text-[11px] text-slate-600 mt-1">Loại 19 hồ sơ (thiếu Java 21 / Microservices).</p>
                   </div>
-                  <div className="pt-2 border-t border-[#E6E2DA] text-[11px] font-medium text-[#C27B66]">
+                  <div className="pt-2 border-t border-orange-200/60 text-[11px] font-bold text-orange-600">
                     &darr; Drop-off 46.3% (Loại hồ sơ rác)
                   </div>
                 </div>
 
                 {/* Step 3: Tech Interview */}
-                <div className="p-4 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] hover:border-[#8C9A84] transition-all flex flex-col justify-between space-y-3">
+                <div className="p-4 rounded-2xl bg-purple-50/60 border border-purple-200 hover:border-purple-300 transition-all flex flex-col justify-between space-y-3">
                   <div>
-                    <div className="flex items-center justify-between text-xs font-medium text-[#8C9A84]">
+                    <div className="flex items-center justify-between text-xs font-bold text-[#5b48bd]">
                       <span>CHẶNG 3</span>
-                      <span className="text-[#2D3A31] font-bold">26.8%</span>
+                      <span className="text-[#5b48bd] font-extrabold">26.8%</span>
                     </div>
-                    <div className="text-sm font-serif font-bold text-[#2D3A31] mt-1">Phỏng Vấn Kỹ Thuật</div>
-                    <div className="text-2xl sm:text-3xl font-serif font-bold text-[#2D3A31] mt-2">
-                      11 <span className="text-xs font-normal text-[#2D3A31]/60">ứng viên</span>
+                    <div className="text-sm font-bold text-[#221d47] mt-1">Phỏng Vấn Kỹ Thuật</div>
+                    <div className="text-2xl sm:text-3xl font-extrabold text-[#5b48bd] mt-2">
+                      11 <span className="text-xs font-normal text-slate-500">ứng viên</span>
                     </div>
-                    <p className="text-[11px] text-[#2D3A31]/70 mt-1">Vòng System Design, Concurrency &amp; Văn hóa.</p>
+                    <p className="text-[11px] text-slate-600 mt-1">Vòng System Design, Concurrency &amp; Văn hóa.</p>
                   </div>
-                  <div className="pt-2 border-t border-[#E6E2DA] text-[11px] font-medium text-[#8C9A84]">
+                  <div className="pt-2 border-t border-purple-200/60 text-[11px] font-semibold text-[#5b48bd]">
                     &darr; 50% qua vòng thẩm định trực tiếp
                   </div>
                 </div>
 
                 {/* Step 4: Offer Package */}
-                <div className="p-4 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] hover:border-[#2D3A31] transition-all flex flex-col justify-between space-y-3">
+                <div className="p-4 rounded-2xl bg-indigo-50/60 border border-indigo-200 hover:border-indigo-300 transition-all flex flex-col justify-between space-y-3">
                   <div>
-                    <div className="flex items-center justify-between text-xs font-medium text-[#2D3A31]/80">
+                    <div className="flex items-center justify-between text-xs font-bold text-indigo-700">
                       <span>CHẶNG 4</span>
-                      <span className="text-[#2D3A31] font-bold">14.6%</span>
+                      <span className="text-indigo-700 font-extrabold">14.6%</span>
                     </div>
-                    <div className="text-sm font-serif font-bold text-[#2D3A31] mt-1">Gửi Thư Mời (Offer)</div>
-                    <div className="text-2xl sm:text-3xl font-serif font-bold text-[#2D3A31] mt-2">
-                      6 <span className="text-xs font-normal text-[#2D3A31]/60">gói offer</span>
+                    <div className="text-sm font-bold text-[#221d47] mt-1">Gửi Thư Mời (Offer)</div>
+                    <div className="text-2xl sm:text-3xl font-extrabold text-indigo-700 mt-2">
+                      6 <span className="text-xs font-normal text-slate-500">gói offer</span>
                     </div>
-                    <p className="text-[11px] text-[#2D3A31]/70 mt-1">Mức đãi ngộ $2,500 - $4,500 + Thưởng sign-on.</p>
+                    <p className="text-[11px] text-slate-600 mt-1">Mức đãi ngộ $2,500 - $4,500 + Thưởng sign-on.</p>
                   </div>
-                  <div className="pt-2 border-t border-[#E6E2DA] text-[11px] font-medium text-[#2D3A31]/70">
+                  <div className="pt-2 border-t border-indigo-200/60 text-[11px] font-medium text-indigo-700">
                     &darr; Đang đàm phán 1 ứng viên
                   </div>
                 </div>
 
                 {/* Step 5: Hired & Onboarded */}
-                <div className="p-4 rounded-2xl bg-[#8C9A84]/15 border border-[#8C9A84]/40 hover:border-[#8C9A84] transition-all flex flex-col justify-between space-y-3 shadow-soft">
+                <div className="p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200 hover:border-emerald-300 transition-all flex flex-col justify-between space-y-3 shadow-sm">
                   <div>
-                    <div className="flex items-center justify-between text-xs font-medium text-[#2D3A31]">
+                    <div className="flex items-center justify-between text-xs font-bold text-emerald-700">
                       <span>CHẶNG 5</span>
-                      <span className="text-[#2D3A31] font-bold">12.2%</span>
+                      <span className="text-emerald-700 font-extrabold">12.2%</span>
                     </div>
-                    <div className="text-sm font-serif font-bold text-[#2D3A31] mt-1">Tuyển Dụng Hoàn Tất</div>
-                    <div className="text-2xl sm:text-3xl font-serif font-bold text-[#2D3A31] mt-2">
-                      5 <span className="text-xs font-normal text-[#2D3A31]/60">nhân sự</span>
+                    <div className="text-sm font-bold text-emerald-950 mt-1">Tuyển Dụng Hoàn Tất</div>
+                    <div className="text-2xl sm:text-3xl font-extrabold text-emerald-700 mt-2">
+                      5 <span className="text-xs font-normal text-emerald-800/70">nhân sự</span>
                     </div>
-                    <p className="text-[11px] text-[#2D3A31]/80 mt-1">100% ứng viên chấp nhận thư mời làm việc.</p>
+                    <p className="text-[11px] text-emerald-800/80 mt-1">100% ứng viên chấp nhận thư mời làm việc.</p>
                   </div>
-                  <div className="pt-2 border-t border-[#8C9A84]/30 text-[11px] font-semibold text-[#2D3A31]">
+                  <div className="pt-2 border-t border-emerald-200 text-[11px] font-bold text-emerald-700">
                     ✓ Hoàn tất chỉ tiêu nhân sự Q3
                   </div>
                 </div>
               </div>
 
-              {/* Synthia AI Funnel Optimization Insight Callout */}
-              <div className="p-4 rounded-2xl bg-[#8C9A84]/10 border border-[#8C9A84]/30 flex items-start gap-3">
-                <span className="material-symbols-outlined text-[#8C9A84] text-2xl shrink-0 mt-0.5">smart_toy</span>
-                <div className="text-xs text-[#2D3A31] leading-relaxed">
-                  <span className="font-bold">Nhận định từ Synthia AI Hiring Copilot:</span> Bộ lọc kỹ năng trọng số 70/30 đã giúp tiết kiệm <strong className="font-bold text-[#2D3A31]">168 giờ</strong> thẩm định hồ sơ thủ công cho đội ngũ HR. Tỷ lệ ứng viên phỏng vấn thành công tăng vọt từ mức trung bình ngành 18% lên <strong className="font-bold text-[#2D3A31]">45.5%</strong> nhờ sàng lọc kỹ năng cứng chuẩn xác ngay từ vòng đầu.
-                </div>
-              </div>
             </div>
 
             {/* Dual Grid: Weekly Recruitment Velocity Chart & Job Performance Matrix */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               {/* Left (7 cols): Weekly Recruitment Velocity Chart */}
-              <div className="lg:col-span-7 p-6 rounded-[28px] bg-white border border-[#E6E2DA] shadow-soft space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-[#E6E2DA]">
+              <div className="lg:col-span-7 p-6 rounded-[28px] bg-white border border-purple-100 shadow-sm space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                   <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[#8C9A84] text-xl">bar_chart</span>
-                    <h3 className="font-serif font-bold text-base text-[#2D3A31]">
+                    <span className="material-symbols-outlined text-[#5b48bd] text-xl">bar_chart</span>
+                    <h3 className="font-bold text-base text-[#221d47]">
                       Khối Lượng Ứng Tuyển &amp; Tỷ Lệ Match Cao Theo Ngày
                     </h3>
                   </div>
-                  <span className="text-xs text-[#2D3A31]/60 font-medium">Tuần này (T2 - CN)</span>
+                  <span className="text-xs text-slate-500 font-medium">Tuần này (T2 - CN)</span>
                 </div>
 
                 {/* CSS/SVG Bar Chart visualization */}
                 <div className="pt-2 space-y-3">
-                  <div className="flex items-center justify-between text-xs text-[#2D3A31]/70">
+                  <div className="flex items-center justify-between text-xs text-slate-600">
                     <span>Số lượng hồ sơ tiếp nhận và phân loại</span>
                     <div className="flex items-center gap-3">
-                      <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-[#2D3A31]"></span> Hồ sơ nộp</span>
-                      <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-[#8C9A84]"></span> AI Match ≥ 90%</span>
-                      <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-[#C27B66]"></span> Phỏng vấn</span>
+                      <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-[#221d47]"></span> Hồ sơ nộp</span>
+                      <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-[#5b48bd]"></span> AI Match ≥ 90%</span>
+                      <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-orange-500"></span> Phỏng vấn</span>
                     </div>
                   </div>
 
@@ -677,21 +667,21 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                       { day: 'Thứ Bảy', total: 2, match: 1, interview: 1 },
                     ].map(d => (
                       <div key={d.day} className="flex items-center gap-3 text-xs">
-                        <span className={`w-32 shrink-0 ${d.isPeak ? 'text-[#2D3A31] font-bold' : 'text-[#2D3A31]/70'}`}>
+                        <span className={`w-32 shrink-0 ${d.isPeak ? 'text-[#5b48bd] font-bold' : 'text-slate-600'}`}>
                           {d.day}
                         </span>
-                        <div className="flex-1 flex items-center gap-1.5 h-6 bg-[#F9F8F4] rounded-lg p-1 border border-[#E6E2DA]">
+                        <div className="flex-1 flex items-center gap-1.5 h-6 bg-slate-50 rounded-lg p-1 border border-slate-200/60">
                           {/* Dark bar (Total) */}
                           <div
-                            className="h-full bg-[#2D3A31] rounded flex items-center justify-end px-1.5 text-[10px] font-bold text-white shadow-sm"
+                            className="h-full bg-[#221d47] rounded flex items-center justify-end px-1.5 text-[10px] font-bold text-white shadow-sm"
                             style={{ width: `${(d.total / 12) * 55}%` }}
                             title={`Tổng nộp: ${d.total}`}
                           >
                             {d.total}
                           </div>
-                          {/* Sage bar (Match >= 90%) */}
+                          {/* Purple bar (Match >= 90%) */}
                           <div
-                            className="h-full bg-[#8C9A84] rounded flex items-center justify-end px-1 text-[10px] font-bold text-white shadow-sm"
+                            className="h-full bg-[#5b48bd] rounded flex items-center justify-end px-1 text-[10px] font-bold text-white shadow-sm"
                             style={{ width: `${(d.match / 12) * 35}%` }}
                             title={`AI Match >= 90%: ${d.match}`}
                           >
@@ -699,7 +689,7 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                           </div>
                           {/* Terracotta bar (Interviews) */}
                           <div
-                            className="h-full bg-[#C27B66] rounded flex items-center justify-end px-1 text-[10px] font-bold text-white shadow-sm"
+                            className="h-full bg-orange-500 rounded flex items-center justify-end px-1 text-[10px] font-bold text-white shadow-sm"
                             style={{ width: `${(d.interview / 12) * 20}%` }}
                             title={`Phỏng vấn: ${d.interview}`}
                           >
@@ -710,144 +700,144 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                     ))}
                   </div>
 
-                  <div className="pt-3 border-t border-[#E6E2DA] flex items-center justify-between text-[11px] text-[#2D3A31]/70">
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
                     <span>* Ghi chú: Thứ Tư là ngày có lượng ứng tuyển lập đỉnh (12 CV), tỷ lệ match 66.7%.</span>
-                    <span className="text-[#2D3A31] font-medium">Phản hồi trung bình: 1.8 giờ</span>
+                    <span className="text-[#221d47] font-medium">Phản hồi trung bình: 1.8 giờ</span>
                   </div>
                 </div>
               </div>
 
               {/* Right (5 cols): Skill Gap & Market Talent Radar */}
-              <div className="lg:col-span-5 p-6 rounded-[28px] bg-white border border-[#E6E2DA] shadow-soft space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-[#E6E2DA]">
+              <div className="lg:col-span-5 p-6 rounded-[28px] bg-white border border-purple-100 shadow-sm space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                   <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[#8C9A84] text-xl">radar</span>
-                    <h3 className="font-serif font-bold text-base text-[#2D3A31]">
+                    <span className="material-symbols-outlined text-[#5b48bd] text-xl">radar</span>
+                    <h3 className="font-bold text-base text-[#221d47]">
                       Phân Bố Kỹ Năng &amp; Khoảng Cách Thị Trường
                     </h3>
                   </div>
-                  <span className="text-xs font-semibold text-[#8C9A84]">AI Talent Gap</span>
+                  <span className="text-xs font-bold text-[#5b48bd] bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-200">AI Talent Gap</span>
                 </div>
 
                 <div className="space-y-3 text-xs">
                   {/* Abundant Skills */}
-                  <div className="p-3.5 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] space-y-2">
-                    <span className="text-[11px] font-semibold text-[#8C9A84] uppercase tracking-wider block">
+                  <div className="p-3.5 rounded-2xl bg-purple-50/50 border border-purple-100 space-y-2">
+                    <span className="text-[11px] font-bold text-[#5b48bd] uppercase tracking-wider block">
                       ✓ Kỹ Năng Đáp Ứng Dồi Dào (Top Supply)
                     </span>
                     <div className="flex flex-wrap gap-1.5">
-                      <span className="px-2.5 py-1 rounded-full bg-[#8C9A84]/15 border border-[#8C9A84]/30 text-[#2D3A31] text-[11px] font-medium">
+                      <span className="px-2.5 py-1 rounded-full bg-purple-100/80 border border-purple-200 text-[#3b2b8e] text-[11px] font-semibold">
                         Java 21 (96%)
                       </span>
-                      <span className="px-2.5 py-1 rounded-full bg-[#8C9A84]/15 border border-[#8C9A84]/30 text-[#2D3A31] text-[11px] font-medium">
+                      <span className="px-2.5 py-1 rounded-full bg-purple-100/80 border border-purple-200 text-[#3b2b8e] text-[11px] font-semibold">
                         Spring Boot 3 (94%)
                       </span>
-                      <span className="px-2.5 py-1 rounded-full bg-[#8C9A84]/15 border border-[#8C9A84]/30 text-[#2D3A31] text-[11px] font-medium">
+                      <span className="px-2.5 py-1 rounded-full bg-purple-100/80 border border-purple-200 text-[#3b2b8e] text-[11px] font-semibold">
                         PostgreSQL (92%)
                       </span>
-                      <span className="px-2.5 py-1 rounded-full bg-[#8C9A84]/15 border border-[#8C9A84]/30 text-[#2D3A31] text-[11px] font-medium">
+                      <span className="px-2.5 py-1 rounded-full bg-purple-100/80 border border-purple-200 text-[#3b2b8e] text-[11px] font-semibold">
                         Docker (88%)
                       </span>
                     </div>
                   </div>
 
                   {/* Deficit / Rare Skills */}
-                  <div className="p-3.5 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] space-y-2">
-                    <span className="text-[11px] font-semibold text-[#C27B66] uppercase tracking-wider block">
+                  <div className="p-3.5 rounded-2xl bg-orange-50/50 border border-orange-100 space-y-2">
+                    <span className="text-[11px] font-bold text-orange-600 uppercase tracking-wider block">
                       ⚠ Kỹ Năng Khan Hiếm Cần Sàng Lọc Sâu (Talent Deficit)
                     </span>
                     <div className="flex flex-wrap gap-1.5">
-                      <span className="px-2.5 py-1 rounded-full bg-[#C27B66]/15 border border-[#C27B66]/30 text-[#C27B66] text-[11px] font-medium">
+                      <span className="px-2.5 py-1 rounded-full bg-orange-100/80 border border-orange-200 text-orange-800 text-[11px] font-semibold">
                         Kafka 50k RPS Concurrency (58%)
                       </span>
-                      <span className="px-2.5 py-1 rounded-full bg-[#C27B66]/15 border border-[#C27B66]/30 text-[#C27B66] text-[11px] font-medium">
+                      <span className="px-2.5 py-1 rounded-full bg-orange-100/80 border border-orange-200 text-orange-800 text-[11px] font-semibold">
                         Kubernetes CKA (48%)
                       </span>
-                      <span className="px-2.5 py-1 rounded-full bg-[#C27B66]/15 border border-[#C27B66]/30 text-[#C27B66] text-[11px] font-medium">
+                      <span className="px-2.5 py-1 rounded-full bg-orange-100/80 border border-orange-200 text-orange-800 text-[11px] font-semibold">
                         Distributed Locking (62%)
                       </span>
                     </div>
                   </div>
 
                   {/* AI Recommendation */}
-                  <div className="p-3.5 rounded-2xl bg-[#8C9A84]/10 border border-[#8C9A84]/25 text-[#2D3A31] text-[11px] leading-relaxed">
-                    <strong className="font-bold">Chiến lược tối ưu:</strong> Kỹ năng Kubernetes CKA thiếu hụt 52% trên thị trường tuyển dụng. Doanh nghiệp nên kích hoạt bài test kỹ thuật tự động trước khi phỏng vấn hoặc hỗ trợ đào tạo nội bộ trong 2 tháng đầu.
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 text-slate-700 text-[11px] leading-relaxed">
+                    <strong className="font-bold text-[#5b48bd]">Chiến lược tối ưu:</strong> Kỹ năng Kubernetes CKA thiếu hụt 52% trên thị trường tuyển dụng. Doanh nghiệp nên kích hoạt bài test kỹ thuật tự động trước khi phỏng vấn hoặc hỗ trợ đào tạo nội bộ trong 2 tháng đầu.
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Job Performance Matrix Table */}
-            <div className="p-6 sm:p-8 rounded-[28px] bg-white border border-[#E6E2DA] shadow-soft space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-[#E6E2DA]">
+            <div className="p-6 sm:p-8 rounded-[28px] bg-white border border-purple-100 shadow-sm space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                 <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[#8C9A84] text-xl">table_chart</span>
-                  <h3 className="font-serif font-bold text-base text-[#2D3A31]">
+                  <span className="material-symbols-outlined text-[#5b48bd] text-xl">table_chart</span>
+                  <h3 className="font-bold text-base text-[#221d47]">
                     Ma Trận Hiệu Quả Tuyển Dụng Theo Vị Trí (Job Fulfillment Matrix)
                   </h3>
                 </div>
-                <span className="text-xs text-[#2D3A31]/60 font-medium">3 Vị trí đang mở tuyển</span>
+                <span className="text-xs text-slate-500 font-medium">3 Vị trí đang mở tuyển</span>
               </div>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead>
-                    <tr className="border-b border-[#E6E2DA] text-[#8C9A84] uppercase text-[11px] font-semibold">
-                      <th className="pb-3">Vị Trí Tuyển Dụng</th>
-                      <th className="pb-3 text-center">Ứng Viên</th>
-                      <th className="pb-3 text-center">AI Match TB</th>
-                      <th className="pb-3 text-center">Phỏng Vấn</th>
-                      <th className="pb-3 text-center">Đã Offer</th>
-                      <th className="pb-3">Tiến Độ Tuyển</th>
-                      <th className="pb-3 text-center">Tình Trạng</th>
-                      <th className="pb-3 text-right">Thao Tác</th>
+                    <tr className="border-b border-purple-100 bg-purple-50/50 text-[#5b48bd] uppercase text-[11px] font-bold">
+                      <th className="py-3 px-4 rounded-l-xl">Vị Trí Tuyển Dụng</th>
+                      <th className="py-3 text-center">Ứng Viên</th>
+                      <th className="py-3 text-center">AI Match TB</th>
+                      <th className="py-3 text-center">Phỏng Vấn</th>
+                      <th className="py-3 text-center">Đã Offer</th>
+                      <th className="py-3">Tiến Độ Tuyển</th>
+                      <th className="py-3 text-center">Tình Trạng</th>
+                      <th className="py-3 pr-4 text-right rounded-r-xl">Thao Tác</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#E6E2DA]">
+                  <tbody className="divide-y divide-slate-100">
                     {jobs.map(j => (
-                      <tr key={j.jobId} className="hover:bg-[#F9F8F4] transition-colors">
-                        <td className="py-3.5 pr-4">
-                          <div className="font-serif font-bold text-[#2D3A31] text-xs sm:text-sm">{j.title}</div>
-                          <div className="text-[11px] text-[#2D3A31]/60 font-sans mt-0.5">{j.location} &bull; {j.salaryText}</div>
+                      <tr key={j.jobId} className="hover:bg-purple-50/30 transition-colors">
+                        <td className="py-3.5 px-4 pr-4">
+                          <div className="font-bold text-[#221d47] text-xs sm:text-sm">{j.title}</div>
+                          <div className="text-[11px] text-slate-500 font-sans mt-0.5">{j.location} &bull; {j.salaryText}</div>
                         </td>
-                        <td className="py-3.5 text-center font-bold text-[#2D3A31]">{j.totalApplicants}</td>
+                        <td className="py-3.5 text-center font-bold text-[#221d47]">{j.totalApplicants}</td>
                         <td className="py-3.5 text-center">
-                          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#8C9A84]/15 text-[#2D3A31] border border-[#8C9A84]/30">
+                          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-50 text-[#5b48bd] border border-purple-200">
                             {j.avgMatch}%
                           </span>
                         </td>
-                        <td className="py-3.5 text-center font-bold text-[#2D3A31]">{j.interviewCount}</td>
-                        <td className="py-3.5 text-center font-bold text-[#8C9A84]">{j.offerCount}</td>
+                        <td className="py-3.5 text-center font-bold text-[#221d47]">{j.interviewCount}</td>
+                        <td className="py-3.5 text-center font-bold text-emerald-600">{j.offerCount}</td>
                         <td className="py-3.5 w-48">
                           <div className="flex items-center justify-between text-[11px] mb-1">
-                            <span className="text-[#2D3A31]/70">{j.hiredCount}/{j.targetHires} nhân sự</span>
-                            <span className="text-[#2D3A31] font-bold">{Math.round((j.hiredCount / j.targetHires) * 100)}%</span>
+                            <span className="text-slate-600">{j.hiredCount}/{j.targetHires} nhân sự</span>
+                            <span className="text-[#5b48bd] font-bold">{Math.round((j.hiredCount / j.targetHires) * 100)}%</span>
                           </div>
-                          <div className="w-full bg-[#E6E2DA] h-2 rounded-full overflow-hidden">
+                          <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                             <div
-                              className="h-full bg-[#2D3A31] rounded-full"
+                              className="h-full bg-gradient-to-r from-[#5b48bd] to-[#7c66dc] rounded-full"
                               style={{ width: `${(j.hiredCount / j.targetHires) * 100}%` }}
                             ></div>
                           </div>
                         </td>
                         <td className="py-3.5 text-center">
                           {j.hiredCount >= j.targetHires ? (
-                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase bg-[#8C9A84]/20 text-[#2D3A31] border border-[#8C9A84]/30">
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-50 text-emerald-700 border border-emerald-200">
                               ĐẠT CHỈ TIÊU
                             </span>
                           ) : (
-                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase bg-[#C27B66]/15 text-[#C27B66] border border-[#C27B66]/30">
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-orange-50 text-orange-600 border border-orange-200">
                               ĐANG TIẾN TRIỂN
                             </span>
                           )}
                         </td>
-                        <td className="py-3.5 text-right">
+                        <td className="py-3.5 pr-4 text-right">
                           <button
                             onClick={() => {
                               setSelectedJobId(j.jobId);
                               setActiveTab('PIPELINE');
                             }}
-                            className="px-3.5 py-1.5 rounded-full bg-[#2D3A31] hover:bg-[#232e27] text-white text-xs font-medium transition-all cursor-pointer shadow-soft"
+                            className="px-3.5 py-1.5 rounded-xl bg-[#5b48bd] hover:bg-[#47369f] text-white text-xs font-semibold transition-all cursor-pointer shadow-sm"
                           >
                             Xem Phễu →
                           </button>
@@ -862,15 +852,15 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
             {/* Bottom Row: Upcoming Live Interviews & AI Strategic Action Items */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Upcoming Live Interviews Hub */}
-              <div className="p-6 rounded-[28px] bg-white border border-[#E6E2DA] shadow-soft space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-[#E6E2DA]">
+              <div className="p-6 rounded-[28px] bg-white border border-purple-100 shadow-sm space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                   <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[#8C9A84] text-xl">event_available</span>
-                    <h3 className="font-serif font-bold text-base text-[#2D3A31]">
+                    <span className="material-symbols-outlined text-[#5b48bd] text-xl">event_available</span>
+                    <h3 className="font-bold text-base text-[#221d47]">
                       Lịch Phỏng Vấn Sắp Diễn Ra (Live Interview Radar)
                     </h3>
                   </div>
-                  <span className="text-xs font-semibold text-[#8C9A84]">3 lịch trong 24h</span>
+                  <span className="text-xs font-bold text-[#5b48bd] bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-200">3 lịch trong 24h</span>
                 </div>
 
                 <div className="space-y-3">
@@ -900,16 +890,16 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                       meetLink: 'https://meet.google.com/hm-9082-eval',
                     },
                   ].map((inv, idx) => (
-                    <div key={idx} className="p-3.5 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] hover:border-[#8C9A84] transition-all flex items-center justify-between gap-3">
+                    <div key={idx} className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 hover:border-purple-300 transition-all flex items-center justify-between gap-3">
                       <div className="space-y-0.5">
                         <div className="flex items-center gap-2">
-                          <span className="font-serif font-bold text-[#2D3A31] text-xs sm:text-sm">{inv.name}</span>
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#8C9A84]/15 text-[#2D3A31] border border-[#8C9A84]/30">
+                          <span className="font-bold text-[#221d47] text-xs sm:text-sm">{inv.name}</span>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-[#5b48bd] border border-purple-200">
                             {inv.match}% Match
                           </span>
                         </div>
-                        <p className="text-[11px] text-[#2D3A31]/70 font-sans">{inv.role} &bull; Hội đồng: {inv.interviewer}</p>
-                        <p className="text-[10px] text-[#8C9A84] font-medium flex items-center gap-1">
+                        <p className="text-[11px] text-slate-500 font-sans">{inv.role} &bull; Hội đồng: {inv.interviewer}</p>
+                        <p className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
                           <span className="material-symbols-outlined text-xs">schedule</span> {inv.time}
                         </p>
                       </div>
@@ -919,7 +909,7 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                           href={inv.meetLink}
                           target="_blank"
                           rel="noreferrer"
-                          className="px-3.5 py-1.5 rounded-full bg-[#2D3A31] hover:bg-[#232e27] text-white text-xs font-medium transition-all flex items-center gap-1 shadow-soft"
+                          className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#5b48bd] to-[#7c66dc] hover:from-[#47369f] text-white text-xs font-semibold transition-all flex items-center gap-1 shadow-sm"
                         >
                           <span className="material-symbols-outlined text-sm">videocam</span>
                           <span>Vào Meet</span>
@@ -931,44 +921,44 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
               </div>
 
               {/* Synthia AI Strategic Recommendations */}
-              <div className="p-6 rounded-[28px] bg-white border border-[#E6E2DA] shadow-soft space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-[#E6E2DA]">
+              <div className="p-6 rounded-[28px] bg-white border border-purple-100 shadow-sm space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                   <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[#C27B66] text-xl">psychology</span>
-                    <h3 className="font-serif font-bold text-base text-[#2D3A31]">
+                    <span className="material-symbols-outlined text-orange-500 text-xl">psychology</span>
+                    <h3 className="font-bold text-base text-[#221d47]">
                       Synthia AI Khuyến Nghị Chiến Lược Tuyển Dụng
                     </h3>
                   </div>
-                  <span className="text-xs font-semibold text-[#C27B66]">3 Gợi ý</span>
+                  <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2.5 py-0.5 rounded-full border border-orange-200">3 Gợi ý</span>
                 </div>
 
                 <div className="space-y-3 text-xs">
-                  <div className="p-3.5 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] space-y-1">
-                    <div className="flex items-center gap-1.5 font-bold text-[#2D3A31]">
-                      <span className="material-symbols-outlined text-[#8C9A84] text-base">timer</span>
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1">
+                    <div className="flex items-center gap-1.5 font-bold text-[#221d47]">
+                      <span className="material-symbols-outlined text-[#5b48bd] text-base">timer</span>
                       <span>Duy trì tốc độ phản hồi hồ sơ dưới 4 giờ</span>
                     </div>
-                    <p className="text-[#2D3A31]/70 text-[11px] leading-relaxed font-sans">
+                    <p className="text-slate-600 text-[11px] leading-relaxed font-sans">
                       Dữ liệu lịch sử cho thấy ứng viên cấp Senior có xu hướng nhận offer từ đối thủ trong vòng 5 ngày. Phản hồi nhanh giúp tăng 42% tỷ lệ ứng viên đồng ý vào vòng phỏng vấn kỹ thuật.
                     </p>
                   </div>
 
-                  <div className="p-3.5 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] space-y-1">
-                    <div className="flex items-center gap-1.5 font-bold text-[#2D3A31]">
-                      <span className="material-symbols-outlined text-[#C27B66] text-base">work_history</span>
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1">
+                    <div className="flex items-center gap-1.5 font-bold text-[#221d47]">
+                      <span className="material-symbols-outlined text-orange-500 text-base">work_history</span>
                       <span>Chính sách Hybrid 2 ngày WFH thu hút nhân sự Senior</span>
                     </div>
-                    <p className="text-[#2D3A31]/70 text-[11px] leading-relaxed font-sans">
+                    <p className="text-slate-600 text-[11px] leading-relaxed font-sans">
                       Vị trí Lead Systems đạt 14 hồ sơ chất lượng cao chủ yếu nhờ điều kiện làm việc linh hoạt. Nên nhân rộng mô hình này sang các đợt mở tuyển Cloud DevOps tiếp theo.
                     </p>
                   </div>
 
-                  <div className="p-3.5 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] space-y-1">
-                    <div className="flex items-center gap-1.5 font-bold text-[#2D3A31]">
-                      <span className="material-symbols-outlined text-[#8C9A84] text-base">task_alt</span>
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1">
+                    <div className="flex items-center gap-1.5 font-bold text-[#221d47]">
+                      <span className="material-symbols-outlined text-emerald-600 text-base">task_alt</span>
                       <span>Sử dụng bài test chuẩn hóa Java Concurrency</span>
                     </div>
-                    <p className="text-[#2D3A31]/70 text-[11px] leading-relaxed font-sans">
+                    <p className="text-slate-600 text-[11px] leading-relaxed font-sans">
                       Sàng lọc kỹ năng Kafka &amp; Multithreading qua bài test tự động trước buổi phỏng vấn giúp rút ngắn 35% thời lượng buổi phỏng vấn trực tiếp của Tech Lead.
                     </p>
                   </div>

@@ -28,8 +28,22 @@ public class OtpServiceImpl implements OtpService {
         }
     }
 
+    private static class RateLimitEntry {
+        int count;
+        Instant resetTime;
+
+        RateLimitEntry(int count, Instant resetTime) {
+            this.count = count;
+            this.resetTime = resetTime;
+        }
+    }
+
     private final Map<String, OtpEntry> otpStorage = new ConcurrentHashMap<>();
+    private final Map<String, RateLimitEntry> rateLimitStorage = new ConcurrentHashMap<>();
     private final SecureRandom random = new SecureRandom();
+
+    private static final int MAX_OTP_ATTEMPTS = 5;
+    private static final long WINDOW_SECONDS = 900; // 15 phút
 
     private String buildKey(String email, String purpose) {
         String p = (purpose != null && !purpose.isBlank()) ? purpose.toUpperCase().trim() : "REGISTER";
@@ -38,6 +52,23 @@ public class OtpServiceImpl implements OtpService {
 
     @Override
     public String generateOtp(String email, String purpose) {
+        String cleanEmail = email.toLowerCase().trim();
+        Instant now = Instant.now();
+
+        // Kiểm tra Rate Limit (Tối đa 5 lần / 15 phút)
+        RateLimitEntry rateLimit = rateLimitStorage.compute(cleanEmail, (k, existing) -> {
+            if (existing == null || now.isAfter(existing.resetTime)) {
+                return new RateLimitEntry(1, now.plusSeconds(WINDOW_SECONDS));
+            }
+            existing.count++;
+            return existing;
+        });
+
+        if (rateLimit.count > MAX_OTP_ATTEMPTS) {
+            log.warn(">> [OtpService] Email {} đã bị chặn do vượt quá giới hạn gửi OTP ({} lần)", cleanEmail, rateLimit.count);
+            throw new IllegalArgumentException("Bạn đã yêu cầu gửi mã OTP quá " + MAX_OTP_ATTEMPTS + " lần trong vòng 15 phút. Vui lòng đợi trước khi yêu cầu lại!");
+        }
+
         int code = 100000 + random.nextInt(900000);
         String otp = String.valueOf(code);
         String key = buildKey(email, purpose);

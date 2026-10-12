@@ -7,3 +7,4 @@ export { default as interviewApi } from './interviewApi';
 export { default as notificationApi } from './notificationApi';
 export { default as skillApi } from './skillApi';
 export { default as companyApi } from './companyApi';
+export { default as candidateApi } from './candidateApi';

@@ -23,4 +23,9 @@ public class AiJobMatchResponse {
     private List<String> missingPreferredSkills;
     private String aiReasoning;
     private MatchStatus status;
+    private String companyName;
+    private String location;
+    private java.math.BigDecimal salaryMin;
+    private java.math.BigDecimal salaryMax;
+    private com.hiremate.enums.EmploymentType employmentType;
 }
