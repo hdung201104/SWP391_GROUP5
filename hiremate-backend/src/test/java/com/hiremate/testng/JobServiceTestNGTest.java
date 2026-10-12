@@ -9,6 +9,7 @@ import com.hiremate.enums.NotificationType;
 import com.hiremate.enums.SkillImportance;
 import com.hiremate.enums.UserRole;
 import com.hiremate.enums.UserStatus;
+import com.hiremate.repository.ApplicationRepository;
 import com.hiremate.repository.JobRepository;
 import com.hiremate.repository.JobSkillRepository;
 import com.hiremate.repository.RecruiterRepository;
@@ -52,6 +53,7 @@ public class JobServiceTestNGTest {
     private SkillRepository skillRepository;
     private RecruiterRepository recruiterRepository;
     private NotificationService notificationService;
+    private ApplicationRepository applicationRepository;
 
     private JobServiceImpl jobService;
 
@@ -66,6 +68,7 @@ public class JobServiceTestNGTest {
         jobSkillRepository = mock(JobSkillRepository.class);
         skillRepository = mock(SkillRepository.class);
         recruiterRepository = mock(RecruiterRepository.class);
+        applicationRepository = mock(ApplicationRepository.class);
         notificationService = mock(NotificationService.class);
 
         jobService = new JobServiceImpl(
@@ -73,6 +76,7 @@ public class JobServiceTestNGTest {
                 jobSkillRepository,
                 skillRepository,
                 recruiterRepository,
+                applicationRepository,
                 notificationService
         );
 

@@ -318,8 +318,9 @@ function AppContent() {
     }
 
     // Public: Job Detail Page
-    if (route.startsWith('#/jobs/')) {
-      const jobId = route.replace('#/jobs/', '').split('?')[0];
+    if (route.startsWith('#/jobs/') || route.startsWith('#/job/') || (route.includes('job') && route.includes('id='))) {
+      const match = route.match(/job[s]?\/(\d+)/) || route.match(/jobid=(\d+)/i);
+      const jobId = match ? match[1] : route.replace('#/jobs/', '').split('?')[0];
       return <JobDetailPage user={user} jobId={jobId} />;
     }
 

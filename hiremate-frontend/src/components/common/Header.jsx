@@ -208,32 +208,8 @@ export default function Header({
         prevUnreadCountRef.current = newUnread;
         setUnreadCount(newUnread);
       } else {
-        // Default notifications matching mockup style
-        setNotifications([
-          {
-            id: 101,
-            type: 'RECRUITMENT',
-            title: 'Đăng nhập thành công',
-            body: 'Hệ thống ghi nhận phiên đăng nhập an toàn vào tài khoản của bạn.',
-            time: '6 phút trước',
-            isRead: false,
-            targetRoute: '#/',
-            icon: 'notifications',
-            color: 'secondary',
-          },
-          {
-            id: 102,
-            type: 'RECRUITMENT',
-            title: 'Đăng nhập thành công',
-            body: 'Hệ thống ghi nhận phiên đăng nhập an toàn vào tài khoản của bạn.',
-            time: '22 giờ trước',
-            isRead: false,
-            targetRoute: '#/',
-            icon: 'notifications',
-            color: 'secondary',
-          }
-        ]);
-        setUnreadCount(2);
+        setNotifications([]);
+        setUnreadCount(0);
       }
     } catch (e) {
       console.warn('Could not fetch notifications from API, using cached view', e);

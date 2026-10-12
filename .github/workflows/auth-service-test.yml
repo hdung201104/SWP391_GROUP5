@@ -1,0 +1,73 @@
+name: AuthService TestNG Suite
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_class:
+        description: 'Test class to execute'
+        required: true
+        default: 'AuthServiceTestNGTest'
+  push:
+    paths:
+      - 'hiremate-backend/src/main/java/com/hiremate/service/impl/AuthServiceImpl.java'
+      - 'hiremate-backend/src/main/java/com/hiremate/controller/AuthController.java'
+      - 'hiremate-backend/src/test/java/com/hiremate/testng/AuthServiceTestNGTest.java'
+      - '.github/workflows/auth-service-test.yml'
+  pull_request:
+    paths:
+      - 'hiremate-backend/src/main/java/com/hiremate/service/impl/AuthServiceImpl.java'
+      - 'hiremate-backend/src/main/java/com/hiremate/controller/AuthController.java'
+      - 'hiremate-backend/src/test/java/com/hiremate/testng/AuthServiceTestNGTest.java'
+      - '.github/workflows/auth-service-test.yml'
+
+jobs:
+  run-auth-tests:
+    name: Run AuthService Unit Tests (TestNG)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Execute AuthService TestNG Test
+        working-directory: ./hiremate-backend
+        run: |
+          TEST_TARGET="${{ github.event.inputs.test_class || 'AuthServiceTestNGTest' }}"
+          echo "Executing target: $TEST_TARGET"
+          mvn test -Dtest="$TEST_TARGET" jacoco:report -B
+
+      - name: Generate Summary to GitHub Actions Summary Page
+        if: always()
+        run: |
+          REPORT_TXT="hiremate-backend/target/surefire-reports/com.hiremate.testng.AuthServiceTestNGTest.txt"
+          echo "### 🧪 AuthService TestNG Execution Summary" >> $GITHUB_STEP_SUMMARY
+          if [ -f "$REPORT_TXT" ]; then
+            echo '```text' >> $GITHUB_STEP_SUMMARY
+            cat "$REPORT_TXT" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Report summary file not found or multiple classes tested." >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload Surefire Test Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: auth-test-surefire-reports
+          path: hiremate-backend/target/surefire-reports/
+          retention-days: 14
+
+      - name: Upload JaCoCo Coverage Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: auth-test-jacoco-coverage
+          path: hiremate-backend/target/site/jacoco/
+          retention-days: 14

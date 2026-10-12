@@ -94,7 +94,8 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<ApiResponse<String>> logout() {
+    public ResponseEntity<ApiResponse<String>> logout(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+        authService.logout(authHeader);
         return ResponseEntity.ok(ApiResponse.ok("Đăng xuất thành công", "LOGGED_OUT"));
     }
 }

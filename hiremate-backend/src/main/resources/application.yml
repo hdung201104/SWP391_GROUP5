@@ -5,8 +5,8 @@ spring:
   application:
     name: hiremate
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://db.orkdazjoorfdwlfbrmxf.supabase.co:5432/postgres?sslmode=require}
-    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://aws-0-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres.orkdazjoorfdwlfbrmxf}
     password: ${SPRING_DATASOURCE_PASSWORD:Hoangdung1122}
     driver-class-name: org.postgresql.Driver
   jpa:
@@ -47,11 +47,16 @@ jwt:
 gemini:
   api:
     key: ${GEMINI_API_KEY:YOUR_GEMINI_API_KEY}
-    model: gemini-1.5-flash
+    model: ${GEMINI_MODEL:gemini-3.5-flash}
     base-url: https://generativelanguage.googleapis.com/v1beta
 
 google:
   oauth2:
     client-id: ${GOOGLE_CLIENT_ID:647076772224-84rpqgs802aifka8dpasqp4nr14h7dhv.apps.googleusercontent.com}
     client-secret: ${GOOGLE_CLIENT_SECRET:}
+
+cloudinary:
+  cloud-name: ${CLOUDINARY_CLOUD_NAME:mezrtcb7}
+  api-key: ${CLOUDINARY_API_KEY:632312897439654}
+  api-secret: ${CLOUDINARY_API_SECRET:8xXBIOnHqHLocisqNwH_3f4Aykw}
 

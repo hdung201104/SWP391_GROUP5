@@ -131,7 +131,9 @@ const JOBS_DATA = {
 
 export default function JobDetailPage({ user, jobId }) {
   const currentId = Number(jobId) || 101;
-  const [job, setJob] = useState(JOBS_DATA[currentId] || JOBS_DATA[101]);
+  const [job, setJob] = useState(JOBS_DATA[currentId] || null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('ALL');
   const [isApplying, setIsApplying] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
@@ -141,42 +143,95 @@ export default function JobDetailPage({ user, jobId }) {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
     let mounted = true;
+    setLoading(true);
+    setError(null);
     const fetchFn = jobApi?.getJobDetail || jobApi?.getJobById;
     if (typeof fetchFn === 'function') {
       fetchFn(currentId)
         .then(res => {
           if (mounted && res?.data) {
             const apiData = res.data;
-            setJob(prev => ({
-              ...prev,
-              title: apiData.title || prev.title,
-              companyName: apiData.companyName || prev.companyName,
-              location: apiData.location || prev.location,
+            const skillsArr = Array.isArray(apiData.skills) && apiData.skills.length > 0
+              ? apiData.skills
+              : (Array.isArray(apiData.requirements) ? apiData.requirements : ['Kỹ năng chuyên môn']);
+
+            const compName = apiData.companyName || 'Doanh Nghiệp Tuyển Dụng';
+            const compShort = compName.replace(/[^a-zA-Z0-9\s]/g, '').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase() || 'CORP';
+
+            setJob({
+              jobId: apiData.jobId,
+              code: `HM-JOB-${apiData.jobId}`,
+              division: '// TUYỂN DỤNG TRỰC TUYẾN',
+              industry: apiData.industry || 'Công nghệ & Đổi mới sáng tạo',
+              title: apiData.title || 'Vị trí Tuyển dụng',
+              subtitle: apiData.employmentType ? `(${apiData.employmentType})` : '',
+              companyName: compName,
+              companyShort: compShort,
+              companyLogo: apiData.companyLogo,
+              location: apiData.location || 'Việt Nam',
+              description: apiData.description || 'Chưa có mô tả chi tiết.',
+              requirements: apiData.requirements || [],
+              benefits: apiData.benefits || [],
+              skills: skillsArr,
               salaryText: apiData.salaryMin && apiData.salaryMax 
-                ? `${Number(apiData.salaryMin).toLocaleString('vi-VN')} - ${Number(apiData.salaryMax).toLocaleString('vi-VN')} đ/tháng`
-                : prev.salaryText,
-              domainTag: apiData.employmentType || prev.domainTag,
-            }));
+                ? `$${apiData.salaryMin} - $${apiData.salaryMax} / tháng`
+                : 'Thỏa thuận theo năng lực',
+              salarySub: '(Đãi ngộ hấp dẫn)',
+              employmentType: apiData.employmentType || 'Toàn thời gian (Full-time)',
+              domainTag: apiData.employmentType || 'Full-time',
+              applicantCount: apiData.applicantCount != null ? apiData.applicantCount : 0,
+              deadline: apiData.deadlineDate ? new Date(apiData.deadlineDate).toLocaleDateString('vi-VN') : 'Đang mở tuyển dụng',
+              postedTime: apiData.createdAt ? new Date(apiData.createdAt).toLocaleDateString('vi-VN') : 'Mới đăng',
+              matchedSkills: skillsArr.slice(0, 6),
+              missingFocus: [
+                { topic: 'Chuẩn bị CV ATS', note: 'Hãy cập nhật các kỹ năng trọng tâm khớp với bản mô tả công việc (JD).' }
+              ],
+              recruiter: {
+                name: 'Bộ Phận Tuyển Dụng',
+                title: 'Talent Acquisition Team',
+                responseTime: 'Phản hồi trong vòng 24 giờ',
+                quote: 'HireMate AI hỗ trợ ứng viên kết nối trực tiếp với doanh nghiệp và phản hồi hồ sơ nhanh chóng.'
+              },
+              companyInfo: {
+                size: 'Doanh nghiệp đã xác thực',
+                headquarters: apiData.location || 'Việt Nam',
+                markets: 'Toàn quốc',
+                desc: `${compName} đang tìm kiếm nhân tài phù hợp cho các dự án phát triển chiến lược.`,
+                otherJobsCount: 1
+              }
+            });
           }
         })
-        .catch(() => {});
+        .catch(err => {
+          if (mounted) {
+            console.warn('Could not load job detail from backend:', err);
+            if (JOBS_DATA[currentId]) {
+              setJob(JOBS_DATA[currentId]);
+            } else {
+              setError('Không tìm thấy thông tin tin tuyển dụng này.');
+            }
+          }
+        })
+        .finally(() => {
+          if (mounted) setLoading(false);
+        });
+    } else {
+      setLoading(false);
     }
     return () => { mounted = false; };
   }, [currentId]);
 
   const isRecruiterRole = user?.role === 'RECRUITER';
-  const userCompany = (user?.companyName || user?.company || 'FPT Software').toLowerCase().trim();
+  const userCompany = (user?.companyName || user?.company || '').toLowerCase().trim();
   const jobCompany = (job?.companyName || job?.companyShort || '').toLowerCase().trim();
 
   // Recruiter only gets management rights if they belong to the company that published this job
   const isRecruiter = isRecruiterRole && (
-    jobCompany.length > 0 && (
+    (userCompany.length > 0 && jobCompany.length > 0 && (
       jobCompany.includes(userCompany) ||
-      userCompany.includes(jobCompany) ||
-      (userCompany.includes('fpt') && (jobCompany.includes('fpt') || jobCompany.includes('fsw'))) ||
-      (userCompany.includes('vng') && jobCompany.includes('vng')) ||
-      (userCompany.includes('techcombank') && (jobCompany.includes('tcb') || jobCompany.includes('techcombank')))
-    )
+      userCompany.includes(jobCompany)
+    )) ||
+    (user?.companyId && job?.companyId && user.companyId === job.companyId)
   );
 
   const handleShare = () => {
@@ -189,6 +244,37 @@ export default function JobDetailPage({ user, jobId }) {
     setChatToast(true);
     setTimeout(() => setChatToast(false), 3500);
   };
+
+  if (loading) {
+    return (
+      <div className="w-full flex-1 flex items-center justify-center p-20 font-sans">
+        <div className="text-center space-y-3">
+          <div className="w-12 h-12 border-4 border-[#32247b] border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-sm font-semibold text-slate-600">Đang tải thông tin việc làm từ Supabase...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !job) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-20 text-center font-sans space-y-4">
+        <div className="w-16 h-16 rounded-2xl bg-purple-50 text-[#5b48bd] flex items-center justify-center mx-auto">
+          <span className="material-symbols-outlined text-3xl">search_off</span>
+        </div>
+        <h2 className="text-xl font-bold text-[#1e1b4b]">Không Tìm Thấy Tin Tuyển Dụng</h2>
+        <p className="text-sm text-slate-500 max-w-md mx-auto">
+          {error || 'Công việc này hiện không khả dụng hoặc đã hết thời hạn ứng tuyển.'}
+        </p>
+        <div>
+          <a href="#/" className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#32247b] text-white text-xs font-bold hover:bg-[#261b5e] transition-all">
+            <span className="material-symbols-outlined text-sm">arrow_back</span>
+            Quay lại danh sách việc làm
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full flex-1 bg-transparent antialiased font-sans pb-28">
@@ -458,77 +544,28 @@ export default function JobDetailPage({ user, jobId }) {
                   </div>
                 </div>
 
-                <p className="text-sm text-slate-700 leading-relaxed font-sans">
-                  Khối Công nghệ Tài chính ({job.companyName} Engineering) đang mở rộng dự án hiện đại hoá hạ tầng Core Banking đa quốc gia cho các định chế tài chính hàng đầu khu vực Châu Á - Thái Bình Dương. Vị trí <strong className="text-[#221d47] font-bold">{job.title} {job.subtitle}</strong> sẽ đóng vai trò hạt nhân thiết kế kiến trúc kiến trúc hướng sự kiện (Event-Driven Architecture) với khả năng chịu tải vượt mức <strong className="text-[#f97316] font-bold">50,000+ QPS</strong> và cam kết thời gian phản hồi (latency) &lt; 15ms.
-                </p>
-
-                {/* 3 Infrastructure Highlight Stat Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-1">
-                  <div className="p-4 rounded-2xl bg-[#f8f7ff] border border-purple-100 flex flex-col justify-between shadow-sm">
-                    <span className="text-[11px] font-bold uppercase text-slate-500 tracking-wider font-sans">Hạ tầng mục tiêu</span>
-                    <div className="text-sm font-bold text-[#221d47] font-sans mt-2">Multi-Region Active-Active</div>
-                    <span className="text-[11px] text-slate-500 mt-1 font-sans">AWS &amp; On-prem hybrid cluster</span>
-                  </div>
-                  <div className="p-4 rounded-2xl bg-[#f8f7ff] border border-purple-100 flex flex-col justify-between shadow-sm">
-                    <span className="text-[11px] font-bold uppercase text-slate-500 tracking-wider font-sans">Tiêu chuẩn Uptime</span>
-                    <div className="text-sm font-bold text-[#221d47] font-sans mt-2">99.99% SLO Availability</div>
-                    <span className="text-[11px] text-slate-500 mt-1 font-sans">Zero-downtime Blue/Green</span>
-                  </div>
-                  <div className="p-4 rounded-2xl bg-[#f8f7ff] border border-purple-100 flex flex-col justify-between shadow-sm">
-                    <span className="text-[11px] font-bold uppercase text-slate-500 tracking-wider font-sans">Mô hình làm việc</span>
-                    <div className="text-sm font-bold text-[#221d47] font-sans mt-2">Hybrid Linh Hoạt</div>
-                    <span className="text-[11px] text-slate-500 mt-1 font-sans">2 ngày WFH/tuần + trang cấp thiết bị</span>
-                  </div>
+                <div className="text-sm text-slate-700 leading-relaxed font-sans whitespace-pre-line p-5 rounded-2xl bg-[#f8f7ff] border border-purple-100 shadow-sm">
+                  {job.description ? String(job.description).replaceAll('\\n', '\n') : (
+                    <span>Doanh nghiệp ({job.companyName}) đang mở đợt tuyển dụng nhân sự cho vị trí <strong className="text-[#221d47] font-bold">{job.title}</strong>. Vị trí này đóng vai trò quan trọng trong việc triển khai các mục tiêu chiến lược của tổ chức.</span>
+                  )}
                 </div>
 
-                {/* Core Responsibilities Cards */}
-                <div className="pt-3 space-y-3">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#5b48bd] flex items-center gap-1.5 font-sans">
-                    <span className="material-symbols-outlined text-sm text-[#10b981]">terminal</span>
-                    Trách nhiệm công việc cốt lõi
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div className="p-4 rounded-2xl bg-[#f8f7ff] border border-purple-100 hover:border-[#5b48bd] transition-all shadow-sm">
-                      <div className="flex items-center gap-2 text-[#221d47] font-bold text-xs mb-1.5 font-sans">
-                        <span className="material-symbols-outlined text-[#5b48bd] text-base">developer_board</span>
-                        <span>Kiến trúc Microservices Hiện Đại</span>
-                      </div>
-                      <p className="text-xs text-slate-600 leading-relaxed font-sans">
-                        Thiết kế, xây dựng và tối ưu hoá hệ thống dịch vụ độc lập với <strong className="text-[#221d47]">Spring Boot 3</strong> và tận dụng luồng ảo (<strong className="text-[#221d47]">Java 21 Virtual Threads</strong>) để giảm thiểu tài nguyên dưới áp lực tải lớn.
-                      </p>
-                    </div>
-
-                    <div className="p-4 rounded-2xl bg-[#f8f7ff] border border-purple-100 hover:border-[#5b48bd] transition-all shadow-sm">
-                      <div className="flex items-center gap-2 text-[#221d47] font-bold text-xs mb-1.5 font-sans">
-                        <span className="material-symbols-outlined text-[#5b48bd] text-base">database</span>
-                        <span>Tối ưu hóa Database &amp; Event Stream</span>
-                      </div>
-                      <p className="text-xs text-slate-600 leading-relaxed font-sans">
-                        Tối ưu hóa Database <strong className="text-[#221d47]">PostgreSQL</strong> (table partitioning, indexing) và xử lý hàng đợi sự kiện qua <strong className="text-[#221d47]">Apache Kafka</strong> đảm bảo strictly ordered và exactly-once semantics.
-                      </p>
-                    </div>
-
-                    <div className="p-4 rounded-2xl bg-[#f8f7ff] border border-purple-100 hover:border-[#5b48bd] transition-all shadow-sm">
-                      <div className="flex items-center gap-2 text-[#221d47] font-bold text-xs mb-1.5 font-sans">
-                        <span className="material-symbols-outlined text-[#5b48bd] text-base">layers</span>
-                        <span>Caching Phân tán Đa tầng</span>
-                      </div>
-                      <p className="text-xs text-slate-600 leading-relaxed font-sans">
-                        Xây dựng giải pháp caching phân tán nhiều tầng với <strong className="text-[#221d47]">Redis Cluster</strong>; xử lý bài toán Cache Stampede và đồng bộ dữ liệu thời gian thực giữa read/write replicas.
-                      </p>
-                    </div>
-
-                    <div className="p-4 rounded-2xl bg-[#f8f7ff] border border-purple-100 hover:border-[#5b48bd] transition-all shadow-sm">
-                      <div className="flex items-center gap-2 text-[#221d47] font-bold text-xs mb-1.5 font-sans">
-                        <span className="material-symbols-outlined text-[#5b48bd] text-base">monitoring</span>
-                        <span>CI/CD &amp; Toàn diện Observability</span>
-                      </div>
-                      <p className="text-xs text-slate-600 leading-relaxed font-sans">
-                        Thiết lập luồng tự động hoá CI/CD, thu thập phân tích số liệu thời gian thực với <strong className="text-[#221d47]">Prometheus &amp; Grafana</strong> và Distributed Tracing nhằm chẩn đoán điểm nghẽn tức thời.
-                      </p>
+                {/* Real Skills Tag Bar from Database */}
+                {Array.isArray(job.skills) && job.skills.length > 0 && (
+                  <div className="pt-2 space-y-2.5">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[#5b48bd] flex items-center gap-1.5 font-sans">
+                      <span className="material-symbols-outlined text-sm text-[#10b981]">terminal</span>
+                      Kỹ năng yêu cầu của vị trí ({job.skills.length} kỹ năng)
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      {job.skills.map((sk, idx) => (
+                        <span key={idx} className="px-3 py-1.5 rounded-full bg-[#f8f7ff] border border-purple-100 text-[#221d47] font-semibold text-xs shadow-sm">
+                          {sk}
+                        </span>
+                      ))}
                     </div>
                   </div>
-                </div>
+                )}
               </section>
             )}
 
@@ -559,57 +596,26 @@ export default function JobDetailPage({ user, jobId }) {
                     <div className="flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full bg-[#5b48bd]"></span>
                       <span className="text-xs font-bold uppercase tracking-wider text-[#221d47] font-sans">
-                        1. Yêu cầu bắt buộc (Core Requirements — Trọng số 70%)
+                        1. Yêu cầu năng lực &amp; kinh nghiệm (Core Requirements)
                       </span>
                     </div>
                     <span className="bg-[#edeafd] text-[#5b48bd] border border-[#d6cefa] text-[11px] font-bold px-2.5 py-0.5 rounded-full">Must Have</span>
                   </div>
 
                   <ul className="space-y-2.5 text-xs sm:text-sm text-slate-700 font-sans">
-                    <li className="flex items-start gap-3">
-                      <span className="material-symbols-outlined text-[#5b48bd] text-base mt-0.5 flex-shrink-0">check_circle</span>
-                      <span><strong className="text-[#221d47]">5+ năm kinh nghiệm</strong> thực chiến phát triển với <strong className="text-[#221d47]">Java</strong> và hệ sinh thái <strong className="text-[#221d47]">Spring Boot 3 / Spring Cloud</strong>.</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <span className="material-symbols-outlined text-[#5b48bd] text-base mt-0.5 flex-shrink-0">check_circle</span>
-                      <span>Hiểu sâu nguyên lý đa luồng (Concurrency), cơ chế Garbage Collection, khả năng phân tích Thread Dumps để giải quyết triệt để sự cố bộ nhớ.</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <span className="material-symbols-outlined text-[#5b48bd] text-base mt-0.5 flex-shrink-0">check_circle</span>
-                      <span>Thành thạo tối ưu hóa câu truy vấn phức tạp trên cơ sở dữ liệu quan hệ (PostgreSQL) và thiết kế hệ thống dữ liệu hiệu năng cao.</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <span className="material-symbols-outlined text-[#5b48bd] text-base mt-0.5 flex-shrink-0">check_circle</span>
-                      <span>Kinh nghiệm triển khai ứng dụng dạng container hóa với <strong className="text-[#221d47]">Docker</strong> và cụm <strong className="text-[#221d47]">Kubernetes</strong>.</span>
-                    </li>
-                  </ul>
-                </div>
-
-                {/* 30% Nice-to-have Requirements */}
-                <div className="space-y-3 p-5 rounded-2xl bg-[#f8f7ff] border border-purple-100 shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#10b981]"></span>
-                      <span className="text-xs font-bold uppercase tracking-wider text-[#221d47] font-sans">
-                        2. Yêu cầu ưu tiên (Preferred Qualifications — Trọng số 30%)
-                      </span>
-                    </div>
-                    <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold px-2.5 py-0.5 rounded-full">Nice to Have</span>
-                  </div>
-
-                  <ul className="space-y-2.5 text-xs sm:text-sm text-slate-700 font-sans">
-                    <li className="flex items-start gap-3">
-                      <span className="material-symbols-outlined text-[#10b981] text-base mt-0.5 flex-shrink-0">star</span>
-                      <span>Đã từng tham gia xây dựng hoặc tái cấu trúc các hệ thống chịu tải lớn trong mảng Fintech, Ngân hàng hoặc E-commerce.</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <span className="material-symbols-outlined text-[#10b981] text-base mt-0.5 flex-shrink-0">star</span>
-                      <span>Kiến thức thực tiễn về Kafka Streams hoặc kiến trúc CQRS &amp; Event Sourcing.</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <span className="material-symbols-outlined text-[#10b981] text-base mt-0.5 flex-shrink-0">star</span>
-                      <span>Sở hữu chứng chỉ quốc tế: AWS Certified Solutions Architect hoặc CKA là điểm cộng lớn.</span>
-                    </li>
+                    {Array.isArray(job.requirements) && job.requirements.length > 0 ? (
+                      job.requirements.map((req, idx) => (
+                        <li key={idx} className="flex items-start gap-3">
+                          <span className="material-symbols-outlined text-[#5b48bd] text-base mt-0.5 flex-shrink-0">check_circle</span>
+                          <span>{req}</span>
+                        </li>
+                      ))
+                    ) : (
+                      <li className="flex items-start gap-3">
+                        <span className="material-symbols-outlined text-[#5b48bd] text-base mt-0.5 flex-shrink-0">check_circle</span>
+                        <span>{job.requirements ? String(job.requirements).replaceAll('\\n', '\n') : 'Đáp ứng đầy đủ chuyên môn yêu cầu của vị trí ứng tuyển.'}</span>
+                      </li>
+                    )}
                   </ul>
                 </div>
               </section>
@@ -624,60 +630,30 @@ export default function JobDetailPage({ user, jobId }) {
                   </div>
                   <div>
                     <h2 className="text-base sm:text-lg font-sans font-extrabold text-[#221d47] uppercase tracking-wide">
-                      Chế Độ Đãi Ngộ &amp; Phúc Lợi Cạnh Tranh
+                      Chế Độ Đãi Ngộ &amp; Phúc Lợi
                     </h2>
-                    <p className="text-xs text-slate-500 font-sans">Gói quyền lợi cao cấp dành riêng cho cấp độ Kỹ sư Cấp cao (Senior)</p>
+                    <p className="text-xs text-slate-500 font-sans">Gói quyền lợi của {job.companyName}</p>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="p-4 rounded-2xl bg-[#f8f7ff] border border-purple-100 flex items-start gap-3.5 hover:border-[#5b48bd] transition-all shadow-sm">
-                    <div className="p-2.5 rounded-xl bg-[#edeafd] border border-purple-200 text-[#5b48bd] shrink-0">
-                      <span className="material-symbols-outlined text-xl">monetization_on</span>
+                  {Array.isArray(job.benefits) && job.benefits.length > 0 ? (
+                    job.benefits.map((ben, idx) => (
+                      <div key={idx} className="p-4 rounded-2xl bg-[#f8f7ff] border border-purple-100 flex items-start gap-3.5 hover:border-[#5b48bd] transition-all shadow-sm">
+                        <div className="p-2.5 rounded-xl bg-[#edeafd] border border-purple-200 text-[#5b48bd] shrink-0">
+                          <span className="material-symbols-outlined text-xl">card_giftcard</span>
+                        </div>
+                        <div>
+                          <h3 className="text-xs font-sans font-bold text-[#221d47]">Phúc lợi #{idx + 1}</h3>
+                          <p className="text-xs text-slate-600 mt-1 leading-relaxed font-sans">{ben}</p>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="col-span-2 p-4 rounded-2xl bg-[#f8f7ff] border border-purple-100 text-xs text-slate-700 leading-relaxed font-sans whitespace-pre-line">
+                      {job.benefits ? String(job.benefits).replaceAll('\\n', '\n') : 'Đãi ngộ hấp dẫn, bảo hiểm toàn diện, lương thưởng cạnh tranh và môi trường làm việc chuyên nghiệp.'}
                     </div>
-                    <div>
-                      <h3 className="text-xs font-sans font-bold text-[#221d47]">Thưởng hiệu suất vượt trội</h3>
-                      <p className="text-xs text-slate-600 mt-1 leading-relaxed font-sans">
-                        Thưởng dự án và hiệu suất cuối năm lên đến <strong className="text-[#5b48bd] font-bold">4 tháng lương</strong> dựa trên KPI và kết quả kinh doanh.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-[#f8f7ff] border border-purple-100 flex items-start gap-3.5 hover:border-[#5b48bd] transition-all shadow-sm">
-                    <div className="p-2.5 rounded-xl bg-[#edeafd] border border-purple-200 text-[#5b48bd] shrink-0">
-                      <span className="material-symbols-outlined text-xl">health_and_safety</span>
-                    </div>
-                    <div>
-                      <h3 className="text-xs font-sans font-bold text-[#221d47]">Bảo hiểm Sức khỏe Toàn diện</h3>
-                      <p className="text-xs text-slate-600 mt-1 leading-relaxed font-sans">
-                        Gói bảo hiểm chăm sóc sức khỏe cao cấp toàn diện cho bản thân và <strong className="text-[#5b48bd] font-bold">bảo trợ phụ thuộc gia đình</strong> tại các bệnh viện quốc tế hàng đầu.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-[#f8f7ff] border border-purple-100 flex items-start gap-3.5 hover:border-[#5b48bd] transition-all shadow-sm">
-                    <div className="p-2.5 rounded-xl bg-[#edeafd] border border-purple-200 text-[#5b48bd] shrink-0">
-                      <span className="material-symbols-outlined text-xl">school</span>
-                    </div>
-                    <div>
-                      <h3 className="text-xs font-sans font-bold text-[#221d47]">Quỹ đào tạo 20,000,000 VNĐ / năm</h3>
-                      <p className="text-xs text-slate-600 mt-1 leading-relaxed font-sans">
-                        Tài trợ 100% chi phí thi chứng chỉ quốc tế (AWS, GCP, CKA) &amp; định kỳ trang cấp thiết bị công nghệ hiện đại hàng năm.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-[#f8f7ff] border border-purple-100 flex items-start gap-3.5 hover:border-[#5b48bd] transition-all shadow-sm">
-                    <div className="p-2.5 rounded-xl bg-[#edeafd] border border-purple-200 text-[#5b48bd] shrink-0">
-                      <span className="material-symbols-outlined text-xl">flight_takeoff</span>
-                    </div>
-                    <div>
-                      <h3 className="text-xs font-sans font-bold text-[#221d47]">Nghỉ dưỡng &amp; Teambuilding Hàng năm</h3>
-                      <p className="text-xs text-slate-600 mt-1 leading-relaxed font-sans">
-                        Chuyến du lịch hàng năm chuẩn cao cấp; môi trường Open Workspace tràn ngập cảm hứng đậm chất Agile sáng tạo.
-                      </p>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </section>
             )}

@@ -7,5 +7,6 @@ import com.hiremate.entity.User;
 public interface CompanyService {
     CompanyResponse getMyCompany(User recruiterUser);
     CompanyResponse updateMyCompany(CompanyUpdateRequest request, User recruiterUser);
+    CompanyResponse uploadLogo(org.springframework.web.multipart.MultipartFile file, User recruiterUser);
     CompanyResponse getCompanyById(Long companyId);
 }

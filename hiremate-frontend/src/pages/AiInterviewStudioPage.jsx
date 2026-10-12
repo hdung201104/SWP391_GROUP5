@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLivingTheme } from '../context/LivingThemeContext';
+import { interviewApi } from '../api/interviewApi';
 
 // ============================================================================
 // ĐA DẠNG LĨNH VỰC TUYỂN DỤNG & PHỎNG VẤN (KINH TẾ, MARKETING, SALES, HR, IT...)
@@ -146,302 +147,6 @@ const LEVELS = [
   { id: 'lead',    label: 'Lead / Manager',   sub: '7+ năm kinh nghiệm',  color: '#8C5E58' },
 ];
 
-// ============================================================================
-// DỮ LIỆU LỊCH SỬ PHỎNG VẤN ĐẦY ĐỦ CHI TIẾT LỖI SAI & GỢI Ý CÂU TRẢ LỜI MẪU
-// ============================================================================
-const MOCK_HISTORY = [
-  {
-    id: 'HM-9102',
-    date: '2026-09-25',
-    domain: 'Kinh tế - Tài chính & Kế toán',
-    domainId: 'kinh-te',
-    topic: 'Phân tích Báo cáo Tài chính & Dòng tiền Doanh nghiệp',
-    level: 'Senior',
-    duration: '26 phút',
-    totalScore: 76,
-    grade: 'Khá Tốt',
-    gradeColor: '#D4A373',
-    questionsCount: 5,
-    competencies: {
-      domainKnowledge: 82,
-      problemSolving: 78,
-      structureSTAR: 68,
-      deliveryTone: 76,
-    },
-    aiSummary: 'Ứng viên nắm chắc các chỉ số tài chính căn bản (EBITDA, ROE, Current Ratio). Tuy nhiên, câu trả lời còn mang tính hàn lâm, chưa phân tích sâu dòng tiền tự do (FCFF) và thiếu dẫn chứng số liệu định lượng từ kinh nghiệm thực chiến.',
-    strengths: [
-      'Nắm vững bản chất liên kết giữa Bảng cân đối kế toán, Kết quả kinh doanh và Lưu chuyển tiền tệ.',
-      'Giải thích chính xác sự khác biệt giữa Lợi nhuận kế toán và Dòng tiền thuần từ HĐKD (CFO).',
-      'Thái độ phỏng vấn điềm tĩnh, tác phong chuyên nghiệp.',
-    ],
-    criticalFlaws: [
-      'Bỏ qua yếu tố biến động chu kỳ chuyển đổi tiền mặt (CCC) khi phân tích suy giảm dòng tiền.',
-      'Chưa áp dụng phương pháp STAR: các ví dụ dự án quá chung chung, không có con số % cải thiện cụ thể.',
-      'Chưa nêu được phương án dự phòng thanh khoản khẩn cấp trong trường hợp đối tác chậm trả nợ.',
-    ],
-    improvementPlan: [
-      'Luyện tập trả lời có số liệu định lượng cụ thể: nêu rõ doanh thu, biên lợi nhuận % và quy mô dòng tiền đã quản lý.',
-      'Đào sâu vào phân tích chất lượng lợi nhuận (Quality of Earnings) và các khoản mục dồn tích (Accruals).',
-      'Áp dụng triệt để khung STAR (Tình huống - Nhiệm vụ - Hành động - Kết quả) để câu trả lời gãy gọn.',
-    ],
-    questions: [
-      {
-        q: 'Hãy phân tích nguyên nhân tại sao một doanh nghiệp có lợi nhuận ròng tăng trưởng 30% qua các quý nhưng vẫn có nguy cơ vỡ nợ hoặc mất thanh khoản?',
-        intent: 'Đo lường năng lực phân tích chất lượng lợi nhuận, dòng tiền kinh doanh (CFO) và quản trị vốn lưu động.',
-        score: 72,
-        answer: 'Doanh nghiệp có thể bị mất thanh khoản vì lợi nhuận trên giấy tờ khác với tiền mặt. Nếu bán hàng cho nợ nhiều thì doanh thu tăng nhưng tiền chưa về. Ngoài ra có thể doanh nghiệp lấy tiền ngắn hạn đi đầu tư dự án dài hạn hoặc mua nhiều hàng tồn kho.',
-        criticalFeedback: {
-          flaws: 'Câu trả lời đúng ý chính nhưng còn đơn giản, thiếu thuật ngữ tài chính chuyên sâu. Chưa đề cập đến Chu kỳ chuyển đổi tiền mặt (Cash Conversion Cycle - CCC), chưa phân tích tác động của các khoản Phải thu khách hàng (Accounts Receivable) và Hàng tồn kho (Inventory) lên Vốn lưu động ròng (Net Working Capital).',
-          interviewerImpression: 'Nhà tuyển dụng sẽ đánh giá ứng viên mới ở mức Junior/Middle về tư duy phân tích, chưa thể hiện được tầm bao quát của một Senior Financial Analyst.',
-        },
-        modelAnswer: 'Để phân tích tình trạng "Lợi nhuận ảo - Mất thanh khoản thật", tôi sẽ bóc tách qua 3 lăng kính tài chính cốt lõi:\n\n1. Phân kỳ giữa Lợi nhuận kế toán (Net Income) và Dòng tiền kinh doanh (CFO):\nDoanh thu ghi nhận theo nguyên tắc dồn tích (Accrual Accounting). Nếu tăng trưởng 30% chủ yếu đến từ việc nới lỏng chính sách tín dụng thương mại (nợ 90-120 ngày), khoản Phải thu (DSO) sẽ tăng vọt, tiền mặt thực tế không về két. Nếu hệ số CFO / Net Income < 0.8 kéo dài, chất lượng lợi nhuận đang ở mức báo động.\n\n2. Ứ đọng Vốn lưu động (Working Capital Trap):\nTồn kho tăng cao (DIO kéo dài) làm chôn vốn lưu động. Doanh nghiệp phải tiếp tục trả chi phí cố định (lương, lãi vay, nhà cung cấp) bằng tiền mặt khiến cán cân thanh toán bị âm.\n\n3. Mất cân đối kỳ hạn (Maturity Mismatch):\nSử dụng nợ vay ngắn hạn để tài trợ cho tài sản cố định hoặc dự án dài hạn. Khi ngân hàng siết hạn mức tín dụng hoặc đến hạn đảo nợ, dòng tiền âm lập tức kích hoạt rủi ro vỡ nợ kỹ thuật (Technical Default).',
-        goldenKeywords: ['Accrual Accounting', 'CFO / Net Income Ratio', 'Days Sales Outstanding (DSO)', 'Working Capital Trap', 'Cash Conversion Cycle', 'Maturity Mismatch'],
-      },
-      {
-        q: 'Khi xây dựng mô hình chiết khấu dòng tiền (DCF), bạn lựa chọn suất chiết khấu (WACC) như thế nào và cách xử lý khi lãi suất phi rủi ro thị trường biến động mạnh?',
-        intent: 'Kiểm tra kỹ năng định giá tài chính, hiểu biết về chi phí vốn bình quân (WACC) và độ nhạy của mô hình.',
-        score: 78,
-        answer: 'Tôi tính WACC bằng tỷ trọng nợ nhân chi phí nợ sau thuế cộng tỷ trọng vốn chủ nhân chi phí vốn chủ tính theo CAPM. Khi lãi suất biến động thì tôi cập nhật lại lợi suất trái phiếu chính phủ 10 năm và chạy bảng phân tích độ nhạy.',
-        criticalFeedback: {
-          flaws: 'Đã nắm đúng công thức chuẩn CAPM và WACC. Điểm trừ là chưa nói rõ cách ước lượng Hệ số Beta (Beta đòn bẩy vs không đòn bẩy khi so sánh ngang ngành) và phần bù rủi ro vốn cổ phần (Equity Risk Premium - ERP) tại thị trường mới nổi như Việt Nam.',
-          interviewerImpression: 'Ứng viên nắm lý thuyết tốt, cần thể hiện thêm kinh nghiệm thực chiến khi tinh chỉnh các giả định định giá nhạy cảm.',
-        },
-        modelAnswer: 'Trong mô hình DCF, WACC là biến số nhạy cảm nhất quyết định giá trị doanh nghiệp. Quy trình xác định chuẩn của tôi gồm:\n\n1. Ước lượng Chi phí Vốn chủ sở hữu (Ke) qua CAPM mở rộng:\n- Risk-free Rate (Rf): Lấy lợi suất Trái phiếu Chính phủ kỳ hạn 10 năm (làm mượt bằng bình quân 6-12 tháng để tránh biến động giật cục).\n- Beta (β): Lấy bình quân Beta của nhóm doanh nghiệp tương đồng (Unlevered Beta), sau đó Re-lever theo cấu trúc vốn mục tiêu của doanh nghiệp.\n- Equity Risk Premium (ERP): Áp dụng phần bù rủi ro thị trường Việt Nam (thường dao động 7.5% - 9.0% kèm Country Risk Premium theo dữ liệu Damodaran).\n\n2. Chi phí nợ vay sau thuế (Kd): Lấy lãi suất biên thực tế của các khoản vay hiện hành trừ đi lá chắn thuế (1 - Tax Rate).\n\n3. Quản trị biến động lãi suất qua Sensitivity Analysis:\nTôi không dùng một con số WACC cố định mà xây dựng ma trận phân tích độ nhạy 2 chiều (Two-way Sensitivity Table) giữa WACC (bước nhảy ±0.5%) và Tốc độ tăng trưởng dài hạn (Terminal Growth g ±0.25%) để cung cấp khoảng định giá (Valuation Range) an toàn cho Hội đồng Đầu tư.',
-        goldenKeywords: ['Unlevered Beta', 'Damodaran Country Risk Premium', 'CAPM Model', 'Two-way Sensitivity Analysis', 'Tax Shield', 'Terminal Growth Rate'],
-      },
-      {
-        q: 'Bạn đã từng tối ưu chi phí hoặc cắt giảm công nợ tồn đọng thành công trong thực tế như thế nào? Hãy chia sẻ số liệu cụ thể.',
-        intent: 'Kiểm tra năng lực hành động thực tế, phương pháp quản trị khoản phải thu và đo lường kết quả kinh doanh.',
-        score: 65,
-        answer: 'Ở công ty trước tôi có rà soát lại các khoản nợ của khách hàng lâu năm, sau đó phối hợp với phòng kinh doanh để thu tiền. Kết quả là thu hồi được nhiều nợ xấu và giảm bớt chi phí tài chính cho công ty.',
-        criticalFeedback: {
-          flaws: 'Đây là câu trả lời yếu nhất trong buổi phỏng vấn. Hoàn toàn thiếu mô hình STAR: Không có quy mô công ty, không có số ngày DSO ban đầu, không nêu quy trình phân loại tuổi nợ (Aging Report), không có con số tỷ lệ thu hồi hay số tiền cụ thể đã tiết kiệm được.',
-          interviewerImpression: 'Nhà tuyển dụng cảm giác ứng viên chỉ phụ tá thực hiện hoặc phóng đại kết quả vì không nhớ nổi bất kỳ số liệu định lượng nào.',
-        },
-        modelAnswer: 'Tôi xin chia sẻ ca thực tế tôi trực tiếp dẫn dắt tại doanh nghiệp phân phối quy mô doanh thu 450 tỷ/năm:\n\n- Tình huống (Situation): Kỳ thu tiền bình quân (DSO) bị kéo dài lên tới 84 ngày (vượt chuẩn ngành là 45 ngày), công nợ quá hạn trên 90 ngày chiếm 32 tỷ đồng, làm phát sinh chi phí lãi vay ngắn hạn 350 triệu/tháng.\n\n- Nhiệm vụ (Task): Ban Giám đốc giao mục tiêu giảm DSO xuống dưới 55 ngày và thu hồi tối thiểu 70% nợ quá hạn trong vòng 2 quý.\n\n- Hành động (Action):\n1. Thiết lập Báo cáo Tuổi nợ tự động (Aging Report) cập nhật real-time theo tuần, phân loại rủi ro khách hàng thành 4 nhóm.\n2. Tái cấu trúc chính sách bán hàng: Thiết kế chiết khấu thanh toán sớm 1.5% nếu trả trong 10 ngày (2/10 Net 30).\n3. Đặt KPI gắn kết giữa Phòng Kế toán và Sales: Hoa hồng chỉ được chi trả khi công nợ được nghiệm thu về tài khoản.\n4. Trực tiếp tham gia cùng Trưởng phòng Kinh doanh đàm phán phương án trả góp có bảo lãnh thanh toán cho 5 khách hàng nợ lớn nhất.\n\n- Kết quả (Result): Sau 5 tháng, DSO giảm từ 84 ngày xuống còn 48 ngày. Thu hồi thành công 26.5 tỷ đồng (83% nợ quá hạn), giúp công ty tiết kiệm 210 triệu tiền lãi vay mỗi tháng và dòng tiền thuần CFO chuyển từ âm sang dương 18 tỷ đồng.',
-        goldenKeywords: ['STAR Method', 'DSO Reduction', 'Aging Report 30-60-90', 'Cash Discount 2/10 Net 30', 'Credit Policy Restructuring', 'Working Capital Savings'],
-      },
-      {
-        q: 'Làm thế nào để phát hiện các dấu hiệu "xào nấu" hoặc gian lận báo cáo tài chính (Financial Shenanigans)?',
-        intent: 'Đánh giá sự nhạy bén nghiệp vụ, đạo đức nghề nghiệp và kỹ năng kiểm soát rủi ro gian lận.',
-        score: 85,
-        answer: 'Tôi kiểm tra sự chênh lệch bất thường giữa doanh thu và khoản phải thu. Nếu doanh thu tăng mà phải thu tăng nhanh hơn nhiều thì có thể có ghi nhận doanh thu ảo. Ngoài ra xem xét dòng tiền CFO âm liên tục dù lãi lớn, thay đổi chính sách khấu hao, vốn hóa chi phí bất thường.',
-        criticalFeedback: {
-          flaws: 'Rất tốt! Nêu trúng các dấu hiệu kinh điển như ghi nhận doanh thu non (Premature Revenue) và vốn hóa chi phí hoạt động (Capitalizing OpEx). Nếu nhắc thêm mô hình định lượng như Beneish M-Score hoặc Altman Z-score thì điểm số sẽ đạt 95+.',
-          interviewerImpression: 'Tư duy sắc bén, phản xạ tốt, thể hiện kinh nghiệm thực chiến vững vàng trong công tác kiểm soát nội bộ.',
-        },
-        modelAnswer: 'Để nhận diện thủ thuật "xào nấu" Báo cáo tài chính, tôi áp dụng quy trình kiểm tra 4 tầng kết hợp chỉ số định lượng:\n\n1. So sánh tăng trưởng Doanh thu vs Phải thu khách hàng:\nNếu Doanh thu tăng 15% nhưng Phải thu tăng 60%, đặc biệt dồn vào tháng cuối năm tài chính, đây là dấu hiệu rõ ràng của "Channel Stuffing" (nhồi hàng cho đại lý) hoặc ghi nhận doanh thu khống.\n\n2. Phân tích Dòng tiền CFO vs Thu nhập hoạt động (Operating Income):\nDoanh nghiệp có thể "phù phép" lợi nhuận kế toán nhưng rất khó làm giả dòng tiền thực tế. Lợi nhuận tăng liên tục nhưng CFO âm kéo dài là "red flag" lớn nhất về thanh khoản giả tạo.\n\n3. Thủ thuật Vốn hóa chi phí (Capitalizing Expenses) & Thay đổi khấu hao:\nChiêu thức chuyển chi phí hoạt động (OpEx) thành tài sản dở dang (CapEx) hoặc kéo dài thời gian khấu hao tài sản cố định bất thường nhằm giảm chi phí khấu hao trong kỳ để thổi phồng lợi nhuận.\n\n4. Ứng dụng Mô hình Beneish M-Score:\nTôi tính toán 8 chỉ số định lượng (DSRI, GMI, AQI, SGI, DEPI, SGAI, LVGI, TATA). Nếu M-Score > -1.78, xác suất doanh nghiệp có hành vi thao túng báo cáo tài chính là rất cao.',
-        goldenKeywords: ['Beneish M-Score', 'Channel Stuffing', 'Capitalizing OpEx', 'Accruals Quality', 'DSRI / AQI Indices', 'Quality of Earnings'],
-      },
-      {
-        q: 'Bạn sử dụng công cụ gì để lập ngân sách và dự báo tài chính (Financial Budgeting)? Bạn xử lý xung đột ngân sách giữa các phòng ban như thế nào?',
-        intent: 'Kiểm tra kỹ năng sử dụng công cụ (Excel/Power BI/ERP) và kỹ năng thương lượng quản trị điều hành.',
-        score: 80,
-        answer: 'Tôi dùng Excel nâng cao với các hàm Index/Match, Power Query và ERP SAP. Khi các phòng ban đòi thêm ngân sách thì tôi căn cứ vào KPI và chiến lược chung của công ty để phân bổ công bằng.',
-        criticalFeedback: {
-          flaws: 'Giải pháp hài hòa nhưng còn chung chung. Cần nêu rõ phương pháp lập ngân sách cụ thể (Zero-Based Budgeting hay Incremental Budgeting) và quy trình tổ chức các phiên Budget Review định kỳ.',
-          interviewerImpression: 'Giao tiếp tốt, nắm công cụ, có tiềm năng quản lý.',
-        },
-        modelAnswer: 'Về công cụ: Tôi kết hợp hệ thống ERP (SAP/Oracle) để trích xuất dữ liệu thực tế (Actuals) qua Power BI để trực quan hóa Variance Analysis (so sánh Budget vs Actual), kết hợp mô hình tài chính động trên Excel có kịch bản Base/Best/Worst case.\n\nVề phương pháp xử lý xung đột ngân sách:\n1. Áp dụng Zero-Based Budgeting (ZBB) có chọn lọc: Yêu cầu mỗi phòng ban giải trình từng đồng chi phí dựa trên ROI dự kiến thay vì mặc định cộng thêm % so với năm cũ (Incremental Budgeting).\n2. Phân loại chi phí theo Value Driver: Tách bạch chi phí vận hành cốt lõi (Non-negotiable) và chi phí tăng trưởng thử nghiệm (Discretionary spending).\n3. Cơ chế Review & Phân bổ linh hoạt: Thiết lập quỹ dự phòng biến động (Contingency Reserve 5-10%) được giải ngân theo từng cột mốc Milestone của dự án, đảm bảo ngân sách đi đôi với tiến độ bàn giao kết quả thực tế.',
-        goldenKeywords: ['Zero-Based Budgeting (ZBB)', 'Variance Analysis', 'Budget vs Actuals', 'Value Driver Modeling', 'Milestone-based Allocation', 'Power BI Dashboard'],
-      },
-    ],
-  },
-  {
-    id: 'HM-9088',
-    date: '2026-09-22',
-    domain: 'Marketing & Truyền thông số',
-    domainId: 'marketing',
-    topic: 'Chiến lược Digital Marketing Đa Kênh & Tối Ưu CAC/LTV',
-    level: 'Middle',
-    duration: '24 phút',
-    totalScore: 84,
-    grade: 'Khá Tốt',
-    gradeColor: '#D4A373',
-    questionsCount: 5,
-    competencies: {
-      domainKnowledge: 88,
-      problemSolving: 85,
-      structureSTAR: 78,
-      deliveryTone: 85,
-    },
-    aiSummary: 'Ứng viên có tư duy Data-driven Marketing rất tốt, hiểu rõ phễu chuyển đổi Full-funnel từ Top of Funnel (AOD) đến Retention. Cần cải thiện khả năng liên kết giữa chỉ số tiếp thị với mục tiêu P&L tổng thể của Ban Giám đốc.',
-    strengths: [
-      'Nắm rất vững các chỉ số hiệu quả chuyển đổi: CAC, LTV, ROAS, Churn rate, Conversion Rate.',
-      'Tư duy Attribution Modeling đa kênh sắc sảo (First click vs Data-driven Attribution).',
-      'Cách diễn đạt năng động, giàu năng lượng và tự tin.',
-    ],
-    criticalFlaws: [
-      'Quá tập trung vào Paid Ads ngắn hạn mà chưa đề cập đầy đủ kênh Organic (SEO, Community, KOC).',
-      'Chưa phân tích sâu bài toán LTV trong mô hình Subscription / Khách hàng trung thành.',
-    ],
-    improvementPlan: [
-      'Bổ sung chiến lược Retention & CRM Marketing (Email automation, Loyalty program) để kéo dài LTV.',
-      'Chuẩn bị sẵn các Case Study có số liệu cụ thể về tăng trưởng doanh số (GMV) và tối ưu chi phí quảng cáo.',
-    ],
-    questions: [
-      {
-        q: 'Khi chi phí thu hút khách hàng mới (CAC) trên Facebook & Google Ads tăng vọt 40% trong quý, bạn sẽ thực hiện các bước tối ưu nào để duy trì lợi nhuận?',
-        intent: 'Đo lường năng lực tối ưu kênh quảng cáo, tư duy giải quyết vấn đề tăng chi phí và phối hợp đa kênh.',
-        score: 86,
-        answer: 'Tôi sẽ kiểm tra lại tệp đối tượng (Audience Fatigue), tối ưu lại Creative/Video quảng cáo vì thường quảng cáo bị bão hòa. Đồng thời chuyển dịch ngân sách sang kênh TikTok Ads hoặc Google Search có ROI cao hơn. Tiếp theo là tối ưu Landing Page để tăng tỷ lệ chuyển đổi.',
-        criticalFeedback: {
-          flaws: 'Phản xạ chuẩn xác về mặt kỹ thuật Ads. Điểm cần nâng cao: Chưa đề cập đến Retention Marketing (bán lại cho tệp khách cũ qua Zalo OA, Email để giảm phụ thuộc vào Paid traffic).',
-          interviewerImpression: 'Senior Media Planner / Growth Marketer thực thụ, am hiểu sâu công cụ quảng cáo.',
-        },
-        modelAnswer: 'Khi đối mặt với bài toán CAC tăng vọt 40%, tôi sẽ triển khai kế hoạch "Phản ứng 3 giai đoạn":\n\n1. Khám sức khỏe Performance Funnel trong 48 giờ:\n- Đo lường Tần suất (Frequency) và CPM: Nếu Frequency > 3.5, đây là dấu hiệu Audience Fatigue. Tôi lập tức làm mới 100% Hooks và Angles sáng tạo (Creative Refresh), thử nghiệm định dạng UGC (User Generated Content) dạng ngắn.\n- Rà soát Conversion Rate (CR) trên Landing Page: Dùng Hotjar và Google Analytics 4 để tìm điểm rơi (Drop-off point). Thử nghiệm A/B Testing form đăng ký và tối ưu tốc độ tải trang trên di động (<2s).\n\n2. Tái cơ cấu phân bổ Ngân sách (Budget Reallocation):\nChuyển dịch 25-30% ngân sách từ các chiến dịch chuyển đổi lạnh (Cold Traffic) sang Retargeting đa kênh và kênh có ý định mua hàng cao (Google Search Intent / Shopee Ads).\n\n3. Đòn bẩy LTV & Kênh chuyển đổi 0 đồng (Owned Media):\nTăng tần suất khai thác tệp khách hàng sẵn có qua Zalo ZNS, Email Automation và Automation SMS. Chi phí tiếp cận khách hàng cũ chỉ bằng 1/5 CAC mới, qua đó nâng tỷ lệ LTV/CAC về ngưỡng an toàn 3:1.',
-        goldenKeywords: ['Audience Fatigue', 'Creative Refresh', 'UGC Short Video', 'LTV/CAC Ratio ≥ 3:1', 'Owned Media & Zalo ZNS', 'Drop-off Optimization'],
-      },
-      {
-        q: 'Bạn đo lường và chứng minh hiệu quả của chiến dịch Xây dựng Thương hiệu (Branding) với Giám đốc Tài chính (CFO) như thế nào?',
-        intent: 'Kiểm tra khả năng kết nối giữa tiếp thị thương hiệu và giá trị tài chính thực tế.',
-        score: 82,
-        answer: 'Xây dựng thương hiệu khó đo bằng doanh thu ngay, nhưng tôi chứng minh bằng số lượng người tìm kiếm tên thương hiệu (Brand Search Volume), lượng truy cập trực tiếp (Direct Traffic) và chỉ số thảo luận mạng xã hội (Share of Voice).',
-        criticalFeedback: {
-          flaws: 'Hướng tiếp cận đúng đắn. Nên liên kết trực tiếp với việc Brand tốt giúp làm GIẢM chi phí CAC của Performance Marketing và tăng giá bán sản phẩm (Price Premium).',
-          interviewerImpression: 'Tư duy logic, hiểu tâm lý của bộ phận tài chính.',
-        },
-        modelAnswer: 'Để thuyết phục CFO - người luôn tìm kiếm số liệu tài chính rõ ràng, tôi chứng minh giá trị của Branding qua "Hiệu ứng Gián tiếp lên Lợi nhuận" (Indirect Financial Impact):\n\n1. Chỉ số Brand Search Volume & Organic Traffic:\nThương hiệu được nhận biết tốt sẽ kéo lượng tìm kiếm từ khóa thương hiệu trên Google tăng trưởng. Lượng Organic/Direct traffic này có chi phí tiếp cận gần như bằng 0, giúp pha loãng Blended CAC của toàn bộ công ty.\n\n2. Giảm chi phí đấu thầu quảng cáo (Lower Performance CAC):\nCác chiến dịch Branding tạo ra độ tin cậy ban đầu (Familiarity Bias). Khi chạy Ads chuyển đổi, tỷ lệ nhấp (CTR) của tệp khách hàng đã nhận biết thương hiệu cao hơn 2.5 lần, giúp giảm điểm giá thầu (eCPM/CPC) của Meta/Google tới 20-30%.\n\n3. Năng lực định giá cao hơn (Price Premium) & Giảm tỷ lệ rời bỏ (Lower Churn):\nKhách hàng gắn kết với thương hiệu sẽ ít nhạy cảm về giá hơn, cho phép doanh nghiệp duy trì biên lợi nhuận gộp mà không cần xả khuyến mãi cắt máu.',
-        goldenKeywords: ['Blended CAC Reduction', 'Brand Search Volume', 'Price Premium', 'Familiarity Bias', 'Direct Traffic Growth', 'Share of Voice (SOV)'],
-      },
-    ],
-  },
-  {
-    id: 'HM-9065',
-    date: '2026-09-18',
-    domain: 'Kinh doanh & Phát triển thị trường',
-    domainId: 'sales',
-    topic: 'Đàm phán Hợp đồng Doanh nghiệp B2B & Xử lý Từ chối',
-    level: 'Senior',
-    duration: '28 phút',
-    totalScore: 71,
-    grade: 'Đạt Yêu Cầu',
-    gradeColor: '#ffe04a',
-    questionsCount: 5,
-    competencies: {
-      domainKnowledge: 75,
-      problemSolving: 70,
-      structureSTAR: 66,
-      deliveryTone: 73,
-    },
-    aiSummary: 'Ứng viên có kỹ năng giao tiếp hoạt ngôn, tự tin. Tuy nhiên kỹ năng xử lý phản đối về giá (Price Objection) còn theo phản xạ giảm giá vội vã, chưa bảo vệ được biên lợi nhuận và chưa đào sâu vào mô hình ROI cho khách hàng B2B.',
-    strengths: [
-      'Giao tiếp lưu loát, năng động, phong thái đàm phán tự tin.',
-      'Biết cách tìm hiểu sơ bộ sơ đồ quyền lực (Stakeholders) trong doanh nghiệp khách hàng.',
-    ],
-    criticalFlaws: [
-      'Lỗi sai chí mạng: Sẵn sàng giảm giá ngay khi khách hàng chê đắt mà không đòi hỏi nhượng bộ đối ứng.',
-      'Thiếu bảng tính bài toán hoàn vốn (Business Case & Payback Period) để thuyết phục CFO đối tác.',
-    ],
-    improvementPlan: [
-      'Nắm vững nguyên tắc đàm phán thương mại: "Không bao giờ nhượng bộ đơn phương" (Never make unilateral concessions).',
-      'Xây dựng kỹ năng định lượng hóa nỗi đau của khách hàng thành tiền thiệt hại (Cost of Inaction).',
-    ],
-    questions: [
-      {
-        q: 'Khách hàng doanh nghiệp B2B phản hồi: "Báo giá giải pháp bên em cao hơn 35% so với đối thủ A. Nếu không giảm xuống bằng giá họ thì bên anh không thể ký hợp đồng". Bạn sẽ xử lý tình huống này như thế nào?',
-        intent: 'Đo lường bản lĩnh đàm phán giá, kỹ năng giữ biên lợi nhuận và chuyển hướng từ Chi phí sang Giá trị (Value-based Selling).',
-        score: 68,
-        answer: 'Đầu tiên tôi sẽ cảm ơn khách hàng đã thẳng thắn. Sau đó tôi giải thích tiền nào của nấy, bên em có đội hỗ trợ 24/7 và hệ thống ổn định hơn. Nếu khách hàng vẫn cương quyết thì tôi xin ý kiến sếp giảm giá 15-20% hoặc tặng thêm thời gian sử dụng để chốt deal.',
-        criticalFeedback: {
-          flaws: 'Đây là lỗi phổ biến của Sales khi đàm phán B2B: Biện minh chung chung "tiền nào của nấy" không có sức nặng định lượng, và vội vã hạ giá làm mất vị thế của sản phẩm.',
-          interviewerImpression: 'Ứng viên dễ bị khách hàng B2B "ép giá", chưa có kỹ năng bảo vệ biên lợi nhuận của một Senior Sales Hunter.',
-        },
-        modelAnswer: 'Trong bán hàng B2B, phản đối về giá thực chất là dấu hiệu khách hàng CHƯA THẤY ĐỦ GIÁ TRỊ VƯỢT TRỘI so với chi phí bỏ ra. Quy trình xử lý 4 bước chuyên nghiệp của tôi:\n\n1. Đồng cảm & Thăm dò tiêu chuẩn so sánh (Isolate the Objection):\n"Em rất hiểu ngân sách đầu tư luôn là ưu tiên hàng đầu của Ban Giám đốc. Anh cho em hỏi ngoài yếu tố giá thầu ban đầu, hai giải pháp có tương đồng 100% về phạm vi triển khai (SLA cam kết, bảo mật dữ liệu, tích hợp ERP và chi phí phát sinh nâng cấp hàng năm) hay không?"\n\n2. Chuyển dịch từ Chi phí mua sắm sang Tổng chi phí sở hữu (TCO - Total Cost of Ownership):\nTôi sẽ trình bày Bảng phân tích TCO: "Đối thủ A giá chào thấp hơn 35%, nhưng không bao gồm phí bảo trì năm thứ 2 và giới hạn 5 API integration. Khi quy mô anh mở rộng, chi phí phát sinh thực tế sẽ cao hơn 50%. Giải pháp của bên em là trọn gói (All-inclusive), cam kết Uptime 99.9% có chế tài phạt bằng tiền mặt."\n\n3. Tính toán Thiệt hại nếu chậm trễ (Cost of Inaction & ROI):\nMinh họa bằng số liệu thực tế: "Với hệ thống của bên em, doanh nghiệp sẽ tiết kiệm 120 giờ công/tháng, tương đương 180 triệu chi phí nhân sự. Thời gian hoàn vốn đầu tư chỉ mất 4.2 tháng."\n\n4. Nguyên tắc Nhượng bộ Có Điều kiện (Give-Get Concession):\nNếu bắt buộc phải điều chỉnh giá để khớp ngân sách phê duyệt: "Nếu anh muốn giảm 15% chi phí, bên em sẵn lòng điều chỉnh bằng cách cắt bớt module đào tạo nâng cao onsite hoặc anh hỗ trợ thanh toán trước 100% hợp đồng năm thay vì thanh toán theo quý."',
-        goldenKeywords: ['Total Cost of Ownership (TCO)', 'Value-based Selling', 'Give-Get Concession', 'Cost of Inaction', 'SLA Guarantee', 'Payback Period'],
-      },
-    ],
-  },
-  {
-    id: 'HM-9042',
-    date: '2026-09-12',
-    domain: 'Nhân sự & Quản trị nguồn lực (HR)',
-    domainId: 'hr',
-    topic: 'Chiến lược Thu hút & Tuyển dụng Nhân tài (Talent Acquisition)',
-    level: 'Middle',
-    duration: '22 phút',
-    totalScore: 88,
-    grade: 'Xuất Sắc',
-    gradeColor: '#588157',
-    questionsCount: 5,
-    competencies: {
-      domainKnowledge: 90,
-      problemSolving: 88,
-      structureSTAR: 86,
-      deliveryTone: 88,
-    },
-    aiSummary: 'Ứng viên thể hiện hiểu biết sâu sắc về Employer Branding, quy trình phỏng vấn theo khung năng lực STAR và cách tối ưu tỷ lệ Offer Acceptance Rate. Khả năng thấu hiểu tâm lý nhân sự và đối tác kinh doanh (Hiring Manager) rất tốt.',
-    strengths: [
-      'Áp dụng thành thạo mô hình Phỏng vấn dựa trên Hành vi (Behavioral Interviewing).',
-      'Có số liệu cụ thể về Time-to-Hire, Cost-per-Hire và tỷ lệ Offer Acceptance.',
-      'Tác phong chuẩn mực, thấu cảm và chuyên nghiệp.',
-    ],
-    criticalFlaws: [
-      'Cần bổ sung chiến lược ứng dụng AI / ATS automation để giảm tải các tác vụ thủ công trong sàng lọc hồ sơ.',
-    ],
-    improvementPlan: [
-      'Tìm hiểu thêm về luật lao động trong các tình huống tranh chấp thử việc hoặc bồi thường hợp đồng đào tạo.',
-    ],
-    questions: [
-      {
-        q: 'Làm thế nào để bạn thuyết phục một Hiring Manager đang đặt ra tiêu chuẩn "viển vông" (muốn ứng viên hoàn hảo về mọi mặt nhưng mức lương dưới chuẩn thị trường)?',
-        intent: 'Kiểm tra kỹ năng tư vấn đối tác nội bộ (HR Business Partner), sử dụng dữ liệu thị trường và giải quyết xung đột.',
-        score: 90,
-        answer: 'Tôi không tranh cãi bằng cảm tính mà dùng Báo cáo Lương thị trường (Salary Guide) và dữ liệu phễu tuyển dụng thực tế (Talent Pool Data) để phân tích cho Hiring Manager thấy. Sau đó đề xuất điều chỉnh JD theo mô hình Must-have vs Nice-to-have.',
-        criticalFeedback: {
-          flaws: 'Câu trả lời rất xuất sắc! Đã thể hiện được vai trò tư vấn đối tác (Consultative Partner) thay vì chỉ là người nhận đơn vị trí tuyển dụng thụ động.',
-          interviewerImpression: 'Tư duy HRBP hiện đại, biết sử dụng dữ liệu để đàm phán nội bộ.',
-        },
-        modelAnswer: 'Để giải quyết bài toán "Kỳ vọng trên mây - Ngân sách dưới đất", tôi áp dụng chiến lược tư vấn dựa trên dữ liệu (Data-backed Consulting):\n\n1. Khảo sát dữ liệu Thị trường Lao động thực tế:\nTôi chuẩn bị báo cáo ngắn gồm 3 nguồn dữ liệu: Báo cáo lương của Mercer/Navigos/Adecco, phân tích mức lương đề xuất của 5 đối thủ cạnh tranh trực tiếp, và số lượng nhân sự phù hợp hiện có trên LinkedIn Recruiter (Talent Availability).\n\n2. Phân loại lại Bộ tiêu chí Năng lực (Competency Prioritization):\nCùng ngồi lại với Hiring Manager phân chia JD rõ ràng:\n- Must-have (Bắt buộc phải có để hoàn thành công việc cốt lõi - tối đa 3-4 kỹ năng).\n- Nice-to-have (Có thể đào tạo nội bộ trong 3-6 tháng đầu tiên).\n\n3. Đưa ra 3 Giải pháp linh hoạt để Hiring Manager lựa chọn:\n- Phương án A: Giữ nguyên mức lương hiện tại -> Hạ bớt số năm kinh nghiệm yêu cầu, tập trung vào ứng viên có tiềm năng tăng trưởng cao (High-potential).\n- Phương án B: Giữ nguyên tiêu chuẩn hoàn hảo -> Đề xuất Ban Giám đốc phê duyệt tăng ngân sách lương hoặc bổ sung gói Thưởng ký hợp đồng (Sign-on Bonus) / Cổ phần thưởng ESOP.\n- Phương án C: Tuyển dụng chuyên gia tư vấn bán thời gian (Contractor) giải quyết bài toán trước mắt trong khi tiếp tục săn nhân sự full-time dài hạn.',
-        goldenKeywords: ['Data-backed Consulting', 'Must-have vs Nice-to-have', 'Talent Availability Mapping', 'Salary Benchmarking', 'Competency Framework', 'Sign-on Bonus'],
-      },
-    ],
-  },
-  {
-    id: 'HM-8995',
-    date: '2026-09-08',
-    domain: 'Công nghệ thông tin & Phần mềm',
-    domainId: 'it-software',
-    topic: 'Kiến trúc Vi dịch vụ Microservices & Distributed Systems',
-    level: 'Senior',
-    duration: '32 phút',
-    totalScore: 92,
-    grade: 'Xuất Sắc',
-    gradeColor: '#588157',
-    questionsCount: 5,
-    competencies: {
-      domainKnowledge: 95,
-      problemSolving: 92,
-      structureSTAR: 88,
-      deliveryTone: 93,
-    },
-    aiSummary: 'Nắm rất sâu về hệ thống phân tán, cơ chế đồng thuận Raft/Paxos, CAP theorem và thiết kế chịu lỗi (Fault tolerance). Giải thích rõ ràng các trade-off trong thực tế.',
-    strengths: [
-      'Hiểu sâu kiến trúc Message Broker (Kafka) và cách đảm bảo Exactly-once semantics.',
-      'Phân tích cặn kẽ giải pháp xử lý Distributed Transactions qua Saga Pattern.',
-    ],
-    criticalFlaws: [
-      'Cần chú ý thêm về chi phí hạ tầng (Cloud FinOps) khi thiết kế cụm phân tán đa vùng (Multi-region).',
-    ],
-    improvementPlan: [
-      'Bổ sung kiến thức về Zero-trust Security và mTLS giữa các microservices.',
-    ],
-    questions: [
-      {
-        q: 'Làm thế nào để xử lý bài toán giao dịch phân tán (Distributed Transaction) giữa nhiều microservices độc lập mà không dùng 2-Phase Commit (2PC)?',
-        intent: 'Kiểm tra kiến trúc microservices nâng cao, Saga Pattern, tính nhất quán cuối cùng (Eventual Consistency).',
-        score: 94,
-        answer: '2PC gây chậm và khóa tài nguyên nên trong thực tế ta dùng Saga Pattern. Saga chia giao dịch thành chuỗi các local transaction. Nếu một bước lỗi thì kích hoạt các Compensating Transaction để hoàn tác ngược lại. Ta có thể chọn Choreography hoặc Orchestration.',
-        criticalFeedback: {
-          flaws: 'Câu trả lời cực kỳ chuẩn xác và có chiều sâu. Nêu bật được sự khác biệt giữa Choreography và Orchestration.',
-          interviewerImpression: 'Trình độ Senior / Lead System Architect xuất sắc.',
-        },
-        modelAnswer: 'Để giải quyết Distributed Transactions mà vẫn đảm bảo tính khả dụng (Availability) cao, giải pháp chuẩn mực là áp dụng Saga Pattern dựa trên tính Nhất quán cuối cùng (Eventual Consistency):\n\n1. Hạn chế của 2PC:\nTwo-Phase Commit là giao dịch đồng bộ, gây hiện tượng Blocking trên toàn hệ thống và là "Single Point of Failure" nếu Coordinator bị sập, vi phạm nguyên lý cô lập của Microservices.\n\n2. Mô hình Saga Pattern:\nMột giao dịch nghiệp vụ lớn được phân rã thành chuỗi các Local Transaction tại từng service. Mỗi service cập nhật cơ sở dữ liệu riêng và phát ra Sự kiện (Event/Message). Nếu một bước thất bại, hệ thống thực thi các Giao dịch bù trừ (Compensating Transactions) theo thứ tự ngược lại để hoàn nguyên trạng thái dữ liệu.\n\n3. Hai trường phái triển khai:\n- Choreography (Phân tán qua Message Broker): Các service tự lắng nghe sự kiện của nhau qua Kafka. Phù hợp cho luồng xử lý đơn giản (2-4 bước).\n- Orchestration (Điều phối tập trung): Sử dụng một Saga Orchestrator chuyên trách (như Temporal hoặc Zeebe) để kiểm soát trạng thái state machine. Rất dễ theo dõi, giám sát và xử lý timeout trong các quy trình nghiệp vụ phức tạp.',
-        goldenKeywords: ['Saga Pattern', 'Compensating Transaction', 'Choreography vs Orchestration', 'Eventual Consistency', 'Temporal / Camunda', 'Outbox Pattern'],
-      },
-    ],
-  },
-];
 
 // ============================================================================
 // BỘ SINH CÂU HỎI THÔNG MINH CHO TỪNG LĨNH VỰC THỰC TẾ
@@ -587,10 +292,12 @@ export default function AiInterviewStudioPage({ user }) {
 
   // Result & History State
   const [result, setResult] = useState(null);
-  const [historyList, setHistoryList] = useState(MOCK_HISTORY);
+  const [historyList, setHistoryList] = useState([]);
   const [selectedHistorySession, setSelectedHistorySession] = useState(null);
   const [histFilter, setHistFilter] = useState('ALL');
   const [toast, setToast] = useState('');
+  const [currentSessionId, setCurrentSessionId] = useState(null);
+  const [isSubmittingAnswer, setIsSubmittingAnswer] = useState(false);
   const timerRef = useRef(null);
   const videoPreviewRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -601,6 +308,62 @@ export default function AiInterviewStudioPage({ user }) {
     setToast(m);
     setTimeout(() => setToast(''), 3500);
   };
+
+  // Fetch real interview history from Supabase via backend
+  const fetchRealHistory = () => {
+    interviewApi.getHistory()
+      .then((res) => {
+        const data = res?.data || [];
+        if (data && data.length > 0) {
+          const mapped = data.map((item) => ({
+            id: 'HM-' + item.sessionId,
+            sessionId: item.sessionId,
+            date: item.startedAt ? item.startedAt.split('T')[0] : new Date().toISOString().split('T')[0],
+            topic: item.targetPosition || 'Chuyên viên nghiệp vụ',
+            domain: 'Phỏng vấn chuyên sâu',
+            domainId: 'it-software',
+            level: 'Middle',
+            duration: '15 phút',
+            totalScore: Math.round(item.overallScore || 0),
+            grade: (item.overallScore || 0) >= 90 ? 'Xuất Sắc' : (item.overallScore || 0) >= 80 ? 'Khá Tốt' : (item.overallScore || 0) >= 65 ? 'Đạt Yêu Cầu' : 'Cần Cải Thiện',
+            gradeColor: (item.overallScore || 0) >= 90 ? '#588157' : (item.overallScore || 0) >= 80 ? '#2D3A31' : (item.overallScore || 0) >= 65 ? '#D4A373' : '#C27B66',
+            questionsCount: item.details?.length || 5,
+            competencies: {
+              domainKnowledge: Math.min(98, Math.max(0, Math.round(item.overallScore || 0) + 3)),
+              problemSolving: Math.min(98, Math.max(0, Math.round(item.overallScore || 0) - 2)),
+              structureSTAR: Math.min(98, Math.max(0, Math.round(item.overallScore || 0) - 6)),
+              deliveryTone: Math.min(98, Math.max(0, Math.round(item.overallScore || 0) + 1)),
+            },
+            aiSummary: item.overallFeedback || 'Đã hoàn thành phiên phỏng vấn trên HireMate.',
+            weaknessSummary: item.weaknessSummary,
+            strengths: ['Tinh thần cầu tiến và phản xạ nhanh với câu hỏi tình huống.'],
+            criticalFlaws: item.weaknessSummary ? [item.weaknessSummary] : ['Cần cấu trúc câu trả lời theo mô hình STAR.'],
+            improvementPlan: item.recommendedTasks
+              ? (typeof item.recommendedTasks === 'string' ? JSON.parse(item.recommendedTasks || '[]') : item.recommendedTasks)
+              : ['Luyện tập lại các câu hỏi khó để nâng cao điểm số.'],
+            questions: (item.details || []).map((d) => ({
+              q: d.questionText,
+              score: Math.round(d.aiEvaluationScore || 0),
+              answer: d.candidateAnswerText || '(Ứng viên không nhập câu trả lời)',
+              criticalFeedback: {
+                flaws: d.aiFeedback || 'Cần bổ sung thêm ví dụ thực tế.',
+                interviewerImpression: d.tone || 'Ứng viên nghiêm túc thực hiện phỏng vấn.'
+              },
+              modelAnswer: d.aiSuggestedAnswer || 'Gợi ý câu trả lời chuẩn theo mô hình STAR.',
+              goldenKeywords: ['STAR Method', 'Chuyên môn', 'Kỹ năng thực chiến']
+            }))
+          }));
+          setHistoryList(mapped);
+        }
+      })
+      .catch((err) => {
+        console.warn('Could not load history from backend:', err);
+      });
+  };
+
+  useEffect(() => {
+    fetchRealHistory();
+  }, []);
 
   useEffect(() => {
     if (timerOn) {
@@ -731,7 +494,7 @@ export default function AiInterviewStudioPage({ user }) {
     };
   }, [view, isCamOn]);
 
-  const handleStart = () => {
+  const handleStart = async () => {
     const topic = customTopic.trim() || selectedTopic;
     if (!selectedDomain || !topic) {
       showToast('⚠️ Vui lòng chọn lĩnh vực và chủ đề phỏng vấn!');
@@ -746,6 +509,21 @@ export default function AiInterviewStudioPage({ user }) {
     setTimerOn(true);
     setDone(false);
     setResult(null);
+
+    // Call real backend session start in Supabase PostgreSQL
+    try {
+      const res = await interviewApi.startSession({
+        targetPosition: topic,
+        level: LEVELS.find((l) => l.id === selectedLevel)?.label || selectedLevel,
+        interviewType: 'TECHNICAL'
+      });
+      if (res?.data?.sessionId) {
+        setCurrentSessionId(res.data.sessionId);
+      }
+    } catch (err) {
+      console.warn('Backend startSession failed, running in local fallback:', err);
+    }
+
     setView('live');
     window.scrollTo({ top: 0, behavior: 'smooth' });
     // Speak first question
@@ -754,11 +532,29 @@ export default function AiInterviewStudioPage({ user }) {
     }, 600);
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     stopSpeaking();
-    const upd = { ...answers, [currentIdx]: currentAnswer.trim() };
+    const ansText = currentAnswer.trim();
+    const upd = { ...answers, [currentIdx]: ansText };
     setAnswers(upd);
     setCurrentAnswer('');
+
+    // Submit answer to real backend if sessionId exists
+    if (currentSessionId) {
+      setIsSubmittingAnswer(true);
+      try {
+        await interviewApi.submitAnswer(currentSessionId, {
+          questionNumber: currentIdx + 1,
+          questionText: questions[currentIdx],
+          candidateAnswerText: ansText,
+        });
+      } catch (err) {
+        console.warn('Backend submitAnswer failed:', err);
+      } finally {
+        setIsSubmittingAnswer(false);
+      }
+    }
+
     if (currentIdx < questions.length - 1) {
       setIsAiTyping(true);
       setTimeout(() => {
@@ -773,85 +569,127 @@ export default function AiInterviewStudioPage({ user }) {
       setTimerOn(false);
       setDone(true);
       setIsAiTyping(true);
-      setTimeout(() => {
-        setIsAiTyping(false);
-        buildResult(upd);
-      }, 2200);
+      await finishSessionAndBuildResult(upd);
     }
   };
 
-  const buildResult = (ans) => {
+  const finishSessionAndBuildResult = async (ans) => {
+    setIsAiTyping(true);
+    let backendResult = null;
+    if (currentSessionId) {
+      try {
+        const compRes = await interviewApi.completeSession(currentSessionId);
+        if (compRes?.data) {
+          backendResult = compRes.data;
+        }
+      } catch (err) {
+        console.warn('Backend completeSession failed, calculating fallback:', err);
+      }
+    }
+
+    setIsAiTyping(false);
     const topic = customTopic.trim() || selectedTopic;
-    const scoredQuestions = questions.map((q, i) => {
-      const userText = ans[i] || '';
-      const len = userText.length;
-      const sc = Math.min(96, Math.max(50, 55 + Math.floor(len / 12) + Math.floor(Math.random() * 18)));
-      return {
-        q,
-        intent: 'Đánh giá năng lực chuyên môn và phương pháp giải quyết tình huống thực tế.',
-        score: sc,
-        answer: userText || '(Ứng viên bỏ trống câu trả lời)',
-        criticalFeedback: {
-          flaws: sc >= 85
-            ? 'Câu trả lời đầy đủ, lập luận chặt chẽ. Cần bổ sung thêm 1 chỉ số định lượng về ngân sách hoặc hiệu suất để hoàn hảo.'
-            : sc >= 70
-            ? 'Đã nêu được ý tưởng cơ bản nhưng còn thiếu mô hình STAR, lập luận còn mang tính lý thuyết và chưa đưa ra số liệu thực chiến.'
-            : 'Chưa chạm đúng trọng tâm câu hỏi. Thiếu các thuật ngữ chuyên môn quan trọng và không có giải pháp khả thi.',
-          interviewerImpression: sc >= 85
-            ? 'Ứng viên tự tin, giàu kinh nghiệm thực tiễn.'
-            : 'Ứng viên có tiềm năng nhưng cần rèn luyện thêm cách diễn đạt và cấu trúc câu trả lời.',
-        },
-        modelAnswer: `GỢI Ý CÂU TRẢ LỜI MẪU THEO MÔ HÌNH STAR CHO CHỦ ĐỀ: ${topic}
+    let scoredQuestions = [];
+
+    if (backendResult && backendResult.details && backendResult.details.length > 0) {
+      // Use REAL evaluated answers from Gemini AI & Supabase
+      scoredQuestions = backendResult.details.map((d) => {
+        const sc = Math.round(d.aiEvaluationScore || 0);
+        return {
+          q: d.questionText,
+          intent: 'Đánh giá năng lực chuyên môn và giải pháp thực tế từ Gemini AI.',
+          score: sc,
+          answer: d.candidateAnswerText || '(Ứng viên không nhập câu trả lời)',
+          criticalFeedback: {
+            flaws: d.aiFeedback || (sc >= 80 ? 'Câu trả lời đầy đủ, lập luận logic.' : 'Cần bổ sung chi tiết theo mô hình STAR.'),
+            interviewerImpression: d.tone || (sc >= 80 ? 'Ứng viên tự tin, kiến thức vững vàng.' : 'Ứng viên có tiềm năng, cần rèn luyện cấu trúc trả lời.')
+          },
+          modelAnswer: d.aiSuggestedAnswer || `GỢI Ý CÂU TRẢ LỜI MẪU CHO: ${d.questionText}`,
+          goldenKeywords: ['STAR Method', 'Problem Solving', 'Data-driven Decision', 'Best Practice']
+        };
+      });
+    } else {
+      // Local fallback calculation if backend/gemini unavailable
+      scoredQuestions = questions.map((q, i) => {
+        const userText = ans[i] || '';
+        const len = userText.length;
+        const sc = len === 0 ? 0 : Math.min(96, Math.max(20, 40 + Math.floor(len / 10)));
+        return {
+          q,
+          intent: 'Đánh giá năng lực chuyên môn và phương pháp giải quyết tình huống thực tế.',
+          score: sc,
+          answer: userText || '(Ứng viên không nhập câu trả lời)',
+          criticalFeedback: {
+            flaws: len === 0
+              ? 'Ứng viên không đưa ra câu trả lời cho câu hỏi này.'
+              : sc >= 85
+              ? 'Câu trả lời đầy đủ, lập luận chặt chẽ. Cần bổ sung thêm 1 chỉ số định lượng về ngân sách hoặc hiệu suất.'
+              : sc >= 70
+              ? 'Đã nêu được ý tưởng cơ bản nhưng còn thiếu mô hình STAR và số liệu thực chiến.'
+              : 'Chưa chạm đúng trọng tâm câu hỏi. Thiếu các thuật ngữ chuyên môn quan trọng.',
+            interviewerImpression: len === 0 ? 'Chưa thể đánh giá do thiếu câu trả lời.' : sc >= 80 ? 'Ứng viên tự tin.' : 'Cần rèn luyện thêm cách diễn đạt.',
+          },
+          modelAnswer: `GỢI Ý CÂU TRẢ LỜI MẪU THEO MÔ HÌNH STAR CHO CHỦ ĐỀ: ${topic}
 - Tình huống (Situation): Bối cảnh thực tế tại doanh nghiệp quy mô tương ứng.
 - Nhiệm vụ (Task): Trọng trách cốt lõi cần giải quyết đối với câu hỏi tình huống này.
 - Hành động (Action): Triển khai quy trình 3 bước với công cụ chuyên sâu và sự phối hợp liên phòng ban.
 - Kết quả (Result): Đo lường thành công bằng các chỉ số định lượng cụ thể (+25% hiệu suất, tiết kiệm chi phí, đạt KPI cam kết).`,
-        goldenKeywords: ['STAR Method', 'KPI / Metrics', 'Problem Solving', 'Data-driven Decision', 'Execution Excellence'],
-      };
-    });
+          goldenKeywords: ['STAR Method', 'KPI / Metrics', 'Problem Solving', 'Data-driven Decision'],
+        };
+      });
+    }
 
-    const total = Math.round(scoredQuestions.reduce((s, q) => s + q.score, 0) / scoredQuestions.length);
+    const total = backendResult?.overallScore != null
+      ? Math.round(backendResult.overallScore)
+      : (scoredQuestions.length > 0 ? Math.round(scoredQuestions.reduce((s, q) => s + q.score, 0) / scoredQuestions.length) : 0);
+
     const grade = total >= 90 ? 'Xuất Sắc' : total >= 80 ? 'Khá Tốt' : total >= 65 ? 'Đạt Yêu Cầu' : 'Cần Cải Thiện';
     const gc = total >= 90 ? '#588157' : total >= 80 ? '#2D3A31' : total >= 65 ? '#D4A373' : '#C27B66';
 
     const newResult = {
-      id: 'HM-' + Math.floor(9000 + Math.random() * 999),
+      id: 'HM-' + (backendResult?.sessionId || Math.floor(9000 + Math.random() * 999)),
+      sessionId: backendResult?.sessionId,
       date: new Date().toISOString().split('T')[0],
-      domain: selectedDomain.label,
-      domainId: selectedDomain.id,
+      domain: selectedDomain?.label || 'Chuyên môn tuyển dụng',
+      domainId: selectedDomain?.id,
       topic,
       level: LEVELS.find((l) => l.id === selectedLevel)?.label || selectedLevel,
       duration: fmt(timerSec),
       totalScore: total,
       grade,
       gradeColor: gc,
-      questionsCount: questions.length,
+      questionsCount: scoredQuestions.length,
       competencies: {
-        domainKnowledge: Math.min(98, total + 3),
-        problemSolving: Math.max(50, total - 2),
-        structureSTAR: Math.max(45, total - 8),
-        deliveryTone: Math.min(95, total + 1),
+        domainKnowledge: Math.min(98, Math.max(0, total + 3)),
+        problemSolving: Math.min(98, Math.max(0, total - 2)),
+        structureSTAR: Math.min(98, Math.max(0, total - 6)),
+        deliveryTone: Math.min(98, Math.max(0, total + 1)),
       },
-      aiSummary: `Buổi phỏng vấn chủ đề "${topic}" hoàn thành. Ứng viên đạt điểm số ${total}/100 (${grade}). Hệ thống đã phân tích chi tiết từng lỗi sai và tạo gợi ý câu trả lời mẫu chuẩn mực.`,
+      aiSummary: backendResult?.overallFeedback || `Buổi phỏng vấn chủ đề "${topic}" hoàn thành. Ứng viên đạt điểm số ${total}/100 (${grade}).`,
+      weaknessSummary: backendResult?.weaknessSummary,
       strengths: [
         'Tinh thần cầu tiến và phản xạ nhanh với các câu hỏi tình huống.',
         'Hiểu biết cơ bản về quy trình làm việc và thuật ngữ trong ngành.',
       ],
-      criticalFlaws: [
+      criticalFlaws: backendResult?.weaknessSummary ? [backendResult.weaknessSummary] : [
         'Cần hạn chế nói lan man và áp dụng chặt chẽ mô hình STAR.',
         'Bổ sung số liệu định lượng (Metrics & KPIs) chứng minh kết quả.',
       ],
-      improvementPlan: [
-        'Đọc kỹ gợi ý câu trả lời mẫu chuẩn điểm 10 bên dưới.',
-        'Luyện tập lại các câu hỏi bị chấm điểm dưới 75.',
-      ],
+      improvementPlan: backendResult?.recommendedTasks 
+        ? (typeof backendResult.recommendedTasks === 'string' ? JSON.parse(backendResult.recommendedTasks || '[]') : backendResult.recommendedTasks)
+        : [
+          'Đọc kỹ gợi ý câu trả lời mẫu chuẩn điểm 10 bên dưới.',
+          'Luyện tập lại các câu hỏi bị chấm điểm dưới 75.',
+        ],
       questions: scoredQuestions,
     };
 
     setResult(newResult);
-    setHistoryList([newResult, ...historyList]);
+    setHistoryList((prev) => [newResult, ...prev]);
     setView('result');
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Also re-fetch history from database
+    fetchRealHistory();
   };
 
   const tabs = [
