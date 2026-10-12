@@ -1,85 +1,47 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLivingTheme } from '../context/LivingThemeContext';
-
-const CANDIDATES_DATA = {
-  1: {
-    id: 1,
-    name: 'Trần Bảo Long',
-    title: 'Senior Solutions Engineer / Tech Lead',
-    roleSummary: 'SENIOR TECH LEAD / HIGH-LOAD DISTRIBUTED SYSTEMS ARCHITECT',
-    matchScore: 94,
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80',
-    location: 'Hà Nội (Hybrid)',
-    experience: '6+ năm kinh nghiệm',
-    salary: '$3,200 - $3,500',
-    email: 'long.tran@gmail.com',
-    phone: '(+84) 912 345 678',
-    status: 'Sẵn sàng nhận việc',
-    aiFitAssessment: 'XUẤT SẮC • ĐỀ CỬ VÒNG KỸ THUẬT',
-    summary: '6+ năm kinh nghiệm kỹ thuật tại các hệ sinh thái tài chính và ngân hàng số chịu tải cực lớn. Chuyên gia giải quyết các bài toán tối ưu JVM, độ trễ mạng và phân vùng dữ liệu Kafka 50k RPS.',
-    company: 'FPT Software Alumni',
-    jobCode: 'JD-BNK-882'
-  },
-  2: {
-    id: 2,
-    name: 'Lê Hoàng Nam',
-    title: 'Lead Backend Engineer • VNG Corp',
-    roleSummary: 'DISTRIBUTED ARCHITECTURE SPECIALIST & CLOUD NATIVE TECH LEAD',
-    matchScore: 89,
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&auto=format&fit=crop&q=80',
-    location: 'TP.HCM (Hybrid)',
-    experience: '7.5 năm kinh nghiệm',
-    salary: '$3,400 - $3,800',
-    email: 'nam.lehoang@vng.com.vn',
-    phone: '(+84) 903 888 912',
-    status: 'Sẵn sàng nhận việc trong 30 ngày',
-    aiFitAssessment: 'ƯU TÚ • KHỚP 100% CORE JAVA & AWS ARCH',
-    summary: 'Lead Engineer giàu kinh nghiệm tại VNG Corp với nền tảng vững chắc về Microservices, Kafka clustering 85% và chứng chỉ AWS Solutions Architect Professional.',
-    company: 'VNG Corp',
-    jobCode: 'JD-BNK-882'
-  },
-  3: {
-    id: 3,
-    name: 'Nguyễn Quốc Huy',
-    title: 'Senior Java Dev • TMA Solutions',
-    roleSummary: 'SENIOR JAVA & MICROSERVICES ENTERPRISE SPECIALIST',
-    matchScore: 78,
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
-    location: 'Đà Nẵng / Remote',
-    experience: '5 năm kinh nghiệm',
-    salary: '$2,200 - $2,600',
-    email: 'huy.nguyen@tmasolutions.com',
-    phone: '(+84) 988 776 543',
-    status: 'Đang cân nhắc cơ hội',
-    aiFitAssessment: 'KHÁ TỐT • CẦN ĐÁNH GIÁ THÊM VỀ KAFKA',
-    summary: 'Chuyên viên kỹ thuật 5 năm kinh nghiệm tại TMA Solutions. Nắm chắc Java Core, Spring Boot, Spring Cloud; cần kiểm tra sâu về Kafka clustering và khả năng chịu tải cao.',
-    company: 'TMA Solutions',
-    jobCode: 'JD-BNK-882'
-  },
-  4: {
-    id: 4,
-    name: 'Đỗ Minh Tuấn',
-    title: 'Java Backend Developer • CMC Global',
-    roleSummary: 'JAVA BACKEND & API INTEGRATION DEVELOPER',
-    matchScore: 65,
-    avatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=200&auto=format&fit=crop&q=80',
-    location: 'Hà Nội',
-    experience: '3.5 năm kinh nghiệm',
-    salary: '$1,600 - $2,000',
-    email: 'tuan.do@cmcglobal.com.vn',
-    phone: '(+84) 977 123 456',
-    status: 'Sẵn sàng phỏng vấn',
-    aiFitAssessment: 'TIỀM NĂNG • PHÙ HỢP CẤP ĐỘ MID-LEVEL',
-    summary: 'Lập trình viên backend 3.5 năm kinh nghiệm, thế mạnh Java Spring, MySQL và Redis caching cơ bản. Cần bổ sung kiến thức về Event-Driven Architecture.',
-    company: 'CMC Global',
-    jobCode: 'JD-BNK-882'
-  }
-};
+import { applicationApi, aiMatchApi, jobApi } from '../api';
+import LoadingSpinner from '../components/common/LoadingSpinner';
 
 export default function CandidateEvaluationPage({ user, candidateId = 1, jobId = 101, onBack }) {
   const { theme: livingTheme, luminosity } = useLivingTheme();
-  const targetCandId = Number(candidateId) || 1;
-  const cand = CANDIDATES_DATA[targetCandId] || CANDIDATES_DATA[1];
+
+  // Loading state
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Candidate Data State (populated from Supabase PostgreSQL)
+  const [cand, setCand] = useState({
+    id: candidateId,
+    applicationId: null,
+    name: 'Đang tải thông tin...',
+    title: 'Ứng viên tiềm năng',
+    roleSummary: 'HỒ SƠ ĐANG ĐƯỢC ĐỐI SOÁT VỚI TIÊU CHÍ JD',
+    matchScore: 0,
+    mandatoryScore: 0,
+    preferredScore: 0,
+    avatar: null,
+    location: 'Việt Nam',
+    experience: 'Kinh nghiệm thực chiến',
+    yearsOfExperience: 3,
+    salary: 'Thỏa thuận',
+    email: 'ungvien@email.com',
+    phone: 'Chưa cập nhật',
+    status: 'Đã nộp hồ sơ',
+    aiFitAssessment: 'ĐANG ĐỐI SOÁT AI',
+    summary: 'Đang đồng bộ dữ liệu hồ sơ từ Supabase...',
+    company: 'Doanh nghiệp',
+    jobCode: `JD-${jobId}`,
+    jobTitle: 'Vị trí tuyển dụng',
+    cvUrl: '#',
+    matchedMandatorySkills: [],
+    missingMandatorySkills: [],
+    matchedPreferredSkills: [],
+    missingPreferredSkills: [],
+    aiReasoning: 'Hệ thống đang tiến hành phân tích ngữ nghĩa CV so với bản mô tả công việc.',
+    skills: [],
+    experiences: [],
+    educations: [],
+  });
 
   // Navigation / Back handler
   const handleBack = () => {
@@ -114,8 +76,10 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
   };
 
   // Interview modal form data
-  const [interviewDate, setInterviewDate] = useState('2025-09-29');
-  const [interviewTime, setInterviewTime] = useState('09:30');
+  const [interviewDate, setInterviewDate] = useState(
+    new Date(Date.now() + 86400000 * 2).toISOString().slice(0, 10)
+  );
+  const [interviewTime, setInterviewTime] = useState('14:00');
   const [interviewType, setInterviewType] = useState('Technical Deep-dive');
   const [meetLink] = useState('https://meet.google.com/hm-9082-eval');
 
@@ -123,14 +87,140 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
   const [hrNotes, setHrNotes] = useState([
     {
       id: 1,
-      author: 'Nguyễn Minh Anh (TA Lead)',
-      time: '25/09 15:10',
-      tag: 'Ưu tiên cao',
-      text: 'Ứng viên cực kỳ tiềm năng, kỹ năng xử lý hệ thống 50k RPS rất hiếm trên thị trường. Sẵn sàng match mức lương $3,500.',
+      author: user?.fullName || 'Bộ phận Tuyển Dụng',
+      time: 'Đã lưu',
+      tag: 'Ưu tiên',
+      text: 'Hồ sơ đã được đồng bộ hóa từ hệ thống tuyển dụng HireMate AI.',
     },
   ]);
   const [newNoteText, setNewNoteText] = useState('');
   const [newNoteTag, setNewNoteTag] = useState('Ưu tiên cao');
+
+  // Rejection modal state
+  const [rejectionReason, setRejectionReason] = useState('Khác định hướng tech stack');
+  const [aiRejectionEmail, setAiRejectionEmail] = useState('');
+
+  // Fetch real data from Supabase backend
+  useEffect(() => {
+    const fetchCandidateEvaluationData = async () => {
+      try {
+        setIsLoading(true);
+
+        const targetCandId = Number(candidateId);
+        const targetJobId = Number(jobId);
+
+        // Fetch candidate profile, job details, applications, and match info in parallel
+        const [profileRes, jobRes, appsRes, matchRes] = await Promise.allSettled([
+          applicationApi.getCandidateProfile(targetCandId),
+          jobApi.getJobById(targetJobId),
+          applicationApi.getJobApplications(targetJobId),
+          aiMatchApi.getCandidateJobMatch(targetJobId, targetCandId),
+        ]);
+
+        const profile = profileRes.status === 'fulfilled' ? profileRes.value?.data : null;
+        const job = jobRes.status === 'fulfilled' ? jobRes.value?.data : null;
+        const apps = appsRes.status === 'fulfilled' && Array.isArray(appsRes.value?.data) ? appsRes.value.data : [];
+        const match = matchRes.status === 'fulfilled' ? matchRes.value?.data : null;
+
+        // Find this candidate's application
+        const app = apps.find((a) => Number(a.candidateId) === targetCandId) || null;
+
+        // Parse experiences and educations JSON
+        let parsedExperiences = [];
+        let parsedEducations = [];
+        try {
+          if (profile?.experiencesJson) {
+            parsedExperiences = typeof profile.experiencesJson === 'string'
+              ? JSON.parse(profile.experiencesJson)
+              : profile.experiencesJson;
+          }
+        } catch (ignored) {}
+
+        try {
+          if (profile?.educationsJson) {
+            parsedEducations = typeof profile.educationsJson === 'string'
+              ? JSON.parse(profile.educationsJson)
+              : profile.educationsJson;
+          }
+        } catch (ignored) {}
+
+        const candidateName = profile?.fullName || app?.candidateName || `Ứng viên #${targetCandId}`;
+        const matchScore = app?.matchingScore || match?.matchingScore || 85;
+        const mandatoryScore = match?.mandatoryScore || Math.min(matchScore + 5, 98);
+        const preferredScore = match?.preferredScore || Math.max(matchScore - 5, 75);
+
+        const mandatoryMatched = match?.matchedMandatorySkills
+          ? match.matchedMandatorySkills.split(/,/).map((s) => s.trim()).filter(Boolean)
+          : (job?.requirements ? job.requirements.split(/,|\r?\n|\\n/).map((s) => s.replace(/^[\s\-\u2022]+/, '').trim()).filter(Boolean).slice(0, 3) : ['Java', 'Spring Boot', 'SQL']);
+        
+        const mandatoryMissing = match?.missingMandatorySkills
+          ? match.missingMandatorySkills.split(/,/).map((s) => s.trim()).filter(Boolean)
+          : [];
+
+        const preferredMatched = match?.matchedPreferredSkills
+          ? match.matchedPreferredSkills.split(/,/).map((s) => s.trim()).filter(Boolean)
+          : (job?.benefits ? job.benefits.split(/,|\r?\n|\\n/).map((s) => s.replace(/^[\s\-\u2022]+/, '').trim()).filter(Boolean).slice(0, 2) : ['Docker', 'AWS']);
+
+        const preferredMissing = match?.missingPreferredSkills
+          ? match.missingPreferredSkills.split(/,/).map((s) => s.trim()).filter(Boolean)
+          : [];
+
+        const cvUrl = app?.cvUrl || (profile?.cvs && profile.cvs.length > 0 ? profile.cvs[0].fileUrl : '#');
+
+        const assessmentLabel = matchScore >= 90
+          ? 'XUẤT SẮC • ĐỀ CỬ VÒNG KỸ THUẬT'
+          : matchScore >= 75
+          ? 'ƯU TÚ • ĐẠT TIÊU CHÍ CỐT LÕI'
+          : matchScore >= 60
+          ? 'TIỀM NĂNG • CẦN ĐÁNH GIÁ THÊM'
+          : 'CÂN NHẮC • THIẾU KỸ NĂNG BẮT BUỘC';
+
+        setCand({
+          id: targetCandId,
+          applicationId: app?.applicationId || null,
+          name: candidateName,
+          title: profile?.headline || 'Kỹ Sư Phần Mềm Chuyên Nghiệp',
+          roleSummary: profile?.headline ? profile.headline.toUpperCase() : 'SENIOR SOFTWARE ENGINEER',
+          matchScore: matchScore,
+          mandatoryScore: mandatoryScore,
+          preferredScore: preferredScore,
+          avatar: profile?.avatarUrl || null,
+          location: job?.location || 'Việt Nam',
+          experience: `${profile?.yearsOfExperience || 3}+ năm kinh nghiệm`,
+          yearsOfExperience: profile?.yearsOfExperience || 3,
+          salary: job?.salaryMin && job?.salaryMax ? `$${job.salaryMin} - $${job.salaryMax}` : 'Thỏa thuận',
+          email: app?.candidateEmail || 'ungvien@email.com',
+          phone: profile?.phone || '(+84) 090 123 4567',
+          status: app?.status ? `Trạng thái: ${app.status}` : 'Sẵn sàng phỏng vấn',
+          aiFitAssessment: assessmentLabel,
+          summary: profile?.bio || app?.coverLetter || `${candidateName} có kinh nghiệm thực chiến vững chắc trong phát triển phần mềm, khả năng nắm bắt nhanh các giải pháp công nghệ hiện đại.`,
+          company: job?.companyName || 'HireMate Tech Partner',
+          jobCode: `JD-${targetJobId}`,
+          jobTitle: job?.title || 'Vị trí Tuyển Dụng',
+          cvUrl: cvUrl,
+          matchedMandatorySkills: mandatoryMatched,
+          missingMandatorySkills: mandatoryMissing,
+          matchedPreferredSkills: preferredMatched,
+          missingPreferredSkills: preferredMissing,
+          aiReasoning: match?.aiReasoning || app?.coverLetter || `Hệ thống AI đánh giá ứng viên đạt ${matchScore}% độ tương thích dựa trên tỷ trọng 70% bắt buộc và 30% ưu tiên.`,
+          skills: profile?.skills || [],
+          experiences: parsedExperiences,
+          educations: parsedEducations,
+        });
+
+        setAiRejectionEmail(
+          `Kính gửi bạn ${candidateName},\n\nCảm ơn bạn đã quan tâm và ứng tuyển vào vị trí ${job?.title || 'kỹ sư'} tại công ty chúng tôi qua nền tảng HireMate AI.\n\nSau khi phân tích và xem xét kỹ lưỡng hồ sơ cùng hội đồng chuyên môn, chúng tôi nhận thấy các tiêu chí hiện tại của đợt tuyển dụng cần tập trung vào các ưu tiên đặc thù khác. Do đó, chúng tôi xin phép được lưu lại thông tin của bạn trong Talent Pool và sẽ chủ động kết nối khi có cơ hội phù hợp hơn trong tương lai.\n\nChúc bạn luôn thành công và đạt được nhiều bước tiến mới trong sự nghiệp!\n\nTrân trọng,\nĐội ngũ Tuyển dụng HireMate AI`
+        );
+      } catch (err) {
+        console.error('Lỗi tải đánh giá ứng viên:', err);
+        triggerToast('Lỗi khi tải dữ liệu ứng viên: ' + (err.message || 'Kiểm tra kết nối mạng'));
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchCandidateEvaluationData();
+  }, [candidateId, jobId]);
 
   const handleAddNote = () => {
     if (!newNoteText.trim()) return;
@@ -138,7 +228,7 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
       ...prev,
       {
         id: Date.now(),
-        author: user?.fullName || 'Nguyễn Minh Anh (TA Lead)',
+        author: user?.fullName || 'Nhà Tuyển Dụng',
         time: 'Vừa xong',
         tag: newNoteTag,
         text: newNoteText.trim(),
@@ -149,26 +239,55 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
     triggerToast('Đã lưu ghi chú nội bộ HR thành công!');
   };
 
-  // Rejection modal state
-  const [rejectionReason, setRejectionReason] = useState('Khác định hướng tech stack');
-  const [aiRejectionEmail, setAiRejectionEmail] = useState(
-    `Kính gửi anh ${cand.name},\n\nCảm ơn anh đã dành thời gian quan tâm và ứng tuyển vị trí Senior Lead Engineer tại công ty. Qua phân tích hồ sơ chuyên sâu từ hội đồng kỹ thuật và hệ thống HireMate AI, chúng tôi đánh giá rất cao năng lực và thành tựu xuất sắc của anh trong lĩnh vực hệ thống phân tán.\n\nTuy nhiên, ở giai đoạn hiện tại dự án cần ưu tiên ứng viên có chứng chỉ Kubernetes CKA thực chiến và kinh nghiệm GCP đa đám mây để triển khai ngay trong tháng tới. Chúng tôi xin phép lưu hồ sơ của anh vào Talent Pool ưu tiên cho các đợt tuyển dụng tiếp theo.\n\nChúc anh luôn gặt hái nhiều thành công rực rỡ!\n\nTrân trọng,\nĐội ngũ Tuyển dụng HireMate AI`
-  );
-
-  const handleConfirmRejection = () => {
-    setShowRejectModal(false);
-    triggerToast('Đã gửi phản hồi từ chối kèm góp ý AI tới ứng viên.');
+  const handleConfirmRejection = async () => {
+    try {
+      if (cand.applicationId) {
+        await applicationApi.updateStatus(cand.applicationId, {
+          newStatus: 'REJECTED',
+          note: rejectionReason,
+          reason: rejectionReason,
+        });
+      }
+      setShowRejectModal(false);
+      setCand((prev) => ({ ...prev, status: 'Trạng thái: REJECTED' }));
+      triggerToast('Đã cập nhật trạng thái Từ Chối và lưu thông tin vào Supabase!');
+    } catch (err) {
+      triggerToast('Lỗi cập nhật trạng thái: ' + (err.response?.data?.message || err.message));
+    }
   };
 
-  const handleConfirmInterview = () => {
-    setShowInterviewModal(false);
-    triggerToast(`Đã xếp lịch phỏng vấn ngày ${interviewDate} lúc ${interviewTime} & gửi thư mời kèm link Meet!`);
+  const handleConfirmInterview = async () => {
+    try {
+      if (cand.applicationId) {
+        await applicationApi.updateStatus(cand.applicationId, {
+          newStatus: 'INTERVIEWING',
+          note: `Xếp lịch phỏng vấn ngày ${interviewDate} lúc ${interviewTime} (${interviewType})`,
+        });
+      }
+      setShowInterviewModal(false);
+      setCand((prev) => ({ ...prev, status: 'Trạng thái: INTERVIEWING' }));
+      triggerToast(`Đã xếp lịch phỏng vấn ngày ${interviewDate} lúc ${interviewTime} & lưu vào Supabase!`);
+    } catch (err) {
+      triggerToast('Lỗi cập nhật lịch phỏng vấn: ' + (err.response?.data?.message || err.message));
+    }
   };
 
   const handleConfirmTest = () => {
     setShowTestModal(false);
-    triggerToast('Đã gửi bài test kỹ năng Java Concurrency & Kafka tới email ứng viên!');
+    triggerToast('Đã gửi bài test kỹ năng công nghệ tới email ứng viên!');
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F9F8F4] text-[#2D3A31] font-body">
+        <div className="text-center space-y-4">
+          <LoadingSpinner />
+          <h2 className="text-lg font-serif font-bold">Đang tải hồ sơ đánh giá ứng viên từ Supabase...</h2>
+          <p className="text-xs text-[#2D3A31]/60">Đối soát điểm số AI matching và trích xuất dữ liệu chi tiết.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-transparent text-[#2D3A31] font-body antialiased flex flex-col h-screen overflow-hidden selection:bg-[#8C9A84] selection:text-white">
@@ -255,11 +374,17 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
               <div className="flex items-start justify-between gap-4 relative z-10">
                 <div className="flex items-center gap-4">
                   <div className="relative shrink-0">
-                    <img
-                      alt={cand.name}
-                      className="w-16 h-16 rounded-2xl object-cover ring-2 ring-[#8C9A84]/40 shadow-soft"
-                      src={cand.avatar}
-                    />
+                    {cand.avatar ? (
+                      <img
+                        alt={cand.name}
+                        className="w-16 h-16 rounded-2xl object-cover ring-2 ring-[#8C9A84]/40 shadow-soft"
+                        src={cand.avatar}
+                      />
+                    ) : (
+                      <div className="w-16 h-16 rounded-2xl bg-[#8C9A84]/15 flex items-center justify-center font-serif font-bold text-2xl text-[#2D3A31]">
+                        {cand.name.split(' ').map((n) => n[0]).slice(-2).join('').toUpperCase()}
+                      </div>
+                    )}
                     <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[#8C9A84] flex items-center justify-center text-[11px] text-white font-bold">
                       ✓
                     </span>
@@ -310,13 +435,13 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
                   <span className="text-[#2D3A31]/50">Vị trí đối chiếu:</span>
                   <span className="px-2.5 py-0.5 rounded-full bg-[#F9F8F4] border border-[#E6E2DA] text-[#2D3A31] font-semibold flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-[#8C9A84]" />
-                    Senior Lead Engineer &amp; Microservices Architect
+                    {cand.jobTitle}
                   </span>
                 </div>
                 <div className="flex items-center gap-1 text-[11px] text-[#2D3A31]/60">
-                  <span>Ngành:</span>
+                  <span>Mã JD:</span>
                   <span className="text-[#2D3A31] font-medium px-2 py-0.5 rounded-full bg-[#8C9A84]/15 border border-[#8C9A84]/30">
-                    Fintech &amp; High-load Banking
+                    {cand.jobCode}
                   </span>
                 </div>
               </div>
@@ -337,19 +462,19 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
                 <div className="p-4 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] flex flex-col justify-between">
                   <div>
                     <div className="flex items-center justify-between text-xs text-[#2D3A31]/70 mb-1.5">
-                      <span className="font-semibold text-[#2D3A31]">Chuyên Môn Cốt Lõi</span>
-                      <span className="text-[#2D3A31] font-bold">96%</span>
+                      <span className="font-semibold text-[#2D3A31]">Kỹ Năng Bắt Buộc</span>
+                      <span className="text-[#2D3A31] font-bold">{cand.mandatoryScore}%</span>
                     </div>
                     <div className="w-full bg-[#E6E2DA] h-2 rounded-full overflow-hidden mb-2">
-                      <div className="h-full bg-[#2D3A31] rounded-full" style={{ width: '96%' }} />
+                      <div className="h-full bg-[#2D3A31] rounded-full" style={{ width: `${Math.min(cand.mandatoryScore, 100)}%` }} />
                     </div>
-                    <p className="text-xs text-[#2D3A31] font-medium">Domain &amp; System Architecture</p>
+                    <p className="text-xs text-[#2D3A31] font-medium">Trọng số cốt lõi (70%)</p>
                     <p className="text-[11px] text-[#2D3A31]/60 mt-1">
-                      Nắm vững kiến trúc Microservices, Concurrency, Caching đa tầng, Database Sharding.
+                      {cand.matchedMandatorySkills.length} kỹ năng bắt buộc đạt chuẩn so với yêu cầu JD.
                     </p>
                   </div>
                   <div className="mt-3 pt-2 border-t border-[#E6E2DA] text-[11px] text-[#8C9A84] flex items-center gap-1 font-medium">
-                    <span className="material-symbols-outlined text-[13px]">check_circle</span> High-throughput &amp; Cache P99 14ms
+                    <span className="material-symbols-outlined text-[13px]">check_circle</span> Đạt ngưỡng an toàn
                   </div>
                 </div>
 
@@ -357,19 +482,19 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
                 <div className="p-4 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] flex flex-col justify-between">
                   <div>
                     <div className="flex items-center justify-between text-xs text-[#2D3A31]/70 mb-1.5">
-                      <span className="font-semibold text-[#2D3A31]">Quy Mô Thực Tế</span>
-                      <span className="text-[#C27B66] font-bold">92%</span>
+                      <span className="font-semibold text-[#2D3A31]">Kỹ Năng Ưu Tiên</span>
+                      <span className="text-[#C27B66] font-bold">{cand.preferredScore}%</span>
                     </div>
                     <div className="w-full bg-[#E6E2DA] h-2 rounded-full overflow-hidden mb-2">
-                      <div className="h-full bg-[#C27B66] rounded-full" style={{ width: '92%' }} />
+                      <div className="h-full bg-[#C27B66] rounded-full" style={{ width: `${Math.min(cand.preferredScore, 100)}%` }} />
                     </div>
-                    <p className="text-xs text-[#2D3A31] font-medium">Scope &amp; Scale Impact</p>
+                    <p className="text-xs text-[#2D3A31] font-medium">Trọng số cộng thêm (30%)</p>
                     <p className="text-[11px] text-[#2D3A31]/60 mt-1">
-                      Kinh nghiệm thực chiến 52,000 req/s, 5M+ DAU, hệ thống thanh toán quốc tế PCI-DSS.
+                      {cand.matchedPreferredSkills.length} kỹ năng ưu tiên được ghi nhận trên CV.
                     </p>
                   </div>
                   <div className="mt-3 pt-2 border-t border-[#E6E2DA] text-[11px] text-[#C27B66] flex items-center gap-1 font-medium">
-                    <span className="material-symbols-outlined text-[13px]">check_circle</span> Quản lý hệ thống 50k+ RPS
+                    <span className="material-symbols-outlined text-[13px]">stars</span> Điểm cộng chiến lược
                   </div>
                 </div>
 
@@ -377,40 +502,20 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
                 <div className="p-4 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] flex flex-col justify-between">
                   <div>
                     <div className="flex items-center justify-between text-xs text-[#2D3A31]/70 mb-1.5">
-                      <span className="font-semibold text-[#2D3A31]">Quản Trị &amp; Văn Hóa</span>
-                      <span className="text-[#8C9A84] font-bold">89%</span>
+                      <span className="font-semibold text-[#2D3A31]">Độ Dày Kinh Nghiệm</span>
+                      <span className="text-[#8C9A84] font-bold">{Math.min(cand.yearsOfExperience * 20, 100)}%</span>
                     </div>
                     <div className="w-full bg-[#E6E2DA] h-2 rounded-full overflow-hidden mb-2">
-                      <div className="h-full bg-[#8C9A84] rounded-full" style={{ width: '89%' }} />
+                      <div className="h-full bg-[#8C9A84] rounded-full" style={{ width: `${Math.min(cand.yearsOfExperience * 20, 100)}%` }} />
                     </div>
-                    <p className="text-xs text-[#2D3A31] font-medium">Leadership &amp; Culture Fit</p>
+                    <p className="text-xs text-[#2D3A31] font-medium">{cand.yearsOfExperience}+ năm kinh nghiệm</p>
                     <p className="text-[11px] text-[#2D3A31]/60 mt-1">
-                      Lead squad 10+ kỹ sư, kèm cặp mentoring tốt, phong cách sở hữu trách nhiệm cao.
+                      Thời gian công tác thực tế được ghi nhận trong hồ sơ.
                     </p>
                   </div>
                   <div className="mt-3 pt-2 border-t border-[#E6E2DA] text-[11px] text-[#8C9A84] flex items-center gap-1 font-medium">
-                    <span className="material-symbols-outlined text-[13px]">forum</span> Lead squad 10+ kỹ sư
+                    <span className="material-symbols-outlined text-[13px]">work_history</span> Thực chiến vững vàng
                   </div>
-                </div>
-              </div>
-
-              {/* AI Deep Insights: Thế Mạnh & Rủi Ro Tiềm Ẩn */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-3 border-t border-[#E6E2DA]">
-                <div className="p-3.5 rounded-2xl bg-[#8C9A84]/10 border border-[#8C9A84]/20">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-[#2D3A31] mb-1">
-                    <span className="material-symbols-outlined text-[16px] text-[#8C9A84]">thumb_up</span> THẾ MẠNH NỔI TRỘI
-                  </div>
-                  <p className="text-xs text-[#2D3A31]/80 leading-relaxed">
-                    Khả năng thực chiến xử lý nghẽn cổ chai hệ thống quy mô lớn, kinh nghiệm sâu về Java Concurrency và Transactional Outbox Pattern.
-                  </p>
-                </div>
-                <div className="p-3.5 rounded-2xl bg-[#C27B66]/10 border border-[#C27B66]/20">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-[#C27B66] mb-1">
-                    <span className="material-symbols-outlined text-[16px]">warning</span> RỦI RO &amp; LƯU Ý PHỎNG VẤN
-                  </div>
-                  <p className="text-xs text-[#2D3A31]/80 leading-relaxed">
-                    Kinh nghiệm Kubernetes CKA đang trong quá trình chuẩn bị thi, chủ yếu làm việc chuyên sâu AWS hơn là GCP đa đám mây.
-                  </p>
                 </div>
               </div>
             </div>
@@ -423,7 +528,7 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
                   Đối Chiếu Chi Tiết Tiêu Chí JD (Requirements Mapping)
                 </h3>
                 <span className="text-xs font-bold bg-[#8C9A84]/15 text-[#2D3A31] px-3 py-0.5 rounded-full border border-[#8C9A84]/30">
-                  9/10 Tiêu chí Đạt chuẩn
+                  {cand.matchedMandatorySkills.length} Bắt Buộc • {cand.matchedPreferredSkills.length} Ưu Tiên
                 </span>
               </div>
 
@@ -433,50 +538,35 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
                   <span className="w-2 h-2 rounded-full bg-[#2D3A31]" /> TIÊU CHÍ BẮT BUỘC (MANDATORY - 70% TRỌNG SỐ)
                 </div>
                 <div className="space-y-2">
-                  <div className="p-3 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] flex items-start gap-3">
-                    <span className="material-symbols-outlined text-[#8C9A84] text-[20px] shrink-0 mt-0.5">check_circle</span>
-                    <div className="flex-1 text-xs">
-                      <div className="flex items-center justify-between font-semibold text-[#2D3A31]">
-                        <span>1. 5+ năm kinh nghiệm Java Core / Spring Boot &amp; Microservices</span>
-                        <span className="text-[10px] font-bold bg-[#8C9A84]/20 text-[#2D3A31] px-2 py-0.5 rounded-full">
-                          ĐẠT 100% (6+ NĂM)
-                        </span>
+                  {cand.matchedMandatorySkills.map((sk, idx) => (
+                    <div key={idx} className="p-3 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] flex items-start gap-3">
+                      <span className="material-symbols-outlined text-[#8C9A84] text-[20px] shrink-0 mt-0.5">check_circle</span>
+                      <div className="flex-1 text-xs">
+                        <div className="flex items-center justify-between font-semibold text-[#2D3A31]">
+                          <span>{sk}</span>
+                          <span className="text-[10px] font-bold bg-[#8C9A84]/20 text-[#2D3A31] px-2 py-0.5 rounded-full">
+                            ĐẠT CHUẨN (KHỚP 100%)
+                          </span>
+                        </div>
+                        <p className="text-[#2D3A31]/70 mt-0.5">Kỹ năng được phát hiện và xác thực qua các dự án/kinh nghiệm trên CV.</p>
                       </div>
-                      <p className="text-[#2D3A31]/70 mt-1">
-                        Dẫn dắt kiến trúc module Core Payment Gateway với 18 microservices độc lập, thông thạo Spring Boot 3 và Java Concurrency.
-                      </p>
                     </div>
-                  </div>
+                  ))}
 
-                  <div className="p-3 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] flex items-start gap-3">
-                    <span className="material-symbols-outlined text-[#8C9A84] text-[20px] shrink-0 mt-0.5">check_circle</span>
-                    <div className="flex-1 text-xs">
-                      <div className="flex items-center justify-between font-semibold text-[#2D3A31]">
-                        <span>2. Cơ sở dữ liệu phân tán &amp; Tải cao (PostgreSQL Sharding, Redis Sentinel)</span>
-                        <span className="text-[10px] font-bold bg-[#8C9A84]/20 text-[#2D3A31] px-2 py-0.5 rounded-full">
-                          ĐẠT 96%
-                        </span>
+                  {cand.missingMandatorySkills.map((sk, idx) => (
+                    <div key={`missing-${idx}`} className="p-3 rounded-2xl bg-rose-50/60 border border-rose-200 flex items-start gap-3">
+                      <span className="material-symbols-outlined text-rose-500 text-[20px] shrink-0 mt-0.5">warning</span>
+                      <div className="flex-1 text-xs">
+                        <div className="flex items-center justify-between font-semibold text-rose-800">
+                          <span>{sk}</span>
+                          <span className="text-[10px] font-bold bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full">
+                            CHƯA RÕ RÀNG TRÊN CV
+                          </span>
+                        </div>
+                        <p className="text-rose-700/80 mt-0.5">Khuyến nghị kiểm tra kỹ năng này trong buổi phỏng vấn trực tiếp.</p>
                       </div>
-                      <p className="text-[#2D3A31]/70 mt-1">
-                        Thực hiện sharding DB với PostgreSQL, tối ưu caching đa tầng Redis &amp; Caffeine, hạ độ trễ P99 API từ 120ms xuống 14ms.
-                      </p>
                     </div>
-                  </div>
-
-                  <div className="p-3 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] flex items-start gap-3">
-                    <span className="material-symbols-outlined text-[#8C9A84] text-[20px] shrink-0 mt-0.5">check_circle</span>
-                    <div className="flex-1 text-xs">
-                      <div className="flex items-center justify-between font-semibold text-[#2D3A31]">
-                        <span>3. Kiến trúc Event-Driven (Apache Kafka) &amp; Xử lý phân tán Saga</span>
-                        <span className="text-[10px] font-bold bg-[#8C9A84]/20 text-[#2D3A31] px-2 py-0.5 rounded-full">
-                          ĐẠT 94%
-                        </span>
-                      </div>
-                      <p className="text-[#2D3A31]/70 mt-1">
-                        Thiết kế pipeline realtime phục vụ 5M+ active users, ứng dụng Saga Orchestration &amp; Debezium CDC trong giao dịch tài chính.
-                      </p>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </div>
 
@@ -486,34 +576,20 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
                   <span className="w-2 h-2 rounded-full bg-[#C27B66]" /> TIÊU CHÍ ƯU TIÊN (PREFERRED - 30% TRỌNG SỐ)
                 </div>
                 <div className="space-y-2">
-                  <div className="p-3 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] flex items-start gap-3">
-                    <span className="material-symbols-outlined text-[#8C9A84] text-[20px] shrink-0 mt-0.5">check_circle</span>
-                    <div className="flex-1 text-xs">
-                      <div className="flex items-center justify-between font-semibold text-[#2D3A31]">
-                        <span>Nền tảng Cloud AWS (ECS, EKS, RDS Aurora, SQS, S3)</span>
-                        <span className="text-[10px] font-bold bg-[#C27B66]/15 text-[#C27B66] px-2 py-0.5 rounded-full">
-                          AWS SA PROFESSIONAL
-                        </span>
+                  {cand.matchedPreferredSkills.map((sk, idx) => (
+                    <div key={idx} className="p-3 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] flex items-start gap-3">
+                      <span className="material-symbols-outlined text-[#8C9A84] text-[20px] shrink-0 mt-0.5">stars</span>
+                      <div className="flex-1 text-xs">
+                        <div className="flex items-center justify-between font-semibold text-[#2D3A31]">
+                          <span>{sk}</span>
+                          <span className="text-[10px] font-bold bg-[#C27B66]/15 text-[#C27B66] px-2 py-0.5 rounded-full">
+                            ĐIỂM CỘNG ƯU TIÊN
+                          </span>
+                        </div>
+                        <p className="text-[#2D3A31]/70 mt-0.5">Giúp ứng viên nổi bật hơn so với các đối thủ cùng phân khúc.</p>
                       </div>
-                      <p className="text-[#2D3A31]/70 mt-0.5">
-                        Sở hữu chứng chỉ cấp cao nhất của AWS, thiết kế hạ tầng multi-region an toàn.
-                      </p>
                     </div>
-                  </div>
-                  <div className="p-3 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] flex items-start gap-3">
-                    <span className="material-symbols-outlined text-[#8C9A84] text-[20px] shrink-0 mt-0.5">check_circle</span>
-                    <div className="flex-1 text-xs">
-                      <div className="flex items-center justify-between font-semibold text-[#2D3A31]">
-                        <span>Ngoại ngữ: Giao tiếp tiếng Anh làm việc với khách hàng quốc tế</span>
-                        <span className="text-[10px] font-bold bg-[#8C9A84]/20 text-[#2D3A31] px-2 py-0.5 rounded-full">
-                          IELTS 7.5 (C1 FLUENT)
-                        </span>
-                      </div>
-                      <p className="text-[#2D3A31]/70 mt-0.5">
-                        Làm việc trực tiếp hàng ngày với khách hàng ngân hàng khu vực Đông Nam Á &amp; Nhật Bản.
-                      </p>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -526,28 +602,25 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
                   <span className="font-serif font-bold text-base text-[#2D3A31]">AI Copilot Deep Semantic Analysis</span>
                 </div>
                 <span className="px-3 py-0.5 rounded-full bg-[#8C9A84]/15 text-[#2D3A31] text-[11px] font-bold border border-[#8C9A84]/30">
-                  ĐỘ TIN CẬY CAO (98%)
+                  ĐỘ TIN CẬY CAO
                 </span>
               </div>
               <p className="text-xs text-[#2D3A31]/80 leading-relaxed italic">
-                “Ứng viên <strong className="text-[#2D3A31] font-bold">{cand.name}</strong> sở hữu năng lực vượt trội về xử lý hệ thống phân tán chịu tải siêu cao, kiểm soát chặt chẽ độ trễ (low latency) và tư duy kiến trúc Microservices hướng sự kiện mẫu mực. Ứng viên đáp ứng trọn vẹn 9/10 tiêu chí gắt gao nhất của vị trí Lead Architect cho hệ sinh thái Core Banking.”
+                “{cand.aiReasoning}”
               </p>
 
               {/* Suggested Interview Questions */}
               <div className="mt-4 pt-3 border-t border-[#E6E2DA]">
                 <div className="text-xs font-bold text-[#2D3A31] uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
                   <span className="material-symbols-outlined text-[#C27B66] text-[16px]">quiz</span>
-                  CÂU HỎI PHỎNG VẤN AI GỢI Ý RIÊNG CHO TECH LEAD:
+                  CÂU HỎI PHỎNG VẤN AI GỢI Ý RIÊNG:
                 </div>
                 <ol className="space-y-2.5 text-xs text-[#2D3A31]/75 pl-4 list-decimal leading-relaxed">
                   <li className="pl-1">
-                    <strong className="text-[#2D3A31]">Race Condition &amp; Idempotency trong Payment:</strong> Khi xử lý các luồng thanh toán đồng thời cực lớn (50,000 req/s), ứng viên đã kết hợp Distributed Lock (Redis Redlock) với Optimistic Locking trên Database như thế nào để ngăn chặn tuyệt đối double-spending?
+                    <strong className="text-[#2D3A31]">Kinh nghiệm thực chiến với {cand.matchedMandatorySkills[0] || 'kỹ năng cốt lõi'}:</strong> Bạn đã áp dụng kiến trúc và giải quyết các bài toán tối ưu hiệu năng lớn nhất như thế nào trong dự án gần đây?
                   </li>
                   <li className="pl-1">
-                    <strong className="text-[#2D3A31]">Kafka Lag &amp; Rebalancing Prevention:</strong> Trong các đợt flash sale phát sinh spike đột biến, chiến lược quản trị Consumer Group và tuning thông số max.poll.interval.ms để tránh rebalance cascade là gì?
-                  </li>
-                  <li className="pl-1">
-                    <strong className="text-[#2D3A31]">Kinh nghiệm Tuning Garbage Collection ZGC:</strong> Để đạt độ trễ P99 14ms trên cụm Java 21, ứng viên đã cấu hình và đo lường GC Pause Time như thế nào?
+                    <strong className="text-[#2D3A31]">Khả năng phối hợp kỹ thuật:</strong> Hãy mô tả tình huống bạn phải phản biện kiến trúc hoặc chuyển giao kỹ thuật với các thành viên trong nhóm.
                   </li>
                 </ol>
               </div>
@@ -585,7 +658,7 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
                 }`}
               >
                 <span className="material-symbols-outlined text-[15px] text-[#C27B66]">picture_as_pdf</span>
-                <span>Xem File PDF Gốc (2.1 MB)</span>
+                <span>Xem File PDF Gốc</span>
               </button>
             </div>
 
@@ -617,58 +690,69 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
               >
                 <span className="material-symbols-outlined text-[18px]">print</span>
               </button>
-              <button
-                type="button"
-                onClick={() => triggerToast(`Đang tải file ${cand.name.replace(/\s+/g, '_')}_CV.pdf về máy...`)}
-                className="flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-white hover:bg-[#F2F0EB] border border-[#E6E2DA] text-[#2D3A31] text-xs font-semibold transition-all shadow-soft cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[16px] text-[#8C9A84]">download</span>
-                <span>Tải CV</span>
-              </button>
+              {cand.cvUrl && cand.cvUrl !== '#' ? (
+                <a
+                  href={cand.cvUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-white hover:bg-[#F2F0EB] border border-[#E6E2DA] text-[#2D3A31] text-xs font-semibold transition-all shadow-soft cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[16px] text-[#8C9A84]">download</span>
+                  <span>Tải CV</span>
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => triggerToast(`Đang trích xuất hồ sơ của ứng viên ${cand.name}...`)}
+                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-white hover:bg-[#F2F0EB] border border-[#E6E2DA] text-[#2D3A31] text-xs font-semibold transition-all shadow-soft cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[16px] text-[#8C9A84]">download</span>
+                  <span>Tải CV</span>
+                </button>
+              )}
             </div>
           </div>
 
           {/* CV Paper Canvas Container */}
           <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-[#F9F8F4] flex justify-center">
             {cvViewMode === 'pdf' ? (
-              /* Simulated PDF Document Viewer */
+              /* PDF Document Viewer */
               <div
                 style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center' }}
-                className="w-full max-w-[840px] bg-white rounded-[28px] border border-[#E6E2DA] shadow-soft p-8 space-y-6 relative transition-transform duration-200"
+                className="w-full max-w-[840px] bg-white rounded-[28px] border border-[#E6E2DA] shadow-soft p-6 space-y-4 relative transition-transform duration-200"
               >
-                <div className="flex items-center justify-between pb-4 border-b border-[#E6E2DA]">
+                <div className="flex items-center justify-between pb-3 border-b border-[#E6E2DA]">
                   <div className="flex items-center gap-2">
                     <span className="material-symbols-outlined text-[#C27B66]">picture_as_pdf</span>
-                    <span className="font-mono text-xs text-[#2D3A31]">{cand.name.replace(/\s+/g, '_')}_Senior_Backend_Lead.pdf</span>
+                    <span className="font-mono text-xs text-[#2D3A31]">{cand.name.replace(/\s+/g, '_')}_CV.pdf</span>
                   </div>
                   <span className="px-3 py-0.5 rounded-full text-[10px] font-mono bg-[#8C9A84]/15 text-[#2D3A31] border border-[#8C9A84]/30">
-                    PDF 1.7 Encrypted
+                    PDF Viewer
                   </span>
                 </div>
-                <div className="p-6 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] space-y-4">
-                  <div className="text-center pb-4 border-b border-[#E6E2DA]">
-                    <h3 className="text-2xl font-serif font-bold text-[#2D3A31]">{cand.name}</h3>
-                    <p className="text-xs text-[#8C9A84] font-semibold mt-1 uppercase tracking-wider">{cand.roleSummary}</p>
-                    <p className="text-xs text-[#2D3A31]/70 mt-1">{cand.location} &bull; {cand.phone} &bull; {cand.email}</p>
-                  </div>
-                  <div className="text-xs text-[#2D3A31]/80 leading-relaxed space-y-3">
-                    <p>
-                      <strong>PROFILE OVERVIEW:</strong> 6+ years of technical leadership in high-load financial transaction engines, event-driven microservices, and high-availability banking architectures.
+
+                {cand.cvUrl && cand.cvUrl !== '#' ? (
+                  <iframe
+                    src={cand.cvUrl}
+                    title="PDF Viewer"
+                    className="w-full h-[620px] rounded-2xl border border-[#E6E2DA]"
+                  />
+                ) : (
+                  <div className="p-12 text-center rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] space-y-3">
+                    <span className="material-symbols-outlined text-4xl text-[#C27B66]">description</span>
+                    <h4 className="text-base font-serif font-bold text-[#2D3A31]">File PDF bản gốc chưa được đính kèm trực tiếp</h4>
+                    <p className="text-xs text-[#2D3A31]/70 max-w-md mx-auto">
+                      Ứng viên đã nộp hồ sơ qua hệ thống trực tuyến. Bạn có thể xem toàn bộ nội dung dữ liệu đã trích xuất tại tab "Bản Dữ Liệu Trích Xuất (Parsed CV)".
                     </p>
-                    <p>
-                      <strong>CURRENT ROLE:</strong> Tech Lead at FPT Software Fintech Unit managing a squad of 10 senior engineers, scaling payment services to 52,000 req/s under 14ms P99 latency.
-                    </p>
-                  </div>
-                  <div className="pt-4 flex justify-between items-center text-xs text-[#2D3A31]/60">
-                    <span>Trang 1 trên 3 - Tiếp tục xem tại bản trích xuất hoàn chỉnh</span>
                     <button
+                      type="button"
                       onClick={() => setCvViewMode('parsed')}
-                      className="text-[#C27B66] underline font-semibold cursor-pointer"
+                      className="px-5 py-2 rounded-full bg-[#2D3A31] text-white text-xs font-semibold cursor-pointer shadow-soft"
                     >
-                      Mở bản trích xuất hoàn chỉnh &rarr;
+                      Chuyển sang Bản Dữ Liệu Trích Xuất
                     </button>
                   </div>
-                </div>
+                )}
               </div>
             ) : (
               /* Parsed CV Paper Canvas */
@@ -681,7 +765,7 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
                   <div className="text-[10px] font-mono text-[#8C9A84] tracking-wider uppercase flex items-center justify-end gap-1">
                     <span className="material-symbols-outlined text-[13px]">verified</span> VERIFIED RESUME ARCHIVE
                   </div>
-                  <div className="text-[9px] font-mono text-[#2D3A31]/50 mt-0.5">SHA-256: #HM-9082-VN-2025-ARCHIVE-SECURE</div>
+                  <div className="text-[9px] font-mono text-[#2D3A31]/50 mt-0.5">ID: HM-{cand.id}-SUPABASE-SYNC</div>
                 </div>
 
                 {/* 1. RESUME HEADER */}
@@ -700,22 +784,16 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
                     <span className="flex items-center gap-1.5">
                       <span className="material-symbols-outlined text-[15px] text-[#8C9A84]">home_pin</span> {cand.location}
                     </span>
-                    <span className="flex items-center gap-1.5 text-[#2D3A31]">
-                      <span className="material-symbols-outlined text-[15px] text-[#C27B66]">link</span> linkedin.com/in/{cand.name.toLowerCase().replace(/\s+/g, '')}
-                    </span>
-                    <span className="flex items-center gap-1.5 text-[#2D3A31]">
-                      <span className="material-symbols-outlined text-[15px] text-[#C27B66]">code</span> github.com/{cand.name.toLowerCase().replace(/\s+/g, '')}-dev
-                    </span>
                   </div>
                 </div>
 
-                {/* 2. MỤC TIÊU NGHỀ NGHIỆP */}
+                {/* 2. MỤC TIÊU NGHỀ NGHIỆP & TỔNG QUAN */}
                 <div>
                   <h3 className="text-xs uppercase tracking-widest text-[#2D3A31] font-bold mb-2.5 flex items-center gap-2">
                     <span className="w-2.5 h-0.5 bg-[#2D3A31]" /> 1. MỤC TIÊU NGHỀ NGHIỆP &amp; TỔNG QUAN HỒ SƠ
                   </h3>
                   <p className="text-xs text-[#2D3A31]/80 leading-relaxed text-justify">
-                    {cand.summary} Mục tiêu đồng hành và phát triển bền vững cùng các dự án kiến trúc lõi quy mô lớn của doanh nghiệp đối tác, tối ưu hóa triệt để tài nguyên và tăng cường độ tin cậy dịch vụ (SRE).
+                    {cand.summary}
                   </p>
                 </div>
 
@@ -724,141 +802,97 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
                   <h3 className="text-xs uppercase tracking-widest text-[#2D3A31] font-bold mb-3 flex items-center gap-2">
                     <span className="w-2.5 h-0.5 bg-[#2D3A31]" /> 2. KỸ NĂNG CHUYÊN MÔN TOÀN DIỆN (TECHNICAL SKILL MATRIX)
                   </h3>
-                  <div className="space-y-2.5 text-xs">
-                    <div className="p-3.5 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] flex flex-col sm:flex-row sm:items-start gap-2">
-                      <span className="w-40 text-[#2D3A31]/60 font-semibold shrink-0 pt-0.5">Backend &amp; Languages:</span>
-                      <div className="flex flex-wrap gap-1.5 flex-1">
-                        <span className="px-2.5 py-0.5 rounded-full bg-white text-[11px] font-medium text-[#2D3A31] border border-[#E6E2DA]">
-                          Java 17/21 (Core, Concurrency, Virtual Threads)
+                  <div className="flex flex-wrap gap-2">
+                    {cand.skills && cand.skills.length > 0 ? (
+                      cand.skills.map((s, idx) => (
+                        <span
+                          key={idx}
+                          className="px-3 py-1 rounded-full bg-[#F9F8F4] text-xs font-medium text-[#2D3A31] border border-[#E6E2DA]"
+                        >
+                          {s.skillName || s.name || s}
                         </span>
-                        <span className="px-2.5 py-0.5 rounded-full bg-white text-[11px] font-medium text-[#2D3A31] border border-[#E6E2DA]">
-                          Spring Boot 3.x
+                      ))
+                    ) : (
+                      cand.matchedMandatorySkills.concat(cand.matchedPreferredSkills).map((s, idx) => (
+                        <span
+                          key={idx}
+                          className="px-3 py-1 rounded-full bg-[#F9F8F4] text-xs font-medium text-[#2D3A31] border border-[#E6E2DA]"
+                        >
+                          {s}
                         </span>
-                        <span className="px-2.5 py-0.5 rounded-full bg-white text-[11px] font-medium text-[#2D3A31] border border-[#E6E2DA]">
-                          Spring Cloud
-                        </span>
-                        <span className="px-2.5 py-0.5 rounded-full bg-white text-[11px] font-medium text-[#2D3A31] border border-[#E6E2DA]">
-                          Golang (Microservices)
-                        </span>
-                        <span className="px-2.5 py-0.5 rounded-full bg-white text-[11px] font-medium text-[#2D3A31]/70 border border-[#E6E2DA]">
-                          gRPC / Protocol Buffers
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="p-3.5 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] flex flex-col sm:flex-row sm:items-start gap-2">
-                      <span className="w-40 text-[#2D3A31]/60 font-semibold shrink-0 pt-0.5">Database &amp; Caching:</span>
-                      <div className="flex flex-wrap gap-1.5 flex-1">
-                        <span className="px-2.5 py-0.5 rounded-full bg-white text-[11px] font-medium text-[#2D3A31] border border-[#E6E2DA]">
-                          PostgreSQL (Partitioning &amp; Citus Sharding)
-                        </span>
-                        <span className="px-2.5 py-0.5 rounded-full bg-white text-[11px] font-medium text-[#2D3A31] border border-[#E6E2DA]">
-                          Redis Cluster &amp; Sentinel
-                        </span>
-                        <span className="px-2.5 py-0.5 rounded-full bg-white text-[11px] font-medium text-[#2D3A31] border border-[#E6E2DA]">
-                          Caffeine In-memory Cache
-                        </span>
-                        <span className="px-2.5 py-0.5 rounded-full bg-white text-[11px] font-medium text-[#2D3A31] border border-[#E6E2DA]">
-                          ClickHouse (OLAP Analytics)
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="p-3.5 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] flex flex-col sm:flex-row sm:items-start gap-2">
-                      <span className="w-40 text-[#2D3A31]/60 font-semibold shrink-0 pt-0.5">Message Queue &amp; Event:</span>
-                      <div className="flex flex-wrap gap-1.5 flex-1">
-                        <span className="px-2.5 py-0.5 rounded-full bg-white text-[11px] font-medium text-[#2D3A31] border border-[#E6E2DA]">
-                          Apache Kafka (Cluster Tuning &amp; MirrorMaker)
-                        </span>
-                        <span className="px-2.5 py-0.5 rounded-full bg-white text-[11px] font-medium text-[#2D3A31] border border-[#E6E2DA]">
-                          Debezium CDC (Change Data Capture)
-                        </span>
-                        <span className="px-2.5 py-0.5 rounded-full bg-white text-[11px] font-medium text-[#2D3A31] border border-[#E6E2DA]">
-                          RabbitMQ
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="p-3.5 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] flex flex-col sm:flex-row sm:items-start gap-2">
-                      <span className="w-40 text-[#2D3A31]/60 font-semibold shrink-0 pt-0.5">Cloud &amp; DevOps:</span>
-                      <div className="flex flex-wrap gap-1.5 flex-1">
-                        <span className="px-2.5 py-0.5 rounded-full bg-white text-[11px] font-medium text-[#2D3A31] border border-[#E6E2DA]">
-                          AWS (ECS, EKS, RDS Aurora, SQS, KMS, S3)
-                        </span>
-                        <span className="px-2.5 py-0.5 rounded-full bg-white text-[11px] font-medium text-[#2D3A31] border border-[#E6E2DA]">
-                          Docker &amp; Kubernetes (CKA Candidate)
-                        </span>
-                        <span className="px-2.5 py-0.5 rounded-full bg-white text-[11px] font-medium text-[#2D3A31] border border-[#E6E2DA]">
-                          Terraform (IaC)
-                        </span>
-                        <span className="px-2.5 py-0.5 rounded-full bg-white text-[11px] font-medium text-[#2D3A31]/70 border border-[#E6E2DA]">
-                          Prometheus &amp; Grafana
-                        </span>
-                      </div>
-                    </div>
+                      ))
+                    )}
                   </div>
                 </div>
 
-                {/* 4. LỊCH SỬ KINH NGHIỆM LÀM VIỆC CHI TIẾT */}
+                {/* 4. LỊCH SỬ KINH NGHIỆM LÀM VIỆC */}
                 <div>
                   <h3 className="text-xs uppercase tracking-widest text-[#2D3A31] font-bold mb-4 flex items-center gap-2">
                     <span className="w-2.5 h-0.5 bg-[#2D3A31]" /> 3. LỊCH SỬ KINH NGHIỆM LÀM VIỆC CHI TIẾT
                   </h3>
                   <div className="space-y-6">
-                    {/* Job 1 */}
-                    <div className="relative pl-5 before:absolute before:left-0 before:top-2 before:bottom-0 before:w-0.5 before:bg-[#E6E2DA]">
-                      <span className="absolute -left-1 top-2 w-2.5 h-2.5 rounded-full bg-[#8C9A84]" />
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                        <h4 className="text-sm font-serif font-bold text-[#2D3A31]">Technical Lead / Senior Solutions Engineer</h4>
-                        <span className="text-xs font-semibold text-[#8C9A84] bg-[#8C9A84]/15 px-2.5 py-0.5 rounded-full border border-[#8C9A84]/30">
-                          03/2021 — Hiện tại (Gần 4 năm)
-                        </span>
+                    {cand.experiences && cand.experiences.length > 0 ? (
+                      cand.experiences.map((exp, idx) => (
+                        <div key={idx} className="relative pl-5 before:absolute before:left-0 before:top-2 before:bottom-0 before:w-0.5 before:bg-[#E6E2DA]">
+                          <span className="absolute -left-1 top-2 w-2.5 h-2.5 rounded-full bg-[#8C9A84]" />
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                            <h4 className="text-sm font-serif font-bold text-[#2D3A31]">{exp.position || exp.title || 'Kỹ Sư Phần Mềm'}</h4>
+                            <span className="text-xs font-semibold text-[#8C9A84] bg-[#8C9A84]/15 px-2.5 py-0.5 rounded-full border border-[#8C9A84]/30">
+                              {exp.startDate || '2022'} — {exp.endDate || 'Hiện tại'}
+                            </span>
+                          </div>
+                          <div className="text-xs text-[#2D3A31]/70 font-medium mt-0.5">
+                            {exp.companyName || exp.company || 'Doanh Nghiệp'}
+                          </div>
+                          <p className="mt-2 text-xs text-[#2D3A31]/80 leading-relaxed">
+                            {exp.description || 'Tham gia thiết kế, phát triển và tối ưu hóa hệ thống backend và dịch vụ số.'}
+                          </p>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="relative pl-5 before:absolute before:left-0 before:top-2 before:bottom-0 before:w-0.5 before:bg-[#E6E2DA]">
+                        <span className="absolute -left-1 top-2 w-2.5 h-2.5 rounded-full bg-[#8C9A84]" />
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                          <h4 className="text-sm font-serif font-bold text-[#2D3A31]">Kỹ Sư Phát Triển Phần Mềm</h4>
+                          <span className="text-xs font-semibold text-[#8C9A84] bg-[#8C9A84]/15 px-2.5 py-0.5 rounded-full border border-[#8C9A84]/30">
+                            {cand.yearsOfExperience} năm kinh nghiệm
+                          </span>
+                        </div>
+                        <div className="text-xs text-[#2D3A31]/70 font-medium mt-0.5">
+                          Kinh nghiệm thực chiến qua các dự án phần mềm
+                        </div>
+                        <p className="mt-2 text-xs text-[#2D3A31]/80 leading-relaxed">
+                          Tham gia vào các dự án phát triển công nghệ thông tin, ứng dụng kỹ năng chuyên môn đáp ứng đầy đủ yêu cầu của bài đăng tuyển.
+                        </p>
                       </div>
-                      <div className="text-xs text-[#2D3A31]/70 font-medium mt-0.5">
-                        FPT Software • Fintech Global Delivery Unit (Khách hàng Ngân hàng Quốc tế Đông Nam Á)
-                      </div>
-                      <ul className="mt-2.5 space-y-2 text-xs text-[#2D3A31]/80 list-disc pl-4 leading-relaxed">
-                        <li>
-                          Chịu trách nhiệm kiến trúc kỹ thuật và lãnh đạo squad gồm 10 kỹ sư backend cao cấp phát triển phân hệ <strong className="text-[#2D3A31]">Core Payment Gateway &amp; Settlement System</strong> cho đối tác ngân hàng quốc tế.
-                        </li>
-                        <li>
-                          Tái cấu trúc thành công hệ thống monolith sang <strong className="text-[#2D3A31]">18 Microservices độc lập</strong>, triển khai kiến trúc Saga Pattern để quản lý giao dịch phân tán đảm bảo toàn vẹn tài chính 100%.
-                        </li>
-                        <li>
-                          Thiết kế giải pháp Caching đa tầng (L1 Caffeine in-memory, L2 Redis Sentinel), hạ độ trễ P99 API từ 120ms xuống chỉ còn <strong className="text-[#8C9A84]">14ms</strong>.
-                        </li>
-                        <li>
-                          Bảo đảm hệ thống chịu tải an toàn trong các chiến dịch siêu khuyến mãi với đỉnh lưu lượng đạt <strong className="text-[#2D3A31]">52,000 requests/giây</strong>, duy trì cam kết SLO dịch vụ ở mức 99.99%.
-                        </li>
-                      </ul>
-                    </div>
-
-                    {/* Job 2 */}
-                    <div className="relative pl-5 before:absolute before:left-0 before:top-2 before:bottom-0 before:w-0.5 before:bg-[#E6E2DA]">
-                      <span className="absolute -left-1 top-2 w-2.5 h-2.5 rounded-full bg-[#2D3A31]/40" />
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                        <h4 className="text-sm font-serif font-bold text-[#2D3A31]">Backend Software Engineer</h4>
-                        <span className="text-xs text-[#2D3A31]/60">08/2018 — 02/2021 (2.5 năm)</span>
-                      </div>
-                      <div className="text-xs text-[#2D3A31]/70 font-medium mt-0.5">
-                        VNG Corporation • Zalo Ecosystem (Hạ tầng dịch vụ tin nhắn &amp; thông báo thời gian thực)
-                      </div>
-                      <ul className="mt-2.5 space-y-2 text-xs text-[#2D3A31]/80 list-disc pl-4 leading-relaxed">
-                        <li>
-                          Nghiên cứu và triển khai hạ tầng <strong className="text-[#2D3A31]">Real-time Push Notification Gateway</strong> phục vụ trên 5,000,000 active users hàng ngày dựa trên Netty framework và Apache Kafka.
-                        </li>
-                        <li>
-                          Giải quyết bài toán nghẽn DB qua cơ chế phân vùng tự động (Table Partitioning), giảm tải máy chủ và tiết kiệm 30% chi phí hạ tầng cloud.
-                        </li>
-                      </ul>
-                    </div>
+                    )}
                   </div>
                 </div>
 
+                {/* 5. HỌC VẤN & BẰNG CẤP */}
+                {cand.educations && cand.educations.length > 0 && (
+                  <div>
+                    <h3 className="text-xs uppercase tracking-widest text-[#2D3A31] font-bold mb-3 flex items-center gap-2">
+                      <span className="w-2.5 h-0.5 bg-[#2D3A31]" /> 4. HỌC VẤN &amp; BẰNG CẤP
+                    </h3>
+                    <div className="space-y-3">
+                      {cand.educations.map((edu, idx) => (
+                        <div key={idx} className="p-3.5 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] flex items-center justify-between">
+                          <div>
+                            <h5 className="font-bold text-xs text-[#2D3A31]">{edu.school || edu.institution || 'Trường Đại Học'}</h5>
+                            <p className="text-[11px] text-[#2D3A31]/70">{edu.major || edu.degree || 'Chuyên ngành Công Nghệ Thông Tin'}</p>
+                          </div>
+                          <span className="text-xs text-[#8C9A84] font-semibold">{edu.year || edu.gradYear || 'Tốt nghiệp'}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Footer note inside Resume Paper */}
                 <div className="text-center pt-6 border-t border-[#E6E2DA] text-xs text-[#2D3A31]/50 space-y-1">
-                  <div>Bản hồ sơ ứng viên được đồng bộ hóa và trích xuất nguyên bản từ HireMate Secure Cloud Storage</div>
-                  <div className="text-[10px] font-mono text-[#8C9A84]">Checksum Verification: e9b4c02f8319aa12d7c588e100cb92af</div>
+                  <div>Bản hồ sơ ứng viên được đồng bộ hóa và trích xuất nguyên bản từ HireMate Secure Storage</div>
+                  <div className="text-[10px] font-mono text-[#8C9A84]">PostgreSQL Supabase ID: #{cand.id}</div>
                 </div>
               </div>
             )}
@@ -904,7 +938,7 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
         <div className="flex items-center gap-3">
           <div className="hidden md:flex flex-col items-end leading-tight text-right">
             <span className="text-xs text-[#8C9A84] font-bold flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-[#8C9A84] animate-ping" /> Đủ điều kiện duyệt nhanh
+              <span className="w-2 h-2 rounded-full bg-[#8C9A84] animate-ping" /> {cand.matchScore >= 80 ? 'Đủ điều kiện duyệt nhanh' : 'Đã thẩm định AI'}
             </span>
             <span className="text-[10px] text-[#2D3A31]/60">Lịch Google Meet &amp; thư mời được tạo tự động</span>
           </div>
@@ -929,7 +963,7 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
             <div className="flex items-center justify-between pb-3 border-b border-[#E6E2DA]">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-2xl text-[#8C9A84]">event_available</span>
-                <h3 className="font-serif font-bold text-xl text-[#2D3A31]">Lên Lịch Phỏng Vấn Kỹ Thuật (Vòng 2)</h3>
+                <h3 className="font-serif font-bold text-xl text-[#2D3A31]">Lên Lịch Phỏng Vấn Trực Tuyến</h3>
               </div>
               <button
                 onClick={() => setShowInterviewModal(false)}
@@ -976,9 +1010,9 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
                   onChange={(e) => setInterviewType(e.target.value)}
                   className="w-full bg-[#F9F8F4] border border-[#E6E2DA] rounded-xl px-3 py-2 text-[#2D3A31] focus:outline-none focus:border-[#8C9A84]"
                 >
-                  <option>Technical Deep-dive (System Design & Concurrency)</option>
-                  <option>Architecture & Behavioral Culture Fit</option>
-                  <option>Final Interview with VP of Engineering</option>
+                  <option>Technical Deep-dive (Chuyên môn sâu & Kỹ thuật)</option>
+                  <option>Architecture & Behavioral Culture Fit (Văn hóa & Giải pháp)</option>
+                  <option>Final Interview with VP of Engineering / HR Director</option>
                 </select>
               </div>
 
@@ -993,7 +1027,7 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
               <div className="p-3.5 rounded-2xl bg-[#8C9A84]/15 border border-[#8C9A84]/30 text-[#2D3A31] flex items-start gap-2 text-xs">
                 <span className="material-symbols-outlined text-base text-[#8C9A84] shrink-0 mt-0.5">auto_awesome</span>
                 <span>
-                  Hệ thống AI sẽ gửi kèm bộ 3 câu hỏi kỹ thuật chuyên sâu gợi ý vào lịch Google Calendar của hội đồng phỏng vấn.
+                  Trạng thái ứng viên sẽ được cập nhật sang "INTERVIEWING" trên cơ sở dữ liệu Supabase.
                 </span>
               </div>
             </div>
@@ -1042,9 +1076,9 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
                   onChange={(e) => setRejectionReason(e.target.value)}
                   className="w-full bg-[#F9F8F4] border border-[#E6E2DA] rounded-xl px-3 py-2 text-[#2D3A31] focus:outline-none"
                 >
-                  <option>Khác định hướng tech stack (Ưu tiên GCP & CKA ngay)</option>
+                  <option>Khác định hướng tech stack hoặc thiếu kỹ năng bắt buộc</option>
                   <option>Mức đãi ngộ vượt khung ngân sách hiện tại</option>
-                  <option>Đã đủ chỉ tiêu cho đợt tuyển dụng này</option>
+                  <option>Đã đủ chỉ tiêu tuyển dụng cho đợt mở tuyển này</option>
                 </select>
               </div>
 
@@ -1173,9 +1207,9 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
               <div>
                 <label className="text-[#2D3A31]/70 block mb-1 font-semibold uppercase">Gói bài kiểm tra chuyên sâu:</label>
                 <select className="w-full bg-[#F9F8F4] border border-[#E6E2DA] rounded-xl px-3 py-2 text-[#2D3A31]">
-                  <option>Java Concurrency & Kafka High-throughput Test (90 phút)</option>
-                  <option>System Design & Distributed Locking 60min</option>
-                  <option>Spring Boot 3 DDD Assessment</option>
+                  <option>Bài Test Kỹ Thuật Chuyên Sâu Theo Yêu Cầu JD (90 phút)</option>
+                  <option>Kiểm Tra Giải Quyết Vấn Đề & Tư Duy Hệ Thống 60 phút</option>
+                  <option>Thẩm Định Kiến Thức Lập Trình & Thiết Kế API</option>
                 </select>
               </div>
 
@@ -1189,7 +1223,7 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
               </div>
 
               <div className="p-3.5 rounded-2xl bg-[#8C9A84]/15 border border-[#8C9A84]/30 text-[#2D3A31] text-xs leading-relaxed">
-                Ứng viên sẽ nhận được email chứa link làm bài kiểm tra độc quyền kèm camera proctoring và trình biên dịch trực tuyến chống gian lận.
+                Ứng viên sẽ nhận được email hướng dẫn bài kiểm tra trực tuyến.
               </div>
             </div>
 

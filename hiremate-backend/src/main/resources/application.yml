@@ -1,14 +1,17 @@
 server:
-  port: 8080
+  port: 8088
 
 spring:
   application:
     name: hiremate
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://aws-0-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require}
-    username: ${SPRING_DATASOURCE_USERNAME:postgres.orkdazjoorfdwlfbrmxf}
-    password: ${SPRING_DATASOURCE_PASSWORD:Hoangdung1122}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://${DB_HOST:aws-0-ap-south-1.pooler.supabase.com}:${DB_PORT:6543}/${DB_NAME:postgres}?sslmode=require&prepareThreshold=0}
+    username: ${SPRING_DATASOURCE_USERNAME:${DB_USER:postgres.orkdazjoorfdwlfbrmxf}}
+    password: ${SPRING_DATASOURCE_PASSWORD:${DB_PASSWORD:Hoangdung1122}}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${HIKARI_MAX_POOL_SIZE:5}
+      minimum-idle: ${HIKARI_MIN_IDLE:2}
   jpa:
     hibernate:
       ddl-auto: validate        # Flyway quản lý schema, Hibernate chỉ validate

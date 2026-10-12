@@ -1,11 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLivingTheme } from '../context/LivingThemeContext';
+import { companyApi, jobApi, applicationApi } from '../api';
+import LoadingSpinner from '../components/common/LoadingSpinner';
 
 export default function RecruiterProfilePage({ user, onNavigate }) {
   const { theme: livingTheme, luminosity } = useLivingTheme();
 
   // Active Main Tab: 'overview' (Tổng Quan & Môi Trường) | 'jobs' (Vị Trí Tuyển Dụng) | 'locations' (Địa Điểm & Chi Nhánh)
   const [activeTab, setActiveTab] = useState('overview');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Toast feedback state
   const [toastMessage, setToastMessage] = useState('');
@@ -16,25 +20,26 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
 
   // Company Information State
   const [companyInfo, setCompanyInfo] = useState({
-    name: 'FPT Software Co., Ltd',
+    name: user?.companyName || 'FPT Software Co., Ltd',
     badge: 'Doanh Nghiệp Đã Xác Thực',
-    tagline: 'Tập đoàn công nghệ & dịch vụ chuyển đổi số hàng đầu Đông Nam Á • 32,000+ Kỹ Sư Toàn Cầu',
+    tagline: 'Tập đoàn công nghệ & dịch vụ chuyển đổi số hàng đầu Đông Nam Á • Kỹ Sư Toàn Cầu',
     website: 'https://fpt-software.com',
     industry: 'Công Nghệ Thông Tin & Phần Mềm',
     industrySub: 'AI Solutions, Cloud Architecture, Fintech & Automotive',
-    headcount: '32,000+ Kỹ sư & Chuyên gia',
-    establishedYear: '1999 (27 năm phát triển)',
+    headcount: '100 - 500 nhân sự',
+    establishedYear: '1999',
     headquarters: 'Tòa nhà F-Ville, Khu CNC Hòa Lạc, Hà Nội',
-    markets: '30 Quốc gia (Nhật Bản, Mỹ, Châu Âu, APAC, ASEAN)',
+    markets: 'Việt Nam & Quốc tế',
     overviewText:
       'Thành lập từ năm 1999, FPT Software là doanh nghiệp phần mềm và dịch vụ chuyển đổi số hàng đầu khu vực. Đồng hành cùng hơn 1,000 khách hàng toàn cầu trong đó có hơn 100 tập đoàn thuộc Fortune Global 500, FPT Software tiên phong ứng dụng các công nghệ cốt lõi như Generative AI, Big Data, Cloud Computing và Kiến trúc phân tán quy mô lớn.\n\nTại FPT Software, con người luôn là trung tâm của mọi sự phát triển. Chúng tôi xây dựng môi trường làm việc chuẩn quốc tế, văn hóa tôn trọng sự tự chủ, trao quyền tối đa cho kỹ sư công nghệ, đồng thời cung cấp lộ trình phát triển sự nghiệp không giới hạn từ kỹ sư chuyên môn đến kiến trúc sư giải pháp và chuyên gia cấp cao.',
+    logoUrl: null,
   });
 
   // HR Representative (Người Đại Diện Tuyển Dụng)
   const [hrRepresentative, setHrRepresentative] = useState({
     name: user?.fullName || 'Nguyễn Minh Anh',
     title: 'Lead Talent Acquisition Partner • Senior Tech Recruiter',
-    division: 'Ban Tuyển Dụng Khối Sản Xuất Phần Mềm Toàn Cầu (FPT Global Delivery)',
+    division: 'Ban Tuyển Dụng Khối Sản Xuất Phần Mềm Toàn Cầu',
     email: user?.email || 'minhanh.hr@fptsoftware.com',
     hotline: '0988 777 666',
     responseTime: 'Phản hồi trong vòng 30 phút (Giờ hành chính)',
@@ -46,41 +51,67 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
   });
 
   // Active Job Openings List
-  const [jobsList] = useState([
-    {
-      id: 101,
-      title: 'Senior Backend Engineer (Java / Distributed Systems)',
-      salary: '$2,500 – $3,500 USD / tháng',
-      location: 'Hà Nội (F-Ville) • Hybrid 2 ngày WFH',
-      level: 'Senior • 4+ năm KN',
-      tags: ['Java 21', 'Spring Boot 3', 'PostgreSQL', 'Kafka'],
-      postedTime: 'Đăng 2 giờ trước',
-      applicantCount: 24,
-      isHot: true,
-    },
-    {
-      id: 102,
-      title: 'Lead AI & LLM Solution Architect (GenAI Core)',
-      salary: '$4,000 – $6,000 USD / tháng',
-      location: 'TP. Hồ Chí Minh (F-Town 3) • Remote linh hoạt',
-      level: 'Lead / Principal • 6+ năm KN',
-      tags: ['Python', 'LangChain', 'PyTorch', 'RAG Architecture'],
-      postedTime: 'Đăng hôm qua',
-      applicantCount: 9,
-      isHot: true,
-    },
-    {
-      id: 103,
-      title: 'Senior DevOps & Platform Engineer (AWS / Kubernetes / ArgoCD)',
-      salary: '$2,200 – $3,200 USD / tháng',
-      location: 'Đà Nẵng (FPT Complex) • Hybrid',
-      level: 'Senior • 3+ năm KN',
-      tags: ['AWS EKS', 'Kubernetes', 'Terraform', 'CI/CD GitLab'],
-      postedTime: 'Đăng 3 ngày trước',
-      applicantCount: 15,
-      isHot: false,
-    },
-  ]);
+  const [jobsList, setJobsList] = useState([]);
+
+  // Fetch real company info & active jobs from Supabase
+  const fetchCompanyAndJobs = async () => {
+    try {
+      setIsLoading(true);
+      const [compRes, jobsRes] = await Promise.allSettled([
+        companyApi.getMyCompany(),
+        jobApi.getMyJobs(),
+      ]);
+
+      if (compRes.status === 'fulfilled' && compRes.value?.data) {
+        const c = compRes.value.data;
+        setCompanyInfo((prev) => ({
+          ...prev,
+          name: c.companyName || user?.companyName || prev.name,
+          tagline: c.description || prev.tagline,
+          website: c.website || prev.website,
+          industry: c.industry || prev.industry,
+          headcount: c.companySize || prev.headcount,
+          headquarters: c.address || prev.headquarters,
+          overviewText: c.description || prev.overviewText,
+          logoUrl: c.logoUrl || prev.logoUrl,
+        }));
+      }
+
+      if (jobsRes.status === 'fulfilled' && Array.isArray(jobsRes.value?.data)) {
+        const rawJobs = jobsRes.value.data;
+        const mapped = await Promise.all(
+          rawJobs.map(async (j) => {
+            let appCount = 0;
+            try {
+              const appsRes = await applicationApi.getJobApplications(j.jobId);
+              if (Array.isArray(appsRes?.data)) appCount = appsRes.data.length;
+            } catch (ignored) {}
+
+            return {
+              id: j.jobId,
+              title: j.title || 'Vị trí tuyển dụng',
+              salary: j.salaryMin && j.salaryMax ? `$${j.salaryMin} – $${j.salaryMax} USD / tháng` : 'Thỏa thuận',
+              location: j.location || 'Việt Nam',
+              level: j.employmentType || 'Toàn thời gian',
+              tags: j.requirements ? j.requirements.split(/,|\r?\n|\\n/).map((s) => s.replace(/^[\s\-\u2022]+/, '').trim()).filter(Boolean).slice(0, 4) : ['Kỹ năng chuyên môn'],
+              postedTime: j.createdAt ? new Date(j.createdAt).toLocaleDateString('vi-VN') : 'Gần đây',
+              applicantCount: appCount,
+              isHot: j.status === 'PUBLISHED',
+            };
+          })
+        );
+        setJobsList(mapped);
+      }
+    } catch (err) {
+      console.error('Lỗi khi tải thông tin công ty:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCompanyAndJobs();
+  }, []);
 
   // Workplace Gallery
   const workplacePhotos = [
@@ -190,25 +221,28 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
     hrHotline: hrRepresentative.hotline,
   });
 
-  const handleSaveEdit = (e) => {
+  const handleSaveEdit = async (e) => {
     e.preventDefault();
-    setCompanyInfo((prev) => ({
-      ...prev,
-      name: editForm.companyName,
-      tagline: editForm.tagline,
-      website: editForm.website,
-      headquarters: editForm.headquarters,
-      overviewText: editForm.overviewText,
-    }));
-    setHrRepresentative((prev) => ({
-      ...prev,
-      name: editForm.hrName,
-      title: editForm.hrTitle,
-      email: editForm.hrEmail,
-      hotline: editForm.hrHotline,
-    }));
-    setShowEditModal(false);
-    triggerToast('Đã lưu thành công các cập nhật hồ sơ doanh nghiệp!');
+    try {
+      setIsSaving(true);
+      const payload = {
+        companyName: editForm.companyName,
+        website: editForm.website,
+        address: editForm.headquarters,
+        description: editForm.overviewText,
+        industry: companyInfo.industry,
+        companySize: companyInfo.headcount,
+      };
+
+      await companyApi.updateMyCompany(payload);
+      setShowEditModal(false);
+      triggerToast('Đã lưu thành công các cập nhật hồ sơ doanh nghiệp lên Supabase PostgreSQL!');
+      await fetchCompanyAndJobs();
+    } catch (err) {
+      triggerToast('Lỗi cập nhật hồ sơ công ty: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleCopyShareLink = () => {
@@ -902,9 +936,10 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 rounded-full bg-gradient-to-r from-[#5b48bd] to-[#7c66dc] hover:from-[#47369f] text-white text-xs font-bold tracking-wider uppercase shadow-md cursor-pointer transition-all"
+                  disabled={isSaving}
+                  className="px-6 py-2.5 rounded-full bg-gradient-to-r from-[#5b48bd] to-[#7c66dc] hover:from-[#47369f] text-white text-xs font-bold tracking-wider uppercase shadow-md cursor-pointer transition-all disabled:opacity-50"
                 >
-                  Lưu Thông Tin
+                  {isSaving ? 'Đang Lưu...' : 'Lưu Thông Tin'}
                 </button>
               </div>
             </form>

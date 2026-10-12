@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useLivingTheme } from '../context/LivingThemeContext';
-import { jobApi } from '../api';
+import { jobApi, applicationApi } from '../api';
 
 export default function RecruiterJobManagementPage({ user, onNavigateToPipeline }) {
   const { theme: livingTheme, luminosity } = useLivingTheme();
@@ -22,90 +22,9 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
     }, 3500);
   };
 
-  // Jobs state matching user specifications
-  const [jobsList, setJobsList] = useState([
-    {
-      id: 101,
-      code: 'JD-BNK-882',
-      badgeText: 'Ưu Tiên Tuyển Gấp',
-      badgeType: 'high-priority',
-      title: 'Senior Backend Engineer (Java / Distributed Systems)',
-      status: 'ACTIVE', // ACTIVE, PAUSED, CLOSED
-      domain: 'Fintech Core Banking',
-      domainIcon: 'account_balance',
-      location: 'TP.HCM (Hybrid)',
-      salary: '$2,500 - $3,500',
-      totalApplicants: 24,
-      aiMatchHighCount: 5,
-      mandatorySkills: ['Java 21', 'Spring Boot 3', 'PostgreSQL', 'Microservices'],
-      preferredSkills: ['Kafka', 'Redis Cluster', 'Docker', 'AWS'],
-      topCandidateAvatars: [
-        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&auto=format&fit=crop&q=80',
-      ],
-    },
-    {
-      id: 102,
-      code: 'JD-WEB-641',
-      badgeText: 'Core Frontend',
-      badgeType: 'frontend',
-      title: 'Frontend Lead Architect (React / Next.js / TypeScript)',
-      status: 'ACTIVE',
-      domain: 'Enterprise Web',
-      domainIcon: 'web',
-      location: 'Hà Nội / Remote',
-      salary: '$2,800 - $4,000',
-      totalApplicants: 18,
-      aiMatchHighCount: 4,
-      mandatorySkills: ['React 19', 'Next.js', 'TypeScript', 'Tailwind CSS'],
-      preferredSkills: ['Redux Toolkit', 'GraphQL', 'Micro-frontends'],
-      topCandidateAvatars: [
-        'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&auto=format&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200&auto=format&fit=crop&q=80',
-      ],
-    },
-    {
-      id: 103,
-      code: 'JD-OPS-330',
-      badgeText: 'DevOps / SRE',
-      badgeType: 'devops',
-      title: 'DevOps & Platform Engineer (AWS / Kubernetes / ArgoCD)',
-      status: 'ACTIVE',
-      domain: 'Infrastructure Core',
-      domainIcon: 'dns',
-      location: 'TP.HCM',
-      salary: '$2,200 - $3,200',
-      totalApplicants: 15,
-      aiMatchHighCount: 3,
-      mandatorySkills: ['AWS EKS', 'Kubernetes', 'Terraform', 'CI/CD GitLab'],
-      preferredSkills: ['ArgoCD', 'Prometheus', 'Helm', 'Python scripting'],
-      topCandidateAvatars: [
-        'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=200&auto=format&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=200&auto=format&fit=crop&q=80',
-      ],
-    },
-    {
-      id: 104,
-      code: 'JD-AI-109',
-      badgeText: 'Hot Executive',
-      badgeType: 'executive',
-      title: 'Lead AI & LLM Solution Architect (GenAI Core)',
-      status: 'ACTIVE',
-      domain: 'AI Lab & R&D',
-      domainIcon: 'psychology',
-      location: 'Remote',
-      salary: '$4,000 - $6,000',
-      totalApplicants: 9,
-      aiMatchHighCount: 6,
-      mandatorySkills: ['Python', 'LangChain', 'PyTorch', 'RAG Architecture'],
-      preferredSkills: ['FastAPI', 'Milvus / ChromaDB', 'LLM Fine-tuning'],
-      topCandidateAvatars: [
-        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80',
-      ],
-    },
-  ]);
+  // Jobs state loaded from real database
+  const [jobsList, setJobsList] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Create Job Form
   const [createForm, setCreateForm] = useState({
@@ -118,6 +37,75 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
     preferredSkillsInput: 'Kafka, Redis Cluster, Docker',
     description: '',
   });
+
+  const fetchMyJobs = async () => {
+    try {
+      setIsLoading(true);
+      const res = await jobApi.getMyJobs();
+      const rawList = res?.data || [];
+      if (Array.isArray(rawList)) {
+        // Asynchronously enrich with application counts and AI match metrics
+        const enriched = await Promise.all(
+          rawList.map(async (j) => {
+            let applicantCount = j.vacanciesCount || 0;
+            let aiHigh = 0;
+            let topAvatars = [];
+            try {
+              const appsRes = await applicationApi.getJobApplications(j.jobId);
+              const apps = appsRes?.data || [];
+              if (Array.isArray(apps)) {
+                applicantCount = apps.length;
+                aiHigh = apps.filter((a) => (a.matchingScore || 0) >= 80).length;
+                topAvatars = apps.slice(0, 3).map((a) => a.candidateAvatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80');
+              }
+            } catch (ignored) { }
+
+            return {
+              id: j.jobId,
+              code: `JD-REQ-${j.jobId}`,
+              badgeText: j.status === 'PUBLISHED' ? 'Đang Đăng Tuyển' : j.status === 'CLOSED' ? 'Đã Đóng' : 'Bản Nháp',
+              badgeType: j.status === 'PUBLISHED' ? 'high-priority' : 'frontend',
+              title: j.title || 'Vị trí Tuyển Dụng',
+              status: j.status === 'PUBLISHED' ? 'ACTIVE' : j.status === 'CLOSED' ? 'CLOSED' : 'PAUSED',
+              domain: j.company?.industry || j.companyName || 'Công Nghệ & Kỹ Thuật',
+              domainIcon: 'work',
+              location: j.location || 'Việt Nam',
+              salary: j.salaryMin && j.salaryMax ? `$${j.salaryMin} - $${j.salaryMax}` : 'Thỏa thuận',
+              salaryMin: j.salaryMin,
+              salaryMax: j.salaryMax,
+              totalApplicants: applicantCount,
+              aiMatchHighCount: aiHigh,
+              mandatorySkills: j.requirements ? j.requirements.split(/,|\r?\n|\\n/).map((s) => s.replace(/^[\s\-\u2022]+/, '').trim()).filter(Boolean) : ['Yêu cầu chuyên môn'],
+              preferredSkills: j.benefits ? j.benefits.split(/,|\r?\n|\\n/).map((s) => s.replace(/^[\s\-\u2022]+/, '').trim()).filter(Boolean) : ['Đãi ngộ hấp dẫn'],
+              topCandidateAvatars: topAvatars,
+              raw: j,
+            };
+          })
+        );
+        setJobsList(enriched);
+      }
+    } catch (err) {
+      console.error('Lỗi tải danh sách job từ Supabase:', err);
+      triggerToast('Không thể tải dữ liệu việc làm thực tế từ hệ thống.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMyJobs();
+  }, []);
+
+  useEffect(() => {
+    const handleCheckHash = () => {
+      if (window.location.hash.includes('action=new')) {
+        setShowCreateModal(true);
+      }
+    };
+    handleCheckHash();
+    window.addEventListener('hashchange', handleCheckHash);
+    return () => window.removeEventListener('hashchange', handleCheckHash);
+  }, []);
 
   // Filtered jobs calculation
   const filteredJobs = useMemo(() => {
@@ -139,130 +127,96 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
   const activeCount = useMemo(() => jobsList.filter((j) => j.status === 'ACTIVE').length, [jobsList]);
   const pausedCount = useMemo(() => jobsList.filter((j) => j.status === 'PAUSED').length, [jobsList]);
   const closedCount = useMemo(() => jobsList.filter((j) => j.status === 'CLOSED').length, [jobsList]);
+  const totalApplicantsCount = useMemo(() => jobsList.reduce((acc, j) => acc + (j.totalApplicants || 0), 0), [jobsList]);
+  const totalAiMatchHighCount = useMemo(() => jobsList.reduce((acc, j) => acc + (j.aiMatchHighCount || 0), 0), [jobsList]);
 
-  useEffect(() => {
-    jobApi.getMyJobs()
-      .then(res => {
-        if (res.data && res.data.length > 0) {
-          const mapped = res.data.map((j, idx) => ({
-            id: j.jobId || idx + 1,
-            code: `JD-REQ-${j.jobId || (idx + 100)}`,
-            badgeText: j.status === 'PUBLISHED' ? 'Đang Đăng Tuyển' : 'Bản Nháp',
-            badgeType: j.status === 'PUBLISHED' ? 'high-priority' : 'frontend',
-            title: j.title,
-            status: j.status === 'PUBLISHED' ? 'ACTIVE' : j.status === 'CLOSED' ? 'CLOSED' : 'PAUSED',
-            domain: j.company?.industry || 'Công Nghệ & Kỹ Thuật',
-            domainIcon: 'work',
-            location: j.location || 'Việt Nam',
-            salary: j.salaryMin && j.salaryMax ? `$${j.salaryMin} - $${j.salaryMax}` : 'Thỏa thuận',
-            totalApplicants: j.vacanciesCount || 0,
-            aiMatchHighCount: 0,
-            mandatorySkills: j.requirements ? j.requirements.split(/,|\r?\n|\\n/).map(s => s.replace(/^[\s\-\u2022]+/, '').trim()).filter(Boolean) : ['Yêu cầu chuyên môn'],
-            preferredSkills: j.benefits ? j.benefits.split(/,|\r?\n|\\n/).map(s => s.replace(/^[\s\-\u2022]+/, '').trim()).filter(Boolean) : ['Chế độ đãi ngộ tốt'],
-            topCandidateAvatars: [],
-          }));
-          setJobsList(mapped);
-        }
-      })
-      .catch(() => {
-        // Fallback to default list
-      });
-  }, []);
-
-  useEffect(() => {
-    const handleCheckHash = () => {
-      if (window.location.hash.includes('action=new')) {
-        setShowCreateModal(true);
-      }
-    };
-    handleCheckHash();
-    window.addEventListener('hashchange', handleCheckHash);
-    return () => window.removeEventListener('hashchange', handleCheckHash);
-  }, []);
-
-  const handleCreateSubmit = (e) => {
+  const handleCreateSubmit = async (e) => {
     e.preventDefault();
-    const mandatory = createForm.mandatorySkillsInput.split(',').map((s) => s.trim()).filter(Boolean);
-    const preferred = createForm.preferredSkillsInput.split(',').map((s) => s.trim()).filter(Boolean);
+    try {
+      const salaryStr = createForm.salary || '';
+      const nums = salaryStr.match(/\d+[\d,.]*/g);
+      const salaryMin = nums && nums[0] ? parseFloat(nums[0].replace(/,/g, '')) : 2000;
+      const salaryMax = nums && nums[1] ? parseFloat(nums[1].replace(/,/g, '')) : 3500;
 
-    // Call API to persist in Supabase DB
-    jobApi.createJob({
-      title: createForm.title,
-      description: createForm.description || createForm.title,
-      requirements: createForm.mandatorySkillsInput,
-      benefits: createForm.preferredSkillsInput,
-      salaryMin: 2000,
-      salaryMax: 3500,
-      location: createForm.location,
-      employmentType: 'FULL_TIME',
-      vacanciesCount: 1,
-      status: 'PUBLISHED',
-    }).then(res => {
-      if (res.data && res.data.jobId) {
-        newJob.id = res.data.jobId;
-      }
-    }).catch(err => console.log('API create job notice:', err));
+      const payload = {
+        title: createForm.title,
+        description: createForm.description || createForm.title,
+        requirements: createForm.mandatorySkillsInput,
+        benefits: createForm.preferredSkillsInput,
+        salaryMin: salaryMin,
+        salaryMax: salaryMax,
+        location: createForm.location,
+        employmentType: 'FULL_TIME',
+        vacanciesCount: 1,
+        status: 'PUBLISHED',
+      };
 
-    const newJob = {
-      id: Date.now(),
-      code: createForm.code || `JD-DEV-${Math.floor(100 + Math.random() * 900)}`,
-      badgeText: 'Tin Mới Đăng',
-      badgeType: 'high-priority',
-      title: createForm.title,
-      status: 'ACTIVE',
-      domain: createForm.domain,
-      domainIcon: 'terminal',
-      location: createForm.location,
-      salary: createForm.salary,
-      totalApplicants: 0,
-      aiMatchHighCount: 0,
-      mandatorySkills: mandatory,
-      preferredSkills: preferred,
-      topCandidateAvatars: [],
-    };
-
-    setJobsList([newJob, ...jobsList]);
-    setShowCreateModal(false);
-    triggerToast(`Đã xuất bản thành công tin tuyển dụng mới lên Supabase: ${newJob.title}`);
-    setCreateForm({
-      title: '',
-      code: 'JD-' + Math.floor(100 + Math.random() * 900),
-      domain: 'Engineering R&D',
-      location: 'TP.HCM (Hybrid)',
-      salary: '$2,500 - $4,000',
-      mandatorySkillsInput: 'Java 21, Spring Boot 3, PostgreSQL',
-      preferredSkillsInput: 'Kafka, Redis Cluster, Docker',
-      description: '',
-    });
+      await jobApi.createJob(payload);
+      triggerToast(`Đã xuất bản thành công tin tuyển dụng mới lên Supabase: ${createForm.title}`);
+      setShowCreateModal(false);
+      setCreateForm({
+        title: '',
+        code: 'JD-' + Math.floor(100 + Math.random() * 900),
+        domain: 'Engineering R&D',
+        location: 'TP.HCM (Hybrid)',
+        salary: '$2,500 - $4,000',
+        mandatorySkillsInput: 'Java 21, Spring Boot 3, PostgreSQL',
+        preferredSkillsInput: 'Kafka, Redis Cluster, Docker',
+        description: '',
+      });
+      await fetchMyJobs();
+    } catch (err) {
+      triggerToast('Lỗi khi đăng tin: ' + (err.response?.data?.message || err.message));
+    }
   };
 
-  const handleEditSubmit = (e) => {
+  const handleEditSubmit = async (e) => {
     e.preventDefault();
     if (!editingJob) return;
+    try {
+      const salaryStr = editingJob.salary || '';
+      const nums = salaryStr.match(/\d+[\d,.]*/g);
+      const salaryMin = nums && nums[0] ? parseFloat(nums[0].replace(/,/g, '')) : (editingJob.salaryMin || 2000);
+      const salaryMax = nums && nums[1] ? parseFloat(nums[1].replace(/,/g, '')) : (editingJob.salaryMax || 3500);
 
-    setJobsList((prev) =>
-      prev.map((j) => (j.id === editingJob.id ? { ...editingJob } : j))
-    );
-    setShowEditModal(false);
-    triggerToast(`Đã cập nhật thành công tin tuyển dụng ${editingJob.code}!`);
+      const payload = {
+        title: editingJob.title,
+        description: editingJob.description || editingJob.raw?.description || editingJob.title,
+        requirements: Array.isArray(editingJob.mandatorySkills) ? editingJob.mandatorySkills.join(', ') : (editingJob.mandatorySkills || ''),
+        benefits: Array.isArray(editingJob.preferredSkills) ? editingJob.preferredSkills.join(', ') : (editingJob.preferredSkills || ''),
+        salaryMin: salaryMin,
+        salaryMax: salaryMax,
+        location: editingJob.location,
+        employmentType: editingJob.raw?.employmentType || 'FULL_TIME',
+        vacanciesCount: editingJob.raw?.vacanciesCount || 1,
+        status: editingJob.status === 'ACTIVE' ? 'PUBLISHED' : editingJob.status === 'CLOSED' ? 'CLOSED' : 'DRAFT',
+      };
+
+      await jobApi.updateJob(editingJob.id, payload);
+      triggerToast(`Đã cập nhật thành công tin tuyển dụng ${editingJob.code} trên Supabase!`);
+      setShowEditModal(false);
+      await fetchMyJobs();
+    } catch (err) {
+      triggerToast('Lỗi khi cập nhật tin tuyển dụng: ' + (err.response?.data?.message || err.message));
+    }
   };
 
-  const handleToggleStatus = (jobId) => {
-    setJobsList((prev) =>
-      prev.map((j) => {
-        if (j.id === jobId) {
-          const next = j.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
-          triggerToast(`Trạng thái tin ${j.code} đã đổi thành: ${next === 'ACTIVE' ? 'Đang bật tuyển' : 'Tạm dừng'}`);
-          return { ...j, status: next };
-        }
-        return j;
-      })
-    );
+  const handleToggleStatus = async (jobId) => {
+    const currentJob = jobsList.find((j) => j.id === jobId);
+    if (!currentJob) return;
+    const nextStatus = currentJob.status === 'ACTIVE' ? 'CLOSED' : 'PUBLISHED';
+    try {
+      await jobApi.updateJobStatus(jobId, nextStatus);
+      triggerToast(`Trạng thái tin ${currentJob.code} đã cập nhật sang: ${nextStatus === 'PUBLISHED' ? 'Đang bật tuyển' : 'Đã đóng'}`);
+      await fetchMyJobs();
+    } catch (err) {
+      triggerToast('Lỗi khi đổi trạng thái tin tuyển dụng: ' + (err.response?.data?.message || err.message));
+    }
   };
 
   const handleCopyLink = (code) => {
     if (navigator.clipboard) {
-      navigator.clipboard.writeText(`${window.location.origin}/#/jobs/101?code=${code}`);
+      navigator.clipboard.writeText(`${window.location.origin}/#/jobs?code=${code}`);
       triggerToast(`Đã sao chép link ứng tuyển vị trí ${code}!`);
     } else {
       triggerToast(`Link ứng tuyển: ${code}`);
@@ -325,8 +279,8 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
               <div>
                 <p className="text-xs uppercase tracking-wider text-slate-500 font-bold">Vị Trí Đang Mở</p>
                 <div className="flex items-baseline gap-2 mt-2">
-                  <span className="text-3xl lg:text-4xl font-sans font-extrabold text-[#221d47]">12</span>
-                  <span className="text-xs text-[#10b981] font-semibold">+2 tuần này</span>
+                  <span className="text-3xl lg:text-4xl font-sans font-extrabold text-[#221d47]">{activeCount}</span>
+                  <span className="text-xs text-[#10b981] font-semibold">/ {jobsList.length} tổng tin</span>
                 </div>
               </div>
               <div className="w-11 h-11 rounded-2xl bg-[#edeafd] border border-purple-200 flex items-center justify-center text-[#5b48bd] group-hover:scale-105 transition-transform">
@@ -335,9 +289,9 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
             </div>
             <div className="mt-4 pt-3 flex items-center justify-between text-xs text-slate-600 border-t border-purple-100">
               <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[#10b981]" /> 8 Đang tuyển &bull; 2 Tạm dừng
+                <span className="w-2 h-2 rounded-full bg-[#10b981]" /> {activeCount} Đang tuyển &bull; {pausedCount} Tạm dừng
               </span>
-              <span className="text-[#5b48bd] font-bold">66.7% Active</span>
+              <span className="text-[#5b48bd] font-bold">{jobsList.length > 0 ? Math.round((activeCount / jobsList.length) * 100) : 0}% Active</span>
             </div>
           </div>
 
@@ -347,8 +301,8 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
               <div>
                 <p className="text-xs uppercase tracking-wider text-slate-500 font-bold">Tổng Hồ Sơ Đã Nộp</p>
                 <div className="flex items-baseline gap-2 mt-2">
-                  <span className="text-3xl lg:text-4xl font-sans font-extrabold text-[#221d47]">156</span>
-                  <span className="text-xs text-[#0284c7] font-semibold">+28% MoM</span>
+                  <span className="text-3xl lg:text-4xl font-sans font-extrabold text-[#221d47]">{totalApplicantsCount}</span>
+                  <span className="text-xs text-[#0284c7] font-semibold">tổng CV</span>
                 </div>
               </div>
               <div className="w-11 h-11 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center text-[#0284c7] group-hover:scale-105 transition-transform">
@@ -356,8 +310,8 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
               </div>
             </div>
             <div className="mt-4 pt-3 flex items-center justify-between text-xs text-slate-600 border-t border-purple-100">
-              <span>Trung bình 13 hồ sơ/job</span>
-              <span className="text-[#10b981] font-bold">Tăng Trưởng Tốt</span>
+              <span>Trung bình {jobsList.length > 0 ? (totalApplicantsCount / jobsList.length).toFixed(1) : 0} hồ sơ/job</span>
+              <span className="text-[#10b981] font-bold">Dữ liệu Supabase</span>
             </div>
           </div>
 
@@ -367,7 +321,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
               <div>
                 <p className="text-xs uppercase tracking-wider text-slate-500 font-bold">AI Match &gt; 80%</p>
                 <div className="flex items-baseline gap-2 mt-2 flex-nowrap">
-                  <span className="text-3xl lg:text-4xl font-sans font-extrabold text-[#221d47] shrink-0">38</span>
+                  <span className="text-3xl lg:text-4xl font-sans font-extrabold text-[#221d47] shrink-0">{totalAiMatchHighCount}</span>
                   <span className="text-xs text-slate-500 font-medium whitespace-nowrap">ứng viên tiềm năng</span>
                 </div>
               </div>
@@ -377,9 +331,14 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
             </div>
             <div className="mt-4 pt-3 flex items-center justify-between text-xs text-slate-600 border-t border-purple-100">
               <div className="w-2/3 bg-slate-100 h-2 rounded-full overflow-hidden">
-                <div className="bg-[#5b48bd] h-full rounded-full" style={{ width: '72%' }} />
+                <div
+                  className="bg-[#5b48bd] h-full rounded-full"
+                  style={{ width: `${totalApplicantsCount > 0 ? Math.min(100, Math.round((totalAiMatchHighCount / totalApplicantsCount) * 100)) : 0}%` }}
+                />
               </div>
-              <span className="text-[#5b48bd] font-bold">24.3% Tỷ lệ</span>
+              <span className="text-[#5b48bd] font-bold">
+                {totalApplicantsCount > 0 ? Math.round((totalAiMatchHighCount / totalApplicantsCount) * 100) : 0}% Tỷ lệ
+              </span>
             </div>
           </div>
 
@@ -387,19 +346,19 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
           <div className="p-6 rounded-[24px] bg-white border border-purple-100/80 shadow-sm hover:shadow-md hover:border-purple-200 transition-all group">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-xs uppercase tracking-wider text-slate-500 font-bold">Tốc Độ Tuyển Dụng</p>
+                <p className="text-xs uppercase tracking-wider text-slate-500 font-bold">Tình Trạng Hệ Thống</p>
                 <div className="flex items-baseline gap-2 mt-2 flex-nowrap">
-                  <span className="text-3xl lg:text-4xl font-sans font-extrabold text-[#221d47] shrink-0">14</span>
-                  <span className="text-xs text-slate-500 font-medium whitespace-nowrap">ngày / offer</span>
+                  <span className="text-2xl lg:text-3xl font-sans font-extrabold text-[#10b981] shrink-0">Live Cloud</span>
+                  <span className="text-xs text-slate-500 font-medium whitespace-nowrap">Supabase IPv4</span>
                 </div>
               </div>
-              <div className="w-11 h-11 rounded-2xl bg-orange-50 border border-orange-200 flex items-center justify-center text-[#f97316] group-hover:scale-105 transition-transform">
-                <span className="material-symbols-outlined text-[22px]">speed</span>
+              <div className="w-11 h-11 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-[#10b981] group-hover:scale-105 transition-transform">
+                <span className="material-symbols-outlined text-[22px]">database</span>
               </div>
             </div>
             <div className="mt-4 pt-3 flex items-center justify-between text-xs text-slate-600 border-t border-purple-100">
-              <span>Nhanh hơn 42% benchmark</span>
-              <span className="text-[#10b981] font-bold">-3.5d vs Q3</span>
+              <span>PostgreSQL 3NF</span>
+              <span className="text-[#10b981] font-bold">Đã Kết Nối</span>
             </div>
           </div>
         </div>
@@ -432,7 +391,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                   }`}
               >
                 <span>Tất cả</span>
-                <span className="px-2 py-0.5 rounded-full bg-white/20 text-[10px] font-bold">12</span>
+                <span className="px-2 py-0.5 rounded-full bg-white/20 text-[10px] font-bold">({jobsList.length})</span>
               </button>
 
               <button
@@ -497,6 +456,32 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
 
         {/* Job Cards Grid */}
         <div className="relative z-10 grid grid-cols-1 xl:grid-cols-2 gap-6">
+          {isLoading && (
+            <div className="col-span-full py-20 flex flex-col items-center justify-center gap-3 bg-white/60 rounded-[32px] border border-purple-100">
+              <span className="material-symbols-outlined text-4xl text-[#5b48bd] animate-spin">progress_activity</span>
+              <p className="text-xs font-semibold text-[#5b48bd]">Đang kết nối và đồng bộ tin tuyển dụng từ Supabase Cloud...</p>
+            </div>
+          )}
+
+          {!isLoading && filteredJobs.length === 0 && (
+            <div className="col-span-full py-16 px-6 text-center bg-white rounded-[32px] border border-dashed border-purple-200 shadow-sm flex flex-col items-center justify-center">
+              <div className="w-16 h-16 rounded-full bg-[#edeafd] flex items-center justify-center text-[#5b48bd] mb-3">
+                <span className="material-symbols-outlined text-3xl">post_add</span>
+              </div>
+              <h3 className="text-base font-bold text-slate-800">Chưa có tin tuyển dụng nào phù hợp</h3>
+              <p className="text-xs text-slate-500 max-w-md mt-1 mb-5">
+                {searchQuery || selectedCategory !== 'ALL'
+                  ? 'Không tìm thấy tin tuyển dụng nào theo bộ lọc tìm kiếm hiện tại. Hãy thử chọn Tất cả hoặc từ khóa khác.'
+                  : 'Dữ liệu thực tế từ cơ sở dữ liệu Supabase. Hãy bấm nút Đăng Tin Mới để bắt đầu thu hút ứng viên và áp dụng AI matching.'}
+              </p>
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="px-6 py-2.5 rounded-full bg-[#5b48bd] hover:bg-[#47369f] text-white text-xs font-bold shadow-md cursor-pointer transition-all"
+              >
+                + Đăng Tin Tuyển Dụng Ngay
+              </button>
+            </div>
+          )}
           {filteredJobs.map((job) => (
             <div
               key={job.id}

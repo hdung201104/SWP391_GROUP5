@@ -17,29 +17,36 @@ public class HireMateApplication {
     }
 
     private static void loadDotEnv() {
-        java.io.File envFile = new java.io.File(".env");
+        // 1. Tải .env.local trước (nếu có, dùng để mỗi dev cấu hình riêng cổng/DB mà không bị xung đột git)
+        loadEnvFile(new java.io.File(".env.local"));
+        loadEnvFile(new java.io.File("hiremate-backend/.env.local"));
+
+        // 2. Tải .env mặc định của dự án
+        loadEnvFile(new java.io.File(".env"));
+        loadEnvFile(new java.io.File("hiremate-backend/.env"));
+    }
+
+    private static void loadEnvFile(java.io.File envFile) {
         if (!envFile.exists()) {
-            envFile = new java.io.File("hiremate-backend/.env");
+            return;
         }
-        if (envFile.exists()) {
-            try {
-                java.util.List<String> lines = java.nio.file.Files.readAllLines(envFile.toPath());
-                for (String line : lines) {
-                    line = line.trim();
-                    if (line.isEmpty() || line.startsWith("#")) {
-                        continue;
-                    }
-                    int eqIdx = line.indexOf('=');
-                    if (eqIdx > 0) {
-                        String key = line.substring(0, eqIdx).trim();
-                        String value = line.substring(eqIdx + 1).trim();
-                        if (System.getProperty(key) == null && System.getenv(key) == null) {
-                            System.setProperty(key, value);
-                        }
+        try {
+            java.util.List<String> lines = java.nio.file.Files.readAllLines(envFile.toPath());
+            for (String line : lines) {
+                line = line.trim();
+                if (line.isEmpty() || line.startsWith("#")) {
+                    continue;
+                }
+                int eqIdx = line.indexOf('=');
+                if (eqIdx > 0) {
+                    String key = line.substring(0, eqIdx).trim();
+                    String value = line.substring(eqIdx + 1).trim();
+                    if (System.getProperty(key) == null && System.getenv(key) == null) {
+                        System.setProperty(key, value);
                     }
                 }
-            } catch (Exception ignored) {
             }
+        } catch (Exception ignored) {
         }
     }
 }

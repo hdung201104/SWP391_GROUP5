@@ -1,66 +1,32 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useLivingTheme } from '../context/LivingThemeContext';
-
-// Job lookup map by ID
-const JOB_MAP = {
-  101: {
-    id: 101,
-    title: 'Senior Backend Engineer',
-    subtitle: '(Java / Distributed Systems)',
-    code: 'JD-BNK-882',
-    statusBadge: 'Đang Tuyển Gấp',
-    totalApplicants: 24,
-    newToday: 6,
-    topGoldCount: 2,
-    avgScore: '74.5%',
-    screenedProgress: '15/24',
-    screenedPercent: '62.5%',
-  },
-  102: {
-    id: 102,
-    title: 'Frontend Lead Architect',
-    subtitle: '(React / Next.js / TypeScript)',
-    code: 'JD-WEB-641',
-    statusBadge: 'Đang Tuyển',
-    totalApplicants: 18,
-    newToday: 3,
-    topGoldCount: 4,
-    avgScore: '81.2%',
-    screenedProgress: '10/18',
-    screenedPercent: '55.5%',
-  },
-  103: {
-    id: 103,
-    title: 'DevOps & Platform Engineer',
-    subtitle: '(AWS / Kubernetes / ArgoCD)',
-    code: 'JD-OPS-330',
-    statusBadge: 'Đang Tuyển',
-    totalApplicants: 15,
-    newToday: 2,
-    topGoldCount: 3,
-    avgScore: '77.8%',
-    screenedProgress: '9/15',
-    screenedPercent: '60.0%',
-  },
-  104: {
-    id: 104,
-    title: 'Lead AI & LLM Solution Architect',
-    subtitle: '(GenAI Core)',
-    code: 'JD-AI-109',
-    statusBadge: 'Hot ⚡',
-    totalApplicants: 9,
-    newToday: 4,
-    topGoldCount: 6,
-    avgScore: '88.3%',
-    screenedProgress: '6/9',
-    screenedPercent: '66.7%',
-  },
-};
+import { jobApi, applicationApi, aiMatchApi } from '../api';
+import LoadingSpinner from '../components/common/LoadingSpinner';
 
 export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJobs }) {
   const { theme: livingTheme, luminosity } = useLivingTheme();
-  // Job context details - resolved dynamically from jobId prop
-  const jobDetails = JOB_MAP[jobId] || JOB_MAP[101];
+
+  // State
+  const [jobDetails, setJobDetails] = useState({
+    id: jobId,
+    title: 'Đang tải tin tuyển dụng...',
+    subtitle: '',
+    code: `JD-${jobId}`,
+    statusBadge: 'Đang Tải',
+    totalApplicants: 0,
+    newToday: 0,
+    topGoldCount: 0,
+    avgScore: '0%',
+    screenedProgress: '0/0',
+    screenedPercent: '0%',
+    mandatorySkills: [],
+    preferredSkills: [],
+  });
+
+  const [candidates, setCandidates] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRescanning, setIsRescanning] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Filter & Search states
   // 'ALL' | 'NEW' | 'REVIEWING' | 'INTERVIEW' | 'PASSED' | 'REJECTED'
@@ -83,159 +49,221 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
   // Preview Candidate Modal
   const [selectedCandidateForModal, setSelectedCandidateForModal] = useState(null);
 
-  // Candidate Data matching user's HTML specification
-  const [candidates, setCandidates] = useState([
-    {
-      id: 1,
-      rank: 1,
-      name: 'Trần Bảo Long',
-      verified: true,
-      role: 'Senior Backend Dev • FPT Software Alumni',
-      experience: '6 năm KN',
-      appliedTime: 'Nộp 25/09 14:30',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80',
-      matchScore: 94,
-      matchCategory: 'Tối Ưu Tuyệt Đối',
-      techChips: [
-        { name: 'Java 21: 100%', highlight: false },
-        { name: 'Spring Boot 3: 100%', highlight: false },
-        { name: 'Kafka High-Load: 92%', highlight: true },
-        { name: 'PostgreSQL: 95%', highlight: false },
-      ],
-      aiQuote: 'Hồ sơ kỹ thuật xuất sắc, khớp 100% kỹ năng bắt buộc và chứng minh năng lực chịu tải 50k RPS trên hệ thống ngân hàng.',
-      stage: 'INTERVIEW',
-      statusLabel: 'Duyệt Phỏng Vấn',
-      isLowerScore: false,
-    },
-    {
-      id: 2,
-      rank: 2,
-      name: 'Lê Hoàng Nam',
-      verified: true,
-      role: 'Lead Backend Engineer • VNG Corp',
-      experience: '7.5 năm KN',
-      appliedTime: 'Nộp 25/09 09:15',
-      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&auto=format&fit=crop&q=80',
-      matchScore: 89,
-      matchCategory: 'Đề Xuất Cao Cấp',
-      techChips: [
-        { name: 'Java Core: 95%', highlight: false },
-        { name: 'Microservices: 90%', highlight: false },
-        { name: 'AWS Arch: 85%', highlight: true },
-        { name: 'Kafka: 80%', highlight: false },
-      ],
-      aiQuote: 'Kinh nghiệm Lead dày dặn tại VNG, kiến trúc Microservices vững chắc, bổ sung giá trị cao cho vị trí Tech Lead.',
-      stage: 'REVIEWING',
-      statusLabel: 'Đang Xem Xét',
-      isLowerScore: false,
-    },
-    {
-      id: 3,
-      rank: 3,
-      name: 'Nguyễn Quốc Huy',
-      verified: false,
-      initials: 'QH',
-      role: 'Senior Java Dev • TMA Solutions',
-      experience: '5 năm KN',
-      appliedTime: 'Nộp 24/09 18:40',
-      matchScore: 78,
-      matchCategory: 'Phù Hợp Tiêu Chuẩn',
-      techChips: [
-        { name: 'Java 17: 85%', highlight: false },
-        { name: 'Spring Boot: 88%', highlight: false },
-        { name: 'Docker: 75%', highlight: false },
-        { name: 'Thiếu Kafka Cluster', highlight: 'error' },
-      ],
-      aiQuote: 'Đáp ứng tốt các yêu cầu bắt buộc, cần đánh giá thêm năng lực triển khai Kafka và hệ thống phân tán phức tạp.',
-      stage: 'NEW',
-      statusLabel: 'Mới Nhận',
-      isLowerScore: false,
-    },
-    {
-      id: 4,
-      rank: 4,
-      name: 'Đỗ Minh Tuấn',
-      verified: false,
-      initials: 'MT',
-      role: 'Java Backend Developer • CMC Global',
-      experience: '3.5 năm KN',
-      appliedTime: 'Nộp 23/09 11:20',
-      matchScore: 65,
-      matchCategory: 'Tiềm Năng Mid-Level',
-      techChips: [
-        { name: 'Java Core: 80%', highlight: false },
-        { name: 'Spring Boot: 70%', highlight: false },
-        { name: 'MySQL: 75%', highlight: false },
-      ],
-      aiQuote: 'Hồ sơ thiên về Mid-level, có nền tảng cơ bản tốt nhưng còn thiếu kinh nghiệm kiến trúc hệ thống quy mô lớn.',
-      stage: 'REVIEWING',
-      statusLabel: 'Đang Xem Xét',
-      isLowerScore: false,
-    },
-    {
-      id: 5,
-      rank: null,
-      name: 'Phạm Thành Đạt',
-      verified: false,
-      initials: 'TĐ',
-      role: 'Junior Backend Dev',
-      experience: '1.5 năm KN',
-      appliedTime: 'Nộp 22/09',
-      matchScore: 45,
-      matchCategory: 'Dưới Chuẩn Senior',
-      techChips: [
-        { name: 'Java Cơ bản', highlight: false },
-        { name: 'Thiếu Microservices', highlight: 'error' },
-      ],
-      aiQuote: 'Thiếu kinh nghiệm kiến trúc hệ thống lớn, phù hợp hơn với level Middle/Junior.',
-      stage: 'REJECTED',
-      statusLabel: 'Từ chối đề xuất',
-      isLowerScore: true,
-    },
-    {
-      id: 6,
-      rank: null,
-      name: 'Vũ Đức Anh',
-      verified: false,
-      initials: 'ĐA',
-      role: 'Fullstack Dev',
-      experience: '3 năm KN',
-      appliedTime: 'Nộp 21/09',
-      matchScore: 38,
-      matchCategory: 'Sai Lệch Tech Stack',
-      techChips: [
-        { name: 'NodeJS / PHP', highlight: false },
-        { name: 'Không có Java', highlight: 'error' },
-      ],
-      aiQuote: 'Hồ sơ chủ yếu lập trình PHP/NodeJS, không có kinh nghiệm Java Spring Boot theo yêu cầu bắt buộc.',
-      stage: 'REJECTED',
-      statusLabel: 'Từ Chối',
-      isLowerScore: true,
-    },
-  ]);
-
   // Stage options for dropdown
   const STAGE_OPTIONS = [
-    { label: 'Duyệt Phỏng Vấn', stage: 'INTERVIEW' },
-    { label: 'Đang Xem Xét', stage: 'REVIEWING' },
-    { label: 'Mới Nhận', stage: 'NEW' },
-    { label: 'Đạt Yêu Cầu', stage: 'PASSED' },
-    { label: 'Từ chối đề xuất', stage: 'REJECTED' },
-    { label: 'Từ Chối', stage: 'REJECTED' },
+    { label: 'Duyệt Phỏng Vấn', stage: 'INTERVIEW', backendStatus: 'INTERVIEWING' },
+    { label: 'Đang Xem Xét', stage: 'REVIEWING', backendStatus: 'SCREENING' },
+    { label: 'Mới Nhận', stage: 'NEW', backendStatus: 'APPLIED' },
+    { label: 'Đạt Yêu Cầu', stage: 'PASSED', backendStatus: 'OFFERED' },
+    { label: 'Từ Chối', stage: 'REJECTED', backendStatus: 'REJECTED' },
   ];
 
-  const handleStageChange = (candidateId, newLabel) => {
+  // Fetch job & candidates from Supabase PostgreSQL
+  const loadJobAndApplicants = async () => {
+    try {
+      setIsLoading(true);
+
+      // 1. Fetch Job Info
+      let currentJob = null;
+      try {
+        const jobRes = await jobApi.getJobById(jobId);
+        if (jobRes?.data) currentJob = jobRes.data;
+      } catch (err) {
+        // Fallback: try finding in my jobs list
+        try {
+          const myJobsRes = await jobApi.getMyJobs();
+          if (Array.isArray(myJobsRes?.data) && myJobsRes.data.length > 0) {
+            currentJob = myJobsRes.data.find((j) => String(j.jobId) === String(jobId)) || myJobsRes.data[0];
+          }
+        } catch (ignored) {}
+      }
+
+      const activeJobId = currentJob?.jobId || jobId;
+
+      // 2. Fetch Applications & AI Matches in parallel
+      const [appsRes, matchesRes] = await Promise.allSettled([
+        applicationApi.getJobApplications(activeJobId),
+        aiMatchApi.getJobMatchesForRecruiter(activeJobId),
+      ]);
+
+      const rawApps = appsRes.status === 'fulfilled' && Array.isArray(appsRes.value?.data) ? appsRes.value.data : [];
+      const rawMatches = matchesRes.status === 'fulfilled' && Array.isArray(matchesRes.value?.data) ? matchesRes.value.data : [];
+
+      const matchMap = new Map();
+      rawMatches.forEach((m) => {
+        if (m.candidateId) matchMap.set(m.candidateId, m);
+      });
+
+      // 3. Map candidates with AI matching scores and chips
+      const mappedCandidates = rawApps.map((app, idx) => {
+        const match = matchMap.get(app.candidateId);
+        const score = app.matchingScore || match?.matchingScore || 0;
+
+        const mandatoryMatched = match?.matchedMandatorySkills
+          ? match.matchedMandatorySkills.split(/,/).map((s) => s.trim()).filter(Boolean)
+          : [];
+        const mandatoryMissing = match?.missingMandatorySkills
+          ? match.missingMandatorySkills.split(/,/).map((s) => s.trim()).filter(Boolean)
+          : [];
+        const preferredMatched = match?.matchedPreferredSkills
+          ? match.matchedPreferredSkills.split(/,/).map((s) => s.trim()).filter(Boolean)
+          : [];
+
+        const techChips = [
+          ...mandatoryMatched.map((s) => ({ name: s, highlight: true })),
+          ...preferredMatched.map((s) => ({ name: s, highlight: false })),
+          ...mandatoryMissing.map((s) => ({ name: `Thiếu: ${s}`, highlight: 'error' })),
+        ];
+
+        if (techChips.length === 0) {
+          techChips.push({ name: 'Hồ sơ tuyển dụng AI', highlight: false });
+        }
+
+        const stage = app.status === 'APPLIED' ? 'NEW'
+          : app.status === 'SCREENING' ? 'REVIEWING'
+          : app.status === 'INTERVIEWING' ? 'INTERVIEW'
+          : app.status === 'OFFERED' ? 'PASSED'
+          : app.status === 'REJECTED' ? 'REJECTED'
+          : 'NEW';
+
+        const statusLabel = stage === 'NEW' ? 'Mới Nhận'
+          : stage === 'REVIEWING' ? 'Đang Xem Xét'
+          : stage === 'INTERVIEW' ? 'Duyệt Phỏng Vấn'
+          : stage === 'PASSED' ? 'Đạt Yêu Cầu'
+          : 'Từ Chối';
+
+        const name = app.candidateName || `Ứng viên #${app.candidateId || idx + 1}`;
+        const initials = name
+          .split(' ')
+          .map((n) => n[0])
+          .slice(-2)
+          .join('')
+          .toUpperCase() || 'UV';
+
+        return {
+          id: app.applicationId,
+          applicationId: app.applicationId,
+          candidateId: app.candidateId,
+          rank: idx + 1,
+          name: name,
+          initials: initials,
+          verified: true,
+          role: app.candidateEmail || 'Ứng viên tiềm năng',
+          experience: app.coverLetter ? (app.coverLetter.length > 35 ? app.coverLetter.slice(0, 35) + '...' : app.coverLetter) : 'Hồ sơ đã qua thẩm định ATS',
+          appliedTime: app.createdAt ? new Date(app.createdAt).toLocaleDateString('vi-VN') : 'Gần đây',
+          avatar: null,
+          matchScore: score,
+          matchCategory: score >= 85 ? 'Tối Ưu Tuyệt Đối' : score >= 70 ? 'Phù Hợp Tốt' : score >= 50 ? 'Cân Nhắc Kỹ' : 'Sai Lệch Kỹ Năng',
+          techChips: techChips,
+          aiQuote: match?.aiReasoning || app.coverLetter || 'Dữ liệu so khớp kỹ năng thực tế tính toán từ Supabase PostgreSQL.',
+          stage: stage,
+          statusLabel: statusLabel,
+          isLowerScore: score < 60,
+          cvUrl: app.cvUrl || '#',
+        };
+      });
+
+      // 4. Update Job Details State
+      const totalCount = mappedCandidates.length;
+      const topGold = mappedCandidates.filter((c) => c.matchScore >= 90).length;
+      const avgScore = totalCount > 0
+        ? (mappedCandidates.reduce((sum, c) => sum + (c.matchScore || 0), 0) / totalCount).toFixed(1) + '%'
+        : '0%';
+      const screenedCount = mappedCandidates.filter((c) => c.stage !== 'NEW').length;
+      const screenedPercent = totalCount > 0
+        ? Math.round((screenedCount / totalCount) * 100) + '%'
+        : '0%';
+
+      setJobDetails({
+        id: activeJobId,
+        title: currentJob?.title || `Vị trí Tuyển Dụng #${activeJobId}`,
+        subtitle: currentJob?.location ? `(${currentJob.location})` : '',
+        code: `JD-${activeJobId}`,
+        statusBadge: currentJob?.status === 'PUBLISHED' ? 'Đang Tuyển' : (currentJob?.status || 'Đang Tuyển'),
+        totalApplicants: totalCount,
+        newToday: mappedCandidates.filter((c) => c.stage === 'NEW').length,
+        topGoldCount: topGold,
+        avgScore: avgScore,
+        screenedProgress: `${screenedCount}/${totalCount}`,
+        screenedPercent: screenedPercent,
+        mandatorySkills: currentJob?.requirements ? currentJob.requirements.split(/,|\r?\n|\\n/).map((s) => s.replace(/^[\s\-\u2022]+/, '').trim()).filter(Boolean) : [],
+        preferredSkills: currentJob?.benefits ? currentJob.benefits.split(/,|\r?\n|\\n/).map((s) => s.replace(/^[\s\-\u2022]+/, '').trim()).filter(Boolean) : [],
+      });
+
+      setCandidates(mappedCandidates);
+    } catch (err) {
+      console.error('Lỗi khi tải danh sách ứng viên từ Supabase:', err);
+      triggerToast('Lỗi khi tải danh sách ứng viên: ' + (err.message || 'Kiểm tra kết nối mạng'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadJobAndApplicants();
+  }, [jobId]);
+
+  // Stage change handler -> Persist to Supabase
+  const handleStageChange = async (candidateAppId, newLabel) => {
     const matchedOption = STAGE_OPTIONS.find((opt) => opt.label === newLabel) || {
       stage: 'REVIEWING',
+      backendStatus: 'SCREENING',
     };
-    setCandidates((prev) =>
-      prev.map((c) =>
-        c.id === candidateId
-          ? { ...c, statusLabel: newLabel, stage: matchedOption.stage }
-          : c
-      )
-    );
-    triggerToast(`Đã chuyển trạng thái ứng viên sang: "${newLabel}"`);
+
+    try {
+      await applicationApi.updateStatus(candidateAppId, {
+        newStatus: matchedOption.backendStatus,
+        note: `Chuyển trạng thái sang "${newLabel}" bởi nhà tuyển dụng`,
+      });
+
+      setCandidates((prev) =>
+        prev.map((c) =>
+          c.id === candidateAppId
+            ? { ...c, statusLabel: newLabel, stage: matchedOption.stage }
+            : c
+        )
+      );
+      triggerToast(`Đã lưu trạng thái: "${newLabel}" thành công vào Supabase!`);
+    } catch (err) {
+      triggerToast('Lỗi cập nhật trạng thái: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
+  // Recalculate AI matching
+  const handleRecalculateAi = async () => {
+    try {
+      setIsRescanning(true);
+      triggerToast('Đang yêu cầu AI quét lại điểm Match toàn bộ ứng viên theo tiêu chí 70/30...');
+      await aiMatchApi.recalculateMatchesForJob(jobDetails.id);
+      await loadJobAndApplicants();
+      triggerToast('Đã hoàn tất tính toán lại điểm AI Match và đồng bộ vào Supabase!');
+    } catch (err) {
+      triggerToast('Lỗi khi quét lại AI: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setIsRescanning(false);
+    }
+  };
+
+  // Export CSV
+  const handleExportCsv = async () => {
+    try {
+      setIsExporting(true);
+      triggerToast('Đang chuẩn bị file CSV danh sách ứng viên...');
+      const response = await applicationApi.exportJobApplicationsCsv(jobDetails.id);
+      const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `DS_Ung_Vien_${jobDetails.code}_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      triggerToast('Tải file CSV thành công!');
+    } catch (err) {
+      triggerToast('Lỗi xuất CSV: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   // Filter & sort logic
@@ -269,7 +297,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
   }, [candidates, activeFilter, searchQuery, isAiSortDescending]);
 
   // Pagination calculation
-  const PAGE_SIZE = 5;
+  const PAGE_SIZE = 6;
   const totalPages = Math.max(1, Math.ceil(filteredCandidates.length / PAGE_SIZE));
   const validCurrentPage = Math.min(currentPage, totalPages);
 
@@ -335,13 +363,38 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
 
             {/* Back & View Job Action Buttons */}
             <div className="flex items-center gap-2.5 flex-wrap">
+              <button
+                type="button"
+                onClick={handleRecalculateAi}
+                disabled={isRescanning}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-purple-50 hover:bg-purple-100 text-xs font-semibold text-[#5b48bd] border border-purple-200 transition-all cursor-pointer shadow-soft"
+                title="Yêu cầu AI quét lại điểm matching 70/30"
+              >
+                <span className={`material-symbols-outlined text-[16px] ${isRescanning ? 'animate-spin' : ''}`}>
+                  auto_awesome
+                </span>
+                <span>{isRescanning ? 'Đang Quét AI...' : 'Quét Lại AI (70/30)'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleExportCsv}
+                disabled={isExporting}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white hover:bg-[#F9F8F4] text-xs font-semibold text-[#2D3A31] border border-[#E6E2DA] transition-all cursor-pointer shadow-soft"
+                title="Xuất danh sách ứng viên ra định dạng CSV"
+              >
+                <span className="material-symbols-outlined text-[16px] text-emerald-600">download</span>
+                <span>Xuất CSV</span>
+              </button>
+
               <a
                 href={`#/jobs/${jobDetails.id}`}
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white hover:bg-[#F9F8F4] text-xs font-semibold text-[#2D3A31] border border-[#E6E2DA] transition-all cursor-pointer shadow-soft"
               >
                 <span className="material-symbols-outlined text-[16px] text-[#8C9A84]">visibility</span>
-                <span>Xem bài đăng JD</span>
+                <span>Xem bài JD</span>
               </a>
+
               <button
                 type="button"
                 onClick={() => {
@@ -369,7 +422,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                 <span className="text-[11px] uppercase tracking-wider text-[#2D3A31]/60 font-semibold">Tổng hồ sơ</span>
                 <div className="flex items-baseline gap-1.5 mt-0.5">
                   <span className="text-2xl font-serif font-bold text-[#2D3A31]">{jobDetails.totalApplicants}</span>
-                  <span className="text-[11px] text-[#8C9A84] font-semibold">+{jobDetails.newToday} hôm nay</span>
+                  <span className="text-[11px] text-[#8C9A84] font-semibold">từ Supabase DB</span>
                 </div>
               </div>
             </div>
@@ -380,9 +433,11 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                 <span className="material-symbols-outlined text-[22px]">auto_awesome</span>
               </div>
               <div className="flex flex-col">
-                <span className="text-[11px] uppercase tracking-wider text-[#2D3A31]/60 font-semibold">Đề cử cao cấp (&gt;90%)</span>
+                <span className="text-[11px] uppercase tracking-wider text-[#2D3A31]/60 font-semibold">Đề cử cao cấp (&ge;90%)</span>
                 <div className="flex items-baseline gap-1.5 mt-0.5">
-                  <span className="text-2xl font-serif font-bold text-[#C27B66]">{jobDetails.topGoldCount < 10 ? `0${jobDetails.topGoldCount}` : jobDetails.topGoldCount}</span>
+                  <span className="text-2xl font-serif font-bold text-[#C27B66]">
+                    {jobDetails.topGoldCount < 10 ? `0${jobDetails.topGoldCount}` : jobDetails.topGoldCount}
+                  </span>
                   <span className="text-[11px] text-[#2D3A31]/60">Ứng viên vàng</span>
                 </div>
               </div>
@@ -397,7 +452,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                 <span className="text-[11px] uppercase tracking-wider text-[#2D3A31]/60 font-semibold">Match Score TB</span>
                 <div className="flex items-baseline gap-1.5 mt-0.5">
                   <span className="text-2xl font-serif font-bold text-[#2D3A31]">{jobDetails.avgScore}</span>
-                  <span className="text-[11px] text-[#8C9A84] font-medium">JVM Benchmark</span>
+                  <span className="text-[11px] text-[#8C9A84] font-medium">Chuẩn 70/30</span>
                 </div>
               </div>
             </div>
@@ -411,7 +466,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                 <span className="text-[11px] uppercase tracking-wider text-[#2D3A31]/60 font-semibold">Tiến độ sàng lọc</span>
                 <div className="flex items-baseline gap-1.5 mt-0.5">
                   <span className="text-2xl font-serif font-bold text-[#2D3A31]">
-                    15<span className="text-sm font-normal text-[#2D3A31]/50">/24</span>
+                    {jobDetails.screenedProgress}
                   </span>
                   <span className="text-[11px] text-[#8C9A84] font-bold">{jobDetails.screenedPercent}</span>
                 </div>
@@ -440,76 +495,89 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
               </div>
               <span className="text-xs text-[#8C9A84] font-medium flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-[#8C9A84] animate-pulse" />
-                Đồng bộ realtime
+                Đồng bộ realtime Supabase
               </span>
             </div>
 
             {/* Rank Rows */}
-            <div className="divide-y divide-[#E6E2DA]">
-              {[...candidates]
-                .sort((a, b) => b.matchScore - a.matchScore)
-                .slice(0, 5)
-                .map((cand, idx) => {
-                  const rankLabel = ['🥇', '🥈', '🥉', '#4', '#5'][idx];
-                  return (
-                    <div key={cand.id} className="flex items-center gap-4 px-6 py-4 hover:bg-[#F9F8F4] transition-colors relative group">
-                      {/* Rank Medal */}
-                      <div className="w-9 h-9 rounded-xl shrink-0 flex items-center justify-center text-sm font-bold bg-[#F2F0EB] text-[#2D3A31] border border-[#E6E2DA]">
-                        {rankLabel}
-                      </div>
+            {isLoading ? (
+              <div className="p-8 text-center text-xs text-[#2D3A31]/60">
+                <LoadingSpinner />
+                <p className="mt-2 font-medium">Đang đồng bộ dữ liệu AI từ cơ sở dữ liệu...</p>
+              </div>
+            ) : candidates.length === 0 ? (
+              <div className="p-8 text-center text-xs text-[#2D3A31]/60 font-sans">
+                Chưa có ứng viên nào ứng tuyển vào vị trí này.
+              </div>
+            ) : (
+              <div className="divide-y divide-[#E6E2DA]">
+                {[...candidates]
+                  .sort((a, b) => b.matchScore - a.matchScore)
+                  .slice(0, 5)
+                  .map((cand, idx) => {
+                    const rankLabel = ['🥇', '🥈', '🥉', '#4', '#5'][idx] || `#${idx + 1}`;
+                    return (
+                      <div key={cand.id} className="flex items-center gap-4 px-6 py-4 hover:bg-[#F9F8F4] transition-colors relative group">
+                        {/* Rank Medal */}
+                        <div className="w-9 h-9 rounded-xl shrink-0 flex items-center justify-center text-sm font-bold bg-[#F2F0EB] text-[#2D3A31] border border-[#E6E2DA]">
+                          {rankLabel}
+                        </div>
 
-                      {/* Avatar */}
-                      <div className="relative shrink-0">
-                        {cand.avatar ? (
-                          <img className="w-11 h-11 rounded-2xl object-cover ring-1 ring-[#E6E2DA] shadow-soft" src={cand.avatar} alt={cand.name} />
-                        ) : (
-                          <div className="w-11 h-11 rounded-2xl bg-[#8C9A84]/15 flex items-center justify-center font-serif font-bold text-sm text-[#2D3A31]">
-                            {cand.initials}
+                        {/* Avatar */}
+                        <div className="relative shrink-0">
+                          {cand.avatar ? (
+                            <img className="w-11 h-11 rounded-2xl object-cover ring-1 ring-[#E6E2DA] shadow-soft" src={cand.avatar} alt={cand.name} />
+                          ) : (
+                            <div className="w-11 h-11 rounded-2xl bg-[#8C9A84]/15 flex items-center justify-center font-serif font-bold text-sm text-[#2D3A31]">
+                              {cand.initials}
+                            </div>
+                          )}
+                          {cand.verified && (
+                            <span className="absolute -top-1 -right-1 material-symbols-outlined text-[13px] text-[#8C9A84] bg-white rounded-full">verified</span>
+                          )}
+                        </div>
+
+                        {/* Identity */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-serif font-bold text-sm text-[#2D3A31] truncate group-hover:text-[#C27B66] transition-colors">
+                              {cand.name}
+                            </span>
+                            <span className="text-xs font-bold text-[#C27B66]">
+                              {cand.matchScore}%
+                            </span>
                           </div>
-                        )}
-                        {cand.verified && (
-                          <span className="absolute -top-1 -right-1 material-symbols-outlined text-[13px] text-[#8C9A84] bg-white rounded-full">verified</span>
-                        )}
-                      </div>
-
-                      {/* Identity */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-serif font-bold text-sm text-[#2D3A31] truncate group-hover:text-[#C27B66] transition-colors">
-                            {cand.name}
-                          </span>
-                          <span className="text-xs font-bold text-[#C27B66]">
-                            {cand.matchScore}%
-                          </span>
+                          <div className="text-xs text-[#2D3A31]/70 truncate">{cand.role}</div>
+                          {/* Score bar */}
+                          <div className="mt-1.5 h-1.5 w-full bg-[#F2F0EB] rounded-full overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all duration-700 bg-[#8C9A84]"
+                              style={{ width: `${cand.matchScore}%` }}
+                            />
+                          </div>
                         </div>
-                        <div className="text-xs text-[#2D3A31]/70 truncate">{cand.role}</div>
-                        {/* Score bar */}
-                        <div className="mt-1.5 h-1.5 w-full bg-[#F2F0EB] rounded-full overflow-hidden">
-                          <div
-                            className="h-full rounded-full transition-all duration-700 bg-[#8C9A84]"
-                            style={{ width: `${cand.matchScore}%` }}
-                          />
+
+                        {/* Match Category + Quick action */}
+                        <div className="flex items-center gap-3 shrink-0">
+                          <span className="hidden sm:block text-xs font-medium px-3 py-0.5 rounded-full border bg-[#8C9A84]/15 text-[#2D3A31] border-[#8C9A84]/30">
+                            {cand.matchCategory}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              window.location.hash = `#/candidate-evaluation?candidateId=${cand.candidateId}&jobId=${jobDetails.id}`;
+                            }}
+                            className="px-4 py-1.5 rounded-full text-xs font-semibold bg-white hover:bg-[#F9F8F4] text-[#2D3A31] border border-[#E6E2DA] hover:border-[#8C9A84] transition-all cursor-pointer flex items-center gap-1.5 shadow-soft"
+                          >
+                            <span className="material-symbols-outlined text-[15px] text-[#8C9A84]">person_search</span>
+                            <span>Xem hồ sơ</span>
+                          </button>
                         </div>
                       </div>
-
-                      {/* Match Category + Quick action */}
-                      <div className="flex items-center gap-3 shrink-0">
-                        <span className="hidden sm:block text-xs font-medium px-3 py-0.5 rounded-full border bg-[#8C9A84]/15 text-[#2D3A31] border-[#8C9A84]/30">
-                          {cand.matchCategory}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => { window.location.hash = `#/candidate-evaluation?candidateId=${cand.id}&jobId=${jobDetails.id}`; }}
-                          className="px-4 py-1.5 rounded-full text-xs font-semibold bg-white hover:bg-[#F9F8F4] text-[#2D3A31] border border-[#E6E2DA] hover:border-[#8C9A84] transition-all cursor-pointer flex items-center gap-1.5 shadow-soft"
-                        >
-                          <span className="material-symbols-outlined text-[15px] text-[#8C9A84]">person_search</span>
-                          <span>Xem hồ sơ</span>
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-            </div>
+                    );
+                  })}
+              </div>
+            )}
 
             {/* Footer */}
             <div className="px-6 py-3.5 border-t border-[#E6E2DA] bg-[#F9F8F4] flex items-center justify-between">
@@ -542,7 +610,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                     : 'text-[#47369f] hover:bg-purple-100/50'
                 }`}
               >
-                Tất cả <span className="ml-1 opacity-80">24</span>
+                Tất cả <span className="ml-1 opacity-80">{candidates.length}</span>
               </button>
 
               <button
@@ -554,7 +622,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                     : 'text-[#47369f] hover:bg-purple-100/50'
                 }`}
               >
-                Mới nộp <span className="ml-1 opacity-80">10</span>
+                Mới nộp <span className="ml-1 opacity-80">{candidates.filter((c) => c.stage === 'NEW').length}</span>
               </button>
 
               <button
@@ -566,7 +634,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                     : 'text-[#47369f] hover:bg-purple-100/50'
                 }`}
               >
-                Đang xem <span className="ml-1 opacity-80">5</span>
+                Đang xem <span className="ml-1 opacity-80">{candidates.filter((c) => c.stage === 'REVIEWING').length}</span>
               </button>
 
               <button
@@ -578,7 +646,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                     : 'text-[#47369f] hover:bg-purple-100/50'
                 }`}
               >
-                Phỏng vấn <span className="ml-1 opacity-80">4</span>
+                Phỏng vấn <span className="ml-1 opacity-80">{candidates.filter((c) => c.stage === 'INTERVIEW').length}</span>
               </button>
 
               <button
@@ -590,7 +658,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                     : 'text-[#47369f] hover:bg-purple-100/50'
                 }`}
               >
-                Đạt yêu cầu <span className="ml-1 opacity-80">2</span>
+                Đạt yêu cầu <span className="ml-1 opacity-80">{candidates.filter((c) => c.stage === 'PASSED').length}</span>
               </button>
 
               <button
@@ -602,10 +670,9 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                     : 'text-[#47369f] hover:bg-purple-100/50'
                 }`}
               >
-                Từ chối <span className="ml-1 opacity-80">3</span>
+                Từ chối <span className="ml-1 opacity-80">{candidates.filter((c) => c.stage === 'REJECTED').length}</span>
               </button>
             </div>
-
 
             {/* Search & AI Sort Toggle */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
@@ -617,7 +684,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Tìm kỹ năng, tên, công ty..."
+                  placeholder="Tìm kỹ năng, tên, email..."
                   className="w-full pl-10 pr-4 py-2 text-xs bg-[#F9F8F4] text-[#2D3A31] placeholder-[#2D3A31]/40 rounded-full focus:outline-none focus:border-[#8C9A84] focus:ring-2 focus:ring-[#8C9A84]/20 focus:bg-white transition-all border border-[#E6E2DA]"
                 />
               </div>
@@ -647,7 +714,13 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
           {/* CANDIDATE ROWS ROSTER                                    */}
           {/* ======================================================== */}
           <div className="flex flex-col gap-4">
-            {paginatedCandidates.length === 0 ? (
+            {isLoading ? (
+              <div className="p-16 text-center rounded-[28px] bg-white border border-[#E6E2DA] shadow-soft space-y-4">
+                <LoadingSpinner />
+                <h3 className="text-sm font-serif font-bold text-[#2D3A31]">Đang tải hồ sơ ứng viên từ Supabase...</h3>
+                <p className="text-xs text-[#2D3A31]/60">Hệ thống đang đồng bộ danh sách ứng tuyển và kết quả đối soát AI matching.</p>
+              </div>
+            ) : paginatedCandidates.length === 0 ? (
               <div className="p-12 text-center rounded-[28px] bg-white border border-[#E6E2DA] shadow-soft space-y-3">
                 <span className="material-symbols-outlined text-4xl text-[#2D3A31]/40">person_search</span>
                 <h3 className="text-base font-serif font-bold text-[#2D3A31]">Không tìm thấy hồ sơ phù hợp</h3>
@@ -676,7 +749,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                   {/* Col 1: Identity & Credentials */}
                   <div 
                     onClick={() => {
-                      window.location.hash = `#/candidate-evaluation?candidateId=${cand.id}&jobId=${jobDetails.id}`;
+                      window.location.hash = `#/candidate-evaluation?candidateId=${cand.candidateId}&jobId=${jobDetails.id}`;
                     }}
                     className="flex items-start gap-4 min-w-0 xl:w-5/12 cursor-pointer"
                     title="Nhấp để xem hồ sơ và CV chi tiết của ứng viên này"
@@ -726,8 +799,8 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                       </span>
                       <div className="flex items-center gap-3 text-xs text-[#2D3A31]/60 mt-2">
                         <span className="flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[14px] text-[#8C9A84]">find_replace</span>
-                          <span>{cand.experience}</span>
+                          <span className="material-symbols-outlined text-[14px] text-[#8C9A84]">description</span>
+                          <span className="truncate max-w-[140px]">{cand.experience}</span>
                         </span>
                         <span>&bull;</span>
                         <span className="flex items-center gap-1">
@@ -786,7 +859,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                       <span className="material-symbols-outlined text-[#8C9A84] text-[16px] shrink-0 mt-0.5">
                         psychology
                       </span>
-                      <span className="italic">{cand.aiQuote}</span>
+                      <span className="italic line-clamp-2">{cand.aiQuote}</span>
                     </div>
                   </div>
 
@@ -796,7 +869,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                     <button
                       type="button"
                       onClick={() => {
-                        window.location.hash = `#/candidate-evaluation?candidateId=${cand.id}&jobId=${jobDetails.id}`;
+                        window.location.hash = `#/candidate-evaluation?candidateId=${cand.candidateId}&jobId=${jobDetails.id}`;
                       }}
                       className="px-4 py-2 rounded-full text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer bg-[#2D3A31] text-white hover:bg-[#C27B66] shadow-soft flex items-center gap-1.5"
                     >
@@ -917,7 +990,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                   </span>
                 </div>
                 <p className="text-xs text-[#2D3A31]/70 mt-0.5">{selectedCandidateForModal.role}</p>
-                <p className="text-[11px] text-[#C27B66] font-medium">{selectedCandidateForModal.experience} &bull; {selectedCandidateForModal.appliedTime}</p>
+                <p className="text-[11px] text-[#C27B66] font-medium">{selectedCandidateForModal.appliedTime}</p>
               </div>
             </div>
 
@@ -960,17 +1033,28 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
               <div className="flex items-center gap-3">
                 <span className="material-symbols-outlined text-[#C27B66] text-2xl">picture_as_pdf</span>
                 <div>
-                  <div className="text-xs font-bold text-[#2D3A31]">CV_{selectedCandidateForModal.name.replace(/\s+/g, '_')}_2026.pdf</div>
-                  <div className="text-[11px] text-[#2D3A31]/50 font-mono">1.8 MB &bull; Đã qua phân tích ATS</div>
+                  <div className="text-xs font-bold text-[#2D3A31]">CV_{selectedCandidateForModal.name.replace(/\s+/g, '_')}.pdf</div>
+                  <div className="text-[11px] text-[#2D3A31]/50 font-mono">Đã qua phân tích ATS</div>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => triggerToast(`Đang mở tập tin CV của ứng viên ${selectedCandidateForModal.name}`)}
-                className="px-4 py-2 rounded-full bg-white hover:bg-[#F2F0EB] text-[#2D3A31] text-xs font-semibold border border-[#E6E2DA] transition-colors cursor-pointer shadow-soft"
-              >
-                Mở Xem CV
-              </button>
+              {selectedCandidateForModal.cvUrl && selectedCandidateForModal.cvUrl !== '#' ? (
+                <a
+                  href={selectedCandidateForModal.cvUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-4 py-2 rounded-full bg-white hover:bg-[#F2F0EB] text-[#2D3A31] text-xs font-semibold border border-[#E6E2DA] transition-colors cursor-pointer shadow-soft"
+                >
+                  Mở Xem CV
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => triggerToast(`Đang mở tập tin CV của ứng viên ${selectedCandidateForModal.name}`)}
+                  className="px-4 py-2 rounded-full bg-white hover:bg-[#F2F0EB] text-[#2D3A31] text-xs font-semibold border border-[#E6E2DA] transition-colors cursor-pointer shadow-soft"
+                >
+                  Xem CV
+                </button>
+              )}
             </div>
 
             {/* Action Buttons */}
