@@ -14,19 +14,14 @@ spring:
       minimum-idle: ${HIKARI_MIN_IDLE:2}
   jpa:
     hibernate:
-      ddl-auto: validate        # Flyway quản lý schema, Hibernate chỉ validate
+      ddl-auto: none            # Dùng trực tiếp schema Supabase PostgreSQL, không can thiệp schema
     show-sql: true
     properties:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
   flyway:
-    enabled: true
-    locations: classpath:db/migration
-    baseline-on-migrate: true   # Cho phép chạy trên DB đã có dữ liệu
-    baseline-version: 0
-    validate-on-migrate: false  # Bỏ qua checksum mismatch khi sửa đổi script trong dev
-    out-of-order: true
+    enabled: false              # Tắt Flyway, toàn bộ 20 bảng CSDL quản lý tập trung trên Supabase qua HireMate_AI_New.sql
   mail:
     host: ${SPRING_MAIL_HOST:smtp.gmail.com}
     port: ${SPRING_MAIL_PORT:587}
@@ -62,4 +57,12 @@ cloudinary:
   cloud-name: ${CLOUDINARY_CLOUD_NAME:mezrtcb7}
   api-key: ${CLOUDINARY_API_KEY:632312897439654}
   api-secret: ${CLOUDINARY_API_SECRET:8xXBIOnHqHLocisqNwH_3f4Aykw}
+
+payos:
+  client-id: ${PAYOS_CLIENT_ID:e2d0f50b-68aa-4cd9-b83f-72c4b3293db4}
+  api-key: ${PAYOS_API_KEY:425f9314-c0b3-4373-a332-7855f1d9e9d4}
+  checksum-key: ${PAYOS_CHECKSUM_KEY:007567eb3a0cf7565f8c4dca7a780336db04c33ec2fc8e0b7d9312dbe5fa447e}
+  return-url: ${PAYOS_RETURN_URL:http://localhost:3000/#/payment/success}
+  cancel-url: ${PAYOS_CANCEL_URL:http://localhost:3000/#/payment/cancel}
+
 

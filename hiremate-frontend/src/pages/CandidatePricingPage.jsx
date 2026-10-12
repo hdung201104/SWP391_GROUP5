@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import paymentApi from '../api/paymentApi';
 
 const CANDIDATE_SUBSCRIPTION_PLANS = [
   {
@@ -140,27 +141,99 @@ export default function CandidatePricingPage({ user, onNavigate }) {
   const [selectedAddonForPurchase, setSelectedAddonForPurchase] = useState(null);
   const [promoCode, setPromoCode] = useState('');
   const [appliedDiscount, setAppliedDiscount] = useState(0);
+  const [voucherDiscountAmount, setVoucherDiscountAmount] = useState(0);
   const [promoMessage, setPromoMessage] = useState('');
+  const [validatingVoucher, setValidatingVoucher] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('VIETQR');
   const [isProcessingCheckout, setIsProcessingCheckout] = useState(false);
   const [purchaseSuccess, setPurchaseSuccess] = useState(false);
+  const [createdOrder, setCreatedOrder] = useState(null);
+  const [checkingStatus, setCheckingStatus] = useState(false);
+  const [copyFeedback, setCopyFeedback] = useState('');
   const [activeFaqIndex, setActiveFaqIndex] = useState(null);
+  const [dbPlans, setDbPlans] = useState([]);
 
   // Simulated Candidate active subscription state
   const [activePlan, setActivePlan] = useState('CANDIDATE_FREE');
   const [mockInterviewPasses, setMockInterviewPasses] = useState(3);
   const [atsCheckPasses, setAtsCheckPasses] = useState(3);
 
-  const handleApplyPromo = () => {
-    if (promoCode.trim().toUpperCase() === 'CANDIDATE20' || promoCode.trim().toUpperCase() === 'SWP391') {
-      setAppliedDiscount(20);
-      setPromoMessage('Đã áp dụng mã giảm giá 20% dành cho Ứng viên! 🎉');
-    } else if (promoCode.trim().toUpperCase() === 'STUDENT50') {
-      setAppliedDiscount(30);
-      setPromoMessage('Đã áp dụng ưu đãi Sinh viên giảm 30%! 🎓');
-    } else {
+  const fetchMySubscription = () => {
+    paymentApi.getMySubscription()
+      .then(res => {
+        const sub = res.data?.data || res.data;
+        if (sub && sub.active) {
+          const pName = (sub.planName || '').toLowerCase();
+          if (pName.includes('vip')) {
+            setActivePlan('CANDIDATE_VIP');
+            setMockInterviewPasses(9999);
+            setAtsCheckPasses(9999);
+          } else if (pName.includes('pro')) {
+            setActivePlan('CANDIDATE_PRO');
+            setMockInterviewPasses(sub.quotaLimit || 30);
+            setAtsCheckPasses(999);
+          }
+        }
+      })
+      .catch(err => console.warn('Could not load user active subscription', err));
+  };
+
+  // Fetch real plans & active subscription from Supabase
+  useEffect(() => {
+    paymentApi.getPlans('CANDIDATE')
+      .then(res => {
+        const plans = res.data?.data || res.data || [];
+        setDbPlans(plans);
+      })
+      .catch(err => console.warn('Could not load DB plans, using UI defaults', err));
+
+    fetchMySubscription();
+  }, []);
+
+  const handleCopy = (text, label) => {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text);
+    }
+    setCopyFeedback(`Đã sao chép ${label}!`);
+    setTimeout(() => setCopyFeedback(''), 2500);
+  };
+
+  const handleApplyPromo = async () => {
+    if (!promoCode.trim()) {
       setAppliedDiscount(0);
-      setPromoMessage('Mã giảm giá không hợp lệ hoặc đã hết hạn.');
+      setVoucherDiscountAmount(0);
+      setPromoMessage('');
+      return;
+    }
+
+    setValidatingVoucher(true);
+    let basePrice = 0;
+    if (selectedPlanForPurchase) {
+      basePrice = billingCycle === 'YEARLY' 
+        ? selectedPlanForPurchase.yearlyPrice * 12 
+        : selectedPlanForPurchase.monthlyPrice;
+    } else if (selectedAddonForPurchase) {
+      basePrice = selectedAddonForPurchase.price;
+    }
+
+    try {
+      const res = await paymentApi.validateVoucher(promoCode.trim().toUpperCase(), basePrice);
+      const data = res.data?.data || res.data;
+      if (data && data.valid) {
+        setAppliedDiscount(data.discountPercent || 0);
+        setVoucherDiscountAmount(data.discountAmount || 0);
+        setPromoMessage(data.message || `Đã áp dụng mã giảm giá ${data.discountPercent}%! 🎉`);
+      } else {
+        setAppliedDiscount(0);
+        setVoucherDiscountAmount(0);
+        setPromoMessage(data?.message || 'Mã giảm giá không hợp lệ hoặc đã hết hạn.');
+      }
+    } catch (err) {
+      setAppliedDiscount(0);
+      setVoucherDiscountAmount(0);
+      setPromoMessage(err.response?.data?.message || 'Mã giảm giá không tồn tại trên hệ thống.');
+    } finally {
+      setValidatingVoucher(false);
     }
   };
 
@@ -170,8 +243,10 @@ export default function CandidatePricingPage({ user, onNavigate }) {
     setSelectedAddonForPurchase(null);
     setPromoCode('');
     setAppliedDiscount(0);
+    setVoucherDiscountAmount(0);
     setPromoMessage('');
     setPurchaseSuccess(false);
+    setCreatedOrder(null);
   };
 
   const handleOpenAddonModal = (addon) => {
@@ -179,36 +254,158 @@ export default function CandidatePricingPage({ user, onNavigate }) {
     setSelectedPlanForPurchase(null);
     setPromoCode('');
     setAppliedDiscount(0);
+    setVoucherDiscountAmount(0);
     setPromoMessage('');
     setPurchaseSuccess(false);
+    setCreatedOrder(null);
   };
 
-  const handleConfirmPurchase = () => {
-    setIsProcessingCheckout(true);
-    setTimeout(() => {
-      setIsProcessingCheckout(false);
-      setPurchaseSuccess(true);
-      if (selectedPlanForPurchase) {
-        setActivePlan(selectedPlanForPurchase.id);
-        if (selectedPlanForPurchase.id === 'CANDIDATE_PRO') {
-          setMockInterviewPasses(30);
-          setAtsCheckPasses(999);
-        }
-        if (selectedPlanForPurchase.id === 'CANDIDATE_VIP') {
-          setMockInterviewPasses(9999);
-          setAtsCheckPasses(9999);
-        }
-      } else if (selectedAddonForPurchase) {
-        if (selectedAddonForPurchase.id === 'MOCK_PASS_10') {
-          setMockInterviewPasses(prev => prev + 10);
-        }
+  const applyPlanBenefits = () => {
+    if (selectedPlanForPurchase) {
+      setActivePlan(selectedPlanForPurchase.id);
+      if (selectedPlanForPurchase.id === 'CANDIDATE_PRO') {
+        setMockInterviewPasses(30);
+        setAtsCheckPasses(999);
       }
-    }, 1200);
+      if (selectedPlanForPurchase.id === 'CANDIDATE_VIP') {
+        setMockInterviewPasses(9999);
+        setAtsCheckPasses(9999);
+      }
+    } else if (selectedAddonForPurchase) {
+      if (selectedAddonForPurchase.id === 'MOCK_PASS_10') {
+        setMockInterviewPasses(prev => prev + 10);
+      }
+    }
+    fetchMySubscription();
+  };
+
+  const handleConfirmPurchase = async () => {
+    setIsProcessingCheckout(true);
+    let basePrice = 0;
+    let planName = '';
+
+    if (selectedPlanForPurchase) {
+      basePrice = billingCycle === 'YEARLY' 
+        ? selectedPlanForPurchase.yearlyPrice * 12 
+        : selectedPlanForPurchase.monthlyPrice;
+      planName = selectedPlanForPurchase.name;
+    } else if (selectedAddonForPurchase) {
+      basePrice = selectedAddonForPurchase.price;
+      planName = selectedAddonForPurchase.name;
+    }
+
+    const finalPrice = calculateFinalPrice();
+
+    // Map matched DB Plan ID
+    const matchedPlan = dbPlans.find(p => 
+      p.planName.toLowerCase().includes(planName.toLowerCase()) || 
+      planName.toLowerCase().includes(p.planName.toLowerCase())
+    );
+
+    const payload = {
+      userId: user?.id || user?.userId || null,
+      userEmail: user?.email || null,
+      planId: matchedPlan?.planId || null,
+      planName: planName,
+      targetRole: 'CANDIDATE',
+      billingCycle: billingCycle,
+      paymentMethod: paymentMethod,
+      voucherCode: appliedDiscount > 0 ? promoCode.trim().toUpperCase() : null,
+      originalAmount: basePrice,
+      discountAmount: voucherDiscountAmount,
+      amount: finalPrice,
+      orderNote: `Thanh toán ${planName} (${billingCycle === 'YEARLY' ? '12 Tháng' : '1 Tháng'}) - ${paymentMethod}`
+    };
+
+    try {
+      const res = await paymentApi.createOrder(payload);
+      const order = res?.data || res;
+      if (!order || !order.orderCode) {
+        throw new Error('Dữ liệu đơn hàng trả về từ máy chủ không hợp lệ.');
+      }
+      setCreatedOrder(order);
+
+      if (order.status === 'APPROVED' || finalPrice === 0) {
+        setPurchaseSuccess(true);
+        applyPlanBenefits();
+      }
+    } catch (err) {
+      console.error('Lỗi khởi tạo đơn hàng thanh toán trên Supabase:', err);
+      const errorMsg = err.response?.data?.message || err.message || 'Không thể kết nối đến máy chủ backend (Port 8080).';
+      alert(`⚠️ Lỗi tạo đơn hàng thực tế trên CSDL:\n${errorMsg}\n\nVui lòng đảm bảo backend Spring Boot đang chạy và thử lại.`);
+    } finally {
+      setIsProcessingCheckout(false);
+    }
+  };
+
+  // Tự động kiểm tra đối soát 24/7 (polling mỗi 3s khi đang mở mã QR)
+  useEffect(() => {
+    if (!createdOrder?.orderCode || purchaseSuccess || createdOrder.status === 'APPROVED') {
+      return;
+    }
+    const interval = setInterval(async () => {
+      try {
+        const res = await paymentApi.getOrderStatus(createdOrder.orderCode);
+        const order = res.data?.data || res.data;
+        if (order && order.status === 'APPROVED') {
+          setCreatedOrder(order);
+          setPurchaseSuccess(true);
+          applyPlanBenefits();
+          clearInterval(interval);
+        }
+      } catch (e) {
+        // bỏ qua lỗi polling mạng
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [createdOrder?.orderCode, purchaseSuccess]);
+
+  const handleSimulatePayment = async () => {
+    if (!createdOrder?.orderCode) return;
+    setCheckingStatus(true);
+    try {
+      const res = await paymentApi.simulateTransfer(createdOrder.orderCode);
+      const order = res.data?.data || res.data;
+      if (order && order.status === 'APPROVED') {
+        setCreatedOrder(order);
+        setPurchaseSuccess(true);
+        applyPlanBenefits();
+      }
+    } catch (err) {
+      alert('Không thể kích hoạt tự động: ' + (err.message || 'Thử lại'));
+    } finally {
+      setCheckingStatus(false);
+    }
+  };
+
+  const handleCheckOrderStatus = async () => {
+    if (!createdOrder?.orderCode) return;
+    setCheckingStatus(true);
+    try {
+      const res = await paymentApi.getOrderStatus(createdOrder.orderCode);
+      const order = res.data?.data || res.data;
+      if (order && order.status === 'APPROVED') {
+        setCreatedOrder(order);
+        setPurchaseSuccess(true);
+        applyPlanBenefits();
+      } else if (order && order.status === 'REJECTED') {
+        alert('Đơn hàng đã bị từ chối duyệt. Vui lòng liên hệ hỗ trợ viên.');
+      } else {
+        setCopyFeedback('Đang chờ hệ thống ngân hàng ghi nhận chuyển khoản...');
+        setTimeout(() => setCopyFeedback(''), 3500);
+      }
+    } catch (err) {
+      setCopyFeedback('Chưa thể kết nối kiểm tra đơn, vui lòng thử lại.');
+      setTimeout(() => setCopyFeedback(''), 3000);
+    } finally {
+      setCheckingStatus(false);
+    }
   };
 
   const formatVND = (amount) => {
-    if (amount === 0) return '0 VNĐ';
-    return amount.toLocaleString('vi-VN') + ' VNĐ';
+    if (!amount || amount === 0) return '0 VNĐ';
+    return Math.round(amount).toLocaleString('vi-VN') + ' VNĐ';
   };
 
   const calculateFinalPrice = () => {
@@ -221,11 +418,40 @@ export default function CandidatePricingPage({ user, onNavigate }) {
       basePrice = selectedAddonForPurchase.price;
     }
 
+    if (voucherDiscountAmount > 0) {
+      return Math.max(0, basePrice - voucherDiscountAmount);
+    }
     if (appliedDiscount > 0) {
-      basePrice = basePrice * (1 - appliedDiscount / 100);
+      return Math.max(0, basePrice * (1 - appliedDiscount / 100));
     }
     return basePrice;
   };
+
+  // Đồng bộ động các gói và giá từ CSDL Supabase (khi Admin chỉnh sửa giá)
+  const plansToDisplay = CANDIDATE_SUBSCRIPTION_PLANS.map((plan) => {
+    const matched = dbPlans.find((db) => {
+      const pName = plan.name.toLowerCase();
+      const dbName = (db.planName || '').toLowerCase();
+      return (
+        (dbName.includes('starter') && pName.includes('starter')) ||
+        (dbName.includes('pro') && pName.includes('pro')) ||
+        (dbName.includes('vip') && pName.includes('vip'))
+      );
+    });
+    if (matched) {
+      const dbMonthly = Number(matched.price) || 0;
+      const dbYearly = Math.round(dbMonthly * 0.7); // 30% discount on yearly
+      return {
+        ...plan,
+        dbPlanId: matched.planId,
+        monthlyPrice: dbMonthly,
+        yearlyPrice: dbYearly,
+        quotaLimit: matched.quotaLimit,
+        durationDays: matched.durationDays,
+      };
+    }
+    return plan;
+  });
 
   return (
     <div className="min-h-screen bg-transparent text-[#1e1b4b] py-6 px-3 sm:px-6 lg:px-8 font-sans">
@@ -314,7 +540,7 @@ export default function CandidatePricingPage({ user, onNavigate }) {
 
         {/* PRICING CARDS GRID */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
-          {CANDIDATE_SUBSCRIPTION_PLANS.map((plan) => {
+          {plansToDisplay.map((plan) => {
             const isSelected = activePlan === plan.id;
             const price = billingCycle === 'YEARLY' ? plan.yearlyPrice : plan.monthlyPrice;
 
@@ -570,7 +796,15 @@ export default function CandidatePricingPage({ user, onNavigate }) {
               &times;
             </button>
 
-            {!purchaseSuccess ? (
+            {/* Feedback notification toast */}
+            {copyFeedback && (
+              <div className="fixed top-6 right-6 z-50 bg-emerald-600 text-white px-4 py-2.5 rounded-xl shadow-xl text-xs font-bold animate-bounce flex items-center gap-2">
+                <span className="material-symbols-outlined text-base">check_circle</span>
+                <span>{copyFeedback}</span>
+              </div>
+            )}
+
+            {!createdOrder && !purchaseSuccess ? (
               <>
                 <div className="space-y-1 pr-8">
                   <span className="px-3 py-1 rounded-full bg-purple-100 text-[#32247b] text-[10px] font-extrabold uppercase tracking-wider">
@@ -590,7 +824,7 @@ export default function CandidatePricingPage({ user, onNavigate }) {
                     <div className="flex justify-between items-center text-slate-600">
                       <span>Chu kỳ thanh toán:</span>
                       <span className="font-semibold text-emerald-600">
-                        {billingCycle === 'YEARLY' ? '12 Tháng (Giảm 33%)' : '1 Tháng'}
+                        {billingCycle === 'YEARLY' ? '12 Tháng (Tiết kiệm 33%)' : '1 Tháng'}
                       </span>
                     </div>
                   )}
@@ -602,29 +836,46 @@ export default function CandidatePricingPage({ user, onNavigate }) {
                         : formatVND(selectedAddonForPurchase?.price || 0)}
                     </span>
                   </div>
+                  {voucherDiscountAmount > 0 && (
+                    <div className="flex justify-between items-center text-emerald-700 font-bold">
+                      <span>Giảm giá Voucher ({appliedDiscount}%):</span>
+                      <span>-{formatVND(voucherDiscountAmount)}</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Promo Code Input */}
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-700 block">Mã Giảm Giá / Ưu Đãi Sinh Viên:</label>
+                  <label className="text-xs font-bold text-slate-700 block">
+                    Mã Giảm Giá / Voucher (Lưu trong PostgreSQL):
+                  </label>
                   <div className="flex gap-2">
                     <input
                       type="text"
                       value={promoCode}
                       onChange={(e) => setPromoCode(e.target.value)}
-                      placeholder="Nhập mã (VD: CANDIDATE20 hoặc STUDENT50)"
+                      placeholder="Nhập mã (VD: HIREMATE30, CANDIDATE20)"
                       className="flex-1 px-4 py-2.5 text-xs rounded-xl border border-slate-300 focus:border-[#32247b] uppercase font-mono font-bold"
                     />
                     <button
                       onClick={handleApplyPromo}
-                      className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold cursor-pointer"
+                      disabled={validatingVoucher}
+                      className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
                     >
-                      Áp Dụng
+                      {validatingVoucher ? (
+                        <span className="material-symbols-outlined text-xs animate-spin">progress_activity</span>
+                      ) : (
+                        <span className="material-symbols-outlined text-xs">local_activity</span>
+                      )}
+                      <span>Áp Dụng</span>
                     </button>
                   </div>
                   {promoMessage && (
-                    <p className={`text-[11px] font-semibold ${appliedDiscount > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                      {promoMessage}
+                    <p className={`text-[11px] font-semibold flex items-center gap-1 ${voucherDiscountAmount > 0 || appliedDiscount > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                      <span className="material-symbols-outlined text-sm">
+                        {voucherDiscountAmount > 0 || appliedDiscount > 0 ? 'check_circle' : 'error'}
+                      </span>
+                      <span>{promoMessage}</span>
                     </p>
                   )}
                 </div>
@@ -634,7 +885,7 @@ export default function CandidatePricingPage({ user, onNavigate }) {
                   <label className="text-xs font-bold text-slate-700 block">Phương thức thanh toán:</label>
                   <div className="grid grid-cols-3 gap-3">
                     {[
-                      { id: 'VIETQR', label: 'Mã QR VietQR', icon: 'qr_code_scanner' },
+                      { id: 'VIETQR', label: 'Mã VietQR Chuyển Khoản', icon: 'qr_code_scanner' },
                       { id: 'MOMO', label: 'Ví MoMo', icon: 'account_balance_wallet' },
                       { id: 'CARD', label: 'Thẻ Quốc Tế', icon: 'credit_card' },
                     ].map((method) => (
@@ -671,18 +922,163 @@ export default function CandidatePricingPage({ user, onNavigate }) {
                     {isProcessingCheckout ? (
                       <>
                         <span className="material-symbols-outlined animate-spin text-base">progress_activity</span>
-                        <span>Đang Xử Lý...</span>
+                        <span>Đang Khởi Tạo Đơn...</span>
                       </>
                     ) : (
                       <>
-                        <span className="material-symbols-outlined text-base">verified</span>
-                        <span>Thanh Toán &amp; Kích Hoạt</span>
+                        <span className="material-symbols-outlined text-base">qr_code_scanner</span>
+                        <span>Tiếp Tục &amp; Lấy Mã QR</span>
                       </>
                     )}
                   </button>
                 </div>
               </>
+            ) : createdOrder && !purchaseSuccess && createdOrder.status === 'PENDING' ? (
+              /* VIETQR PAYMENT SCREEN */
+              <div className="space-y-5 animate-fadeIn text-center">
+                <div className="space-y-1">
+                  <span className="px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-[10px] font-extrabold uppercase tracking-wider">
+                    Đơn Hàng: #{createdOrder.orderCode} (Chờ Thanh Toán)
+                  </span>
+                  <h3 className="text-xl sm:text-2xl font-black text-[#1e1b4b]">
+                    Quét Mã VietQR Chuyển Khoản
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Mở ứng dụng ngân hàng bất kỳ để quét mã QR và tự động điền nội dung.
+                  </p>
+                </div>
+
+                {/* Real VietQR Image */}
+                <div className="p-3 bg-gradient-to-b from-indigo-50 to-white rounded-3xl border border-indigo-100 inline-block shadow-md">
+                  <img
+                    src={createdOrder.qrCodeUrl || `https://img.vietqr.io/image/mbbank-0987654321-compact2.png?amount=${createdOrder.amount}&addInfo=${createdOrder.orderCode}&accountName=HIREMATE%20AI`}
+                    alt="Mã QR Chuyển khoản"
+                    className="w-56 h-56 mx-auto object-contain rounded-2xl bg-white shadow-inner"
+                  />
+                  <div className="mt-2 flex items-center justify-center gap-1.5 text-[11px] font-extrabold text-indigo-700">
+                    <span className="material-symbols-outlined text-sm">verified_user</span>
+                    <span>VietQR Napas247 Chuẩn Ngân Hàng</span>
+                  </div>
+                </div>
+
+                {/* Transfer Info Details */}
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-left space-y-2.5 font-medium">
+                  <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">Ngân hàng:</span>
+                    <span className="font-bold text-slate-800">{createdOrder.bankName || 'MBBank'}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">Số tài khoản:</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-base text-[#32247b]">{createdOrder.bankAccount || '0987654321'}</span>
+                      <button
+                        onClick={() => handleCopy(createdOrder.bankAccount || '0987654321', 'Số tài khoản')}
+                        className="px-2 py-0.5 rounded-lg bg-indigo-100 hover:bg-indigo-200 text-[#32247b] text-[10px] font-bold cursor-pointer"
+                      >
+                        Sao chép
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">Chủ tài khoản:</span>
+                    <span className="font-bold text-slate-800">{createdOrder.accountHolder || 'HIREMATE AI TECH'}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">Số tiền:</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-black text-base text-emerald-600">{formatVND(createdOrder.amount)}</span>
+                      <button
+                        onClick={() => handleCopy(createdOrder.amount?.toString() || '0', 'Số tiền')}
+                        className="px-2 py-0.5 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-700 text-[10px] font-bold cursor-pointer"
+                      >
+                        Sao chép
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center py-1 bg-amber-50 p-2.5 rounded-xl border border-amber-200/80">
+                    <div>
+                      <span className="text-amber-800 font-bold block">Nội dung chuyển khoản:</span>
+                      <span className="text-[10px] text-amber-600">Vui lòng nhập chính xác mã này</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-black text-base text-amber-900">{createdOrder.orderCode}</span>
+                      <button
+                        onClick={() => handleCopy(createdOrder.orderCode, 'Nội dung chuyển khoản')}
+                        className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold cursor-pointer shadow-xs"
+                      >
+                        Sao chép
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Status Check Actions & PayOS Auto Activation */}
+                <div className="space-y-2 pt-2">
+                  <div className="flex items-center justify-center gap-2 p-2 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-800 font-semibold animate-pulse">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                    <span>Đang tự động đối soát ngân hàng 24/7 (Kích hoạt sau 2-3s)</span>
+                  </div>
+
+                  {createdOrder.checkoutUrl && (
+                    <a
+                      href={createdOrder.checkoutUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="w-full py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition-all"
+                    >
+                      <span className="material-symbols-outlined text-sm">open_in_new</span>
+                      <span>Mở Trang Thanh Toán PayOS Trực Tuyến</span>
+                    </a>
+                  )}
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleCheckOrderStatus}
+                      disabled={checkingStatus}
+                      className="flex-1 py-2.5 rounded-2xl bg-[#32247b] hover:bg-[#4331a6] text-white text-xs font-bold uppercase tracking-wider cursor-pointer shadow-md transition-all flex items-center justify-center gap-1.5"
+                    >
+                      {checkingStatus ? (
+                        <>
+                          <span className="material-symbols-outlined text-sm animate-spin">sync</span>
+                          <span>Đang Kiểm Tra...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="material-symbols-outlined text-sm">refresh</span>
+                          <span>Kiểm Tra Trạng Thái</span>
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      onClick={handleSimulatePayment}
+                      disabled={checkingStatus}
+                      title="Giả lập ngân hàng nhận tiền và kích hoạt gói ngay lập tức để kiểm tra"
+                      className="px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold tracking-wider cursor-pointer shadow-md transition-all flex items-center justify-center gap-1"
+                    >
+                      <span className="material-symbols-outlined text-sm">bolt</span>
+                      <span>Kích Hoạt Nhanh</span>
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setSelectedPlanForPurchase(null);
+                      setSelectedAddonForPurchase(null);
+                      setCreatedOrder(null);
+                    }}
+                    className="w-full py-2 rounded-2xl text-slate-500 hover:bg-slate-100 text-xs font-medium cursor-pointer"
+                  >
+                    Đóng cửa sổ (Đơn hàng đã được lưu trên hệ thống)
+                  </button>
+                </div>
+              </div>
             ) : (
+              /* SUCCESS STATE */
               <div className="text-center py-6 space-y-4 animate-fadeIn">
                 <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-md">
                   <span className="material-symbols-outlined text-3xl font-bold">check_circle</span>
@@ -696,19 +1092,21 @@ export default function CandidatePricingPage({ user, onNavigate }) {
                   </p>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 text-left space-y-1">
-                  <p><strong>Mã giao dịch:</strong> CAND-PAY-#{Math.floor(100000 + Math.random() * 900000)}</p>
+                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 text-left space-y-1 font-medium">
+                  <p><strong>Mã giao dịch:</strong> {createdOrder?.orderCode || 'HM-PAY-SUCCESS'}</p>
                   <p><strong>Gói dịch vụ:</strong> {selectedPlanForPurchase?.name || selectedAddonForPurchase?.name}</p>
-                  <p><strong>Trạng thái:</strong> Đã kích hoạt (Active)</p>
+                  <p><strong>Số tiền:</strong> {formatVND(createdOrder?.amount || calculateFinalPrice())}</p>
+                  <p><strong>Trạng thái:</strong> ĐÃ KÍCH HOẠT (ACTIVE)</p>
                 </div>
 
                 <button
                   onClick={() => {
                     setSelectedPlanForPurchase(null);
                     setSelectedAddonForPurchase(null);
+                    setCreatedOrder(null);
                     if (onNavigate) onNavigate('#/ai-interview');
                   }}
-                  className="w-full py-3.5 rounded-2xl bg-[#32247b] text-white text-xs font-bold uppercase tracking-wider cursor-pointer hover:bg-[#4331a6] transition-all flex items-center justify-center gap-2"
+                  className="w-full py-3.5 rounded-2xl bg-[#32247b] text-white text-xs font-bold uppercase tracking-wider cursor-pointer hover:bg-[#4331a6] transition-all flex items-center justify-center gap-2 shadow-lg"
                 >
                   <span className="material-symbols-outlined text-base">psychology</span>
                   <span>Vào AI Practice Studio Luyện Tập Ngay</span>

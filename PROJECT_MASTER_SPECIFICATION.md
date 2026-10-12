@@ -35,68 +35,79 @@
 
 ---
 
-## 2. CƠ SỞ DỮ LIỆU CHUẨN 3NF (16 BẢNG HOÀN CHỈNH)
+## 2. CƠ SỞ DỮ LIỆU CHUẨN 3NF (19 BẢNG HOÀN CHỈNH)
 
-### Danh sách 16 Bảng CSDL & Cấu trúc Thuộc tính Chi tiết:
+### Danh sách 19 Bảng CSDL & Cấu trúc Thuộc tính Chi tiết:
 
-#### 1. `users` (Tài khoản người dùng)
-* `user_id` (BIGINT, PK, Auto) | `email` (VARCHAR 255, UNIQUE, NOT NULL) | `password_hash` (VARCHAR 255, NOT NULL) | `full_name` (VARCHAR 150, NOT NULL) | `phone` (VARCHAR 20) | `avatar_url` (VARCHAR 500) | `role` (user_role_enum: CANDIDATE, RECRUITER, ADMIN) | `status` (user_status_enum: ACTIVE, INACTIVE, BLOCKED).
+#### 1. `users` (Tài khoản người dùng - Superclass)
+* `user_id` (BIGINT, PK, Auto) | `email` (VARCHAR 255, UNIQUE, NOT NULL) | `password_hash` (VARCHAR 500, NOT NULL) | `full_name` (VARCHAR 200, NOT NULL) | `phone` (VARCHAR 20) | `avatar_url` (VARCHAR 500) | `role` (user_role_enum: CANDIDATE, RECRUITER, ADMIN) | `status` (user_status_enum: ACTIVE, INACTIVE, BLOCKED) | `is_email_verified` (BOOLEAN) | `date_of_birth` (VARCHAR 20) | `address` (VARCHAR 300) | `bio` (TEXT) | `github_url` (VARCHAR 300).
 
 #### 2. `skills` (Từ điển kỹ năng)
-* `skill_id` (BIGINT, PK, Auto) | `skill_name` (VARCHAR 100, UNIQUE, NOT NULL) | `category` (VARCHAR 100) | `aliases` (JSONB - mảng từ đồng nghĩa).
+* `skill_id` (BIGINT, PK, Auto) | `skill_name` (VARCHAR 100, UNIQUE, NOT NULL) | `category` (VARCHAR 100) | `aliases` (TEXT - từ đồng nghĩa).
 
-#### 3. `question_bank` (Ngân hàng câu hỏi phỏng vấn)
-* `question_id` (BIGINT, PK, Auto) | `created_by` (BIGINT, FK ➔ users) | `skill_id` (BIGINT, FK ➔ skills) | `question_text` (TEXT, NOT NULL) | `category` (VARCHAR 100) | `difficulty` (question_difficulty_enum: EASY, MEDIUM, HARD) | `sample_answer` (TEXT - Barem đáp án mẫu AI) | `is_active` (BOOLEAN, DEFAULT TRUE).
+#### 3. `candidates` (Subclass của users - Hồ sơ chuyên môn Ứng viên)
+* `candidate_id` (BIGINT, PK & FK 1-1 ➔ users.user_id) | `headline` (VARCHAR 300) | `location` (VARCHAR 200) | `bio` (TEXT) | `experience_years` (INT, DEFAULT 0) | `desired_salary_min/max` (NUMERIC 15,2) | `educations_json` (TEXT) | `experiences_json` (TEXT) | `projects_json` (TEXT) | `career_goals` (TEXT).
 
-#### 4. `candidate_profiles` (Hồ sơ ứng viên chuyên sâu)
-* `profile_id` (BIGINT, PK, Auto) | `user_id` (BIGINT, FK 1-1 ➔ users, UNIQUE) | `headline` (VARCHAR 300) | `location` (VARCHAR 200) | `bio` (TEXT) | `experience_years` (INT, DEFAULT 0) | `desired_salary_min/max` (NUMERIC 15,2) | `educations_json` (JSONB) | `experiences_json` (JSONB) | `projects_json` (JSONB) | `career_goals` (TEXT).
+#### 4. `recruiters` (Subclass của users - Hồ sơ Nhà tuyển dụng)
+* `recruiter_id` (BIGINT, PK & FK 1-1 ➔ users.user_id) | `company_id` (BIGINT, FK ➔ companies) | `position` (VARCHAR 200) | `department` (VARCHAR 150).
 
 #### 5. `candidate_skills` (Danh mục kỹ năng ứng viên)
-* `candidate_skill_id` (BIGINT, PK, Auto) | `profile_id` (BIGINT, FK ➔ candidate_profiles) | `skill_id` (BIGINT, FK ➔ skills) | `proficiency_level` (skill_proficiency_enum: BEGINNER, INTERMEDIATE, ADVANCED) | `years_of_experience` (REAL) | `ai_detected` (BOOLEAN).
+* `candidate_skill_id` (BIGINT, PK, Auto) | `profile_id` (BIGINT, FK ➔ candidates.candidate_id) | `skill_id` (BIGINT, FK ➔ skills) | `proficiency_level` (BEGINNER, INTERMEDIATE, ADVANCED) | `years_of_experience` (REAL) | `ai_detected` (BOOLEAN).
 
 #### 6. `cvs` (Quản lý file CV & AI Parser JSON)
-* `cv_id` (BIGINT, PK, Auto) | `candidate_id` (BIGINT, FK ➔ users) | `file_name` (VARCHAR 255) | `file_url` (VARCHAR 500) | `file_type` (VARCHAR 10) | `file_size_bytes` (INT, <=10MB) | `parsed_text` (TEXT) | `parsed_json` (JSONB) | `summary` (TEXT) | `parse_status` (cv_parse_status_enum: PENDING, PROCESSING, DONE, FAILED) | `is_default` (BOOLEAN, UNIQUE PARTIAL INDEX per candidate).
+* `cv_id` (BIGINT, PK, Auto) | `candidate_id` (BIGINT, FK ➔ candidates.candidate_id) | `file_name` (VARCHAR 255) | `file_url` (VARCHAR 500) | `file_type` (VARCHAR 10) | `file_size_bytes` (INT, <=10MB) | `parsed_text` (TEXT) | `parsed_json` (TEXT) | `summary` (TEXT) | `parse_status` (PENDING, PROCESSING, DONE, FAILED) | `is_default` (BOOLEAN).
 
 #### 7. `companies` (Doanh nghiệp tuyển dụng)
-* `company_id` (BIGINT, PK, Auto) | `recruiter_id` (BIGINT, FK 1-1 ➔ users, UNIQUE) | `company_name` (VARCHAR 200, NOT NULL) | `logo_url` (VARCHAR 500) | `website` (VARCHAR 300) | `address` (VARCHAR 300) | `company_size` (VARCHAR 50) | `status` (company_status_enum: ACTIVE, SUSPENDED, BANNED).
+* `company_id` (BIGINT, PK, Auto) | `recruiter_id` (BIGINT, FK ➔ recruiters.recruiter_id) | `company_name` (VARCHAR 200, NOT NULL) | `logo_url` (VARCHAR 500) | `website` (VARCHAR 300) | `industry` (VARCHAR 100) | `address` (VARCHAR 300) | `company_size` (VARCHAR 50) | `status` (ACTIVE, SUSPENDED, BANNED) | `founded_year` (INT).
 
 #### 8. `jobs` (Tin tuyển dụng)
-* `job_id` (BIGINT, PK, Auto) | `recruiter_id` (BIGINT, FK ➔ users) | `company_id` (BIGINT, FK ➔ companies) | `title` (VARCHAR 200, NOT NULL) | `description` (TEXT) | `requirements` (TEXT) | `benefits` (TEXT) | `salary_min/max` (NUMERIC 15,2) | `location` (VARCHAR 200) | `employment_type` (employment_type_enum: FULL_TIME, PART_TIME, REMOTE, HYBRID) | `status` (job_status_enum: DRAFT, PUBLISHED, CLOSED) | `vacancies_count` (INT, DEFAULT 1) | `total_views` (INT, DEFAULT 0) | `deadline_date` (DATE).
+* `job_id` (BIGINT, PK, Auto) | `recruiter_id` (BIGINT, FK ➔ recruiters.recruiter_id) | `company_id` (BIGINT, FK ➔ companies) | `title` (VARCHAR 200, NOT NULL) | `description` (TEXT) | `requirements` (TEXT) | `benefits` (TEXT) | `salary_min/max` (NUMERIC 15,2) | `location` (VARCHAR 200) | `employment_type` (FULL_TIME, PART_TIME, REMOTE, HYBRID) | `status` (DRAFT, PUBLISHED, CLOSED) | `approval_status` (PENDING, APPROVED, REJECTED) | `vacancies_count` (INT, DEFAULT 1) | `total_views` (INT, DEFAULT 0) | `deadline_date` (DATE).
 
 #### 9. `job_skills` (Yêu cầu kỹ năng & Trọng số AI)
-* `job_skill_id` (BIGINT, PK, Auto) | `job_id` (BIGINT, FK ➔ jobs) | `skill_id` (BIGINT, FK ➔ skills) | `importance` (skill_importance_enum: MANDATORY [70% weight], PREFERRED [30% weight]) | `min_years_experience` (INT) | `weight` (REAL, 0.1 - 5.0).
+* `job_skill_id` (BIGINT, PK, Auto) | `job_id` (BIGINT, FK ➔ jobs) | `skill_id` (BIGINT, FK ➔ skills) | `importance` (MANDATORY [70% weight], PREFERRED [30% weight]) | `min_years_experience` (INT) | `weight` (REAL, 0.1 - 5.0).
 
 #### 10. `ai_job_matches` (Báo cáo kết quả so khớp AI)
-* `match_id` (BIGINT, PK, Auto) | `candidate_id` (BIGINT, FK ➔ users) | `job_id` (BIGINT, FK ➔ jobs) | `cv_id` (BIGINT, FK ➔ cvs) | `matching_score` (REAL, 0.0% - 100.0%) | `skill_gap_json` (JSONB: matched/missing skills) | `ai_reasoning` (TEXT - Lời lập luận AI) | `status` (match_status_enum: PENDING, COMPLETED, FAILED).
+* `match_id` (BIGINT, PK, Auto) | `candidate_id` (BIGINT, FK ➔ candidates.candidate_id) | `job_id` (BIGINT, FK ➔ jobs) | `cv_id` (BIGINT, FK ➔ cvs) | `matching_score` (REAL, 0.0% - 100.0%) | `skill_gap_json` (TEXT: matched/missing skills) | `ai_reasoning` (TEXT - Lời lập luận AI) | `status` (PENDING, COMPLETED, FAILED).
 
 #### 11. `applications` (Đơn ứng tuyển)
-* `application_id` (BIGINT, PK, Auto) | `job_id` (BIGINT, FK ➔ jobs) | `candidate_id` (BIGINT, FK ➔ users) | `cv_id` (BIGINT, FK ➔ cvs) | `cover_letter` (TEXT) | `status` (application_status_enum: APPLIED, SCREENING, SHORTLISTED, INTERVIEWING, OFFERED, HIRED, REJECTED) | `rejection_reason` (TEXT) | UNIQUE (job_id, candidate_id).
+* `application_id` (BIGINT, PK, Auto) | `job_id` (BIGINT, FK ➔ jobs) | `candidate_id` (BIGINT, FK ➔ candidates.candidate_id) | `cv_id` (BIGINT, FK ➔ cvs) | `cover_letter` (TEXT) | `status` (APPLIED, SCREENING, SHORTLISTED, INTERVIEWING, OFFERED, HIRED, REJECTED) | `rejection_reason` (TEXT) | UNIQUE (job_id, candidate_id).
 
-#### 12. `recruitment_pipeline_logs` (Nhật ký chuyển chặng)
-* `log_id` (BIGINT, PK, Auto) | `application_id` (BIGINT, FK ➔ applications) | `from_stage` (application_status_enum) | `to_stage` (application_status_enum) | `notes` (TEXT) | `changed_by` (BIGINT, FK ➔ users).
+#### 12. `recruitment_pipeline_logs` (Nhật ký chuyển chặng Kanban)
+* `log_id` (BIGINT, PK, Auto) | `application_id` (BIGINT, FK ➔ applications) | `from_stage` (VARCHAR 20) | `to_stage` (VARCHAR 20) | `notes` (TEXT) | `changed_by` (BIGINT, FK ➔ users.user_id).
 
 #### 13. `interview_sessions` (Phiên phỏng vấn AI)
-* `session_id` (BIGINT, PK, Auto) | `candidate_id` (BIGINT, FK ➔ users) | `job_id` (BIGINT, FK ➔ jobs, Optional) | `target_position` (VARCHAR 200) | `session_type` (interview_session_type_enum: MOCK, PRACTICE_RETRY) | `parent_session_id` (BIGINT, FK ➔ interview_sessions) | `overall_score` (REAL, 0-100) | `overall_feedback` (TEXT) | `weakness_summary` (TEXT) | `recommended_tasks` (JSONB).
+* `session_id` (BIGINT, PK, Auto) | `candidate_id` (BIGINT, FK ➔ candidates.candidate_id) | `job_id` (BIGINT, FK ➔ jobs, Optional) | `target_position` (VARCHAR 200) | `session_type` (MOCK, PRACTICE_RETRY) | `parent_session_id` (BIGINT, FK ➔ interview_sessions) | `overall_score` (REAL, 0-100) | `overall_feedback` (TEXT) | `weakness_summary` (TEXT) | `recommended_tasks` (TEXT).
 
-#### 14. `interview_details` (Chi tiết từng câu phỏng vấn)
-* `detail_id` (BIGINT, PK, Auto) | `session_id` (BIGINT, FK ➔ interview_sessions) | `question_id` (BIGINT, FK ➔ question_bank) | `question_number` (INT) | `question_text` (TEXT) | `candidate_answer_text` (TEXT) | `audio_url` (VARCHAR 500) | `content_score` (REAL) | `delivery_score` (REAL) | `words_per_minute` (REAL) | `clarity_score` (REAL) | `ai_feedback` (TEXT) | `ai_suggested_answer` (TEXT).
+#### 14. `interview_details` (Chi tiết câu hỏi do AI Agent tự sinh động)
+* `detail_id` (BIGINT, PK, Auto) | `session_id` (BIGINT, FK ➔ interview_sessions) | `question_number` (INT) | `question_text` (TEXT - AI Agent Gemini sinh theo ngữ cảnh CV + JD) | `candidate_answer_text` (TEXT) | `audio_url` (VARCHAR 500) | `ai_evaluation_score` (REAL) | `ai_feedback` (TEXT) | `ai_suggested_answer` (TEXT).
 
-#### 15. `practice_progress_logs` (Nhật ký tiến bộ)
-* `log_id` (BIGINT, PK, Auto) | `candidate_id` (BIGINT, FK ➔ users) | `original_session_id` (BIGINT, FK ➔ interview_sessions) | `retry_session_id` (BIGINT, FK ➔ interview_sessions) | `skill_targeted` (BIGINT, FK ➔ skills) | `score_before` (REAL) | `score_after` (REAL) | `improvement_delta` (REAL = score_after - score_before).
+#### 15. `practice_progress_logs` (Nhật ký tiến bộ luyện tập)
+* `log_id` (BIGINT, PK, Auto) | `candidate_id` (BIGINT, FK ➔ candidates.candidate_id) | `original_session_id` (BIGINT, FK ➔ interview_sessions) | `retry_session_id` (BIGINT, FK ➔ interview_sessions) | `skill_targeted` (BIGINT, FK ➔ skills) | `score_before` (REAL) | `score_after` (REAL) | `improvement_delta` (REAL = score_after - score_before).
 
 #### 16. `notifications` (Thông báo hệ thống)
-* `notification_id` (BIGINT, PK, Auto) | `user_id` (BIGINT, FK ➔ users) | `type` (notification_type_enum) | `title` (VARCHAR 200) | `body` (TEXT) | `ref_id` (BIGINT) | `ref_table` (VARCHAR 50) | `is_read` (BOOLEAN).
+* `notification_id` (BIGINT, PK, Auto) | `user_id` (BIGINT, FK ➔ users.user_id) | `type` (VARCHAR 50) | `title` (VARCHAR 200) | `body` (TEXT) | `ref_id` (BIGINT) | `ref_table` (VARCHAR 50) | `is_read` (BOOLEAN).
+
+#### 17. `subscription_plans` (Danh mục gói dịch vụ trả phí B2C & B2B)
+* `plan_id` (BIGINT, PK, Auto) | `plan_name` (VARCHAR 100) | `target_role` (VARCHAR 20: 'RECRUITER', 'CANDIDATE') | `plan_type` (VARCHAR 30: 'JOB_POSTING', 'INTERVIEW_PRACTICE', 'COMBO') | `price` (NUMERIC 15,2) | `duration_days` (INT, DEFAULT 30) | `quota_limit` (INT) | `description` (TEXT) | `is_active` (BOOLEAN, DEFAULT TRUE).
+
+#### 18. `payment_orders` (Đơn đặt hàng & Theo dõi giao dịch VietQR)
+* `order_id` (BIGINT, PK, Auto) | `order_code` (VARCHAR 50, UNIQUE - VD: 'HM_ORDER_1024') | `user_id` (BIGINT, FK ➔ users.user_id) | `plan_id` (BIGINT, FK ➔ subscription_plans) | `amount` (NUMERIC 15,2) | `status` (VARCHAR 20: 'PENDING', 'APPROVED', 'REJECTED') | `admin_note` (TEXT) | `created_at` (TIMESTAMP) | `approved_at` (TIMESTAMP).
+
+#### 19. `subscriptions` (Quản lý thời hạn & trạng thái gói kích hoạt)
+* `subscription_id` (BIGINT, PK, Auto) | `user_id` (BIGINT, FK ➔ users.user_id) | `plan_id` (BIGINT, FK ➔ subscription_plans) | `order_id` (BIGINT, FK ➔ payment_orders) | `start_date` (TIMESTAMP) | `end_date` (TIMESTAMP) | `status` (VARCHAR 20: 'ACTIVE', 'EXPIRED') | `created_at` (TIMESTAMP).
 
 ---
 
-## 3. DANH SÁCH 37 USE CASES & QUY TRÌNH CHỨC NĂNG
+## 3. DANH SÁCH 40 USE CASES & QUY TRÌNH CHỨC NĂNG
 
-* **UC-01 đến UC-10 (Auth & Candidate CV):** Login, Logout, Register, Profile View/Edit, Upload CV (Max 10MB), Parse CV via AI, Default CV Toggle.
+* **UC-01 đến UC-10 (Auth & Candidate CV):** Login, Logout, Register (Candidate & Recruiter), Profile View/Edit, Upload CV (Max 10MB), Parse CV via AI Gemini, Default CV Toggle.
 * **UC-11 đến UC-15 (Job & AI Match):** View Job, Search/Filter Jobs, AI Match Calculation (0-100%), Job Recommendation, Skill Gap Report.
 * **UC-16 đến UC-20 & UC-24 đến UC-27 (Application & Job Mgmt):** Apply Job (Single App Rule), Candidate View Applications, Create/Edit/Publish/Close Job Postings.
 * **UC-28 đến UC-32 (Recruiter Pipeline & Ranking):** Bulk AI Matching, View Rank Candidates (Sorted matching_score DESC), Edit Pipeline Stage (`APPLIED` ➔ `SCREENING` ➔ `SHORTLISTED` ➔ `INTERVIEWING` ➔ `HIRED`/`REJECTED`), Audit Logging.
-* **UC-21 đến UC-23 (AI Interview Studio & Coaching):** AI Voice Mock Interview (Audio + STT + WPM/Clarity Score), Personalized Practice Plan JSON, Practice Retry & Improvement Delta (+delta%).
-* **UC-33 đến UC-37 (Admin Control Center):** Manage Users (Block/Activate), Question Bank Management, System Analytics Dashboard.
+* **UC-21 đến UC-23 (AI Interview Studio & Coaching):** AI Voice Mock Interview (Audio + STT + WPM/Clarity Score), Dynamic Adaptive Questioning (Không phụ thuộc question_bank tĩnh), Practice Retry & Improvement Delta (+delta%).
+* **UC-33 đến UC-37 (Admin Control Center):** Manage Users (Block/Activate), Job Posting Moderation (Duyệt tin tuyển dụng `approval_status`), Payment Order Moderation (Duyệt thanh toán VietQR & kích hoạt gói dịch vụ), System Analytics Dashboard.
+* **UC-38 đến UC-40 (Subscription & Payment Checkout):** Xem bảng giá gói dịch vụ (Candidate Pro/VIP, Recruiter Pro/Enterprise), Tạo đơn đặt mua gói chuyển khoản VietQR (`payment_orders`), Tự động kích hoạt hạn ngạch & huy hiệu sau khi duyệt (`subscriptions`).
+
 
 ---
 

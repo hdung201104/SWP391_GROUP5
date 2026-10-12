@@ -70,6 +70,11 @@ public class Job {
     @Builder.Default
     private JobStatus status = JobStatus.DRAFT;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "approval_status", length = 20)
+    @Builder.Default
+    private com.hiremate.enums.JobApprovalStatus approvalStatus = com.hiremate.enums.JobApprovalStatus.PENDING;
+
     @Column(name = "vacancies_count")
     @Builder.Default
     private Integer vacanciesCount = 1;

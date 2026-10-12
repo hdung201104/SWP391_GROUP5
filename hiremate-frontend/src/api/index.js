@@ -9,3 +9,5 @@ export { default as skillApi } from './skillApi';
 export { default as companyApi } from './companyApi';
 export { default as candidateApi } from './candidateApi';
 export { default as aiMatchApi } from './aiMatchApi';
+export { default as adminApi } from './adminApi';
+export { default as paymentApi } from './paymentApi';

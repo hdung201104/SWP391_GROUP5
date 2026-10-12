@@ -10,4 +10,7 @@ import java.util.Optional;
 public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEmail(String email);
     boolean existsByEmail(String email);
+    java.util.List<User> findAllByOrderByCreatedAtDesc();
+    long countByRole(com.hiremate.enums.UserRole role);
+    long countByStatus(com.hiremate.enums.UserStatus status);
 }

@@ -9,4 +9,5 @@ import java.util.Optional;
 @Repository
 public interface CompanyRepository extends JpaRepository<Company, Long> {
     Optional<Company> findByRecruiterId(Long recruiterId);
+    java.util.List<Company> findAllByOrderByCreatedAtDesc();
 }

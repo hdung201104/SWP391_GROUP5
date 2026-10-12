@@ -9,6 +9,10 @@
 -- ============================================================
 
 -- 1. XÓA BẢNG CŨ THEO THỨ TỰ PHỤ THUỘC (NẾU CÓ)
+DROP TABLE IF EXISTS subscriptions CASCADE;
+DROP TABLE IF EXISTS payment_orders CASCADE;
+DROP TABLE IF EXISTS vouchers CASCADE;
+DROP TABLE IF EXISTS subscription_plans CASCADE;
 DROP TABLE IF EXISTS notifications CASCADE;
 DROP TABLE IF EXISTS practice_progress_logs CASCADE;
 DROP TABLE IF EXISTS interview_details CASCADE;
@@ -164,6 +168,7 @@ CREATE TABLE jobs (
     location            VARCHAR(200),
     employment_type     VARCHAR(20),
     status              VARCHAR(20)     NOT NULL DEFAULT 'DRAFT',
+    approval_status     VARCHAR(20)     NOT NULL DEFAULT 'PENDING',
     vacancies_count     INT             DEFAULT 1,
     total_views         INT             DEFAULT 0,
     deadline_date       DATE,
@@ -293,6 +298,69 @@ CREATE TABLE notifications (
 );
 
 -- ============================================================
+-- 17. subscription_plans (Danh mục gói dịch vụ trả phí B2C & B2B)
+-- ============================================================
+CREATE TABLE subscription_plans (
+    plan_id             BIGSERIAL       PRIMARY KEY,
+    plan_name           VARCHAR(100)    NOT NULL,
+    target_role         VARCHAR(20)     NOT NULL, -- 'RECRUITER' hoặc 'CANDIDATE'
+    plan_type           VARCHAR(30)     NOT NULL, -- 'JOB_POSTING', 'INTERVIEW_PRACTICE', 'COMBO'
+    price               NUMERIC(15,2)   NOT NULL DEFAULT 0,
+    duration_days       INT             NOT NULL DEFAULT 30,
+    quota_limit         INT             NOT NULL DEFAULT 0, -- Số tin đăng hoặc số lượt PV AI
+    description         TEXT,
+    is_active           BOOLEAN         DEFAULT TRUE,
+    created_at          TIMESTAMPTZ     DEFAULT NOW()
+);
+
+-- ============================================================
+-- 18. vouchers (Mã giảm giá & Khuyến mãi hệ thống)
+-- ============================================================
+CREATE TABLE vouchers (
+    voucher_id          BIGSERIAL       PRIMARY KEY,
+    code                VARCHAR(50)     UNIQUE NOT NULL,
+    discount_percent    INT             NOT NULL CHECK (discount_percent > 0 AND discount_percent <= 100),
+    max_discount_amount NUMERIC(15,2),
+    usage_limit         INT             DEFAULT 100,
+    used_count          INT             DEFAULT 0,
+    valid_from          TIMESTAMPTZ     DEFAULT NOW(),
+    valid_to            TIMESTAMPTZ     NOT NULL,
+    is_active           BOOLEAN         DEFAULT TRUE,
+    created_at          TIMESTAMPTZ     DEFAULT NOW()
+);
+
+-- ============================================================
+-- 19. payment_orders (Đơn đặt hàng & Theo dõi giao dịch VietQR)
+-- ============================================================
+CREATE TABLE payment_orders (
+    order_id            BIGSERIAL       PRIMARY KEY,
+    order_code          VARCHAR(50)     UNIQUE NOT NULL, -- Mã giao dịch chuyển khoản (VD: HM_ORDER_1024)
+    user_id             BIGINT          NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    plan_id             BIGINT          NOT NULL REFERENCES subscription_plans(plan_id),
+    voucher_id          BIGINT          REFERENCES vouchers(voucher_id) ON DELETE SET NULL,
+    discount_amount     NUMERIC(15,2)   DEFAULT 0,
+    amount              NUMERIC(15,2)   NOT NULL,
+    status              VARCHAR(20)     NOT NULL DEFAULT 'PENDING', -- 'PENDING', 'APPROVED', 'REJECTED'
+    admin_note          TEXT,
+    created_at          TIMESTAMPTZ     DEFAULT NOW(),
+    approved_at         TIMESTAMPTZ
+);
+
+-- ============================================================
+-- 20. subscriptions (Quản lý thời hạn & trạng thái gói kích hoạt)
+-- ============================================================
+CREATE TABLE subscriptions (
+    subscription_id     BIGSERIAL       PRIMARY KEY,
+    user_id             BIGINT          NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    plan_id             BIGINT          NOT NULL REFERENCES subscription_plans(plan_id),
+    order_id            BIGINT          REFERENCES payment_orders(order_id),
+    start_date          TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    end_date            TIMESTAMPTZ     NOT NULL,
+    status              VARCHAR(20)     NOT NULL DEFAULT 'ACTIVE', -- 'ACTIVE', 'EXPIRED'
+    created_at          TIMESTAMPTZ     DEFAULT NOW()
+);
+
+-- ============================================================
 -- INDEXES TỐI ƯU HÓA TRUY VẤN
 -- ============================================================
 CREATE INDEX idx_users_email               ON users(email);
@@ -301,6 +369,7 @@ CREATE INDEX idx_candidates_id             ON candidates(candidate_id);
 CREATE INDEX idx_recruiters_id             ON recruiters(recruiter_id);
 CREATE INDEX idx_recruiters_company        ON recruiters(company_id);
 CREATE INDEX idx_jobs_status               ON jobs(status);
+CREATE INDEX idx_jobs_approval_status      ON jobs(approval_status);
 CREATE INDEX idx_jobs_recruiter_id         ON jobs(recruiter_id);
 CREATE INDEX idx_applications_candidate_id ON applications(candidate_id);
 CREATE INDEX idx_applications_job_id       ON applications(job_id);
@@ -310,3 +379,7 @@ CREATE INDEX idx_ai_job_matches_cand_job   ON ai_job_matches(candidate_id, job_i
 CREATE INDEX idx_notifications_user_id     ON notifications(user_id);
 CREATE INDEX idx_cvs_candidate_id          ON cvs(candidate_id);
 CREATE INDEX idx_practice_candidate_id     ON practice_progress_logs(candidate_id);
+CREATE INDEX idx_payment_orders_status     ON payment_orders(status);
+CREATE INDEX idx_payment_orders_user       ON payment_orders(user_id);
+CREATE INDEX idx_subscriptions_user_status ON subscriptions(user_id, status);
+

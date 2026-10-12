@@ -25,6 +25,21 @@ mvnw.cmd
 *.nar
 *.ear
 
+# Environment & Secret files
+.env
+.env.*
+*.env
+*.env.local
+hiremate-backend/.env
+hiremate-frontend/.env
+
+# Archives & Compressed files
+*.zip
+*.tar
+*.gz
+*.rar
+*.7z
+
 # Temp & Upload files
 *.pdf
 *.docx

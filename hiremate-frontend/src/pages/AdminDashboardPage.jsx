@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { adminApi } from '../api';
 
 /**
  * HireMate.AI - Enterprise Admin Dashboard Page (Mindskills UI Redesign)
@@ -137,167 +138,10 @@ const INITIAL_COMPANIES = [
   },
 ];
 
-const INITIAL_ORDERS = [
-  {
-    id: '#ORD-0421',
-    user: 'Nguyễn Minh Anh',
-    role: 'Recruiter',
-    email: 'minhanh.hr@fptsoftware.com',
-    pkg: 'Hiring Pro (Combo)',
-    amount: 599000,
-    amountText: '599.000 đ',
-    status: 'PENDING',
-    timestamp: '20 phút trước',
-    voucherCode: null,
-    paymentMethod: 'VietQR - MBBank (Stk: 0987654321)',
-    txHash: 'MBB-84729103',
-  },
-  {
-    id: '#ORD-0420',
-    user: 'Trần Hoàng Nam',
-    role: 'Candidate',
-    email: 'nam.tran@gmail.com',
-    pkg: 'Practice Pro · 30 ngày',
-    amount: 149000,
-    amountText: '149.000 đ',
-    status: 'APPROVED',
-    timestamp: '45 phút trước',
-    voucherCode: null,
-    paymentMethod: 'MoMo QR Auto',
-    txHash: 'MM-99201482',
-  },
-  {
-    id: '#ORD-0419',
-    user: 'FPT Software',
-    role: 'Recruiter',
-    email: 'ta@fpt.com',
-    pkg: 'Hiring Elite (Combo)',
-    amount: 1199000,
-    amountText: '1.199.000 đ',
-    status: 'PENDING',
-    timestamp: '1 giờ trước',
-    voucherCode: null,
-    paymentMethod: 'Chuyển khoản Techcombank',
-    txHash: 'TCB-01928472',
-  },
-  {
-    id: '#ORD-0418',
-    user: 'Lê Thu Trang',
-    role: 'Candidate',
-    email: 'trang.le@fpt.edu.vn',
-    pkg: 'Practice Pro · 30 ngày',
-    amount: 89000,
-    amountText: '89.000 đ',
-    status: 'APPROVED',
-    timestamp: '2 giờ trước',
-    voucherCode: 'SV-FPT40',
-    paymentMethod: 'VietQR - VPBank',
-    txHash: 'VPB-77491029',
-  },
-  {
-    id: '#ORD-0417',
-    user: 'Vũ Quốc Bảo',
-    role: 'Candidate',
-    email: 'bao.vu@yahoo.com',
-    pkg: 'Quick Prep (Combo)',
-    amount: 79000,
-    amountText: '79.000 đ',
-    status: 'REJECTED',
-    timestamp: '2.5 giờ trước',
-    voucherCode: null,
-    paymentMethod: 'VietQR - MBBank',
-    txHash: 'MBB-00192837',
-  },
-  {
-    id: '#ORD-0416',
-    user: 'VNG Corporation',
-    role: 'Recruiter',
-    email: 'recruitment@vng.com.vn',
-    pkg: 'Professional · Gói quý',
-    amount: 1272000,
-    amountText: '1.272.000 đ',
-    status: 'APPROVED',
-    timestamp: '3 giờ trước',
-    voucherCode: null,
-    paymentMethod: 'VNPay QR',
-    txHash: 'VNP-88371920',
-  },
-  {
-    id: '#ORD-0415',
-    user: 'Phạm Gia Hân',
-    role: 'Candidate',
-    email: 'giahan.pham@outlook.com',
-    pkg: 'Practice Unlimited',
-    amount: 299000,
-    amountText: '299.000 đ',
-    status: 'REFUNDED',
-    timestamp: '4 giờ trước',
-    voucherCode: null,
-    paymentMethod: 'VietQR - Vietcombank',
-    txHash: 'VCB-55910294',
-  },
-  {
-    id: '#ORD-0414',
-    user: 'KMS Technology',
-    role: 'Recruiter',
-    email: 'careers@kms-technology.com',
-    pkg: 'Team Starter (Bundle)',
-    amount: 699000,
-    amountText: '699.000 đ',
-    status: 'PENDING',
-    timestamp: '5 giờ trước',
-    voucherCode: null,
-    paymentMethod: 'Chuyển khoản ACB',
-    txHash: 'ACB-88273910',
-  },
-  {
-    id: '#ORD-0413',
-    user: 'Đỗ Khánh Linh',
-    role: 'Candidate',
-    email: 'khanhlinh.do@gmail.com',
-    pkg: 'Practice Plus · 7 ngày',
-    amount: 49000,
-    amountText: '49.000 đ',
-    status: 'PENDING',
-    timestamp: '5 giờ trước',
-    voucherCode: null,
-    paymentMethod: 'MoMo QR',
-    txHash: 'MM-44910284',
-  },
-];
+const INITIAL_ORDERS = [];
 
-const INITIAL_VOUCHERS = [
-  {
-    id: 1,
-    code: 'HIREMATE30',
-    discount: 'Giảm 30%',
-    description: 'Voucher launching ưu đãi thành viên mới',
-    status: 'EXPIRED',
-    usage: '200/200 lượt',
-    percent: 100,
-    badgeBg: 'bg-slate-100 text-slate-600 border-slate-200',
-  },
-  {
-    id: 2,
-    code: 'SV-FPT40',
-    discount: 'Giảm 40% Practice cho sinh viên FPT',
-    description: 'Áp dụng gói Practice Pro 30 ngày',
-    status: 'ACTIVE',
-    usage: '142/200 lượt',
-    percent: 71,
-    badgeBg: 'bg-amber-50 text-amber-800 border-amber-200',
-  },
-  {
-    id: 3,
-    code: 'Ưu đãi gia hạn',
-    discount: 'Giảm thêm 10% khi gia hạn trước 3 ngày',
-    description: 'Áp dụng khi gia hạn tài khoản tự động',
-    status: 'ACTIVE',
-    usage: '89/100 lượt',
-    percent: 89,
-    badgeBg: 'bg-purple-50 text-[#5b48bd] border-purple-200',
-  },
-];
+const INITIAL_VOUCHERS = [];
+
 
 const INITIAL_PACKAGES = [
   {
@@ -417,6 +261,126 @@ export default function AdminDashboardPage({ user, onLogout }) {
   const [vouchers, setVouchers] = useState(INITIAL_VOUCHERS);
   const [packagesList, setPackagesList] = useState(INITIAL_PACKAGES);
   const [usersList, setUsersList] = useState(INITIAL_USERS);
+  const [realStats, setRealStats] = useState(null);
+  const [loadingRealData, setLoadingRealData] = useState(false);
+
+  // Fetch real data from Supabase backend
+  const fetchRealData = async () => {
+    try {
+      setLoadingRealData(true);
+      const [statsRes, usersRes, companiesRes, ordersRes, plansRes, vouchersRes] = await Promise.allSettled([
+        adminApi.getStats(),
+        adminApi.getUsers(),
+        adminApi.getCompanies(),
+        adminApi.getOrders(),
+        adminApi.getPlans(),
+        adminApi.getVouchers(),
+      ]);
+
+      if (statsRes.status === 'fulfilled' && statsRes.value?.data) {
+        setRealStats(statsRes.value.data);
+      }
+
+      if (usersRes.status === 'fulfilled' && usersRes.value?.data && Array.isArray(usersRes.value.data) && usersRes.value.data.length > 0) {
+        setUsersList(usersRes.value.data.map((u) => ({
+          id: u.id,
+          name: u.name || 'Người dùng',
+          email: u.email,
+          phone: u.phone || '-',
+          role: u.role,
+          company: u.company || '-',
+          status: u.status === 'BLOCKED' ? 'LOCKED' : (u.status || 'ACTIVE'),
+          joined: u.joined ? new Date(u.joined).toLocaleDateString('vi-VN') : 'Mới',
+        })));
+      }
+
+      if (companiesRes.status === 'fulfilled' && companiesRes.value?.data && Array.isArray(companiesRes.value.data) && companiesRes.value.data.length > 0) {
+        setCompanies(companiesRes.value.data.map((c) => ({
+          id: 'CMP-' + c.id,
+          rawId: c.id,
+          name: c.name,
+          shortName: c.shortName || c.name,
+          taxCode: c.taxCode || ('MST-' + c.id),
+          recruiterName: c.recruiterName || 'Chưa cập nhật',
+          recruiterEmail: c.recruiterEmail || '-',
+          recruiterPhone: c.recruiterPhone || '-',
+          industry: c.industry || 'Công nghệ & Tuyển dụng',
+          scale: c.scale || '50-100 nhân viên',
+          headquarters: c.headquarters || 'Hồ Chí Minh',
+          website: c.website || '',
+          status: c.status === 'ACTIVE' ? 'VERIFIED' : (c.status === 'BANNED' ? 'REJECTED' : 'PENDING'),
+          submittedAt: c.createdAt ? new Date(c.createdAt).toLocaleDateString('vi-VN') : 'Gần đây',
+          docUrl: c.docUrl || '',
+          docName: c.docName || 'GPKD_Doanh_Nghiep.pdf',
+          notes: c.notes || 'Hồ sơ doanh nghiệp thực tế từ Supabase PostgreSQL',
+          logo: c.name?.slice(0, 3)?.toUpperCase() || 'CMP',
+          logoBg: 'bg-[#5b48bd]',
+        })));
+      }
+
+      if (ordersRes.status === 'fulfilled') {
+        const oData = ordersRes.value?.data || ordersRes.value || [];
+        const oList = Array.isArray(oData) ? oData : [];
+        setOrders(oList.map((o) => ({
+          id: o.orderCode || ('#ORD-' + o.orderId),
+          rawId: o.orderId,
+          user: o.userName || 'Khách hàng',
+          role: o.userRole || 'Recruiter',
+          email: o.userEmail || '-',
+          pkg: o.planName || 'Gói dịch vụ',
+          amount: o.amount || 0,
+          amountText: (Number(o.amount) || 0).toLocaleString('vi-VN') + ' đ',
+          status: o.status,
+          timestamp: o.createdAt ? new Date(o.createdAt).toLocaleString('vi-VN') : 'Mới',
+          paymentMethod: 'VietQR - MBBank',
+          txHash: o.orderCode,
+          adminNote: o.adminNote,
+          voucherCode: o.voucherCode,
+          discountAmount: o.discountAmount,
+        })));
+      }
+
+      if (plansRes.status === 'fulfilled' && plansRes.value?.data && Array.isArray(plansRes.value.data) && plansRes.value.data.length > 0) {
+        setPackagesList(plansRes.value.data.map((p) => ({
+          id: 'pkg-' + p.planId,
+          rawId: p.planId,
+          name: p.planName,
+          targetRole: p.targetRole,
+          price: Number(p.price) || 0,
+          priceText: (Number(p.price) || 0).toLocaleString('vi-VN') + ' đ/' + (p.durationDays || 30) + ' ngày',
+          duration: (p.durationDays || 30) + ' ngày',
+          subscribersCount: p.quotaLimit || 0,
+          sharePercent: '20%',
+          status: p.isActive ? 'ACTIVE' : 'INACTIVE',
+          color: '#5b48bd',
+          features: p.description ? p.description.split(';') : ['Đăng tin & AI matching chuyên nghiệp'],
+        })));
+      }
+
+      if (vouchersRes.status === 'fulfilled') {
+        const vData = vouchersRes.value?.data || vouchersRes.value || [];
+        const vList = Array.isArray(vData) ? vData : [];
+        setVouchers(vList.map((v) => ({
+          id: v.voucherId,
+          code: v.code,
+          discount: `Giảm ${v.discountPercent}%`,
+          description: v.maxDiscountAmount ? `Giảm tối đa ${Number(v.maxDiscountAmount).toLocaleString('vi-VN')} đ` : 'Ưu đãi thành viên',
+          status: v.isActive ? 'ACTIVE' : 'EXPIRED',
+          usage: `${v.usedCount || 0}/${v.usageLimit || 100} lượt`,
+          percent: v.usageLimit > 0 ? Math.round(((v.usedCount || 0) / v.usageLimit) * 100) : 0,
+          badgeBg: v.isActive ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-slate-100 text-slate-600 border-slate-200',
+        })));
+      }
+    } catch (err) {
+      console.warn('Lỗi kết nối Supabase:', err);
+    } finally {
+      setLoadingRealData(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRealData();
+  }, []);
 
   // Interactive UI Modals & Popups
   const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
@@ -438,11 +402,17 @@ export default function AdminDashboardPage({ user, onLogout }) {
   const [autoApprovalLimit, setAutoApprovalLimit] = useState(500000);
   const [maintenanceMode, setMaintenanceMode] = useState(false);
 
-  // Computed Pending Sets
+  // Computed Pending Sets & Dynamic Analytics from Supabase DB
   const pendingOrders = orders.filter((o) => o.status === 'PENDING');
   const pendingCompanies = companies.filter((c) => c.status === 'PENDING');
   const verifiedCompanies = companies.filter((c) => c.status === 'VERIFIED');
   const rejectedCompanies = companies.filter((c) => c.status === 'REJECTED');
+
+  const totalApprovedRev = realStats?.totalRevenue != null 
+    ? Number(realStats.totalRevenue) 
+    : orders.filter((o) => o.status === 'APPROVED').reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+  const totalUsersCount = realStats?.totalUsers || usersList.length || 1;
+  const calculatedArpu = totalUsersCount > 0 ? Math.round(totalApprovedRev / totalUsersCount) : 0;
 
   // Trigger Toast Notification helper
   const triggerToast = (msg, type = 'success') => {
@@ -452,13 +422,101 @@ export default function AdminDashboardPage({ user, onLogout }) {
     }, 4000);
   };
 
-  // Company Approval Action Handlers
-  const handleApproveCompany = (companyId) => {
-    setCompanies((prev) =>
-      prev.map((c) => (c.id === companyId ? { ...c, status: 'VERIFIED' } : c))
-    );
-    setSelectedCompanyIds((prev) => prev.filter((id) => id !== companyId));
-    triggerToast(`Đã duyệt xác minh GPKD thành công cho công ty ${companyId}`);
+  // Package editing state
+  const [editPriceInput, setEditPriceInput] = useState('');
+  const [editDurationInput, setEditDurationInput] = useState('');
+
+  // Voucher creation state
+  const [newVoucherForm, setNewVoucherForm] = useState({
+    code: '',
+    discountPercent: 20,
+    maxDiscountAmount: 100000,
+    usageLimit: 100,
+  });
+
+  const handleCreateVoucher = async () => {
+    if (!newVoucherForm.code.trim()) {
+      triggerToast('Vui lòng nhập mã voucher!', 'warning');
+      return;
+    }
+    try {
+      const payload = {
+        code: newVoucherForm.code.trim().toUpperCase(),
+        discountPercent: Number(newVoucherForm.discountPercent) || 10,
+        maxDiscountAmount: Number(newVoucherForm.maxDiscountAmount) || 100000,
+        usageLimit: Number(newVoucherForm.usageLimit) || 100,
+        usedCount: 0,
+        validFrom: new Date().toISOString(),
+        validTo: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        isActive: true,
+      };
+      await adminApi.createVoucher(payload);
+      triggerToast(`Đã tạo và kích hoạt voucher ${payload.code} trên Supabase!`);
+      setShowCreateVoucherModal(false);
+      setNewVoucherForm({ code: '', discountPercent: 20, maxDiscountAmount: 100000, usageLimit: 100 });
+      await fetchRealData();
+    } catch (err) {
+      console.error('Lỗi tạo voucher:', err);
+      triggerToast(`Lỗi tạo voucher: ${err?.message || 'Thử lại'}`, 'warning');
+    }
+  };
+
+  const handleSavePackage = async () => {
+    if (!showEditPackageModal) return;
+    const planId = showEditPackageModal.id;
+    try {
+      const rawId = showEditPackageModal.rawId || parseInt(String(planId).replace(/\D/g, ''), 10);
+      const numericPrice = parseFloat(String(editPriceInput || showEditPackageModal.price).replace(/[^\d.]/g, '')) || 0;
+      const durationDays = parseInt(String(editDurationInput || showEditPackageModal.duration).replace(/\D/g, ''), 10) || 30;
+
+      if (rawId) {
+        await adminApi.updatePlan(rawId, {
+          planName: showEditPackageModal.name,
+          targetRole: showEditPackageModal.targetRole,
+          planType: 'COMBO',
+          price: numericPrice,
+          durationDays: durationDays,
+          isActive: showEditPackageModal.status === 'ACTIVE',
+        });
+      }
+
+      setPackagesList((prev) =>
+        prev.map((p) =>
+          p.id === planId
+            ? {
+                ...p,
+                price: numericPrice,
+                priceText: `${numericPrice.toLocaleString('vi-VN')} đ/${durationDays} ngày`,
+                duration: `${durationDays} ngày`,
+              }
+            : p
+        )
+      );
+      triggerToast('Đã lưu cập nhật gói dịch vụ xuống Supabase PostgreSQL!');
+      setShowEditPackageModal(null);
+    } catch (err) {
+      console.error('Lỗi khi cập nhật gói:', err);
+      triggerToast(`Lỗi khi lưu gói: ${err?.message || 'Thử lại'}`, 'warning');
+    }
+  };
+
+  // Company Approval Action Handlers (Supabase integrated)
+  const handleApproveCompany = async (companyId) => {
+    try {
+      const comp = companies.find((c) => c.id === companyId);
+      const rawId = comp?.rawId || parseInt(String(companyId).replace(/\D/g, ''), 10);
+      if (rawId) {
+        await adminApi.updateCompanyStatus(rawId, 'ACTIVE');
+      }
+      setCompanies((prev) =>
+        prev.map((c) => (c.id === companyId ? { ...c, status: 'VERIFIED' } : c))
+      );
+      setSelectedCompanyIds((prev) => prev.filter((id) => id !== companyId));
+      triggerToast(`Đã duyệt xác minh GPKD thành công cho công ty ${companyId} (Lưu Supabase)`);
+    } catch (err) {
+      console.error('Lỗi khi duyệt công ty:', err);
+      triggerToast(`Lỗi khi duyệt công ty: ${err?.message || 'Thử lại'}`, 'warning');
+    }
   };
 
   const handleOpenRejectCompany = (companyObj) => {
@@ -466,16 +524,26 @@ export default function AdminDashboardPage({ user, onLogout }) {
     setRejectionNote('Mã số thuế hoặc Giấy phép kinh doanh chưa khớp với Cổng DKKD quốc gia.');
   };
 
-  const handleConfirmRejectCompany = () => {
+  const handleConfirmRejectCompany = async () => {
     if (!rejectingCompanyModal) return;
     const cid = rejectingCompanyModal.id;
-    setCompanies((prev) =>
-      prev.map((c) => (c.id === cid ? { ...c, status: 'REJECTED', notes: `Lý do từ chối: ${rejectionNote}` } : c))
-    );
-    setSelectedCompanyIds((prev) => prev.filter((id) => id !== cid));
-    triggerToast(`Đã từ chối hồ sơ công ty ${cid}. Email thông báo đã gửi tới Recruiter.`, 'warning');
-    setRejectingCompanyModal(null);
-    setRejectionNote('');
+    try {
+      const rawId = rejectingCompanyModal.rawId || parseInt(String(cid).replace(/\D/g, ''), 10);
+      if (rawId) {
+        await adminApi.updateCompanyStatus(rawId, 'BANNED');
+      }
+      setCompanies((prev) =>
+        prev.map((c) => (c.id === cid ? { ...c, status: 'REJECTED', notes: `Lý do từ chối: ${rejectionNote}` } : c))
+      );
+      setSelectedCompanyIds((prev) => prev.filter((id) => id !== cid));
+      triggerToast(`Đã từ chối hồ sơ công ty ${cid} trên Supabase.`, 'warning');
+    } catch (err) {
+      console.error('Lỗi khi từ chối công ty:', err);
+      triggerToast(`Lỗi từ chối công ty: ${err?.message || 'Thử lại'}`, 'warning');
+    } finally {
+      setRejectingCompanyModal(null);
+      setRejectionNote('');
+    }
   };
 
   const handleToggleSelectCompany = (id) => {
@@ -494,57 +562,111 @@ export default function AdminDashboardPage({ user, onLogout }) {
     }
   };
 
-  const handleBatchApproveCompanies = () => {
+  const handleBatchApproveCompanies = async () => {
     if (selectedCompanyIds.length === 0) return;
-    setCompanies((prev) =>
-      prev.map((c) => (selectedCompanyIds.includes(c.id) ? { ...c, status: 'VERIFIED' } : c))
-    );
-    triggerToast(`Đã duyệt GPKD hàng loạt cho ${selectedCompanyIds.length} doanh nghiệp!`);
-    setSelectedCompanyIds([]);
+    try {
+      for (const id of selectedCompanyIds) {
+        const comp = companies.find((c) => c.id === id);
+        const rawId = comp?.rawId || parseInt(String(id).replace(/\D/g, ''), 10);
+        if (rawId) {
+          await adminApi.updateCompanyStatus(rawId, 'ACTIVE');
+        }
+      }
+      setCompanies((prev) =>
+        prev.map((c) => (selectedCompanyIds.includes(c.id) ? { ...c, status: 'VERIFIED' } : c))
+      );
+      triggerToast(`Đã duyệt GPKD hàng loạt cho ${selectedCompanyIds.length} doanh nghiệp trên Supabase!`);
+      setSelectedCompanyIds([]);
+    } catch (err) {
+      console.error('Lỗi duyệt hàng loạt:', err);
+      triggerToast(`Lỗi duyệt hàng loạt: ${err?.message || 'Thử lại'}`, 'warning');
+    }
   };
 
-  // Quick Action Handlers for Orders
-  const handleApproveOrder = (orderId) => {
-    setOrders((prev) =>
-      prev.map((o) => (o.id === orderId ? { ...o, status: 'APPROVED' } : o))
-    );
-    triggerToast(`Đã duyệt thành công đơn mua ${orderId}`);
+  // Quick Action Handlers for VietQR Orders (Supabase integrated)
+  const handleApproveOrder = async (orderId) => {
+    try {
+      const ord = orders.find((o) => o.id === orderId);
+      const rawId = ord?.rawId || parseInt(String(orderId).replace(/\D/g, ''), 10);
+      if (!rawId) {
+        triggerToast(`Không tìm thấy ID đơn hàng thực tế trong CSDL Supabase`, 'warning');
+        return;
+      }
+      await adminApi.approveOrder(rawId, 'Duyệt thanh toán VietQR qua Admin Portal');
+      setOrders((prev) =>
+        prev.map((o) => (o.id === orderId ? { ...o, status: 'APPROVED' } : o))
+      );
+      triggerToast(`Đã duyệt thành công đơn mua ${orderId} & Kích hoạt gói Subscription trên Supabase`);
+      await fetchRealData();
+    } catch (err) {
+      console.error('Lỗi khi duyệt đơn hàng:', err);
+      triggerToast(`Lỗi khi duyệt đơn hàng: ${err?.message || 'Thử lại'}`, 'warning');
+    }
   };
 
-  const handleRejectOrder = (orderId) => {
-    setOrders((prev) =>
-      prev.map((o) => (o.id === orderId ? { ...o, status: 'REJECTED' } : o))
-    );
-    triggerToast(`Đã từ chối đơn mua ${orderId}`, 'warning');
+  const handleRejectOrder = async (orderId) => {
+    try {
+      const ord = orders.find((o) => o.id === orderId);
+      const rawId = ord?.rawId || parseInt(String(orderId).replace(/\D/g, ''), 10);
+      if (!rawId) {
+        triggerToast(`Không tìm thấy ID đơn hàng thực tế trong CSDL Supabase`, 'warning');
+        return;
+      }
+      await adminApi.rejectOrder(rawId, 'Từ chối đơn hàng VietQR');
+      setOrders((prev) =>
+        prev.map((o) => (o.id === orderId ? { ...o, status: 'REJECTED' } : o))
+      );
+      triggerToast(`Đã từ chối đơn mua ${orderId} trên Supabase`, 'warning');
+      await fetchRealData();
+    } catch (err) {
+      console.error('Lỗi khi từ chối đơn hàng:', err);
+      triggerToast(`Lỗi khi từ chối đơn: ${err?.message || 'Thử lại'}`, 'warning');
+    }
   };
 
   const handleRefundOrder = (orderId) => {
     setOrders((prev) =>
       prev.map((o) => (o.id === orderId ? { ...o, status: 'REFUNDED' } : o))
     );
-    triggerToast(`Đã hoàn tiền cho đơn mua ${orderId}`, 'info');
+    triggerToast(`Đã ghi nhận hoàn tiền cho đơn mua ${orderId}`, 'info');
   };
 
-  const handleToggleVoucher = (id) => {
-    setVouchers((prev) =>
-      prev.map((v) =>
-        v.id === id
-          ? { ...v, status: v.status === 'ACTIVE' ? 'EXPIRED' : 'ACTIVE' }
-          : v
-      )
-    );
-    triggerToast(`Cập nhật trạng thái voucher thành công`);
+  const handleToggleVoucher = async (id) => {
+    try {
+      if (typeof id === 'number' || !isNaN(Number(id))) {
+        await adminApi.toggleVoucher(Number(id));
+      }
+      setVouchers((prev) =>
+        prev.map((v) =>
+          v.id === id
+            ? { ...v, status: v.status === 'ACTIVE' ? 'EXPIRED' : 'ACTIVE' }
+            : v
+        )
+      );
+      triggerToast(`Cập nhật trạng thái voucher thành công (Lưu Supabase)`);
+    } catch (err) {
+      console.error('Lỗi khi toggle voucher:', err);
+      triggerToast(`Lỗi khi cập nhật voucher: ${err?.message || 'Thử lại'}`, 'warning');
+    }
   };
 
-  const handleToggleUserLock = (userId) => {
-    setUsersList((prev) =>
-      prev.map((u) =>
-        u.id === userId
-          ? { ...u, status: u.status === 'ACTIVE' ? 'LOCKED' : 'ACTIVE' }
-          : u
-      )
-    );
-    triggerToast(`Cập nhật trạng thái người dùng thành công`);
+  const handleToggleUserLock = async (userId) => {
+    try {
+      const targetUser = usersList.find((u) => u.id === userId);
+      const nextStatus = targetUser?.status === 'ACTIVE' ? 'BLOCKED' : 'ACTIVE';
+      await adminApi.updateUserStatus(userId, nextStatus);
+      setUsersList((prev) =>
+        prev.map((u) =>
+          u.id === userId
+            ? { ...u, status: nextStatus === 'BLOCKED' ? 'LOCKED' : 'ACTIVE' }
+            : u
+        )
+      );
+      triggerToast(`Cập nhật trạng thái người dùng #${userId} thành ${nextStatus} (Lưu Supabase)`);
+    } catch (err) {
+      console.error('Lỗi khóa/mở người dùng:', err);
+      triggerToast(`Lỗi khi cập nhật trạng thái: ${err?.message || 'Thử lại'}`, 'warning');
+    }
   };
 
   const handleExportPDF = () => {
@@ -663,6 +785,16 @@ export default function AdminDashboardPage({ user, onLogout }) {
                 </div>
 
                 <button
+                  onClick={fetchRealData}
+                  disabled={loadingRealData}
+                  className="px-4 py-2 rounded-full border border-purple-200 bg-white hover:bg-purple-50 text-[#5b48bd] text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  title="Đồng bộ lại toàn bộ dữ liệu thực tế từ Supabase PostgreSQL"
+                >
+                  <span className={`material-symbols-outlined text-base ${loadingRealData ? 'animate-spin' : ''}`}>sync</span>
+                  <span>{loadingRealData ? 'Đang đồng bộ...' : 'Đồng bộ Supabase'}</span>
+                </button>
+
+                <button
                   onClick={() => setShowFilterModal(true)}
                   className="px-4 py-2 rounded-full border border-purple-200 bg-white hover:bg-purple-50 text-[#5b48bd] text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
                 >
@@ -683,12 +815,14 @@ export default function AdminDashboardPage({ user, onLogout }) {
                   </div>
                 </div>
                 <div className="mt-3">
-                  <div className="text-2xl font-extrabold text-[#1e1b4b] tracking-tight">3.750</div>
+                  <div className="text-2xl font-extrabold text-[#1e1b4b] tracking-tight">
+                    {realStats ? realStats.totalUsers.toLocaleString('vi-VN') : usersList.length}
+                  </div>
                   <div className="flex items-center gap-1 mt-1.5 text-[11px]">
                     <span className="inline-flex items-center text-emerald-600 font-bold gap-0.5 bg-emerald-50 px-1.5 py-0.2 rounded-full border border-emerald-100">
-                      <span className="material-symbols-outlined text-xs">trending_up</span>+8,2%
+                      <span className="material-symbols-outlined text-xs">trending_up</span>Supabase DB
                     </span>
-                    <span className="text-slate-400">so với kỳ trước</span>
+                    <span className="text-slate-400">thực tế</span>
                   </div>
                 </div>
               </div>
@@ -702,12 +836,14 @@ export default function AdminDashboardPage({ user, onLogout }) {
                   </div>
                 </div>
                 <div className="mt-3">
-                  <div className="text-2xl font-extrabold text-[#1e1b4b] tracking-tight">275</div>
+                  <div className="text-2xl font-extrabold text-[#1e1b4b] tracking-tight">
+                    {realStats ? realStats.approvedOrders : orders.filter((o) => o.status === 'APPROVED').length}
+                  </div>
                   <div className="flex items-center gap-1 mt-1.5 text-[11px]">
                     <span className="inline-flex items-center text-emerald-600 font-bold gap-0.5 bg-emerald-50 px-1.5 py-0.2 rounded-full border border-emerald-100">
-                      <span className="material-symbols-outlined text-xs">trending_up</span>+5,1%
+                      <span className="material-symbols-outlined text-xs">trending_up</span>Đã duyệt
                     </span>
-                    <span className="text-slate-400">so với kỳ trước</span>
+                    <span className="text-slate-400">hoạt động</span>
                   </div>
                 </div>
               </div>
@@ -715,25 +851,27 @@ export default function AdminDashboardPage({ user, onLogout }) {
               {/* Card 3: Doanh thu tháng này */}
               <div className="bg-white rounded-3xl border border-purple-100 p-5 shadow-md hover:shadow-lg transition-all flex flex-col justify-between">
                 <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
-                  <span>Doanh thu tháng này</span>
+                  <span>Doanh thu tích lũy</span>
                   <div className="w-9 h-9 rounded-2xl bg-orange-50 text-[#f97316] border border-orange-100 flex items-center justify-center">
                     <span className="material-symbols-outlined text-lg">payments</span>
                   </div>
                 </div>
                 <div className="mt-3">
                   <div className="text-2xl font-extrabold text-[#1e1b4b] tracking-tight whitespace-nowrap">
-                    74,7tr đ
+                    {realStats && realStats.totalRevenue != null
+                      ? Number(realStats.totalRevenue).toLocaleString('vi-VN') + ' đ'
+                      : '0 đ'}
                   </div>
                   <div className="flex items-center gap-1 mt-1.5 text-[11px]">
                     <span className="inline-flex items-center text-emerald-600 font-bold gap-0.5 bg-emerald-50 px-1.5 py-0.2 rounded-full border border-emerald-100">
-                      <span className="material-symbols-outlined text-xs">trending_up</span>+12,4%
+                      <span className="material-symbols-outlined text-xs">trending_up</span>VietQR
                     </span>
-                    <span className="text-slate-400">tháng trước</span>
+                    <span className="text-slate-400">xác nhận</span>
                   </div>
                 </div>
               </div>
 
-              {/* Card 4: Công Ty Chờ Duyệt (NEW ITEM REQUIRED BY USER) */}
+              {/* Card 4: Công Ty Chờ Duyệt */}
               <div 
                 onClick={() => handleTabSelect('companies')}
                 className="bg-white rounded-3xl border border-purple-100 p-5 shadow-md hover:shadow-lg transition-all flex flex-col justify-between cursor-pointer group hover:border-amber-300"
@@ -756,7 +894,10 @@ export default function AdminDashboardPage({ user, onLogout }) {
               </div>
 
               {/* Card 5: Đơn mua chờ duyệt */}
-              <div className="bg-white rounded-3xl border border-purple-100 p-5 shadow-md hover:shadow-lg transition-all flex flex-col justify-between">
+              <div 
+                onClick={() => handleTabSelect('orders')}
+                className="bg-white rounded-3xl border border-purple-100 p-5 shadow-md hover:shadow-lg transition-all flex flex-col justify-between cursor-pointer group hover:border-rose-300"
+              >
                 <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
                   <span>Đơn mua chờ duyệt</span>
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-200">
@@ -765,10 +906,10 @@ export default function AdminDashboardPage({ user, onLogout }) {
                 </div>
                 <div className="mt-3">
                   <div className="text-2xl font-extrabold text-[#1e1b4b] tracking-tight">
-                    {pendingOrders.length}
+                    {realStats ? realStats.pendingOrders : pendingOrders.length}
                   </div>
                   <div className="mt-1.5 text-[11px] text-rose-600 font-medium flex items-center gap-1">
-                    <span className="material-symbols-outlined text-xs">schedule</span>Trong 24h
+                    <span className="material-symbols-outlined text-xs">schedule</span>Chờ duyệt VietQR →
                   </div>
                 </div>
               </div>
@@ -871,7 +1012,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
 
                 <div className="pt-4 mt-2 border-t border-purple-100 flex flex-wrap items-center justify-between text-xs text-slate-600">
                   <div>
-                    Tổng doanh thu 6 tháng: <strong className="text-[#1e1b4b] font-bold">204,75 triệu đ</strong>
+                    Tổng doanh thu tích lũy: <strong className="text-[#1e1b4b] font-bold">{totalApprovedRev.toLocaleString('vi-VN')} đ</strong>
                   </div>
                   <div className="text-[#5b48bd] font-semibold flex items-center gap-1">
                     <span className="material-symbols-outlined text-base">check_circle</span>Combo &amp; Referral đóng góp ~18% doanh thu
@@ -1678,7 +1819,14 @@ export default function AdminDashboardPage({ user, onLogout }) {
                           <div className="font-bold text-[#1e1b4b]">{o.user}</div>
                           <div className="text-[11px] text-slate-400">{o.email} ({o.role})</div>
                         </td>
-                        <td className="py-3.5 px-4 font-semibold text-slate-700">{o.pkg}</td>
+                        <td className="py-3.5 px-4 font-semibold text-slate-700">
+                          <div>{o.pkg}</div>
+                          {o.voucherCode && (
+                            <span className="inline-block mt-0.5 px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 font-mono text-[10px] font-bold">
+                              Mã: {o.voucherCode} (-{(Number(o.discountAmount) || 0).toLocaleString('vi-VN')} đ)
+                            </span>
+                          )}
+                        </td>
                         <td className="py-3.5 px-4 font-extrabold text-[#5b48bd]">{o.amountText}</td>
                         <td className="py-3.5 px-4 text-slate-500">{o.paymentMethod}</td>
                         <td className="py-3.5 px-4 text-center">
@@ -1955,18 +2103,22 @@ export default function AdminDashboardPage({ user, onLogout }) {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-md">
                 <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Tổng Doanh Thu Lũy Kế</span>
-                <div className="text-3xl font-extrabold text-[#1e1b4b] mt-2">204,75 triệu đ</div>
-                <div className="text-xs text-emerald-600 font-bold mt-1">+18,4% so với quý trước</div>
+                <div className="text-3xl font-extrabold text-[#1e1b4b] mt-2">
+                  {totalApprovedRev.toLocaleString('vi-VN')} đ
+                </div>
+                <div className="text-xs text-emerald-600 font-bold mt-1">Đồng bộ từ CSDL Supabase</div>
               </div>
               <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-md">
                 <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">ARPU (Doanh thu / User)</span>
-                <div className="text-3xl font-extrabold text-[#1e1b4b] mt-2">1,25 triệu đ</div>
-                <div className="text-xs text-emerald-600 font-bold mt-1">+8,6% so với tháng trước</div>
+                <div className="text-3xl font-extrabold text-[#1e1b4b] mt-2">
+                  {calculatedArpu.toLocaleString('vi-VN')} đ
+                </div>
+                <div className="text-xs text-emerald-600 font-bold mt-1">Tính theo {totalUsersCount} người dùng</div>
               </div>
               <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-md">
                 <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Thanh Toán VietQR Tự Động</span>
-                <div className="text-3xl font-extrabold text-[#1e1b4b] mt-2">84%</div>
-                <div className="text-xs text-slate-400 mt-1">16% Chuyển khoản thủ công</div>
+                <div className="text-3xl font-extrabold text-[#1e1b4b] mt-2">100%</div>
+                <div className="text-xs text-slate-400 mt-1">Chuẩn quét mã VietQR MBBank</div>
               </div>
             </div>
 
@@ -1975,26 +2127,10 @@ export default function AdminDashboardPage({ user, onLogout }) {
               <div className="space-y-3">
                 <div className="flex items-center justify-between text-xs font-semibold">
                   <span>VietQR Direct Bank Transfer</span>
-                  <span className="font-extrabold text-[#5b48bd]">142,50 triệu đ (69.5%)</span>
+                  <span className="font-extrabold text-[#5b48bd]">{totalApprovedRev.toLocaleString('vi-VN')} đ (100%)</span>
                 </div>
                 <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
-                  <div className="bg-[#5b48bd] h-full rounded-full" style={{ width: '69.5%' }}></div>
-                </div>
-
-                <div className="flex items-center justify-between text-xs font-semibold pt-2">
-                  <span>MoMo QR Code</span>
-                  <span className="font-extrabold text-[#f97316]">42,10 triệu đ (20.5%)</span>
-                </div>
-                <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
-                  <div className="bg-[#f97316] h-full rounded-full" style={{ width: '20.5%' }}></div>
-                </div>
-
-                <div className="flex items-center justify-between text-xs font-semibold pt-2">
-                  <span>VNPAY Gateway</span>
-                  <span className="font-extrabold text-[#06b6d4]">20,15 triệu đ (10.0%)</span>
-                </div>
-                <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
-                  <div className="bg-[#06b6d4] h-full rounded-full" style={{ width: '10.0%' }}></div>
+                  <div className="bg-[#5b48bd] h-full rounded-full" style={{ width: '100%' }}></div>
                 </div>
               </div>
             </div>
@@ -2308,6 +2444,14 @@ export default function AdminDashboardPage({ user, onLogout }) {
                 <span className="text-slate-500">Gói dịch vụ:</span>
                 <span className="font-bold text-[#5b48bd]">{selectedOrderDetails.pkg}</span>
               </div>
+              {selectedOrderDetails.voucherCode && (
+                <div className="flex justify-between py-1 border-b border-purple-50 bg-amber-50/60 px-2 rounded-lg">
+                  <span className="text-amber-800 font-semibold">Voucher giảm giá:</span>
+                  <span className="font-mono font-bold text-amber-900">
+                    {selectedOrderDetails.voucherCode} (-{(Number(selectedOrderDetails.discountAmount) || 0).toLocaleString('vi-VN')} đ)
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between py-1 border-b border-purple-50">
                 <span className="text-slate-500">Tổng số tiền:</span>
                 <span className="font-extrabold text-[#5b48bd] text-sm">{selectedOrderDetails.amountText}</span>
@@ -2378,22 +2522,42 @@ export default function AdminDashboardPage({ user, onLogout }) {
                 <input
                   type="text"
                   placeholder="HIREMATE50"
-                  className="w-full px-4 py-2 border border-purple-200 rounded-full text-xs font-mono font-bold"
+                  value={newVoucherForm.code}
+                  onChange={(e) => setNewVoucherForm(prev => ({ ...prev, code: e.target.value.toUpperCase() }))}
+                  className="w-full px-4 py-2 border border-purple-200 rounded-full text-xs font-mono font-bold uppercase"
                 />
               </div>
-              <div>
-                <label className="font-bold block mb-1">Mức giảm giá / Mô tả</label>
-                <input
-                  type="text"
-                  placeholder="Giảm 50% gói Practice Pro"
-                  className="w-full px-4 py-2 border border-purple-200 rounded-full text-xs"
-                />
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="font-bold block mb-1">Phần trăm giảm (%)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    placeholder="20"
+                    value={newVoucherForm.discountPercent}
+                    onChange={(e) => setNewVoucherForm(prev => ({ ...prev, discountPercent: e.target.value }))}
+                    className="w-full px-4 py-2 border border-purple-200 rounded-full text-xs font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold block mb-1">Giảm tối đa (VNĐ)</label>
+                  <input
+                    type="number"
+                    placeholder="100000"
+                    value={newVoucherForm.maxDiscountAmount}
+                    onChange={(e) => setNewVoucherForm(prev => ({ ...prev, maxDiscountAmount: e.target.value }))}
+                    className="w-full px-4 py-2 border border-purple-200 rounded-full text-xs font-bold"
+                  />
+                </div>
               </div>
               <div>
                 <label className="font-bold block mb-1">Số lượt sử dụng tối đa</label>
                 <input
                   type="number"
-                  defaultValue={100}
+                  min="1"
+                  value={newVoucherForm.usageLimit}
+                  onChange={(e) => setNewVoucherForm(prev => ({ ...prev, usageLimit: e.target.value }))}
                   className="w-full px-4 py-2 border border-purple-200 rounded-full text-xs font-bold"
                 />
               </div>
@@ -2406,10 +2570,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
                 Hủy
               </button>
               <button
-                onClick={() => {
-                  setShowCreateVoucherModal(false);
-                  triggerToast('Tạo voucher mới thành công!');
-                }}
+                onClick={handleCreateVoucher}
                 className="px-5 py-2 bg-[#10b981] hover:bg-[#059669] text-white text-xs font-bold rounded-full shadow-md"
               >
                 Kích hoạt Voucher
@@ -2435,15 +2596,17 @@ export default function AdminDashboardPage({ user, onLogout }) {
                 <label className="font-bold block mb-1">Giá niêm yết (VNĐ)</label>
                 <input
                   type="text"
-                  defaultValue={showEditPackageModal.priceText}
+                  defaultValue={showEditPackageModal.price}
+                  onChange={(e) => setEditPriceInput(e.target.value)}
                   className="w-full px-4 py-2 border border-purple-200 rounded-full text-xs font-bold"
                 />
               </div>
               <div>
-                <label className="font-bold block mb-1">Thời hạn sử dụng</label>
+                <label className="font-bold block mb-1">Thời hạn sử dụng (ngày)</label>
                 <input
                   type="text"
                   defaultValue={showEditPackageModal.duration}
+                  onChange={(e) => setEditDurationInput(e.target.value)}
                   className="w-full px-4 py-2 border border-purple-200 rounded-full text-xs"
                 />
               </div>
@@ -2456,13 +2619,10 @@ export default function AdminDashboardPage({ user, onLogout }) {
                 Hủy
               </button>
               <button
-                onClick={() => {
-                  setShowEditPackageModal(null);
-                  triggerToast('Cập nhật gói dịch vụ thành công!');
-                }}
+                onClick={handleSavePackage}
                 className="px-5 py-2 bg-[#5b48bd] text-white text-xs font-bold rounded-full shadow-md"
               >
-                Lưu thay đổi
+                Lưu vào Supabase
               </button>
             </div>
           </div>

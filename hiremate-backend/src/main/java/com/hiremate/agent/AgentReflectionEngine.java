@@ -138,7 +138,7 @@ public class AgentReflectionEngine {
                     .append("). Bảo toàn điểm đánh giá kỹ thuật cao cấp, không phạt độ dài. ");
             calibratedScore = Math.max(calibratedScore, 75.0f);
         } else if (isVagueOrTrivial && !isInjection) {
-            critique.append("CẢNH BÁO THIẾU DỮ LIỆU CHUYÊN MÔN: Câu trả lời quá ngắn và không chứa thuật ngữ hay giải pháp kỹ thuật nào. ");
+            critique.append("CẢNH BÁO THIẾU DỮ LIỆU CHUYÊN MÔN (OVER-SCORING): Câu trả lời quá ngắn và không chứa thuật ngữ hay giải pháp kỹ thuật nào. ");
             calibratedScore = Math.min(calibratedScore, 40.0f);
         }
 
