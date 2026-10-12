@@ -132,7 +132,9 @@ public class AiInterviewServiceImpl implements AiInterviewService {
         }
 
         float contentScore = evaluation.getContentScore() != null ? evaluation.getContentScore() : (evaluation.getScore() != null ? evaluation.getScore() : 75f);
-        float aiEvaluationScore = evaluation.getScore() != null ? evaluation.getScore() : (Math.round((contentScore * 0.60f + deliveryScore * 0.40f) * 10f) / 10f);
+        float aiEvaluationScore = (request.getWordsPerMinute() != null || request.getClarityScore() != null || evaluation.getDeliveryScore() != null)
+                ? (Math.round((contentScore * 0.60f + deliveryScore * 0.40f) * 10f) / 10f)
+                : (evaluation.getScore() != null ? evaluation.getScore() : contentScore);
 
         // Kết hợp phản hồi ngữ điệu vào aiFeedback nếu có
         String finalFeedback = evaluation.getFeedback();
@@ -467,9 +469,16 @@ public class AiInterviewServiceImpl implements AiInterviewService {
 
         // 2. Phân tích tỷ lệ từ đệm (Filler Words Analysis) trên văn bản câu trả lời
         int fillerCount = 0;
+        java.util.Set<String> singleWordFillers = java.util.Set.of("ờ", "à", "ừm", "ừ", "um", "uh", "er", "like");
+        for (String w : words) {
+            String cleanW = w.toLowerCase().replaceAll("[^\\p{L}]", "");
+            if (singleWordFillers.contains(cleanW)) {
+                fillerCount++;
+            }
+        }
         String lower = answerText.toLowerCase();
-        String[] fillers = {"ờ", "à", "ừm", "ừ", "kiểu như", "thì là mà", "um", "uh", "er", "like"};
-        for (String f : fillers) {
+        String[] multiWordFillers = {"kiểu như", "thì là mà"};
+        for (String f : multiWordFillers) {
             int idx = 0;
             while ((idx = lower.indexOf(f, idx)) != -1) {
                 fillerCount++;

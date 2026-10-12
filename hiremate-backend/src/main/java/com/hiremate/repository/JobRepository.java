@@ -63,4 +63,7 @@ public interface JobRepository extends JpaRepository<Job, Long> {
     );
 
     org.springframework.data.domain.Page<Job> findByRecruiter_RecruiterId(Long recruiterId, org.springframework.data.domain.Pageable pageable);
+    List<Job> findAllByOrderByCreatedAtDesc();
+    List<Job> findByApprovalStatusOrderByCreatedAtDesc(com.hiremate.enums.JobApprovalStatus approvalStatus);
+    long countByApprovalStatus(com.hiremate.enums.JobApprovalStatus approvalStatus);
 }

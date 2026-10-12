@@ -19,6 +19,12 @@ mvnw.cmd
 *.zip
 *.tar.gz
 
+# Environment & Secret files
+.env
+.env.*
+*.env
+*.env.local
+
 # IDE and Editor files
 .idea/
 .vscode/

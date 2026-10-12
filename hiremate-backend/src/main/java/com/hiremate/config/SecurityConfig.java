@@ -50,9 +50,12 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/jobs/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/skills/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/companies/**").permitAll()
+                        .requestMatchers("/api/v1/payment/**").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/error").permitAll()
+                        // Admin endpoints
+                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         // Authenticated endpoints
                         .anyRequest().authenticated()
                 )
