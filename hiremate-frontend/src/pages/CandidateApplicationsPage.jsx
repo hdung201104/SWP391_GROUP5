@@ -783,22 +783,22 @@ export default function CandidateApplicationsPage({ user }) {
 
       {/* 1. Offer Detail & Sign Modal */}
       {activeModal === 'OFFER' && modalData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-botanical-forest/40 backdrop-blur-sm animate-fade-in font-sans">
-          <div className="relative w-full max-w-lg bg-[#FAF9F5] border border-botanical-stone rounded-3xl p-6 sm:p-8 shadow-soft-xl text-botanical-forest">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in font-sans">
+          <div className="relative w-full max-w-lg bg-white border border-purple-100 rounded-3xl p-6 sm:p-8 shadow-2xl text-[#1e1b4b]">
             <button 
               onClick={() => setActiveModal(null)} 
-              className="absolute top-6 right-6 w-9 h-9 rounded-full bg-white/60 hover:bg-white border border-botanical-stone text-botanical-forest/60 hover:text-botanical-forest flex items-center justify-center transition-colors cursor-pointer"
+              className="absolute top-6 right-6 w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors cursor-pointer"
             >
               <span className="material-symbols-outlined text-lg">close</span>
             </button>
 
-            <div className="flex items-center gap-3 mb-2">
-              <span className="w-10 h-10 rounded-2xl bg-botanical-sage/20 border border-botanical-stone flex items-center justify-center text-botanical-forest font-serif font-bold text-sm shadow-soft">
+            <div className="flex items-center gap-3.5 mb-2">
+              <span className="w-12 h-12 rounded-2xl bg-[#10b981] text-white font-extrabold text-base flex items-center justify-center shadow-md">
                 {modalData.companyShort}
               </span>
               <div>
-                <h3 className="font-serif font-bold text-xl text-botanical-forest">Thư Mời Nhận Việc (Official Offer Letter)</h3>
-                <p className="text-xs text-botanical-terracotta font-medium">{modalData.company} • {modalData.title}</p>
+                <h3 className="font-bold text-xl text-[#1e1b4b]">Thư Mời Nhận Việc (Official Offer Letter)</h3>
+                <p className="text-xs text-[#5b48bd] font-bold">{modalData.company} • {modalData.title}</p>
               </div>
             </div>
 
@@ -828,16 +828,16 @@ export default function CandidateApplicationsPage({ user }) {
             <div className="flex items-center justify-end gap-3 text-xs">
               <button 
                 onClick={() => setActiveModal(null)} 
-                className="btn-botanical-secondary !text-xs !py-2.5 !px-5 cursor-pointer"
+                className="px-5 py-2.5 bg-slate-100 text-slate-700 text-xs font-bold rounded-full cursor-pointer hover:bg-slate-200"
               >
                 Đóng
               </button>
               <button 
                 onClick={handleSignOffer}
                 disabled={offerSigned}
-                className="btn-botanical-primary !text-xs !py-2.5 !px-6 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                className="px-6 py-2.5 bg-[#10b981] hover:bg-[#059669] text-white text-xs font-extrabold rounded-full shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
-                <span className="material-symbols-outlined text-sm">edit_document</span>
+                <span className="material-symbols-outlined text-base">edit_document</span>
                 <span>{offerSigned ? 'Đã Ký Chấp Thuận' : 'Ký Số & Xác Nhận Nhận Việc'}</span>
               </button>
             </div>
@@ -847,17 +847,17 @@ export default function CandidateApplicationsPage({ user }) {
 
       {/* 2. Interview Invitation Modal */}
       {activeModal === 'INVITATION' && modalData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-botanical-forest/40 backdrop-blur-sm animate-fade-in font-sans">
-          <div className="relative w-full max-w-lg bg-[#FAF9F5] border border-botanical-stone rounded-3xl p-6 sm:p-8 shadow-soft-xl text-botanical-forest">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in font-sans">
+          <div className="relative w-full max-w-lg bg-white border border-purple-100 rounded-3xl p-6 sm:p-8 shadow-2xl text-[#1e1b4b]">
             <button 
               onClick={() => setActiveModal(null)} 
-              className="absolute top-6 right-6 w-9 h-9 rounded-full bg-white/60 hover:bg-white border border-botanical-stone text-botanical-forest/60 hover:text-botanical-forest flex items-center justify-center transition-colors cursor-pointer"
+              className="absolute top-6 right-6 w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors cursor-pointer"
             >
               <span className="material-symbols-outlined text-lg">close</span>
             </button>
 
-            <div className="flex items-center gap-3 mb-2">
-              <span className="w-10 h-10 rounded-2xl bg-botanical-sage/20 border border-botanical-stone flex items-center justify-center text-botanical-forest font-serif font-bold text-sm shadow-soft">
+            <div className="flex items-center gap-3.5 mb-2">
+              <span className="w-12 h-12 rounded-2xl bg-[#5b48bd] text-white font-extrabold text-base flex items-center justify-center shadow-md">
                 {modalData.companyShort}
               </span>
               <div>
@@ -871,9 +871,9 @@ export default function CandidateApplicationsPage({ user }) {
                 <span className="text-botanical-forest/70">Thời gian:</span>
                 <span className="text-botanical-forest font-bold">14:00 - 15:00 (Sắp xếp theo email thông báo)</span>
               </div>
-              <div className="flex items-center justify-between pb-2 border-b border-botanical-stone">
-                <span className="text-botanical-forest/70">Hình thức:</span>
-                <span className="text-botanical-sage font-semibold">Google Meet Video Call</span>
+              <div className="flex items-center justify-between pb-2 border-b border-purple-100">
+                <span className="text-slate-500 font-semibold">Hình thức:</span>
+                <span className="text-[#10b981] font-bold">Google Meet Video Call</span>
               </div>
               <div className="flex items-center justify-between pb-2 border-b border-botanical-stone">
                 <span className="text-botanical-forest/70">Ban phỏng vấn:</span>
@@ -890,16 +890,16 @@ export default function CandidateApplicationsPage({ user }) {
                 href={`#/ai-interview?jobId=${modalData.jobId || ''}`}
                 className="btn-botanical-secondary !text-xs !py-2.5 !px-5 flex items-center gap-1.5 cursor-pointer"
               >
-                <span className="material-symbols-outlined text-sm text-botanical-sage">smart_toy</span>
+                <span className="material-symbols-outlined text-base">smart_toy</span>
                 Luyện Thử Với AI
               </a>
               <a 
                 href="https://meet.google.com" 
                 target="_blank" 
                 rel="noreferrer"
-                className="btn-botanical-primary !text-xs !py-2.5 !px-6 flex items-center gap-1.5 cursor-pointer"
+                className="px-6 py-2.5 bg-[#5b48bd] hover:bg-[#4a39a8] text-white text-xs font-bold rounded-full shadow-md flex items-center gap-1.5 cursor-pointer"
               >
-                <span className="material-symbols-outlined text-sm">videocam</span>
+                <span className="material-symbols-outlined text-base">videocam</span>
                 <span>Vào Google Meet</span>
               </a>
             </div>
@@ -954,11 +954,11 @@ export default function CandidateApplicationsPage({ user }) {
                 value={chatMessageInput}
                 onChange={(e) => setChatMessageInput(e.target.value)}
                 placeholder="Nhập tin nhắn phản hồi..."
-                className="flex-1 bg-white border border-botanical-stone rounded-full px-4 py-2.5 text-xs text-botanical-forest placeholder:text-botanical-forest/40 focus:outline-none focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 transition-all font-sans"
+                className="flex-1 bg-purple-50/40 border border-purple-100 rounded-full px-4 py-2.5 text-xs text-[#1e1b4b] placeholder:text-slate-400 focus:outline-none focus:border-[#5b48bd] transition-all font-sans"
               />
               <button 
                 type="submit"
-                className="btn-botanical-primary !p-2.5 !rounded-full flex items-center justify-center cursor-pointer shrink-0"
+                className="p-2.5 rounded-full bg-[#5b48bd] hover:bg-[#4a39a8] text-white flex items-center justify-center cursor-pointer shrink-0 shadow-md"
                 title="Gửi tin nhắn"
               >
                 <span className="material-symbols-outlined text-base">send</span>

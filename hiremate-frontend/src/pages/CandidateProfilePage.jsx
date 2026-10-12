@@ -517,25 +517,25 @@ export default function CandidateProfilePage({ user }) {
                     showToast('✏️ Đã bật Chế độ Chỉnh sửa trực tiếp!');
                   }
                 }}
-                className={`px-4 py-2 rounded-full text-xs font-sans font-extrabold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm ${isEditing
-                    ? 'bg-amber-500 text-white border border-amber-600 shadow-md animate-pulse'
+                className={`px-3 py-1.5 rounded-full text-[11px] font-sans font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs ${isEditing
+                    ? 'bg-amber-500 text-white border border-amber-600 shadow-sm animate-pulse'
                     : 'bg-[#f8f7ff] border border-purple-100 text-[#1e1b4b] hover:bg-purple-50 hover:border-[#5b48bd]'
                   }`}
                 title="Bấm để chỉnh sửa trực tiếp từng dòng trên CV hoặc xem thành phẩm"
               >
-                <span className="material-symbols-outlined text-base">
+                <span className="material-symbols-outlined text-sm">
                   {isEditing ? 'check_circle' : 'edit_document'}
                 </span>
-                <span>{isEditing ? 'LƯU & XONG (SAVE)' : 'SỬA CV TRỰC TIẾP'}</span>
+                <span>{isEditing ? 'Lưu & Xong' : 'Sửa CV Trực Tiếp'}</span>
               </button>
 
               {/* Duplicate CV Version */}
               <button
                 onClick={handleDuplicateCurrentCv}
-                className="px-4 py-2 rounded-full text-xs font-sans font-bold bg-[#f8f7ff] border border-purple-100 text-[#1e1b4b] hover:bg-purple-50 hover:border-[#5b48bd] flex items-center gap-1.5 shadow-sm cursor-pointer transition-all"
+                className="px-3 py-1.5 rounded-full text-[11px] font-sans font-bold bg-[#f8f7ff] border border-purple-100 text-[#1e1b4b] hover:bg-purple-50 hover:border-[#5b48bd] flex items-center gap-1.5 shadow-xs cursor-pointer transition-all"
                 title="Tạo thêm 1 bản sao CV để tùy chỉnh riêng cho công ty khác"
               >
-                <span className="material-symbols-outlined text-base text-[#5b48bd]">content_copy</span>
+                <span className="material-symbols-outlined text-sm text-[#5b48bd]">content_copy</span>
                 <span>Nhân Bản CV</span>
               </button>
 
@@ -545,10 +545,10 @@ export default function CandidateProfilePage({ user }) {
                   showToast('Đang chuẩn bị trang in định dạng PDF chuẩn A4 sắc nét...');
                   setTimeout(() => window.print(), 400);
                 }}
-                className="px-4 py-2 rounded-full text-xs font-sans font-bold bg-[#f8f7ff] border border-purple-100 text-[#1e1b4b] hover:bg-purple-50 hover:border-[#5b48bd] flex items-center gap-1.5 shadow-sm cursor-pointer transition-all"
+                className="px-3 py-1.5 rounded-full text-[11px] font-sans font-bold bg-[#f8f7ff] border border-purple-100 text-[#1e1b4b] hover:bg-purple-50 hover:border-[#5b48bd] flex items-center gap-1.5 shadow-xs cursor-pointer transition-all"
                 title="In hoặc xuất bản CV ra file PDF A4 sắc nét"
               >
-                <span className="material-symbols-outlined text-base text-[#5b48bd]">print</span>
+                <span className="material-symbols-outlined text-sm text-[#5b48bd]">print</span>
                 <span>In / Xuất PDF</span>
               </button>
 
@@ -556,102 +556,130 @@ export default function CandidateProfilePage({ user }) {
               <button
                 onClick={handleRewriteBioWithGemini}
                 disabled={isRewritingBio}
-                className="px-4 py-2 rounded-full text-xs font-sans font-extrabold bg-gradient-to-r from-[#5b48bd] to-[#32247b] text-white hover:opacity-95 flex items-center gap-1.5 shadow-md cursor-pointer disabled:opacity-50 transition-all"
+                className="px-3 py-1.5 rounded-full text-[11px] font-sans font-bold bg-gradient-to-r from-[#5b48bd] to-[#32247b] text-white hover:opacity-95 flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50 transition-all"
                 title="Nhờ AI tinh chỉnh từ khóa tối ưu điểm ATS"
               >
-                <span className="material-symbols-outlined text-base animate-pulse">auto_awesome</span>
+                <span className="material-symbols-outlined text-sm animate-pulse">auto_awesome</span>
                 <span>{isRewritingBio ? 'Đang Nâng Cấp...' : 'AI Tinh Chỉnh ATS'}</span>
               </button>
             </div>
           </div>
 
-          {/* Row 2: CV VERSIONS SELECTOR OF THE SAME CANDIDATE */}
+          {/* Row 2: CV VERSIONS SELECTOR & DISPLAY OPTIONS */}
           {activeTab === 'resume' && (
-            <div className="flex flex-wrap items-center justify-between gap-4 text-xs font-sans">
+            <div className="space-y-3.5 text-xs font-sans">
 
-              {/* CV Versions List */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[11px] text-slate-500 uppercase tracking-wider font-extrabold flex items-center gap-1">
-                  <span className="material-symbols-outlined text-sm text-[#5b48bd]">folder_special</span>
-                  <span>Phiên Bản CV:</span>
-                </span>
+              {/* Line 1: CV Versions Selector */}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <span className="text-[11px] text-slate-500 uppercase tracking-wider font-extrabold flex items-center gap-1.5 shrink-0">
+                    <span className="material-symbols-outlined text-base text-[#5b48bd]">folder_special</span>
+                    <span>Phiên Bản CV:</span>
+                  </span>
 
-                {currentCandidate.cvVersions.map((ver) => (
-                  <button
-                    key={ver.id}
-                    onClick={() => handleSelectCvVersion(ver.id)}
-                    className={`px-4 py-2 rounded-full font-sans transition-all cursor-pointer text-xs flex items-center gap-1.5 ${selectedVersionId === ver.id
-                        ? 'bg-[#32247b] text-white border-[#32247b] shadow-md font-bold'
-                        : 'bg-[#f8f7ff] border border-purple-100 text-[#1e1b4b] hover:bg-purple-50 hover:border-[#5b48bd] font-medium'
-                      }`}
-                  >
-                    <span>{ver.versionName}</span>
-                    {ver.isDefault && (
-                      <span className="w-2 h-2 rounded-full bg-emerald-500" title="Bản mặc định Fast Apply"></span>
-                    )}
-                  </button>
-                ))}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {currentCandidate.cvVersions.map((ver) => (
+                      <button
+                        key={ver.id}
+                        onClick={() => handleSelectCvVersion(ver.id)}
+                        className={`px-4 py-2 rounded-full font-sans transition-all cursor-pointer text-xs flex items-center gap-2 ${
+                          selectedVersionId === ver.id
+                            ? 'bg-[#32247b] text-white shadow-md font-bold'
+                            : 'bg-[#f8f7ff] border border-purple-100 text-[#1e1b4b] hover:bg-purple-50 hover:border-[#5b48bd] font-medium'
+                        }`}
+                      >
+                        <span>{ver.versionName}</span>
+                        {ver.isDefault && (
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="Bản mặc định Fast Apply"></span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-                {/* Make default button */}
-                <button
-                  onClick={() => handleSetDefaultCvVersion(selectedVersionId)}
-                  className="px-3.5 py-1.5 rounded-full bg-purple-50 hover:bg-purple-100 text-[#32247b] border border-purple-200 text-[11px] font-sans font-extrabold cursor-pointer flex items-center gap-1 transition-all"
-                  title="Đặt phiên bản này làm CV mặc định khi ứng tuyển Fast Apply"
-                >
-                  <span className="material-symbols-outlined text-xs text-[#5b48bd]">star</span>
-                  <span>Mặc Định</span>
-                </button>
+                {/* Set Default Action */}
+                <div className="shrink-0">
+                  {currentCandidate.cvVersions.find(v => v.id === selectedVersionId)?.isDefault ? (
+                    <span className="px-3.5 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                      <span>Bản mặc định</span>
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => handleSetDefaultCvVersion(selectedVersionId)}
+                      className="px-3.5 py-1.5 rounded-full bg-purple-50 hover:bg-purple-100 text-[#32247b] border border-purple-200 text-xs font-bold cursor-pointer flex items-center gap-1.5 transition-all"
+                      title="Đặt phiên bản này làm CV mặc định khi ứng tuyển Fast Apply"
+                    >
+                      <span className="material-symbols-outlined text-sm text-[#5b48bd]">star</span>
+                      <span>Đặt làm mặc định</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
-              {/* Canvas Style Switcher (Living Glass vs Paper White, Templates) */}
-              <div className="flex items-center gap-3 flex-wrap">
-
-                {/* Canvas Aesthetics */}
-                <div className="flex items-center bg-[#f8f7ff] p-1 rounded-full border border-purple-100">
-                  <button
-                    onClick={() => setCanvasTheme('living-glass')}
-                    className={`px-3 py-1 rounded-full text-xs font-sans font-bold transition-all cursor-pointer flex items-center gap-1 ${canvasTheme === 'living-glass'
-                        ? 'bg-[#32247b] text-white shadow-sm font-bold'
-                        : 'text-slate-600 hover:text-[#1e1b4b]'
+              {/* Line 2: Divider + Appearance Theme & Template Switchers */}
+              <div className="pt-3 border-t border-purple-100/80 flex flex-wrap items-center justify-between gap-3">
+                {/* Theme Switcher */}
+                <div className="flex items-center gap-2.5">
+                  <span className="text-[11px] text-slate-500 uppercase tracking-wider font-extrabold flex items-center gap-1 shrink-0">
+                    <span className="material-symbols-outlined text-sm text-[#5b48bd]">palette</span>
+                    <span>Hiển thị:</span>
+                  </span>
+                  <div className="flex items-center bg-[#f8f7ff] p-1 rounded-full border border-purple-100">
+                    <button
+                      onClick={() => setCanvasTheme('living-glass')}
+                      className={`px-3 py-1 rounded-full text-xs font-sans font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                        canvasTheme === 'living-glass'
+                          ? 'bg-[#32247b] text-white shadow-xs font-bold'
+                          : 'text-slate-600 hover:text-[#1e1b4b]'
                       }`}
-                    title="Giao diện kính mờ cao cấp hợp tông 100% với hình nền sống của dự án"
-                  >
-                    <span className="w-2 h-2 rounded-full mr-1 bg-emerald-400"></span>
-                    <span>Chuẩn Botanical</span>
-                  </button>
+                      title="Giao diện kính mờ cao cấp hợp tông 100% với hình nền sống của dự án"
+                    >
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
+                      <span>Chuẩn Botanical</span>
+                    </button>
 
-                  <button
-                    onClick={() => setCanvasTheme('paper-white')}
-                    className={`px-3 py-1 rounded-full text-xs font-sans font-bold transition-all cursor-pointer flex items-center gap-1 ${canvasTheme === 'paper-white'
-                        ? 'bg-[#32247b] text-white shadow-sm font-bold'
-                        : 'text-slate-600 hover:text-[#1e1b4b]'
+                    <button
+                      onClick={() => setCanvasTheme('paper-white')}
+                      className={`px-3 py-1 rounded-full text-xs font-sans font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                        canvasTheme === 'paper-white'
+                          ? 'bg-[#32247b] text-white shadow-xs font-bold'
+                          : 'text-slate-600 hover:text-[#1e1b4b]'
                       }`}
-                    title="Xem trước định dạng giấy trắng A4 trước khi in ấn"
-                  >
-                    <span>📄 Giấy Trắng A4</span>
-                  </button>
+                      title="Xem trước định dạng giấy trắng A4 trước khi in ấn"
+                    >
+                      <span className="material-symbols-outlined text-sm">description</span>
+                      <span>Giấy Trắng A4</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Template Layout Switcher */}
-                <div className="flex items-center bg-[#f8f7ff] p-1 rounded-full border border-purple-100">
-                  {[
-                    { id: 'executive', label: '2 Cột Chuẩn' },
-                    { id: 'harvard', label: 'Harvard ATS' },
-                    { id: 'modern', label: 'Hiện Đại' }
-                  ].map((tpl) => (
-                    <button
-                      key={tpl.id}
-                      onClick={() => setCvTemplate(tpl.id)}
-                      className={`px-3 py-1 rounded-full text-xs font-sans transition-all cursor-pointer ${cvTemplate === tpl.id
-                          ? 'bg-[#32247b] text-white shadow-sm font-bold'
-                          : 'text-slate-600 hover:text-[#1e1b4b] font-medium'
+                <div className="flex items-center gap-2.5">
+                  <span className="text-[11px] text-slate-500 uppercase tracking-wider font-extrabold flex items-center gap-1 shrink-0">
+                    <span className="material-symbols-outlined text-sm text-[#5b48bd]">dashboard</span>
+                    <span>Mẫu bố cục:</span>
+                  </span>
+                  <div className="flex items-center bg-[#f8f7ff] p-1 rounded-full border border-purple-100">
+                    {[
+                      { id: 'executive', label: '2 Cột Chuẩn' },
+                      { id: 'harvard', label: 'Harvard ATS' },
+                      { id: 'modern', label: 'Hiện Đại' }
+                    ].map((tpl) => (
+                      <button
+                        key={tpl.id}
+                        onClick={() => setCvTemplate(tpl.id)}
+                        className={`px-3 py-1 rounded-full text-xs font-sans transition-all cursor-pointer ${
+                          cvTemplate === tpl.id
+                            ? 'bg-[#32247b] text-white shadow-xs font-bold'
+                            : 'text-slate-600 hover:text-[#1e1b4b] font-medium'
                         }`}
-                    >
-                      {tpl.label}
-                    </button>
-                  ))}
+                      >
+                        {tpl.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-
               </div>
 
             </div>
@@ -1709,40 +1737,42 @@ export default function CandidateProfilePage({ user }) {
         {/* VIEW 2: CV FILES VAULT & ATS PARSER                        */}
         {/* ========================================================= */}
         {activeTab === 'attachments' && (
-          <div className="max-w-4xl mx-auto space-y-6">
+          <div className="max-w-4xl mx-auto space-y-6 font-sans animate-fadeIn">
 
             {/* Upload Zone */}
-            <section className="card-botanical bg-white/95 rounded-3xl border border-botanical-stone p-6 sm:p-8 shadow-soft-xl space-y-4 transition-all duration-300">
-              <div className="flex items-center justify-between pb-3 border-b border-botanical-stone/80">
+            <section className="bg-white rounded-3xl border border-purple-100 p-6 sm:p-8 shadow-sm space-y-5 transition-all duration-300">
+              <div className="flex items-center justify-between pb-4 border-b border-purple-100">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl flex items-center justify-center bg-botanical-forest text-white shadow-soft">
+                  <div className="w-10 h-10 rounded-2xl flex items-center justify-center bg-[#5b48bd] text-white shadow-sm">
                     <span className="material-symbols-outlined text-2xl">upload_file</span>
                   </div>
                   <div>
-                    <h2 className="font-serif font-bold text-base text-botanical-forest">Tải Lên File CV PDF / DOCX</h2>
-                    <p className="text-xs text-botanical-forest/70">Gemini AI tự động quét từ khóa ngành nghề và chấm điểm ATS tương thích.</p>
+                    <h2 className="font-sans font-bold text-base text-[#1e1b4b]">Tải Lên File CV PDF / DOCX</h2>
+                    <p className="text-xs text-slate-500">Gemini AI tự động quét từ khóa ngành nghề và chấm điểm ATS tương thích.</p>
                   </div>
                 </div>
-                <span className="badge-sage px-3 py-1 rounded-full text-xs font-mono font-bold">{cvFiles.length} Tệp Lưu Trữ</span>
+                <span className="px-3.5 py-1 rounded-full text-xs font-sans font-bold bg-purple-50 text-[#5b48bd] border border-purple-100">
+                  {cvFiles.length} Tệp Lưu Trữ
+                </span>
               </div>
 
-              <label className="p-8 rounded-2xl bg-[#FAF9F5] border-2 border-dashed border-botanical-stone hover:border-botanical-sage hover:bg-white transition-all text-center block cursor-pointer group">
+              <label className="p-8 rounded-2xl bg-purple-50/30 border-2 border-dashed border-purple-200 hover:border-[#5b48bd] hover:bg-purple-50/60 transition-all text-center block cursor-pointer group">
                 <input
                   type="file"
                   accept=".pdf,.doc,.docx"
                   onChange={handleUploadCv}
                   className="hidden"
                 />
-                <span className="material-symbols-outlined text-4xl text-botanical-terracotta group-hover:scale-110 transition-transform">cloud_upload</span>
-                <p className="font-serif font-bold text-base text-botanical-forest mt-2">Bấm hoặc Kéo thả file CV của bạn vào đây</p>
-                <p className="text-xs text-botanical-forest/60 mt-1">Định dạng hỗ trợ: PDF, DOC, DOCX • Tối đa 15MB</p>
+                <span className="material-symbols-outlined text-4xl text-[#5b48bd] group-hover:scale-110 transition-transform">cloud_upload</span>
+                <p className="font-sans font-bold text-base text-[#1e1b4b] mt-2">Bấm hoặc Kéo thả file CV của bạn vào đây</p>
+                <p className="text-xs text-slate-500 mt-1">Định dạng hỗ trợ: PDF, DOC, DOCX • Tối đa 15MB</p>
               </label>
             </section>
 
             {/* List of Uploaded CVs */}
-            <section className="card-botanical bg-white/95 rounded-3xl border border-botanical-stone p-6 sm:p-8 shadow-soft-xl space-y-4 transition-all duration-300">
-              <h2 className="font-serif font-bold text-base text-botanical-forest pb-3 border-b border-botanical-stone/80 flex items-center gap-2">
-                <span className="material-symbols-outlined text-botanical-terracotta">folder_open</span>
+            <section className="bg-white rounded-3xl border border-purple-100 p-6 sm:p-8 shadow-sm space-y-5 transition-all duration-300">
+              <h2 className="font-sans font-bold text-base text-[#1e1b4b] pb-4 border-b border-purple-100 flex items-center gap-2">
+                <span className="material-symbols-outlined text-[#5b48bd]">folder_open</span>
                 <span>Danh Sách Tệp CV Trong Kho Hồ Sơ Của {currentCandidate.accountName}</span>
               </h2>
 
@@ -1751,25 +1781,29 @@ export default function CandidateProfilePage({ user }) {
                   <div
                     key={file.id}
                     className={`p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${file.isDefault
-                        ? 'bg-[#FAF9F5] border-botanical-forest/30 shadow-soft'
-                        : 'bg-white border-botanical-stone hover:border-botanical-stone/80'
+                        ? 'bg-purple-50/40 border-purple-200 shadow-xs'
+                        : 'bg-white border-purple-100 hover:border-purple-200 hover:bg-purple-50/20'
                       }`}
                   >
                     <div className="flex items-center gap-3">
-                      <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${file.isDefault ? 'bg-botanical-terracotta/15 text-botanical-terracotta font-bold' : 'bg-botanical-cream text-botanical-forest/70'}`}>
+                      <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
+                        file.isDefault 
+                          ? 'bg-purple-100 text-[#5b48bd] font-bold' 
+                          : 'bg-slate-100 text-slate-500'
+                      }`}>
                         <span className="material-symbols-outlined text-2xl">picture_as_pdf</span>
                       </div>
                       <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-serif font-bold text-sm text-botanical-forest truncate max-w-xs sm:max-w-md">{file.name}</h3>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-sans font-bold text-sm text-[#1e1b4b] truncate max-w-xs sm:max-w-md">{file.name}</h3>
                           {file.isDefault && (
-                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-botanical-forest text-white">
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-sans font-bold bg-[#32247b] text-white">
                               MẶC ĐỊNH FAST APPLY
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-botanical-forest/65 font-sans mt-0.5">
-                          {file.size} • {file.uploaded} • Ngành: <strong className="text-botanical-forest">{file.targetIndustry}</strong> • Điểm ATS: <strong className="text-botanical-terracotta font-bold">{file.atsScore}/100</strong>
+                        <p className="text-xs text-slate-500 font-sans mt-0.5">
+                          {file.size} • {file.uploaded} • Ngành: <strong className="text-slate-700">{file.targetIndustry}</strong> • Điểm ATS: <strong className="text-emerald-600 font-bold">{file.atsScore}/100</strong>
                         </p>
                       </div>
                     </div>
@@ -1816,20 +1850,20 @@ export default function CandidateProfilePage({ user }) {
             </section>
 
             {/* Privacy & Job Search Status settings */}
-            <section className="card-botanical bg-white/95 rounded-3xl border border-botanical-stone p-6 sm:p-8 shadow-soft-xl space-y-4 transition-all duration-300">
-              <h2 className="font-serif font-bold text-base text-botanical-forest pb-3 border-b border-botanical-stone/80 flex items-center gap-2">
-                <span className="material-symbols-outlined text-botanical-sage">tune</span>
+            <section className="bg-white rounded-3xl border border-purple-100 p-6 sm:p-8 shadow-sm space-y-5 transition-all duration-300">
+              <h2 className="font-sans font-bold text-base text-[#1e1b4b] pb-4 border-b border-purple-100 flex items-center gap-2">
+                <span className="material-symbols-outlined text-[#5b48bd]">tune</span>
                 <span>Thiết Lập Trạng Thái Ứng Tuyển &amp; Quyền Riêng Tư</span>
               </h2>
 
               <div className="space-y-4 text-xs font-sans">
                 <div>
-                  <label className="block text-botanical-forest font-bold mb-2">Trạng Thái Tìm Việc Hiện Tại:</label>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <label className="block text-[#1e1b4b] font-bold mb-2.5">Trạng Thái Tìm Việc Hiện Tại:</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {[
-                      { id: 'OPEN_TO_WORK', label: '🟢 Đang Tích Cực Tìm Việc (Open to Work)' },
-                      { id: 'EXPLORING', label: '🟡 Mở Lòng Với Cơ Hội Tốt (Exploring)' },
-                      { id: 'NOT_LOOKING', label: '⚪ Chưa Có Nhu Cầu (Not Looking)' },
+                      { id: 'OPEN_TO_WORK', label: '🟢 Đang Tích Cực Tìm Việc' },
+                      { id: 'EXPLORING', label: '🟡 Mở Lòng Với Cơ Hội Tốt' },
+                      { id: 'NOT_LOOKING', label: '⚪ Chưa Có Nhu Cầu' },
                     ].map((st) => (
                       <button
                         key={st.id}
@@ -1838,9 +1872,9 @@ export default function CandidateProfilePage({ user }) {
                           setJobSearchStatus(st.id);
                           showToast(`Đã chuyển trạng thái: ${st.label}`);
                         }}
-                        className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${jobSearchStatus === st.id
-                            ? 'bg-botanical-forest text-white font-bold shadow-soft border-botanical-forest'
-                            : 'bg-white border-botanical-stone text-botanical-forest/80 hover:bg-[#FAF9F5]'
+                        className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer font-sans text-xs ${jobSearchStatus === st.id
+                            ? 'bg-[#32247b] text-white font-bold shadow-md border-[#32247b]'
+                            : 'bg-white border-purple-100 text-slate-700 hover:bg-purple-50/50 hover:border-[#5b48bd]/40'
                           }`}
                       >
                         {st.label}

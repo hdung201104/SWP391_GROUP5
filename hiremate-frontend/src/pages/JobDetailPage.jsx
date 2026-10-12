@@ -328,7 +328,7 @@ export default function JobDetailPage({ user, jobId }) {
               <div>
                 <div className="flex items-center gap-2.5 flex-wrap">
                   <span className="text-xs font-bold uppercase tracking-wider text-[#221d47]">
-                    CHẾ ĐỘ XEM TRƯỚC BÀI ĐĂNG (RECRUITER PREVIEW)
+                    CHẾ ĐỘ XEM TRƯỚC BÀI ĐĂNG
                   </span>
                   <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded-full">
                     Đang mở tuyển dụng
@@ -510,7 +510,7 @@ export default function JobDetailPage({ user, jobId }) {
               {[
                 { id: 'ALL', label: 'Tất cả nội dung', icon: 'view_agenda' },
                 { id: 'RESPONSIBILITIES', label: 'Dự án & Trách nhiệm', icon: 'hub' },
-                { id: 'REQUIREMENTS', label: 'Yêu cầu (70/30)', icon: 'fact_check' },
+                { id: 'REQUIREMENTS', label: 'Yêu cầu kỹ năng', icon: 'fact_check' },
                 { id: 'BENEFITS', label: 'Đãi ngộ & Phúc lợi', icon: 'card_giftcard' },
                 { id: 'PROCESS', label: 'Lộ trình phỏng vấn', icon: 'route' },
               ].map(tab => (
@@ -707,7 +707,7 @@ export default function JobDetailPage({ user, jobId }) {
                     <div className="absolute -left-6 sm:-left-8 top-0.5 w-6 h-6 rounded-full bg-[#5b48bd] text-white flex items-center justify-center text-[11px] font-sans font-bold shadow-sm">3</div>
                     <div className="p-4 rounded-2xl bg-[#f8f7ff] border border-purple-100 shadow-sm">
                       <div className="flex items-center justify-between flex-wrap gap-2">
-                        <h3 className="text-xs sm:text-sm font-sans font-bold text-[#221d47]">Vòng 3: Phỏng vấn Văn hóa &amp; Thỏa thuận Đãi ngộ (Offer)</h3>
+                        <h3 className="text-xs sm:text-sm font-sans font-bold text-[#221d47]">Vòng 3: Phỏng vấn Văn hóa &amp; Thỏa thuận Đãi ngộ</h3>
                         <span className="text-[10px] font-sans px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-bold">30 phút</span>
                       </div>
                       <p className="text-xs text-slate-600 mt-1.5 leading-relaxed font-sans">

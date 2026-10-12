@@ -7,8 +7,7 @@ hiremate-frontend/node_modules/
 hiremate-frontend/dist/
 hiremate-frontend/.vite/
 hiremate-frontend/*.local
-*.local
-.env.local
+hiremate-frontend/vite.config.js.timestamp-*
 **/node_modules/
 **/dist/
 **/.vite/

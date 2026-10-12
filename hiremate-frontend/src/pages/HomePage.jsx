@@ -237,60 +237,55 @@ export default function HomePage({ user }) {
           {/* ===================================================== */}
           <section className="lg:col-span-9 space-y-6">
             {/* Header Bar: Result count & Sort controls */}
-            <div className="bg-white rounded-3xl p-4 border border-purple-100 shadow-sm flex flex-wrap items-center justify-between gap-4 transition-all">
-              <div className="flex items-center gap-3.5 flex-wrap">
+            <div className="bg-white rounded-3xl p-4 sm:p-5 border border-purple-100 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all">
+              {/* Left Column: Result count & filter tags underneath */}
+              <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse"></span>
                   <span className="font-bold text-base text-[#1e1b4b]">
                     Tìm thấy <span className="text-[#5b48bd] font-extrabold">{jobs.length} việc làm</span> phù hợp
                   </span>
                 </div>
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  {filterMatchPill && (
-                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-[#059669] border border-emerald-200">
-                      <span className="material-symbols-outlined text-[13px] text-[#059669]">auto_awesome</span>
-                      Match ≥ 80% 
-                      <button 
-                        onClick={() => setFilterMatchPill(false)} 
-                        className="hover:text-red-500 ml-1 cursor-pointer font-bold" 
-                        type="button"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  )}
-                  {filterSkillPill && (
-                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-purple-50 text-[#5b48bd] text-xs font-bold border border-purple-200">
-                      Java, Spring 
-                      <button 
-                        onClick={() => setFilterSkillPill(false)} 
-                        className="hover:text-red-500 ml-1 cursor-pointer font-bold" 
-                        type="button"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  )}
-                </div>
+
+                {(filterMatchPill || filterSkillPill) && (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {filterMatchPill && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-[#059669] border border-emerald-200 leading-none">
+                        <span className="material-symbols-outlined text-[10px] text-[#059669]">auto_awesome</span>
+                        <span>Match ≥ 80%</span>
+                        <button 
+                          onClick={() => setFilterMatchPill(false)} 
+                          className="hover:text-red-500 ml-0.5 cursor-pointer font-bold text-[10px] leading-none" 
+                          type="button"
+                          title="Bỏ lọc Match ≥ 80%"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    )}
+                    {filterSkillPill && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-50 text-[#5b48bd] text-xs font-semibold border border-purple-200 shadow-2xs">
+                        <span>Java, Spring</span>
+                        <button 
+                          onClick={() => setFilterSkillPill(false)} 
+                          className="hover:text-red-500 ml-0.5 cursor-pointer font-bold text-xs leading-none" 
+                          type="button"
+                          title="Bỏ lọc Java, Spring"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
 
-              <div className="flex items-center gap-3">
+              {/* Right Column: View mode toggle & Sort dropdown */}
+              <div className="flex items-center gap-3 self-end sm:self-center">
                 <div className="flex items-center bg-purple-50 rounded-full p-1 border border-purple-100">
                   <button 
-                    onClick={() => setViewMode('grid')}
-                    title="Grid View" 
-                    className={`p-1.5 rounded-full flex items-center justify-center transition-all cursor-pointer ${
-                      viewMode === 'grid' 
-                        ? 'bg-white text-[#5b48bd] shadow-sm font-bold' 
-                        : 'text-slate-400 hover:text-[#5b48bd]'
-                    }`}
-                    type="button"
-                  >
-                    <span className="material-symbols-outlined text-lg">grid_view</span>
-                  </button>
-                  <button 
                     onClick={() => setViewMode('list')}
-                    title="List View" 
+                    title="Bố cục ngang (List View)" 
                     className={`p-1.5 rounded-full flex items-center justify-center transition-all cursor-pointer ${
                       viewMode === 'list' 
                         ? 'bg-white text-[#5b48bd] shadow-sm font-bold' 
@@ -299,6 +294,18 @@ export default function HomePage({ user }) {
                     type="button"
                   >
                     <span className="material-symbols-outlined text-lg">view_list</span>
+                  </button>
+                  <button 
+                    onClick={() => setViewMode('grid')}
+                    title="Bố cục ô vuông (Grid View)" 
+                    className={`p-1.5 rounded-full flex items-center justify-center transition-all cursor-pointer ${
+                      viewMode === 'grid' 
+                        ? 'bg-white text-[#5b48bd] shadow-sm font-bold' 
+                        : 'text-slate-400 hover:text-[#5b48bd]'
+                    }`}
+                    type="button"
+                  >
+                    <span className="material-symbols-outlined text-lg">grid_view</span>
                   </button>
                 </div>
 
@@ -346,15 +353,15 @@ export default function HomePage({ user }) {
             </div>
 
             {/* ===================================================== */}
-            {/* PAGINATION & LOAD MORE BAR (BOTANICAL EDITORIAL)      */}
+            {/* PAGINATION & LOAD MORE BAR                            */}
             {/* ===================================================== */}
-            <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-4 border border-[#E6E2DA] shadow-soft flex flex-col sm:flex-row items-center justify-between gap-4 mt-8 transition-all">
-              <div className="text-xs font-body font-medium text-[#667067]">
-                Hiển thị <span className="font-bold text-[#2D3A31]">1 - 6</span> trong <span className="font-bold text-[#2D3A31]">142</span> việc làm
+            <div className="bg-white rounded-3xl p-4 sm:p-5 border border-purple-100 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4 mt-8 transition-all font-sans">
+              <div className="text-xs sm:text-sm font-medium text-slate-500">
+                Hiển thị <span className="font-bold text-[#1e1b4b]">1 - 6</span> trong <span className="font-bold text-[#5b48bd]">142</span> việc làm
               </div>
-              <div className="flex items-center gap-1.5 text-xs font-body">
+              <div className="flex items-center gap-1.5 text-xs font-sans">
                 <button 
-                  className="w-8 h-8 rounded-full bg-[#F2F0EB] text-[#A3A8A3] border border-[#E6E2DA] flex items-center justify-center cursor-not-allowed opacity-60" 
+                  className="w-9 h-9 rounded-full bg-slate-50 text-slate-300 border border-purple-100 flex items-center justify-center cursor-not-allowed opacity-60" 
                   disabled
                   type="button"
                   title="Trang trước"
@@ -362,32 +369,32 @@ export default function HomePage({ user }) {
                   <span className="material-symbols-outlined text-base">chevron_left</span>
                 </button>
                 <button 
-                  className="w-8 h-8 rounded-full bg-[#2D3A31] text-white font-bold shadow-soft flex items-center justify-center cursor-pointer transition-transform hover:scale-105"
+                  className="w-9 h-9 rounded-full bg-[#5b48bd] text-white font-bold shadow-md flex items-center justify-center cursor-pointer transition-all hover:bg-[#4a39a8] hover:scale-105"
                   type="button"
                 >
                   1
                 </button>
                 <button 
-                  className="w-8 h-8 rounded-full bg-white hover:bg-[#F2F0EB] text-[#2D3A31] font-semibold border border-[#E6E2DA] flex items-center justify-center transition-all cursor-pointer"
+                  className="w-9 h-9 rounded-full bg-white hover:bg-purple-50 hover:border-purple-200 text-[#1e1b4b] font-semibold border border-purple-100 flex items-center justify-center transition-all cursor-pointer shadow-xs"
                   type="button"
                 >
                   2
                 </button>
                 <button 
-                  className="w-8 h-8 rounded-full bg-white hover:bg-[#F2F0EB] text-[#2D3A31] font-semibold border border-[#E6E2DA] flex items-center justify-center transition-all cursor-pointer"
+                  className="w-9 h-9 rounded-full bg-white hover:bg-purple-50 hover:border-purple-200 text-[#1e1b4b] font-semibold border border-purple-100 flex items-center justify-center transition-all cursor-pointer shadow-xs"
                   type="button"
                 >
                   3
                 </button>
-                <span className="px-1.5 text-[#8C9A84] font-medium select-none">...</span>
+                <span className="px-1.5 text-purple-300 font-bold select-none">...</span>
                 <button 
-                  className="w-8 h-8 rounded-full bg-white hover:bg-[#F2F0EB] text-[#2D3A31] font-semibold border border-[#E6E2DA] flex items-center justify-center transition-all cursor-pointer"
+                  className="w-9 h-9 rounded-full bg-white hover:bg-purple-50 hover:border-purple-200 text-[#1e1b4b] font-semibold border border-purple-100 flex items-center justify-center transition-all cursor-pointer shadow-xs"
                   type="button"
                 >
                   12
                 </button>
                 <button 
-                  className="px-4 py-1.5 rounded-full bg-[#2D3A31] hover:bg-[#C27B66] text-white font-semibold text-xs transition-all flex items-center gap-1 shadow-soft cursor-pointer"
+                  className="px-4 py-2 rounded-full bg-[#5b48bd] hover:bg-[#4a39a8] text-white font-bold text-xs transition-all flex items-center gap-1.5 shadow-md cursor-pointer hover:scale-105"
                   type="button"
                 >
                   <span>Trang kế</span>

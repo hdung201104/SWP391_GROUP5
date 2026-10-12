@@ -63,6 +63,19 @@ export default function LoginPage({ onNavigateRegister, onLoginSuccess }) {
   // Quick fill demo credentials strictly for current active role
   const handleFillDemo = (targetRole) => {
     const activeRole = targetRole || role;
+    if (activeRole === 'ADMIN') {
+      const adminData = {
+        userId: 999,
+        email: 'admin@hiremate.ai',
+        fullName: 'Quản trị viên Hệ thống',
+        role: 'ADMIN',
+        avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
+      };
+      localStorage.setItem('user', JSON.stringify(adminData));
+      localStorage.setItem('token', 'demo-admin-token');
+      if (onLoginSuccess) onLoginSuccess({ ...adminData, token: 'demo-admin-token' });
+      return;
+    }
     setRole(activeRole);
     if (activeRole === 'RECRUITER') {
       setEmail('minhanh.hr@fptsoftware.com');
@@ -578,27 +591,32 @@ export default function LoginPage({ onNavigateRegister, onLoginSuccess }) {
                 </label>
 
                 {/* 1-Click Demo Fillers */}
-                <div className="flex items-center gap-1.5 text-[11px]">
+                <div className="flex items-center gap-1.5 text-[11px] flex-wrap">
                   <span className="text-slate-400 font-medium">Mẫu:</span>
-                  {role === 'CANDIDATE' ? (
-                    <button
-                      type="button"
-                      onClick={() => handleFillDemo('CANDIDATE')}
-                      className="px-2.5 py-0.5 rounded-full bg-purple-50 hover:bg-purple-100 border border-purple-200 text-[#5b48bd] transition-colors cursor-pointer font-bold"
-                      title="Điền tài khoản mẫu Ứng Viên"
-                    >
-                      Ứng viên mẫu
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => handleFillDemo('RECRUITER')}
-                      className="px-2.5 py-0.5 rounded-full bg-purple-50 hover:bg-purple-100 border border-purple-200 text-[#5b48bd] transition-colors cursor-pointer font-bold"
-                      title="Điền tài khoản mẫu Nhà Tuyển Dụng"
-                    >
-                      Tuyển dụng mẫu
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleFillDemo('CANDIDATE')}
+                    className="px-2 py-0.5 rounded-full bg-purple-50 hover:bg-purple-100 border border-purple-200 text-[#5b48bd] transition-colors cursor-pointer font-bold"
+                    title="Điền tài khoản mẫu Ứng Viên"
+                  >
+                    Ứng viên
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleFillDemo('RECRUITER')}
+                    className="px-2 py-0.5 rounded-full bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 transition-colors cursor-pointer font-bold"
+                    title="Điền tài khoản mẫu Nhà Tuyển Dụng"
+                  >
+                    Tuyển dụng
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleFillDemo('ADMIN')}
+                    className="px-2 py-0.5 rounded-full bg-[#163026] text-white hover:bg-[#0E211A] transition-colors cursor-pointer font-bold"
+                    title="Vào thẳng giao diện Quản Trị Viên (Admin)"
+                  >
+                    Quản trị (Admin)
+                  </button>
                 </div>
               </div>
 
@@ -922,7 +940,7 @@ export default function LoginPage({ onNavigateRegister, onLoginSuccess }) {
               <div className="space-y-1 max-w-lg">
                 <h3 className="text-xl sm:text-2xl font-bold text-white">Mindskills Platform v2.0 Overview</h3>
                 <p className="text-xs text-slate-300 font-normal leading-relaxed">
-                  Tự động xếp hạng ứng viên chuẩn 70/30 (Mandatory &amp; Preferred Skills), phòng phỏng vấn giả lập AI AI-Powered Mock Interview và phễu tuyển dụng Kanban thời gian thực.
+                  Tự động xếp hạng ứng viên (Mandatory &amp; Preferred Skills), phòng phỏng vấn giả lập AI AI-Powered Mock Interview và phễu tuyển dụng Kanban thời gian thực.
                 </p>
               </div>
               <div className="flex items-center justify-center gap-3 pt-2 flex-wrap">
