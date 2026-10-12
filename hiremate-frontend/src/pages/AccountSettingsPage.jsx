@@ -211,11 +211,11 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
   const score = [passHasLength, passHasUpper, passHasNumber, passHasSpecial].filter(Boolean).length;
 
   const getStrengthLabel = () => {
-    if (!newPassword) return { text: 'Chưa nhập', color: 'text-botanical-forest/40', width: 'w-0', bg: 'bg-botanical-stone' };
-    if (score <= 1) return { text: 'Yếu', color: 'text-botanical-terracotta', width: 'w-1/4', bg: 'bg-botanical-terracotta' };
-    if (score === 2) return { text: 'Trung bình', color: 'text-amber-700', width: 'w-2/4', bg: 'bg-amber-600' };
-    if (score === 3) return { text: 'Khá mạnh', color: 'text-botanical-forest', width: 'w-3/4', bg: 'bg-botanical-sage' };
-    return { text: 'Rất mạnh (Tối ưu)', color: 'text-botanical-forest', width: 'w-full', bg: 'bg-botanical-forest' };
+    if (!newPassword) return { text: 'Chưa nhập', color: 'text-slate-400', width: 'w-0', bg: 'bg-slate-200' };
+    if (score <= 1) return { text: 'Yếu', color: 'text-red-500', width: 'w-1/4', bg: 'bg-red-500' };
+    if (score === 2) return { text: 'Trung bình', color: 'text-amber-500', width: 'w-2/4', bg: 'bg-amber-500' };
+    if (score === 3) return { text: 'Khá mạnh', color: 'text-[#5b48bd]', width: 'w-3/4', bg: 'bg-[#5b48bd]' };
+    return { text: 'Rất an toàn', color: 'text-emerald-600', width: 'w-full', bg: 'bg-emerald-600' };
   };
 
   const strength = getStrengthLabel();
@@ -541,36 +541,36 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
   const isRoleCandidate = user?.role !== 'RECRUITER';
 
   return (
-    <div className="w-full bg-transparent text-botanical-forest min-h-screen pb-20 antialiased font-sans">
+    <div className="w-full bg-transparent text-[#1e1b4b] min-h-screen pb-20 antialiased font-sans">
       {/* Toast Notification Banner */}
       {toast && (
-        <div className="fixed top-20 right-6 z-50 px-5 py-3.5 rounded-2xl bg-white border border-botanical-stone text-botanical-forest text-xs font-semibold shadow-soft-xl flex items-center gap-2.5 animate-bounce">
-          <span className="material-symbols-outlined text-lg text-botanical-sage">check_circle</span>
+        <div className="fixed top-20 right-6 z-50 px-5 py-3.5 rounded-2xl bg-white border border-purple-100 text-[#1e1b4b] text-xs font-semibold shadow-lg flex items-center gap-2.5 animate-bounce">
+          <span className="material-symbols-outlined text-lg text-emerald-600">check_circle</span>
           <span>{toast}</span>
         </div>
       )}
 
       {/* Main Container */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-6">
         
         {/* =================================================================== */}
         {/* BANNER PHÂN ĐỊNH RÕ: HỒ SƠ TÀI KHOẢN VS QUẢN LÝ CV                 */}
         {/* =================================================================== */}
-        <div className="card-botanical bg-white/95 rounded-3xl p-5 sm:p-6 border border-botanical-stone shadow-soft flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="bg-white rounded-3xl p-5 sm:p-6 border border-purple-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
-            <div className="h-12 w-12 rounded-2xl bg-botanical-sage/20 border border-botanical-stone text-botanical-forest flex items-center justify-center shrink-0 shadow-soft">
-              <span className="material-symbols-outlined text-xl text-botanical-forest">account_circle</span>
+            <div className="h-12 w-12 rounded-2xl bg-[#edeafd] border border-purple-200 text-[#5b48bd] flex items-center justify-center shrink-0 shadow-sm">
+              <span className="material-symbols-outlined text-xl">account_circle</span>
             </div>
             <div>
               <div className="flex items-center gap-2.5">
-                <h1 className="text-lg font-serif font-bold text-botanical-forest">
+                <h1 className="text-lg font-bold text-[#1e1b4b]">
                   Hồ Sơ Tài Khoản Cá Nhân &amp; Cài Đặt
                 </h1>
-                <span className="text-[11px] font-sans px-2.5 py-0.5 rounded-full bg-botanical-sage/20 text-botanical-forest border border-botanical-sage/30">
-                  User Account
+                <span className="text-[11px] font-sans px-2.5 py-0.5 rounded-full bg-purple-50 text-[#5b48bd] border border-purple-200 font-semibold">
+                  Tài Khoản Người Dùng
                 </span>
               </div>
-              <p className="text-xs text-botanical-forest/70 font-sans mt-0.5">
+              <p className="text-xs text-slate-500 font-sans mt-0.5">
                 Quản lý thông tin tài khoản cá nhân, đổi ảnh đại diện, đổi mật khẩu và liên kết tài khoản.
               </p>
             </div>
@@ -580,19 +580,19 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
           {isRoleCandidate ? (
             <button
               onClick={() => { window.location.hash = '#/profile'; }}
-              className="btn-botanical-secondary !text-xs !py-2.5 !px-5 flex items-center gap-2 shadow-soft shrink-0"
+              className="bg-white hover:bg-purple-50 border border-purple-200 text-[#1e1b4b] text-xs py-2.5 px-5 rounded-2xl flex items-center gap-2 shadow-sm transition-all shrink-0 font-semibold cursor-pointer"
             >
-              <span className="material-symbols-outlined text-base text-botanical-sage">description</span>
-              <span>Quản lý CV ứng tuyển việc làm</span>
+              <span className="material-symbols-outlined text-base text-[#5b48bd]">description</span>
+              <span>Quản lý hồ sơ tìm việc</span>
               <span className="material-symbols-outlined text-sm">arrow_forward</span>
             </button>
           ) : (
             <button
               onClick={() => { window.location.hash = '#/recruiter-profile'; }}
-              className="btn-botanical-secondary !text-xs !py-2.5 !px-5 flex items-center gap-2 shadow-soft shrink-0"
+              className="bg-white hover:bg-purple-50 border border-purple-200 text-[#1e1b4b] text-xs py-2.5 px-5 rounded-2xl flex items-center gap-2 shadow-sm transition-all shrink-0 font-semibold cursor-pointer"
             >
-              <span className="material-symbols-outlined text-base text-botanical-terracotta">domain</span>
-              <span>Hồ sơ Công ty &amp; Thương hiệu</span>
+              <span className="material-symbols-outlined text-base text-[#f97316]">domain</span>
+              <span>Hồ sơ Doanh nghiệp &amp; Thương hiệu</span>
               <span className="material-symbols-outlined text-sm">arrow_forward</span>
             </button>
           )}
@@ -601,11 +601,11 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
         {/* =================================================================== */}
         {/* HEADER HERO PROFILE CARD: XEM HỒ SƠ & THÔNG TIN TÀI KHOẢN          */}
         {/* =================================================================== */}
-        <div className="card-botanical bg-white/95 rounded-3xl p-6 sm:p-8 border border-botanical-stone shadow-soft relative overflow-hidden">
+        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-purple-100 shadow-sm relative overflow-hidden">
           <div className="flex flex-col md:flex-row items-center md:items-start gap-6 sm:gap-8">
             {/* Avatar with Direct Change Button */}
             <div className="relative group shrink-0">
-              <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-3xl p-1 bg-botanical-sage/20 border-2 border-botanical-stone shadow-soft">
+              <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-3xl p-1 bg-[#edeafd] border-2 border-purple-200 shadow-sm">
                 <img
                   src={avatarUrl}
                   alt={fullName}
@@ -618,7 +618,7 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                   setActiveTab('avatar');
                   window.location.hash = '#/settings?tab=avatar';
                 }}
-                className="absolute -bottom-2 -right-2 p-2.5 rounded-full bg-botanical-forest text-white hover:bg-botanical-forest/90 shadow-soft transition-all duration-200 cursor-pointer flex items-center justify-center"
+                className="absolute -bottom-2 -right-2 p-2.5 rounded-full bg-[#5b48bd] text-white hover:bg-[#4a39a8] shadow-md transition-all duration-200 cursor-pointer flex items-center justify-center"
                 title="Đổi ảnh đại diện tài khoản"
               >
                 <span className="material-symbols-outlined text-base font-bold">photo_camera</span>
@@ -628,35 +628,29 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
             {/* User Meta Information */}
             <div className="flex-1 text-center md:text-left space-y-2.5">
               <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
-                <h2 className="text-2xl sm:text-3xl font-serif font-bold text-botanical-forest tracking-tight">
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-[#1e1b4b] tracking-tight">
                   {fullName}
                 </h2>
-                <span className="px-3 py-0.5 rounded-full text-xs font-sans font-medium bg-botanical-sage/20 text-botanical-forest border border-botanical-sage/30">
-                  {isRoleCandidate ? 'Ứng viên (Candidate)' : 'Nhà tuyển dụng (Recruiter)'}
-                </span>
-                <span className="px-3 py-0.5 rounded-full bg-botanical-cream text-botanical-forest text-xs font-mono border border-botanical-stone">
-                  UID: HM-{user?.userId || (isRoleCandidate ? '9082' : '2041')}
-                </span>
               </div>
 
-              <p className="text-xs sm:text-sm text-botanical-forest/75 max-w-2xl line-clamp-2 font-sans">
+              <p className="text-xs sm:text-sm text-slate-600 max-w-2xl line-clamp-2 font-sans leading-relaxed">
                 {personalBio}
               </p>
 
               {/* Security, Verification & GitHub Badges */}
               <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 text-xs font-sans pt-2">
                 {isEmailVerified ? (
-                  <div className="flex items-center gap-1.5 text-botanical-forest bg-botanical-sage/20 px-3 py-1 rounded-full border border-botanical-sage/40">
-                    <span className="material-symbols-outlined text-base text-botanical-sage">verified</span>
-                    <span>Email đã xác thực (OTP Verified)</span>
+                  <div className="flex items-center gap-1.5 text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 font-medium">
+                    <span className="material-symbols-outlined text-base text-emerald-600">verified</span>
+                    <span>Email đã xác thực</span>
                   </div>
                 ) : (
                   <button
                     type="button"
                     onClick={handleOpenEmailVerify}
-                    className="flex items-center gap-1.5 text-botanical-terracotta bg-botanical-terracotta/10 px-3 py-1 rounded-full border border-botanical-terracotta/30 hover:bg-botanical-terracotta/20 cursor-pointer"
+                    className="flex items-center gap-1.5 text-amber-700 bg-amber-50 px-3 py-1 rounded-full border border-amber-200 hover:bg-amber-100 cursor-pointer font-medium transition-colors"
                   >
-                    <span className="material-symbols-outlined text-base">warning</span>
+                    <span className="material-symbols-outlined text-base text-amber-600">warning</span>
                     <span>Chưa xác thực email • Xác thực ngay</span>
                   </button>
                 )}
@@ -666,7 +660,7 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                     href={githubUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex items-center gap-1.5 text-botanical-forest/70 hover:text-botanical-forest bg-botanical-cream px-3 py-1 rounded-full border border-botanical-stone"
+                    className="flex items-center gap-1.5 text-slate-600 hover:text-[#5b48bd] bg-slate-50 hover:bg-purple-50 px-3 py-1 rounded-full border border-slate-200 transition-colors font-medium"
                   >
                     <span className="material-symbols-outlined text-base">code</span>
                     <span>GitHub: {githubUrl.replace('https://github.com/', '')}</span>
@@ -680,17 +674,17 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
         {/* =================================================================== */}
         {/* NAVIGATION TABS BAR (5 TABS)                                        */}
         {/* =================================================================== */}
-        <div className="flex flex-wrap items-center gap-2 border-b border-botanical-stone/80 pb-3 text-xs">
+        <div className="flex flex-wrap items-center gap-2 pb-2 text-xs">
           {/* Tab 1: Hồ Sơ Cá Nhân */}
           <button
             onClick={() => {
               setActiveTab('profile');
               window.location.hash = '#/settings?tab=profile';
             }}
-            className={`px-5 py-2.5 rounded-full font-medium transition-all cursor-pointer flex items-center gap-2 ${
+            className={`px-5 py-2.5 rounded-full transition-all cursor-pointer flex items-center gap-2 ${
               activeTab === 'profile'
-                ? 'bg-botanical-forest text-white shadow-soft'
-                : 'bg-white text-botanical-forest/70 hover:text-botanical-forest border border-botanical-stone'
+                ? 'bg-[#5b48bd] text-white font-bold shadow-md'
+                : 'bg-white text-slate-600 hover:text-[#5b48bd] hover:bg-purple-50/50 border border-purple-100 font-semibold shadow-sm'
             }`}
           >
             <span className="material-symbols-outlined text-base">account_circle</span>
@@ -703,14 +697,14 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
               setActiveTab('avatar');
               window.location.hash = '#/settings?tab=avatar';
             }}
-            className={`px-5 py-2.5 rounded-full font-medium transition-all cursor-pointer flex items-center gap-2 ${
+            className={`px-5 py-2.5 rounded-full transition-all cursor-pointer flex items-center gap-2 ${
               activeTab === 'avatar'
-                ? 'bg-botanical-forest text-white shadow-soft'
-                : 'bg-white text-botanical-forest/70 hover:text-botanical-forest border border-botanical-stone'
+                ? 'bg-[#5b48bd] text-white font-bold shadow-md'
+                : 'bg-white text-slate-600 hover:text-[#5b48bd] hover:bg-purple-50/50 border border-purple-100 font-semibold shadow-sm'
             }`}
           >
             <span className="material-symbols-outlined text-base">photo_camera</span>
-            <span>Ảnh Đại Diện (Avatar)</span>
+            <span>Ảnh Đại Diện</span>
           </button>
 
           {/* Tab 3: Đổi Mật Khẩu */}
@@ -719,10 +713,10 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
               setActiveTab('security');
               window.location.hash = '#/settings?tab=security';
             }}
-            className={`px-5 py-2.5 rounded-full font-medium transition-all cursor-pointer flex items-center gap-2 ${
+            className={`px-5 py-2.5 rounded-full transition-all cursor-pointer flex items-center gap-2 ${
               activeTab === 'security'
-                ? 'bg-botanical-forest text-white shadow-soft'
-                : 'bg-white text-botanical-forest/70 hover:text-botanical-forest border border-botanical-stone'
+                ? 'bg-[#5b48bd] text-white font-bold shadow-md'
+                : 'bg-white text-slate-600 hover:text-[#5b48bd] hover:bg-purple-50/50 border border-purple-100 font-semibold shadow-sm'
             }`}
           >
             <span className="material-symbols-outlined text-base">lock_reset</span>
@@ -735,10 +729,10 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
               setActiveTab('social');
               window.location.hash = '#/settings?tab=social';
             }}
-            className={`px-5 py-2.5 rounded-full font-medium transition-all cursor-pointer flex items-center gap-2 ${
+            className={`px-5 py-2.5 rounded-full transition-all cursor-pointer flex items-center gap-2 ${
               activeTab === 'social'
-                ? 'bg-botanical-forest text-white shadow-soft'
-                : 'bg-white text-botanical-forest/70 hover:text-botanical-forest border border-botanical-stone'
+                ? 'bg-[#5b48bd] text-white font-bold shadow-md'
+                : 'bg-white text-slate-600 hover:text-[#5b48bd] hover:bg-purple-50/50 border border-purple-100 font-semibold shadow-sm'
             }`}
           >
             <span className="material-symbols-outlined text-base">code</span>
@@ -751,10 +745,10 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
               setActiveTab('notifications');
               window.location.hash = '#/settings?tab=notifications';
             }}
-            className={`px-5 py-2.5 rounded-full font-medium transition-all cursor-pointer flex items-center gap-2 ${
+            className={`px-5 py-2.5 rounded-full transition-all cursor-pointer flex items-center gap-2 ${
               activeTab === 'notifications'
-                ? 'bg-botanical-forest text-white shadow-soft'
-                : 'bg-white text-botanical-forest/70 hover:text-botanical-forest border border-botanical-stone'
+                ? 'bg-[#5b48bd] text-white font-bold shadow-md'
+                : 'bg-white text-slate-600 hover:text-[#5b48bd] hover:bg-purple-50/50 border border-purple-100 font-semibold shadow-sm'
             }`}
           >
             <span className="material-symbols-outlined text-base">notifications</span>
@@ -767,120 +761,120 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
         {/* =================================================================== */}
         {activeTab === 'profile' && (
           <form onSubmit={handleSaveProfile} className="space-y-6">
-            <div className="card-botanical bg-white/95 rounded-3xl border border-botanical-stone p-6 sm:p-8 space-y-6 shadow-soft">
-              <div className="flex items-center justify-between border-b border-botanical-stone pb-4">
+            <div className="bg-white rounded-3xl border border-purple-100 p-6 sm:p-8 space-y-6 shadow-sm">
+              <div className="flex items-center justify-between border-b border-purple-100 pb-4">
                 <div>
-                  <h3 className="text-lg font-serif font-bold text-botanical-forest flex items-center gap-2">
-                    <span className="material-symbols-outlined text-botanical-sage">badge</span>
+                  <h3 className="text-lg font-bold text-[#1e1b4b] flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[#5b48bd]">badge</span>
                     Chỉnh Sửa Thông Tin Hồ Sơ Cá Nhân
                   </h3>
-                  <p className="text-xs text-botanical-forest/70 mt-0.5 font-sans">
+                  <p className="text-xs text-slate-500 mt-0.5 font-sans">
                     Cập nhật họ tên, liên hệ, tiểu sử và thông tin đăng nhập trong cơ sở dữ liệu.
                   </p>
                 </div>
-                <span className="text-[11px] font-sans text-botanical-forest bg-botanical-sage/20 px-3 py-1 rounded-full border border-botanical-sage/30">
-                  Live PostgreSQL Sync
+                <span className="text-[11px] font-sans text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 font-semibold">
+                  Đồng bộ hệ thống dữ liệu
                 </span>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Họ và tên */}
                 <div className="space-y-2">
-                  <label className="text-xs font-sans font-bold text-botanical-forest flex items-center gap-1.5">
+                  <label className="text-xs font-sans font-bold text-[#1e1b4b] flex items-center gap-1.5">
                     <span>Họ và Tên</span>
-                    <span className="text-botanical-terracotta">*</span>
+                    <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
-                    <span className="material-symbols-outlined absolute left-4 top-3 text-base text-botanical-forest/40">person</span>
+                    <span className="material-symbols-outlined absolute left-4 top-3 text-base text-slate-400">person</span>
                     <input
                       type="text"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
                       required
                       placeholder="Ví dụ: Trần Bảo Long"
-                      className="w-full pl-11 pr-4 py-2.5 bg-[#FAF9F5] border border-botanical-stone rounded-2xl text-xs sm:text-sm text-botanical-forest focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 focus:outline-none transition-all font-sans"
+                      className="w-full pl-11 pr-4 py-2.5 bg-[#f8f7ff] border border-purple-100 rounded-2xl text-xs sm:text-sm text-[#1e1b4b] focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 focus:outline-none transition-all font-sans font-medium"
                     />
                   </div>
                 </div>
 
                 {/* Email đăng ký */}
                 <div className="space-y-2">
-                  <label className="text-xs font-sans font-bold text-botanical-forest flex items-center justify-between">
+                  <label className="text-xs font-sans font-bold text-[#1e1b4b] flex items-center justify-between">
                     <span className="flex items-center gap-1.5">
                       <span>Email Đăng Ký Tài Khoản</span>
-                      <span className="text-botanical-terracotta">*</span>
+                      <span className="text-red-500">*</span>
                     </span>
                     {isEmailVerified ? (
-                      <span className="text-[11px] text-botanical-forest flex items-center gap-1 font-sans">
-                        <span className="material-symbols-outlined text-xs text-botanical-sage">verified</span> Đã xác thực
+                      <span className="text-[11px] text-emerald-700 flex items-center gap-1 font-sans font-semibold">
+                        <span className="material-symbols-outlined text-xs text-emerald-600">verified</span> Đã xác thực
                       </span>
                     ) : (
                       <button
                         type="button"
                         onClick={handleOpenEmailVerify}
-                        className="text-[11px] text-botanical-terracotta hover:underline cursor-pointer font-sans"
+                        className="text-[11px] text-amber-700 hover:underline cursor-pointer font-sans font-semibold"
                       >
                         Chưa xác thực • Xác thực ngay
                       </button>
                     )}
                   </label>
                   <div className="relative">
-                    <span className="material-symbols-outlined absolute left-4 top-3 text-base text-botanical-forest/40">mail</span>
+                    <span className="material-symbols-outlined absolute left-4 top-3 text-base text-slate-400">mail</span>
                     <input
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
-                      className="w-full pl-11 pr-4 py-2.5 bg-[#FAF9F5] border border-botanical-stone rounded-2xl text-xs sm:text-sm text-botanical-forest focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 focus:outline-none transition-all font-sans"
+                      className="w-full pl-11 pr-4 py-2.5 bg-[#f8f7ff] border border-purple-100 rounded-2xl text-xs sm:text-sm text-[#1e1b4b] focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 focus:outline-none transition-all font-sans font-medium"
                     />
                   </div>
                 </div>
 
                 {/* Số điện thoại */}
                 <div className="space-y-2">
-                  <label className="text-xs font-sans font-bold text-botanical-forest flex items-center justify-between">
+                  <label className="text-xs font-sans font-bold text-[#1e1b4b] flex items-center justify-between">
                     <span>Số Điện Thoại Liên Hệ</span>
-                    <span className="text-[10px] text-botanical-sage font-mono">Bảo mật SMS</span>
+                    <span className="text-[10px] text-[#5b48bd] font-mono">Bảo mật SMS</span>
                   </label>
                   <div className="relative">
-                    <span className="material-symbols-outlined absolute left-4 top-3 text-base text-botanical-forest/40">phone</span>
+                    <span className="material-symbols-outlined absolute left-4 top-3 text-base text-slate-400">phone</span>
                     <input
                       type="tel"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       placeholder="0912 345 678"
-                      className="w-full pl-11 pr-4 py-2.5 bg-[#FAF9F5] border border-botanical-stone rounded-2xl text-xs sm:text-sm text-botanical-forest focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 focus:outline-none transition-all font-sans"
+                      className="w-full pl-11 pr-4 py-2.5 bg-[#f8f7ff] border border-purple-100 rounded-2xl text-xs sm:text-sm text-[#1e1b4b] focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 focus:outline-none transition-all font-sans font-medium"
                     />
                   </div>
                 </div>
 
                 {/* Ngày sinh */}
                 <div className="space-y-2">
-                  <label className="text-xs font-sans font-bold text-botanical-forest">
+                  <label className="text-xs font-sans font-bold text-[#1e1b4b]">
                     Ngày Sinh
                   </label>
                   <div className="relative">
-                    <span className="material-symbols-outlined absolute left-4 top-3 text-base text-botanical-forest/40">cake</span>
+                    <span className="material-symbols-outlined absolute left-4 top-3 text-base text-slate-400">cake</span>
                     <input
                       type="date"
                       value={dob}
                       onChange={(e) => setDob(e.target.value)}
-                      className="w-full pl-11 pr-4 py-2.5 bg-[#FAF9F5] border border-botanical-stone rounded-2xl text-xs sm:text-sm text-botanical-forest focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 focus:outline-none transition-all font-sans"
+                      className="w-full pl-11 pr-4 py-2.5 bg-[#f8f7ff] border border-purple-100 rounded-2xl text-xs sm:text-sm text-[#1e1b4b] focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 focus:outline-none transition-all font-sans font-medium"
                     />
                   </div>
                 </div>
 
                 {/* Giới tính */}
                 <div className="space-y-2">
-                  <label className="text-xs font-sans font-bold text-botanical-forest">
+                  <label className="text-xs font-sans font-bold text-[#1e1b4b]">
                     Giới Tính
                   </label>
                   <div className="relative">
-                    <span className="material-symbols-outlined absolute left-4 top-3 text-base text-botanical-forest/40">wc</span>
+                    <span className="material-symbols-outlined absolute left-4 top-3 text-base text-slate-400">wc</span>
                     <select
                       value={gender}
                       onChange={(e) => setGender(e.target.value)}
-                      className="w-full pl-11 pr-4 py-2.5 bg-[#FAF9F5] border border-botanical-stone rounded-2xl text-xs sm:text-sm text-botanical-forest focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 focus:outline-none transition-all font-sans"
+                      className="w-full pl-11 pr-4 py-2.5 bg-[#f8f7ff] border border-purple-100 rounded-2xl text-xs sm:text-sm text-[#1e1b4b] focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 focus:outline-none transition-all font-sans font-medium cursor-pointer"
                     >
                       <option value="Nam">Nam</option>
                       <option value="Nữ">Nữ</option>
@@ -891,15 +885,15 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
 
                 {/* Tỉnh / Thành phố */}
                 <div className="space-y-2">
-                  <label className="text-xs font-sans font-bold text-botanical-forest">
+                  <label className="text-xs font-sans font-bold text-[#1e1b4b]">
                     Tỉnh / Thành Phố Cư Trú
                   </label>
                   <div className="relative">
-                    <span className="material-symbols-outlined absolute left-4 top-3 text-base text-botanical-forest/40">location_city</span>
+                    <span className="material-symbols-outlined absolute left-4 top-3 text-base text-slate-400">location_city</span>
                     <select
                       value={city}
                       onChange={(e) => setCity(e.target.value)}
-                      className="w-full pl-11 pr-4 py-2.5 bg-[#FAF9F5] border border-botanical-stone rounded-2xl text-xs sm:text-sm text-botanical-forest focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 focus:outline-none transition-all font-sans"
+                      className="w-full pl-11 pr-4 py-2.5 bg-[#f8f7ff] border border-purple-100 rounded-2xl text-xs sm:text-sm text-[#1e1b4b] focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 focus:outline-none transition-all font-sans font-medium cursor-pointer"
                     >
                       <option value="TP. Hồ Chí Minh">TP. Hồ Chí Minh</option>
                       <option value="Hà Nội">Hà Nội</option>
@@ -913,46 +907,46 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
 
                 {/* Liên kết GitHub Profile */}
                 <div className="md:col-span-2 space-y-2">
-                  <label className="text-xs font-sans font-bold text-botanical-forest flex items-center justify-between">
+                  <label className="text-xs font-sans font-bold text-[#1e1b4b] flex items-center justify-between">
                     <span className="flex items-center gap-1.5">
-                      <span>Tài Khoản GitHub (Developer Profile)</span>
+                      <span>Tài Khoản GitHub</span>
                     </span>
-                    <span className="text-[10px] text-botanical-sage font-mono">Tự động đồng bộ repos</span>
+                    <span className="text-[10px] text-[#5b48bd] font-mono">Tự động đồng bộ repos</span>
                   </label>
                   <div className="relative">
-                    <span className="material-symbols-outlined absolute left-4 top-3 text-base text-botanical-forest/40">code</span>
+                    <span className="material-symbols-outlined absolute left-4 top-3 text-base text-slate-400">code</span>
                     <input
                       type="url"
                       value={githubUrl}
                       onChange={(e) => setGithubUrl(e.target.value)}
                       placeholder="https://github.com/username"
-                      className="w-full pl-11 pr-4 py-2.5 bg-[#FAF9F5] border border-botanical-stone rounded-2xl text-xs sm:text-sm text-botanical-forest focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 focus:outline-none transition-all font-sans"
+                      className="w-full pl-11 pr-4 py-2.5 bg-[#f8f7ff] border border-purple-100 rounded-2xl text-xs sm:text-sm text-[#1e1b4b] focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 focus:outline-none transition-all font-sans font-medium"
                     />
                   </div>
                 </div>
 
                 {/* Địa chỉ chi tiết */}
                 <div className="md:col-span-2 space-y-2">
-                  <label className="text-xs font-sans font-bold text-botanical-forest">
+                  <label className="text-xs font-sans font-bold text-[#1e1b4b]">
                     Địa Chỉ Chi Tiết
                   </label>
                   <div className="relative">
-                    <span className="material-symbols-outlined absolute left-4 top-3 text-base text-botanical-forest/40">home</span>
+                    <span className="material-symbols-outlined absolute left-4 top-3 text-base text-slate-400">home</span>
                     <input
                       type="text"
                       value={address}
                       onChange={(e) => setAddress(e.target.value)}
                       placeholder="Số nhà, đường, phường/xã, quận/huyện..."
-                      className="w-full pl-11 pr-4 py-2.5 bg-[#FAF9F5] border border-botanical-stone rounded-2xl text-xs sm:text-sm text-botanical-forest focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 focus:outline-none transition-all font-sans"
+                      className="w-full pl-11 pr-4 py-2.5 bg-[#f8f7ff] border border-purple-100 rounded-2xl text-xs sm:text-sm text-[#1e1b4b] focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 focus:outline-none transition-all font-sans font-medium"
                     />
                   </div>
                 </div>
 
                 {/* Tiểu sử cá nhân */}
                 <div className="md:col-span-2 space-y-2">
-                  <label className="text-xs font-sans font-bold text-botanical-forest flex items-center justify-between">
-                    <span>Giới Thiệu Ngắn Về Bản Thân (Personal Bio)</span>
-                    <span className="text-[10px] text-botanical-forest/50 font-mono">{personalBio.length}/300 ký tự</span>
+                  <label className="text-xs font-sans font-bold text-[#1e1b4b] flex items-center justify-between">
+                    <span>Giới Thiệu Ngắn Về Bản Thân</span>
+                    <span className="text-[10px] text-slate-400 font-mono">{personalBio.length}/300 ký tự</span>
                   </label>
                   <textarea
                     rows={3}
@@ -960,27 +954,27 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                     value={personalBio}
                     onChange={(e) => setPersonalBio(e.target.value)}
                     placeholder="Mô tả ngắn về bản thân, phong cách làm việc và định hướng nghề nghiệp..."
-                    className="w-full p-4 bg-[#FAF9F5] border border-botanical-stone rounded-2xl text-xs sm:text-sm text-botanical-forest focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 focus:outline-none transition-all font-sans resize-none"
+                    className="w-full p-4 bg-[#f8f7ff] border border-purple-100 rounded-2xl text-xs sm:text-sm text-[#1e1b4b] focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 focus:outline-none transition-all font-sans resize-none font-medium"
                   />
                 </div>
               </div>
 
               {/* Submit Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-botanical-stone">
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-purple-100">
                 <button
                   type="reset"
                   onClick={() => {
                     setFullName(user?.fullName || 'Trần Bảo Long');
                     triggerToast('Đã khôi phục dữ liệu ban đầu');
                   }}
-                  className="btn-botanical-secondary !text-xs !py-2.5 !px-5 cursor-pointer shadow-soft"
+                  className="bg-white hover:bg-purple-50/60 border border-purple-200 text-[#1e1b4b] font-semibold text-xs py-2.5 px-5 rounded-2xl shadow-sm transition-all cursor-pointer"
                 >
                   Hủy thay đổi
                 </button>
 
                 <button
                   type="submit"
-                  className="btn-botanical-primary !text-xs !py-2.5 !px-7 flex items-center gap-2 cursor-pointer shadow-soft"
+                  className="bg-[#5b48bd] hover:bg-[#4a39a8] text-white font-bold text-xs py-2.5 px-7 rounded-2xl flex items-center gap-2 cursor-pointer shadow-md transition-all"
                 >
                   <span className="material-symbols-outlined text-base">save</span>
                   <span>Lưu Cập Nhật Hồ Sơ</span>
@@ -991,33 +985,33 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
         )}
 
         {/* =================================================================== */}
-        {/* TAB 2: ĐỔI ẢNH ĐẠI DIỆN (AVATAR STUDIO)                             */}
+        {/* TAB 2: ĐỔI ẢNH ĐẠI DIỆN                                             */}
         {/* =================================================================== */}
         {activeTab === 'avatar' && (
-          <div className="card-botanical bg-white/95 rounded-3xl border border-botanical-stone p-6 sm:p-8 space-y-6 shadow-soft">
-            <div className="flex items-center justify-between border-b border-botanical-stone pb-4">
+          <div className="bg-white rounded-3xl border border-purple-100 p-6 sm:p-8 space-y-6 shadow-sm">
+            <div className="flex items-center justify-between border-b border-purple-100 pb-4">
               <div>
-                <h3 className="text-lg font-serif font-bold text-botanical-forest flex items-center gap-2">
-                  <span className="material-symbols-outlined text-botanical-sage">photo_camera</span>
-                  Thay Đổi Ảnh Đại Diện (Avatar Studio)
+                <h3 className="text-lg font-bold text-[#1e1b4b] flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[#5b48bd]">photo_camera</span>
+                  Thay Đổi Ảnh Đại Diện
                 </h3>
-                <p className="text-xs text-botanical-forest/70 mt-0.5 font-sans">
+                <p className="text-xs text-slate-500 mt-0.5 font-sans">
                   Tải ảnh từ máy tính lên, chọn ảnh đại diện phong cách AI, hoặc nhập liên kết ảnh trực tiếp.
                 </p>
               </div>
-              <span className="text-[11px] font-sans text-botanical-forest bg-botanical-sage/20 px-3 py-1 rounded-full border border-botanical-sage/30">
-                Avatar Studio 4.0
+              <span className="text-[11px] font-sans text-[#5b48bd] bg-purple-50 px-3 py-1 rounded-full border border-purple-200 font-semibold">
+                Bộ Sưu Tập Ảnh
               </span>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
               {/* Left: Live Preview */}
-              <div className="p-6 rounded-3xl bg-[#FAF9F5] border border-botanical-stone flex flex-col items-center text-center space-y-4 shadow-soft">
-                <span className="text-xs font-serif font-bold text-botanical-forest uppercase tracking-wider">
+              <div className="p-6 rounded-3xl bg-[#f8f7ff] border border-purple-100 flex flex-col items-center text-center space-y-4 shadow-sm">
+                <span className="text-xs font-bold text-[#1e1b4b] uppercase tracking-wider">
                   Xem Trước Ảnh Đại Diện
                 </span>
                 
-                <div className="w-36 h-36 rounded-full p-1.5 bg-botanical-sage/20 border-2 border-botanical-stone shadow-soft">
+                <div className="w-36 h-36 rounded-full p-1.5 bg-[#edeafd] border-2 border-purple-200 shadow-sm">
                   <img
                     src={avatarUrl}
                     alt="Preview"
@@ -1026,14 +1020,14 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                 </div>
 
                 <div className="space-y-1">
-                  <p className="font-serif font-bold text-base text-botanical-forest">{fullName}</p>
-                  <p className="text-xs text-botanical-forest/60 font-mono">{email}</p>
+                  <p className="font-bold text-base text-[#1e1b4b]">{fullName}</p>
+                  <p className="text-xs text-slate-500 font-mono">{email}</p>
                 </div>
 
                 <button
                   type="button"
                   onClick={handleSaveAvatar}
-                  className="btn-botanical-primary !w-full !py-2.5 !text-xs !rounded-full flex items-center justify-center gap-2 cursor-pointer shadow-soft"
+                  className="bg-[#5b48bd] hover:bg-[#4a39a8] text-white font-bold w-full py-2.5 text-xs rounded-full flex items-center justify-center gap-2 cursor-pointer shadow-md transition-all"
                 >
                   <span className="material-symbols-outlined text-base">check_circle</span>
                   <span>Lưu Ảnh Này Làm Đại Diện</span>
@@ -1043,13 +1037,13 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
               {/* Right: Upload & Presets */}
               <div className="lg:col-span-2 space-y-6">
                 {/* Method 1: Upload from Computer */}
-                <div className="p-5 rounded-2xl bg-[#FAF9F5] border border-botanical-stone space-y-3">
+                <div className="p-5 rounded-2xl bg-[#f8f7ff] border border-purple-100 space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-serif font-bold text-botanical-forest flex items-center gap-2">
-                      <span className="material-symbols-outlined text-botanical-sage text-lg">upload_file</span>
-                      <span>Cách 1: Tải ảnh từ máy tính (File Upload)</span>
+                    <span className="text-xs font-bold text-[#1e1b4b] flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[#5b48bd] text-lg">upload_file</span>
+                      <span>Cách 1: Tải ảnh từ máy tính</span>
                     </span>
-                    <span className="text-[11px] text-botanical-forest/60 font-sans">Hỗ trợ JPG, PNG, WEBP (Tối đa 5MB)</span>
+                    <span className="text-[11px] text-slate-500 font-sans">Hỗ trợ JPG, PNG, WEBP (Tối đa 5MB)</span>
                   </div>
 
                   <input
@@ -1063,17 +1057,17 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="w-full py-6 rounded-2xl border-2 border-dashed border-botanical-stone hover:border-botanical-sage bg-white hover:bg-[#FAF9F5] text-xs font-semibold text-botanical-forest/70 hover:text-botanical-forest flex flex-col items-center justify-center gap-2 transition-all cursor-pointer group shadow-soft"
+                    className="w-full py-6 rounded-2xl border-2 border-dashed border-purple-200 hover:border-[#5b48bd] bg-white hover:bg-purple-50/50 text-xs font-semibold text-slate-600 hover:text-[#5b48bd] flex flex-col items-center justify-center gap-2 transition-all cursor-pointer group shadow-sm"
                   >
-                    <span className="material-symbols-outlined text-3xl text-botanical-sage group-hover:scale-110 transition-transform">cloud_upload</span>
+                    <span className="material-symbols-outlined text-3xl text-[#5b48bd] group-hover:scale-110 transition-transform">cloud_upload</span>
                     <span>Nhấn vào đây để chọn tệp hình ảnh từ thiết bị của bạn</span>
                   </button>
                 </div>
 
                 {/* Method 2: Select from AI Presets */}
-                <div className="p-5 rounded-2xl bg-[#FAF9F5] border border-botanical-stone space-y-3">
-                  <span className="text-xs font-serif font-bold text-botanical-forest flex items-center gap-2">
-                    <span className="material-symbols-outlined text-botanical-terracotta text-lg">face</span>
+                <div className="p-5 rounded-2xl bg-[#f8f7ff] border border-purple-100 space-y-3">
+                  <span className="text-xs font-bold text-[#1e1b4b] flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[#f97316] text-lg">face</span>
                     <span>Cách 2: Chọn từ kho ảnh đại diện tuyển dụng chuyên nghiệp</span>
                   </span>
 
@@ -1087,12 +1081,12 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                           triggerToast('Đã chọn ảnh mẫu. Nhấn "Lưu Ảnh Này Làm Đại Diện" để hoàn tất.');
                         }}
                         className={`aspect-square rounded-2xl overflow-hidden border-2 transition-all cursor-pointer relative group ${
-                          avatarUrl === preset ? 'border-botanical-forest scale-105 shadow-soft' : 'border-botanical-stone hover:border-botanical-sage'
+                          avatarUrl === preset ? 'border-[#5b48bd] scale-105 shadow-md' : 'border-purple-100 hover:border-[#5b48bd]/50'
                         }`}
                       >
                         <img src={preset} alt={`Preset ${idx + 1}`} className="w-full h-full object-cover" />
                         {avatarUrl === preset && (
-                          <div className="absolute inset-0 bg-botanical-forest/30 flex items-center justify-center">
+                          <div className="absolute inset-0 bg-[#5b48bd]/40 flex items-center justify-center">
                             <span className="material-symbols-outlined text-white text-lg font-bold drop-shadow">check</span>
                           </div>
                         )}
@@ -1102,10 +1096,10 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                 </div>
 
                 {/* Method 3: Direct URL */}
-                <div className="p-5 rounded-2xl bg-[#FAF9F5] border border-botanical-stone space-y-3">
-                  <span className="text-xs font-serif font-bold text-botanical-forest flex items-center gap-2">
-                    <span className="material-symbols-outlined text-botanical-forest text-lg">link</span>
-                    <span>Cách 3: Nhập liên kết ảnh trực tiếp (Image URL)</span>
+                <div className="p-5 rounded-2xl bg-[#f8f7ff] border border-purple-100 space-y-3">
+                  <span className="text-xs font-bold text-[#1e1b4b] flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[#5b48bd] text-lg">link</span>
+                    <span>Cách 3: Nhập liên kết ảnh trực tiếp</span>
                   </span>
 
                   <div className="flex gap-2">
@@ -1114,7 +1108,7 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                       value={customAvatarInput}
                       onChange={(e) => setCustomAvatarInput(e.target.value)}
                       placeholder="https://images.example.com/my-photo.jpg"
-                      className="flex-1 px-4 py-2.5 bg-white border border-botanical-stone rounded-2xl text-xs text-botanical-forest focus:outline-none focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 font-sans"
+                      className="flex-1 px-4 py-2.5 bg-white border border-purple-100 rounded-2xl text-xs text-[#1e1b4b] focus:outline-none focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 font-sans"
                     />
                     <button
                       type="button"
@@ -1124,7 +1118,7 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                           triggerToast('Đã áp dụng liên kết ảnh! Nhớ nhấn Lưu.');
                         }
                       }}
-                      className="btn-botanical-secondary !text-xs !py-2.5 !px-5 shrink-0"
+                      className="bg-white hover:bg-purple-50/60 border border-purple-200 text-[#1e1b4b] font-semibold text-xs py-2.5 px-5 rounded-2xl shadow-sm transition-all cursor-pointer shrink-0"
                     >
                       Áp Dụng
                     </button>
@@ -1139,26 +1133,26 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
         {/* TAB 3: ĐỔI MẬT KHẨU & BẢO MẬT TÀI KHOẢN                             */}
         {/* =================================================================== */}
         {activeTab === 'security' && (
-          <div className="space-y-8">
+          <div className="space-y-6">
             {/* Form Đổi Mật Khẩu */}
-            <form onSubmit={handleChangePasswordSubmit} className="card-botanical bg-white/95 rounded-3xl border border-botanical-stone p-6 sm:p-8 space-y-6 shadow-soft">
-              <div className="flex items-center justify-between border-b border-botanical-stone pb-4">
+            <form onSubmit={handleChangePasswordSubmit} className="bg-white rounded-3xl border border-purple-100 p-6 sm:p-8 space-y-6 shadow-sm">
+              <div className="flex items-center justify-between border-b border-purple-100 pb-4">
                 <div>
-                  <h3 className="text-lg font-serif font-bold text-botanical-forest flex items-center gap-2">
-                    <span className="material-symbols-outlined text-botanical-terracotta">key</span>
+                  <h3 className="text-lg font-bold text-[#1e1b4b] flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[#5b48bd]">key</span>
                     Đổi Mật Khẩu Đăng Nhập
                   </h3>
-                  <p className="text-xs text-botanical-forest/70 mt-0.5 font-sans">
+                  <p className="text-xs text-slate-500 mt-0.5 font-sans">
                     Để đảm bảo an toàn tài khoản, mật khẩu mới nên có tối thiểu 8 ký tự bao gồm chữ hoa, chữ số và ký tự đặc biệt.
                   </p>
                 </div>
-                <span className="text-[11px] font-sans text-botanical-forest bg-botanical-sage/20 px-3 py-1 rounded-full border border-botanical-sage/30">
-                  BCrypt Database Encryption
+                <span className="text-[11px] font-sans text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 font-semibold">
+                  Mã Hóa Mật Khẩu Chuẩn
                 </span>
               </div>
 
               {passwordError && (
-                <div className="p-4 rounded-2xl bg-botanical-terracotta/15 border border-botanical-terracotta/40 text-botanical-terracotta text-xs font-sans flex items-center gap-2">
+                <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-red-600 text-xs font-sans flex items-center gap-2">
                   <span className="material-symbols-outlined text-base">error</span>
                   <span>{passwordError}</span>
                 </div>
@@ -1167,23 +1161,23 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
               <div className="max-w-xl space-y-5">
                 {/* Current Password */}
                 <div className="space-y-2">
-                  <label className="text-xs font-sans font-bold text-botanical-forest">
+                  <label className="text-xs font-sans font-bold text-[#1e1b4b]">
                     Mật Khẩu Hiện Tại
                   </label>
                   <div className="relative">
-                    <span className="material-symbols-outlined absolute left-4 top-3 text-base text-botanical-forest/40">lock</span>
+                    <span className="material-symbols-outlined absolute left-4 top-3 text-base text-slate-400">lock</span>
                     <input
                       type={showCurrentPass ? 'text' : 'password'}
                       value={currentPassword}
                       onChange={(e) => setCurrentPassword(e.target.value)}
                       required
                       placeholder="Nhập mật khẩu bạn đang sử dụng"
-                      className="w-full pl-11 pr-11 py-2.5 bg-[#FAF9F5] border border-botanical-stone rounded-2xl text-xs sm:text-sm text-botanical-forest focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 focus:outline-none transition-all font-sans"
+                      className="w-full pl-11 pr-11 py-2.5 bg-[#f8f7ff] border border-purple-100 rounded-2xl text-xs sm:text-sm text-[#1e1b4b] focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 focus:outline-none transition-all font-sans font-medium"
                     />
                     <button
                       type="button"
                       onClick={() => setShowCurrentPass(!showCurrentPass)}
-                      className="absolute right-3.5 top-3 text-botanical-forest/40 hover:text-botanical-forest"
+                      className="absolute right-3.5 top-3 text-slate-400 hover:text-[#5b48bd] cursor-pointer"
                     >
                       <span className="material-symbols-outlined text-base">
                         {showCurrentPass ? 'visibility_off' : 'visibility'}
@@ -1194,23 +1188,23 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
 
                 {/* New Password */}
                 <div className="space-y-2">
-                  <label className="text-xs font-sans font-bold text-botanical-forest">
+                  <label className="text-xs font-sans font-bold text-[#1e1b4b]">
                     Mật Khẩu Mới
                   </label>
                   <div className="relative">
-                    <span className="material-symbols-outlined absolute left-4 top-3 text-base text-botanical-forest/40">lock_clock</span>
+                    <span className="material-symbols-outlined absolute left-4 top-3 text-base text-slate-400">lock_clock</span>
                     <input
                       type={showNewPass ? 'text' : 'password'}
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       required
                       placeholder="Tối thiểu 8 ký tự"
-                      className="w-full pl-11 pr-11 py-2.5 bg-[#FAF9F5] border border-botanical-stone rounded-2xl text-xs sm:text-sm text-botanical-forest focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 focus:outline-none transition-all font-sans"
+                      className="w-full pl-11 pr-11 py-2.5 bg-[#f8f7ff] border border-purple-100 rounded-2xl text-xs sm:text-sm text-[#1e1b4b] focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 focus:outline-none transition-all font-sans font-medium"
                     />
                     <button
                       type="button"
                       onClick={() => setShowNewPass(!showNewPass)}
-                      className="absolute right-3.5 top-3 text-botanical-forest/40 hover:text-botanical-forest"
+                      className="absolute right-3.5 top-3 text-slate-400 hover:text-[#5b48bd] cursor-pointer"
                     >
                       <span className="material-symbols-outlined text-base">
                         {showNewPass ? 'visibility_off' : 'visibility'}
@@ -1222,10 +1216,10 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                   {newPassword && (
                     <div className="pt-2 space-y-1.5 font-sans">
                       <div className="flex items-center justify-between text-[11px]">
-                        <span className="text-botanical-forest/60">Độ mạnh mật khẩu:</span>
+                        <span className="text-slate-500">Độ mạnh mật khẩu:</span>
                         <span className={`font-bold ${strength.color}`}>{strength.text}</span>
                       </div>
-                      <div className="w-full h-1.5 bg-botanical-stone rounded-full overflow-hidden">
+                      <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
                         <div className={`h-full ${strength.width} ${strength.bg} transition-all duration-300`}></div>
                       </div>
                     </div>
@@ -1234,23 +1228,23 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
 
                 {/* Confirm New Password */}
                 <div className="space-y-2">
-                  <label className="text-xs font-sans font-bold text-botanical-forest">
+                  <label className="text-xs font-sans font-bold text-[#1e1b4b]">
                     Xác Nhận Mật Khẩu Mới
                   </label>
                   <div className="relative">
-                    <span className="material-symbols-outlined absolute left-4 top-3 text-base text-botanical-forest/40">verified_user</span>
+                    <span className="material-symbols-outlined absolute left-4 top-3 text-base text-slate-400">verified_user</span>
                     <input
                       type={showConfirmPass ? 'text' : 'password'}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       required
                       placeholder="Nhập lại chính xác mật khẩu mới"
-                      className="w-full pl-11 pr-11 py-2.5 bg-[#FAF9F5] border border-botanical-stone rounded-2xl text-xs sm:text-sm text-botanical-forest focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 focus:outline-none transition-all font-sans"
+                      className="w-full pl-11 pr-11 py-2.5 bg-[#f8f7ff] border border-purple-100 rounded-2xl text-xs sm:text-sm text-[#1e1b4b] focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 focus:outline-none transition-all font-sans font-medium"
                     />
                     <button
                       type="button"
                       onClick={() => setShowConfirmPass(!showConfirmPass)}
-                      className="absolute right-3.5 top-3 text-botanical-forest/40 hover:text-botanical-forest"
+                      className="absolute right-3.5 top-3 text-slate-400 hover:text-[#5b48bd] cursor-pointer"
                     >
                       <span className="material-symbols-outlined text-base">
                         {showConfirmPass ? 'visibility_off' : 'visibility'}
@@ -1264,7 +1258,7 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                   <button
                     type="submit"
                     disabled={isSendingPasswordOtp}
-                    className="btn-botanical-primary !text-xs !py-3 !px-8 flex items-center gap-2 cursor-pointer shadow-soft disabled:opacity-50"
+                    className="bg-[#5b48bd] hover:bg-[#4a39a8] text-white font-bold text-xs py-3 px-8 rounded-2xl flex items-center gap-2 cursor-pointer shadow-md transition-all disabled:opacity-50"
                   >
                     {isSendingPasswordOtp ? (
                       <>
@@ -1278,8 +1272,8 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                       </>
                     )}
                   </button>
-                  <span className="text-[11px] text-botanical-forest/60 italic font-sans flex items-center gap-1">
-                    <span className="material-symbols-outlined text-xs text-botanical-sage">mail</span>
+                  <span className="text-[11px] text-slate-500 italic font-sans flex items-center gap-1">
+                    <span className="material-symbols-outlined text-xs text-[#5b48bd]">mail</span>
                     Mã OTP 6 chữ số sẽ được gửi trực tiếp đến email của bạn
                   </span>
                 </div>
@@ -1287,14 +1281,14 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
             </form>
 
             {/* Quản lý thiết bị đăng nhập */}
-            <div className="card-botanical bg-white/95 rounded-3xl border border-botanical-stone p-6 sm:p-8 space-y-6 shadow-soft">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-botanical-stone pb-4 gap-3">
+            <div className="bg-white rounded-3xl border border-purple-100 p-6 sm:p-8 space-y-6 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-purple-100 pb-4 gap-3">
                 <div>
-                  <h3 className="text-lg font-serif font-bold text-botanical-forest flex items-center gap-2">
-                    <span className="material-symbols-outlined text-botanical-sage">devices</span>
-                    Phiên Đăng Nhập Hoạt Động (Active Sessions)
+                  <h3 className="text-lg font-bold text-[#1e1b4b] flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[#5b48bd]">devices</span>
+                    Phiên Đăng Nhập Hoạt Động
                   </h3>
-                  <p className="text-xs text-botanical-forest/70 mt-0.5 font-sans">
+                  <p className="text-xs text-slate-500 mt-0.5 font-sans">
                     Quản lý danh sách các thiết bị, trình duyệt và địa chỉ IP đang duy trì token đăng nhập tài khoản.
                   </p>
                 </div>
@@ -1304,7 +1298,7 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                     onClick={syncSessions}
                     disabled={isLoadingSessions}
                     title="Làm mới danh sách phiên"
-                    className="p-2 rounded-xl border border-botanical-stone hover:bg-botanical-sage/10 text-botanical-forest/70 hover:text-botanical-forest transition-colors flex items-center justify-center cursor-pointer"
+                    className="p-2 rounded-xl border border-purple-200 hover:bg-purple-50 text-slate-600 hover:text-[#5b48bd] transition-colors flex items-center justify-center cursor-pointer"
                   >
                     <span className={`material-symbols-outlined text-base ${isLoadingSessions ? 'animate-spin' : ''}`}>
                       sync
@@ -1315,7 +1309,7 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                     <button
                       type="button"
                       onClick={handleTerminateOtherSessions}
-                      className="px-3.5 py-2 rounded-xl bg-botanical-terracotta/10 border border-botanical-terracotta/30 text-botanical-terracotta hover:bg-botanical-terracotta hover:text-white transition-all text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-soft"
+                      className="px-3.5 py-2 rounded-xl bg-red-50 border border-red-200 text-red-600 hover:bg-red-600 hover:text-white transition-all text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-sm"
                     >
                       <span className="material-symbols-outlined text-sm">logout</span>
                       <span>Đăng xuất các thiết bị khác ({sessions.filter(s => !s.isCurrent).length})</span>
@@ -1326,7 +1320,7 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                     <button
                       type="button"
                       onClick={handleAddTestSession}
-                      className="px-3 py-1.5 rounded-xl border border-dashed border-botanical-stone text-botanical-forest/60 hover:text-botanical-forest hover:border-botanical-sage text-[11px] font-sans transition-colors cursor-pointer"
+                      className="px-3 py-1.5 rounded-xl border border-dashed border-purple-200 text-slate-500 hover:text-[#5b48bd] hover:border-[#5b48bd] text-[11px] font-sans transition-colors cursor-pointer"
                       title="Mô phỏng 1 thiết bị khác đăng nhập để kiểm tra tính năng thu hồi token"
                     >
                       + Giả lập thiết bị để thử
@@ -1336,8 +1330,8 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
               </div>
 
               {isLoadingSessions ? (
-                <div className="p-6 rounded-2xl bg-[#FAF9F5] border border-botanical-stone flex items-center justify-center gap-3 text-xs text-botanical-forest/70 font-sans">
-                  <span className="animate-spin text-botanical-sage">↻</span>
+                <div className="p-6 rounded-2xl bg-[#f8f7ff] border border-purple-100 flex items-center justify-center gap-3 text-xs text-slate-500 font-sans">
+                  <span className="animate-spin text-[#5b48bd]">↻</span>
                   <span>Đang kiểm tra và nhận diện thiết bị thực tế...</span>
                 </div>
               ) : (
@@ -1347,29 +1341,29 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                       key={sess.id}
                       className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 sm:p-5 rounded-2xl border transition-all gap-3 ${
                         sess.isCurrent
-                          ? 'bg-[#FAF9F5] border-botanical-sage/70 shadow-soft ring-1 ring-botanical-sage/20'
-                          : 'bg-white border-botanical-stone hover:border-botanical-stone/80'
+                          ? 'bg-[#f8f7ff] border-purple-200 shadow-sm ring-1 ring-[#5b48bd]/20'
+                          : 'bg-white border-purple-100 hover:border-purple-200'
                       }`}
                     >
                       <div className="flex items-start sm:items-center gap-3.5">
-                        <div className={`p-3 rounded-2xl shrink-0 ${sess.isCurrent ? 'bg-botanical-sage/20 text-botanical-forest border border-botanical-sage/40' : 'bg-botanical-cream text-botanical-forest/60'}`}>
+                        <div className={`p-3 rounded-2xl shrink-0 ${sess.isCurrent ? 'bg-[#edeafd] text-[#5b48bd] border border-purple-200' : 'bg-slate-100 text-slate-500'}`}>
                           <span className="material-symbols-outlined text-2xl">{sess.icon}</span>
                         </div>
                         <div className="space-y-1">
                           <div className="flex flex-wrap items-center gap-2">
-                            <p className="text-xs sm:text-sm font-serif font-bold text-botanical-forest">{sess.device}</p>
+                            <p className="text-xs sm:text-sm font-bold text-[#1e1b4b]">{sess.device}</p>
                             {sess.isCurrent ? (
-                              <span className="inline-flex items-center gap-1.5 text-[10px] font-sans font-bold text-botanical-forest bg-botanical-sage/25 px-2.5 py-0.5 rounded-full border border-botanical-sage/40">
+                              <span className="inline-flex items-center gap-1.5 text-[10px] font-sans font-bold text-[#5b48bd] bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-200">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                                 Thiết bị này (Phiên hiện tại)
                               </span>
                             ) : (
-                              <span className="text-[10px] font-sans text-botanical-forest/60 bg-botanical-stone/40 px-2 py-0.5 rounded-full">
+                              <span className="text-[10px] font-sans text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
                                 Đã lưu token
                               </span>
                             )}
                           </div>
-                          <p className="text-[11px] text-botanical-forest/70 font-sans flex flex-wrap items-center gap-2">
+                          <p className="text-[11px] text-slate-500 font-sans flex flex-wrap items-center gap-2">
                             <span>{sess.location}</span>
                             <span>•</span>
                             <span>{sess.time}</span>
@@ -1379,15 +1373,15 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
 
                       <div className="flex items-center self-end sm:self-center gap-2">
                         {sess.isCurrent ? (
-                          <div className="flex items-center gap-1.5 text-[11px] font-sans font-semibold text-botanical-forest bg-white px-3 py-1.5 rounded-xl border border-botanical-stone shadow-soft">
-                            <span className="material-symbols-outlined text-sm text-botanical-sage">shield</span>
+                          <div className="flex items-center gap-1.5 text-[11px] font-sans font-semibold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200 shadow-sm">
+                            <span className="material-symbols-outlined text-sm text-emerald-600">shield</span>
                             <span>Phiên bảo vệ an toàn</span>
                           </div>
                         ) : (
                           <button
                             type="button"
                             onClick={() => handleTerminateSingleSession(sess.id, sess.device)}
-                            className="px-3 py-1.5 rounded-xl border border-botanical-terracotta/30 text-botanical-terracotta hover:bg-botanical-terracotta hover:text-white transition-all text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                            className="px-3 py-1.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 transition-all text-xs font-semibold flex items-center gap-1 cursor-pointer"
                           >
                             <span className="material-symbols-outlined text-xs">logout</span>
                             <span>Đăng xuất thiết bị</span>
@@ -1399,13 +1393,13 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
 
                   {/* Security Banner when only current device exists */}
                   {sessions.length === 1 && (
-                    <div className="p-4 sm:p-5 rounded-2xl bg-botanical-sage/10 border border-botanical-sage/30 flex items-start sm:items-center gap-3.5 text-xs text-botanical-forest font-sans">
-                      <div className="w-8 h-8 rounded-xl bg-botanical-sage/20 flex items-center justify-center shrink-0 text-botanical-forest">
+                    <div className="p-4 sm:p-5 rounded-2xl bg-emerald-50/70 border border-emerald-200 flex items-start sm:items-center gap-3.5 text-xs text-emerald-950 font-sans">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0 text-emerald-700">
                         <span className="material-symbols-outlined text-lg">verified_user</span>
                       </div>
                       <div className="space-y-0.5">
-                        <p className="font-bold text-botanical-forest">Tài khoản bảo mật an toàn</p>
-                        <p className="text-botanical-forest/70 text-[11px] leading-relaxed">
+                        <p className="font-bold text-emerald-900">Tài khoản bảo mật an toàn</p>
+                        <p className="text-[11px] leading-relaxed text-slate-600">
                           Hiện tại tài khoản chỉ được xác thực và duy trì kết nối trên thiết bị này. Không có thiết bị lạ hoặc token trái phép nào khác đang hoạt động.
                         </p>
                       </div>
@@ -1421,70 +1415,70 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
         {/* TAB 4: SỬ DỤNG GITHUB & LIÊN KẾT TÀI KHOẢN                           */}
         {/* =================================================================== */}
         {activeTab === 'social' && (
-          <div className="card-botanical bg-white/95 rounded-3xl border border-botanical-stone p-6 sm:p-8 space-y-6 shadow-soft">
-            <div className="flex items-center justify-between border-b border-botanical-stone pb-4">
+          <div className="bg-white rounded-3xl border border-purple-100 p-6 sm:p-8 space-y-6 shadow-sm">
+            <div className="flex items-center justify-between border-b border-purple-100 pb-4">
               <div>
-                <h3 className="text-lg font-serif font-bold text-botanical-forest flex items-center gap-2">
-                  <span className="material-symbols-outlined text-botanical-forest">link</span>
-                  Liên Kết Tài Khoản Mạng Xã Hội &amp; Sử Dụng GitHub
+                <h3 className="text-lg font-bold text-[#1e1b4b] flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[#5b48bd]">link</span>
+                  Liên Kết Tài Khoản Mạng Xã Hội
                 </h3>
-                <p className="text-xs text-botanical-forest/70 mt-0.5 font-sans">
+                <p className="text-xs text-slate-500 mt-0.5 font-sans">
                   Tích hợp tài khoản GitHub lập trình viên và Google Single Sign-On (SSO).
                 </p>
               </div>
-              <span className="text-[11px] font-sans text-botanical-forest bg-botanical-sage/20 px-3 py-1 rounded-full border border-botanical-sage/30">
-                OAuth 2.0 Integration
+              <span className="text-[11px] font-sans text-[#5b48bd] bg-purple-50 px-3 py-1 rounded-full border border-purple-200 font-semibold">
+                Tích hợp tài khoản
               </span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* GitHub Card */}
-              <div className="p-6 rounded-3xl bg-[#FAF9F5] border border-botanical-stone space-y-4 shadow-soft">
+              <div className="p-6 rounded-3xl bg-[#f8f7ff] border border-purple-100 space-y-4 shadow-sm">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-2xl bg-botanical-forest flex items-center justify-center text-white shadow-soft">
+                    <div className="w-11 h-11 rounded-2xl bg-[#1e1b4b] flex items-center justify-center text-white shadow-sm">
                       <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24">
                         <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
                       </svg>
                     </div>
                     <div>
-                      <h4 className="font-serif font-bold text-sm text-botanical-forest">GitHub Developer</h4>
-                      <p className="text-[11px] text-botanical-forest/60 font-sans">Đồng bộ mã nguồn &amp; dự án</p>
+                      <h4 className="font-bold text-sm text-[#1e1b4b]">GitHub Lập Trình Viên</h4>
+                      <p className="text-[11px] text-slate-500 font-sans">Đồng bộ mã nguồn &amp; dự án</p>
                     </div>
                   </div>
                   {githubConnected ? (
-                    <span className="px-3 py-0.5 rounded-full text-[10px] font-sans font-bold bg-botanical-sage/20 text-botanical-forest border border-botanical-sage/40">
+                    <span className="px-3 py-0.5 rounded-full text-[10px] font-sans font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                       Đã kết nối
                     </span>
                   ) : (
-                    <span className="px-3 py-0.5 rounded-full text-[10px] font-sans font-bold bg-botanical-cream text-botanical-forest/60 border border-botanical-stone">
+                    <span className="px-3 py-0.5 rounded-full text-[10px] font-sans font-bold bg-slate-100 text-slate-500 border border-slate-200">
                       Chưa kết nối
                     </span>
                   )}
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-[11px] font-sans font-bold text-botanical-forest/70 uppercase tracking-wider block">
-                    URL TRANG GITHUB CỦA BẠN
+                  <label className="text-[11px] font-sans font-bold text-slate-600 uppercase tracking-wider block">
+                    ĐƯỜNG DẪN TRANG GITHUB CỦA BẠN
                   </label>
                   <input
                     type="url"
                     value={githubUrl}
                     onChange={(e) => setGithubUrl(e.target.value)}
                     placeholder="https://github.com/username"
-                    className="w-full px-4 py-2.5 bg-white border border-botanical-stone rounded-2xl text-xs text-botanical-forest focus:outline-none focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 font-sans"
+                    className="w-full px-4 py-2.5 bg-white border border-purple-100 rounded-2xl text-xs text-[#1e1b4b] focus:outline-none focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 font-sans font-medium"
                   />
                 </div>
 
                 {githubConnected && (
-                  <div className="p-3.5 rounded-2xl bg-white border border-botanical-stone text-xs space-y-1 font-sans">
-                    <div className="flex items-center justify-between text-botanical-forest/80">
+                  <div className="p-3.5 rounded-2xl bg-white border border-purple-100 text-xs space-y-1 font-sans">
+                    <div className="flex items-center justify-between text-slate-600">
                       <span>Repositories công khai:</span>
-                      <strong className="text-botanical-forest font-mono">14 repos</strong>
+                      <strong className="text-[#1e1b4b] font-mono">14 repos</strong>
                     </div>
-                    <div className="flex items-center justify-between text-botanical-forest/80">
+                    <div className="flex items-center justify-between text-slate-600">
                       <span>Stars nhận được:</span>
-                      <strong className="text-botanical-terracotta font-mono">★ 48</strong>
+                      <strong className="text-[#f97316] font-mono">★ 48</strong>
                     </div>
                   </div>
                 )}
@@ -1500,7 +1494,7 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                         triggerToast('✓ Đã đồng bộ tài khoản GitHub thành công!');
                       }, 800);
                     }}
-                    className="btn-botanical-secondary !w-full !py-2.5 !text-xs !rounded-full flex items-center justify-center gap-1.5 cursor-pointer shadow-soft"
+                    className="bg-white hover:bg-purple-50/60 border border-purple-200 text-[#1e1b4b] font-semibold text-xs py-2.5 px-5 rounded-full flex items-center justify-center gap-1.5 cursor-pointer shadow-sm w-full transition-all"
                   >
                     <span className="material-symbols-outlined text-base">sync</span>
                     <span>{githubSyncing ? 'Đang đồng bộ...' : 'Đồng Bộ GitHub'}</span>
@@ -1509,10 +1503,10 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
               </div>
 
               {/* Google Card */}
-              <div className="p-6 rounded-3xl bg-[#FAF9F5] border border-botanical-stone space-y-4 shadow-soft">
+              <div className="p-6 rounded-3xl bg-[#f8f7ff] border border-purple-100 space-y-4 shadow-sm">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-2xl bg-white border border-botanical-stone flex items-center justify-center shadow-soft">
+                    <div className="w-11 h-11 rounded-2xl bg-white border border-purple-100 flex items-center justify-center shadow-sm">
                       <svg className="w-6 h-6" viewBox="0 0 24 24">
                         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                         <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -1521,29 +1515,29 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                       </svg>
                     </div>
                     <div>
-                      <h4 className="font-serif font-bold text-sm text-botanical-forest">Google Workspace</h4>
-                      <p className="text-[11px] text-botanical-forest/60 font-sans">Đăng nhập 1 chạm SSO</p>
+                      <h4 className="font-bold text-sm text-[#1e1b4b]">Google Workspace</h4>
+                      <p className="text-[11px] text-slate-500 font-sans">Đăng nhập nhanh tiện lợi</p>
                     </div>
                   </div>
-                  <span className="px-3 py-0.5 rounded-full text-[10px] font-sans font-bold bg-botanical-sage/20 text-botanical-forest border border-botanical-sage/40">
+                  <span className="px-3 py-0.5 rounded-full text-[10px] font-sans font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                     Đang hoạt động
                   </span>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-[11px] font-sans font-bold text-botanical-forest/70 uppercase tracking-wider block">
+                  <label className="text-[11px] font-sans font-bold text-slate-600 uppercase tracking-wider block">
                     TÀI KHOẢN GOOGLE ĐÃ LIÊN KẾT
                   </label>
                   <input
                     type="text"
                     disabled
                     value={email}
-                    className="w-full px-4 py-2.5 bg-white border border-botanical-stone rounded-2xl text-xs text-botanical-forest/70 font-mono"
+                    className="w-full px-4 py-2.5 bg-white border border-purple-100 rounded-2xl text-xs text-slate-600 font-mono"
                   />
                 </div>
 
-                <p className="text-xs text-botanical-forest/70 font-sans">
-                  Bạn có thể dùng nút <strong className="text-botanical-forest">"Đăng nhập với Google"</strong> tại màn hình đăng nhập để vào ngay tài khoản này mà không cần nhập mật khẩu.
+                <p className="text-xs text-slate-600 font-sans leading-relaxed">
+                  Bạn có thể dùng nút <strong className="text-[#1e1b4b]">"Đăng nhập với Google"</strong> tại màn hình đăng nhập để vào ngay tài khoản này mà không cần nhập mật khẩu.
                 </p>
               </div>
             </div>
@@ -1554,22 +1548,22 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
         {/* TAB 5: CÀI ĐẶT THÔNG BÁO                                            */}
         {/* =================================================================== */}
         {activeTab === 'notifications' && (
-          <div className="card-botanical bg-white/95 rounded-3xl border border-botanical-stone p-6 sm:p-8 space-y-6 shadow-soft">
-            <div className="border-b border-botanical-stone pb-4">
-              <h3 className="text-lg font-serif font-bold text-botanical-forest flex items-center gap-2">
-                <span className="material-symbols-outlined text-botanical-terracotta">notifications_active</span>
+          <div className="bg-white rounded-3xl border border-purple-100 p-6 sm:p-8 space-y-6 shadow-sm">
+            <div className="border-b border-purple-100 pb-4">
+              <h3 className="text-lg font-bold text-[#1e1b4b] flex items-center gap-2">
+                <span className="material-symbols-outlined text-[#5b48bd]">notifications_active</span>
                 Tùy Chọn Nhận Thông Báo
               </h3>
-              <p className="text-xs text-botanical-forest/70 mt-0.5 font-sans">
+              <p className="text-xs text-slate-500 mt-0.5 font-sans">
                 Cài đặt tần suất và loại thông báo gửi về email hoặc thông báo trực tiếp trên giao diện HireMate AI.
               </p>
             </div>
 
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 sm:p-5 rounded-2xl bg-[#FAF9F5] border border-botanical-stone">
+              <div className="flex items-center justify-between p-4 sm:p-5 rounded-2xl bg-[#f8f7ff] border border-purple-100">
                 <div className="space-y-0.5">
-                  <p className="text-xs sm:text-sm font-serif font-bold text-botanical-forest">Thông báo việc làm phù hợp (AI Match &gt; 80%)</p>
-                  <p className="text-[11px] text-botanical-forest/70 font-sans">Nhận thông báo ngay khi có công việc mới khớp kỹ năng chuyên môn của bạn.</p>
+                  <p className="text-xs sm:text-sm font-bold text-[#1e1b4b]">Thông báo việc làm phù hợp cao (AI Match ≥ 80%)</p>
+                  <p className="text-[11px] text-slate-500 font-sans">Nhận thông báo ngay khi có công việc mới khớp kỹ năng chuyên môn của bạn.</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -1578,14 +1572,14 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                     onChange={() => setNotifSettings({ ...notifSettings, jobMatches: !notifSettings.jobMatches })}
                     className="sr-only peer"
                   />
-                  <div className="w-11 h-6 bg-botanical-stone peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-botanical-forest"></div>
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#5b48bd]"></div>
                 </label>
               </div>
 
-              <div className="flex items-center justify-between p-4 sm:p-5 rounded-2xl bg-[#FAF9F5] border border-botanical-stone">
+              <div className="flex items-center justify-between p-4 sm:p-5 rounded-2xl bg-[#f8f7ff] border border-purple-100">
                 <div className="space-y-0.5">
-                  <p className="text-xs sm:text-sm font-serif font-bold text-botanical-forest">Cập nhật trạng thái đơn ứng tuyển</p>
-                  <p className="text-[11px] text-botanical-forest/70 font-sans">Thông báo khi Nhà tuyển dụng xem CV, mời phỏng vấn hoặc gửi thư mời nhận việc.</p>
+                  <p className="text-xs sm:text-sm font-bold text-[#1e1b4b]">Cập nhật trạng thái đơn ứng tuyển</p>
+                  <p className="text-[11px] text-slate-500 font-sans">Thông báo khi Nhà tuyển dụng xem CV, mời phỏng vấn hoặc gửi thư mời nhận việc.</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -1594,14 +1588,14 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                     onChange={() => setNotifSettings({ ...notifSettings, applicationStatus: !notifSettings.applicationStatus })}
                     className="sr-only peer"
                   />
-                  <div className="w-11 h-6 bg-botanical-stone peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-botanical-forest"></div>
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#5b48bd]"></div>
                 </label>
               </div>
 
-              <div className="flex items-center justify-between p-4 sm:p-5 rounded-2xl bg-[#FAF9F5] border border-botanical-stone">
+              <div className="flex items-center justify-between p-4 sm:p-5 rounded-2xl bg-[#f8f7ff] border border-purple-100">
                 <div className="space-y-0.5">
-                  <p className="text-xs sm:text-sm font-serif font-bold text-botanical-forest">Báo cáo đánh giá phiên phỏng vấn AI Studio</p>
-                  <p className="text-[11px] text-botanical-forest/70 font-sans">Gửi bảng tổng kết phân tích điểm số, radar kỹ năng và gợi ý cải thiện điểm yếu.</p>
+                  <p className="text-xs sm:text-sm font-bold text-[#1e1b4b]">Báo cáo đánh giá phiên phỏng vấn thử AI</p>
+                  <p className="text-[11px] text-slate-500 font-sans">Gửi bảng tổng kết phân tích điểm số, biểu đồ kỹ năng và gợi ý cải thiện điểm yếu.</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -1610,7 +1604,7 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                     onChange={() => setNotifSettings({ ...notifSettings, aiInterviewReview: !notifSettings.aiInterviewReview })}
                     className="sr-only peer"
                   />
-                  <div className="w-11 h-6 bg-botanical-stone peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-botanical-forest"></div>
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#5b48bd]"></div>
                 </label>
               </div>
             </div>
@@ -1623,28 +1617,28 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
       {/* EMAIL OTP VERIFICATION MODAL                                        */}
       {/* =================================================================== */}
       {showEmailVerifyModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-botanical-forest/40 backdrop-blur-sm animate-fadeIn font-sans">
-          <div className="w-full max-w-md bg-[#FAF9F5] border border-botanical-stone rounded-3xl p-6 sm:p-8 shadow-soft-xl space-y-4 text-botanical-forest">
-            <div className="flex items-center justify-between pb-3 border-b border-botanical-stone">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#1e1b4b]/40 backdrop-blur-sm animate-fadeIn font-sans">
+          <div className="w-full max-w-md bg-white border border-purple-100 rounded-3xl p-6 sm:p-8 shadow-xl space-y-4 text-[#1e1b4b]">
+            <div className="flex items-center justify-between pb-3 border-b border-purple-100">
               <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-botanical-sage text-xl">mark_email_read</span>
-                <h3 className="font-serif font-bold text-base text-botanical-forest">Xác Thực Địa Chỉ Email</h3>
+                <span className="material-symbols-outlined text-[#5b48bd] text-xl">mark_email_read</span>
+                <h3 className="font-bold text-base text-[#1e1b4b]">Xác Thực Địa Chỉ Email</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setShowEmailVerifyModal(false)}
-                className="w-8 h-8 rounded-full bg-white border border-botanical-stone text-botanical-forest/60 hover:text-botanical-forest flex items-center justify-center text-xs"
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center text-xs cursor-pointer transition-colors"
               >
                 ✕
               </button>
             </div>
 
-            <p className="text-xs text-botanical-forest/70 font-sans">
-              Mã OTP 6 số đã được gửi đến hộp thư <strong className="text-botanical-forest">{email}</strong>. Vui lòng kiểm tra email của bạn để xác nhận.
+            <p className="text-xs text-slate-600 font-sans leading-relaxed">
+              Mã OTP 6 số đã được gửi đến hộp thư <strong className="text-[#1e1b4b]">{email}</strong>. Vui lòng kiểm tra email của bạn để xác nhận.
             </p>
 
             {verifyOtpError && (
-              <div className="p-3 rounded-2xl bg-botanical-terracotta/15 border border-botanical-terracotta/30 text-botanical-terracotta text-xs">
+              <div className="p-3 rounded-2xl bg-red-50 border border-red-200 text-red-600 text-xs">
                 {verifyOtpError}
               </div>
             )}
@@ -1657,21 +1651,21 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                 required
                 maxLength={6}
                 placeholder="••••••"
-                className="w-full py-3 bg-white border border-botanical-stone focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 rounded-2xl text-center text-2xl font-mono tracking-[0.5em] text-botanical-forest focus:outline-none shadow-soft"
+                className="w-full py-3 bg-[#f8f7ff] border border-purple-200 focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 rounded-2xl text-center text-2xl font-mono tracking-[0.5em] text-[#1e1b4b] focus:outline-none shadow-sm"
               />
 
               <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setShowEmailVerifyModal(false)}
-                  className="btn-botanical-secondary !text-xs !py-2.5 !px-5"
+                  className="bg-white hover:bg-purple-50/60 border border-purple-200 text-[#1e1b4b] font-semibold text-xs py-2.5 px-5 rounded-2xl shadow-sm transition-all cursor-pointer"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
                   disabled={isVerifyingOtp}
-                  className="btn-botanical-primary !text-xs !py-2.5 !px-6"
+                  className="bg-[#5b48bd] hover:bg-[#4a39a8] text-white font-bold text-xs py-2.5 px-6 rounded-2xl shadow-md transition-all cursor-pointer disabled:opacity-50"
                 >
                   {isVerifyingOtp ? 'Đang xác thực...' : 'Xác Nhận OTP'}
                 </button>
@@ -1685,45 +1679,45 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
       {/* CHANGE PASSWORD OTP VERIFICATION MODAL                              */}
       {/* =================================================================== */}
       {showPasswordOtpModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-botanical-forest/40 backdrop-blur-sm animate-fadeIn font-sans">
-          <div className="w-full max-w-md bg-[#FAF9F5] border border-botanical-stone rounded-3xl p-6 sm:p-8 shadow-soft-xl space-y-5 text-botanical-forest">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#1e1b4b]/40 backdrop-blur-sm animate-fadeIn font-sans">
+          <div className="w-full max-w-md bg-white border border-purple-100 rounded-3xl p-6 sm:p-8 shadow-xl space-y-5 text-[#1e1b4b]">
             {/* Modal Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-botanical-stone">
+            <div className="flex items-center justify-between pb-3 border-b border-purple-100">
               <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-2xl bg-botanical-terracotta/15 flex items-center justify-center text-botanical-terracotta">
+                <div className="w-10 h-10 rounded-2xl bg-[#edeafd] flex items-center justify-center text-[#5b48bd]">
                   <span className="material-symbols-outlined text-xl">lock_reset</span>
                 </div>
                 <div>
-                  <h3 className="font-serif font-bold text-base text-botanical-forest">Xác Thực Đổi Mật Khẩu</h3>
-                  <p className="text-[11px] text-botanical-forest/60">Bảo mật tài khoản 2 lớp qua Email thật</p>
+                  <h3 className="font-bold text-base text-[#1e1b4b]">Xác Thực Đổi Mật Khẩu</h3>
+                  <p className="text-[11px] text-slate-500">Bảo mật tài khoản qua Email chính chủ</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setShowPasswordOtpModal(false)}
-                className="w-8 h-8 rounded-full bg-white border border-botanical-stone text-botanical-forest/60 hover:text-botanical-forest flex items-center justify-center text-xs"
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center text-xs cursor-pointer transition-colors"
               >
                 ✕
               </button>
             </div>
 
             {/* Email notification box */}
-            <div className="p-4 rounded-2xl bg-white border border-botanical-stone/80 text-xs text-botanical-forest/80 space-y-1.5 leading-relaxed">
-              <div className="flex items-center gap-2 text-botanical-forest font-semibold">
-                <span className="material-symbols-outlined text-sm text-botanical-sage">mark_email_read</span>
+            <div className="p-4 rounded-2xl bg-[#f8f7ff] border border-purple-100 text-xs text-slate-700 space-y-1.5 leading-relaxed">
+              <div className="flex items-center gap-2 text-[#1e1b4b] font-semibold">
+                <span className="material-symbols-outlined text-sm text-[#5b48bd]">mark_email_read</span>
                 <span>Kiểm tra mã OTP trong hộp thư email</span>
               </div>
               <p>
                 HireMate AI đã gửi mã OTP xác nhận 6 chữ số đến địa chỉ:{' '}
-                <strong className="text-botanical-forest font-mono">{user?.email || email}</strong>
+                <strong className="text-[#1e1b4b] font-mono">{user?.email || email}</strong>
               </p>
-              <p className="text-[11px] text-botanical-forest/60 italic">
+              <p className="text-[11px] text-slate-500 italic">
                 * Vui lòng kiểm tra cả hộp thư chính, mục Quảng cáo hoặc Thư rác (Spam).
               </p>
             </div>
 
             {passwordOtpError && (
-              <div className="p-3.5 rounded-2xl bg-botanical-terracotta/15 border border-botanical-terracotta/30 text-botanical-terracotta text-xs flex items-center gap-2">
+              <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-red-600 text-xs flex items-center gap-2">
                 <span className="material-symbols-outlined text-sm">error</span>
                 <span>{passwordOtpError}</span>
               </div>
@@ -1732,7 +1726,7 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
             {/* Form submit OTP */}
             <form onSubmit={handleConfirmChangePasswordWithOtp} className="space-y-5">
               <div>
-                <label className="block text-xs font-semibold text-botanical-forest/70 mb-2 text-center">
+                <label className="block text-xs font-semibold text-slate-600 mb-2 text-center">
                   Nhập mã OTP 6 chữ số vừa nhận được
                 </label>
                 <input
@@ -1743,12 +1737,12 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                   required
                   maxLength={6}
                   placeholder="••••••"
-                  className="w-full py-3.5 bg-white border border-botanical-stone focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 rounded-2xl text-center text-3xl font-mono tracking-[0.4em] text-botanical-forest focus:outline-none shadow-soft"
+                  className="w-full py-3.5 bg-[#f8f7ff] border border-purple-200 focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 rounded-2xl text-center text-3xl font-mono tracking-[0.4em] text-[#1e1b4b] focus:outline-none shadow-sm"
                 />
               </div>
 
               {/* Resend Cooldown */}
-              <div className="flex items-center justify-between text-xs text-botanical-forest/70 px-1">
+              <div className="flex items-center justify-between text-xs text-slate-600 px-1">
                 <span>Chưa nhận được mã?</span>
                 <button
                   type="button"
@@ -1756,8 +1750,8 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                   disabled={passwordOtpCooldown > 0 || isSendingPasswordOtp}
                   className={`font-semibold transition-colors flex items-center gap-1 ${
                     passwordOtpCooldown > 0 || isSendingPasswordOtp
-                      ? 'text-botanical-forest/40 cursor-not-allowed'
-                      : 'text-botanical-terracotta hover:underline cursor-pointer'
+                      ? 'text-slate-400 cursor-not-allowed'
+                      : 'text-[#5b48bd] hover:underline cursor-pointer'
                   }`}
                 >
                   <span className="material-symbols-outlined text-xs">sync</span>
@@ -1774,14 +1768,14 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                 <button
                   type="button"
                   onClick={() => setShowPasswordOtpModal(false)}
-                  className="btn-botanical-secondary !text-xs !py-2.5 !px-5"
+                  className="bg-white hover:bg-purple-50/60 border border-purple-200 text-[#1e1b4b] font-semibold text-xs py-2.5 px-5 rounded-2xl shadow-sm transition-all cursor-pointer"
                 >
                   Hủy Bỏ
                 </button>
                 <button
                   type="submit"
                   disabled={isVerifyingPasswordOtp || passwordOtpInput.length < 6}
-                  className="btn-botanical-primary !text-xs !py-2.5 !px-6 disabled:opacity-50 flex items-center gap-2 cursor-pointer shadow-soft"
+                  className="bg-[#5b48bd] hover:bg-[#4a39a8] text-white font-bold text-xs py-2.5 px-6 rounded-2xl disabled:opacity-50 flex items-center gap-2 cursor-pointer shadow-md transition-all"
                 >
                   {isVerifyingPasswordOtp ? (
                     <>

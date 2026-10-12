@@ -12,13 +12,20 @@ const SHOWCASE_JOBS = [
     title: 'Trưởng Phòng Phân Tích Tài Chính & Dòng Tiền (FP&A Lead)',
     companyName: 'MBBank Financial Group',
     companyInitials: 'MBB',
+    companyLogo: 'https://images.unsplash.com/photo-1541354329998-f4d9a9f9297f?w=120&auto=format&fit=crop&q=80',
     postedTime: '1h trước',
+    updatedDate: '12/10/2026',
+    deadline: '12/11/2026',
     location: 'Hà Nội • Hybrid',
     salaryText: '$2,200 - $3,500/tháng',
     aiMatchScore: 97,
     aiMatchDetail: 'Top 2% Financial Analysts',
     atsTag: 'Kinh Tế & Tài Chính',
-    description: 'Chủ trì lập mô hình tài chính động (Financial Modeling), thẩm định danh mục đầu tư DCF/WACC và quản trị tối ưu hóa vốn lưu động toàn hàng.',
+    description: 'Chủ trì lập mô hình tài chính động (Financial Modeling), thẩm định danh mục đầu tư DCF/WACC và quản trị tối ưu hóa vốn lưu động toàn hàng.\n• Phụ trách theo mảng chuyên môn đối với tất cả dự án đầu tư của Ngân hàng\n• Lập, kiểm tra mô hình định giá, tư vấn chiến lược dòng tiền cho Ban Lãnh đạo\n• Đề xuất ý tưởng, tham gia các hoạt động nghiên cứu mở rộng danh mục tài chính',
+    projectTasks: [
+      'Chỉ đạo thẩm định kế hoạch giải ngân vốn và cấu trúc vốn lưu động cho các công ty thành viên.',
+      'Phối hợp với kiểm toán độc lập và đối tác để tối ưu hóa chi phí vốn.'
+    ],
     skills: ['Financial Modeling', 'DCF / Valuation', 'Working Capital', 'Power BI'],
     recruiter: {
       name: 'Minh Hạnh CFA',
@@ -33,13 +40,20 @@ const SHOWCASE_JOBS = [
     title: 'Senior Digital Marketing & Growth Lead',
     companyName: 'Vinamilk Group',
     companyInitials: 'VNM',
+    companyLogo: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=120&auto=format&fit=crop&q=80',
     postedTime: '2h trước',
+    updatedDate: '12/10/2026',
+    deadline: '12/11/2026',
     location: 'TP.HCM • Hybrid',
     salaryText: '$2,000 - $3,200/tháng',
     aiMatchScore: 95,
     aiMatchDetail: 'Growth & Omnichannel',
     atsTag: 'Marketing & Digital',
-    description: 'Điều hành chiến lược tiếp thị số đa kênh (Omnichannel), tối ưu phễu chuyển đổi Full-funnel CAC/LTV và chỉ đạo các chiến dịch truyền thông thương hiệu lớn.',
+    description: 'Điều hành chiến lược tiếp thị số đa kênh (Omnichannel), tối ưu phễu chuyển đổi Full-funnel CAC/LTV và chỉ đạo các chiến dịch truyền thông lớn.\n• Phụ trách theo mảng chuyên môn Performance Ads, SEO và CRM toàn diện\n• Lập kế hoạch phân bổ ngân sách tiếp thị số và đánh giá hiệu quả chiến dịch\n• Đề xuất ý tưởng sáng tạo thông điệp thương hiệu trên các kênh số',
+    projectTasks: [
+      'Điều phối chiến dịch ra mắt sản phẩm mới cùng các đối tác truyền thông quốc tế.',
+      'Quản lý tiến độ KPI chuyển đổi doanh số theo từng quý.'
+    ],
     skills: ['Omnichannel Growth', 'CAC / LTV Optimization', 'Brand Strategy', 'Performance Ads'],
     recruiter: {
       name: 'Hoàng Yến',
@@ -54,13 +68,20 @@ const SHOWCASE_JOBS = [
     title: 'Giám Đốc Kinh Doanh B2B Doanh Nghiệp (Enterprise Sales Lead)',
     companyName: 'Viettel Solutions',
     companyInitials: 'VTS',
+    companyLogo: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=120&auto=format&fit=crop&q=80',
     postedTime: '3h trước',
+    updatedDate: '12/10/2026',
+    deadline: '12/11/2026',
     location: 'Hà Nội & TP.HCM',
     salaryText: '$2,800 - $4,500/tháng',
     aiMatchScore: 93,
     aiMatchDetail: 'B2B Enterprise Closer',
     atsTag: 'Kinh Doanh & Sales',
-    description: 'Dẫn dắt các thương vụ bán giải pháp chuyển đổi số quy mô lớn cho tập đoàn và khối cơ quan chính phủ, trực tiếp đàm phán hợp đồng cấp C-level.',
+    description: 'Dẫn dắt các thương vụ bán giải pháp chuyển đổi số quy mô lớn cho tập đoàn và khối chính phủ, trực tiếp đàm phán hợp đồng cấp C-level.\n• Phụ trách theo mảng chuyên môn tư vấn giải pháp CNTT doanh nghiệp lớn\n• Lập hồ sơ thầu, thẩm định giải pháp kỹ thuật và tư vấn thương mại\n• Đề xuất ý tưởng tiếp cận khách hàng chiến lược và mở rộng mạng lưới đối tác',
+    projectTasks: [
+      'Dẫn dắt đội ngũ kỹ sư giải pháp (Pre-sales) thương thảo hợp đồng trọng điểm.',
+      'Quản lý hợp đồng dài hạn và duy trì mối quan hệ đối tác cấp cao.'
+    ],
     skills: ['B2B Enterprise Sales', 'Key Account Deal', 'Contract Negotiation', 'Solution Selling'],
     recruiter: {
       name: 'Quốc Bảo',
@@ -75,13 +96,20 @@ const SHOWCASE_JOBS = [
     title: 'Talent Acquisition & HR Business Partner (HRBP)',
     companyName: 'FPT Corporation',
     companyInitials: 'FPT',
+    companyLogo: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=120&auto=format&fit=crop&q=80',
     postedTime: '4h trước',
+    updatedDate: '12/10/2026',
+    deadline: '12/11/2026',
     location: 'TP.HCM • Onsite Campus',
     salaryText: '$1,800 - $2,800/tháng',
     aiMatchScore: 94,
     aiMatchDetail: 'HRBP & Talent Advisory',
     atsTag: 'Nhân Sự & Quản Trị',
-    description: 'Xây dựng chiến lược thu hút nhân tài cấp cao, đồng hành cùng lãnh đạo khối kinh doanh thiết kế cơ chế lương thưởng 3P và văn hóa gắn kết.',
+    description: 'Xây dựng chiến lược thu hút nhân tài cấp cao, đồng hành cùng lãnh đạo khối kinh doanh thiết kế cơ chế lương thưởng 3P và văn hóa gắn kết.\n• Phụ trách theo mảng chuyên môn tuyển dụng và hoạch định nguồn nhân lực\n• Thiết kế khung năng lực, tư vấn lộ trình phát triển nghề nghiệp cho từng phòng ban\n• Đề xuất ý tưởng cải tiến trải nghiệm ứng viên và nhân viên mới',
+    projectTasks: [
+      'Quản lý dự án chuyển đổi số công tác nhân sự và chuẩn hóa quy trình tuyển dụng.',
+      'Tổ chức các chương trình đào tạo nội bộ và nâng cao năng lực đội ngũ.'
+    ],
     skills: ['Talent Acquisition', 'HRBP Model', 'C&B Framework', 'Behavioral Interview'],
     recruiter: {
       name: 'Minh Anh HR',
@@ -96,13 +124,20 @@ const SHOWCASE_JOBS = [
     title: 'Senior Backend Engineer (Microservices & High QPS)',
     companyName: 'FPT Software',
     companyInitials: 'FSW',
+    companyLogo: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=120&auto=format&fit=crop&q=80',
     postedTime: '2h trước',
+    updatedDate: '12/10/2026',
+    deadline: '12/11/2026',
     location: 'TP.HCM • Hybrid',
     salaryText: '$2,500 - $3,500/tháng',
     aiMatchScore: 96,
     aiMatchDetail: 'Top 3% Profiles',
     atsTag: 'Công Nghệ Thông Tin',
-    description: 'Thiết kế kiến trúc vi dịch vụ quy mô 50k+ QPS trên nền tảng Kafka, Java 21, Spring Boot và bộ nhớ đệm phân tán Redis Cluster.',
+    description: 'Thiết kế kiến trúc vi dịch vụ quy mô 50k+ QPS trên nền tảng Kafka, Java 21, Spring Boot và bộ nhớ đệm phân tán Redis Cluster.\n• Phụ trách theo mảng chuyên môn thiết kế hệ thống phân tán và cơ sở dữ liệu lớn\n• Lập, kiểm tra bản vẽ kiến trúc phần mềm, tư vấn tối ưu hóa truy vấn SQL\n• Đề xuất ý tưởng ứng dụng công nghệ mới và tự động hóa CI/CD',
+    projectTasks: [
+      'Phối hợp cùng đội ngũ DevOps và Security đảm bảo độ sẵn sàng 99.99% của dịch vụ.',
+      'Mentor các kỹ sư trẻ và chuẩn hóa quy trình code review chuyên sâu.'
+    ],
     skills: ['Java 21', 'Spring Boot', 'Kafka', 'PostgreSQL'],
     recruiter: {
       name: 'Thanh Phong',
@@ -117,13 +152,20 @@ const SHOWCASE_JOBS = [
     title: 'Chuyên Viên Tối Ưu Chuỗi Cung Ứng & Logistics (SCM)',
     companyName: 'Shopee Logistics VN',
     companyInitials: 'SPE',
+    companyLogo: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=120&auto=format&fit=crop&q=80',
     postedTime: '5h trước',
+    updatedDate: '12/10/2026',
+    deadline: '12/11/2026',
     location: 'TP.HCM • Hybrid',
     salaryText: '$1,800 - $2,700/tháng',
     aiMatchScore: 91,
     aiMatchDetail: 'Fulfillment & Lean SCM',
     atsTag: 'Logistics & Vận Hành',
-    description: 'Quy hoạch mạng lưới điều phối kho bãi fulfillment, tối ưu hóa mức tồn kho an toàn (Safety Stock) và chi phí vận chuyển chặng cuối (Last-mile).',
+    description: 'Quy hoạch mạng lưới điều phối kho bãi fulfillment, tối ưu hóa mức tồn kho an toàn (Safety Stock) và chi phí vận chuyển chặng cuối (Last-mile).\n• Phụ trách theo mảng chuyên môn vận hành chuỗi cung ứng và định tuyến giao vận\n• Lập báo cáo dự báo nhu cầu lưu kho, phân tích luồng hàng hóa định kỳ\n• Đề xuất ý tưởng tự động hóa quy trình phân loại và điều phối giao hàng',
+    projectTasks: [
+      'Quản lý tiến độ triển khai trung tâm phân loại thông minh cấp vùng.',
+      'Đàm phán hợp đồng vận chuyển với các đối tác logistics chiến lược.'
+    ],
     skills: ['Supply Chain (SCM)', 'Inventory EOQ', 'Warehouse Logistics', 'Lean Operations'],
     recruiter: {
       name: 'Hoàng Phúc',
@@ -134,6 +176,7 @@ const SHOWCASE_JOBS = [
     mockActionLabel: 'Luyện PV Logistics',
   },
 ];
+
 
 export default function HomePage({ user }) {
   const { theme: livingTheme, luminosity } = useLivingTheme();
@@ -164,6 +207,8 @@ export default function HomePage({ user }) {
             jobId: j.jobId || idx + 200,
             companyInitials: j.companyName ? j.companyName.slice(0, 3).toUpperCase() : 'JOB',
             postedTime: 'Vừa đăng',
+            updatedDate: '12/10/2026',
+            deadline: '12/11/2026',
             salaryText: j.salaryMin && j.salaryMax ? `$${j.salaryMin} - $${j.salaryMax}/tháng` : '$2,000 - $4,000/tháng',
             aiMatchScore: 90 + (idx % 8),
             aiMatchDetail: 'ATS Benchmark',

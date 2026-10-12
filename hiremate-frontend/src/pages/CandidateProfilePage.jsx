@@ -2114,9 +2114,9 @@ export default function CandidateProfilePage({ user }) {
                   <label className="block text-[#1e1b4b] font-bold mb-2.5">Trạng Thái Tìm Việc Hiện Tại:</label>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {[
-                      { id: 'OPEN_TO_WORK', label: '🟢 Đang Tích Cực Tìm Việc (Open to Work)' },
-                      { id: 'EXPLORING', label: '🟡 Mở Lòng Với Cơ Hội Tốt (Exploring)' },
-                      { id: 'NOT_LOOKING', label: '⚪ Chưa Có Nhu Cầu (Not Looking)' },
+                      { id: 'OPEN_TO_WORK', label: '🟢 Đang Tích Cực Tìm Việc' },
+                      { id: 'EXPLORING', label: '🟡 Mở Lòng Với Cơ Hội Tốt' },
+                      { id: 'NOT_LOOKING', label: '⚪ Chưa Có Nhu Cầu' },
                     ].map((st) => (
                       <button
                         key={st.id}
