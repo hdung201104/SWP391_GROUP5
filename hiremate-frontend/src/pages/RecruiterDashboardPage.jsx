@@ -254,43 +254,13 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
       <div className="max-w-7xl mx-auto space-y-6">
         
         {/* Recruiter Portal Top Banner */}
-        <div className="bg-white border border-purple-100 rounded-3xl p-6 sm:p-8 shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-[#5b48bd] text-white shadow-lg shrink-0 flex items-center justify-center font-bold text-2xl">
-              FPT
-            </div>
-            <div>
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <h1 className="font-bold text-2xl sm:text-3xl text-[#1e1b4b]">
-                  {user?.fullName || 'Nguyễn Minh Anh'}
-                </h1>
-                <span className="px-3 py-1 rounded-full bg-[#10b981]/15 text-[#059669] font-semibold text-xs border border-[#10b981]/30">
-                  Verified Recruiter
-                </span>
-              </div>
-              <p className="text-xs text-[#64748b] mt-1 font-medium">
-                Cổng Quản Trị Tuyển Dụng Smart Hiring & AI Matching
-              </p>
-            </div>
+        <div className="bg-white border border-purple-100 rounded-3xl p-5 sm:p-6 shadow-md flex items-center gap-4">
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#5b48bd] text-white shadow-lg shrink-0 flex items-center justify-center font-bold text-2xl">
+            FPT
           </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="bg-[#10b981] hover:bg-[#059669] text-white text-xs py-2.5 px-5 rounded-full font-bold uppercase tracking-wider flex items-center gap-2 cursor-pointer shadow-md transition-all hover:scale-105"
-            >
-              <span className="material-symbols-outlined text-base">add_circle</span>
-              <span>Đăng Tin Mới</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('PIPELINE')}
-              className="bg-[#5b48bd] hover:bg-[#4a39a8] text-white text-xs py-2.5 px-5 rounded-full font-bold flex items-center gap-1.5 cursor-pointer shadow-md transition-all"
-            >
-              <span className="material-symbols-outlined text-base">view_kanban</span>
-              <span>Xem Phễu Kanban</span>
-            </button>
-          </div>
+          <h1 className="font-bold text-2xl sm:text-3xl text-[#1e1b4b]">
+            {user?.fullName || 'Nguyễn Minh Anh'}
+          </h1>
         </div>
 
         {notification && (
@@ -527,12 +497,12 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                 <div>
                   <h3 className="font-bold text-lg text-[#221d47] flex items-center gap-2">
                     <span className="material-symbols-outlined text-[#5b48bd]">filter_alt</span>
-                    Phễu Chuyển Đổi Tuyển Dụng Đa Tầng (Deep Recruitment Conversion Funnel)
+                    Phễu Chuyển Đổi Tuyển Dụng Đa Tầng
                   </h3>
                 </div>
                 <span className="px-3.5 py-1 rounded-full bg-purple-50 text-[#5b48bd] border border-purple-200 text-xs font-bold flex items-center gap-1.5 shadow-sm">
                   <span className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse"></span>
-                  AI 70/30 FILTER ACTIVE
+                  AI FILTER ACTIVE
                 </span>
               </div>
 
@@ -563,7 +533,7 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                       <span>CHẶNG 2</span>
                       <span className="text-orange-600 font-extrabold">53.7%</span>
                     </div>
-                    <div className="text-sm font-bold text-[#221d47] mt-1">Sàng Lọc AI 70/30</div>
+                    <div className="text-sm font-bold text-[#221d47] mt-1">Sàng Lọc AI Chuẩn Xác</div>
                     <div className="text-2xl sm:text-3xl font-extrabold text-orange-600 mt-2">
                       22 <span className="text-xs font-normal text-slate-500">đạt chuẩn</span>
                     </div>
@@ -599,7 +569,7 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                       <span>CHẶNG 4</span>
                       <span className="text-indigo-700 font-extrabold">14.6%</span>
                     </div>
-                    <div className="text-sm font-bold text-[#221d47] mt-1">Gửi Thư Mời (Offer)</div>
+                    <div className="text-sm font-bold text-[#221d47] mt-1">Gửi Thư Mời</div>
                     <div className="text-2xl sm:text-3xl font-extrabold text-indigo-700 mt-2">
                       6 <span className="text-xs font-normal text-slate-500">gói offer</span>
                     </div>
@@ -723,7 +693,7 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                   {/* Abundant Skills */}
                   <div className="p-3.5 rounded-2xl bg-purple-50/50 border border-purple-100 space-y-2">
                     <span className="text-[11px] font-bold text-[#5b48bd] uppercase tracking-wider block">
-                      ✓ Kỹ Năng Đáp Ứng Dồi Dào (Top Supply)
+                      ✓ Kỹ Năng Đáp Ứng Dồi Dào
                     </span>
                     <div className="flex flex-wrap gap-1.5">
                       <span className="px-2.5 py-1 rounded-full bg-purple-100/80 border border-purple-200 text-[#3b2b8e] text-[11px] font-semibold">
@@ -744,7 +714,7 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                   {/* Deficit / Rare Skills */}
                   <div className="p-3.5 rounded-2xl bg-orange-50/50 border border-orange-100 space-y-2">
                     <span className="text-[11px] font-bold text-orange-600 uppercase tracking-wider block">
-                      ⚠ Kỹ Năng Khan Hiếm Cần Sàng Lọc Sâu (Talent Deficit)
+                      ⚠ Kỹ Năng Khan Hiếm Cần Sàng Lọc Sâu
                     </span>
                     <div className="flex flex-wrap gap-1.5">
                       <span className="px-2.5 py-1 rounded-full bg-orange-100/80 border border-orange-200 text-orange-800 text-[11px] font-semibold">
@@ -773,7 +743,7 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                 <div className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-[#5b48bd] text-xl">table_chart</span>
                   <h3 className="font-bold text-base text-[#221d47]">
-                    Ma Trận Hiệu Quả Tuyển Dụng Theo Vị Trí (Job Fulfillment Matrix)
+                    Ma Trận Hiệu Quả Tuyển Dụng Theo Vị Trí
                   </h3>
                 </div>
                 <span className="text-xs text-slate-500 font-medium">3 Vị trí đang mở tuyển</span>
@@ -857,7 +827,7 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                   <div className="flex items-center gap-2">
                     <span className="material-symbols-outlined text-[#5b48bd] text-xl">event_available</span>
                     <h3 className="font-bold text-base text-[#221d47]">
-                      Lịch Phỏng Vấn Sắp Diễn Ra (Live Interview Radar)
+                      Lịch Phỏng Vấn Sắp Diễn Ra
                     </h3>
                   </div>
                   <span className="text-xs font-bold text-[#5b48bd] bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-200">3 lịch trong 24h</span>
@@ -1020,10 +990,10 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
             {/* Kanban Columns (4 Stages) */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               {[
-                { stageId: 'APPLIED', title: '1. Hồ sơ mới (Applied)', color: 'text-[#2D3A31]' },
-                { stageId: 'REVIEWING', title: '2. Đang duyệt (Reviewing)', color: 'text-[#8C9A84]' },
-                { stageId: 'INTERVIEW', title: '3. Phỏng vấn (Interview)', color: 'text-[#C27B66]' },
-                { stageId: 'OFFERED', title: '4. Đã Chốt / Offer', color: 'text-[#2D3A31]' },
+                { stageId: 'APPLIED', title: '1. Hồ sơ mới', color: 'text-[#2D3A31]' },
+                { stageId: 'REVIEWING', title: '2. Đang duyệt', color: 'text-[#8C9A84]' },
+                { stageId: 'INTERVIEW', title: '3. Phỏng vấn', color: 'text-[#C27B66]' },
+                { stageId: 'OFFERED', title: '4. Đã Chốt Tuyển Dụng', color: 'text-[#2D3A31]' },
               ].map(column => {
                 const columnCandidates = jobCandidates.filter(c => c.stage === column.stageId);
                 return (
@@ -1290,7 +1260,7 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer text-[#2D3A31]">
                     <input type="checkbox" defaultChecked className="accent-[#2D3A31] rounded" />
-                    <span>Bảng điểm kỹ năng trọng số 70/30 theo từng vị trí</span>
+                    <span>Bảng điểm kỹ năng trọng số theo từng vị trí</span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer text-[#2D3A31]">
                     <input type="checkbox" defaultChecked className="accent-[#2D3A31] rounded" />

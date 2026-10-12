@@ -15,7 +15,7 @@ const RECRUITER_SUBSCRIPTION_PLANS = [
     features: [
       { text: '3 Tin đăng tuyển dụng active', highlight: true },
       { text: '50 Lượt soi CV & Parse AI Gemini / tháng', highlight: false },
-      { text: 'Báo cáo điểm Matching AI 70/30 cơ bản', highlight: false },
+      { text: 'Báo cáo điểm Matching AI cơ bản', highlight: false },
       { text: 'Phễu quản lý ứng viên Kanban tiêu chuẩn', highlight: false },
       { text: 'Tạo & chỉnh sửa thông tin doanh nghiệp', highlight: false },
       { text: 'Hỗ trợ qua Email & Ticket trợ giúp', highlight: false },
@@ -42,7 +42,7 @@ const RECRUITER_SUBSCRIPTION_PLANS = [
     features: [
       { text: '15 Tin đăng tuyển dụng active', highlight: true },
       { text: '500 Lượt soi CV & Parse AI Gemini / tháng', highlight: true },
-      { text: 'Báo cáo Skill Gap Matrix (Trọng số 70/30)', highlight: true },
+      { text: 'Báo cáo Skill Gap Matrix chuẩn xác', highlight: true },
       { text: 'Tự động xếp hạng ứng viên theo AI Match Score', highlight: false },
       { text: 'Phễu Kanban kéo thả không giới hạn', highlight: false },
       { text: 'Tự động gửi mail hẹn phỏng vấn & thông báo', highlight: false },
@@ -86,7 +86,7 @@ const RECRUITER_ADDONS = [
   {
     id: 'CREDITS_100',
     name: '+100 AI Matching Credits',
-    desc: 'Thêm 100 lượt bóc tách CV và tính toán điểm AI Matching 70/30.',
+    desc: 'Thêm 100 lượt bóc tách CV và tính toán điểm AI Matching.',
     price: 300000,
     badge: 'Tiết kiệm',
     icon: 'auto_awesome',
@@ -124,12 +124,12 @@ const RECRUITER_ADDONS = [
 const COMPARISON_ROWS = [
   { feature: 'Số tin đăng tuyển dụng active', basic: '3 Tin', pro: '15 Tin', enterprise: 'Không giới hạn' },
   { feature: 'Lượt soi CV & Parse AI Gemini / tháng', basic: '50 Lượt', pro: '500 Lượt', enterprise: '3,000 Lượt' },
-  { feature: 'Thuật toán AI Matching 70/30', basic: 'Cơ bản', pro: 'Nâng cao', enterprise: 'Chuyên sâu + Custom' },
-  { feature: 'Báo cáo khoảng trống kỹ năng (Skill Gap)', basic: '❌ KHÔNG', pro: '✅ CÓ', enterprise: '✅ CÓ (Full Audit)' },
-  { feature: 'Xem báo cáo AI Voice Mock Interview', basic: '❌ KHÔNG', pro: '❌ KHÔNG', enterprise: '✅ CÓ (Độc quyền)' },
-  { feature: 'Export Báo Cáo Ứng Viên (PDF / Excel)', basic: '❌ KHÔNG', pro: '✅ CÓ', enterprise: '✅ CÓ' },
-  { feature: 'Phễu quản lý Kanban kéo thả', basic: '✅ CÓ', pro: '✅ CÓ', enterprise: '✅ CÓ' },
-  { feature: 'Badge Doanh Nghiệp Xác Thực', basic: '❌ KHÔNG', pro: '✅ CÓ', enterprise: '✅ CÓ (VIP Badge)' },
+  { feature: 'Thuật toán AI Matching', basic: 'Cơ bản', pro: 'Nâng cao', enterprise: 'Chuyên sâu + Custom' },
+  { feature: 'Báo cáo khoảng trống kỹ năng (Skill Gap)', basic: '❌', pro: '✅', enterprise: '✅' },
+  { feature: 'Xem báo cáo AI Voice Mock Interview', basic: '❌', pro: '❌', enterprise: '✅' },
+  { feature: 'Export Báo Cáo Ứng Viên (PDF / Excel)', basic: '❌', pro: '✅', enterprise: '✅' },
+  { feature: 'Phễu quản lý Kanban kéo thả', basic: '✅', pro: '✅', enterprise: '✅' },
+  { feature: 'Badge Doanh Nghiệp Xác Thực', basic: '❌', pro: '✅', enterprise: '✅' },
   { feature: 'Kênh Hỗ Trợ Kỹ Thuật SLA', basic: 'Email (48h)', pro: 'Hotline/Chat (24/7)', enterprise: 'Account Manager 1-on-1' },
 ];
 
@@ -243,24 +243,26 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
       <div className="max-w-7xl mx-auto space-y-10">
 
         {/* TOP HERO HEADER */}
-        <div className="bg-gradient-to-r from-[#32247b] via-[#4331a6] to-[#5b46e0] text-white rounded-[32px] p-6 sm:p-10 shadow-2xl relative overflow-hidden border border-indigo-400/30">
+        <div className="bg-gradient-to-r from-[#32247b] via-[#4331a6] to-[#5b46e0] text-white rounded-[32px] p-6 sm:p-10 shadow-2xl relative overflow-hidden border border-indigo-400/30 text-center">
           <div className="absolute top-0 right-0 -mt-10 -mr-10 w-80 h-80 bg-emerald-400/20 rounded-full blur-3xl pointer-events-none"></div>
-          <div className="relative z-10 max-w-3xl space-y-4">
+          <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-80 h-80 bg-purple-400/20 rounded-full blur-3xl pointer-events-none"></div>
+          
+          <div className="relative z-10 max-w-4xl mx-auto space-y-4 flex flex-col items-center">
             <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white/10 border border-white/20 text-emerald-300 text-xs font-bold tracking-wider uppercase">
               <span className="material-symbols-outlined text-base text-emerald-400">verified</span>
               <span>Gói Dịch Vụ Dành Cho Nhà Tuyển Dụng</span>
             </div>
             
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white leading-tight">
-              Bứt Phá Tốc Độ Tuyển Dụng Với <span className="text-emerald-400">AI Matching 70/30</span>
+              Bứt Phá Tốc Độ Tuyển Dụng Với <span className="text-emerald-400">AI Matching</span>
             </h1>
 
-            <p className="text-purple-100 text-sm sm:text-base leading-relaxed font-sans">
+            <p className="text-purple-100 text-sm sm:text-base leading-relaxed font-sans max-w-2xl mx-auto">
               Lọc CV chuẩn xác 99%, tự động xếp hạng ứng viên hàng đầu và truy cập báo cáo phỏng vấn giả lập AI độc quyền. Chọn gói phù hợp với doanh nghiệp của bạn!
             </p>
 
             {/* Current Recruiter Status Card */}
-            <div className="pt-4 flex flex-wrap items-center gap-4 text-xs font-medium">
+            <div className="pt-3 flex flex-wrap items-center justify-center gap-3 sm:gap-4 text-xs font-medium">
               <div className="px-4 py-2.5 rounded-2xl bg-white/15 backdrop-blur-md border border-white/20 flex items-center gap-2">
                 <span className="text-purple-200">Gói Hiện Tại:</span>
                 <span className="font-bold text-white uppercase tracking-wide">
@@ -540,7 +542,7 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
                 <div key={idx} className="border border-slate-200 rounded-2xl overflow-hidden transition-all">
                   <button
                     onClick={() => setActiveFaqIndex(isOpen ? null : idx)}
-                    className="w-full text-left p-4.5 bg-slate-50/60 hover:bg-slate-100 flex items-center justify-between gap-4 font-bold text-xs sm:text-sm text-[#1e1b4b] cursor-pointer"
+                    className="w-full text-left px-5 sm:px-6 py-4 bg-slate-50/60 hover:bg-slate-100 flex items-center justify-between gap-4 font-bold text-xs sm:text-sm text-[#1e1b4b] cursor-pointer transition-colors"
                   >
                     <span>{faq.q}</span>
                     <span className="material-symbols-outlined text-slate-400 transition-transform duration-200" style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>
@@ -548,7 +550,7 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
                     </span>
                   </button>
                   {isOpen && (
-                    <div className="p-4.5 bg-white text-xs text-slate-600 leading-relaxed border-t border-slate-100 animate-fadeIn">
+                    <div className="px-5 sm:px-6 py-4 bg-white text-xs sm:text-sm text-slate-600 leading-relaxed border-t border-slate-100 animate-fadeIn">
                       {faq.a}
                     </div>
                   )}

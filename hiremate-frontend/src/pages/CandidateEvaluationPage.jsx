@@ -227,7 +227,7 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
         <div className="flex items-center gap-4">
           <div className="hidden xl:flex items-center gap-2 text-xs text-[#2D3A31] bg-[#8C9A84]/15 px-3.5 py-1.5 rounded-full border border-[#8C9A84]/30 font-medium">
             <span className="material-symbols-outlined text-[16px] text-[#8C9A84]">verified_user</span>
-            <span>Đã thẩm định chuẩn 70/30</span>
+            <span>Đã thẩm định AI Matching</span>
           </div>
 
           <button
@@ -327,7 +327,7 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
               <div className="flex items-center justify-between border-b border-[#E6E2DA] pb-3">
                 <h2 className="text-xs uppercase tracking-widest font-bold text-[#2D3A31] flex items-center gap-1.5">
                   <span className="material-symbols-outlined text-[#8C9A84] text-[16px]">bar_chart</span>
-                  3 Trụ Cột Năng Lực Cốt Lõi (Core Evaluation Pillars)
+                  3 Trụ Cột Năng Lực Cốt Lõi
                 </h2>
                 <span className="text-xs text-[#8C9A84] font-semibold">Thang điểm 100</span>
               </div>
@@ -420,7 +420,7 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
               <div className="flex items-center justify-between border-b border-[#E6E2DA] pb-3">
                 <h3 className="text-xs uppercase tracking-widest font-bold text-[#2D3A31] flex items-center gap-1.5">
                   <span className="material-symbols-outlined text-[#8C9A84] text-[16px]">checklist_rtl</span>
-                  Đối Chiếu Chi Tiết Tiêu Chí JD (Requirements Mapping)
+                  Đối Chiếu Chi Tiết Tiêu Chí JD
                 </h3>
                 <span className="text-xs font-bold bg-[#8C9A84]/15 text-[#2D3A31] px-3 py-0.5 rounded-full border border-[#8C9A84]/30">
                   9/10 Tiêu chí Đạt chuẩn
@@ -430,7 +430,7 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
               {/* Group 1: Must-have Requirements (70%) */}
               <div className="space-y-3">
                 <div className="text-xs font-bold text-[#2D3A31] uppercase tracking-wider flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-[#2D3A31]" /> TIÊU CHÍ BẮT BUỘC (MANDATORY - 70% TRỌNG SỐ)
+                  <span className="w-2 h-2 rounded-full bg-[#2D3A31]" /> TIÊU CHÍ BẮT BUỘC (70% TRỌNG SỐ)
                 </div>
                 <div className="space-y-2">
                   <div className="p-3 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] flex items-start gap-3">
@@ -483,7 +483,7 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
               {/* Group 2: Nice-to-have Requirements (30%) */}
               <div className="pt-2 space-y-3">
                 <div className="text-xs font-bold text-[#C27B66] uppercase tracking-wider flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-[#C27B66]" /> TIÊU CHÍ ƯU TIÊN (PREFERRED - 30% TRỌNG SỐ)
+                  <span className="w-2 h-2 rounded-full bg-[#C27B66]" /> TIÊU CHÍ ƯU TIÊN (30% TRỌNG SỐ)
                 </div>
                 <div className="space-y-2">
                   <div className="p-3 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] flex items-start gap-3">
@@ -573,7 +573,7 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
                 }`}
               >
                 <span className="material-symbols-outlined text-[15px]">description</span>
-                <span>Bản Dữ Liệu Trích Xuất (Parsed CV)</span>
+                <span>Bản Dữ Liệu Trích Xuất</span>
               </button>
               <button
                 type="button"
@@ -722,7 +722,7 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
                 {/* 3. KỸ NĂNG CHUYÊN MÔN TOÀN DIỆN */}
                 <div>
                   <h3 className="text-xs uppercase tracking-widest text-[#2D3A31] font-bold mb-3 flex items-center gap-2">
-                    <span className="w-2.5 h-0.5 bg-[#2D3A31]" /> 2. KỸ NĂNG CHUYÊN MÔN TOÀN DIỆN (TECHNICAL SKILL MATRIX)
+                    <span className="w-2.5 h-0.5 bg-[#2D3A31]" /> 2. KỸ NĂNG CHUYÊN MÔN TOÀN DIỆN
                   </h3>
                   <div className="space-y-2.5 text-xs">
                     <div className="p-3.5 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] flex flex-col sm:flex-row sm:items-start gap-2">

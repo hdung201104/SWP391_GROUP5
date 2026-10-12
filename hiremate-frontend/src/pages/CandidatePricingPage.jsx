@@ -16,7 +16,7 @@ const CANDIDATE_SUBSCRIPTION_PLANS = [
       { text: 'Ứng tuyển không giới hạn vào tất cả việc làm', highlight: true },
       { text: '3 Lượt phỏng vấn giả lập AI Voice / tháng', highlight: false },
       { text: '3 Lượt bóc tách CV & Soi điểm ATS score', highlight: false },
-      { text: 'Báo cáo điểm AI Matching 70/30 cho từng vị trí', highlight: false },
+      { text: 'Báo cáo điểm AI Matching cho từng vị trí', highlight: false },
       { text: 'Lưu trữ tối đa 2 bản CV trên hệ thống', highlight: false },
     ],
     missingFeatures: [
@@ -112,11 +112,11 @@ const COMPARISON_ROWS = [
   { feature: 'Số lượt AI Voice Mock Interview / tháng', free: '3 Lượt', pro: '30 Lượt', vip: 'Không giới hạn' },
   { feature: 'Lượt soi CV & ATS Score Check', free: '3 Lượt', pro: 'Không giới hạn', vip: 'Không giới hạn' },
   { feature: 'Phân tích WPM & Độ rõ chữ giọng nói', free: 'Cơ bản', pro: 'Chi tiết', vip: 'Chuyên sâu Executive' },
-  { feature: 'Barem đáp án mẫu & Gợi ý câu trả lời AI', free: '❌ KHÔNG', pro: '✅ CÓ', vip: '✅ CÓ (Chuyên sâu)' },
-  { feature: 'Báo cáo Lộ Trình Tiến Bộ (Improvement Delta)', free: '❌ KHÔNG', pro: '✅ CÓ', vip: '✅ CÓ' },
-  { feature: 'Huy hiệu Ứng Viên Nổi Bật cho HR', free: '❌ KHÔNG', pro: '✅ Pro Badge', vip: '✅ Top 1% VIP Badge' },
-  { feature: 'Gợi ý JD phù hợp khớp 95%+', free: 'Hàng tuần', pro: 'Hàng ngày', vip: 'Tức thì (Real-time)' },
-  { feature: 'Hỗ trợ Review CV 1-on-1 từ HR Expert', free: '❌ KHÔNG', pro: '❌ KHÔNG', vip: '✅ CÓ (1-on-1)' },
+  { feature: 'Barem đáp án mẫu & Gợi ý câu trả lời AI', free: '❌', pro: '✅', vip: '✅' },
+  { feature: 'Báo cáo Lộ Trình Tiến Bộ (Improvement Delta)', free: '❌', pro: '✅', vip: '✅' },
+  { feature: 'Huy hiệu Ứng Viên Nổi Bật cho HR', free: '❌', pro: '✅', vip: '✅' },
+  { feature: 'Gợi ý JD phù hợp khớp 95%+', free: 'Hàng tuần', pro: 'Hàng ngày', vip: 'Tức thì' },
+  { feature: 'Hỗ trợ Review CV 1-on-1 từ HR Expert', free: '❌', pro: '❌', vip: '✅' },
 ];
 
 const CANDIDATE_FAQS = [
@@ -232,10 +232,11 @@ export default function CandidatePricingPage({ user, onNavigate }) {
       <div className="max-w-7xl mx-auto space-y-10">
 
         {/* HERO BANNER FOR CANDIDATES */}
-        <div className="bg-gradient-to-r from-[#2d1b69] via-[#432b96] to-[#6d44e4] text-white rounded-[32px] p-6 sm:p-10 shadow-2xl relative overflow-hidden border border-purple-400/30">
+        <div className="bg-gradient-to-r from-[#2d1b69] via-[#432b96] to-[#6d44e4] text-white rounded-[32px] p-6 sm:p-10 shadow-2xl relative overflow-hidden border border-purple-400/30 text-center">
           <div className="absolute top-0 right-0 -mt-10 -mr-10 w-80 h-80 bg-amber-400/20 rounded-full blur-3xl pointer-events-none"></div>
+          <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-80 h-80 bg-indigo-400/20 rounded-full blur-3xl pointer-events-none"></div>
           
-          <div className="relative z-10 max-w-3xl space-y-4">
+          <div className="relative z-10 max-w-4xl mx-auto space-y-4 flex flex-col items-center">
             <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white/10 border border-white/20 text-amber-300 text-xs font-bold tracking-wider uppercase">
               <span className="material-symbols-outlined text-base text-amber-400">psychology</span>
               <span>Gói Dịch Vụ Dành Cho Ứng Viên</span>
@@ -245,12 +246,12 @@ export default function CandidatePricingPage({ user, onNavigate }) {
               Tự Tin Phỏng Vấn &amp; Chinh Phục Công Việc Mơ Ước Với <span className="text-amber-300">AI Coaching</span>
             </h1>
 
-            <p className="text-purple-100 text-sm sm:text-base leading-relaxed font-sans">
+            <p className="text-purple-100 text-sm sm:text-base leading-relaxed font-sans max-w-2xl mx-auto">
               Luyện phỏng vấn thử bằng giọng nói AI, tối ưu hóa CV chuẩn ATS 95%+ và nổi bật nổi trội trong mắt Nhà tuyển dụng.
             </p>
 
             {/* Current Candidate Status Badge */}
-            <div className="pt-4 flex flex-wrap items-center gap-4 text-xs font-medium">
+            <div className="pt-3 flex flex-wrap items-center justify-center gap-3 sm:gap-4 text-xs font-medium">
               <div className="px-4 py-2.5 rounded-2xl bg-white/15 backdrop-blur-md border border-white/20 flex items-center gap-2">
                 <span className="text-purple-200">Gói Hiện Tại:</span>
                 <span className="font-bold text-white uppercase tracking-wide">
@@ -534,7 +535,7 @@ export default function CandidatePricingPage({ user, onNavigate }) {
                 <div key={idx} className="border border-slate-200 rounded-2xl overflow-hidden transition-all">
                   <button
                     onClick={() => setActiveFaqIndex(isOpen ? null : idx)}
-                    className="w-full text-left p-4.5 bg-slate-50/60 hover:bg-slate-100 flex items-center justify-between gap-4 font-bold text-xs sm:text-sm text-[#1e1b4b] cursor-pointer"
+                    className="w-full text-left px-5 sm:px-6 py-4 bg-slate-50/60 hover:bg-slate-100 flex items-center justify-between gap-4 font-bold text-xs sm:text-sm text-[#1e1b4b] cursor-pointer transition-colors"
                   >
                     <span>{faq.q}</span>
                     <span className="material-symbols-outlined text-slate-400 transition-transform duration-200" style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>
@@ -542,7 +543,7 @@ export default function CandidatePricingPage({ user, onNavigate }) {
                     </span>
                   </button>
                   {isOpen && (
-                    <div className="p-4.5 bg-white text-xs text-slate-600 leading-relaxed border-t border-slate-100 animate-fadeIn">
+                    <div className="px-5 sm:px-6 py-4 bg-white text-xs sm:text-sm text-slate-600 leading-relaxed border-t border-slate-100 animate-fadeIn">
                       {faq.a}
                     </div>
                   )}
