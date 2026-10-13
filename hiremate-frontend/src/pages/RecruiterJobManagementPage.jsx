@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useLivingTheme } from '../context/LivingThemeContext';
 import { jobApi, applicationApi } from '../api';
+import { parseSkillList } from '../utils/helpers';
 
 export default function RecruiterJobManagementPage({ user, onNavigateToPipeline }) {
   const { theme: livingTheme, luminosity } = useLivingTheme();
@@ -75,8 +76,8 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
               salaryMax: j.salaryMax,
               totalApplicants: applicantCount,
               aiMatchHighCount: aiHigh,
-              mandatorySkills: j.requirements ? j.requirements.split(/,|\r?\n|\\n/).map((s) => s.replace(/^[\s\-\u2022]+/, '').trim()).filter(Boolean) : ['Yêu cầu chuyên môn'],
-              preferredSkills: j.benefits ? j.benefits.split(/,|\r?\n|\\n/).map((s) => s.replace(/^[\s\-\u2022]+/, '').trim()).filter(Boolean) : ['Đãi ngộ hấp dẫn'],
+              mandatorySkills: parseSkillList(j.requirements, ['Yêu cầu chuyên môn']),
+              preferredSkills: parseSkillList(j.benefits, ['Đãi ngộ hấp dẫn']),
               topCandidateAvatars: topAvatars,
               raw: j,
             };

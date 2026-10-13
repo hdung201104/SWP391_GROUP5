@@ -11,7 +11,12 @@ import {
   Sparkles, 
   ShieldCheck, 
   UserCheck, 
-  Layers
+  Layers,
+  Lock,
+  Eye,
+  EyeOff,
+  KeyRound,
+  Send
 } from 'lucide-react';
 import authApi from '../../api/authApi';
 import { useLivingTheme } from '../../context/LivingThemeContext';
@@ -39,6 +44,17 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
   const [avatarUrl, setAvatarUrl] = useState(googleData?.avatarUrl || '');
   const [phone, setPhone] = useState('');
 
+  // Password fields
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
+  // Email OTP Verification
+  const [otpCode, setOtpCode] = useState('');
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+
   // Candidate-specific fields
   const [headline, setHeadline] = useState('');
 
@@ -51,10 +67,36 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
   const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
+    let timer;
+    if (resendCooldown > 0) {
+      timer = setInterval(() => {
+        setResendCooldown((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
+
+  useEffect(() => {
     if (!email && !googleData) {
       setErrorMessage('Không tìm thấy thông tin xác thực tài khoản. Vui lòng đăng nhập lại qua Google hoặc GitHub.');
     }
   }, [email, googleData]);
+
+  const handleSendOtp = async () => {
+    if (!email.trim() || resendCooldown > 0 || isSendingOtp) return;
+    setIsSendingOtp(true);
+    setErrorMessage('');
+    try {
+      await authApi.sendOtp({ email: email.trim(), purpose: 'REGISTER' });
+      setOtpSent(true);
+      setResendCooldown(60);
+      setSuccessMessage(`Đã gửi mã xác thực OTP 6 số đến email ${email}. Vui lòng kiểm tra hộp thư (cả mục Spam)!`);
+    } catch (err) {
+      setErrorMessage(err.message || 'Không thể gửi mã OTP. Vui lòng thử lại sau giây lát.');
+    } finally {
+      setIsSendingOtp(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
@@ -71,6 +113,24 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
     }
     if (!phone.trim()) {
       setErrorMessage('Vui lòng cung cấp số điện thoại liên lạc.');
+      return;
+    }
+
+    if (!password.trim()) {
+      setErrorMessage('Vui lòng thiết lập mật khẩu tài khoản để có thể đăng nhập bằng Email/Mật khẩu sau này.');
+      return;
+    }
+    if (password.length < 6) {
+      setErrorMessage('Mật khẩu phải có tối thiểu 6 ký tự.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setErrorMessage('Mật khẩu và xác nhận mật khẩu không khớp. Vui lòng kiểm tra lại!');
+      return;
+    }
+
+    if (!otpCode.trim()) {
+      setErrorMessage('Vui lòng bấm gửi và nhập mã OTP 6 số để xác thực tài khoản.');
       return;
     }
 
@@ -99,6 +159,8 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
         avatarUrl: avatarUrl || undefined,
         role: role,
         phone: phone.trim(),
+        password: password.trim(),
+        otp: otpCode.trim(),
         headline: role === 'CANDIDATE' ? headline.trim() : undefined,
         companyName: role === 'RECRUITER' ? companyName.trim() : undefined,
         position: role === 'RECRUITER' ? position.trim() : undefined,
@@ -190,7 +252,7 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} autoComplete="off" className="space-y-6">
 
           {/* 1. ROLE SELECTION */}
           <div>
@@ -271,9 +333,11 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
                   <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 pointer-events-none" />
                   <input
                     type="email"
+                    name="readonly_google_email"
                     value={email}
                     disabled
                     readOnly
+                    autoComplete="off"
                     className="w-full pl-10 pr-4 py-2.5 bg-black/30 border border-white/15 rounded-xl text-sm text-slate-300 font-medium cursor-not-allowed select-none opacity-80"
                   />
                 </div>
@@ -286,9 +350,11 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
                   <User className="w-4 h-4 text-purple-300 absolute left-3.5 pointer-events-none" />
                   <input
                     type="text"
+                    name="onboarding_user_fullname"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    placeholder="Nguyễn Văn A"
+                    placeholder="Ví dụ: Nguyễn Văn A"
+                    autoComplete="off"
                     required
                     className="w-full pl-10 pr-4 py-2.5 bg-white/10 border border-white/20 focus:border-purple-400 focus:bg-white/15 rounded-xl text-sm text-white placeholder-slate-400 focus:outline-none transition-all"
                   />
@@ -302,9 +368,11 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
                   <Phone className="w-4 h-4 text-purple-300 absolute left-3.5 pointer-events-none" />
                   <input
                     type="tel"
+                    name="onboarding_user_phone"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    placeholder="0912 345 678"
+                    placeholder="Ví dụ: 0912 xxx xxx"
+                    autoComplete="off"
                     required
                     className="w-full pl-10 pr-4 py-2.5 bg-white/10 border border-white/20 focus:border-purple-400 focus:bg-white/15 rounded-xl text-sm text-white placeholder-slate-400 focus:outline-none transition-all"
                   />
@@ -330,9 +398,11 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
                     <Briefcase className="w-4 h-4 text-purple-300 absolute left-3.5 pointer-events-none" />
                     <input
                       type="text"
+                      name="onboarding_candidate_headline"
                       value={headline}
                       onChange={(e) => setHeadline(e.target.value)}
-                      placeholder="Ví dụ: Senior Backend Java Engineer / AI Specialist"
+                      placeholder="Ví dụ: Frontend React Developer / Backend Java"
+                      autoComplete="off"
                       required
                       className="w-full pl-10 pr-4 py-2.5 bg-white/10 border border-white/20 focus:border-purple-400 focus:bg-white/15 rounded-xl text-sm text-white placeholder-slate-400 focus:outline-none transition-all"
                     />
@@ -353,9 +423,11 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
                       <Building2 className="w-4 h-4 text-cyan-300 absolute left-3.5 pointer-events-none" />
                       <input
                         type="text"
+                        name="onboarding_company_name"
                         value={companyName}
                         onChange={(e) => setCompanyName(e.target.value)}
-                        placeholder="Ví dụ: FPT Software, VNG..."
+                        placeholder="Ví dụ: Tập đoàn Công nghệ ABC"
+                        autoComplete="off"
                         required
                         className="w-full pl-10 pr-4 py-2.5 bg-white/10 border border-white/20 focus:border-cyan-400 focus:bg-white/15 rounded-xl text-sm text-white placeholder-slate-400 focus:outline-none transition-all"
                       />
@@ -370,9 +442,11 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
                       <Briefcase className="w-4 h-4 text-cyan-300 absolute left-3.5 pointer-events-none" />
                       <input
                         type="text"
+                        name="onboarding_recruiter_position"
                         value={position}
                         onChange={(e) => setPosition(e.target.value)}
-                        placeholder="Ví dụ: HR Lead, Talent Acquisition..."
+                        placeholder="Ví dụ: HR Manager / Talent Acquisition"
+                        autoComplete="off"
                         required
                         className="w-full pl-10 pr-4 py-2.5 bg-white/10 border border-white/20 focus:border-cyan-400 focus:bg-white/15 rounded-xl text-sm text-white placeholder-slate-400 focus:outline-none transition-all"
                       />
@@ -384,6 +458,110 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
                 </p>
               </div>
             )}
+          </div>
+
+          {/* 4. MẬT KHẨU & MÃ OTP XÁC THỰC EMAIL */}
+          <div className="space-y-4 bg-white/5 border border-white/10 p-5 rounded-2xl">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold uppercase tracking-wider text-purple-200 block">
+                4. Thiết lập mật khẩu đăng nhập & Xác thực OTP <span className="text-rose-400">*</span>
+              </label>
+              <span className="text-[11px] text-slate-300">Dùng để đăng nhập trực tiếp sau này</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Password */}
+              <div className="space-y-1">
+                <span className="text-xs text-slate-300 font-medium">Mật khẩu mới <span className="text-rose-400">*</span></span>
+                <div className="relative flex items-center">
+                  <Lock className="w-4 h-4 text-purple-300 absolute left-3.5 pointer-events-none" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    name="onboarding_user_password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Nhập mật khẩu (tối thiểu 6 ký tự)"
+                    autoComplete="new-password"
+                    required
+                    minLength={6}
+                    className="w-full pl-10 pr-10 py-2.5 bg-white/10 border border-white/20 focus:border-purple-400 focus:bg-white/15 rounded-xl text-sm text-white placeholder-slate-400 focus:outline-none transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 text-slate-400 hover:text-white cursor-pointer"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Confirm Password */}
+              <div className="space-y-1">
+                <span className="text-xs text-slate-300 font-medium">Xác nhận mật khẩu <span className="text-rose-400">*</span></span>
+                <div className="relative flex items-center">
+                  <Lock className="w-4 h-4 text-purple-300 absolute left-3.5 pointer-events-none" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    name="onboarding_user_confirm_password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Nhập lại mật khẩu..."
+                    autoComplete="new-password"
+                    required
+                    minLength={6}
+                    className="w-full pl-10 pr-10 py-2.5 bg-white/10 border border-white/20 focus:border-purple-400 focus:bg-white/15 rounded-xl text-sm text-white placeholder-slate-400 focus:outline-none transition-all"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* OTP Section */}
+            <div className="pt-2 border-t border-white/10 space-y-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <span className="text-xs text-slate-300 font-medium">
+                  Mã OTP xác thực 6 số (gửi về <strong className="text-purple-300">{email}</strong>) <span className="text-rose-400">*</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={handleSendOtp}
+                  disabled={isSendingOtp || resendCooldown > 0}
+                  className="px-3.5 py-1.5 bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 text-purple-200 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed self-start sm:self-auto"
+                >
+                  {isSendingOtp ? (
+                    <>
+                      <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Đang gửi mã...</span>
+                    </>
+                  ) : resendCooldown > 0 ? (
+                    <span>Gửi lại sau ({resendCooldown}s)</span>
+                  ) : (
+                    <>
+                      <Send className="w-3.5 h-3.5" />
+                      <span>{otpSent ? 'Gửi lại mã OTP' : 'Gửi mã OTP qua Email'}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <div className="relative flex items-center">
+                <KeyRound className="w-4 h-4 text-purple-300 absolute left-3.5 pointer-events-none" />
+                <input
+                  type="text"
+                  maxLength={6}
+                  name="onboarding_user_otp_code"
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                  placeholder="Nhập 6 số OTP (Ví dụ: 123456)"
+                  autoComplete="one-time-code"
+                  required
+                  className="w-full pl-10 pr-4 py-2.5 bg-white/10 border border-white/20 focus:border-purple-400 focus:bg-white/15 rounded-xl text-sm text-white tracking-widest font-mono placeholder:tracking-normal placeholder-slate-400 focus:outline-none transition-all"
+                />
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Mã xác thực được gửi tự động đến Gmail của bạn. (Mã kiểm thử test demo: <span className="text-purple-300 font-mono">123456</span> hoặc <span className="text-purple-300 font-mono">888888</span>).
+              </p>
+            </div>
           </div>
 
           {/* Action buttons */}

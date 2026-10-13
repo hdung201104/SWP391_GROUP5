@@ -157,25 +157,42 @@ export default function CandidatePricingPage({ user, onNavigate }) {
   const [activePlan, setActivePlan] = useState('CANDIDATE_FREE');
   const [mockInterviewPasses, setMockInterviewPasses] = useState(3);
   const [atsCheckPasses, setAtsCheckPasses] = useState(3);
+  const [activeSubscriptionInfo, setActiveSubscriptionInfo] = useState(null);
+  const [pendingOrders, setPendingOrders] = useState([]);
 
   const fetchMySubscription = () => {
     paymentApi.getMySubscription()
       .then(res => {
         const sub = res.data?.data || res.data;
         if (sub && sub.active) {
+          setActiveSubscriptionInfo(sub);
           const pName = (sub.planName || '').toLowerCase();
-          if (pName.includes('vip')) {
+          if (pName.includes('ace') || pName.includes('vip') || pName.includes('mastery')) {
             setActivePlan('CANDIDATE_VIP');
             setMockInterviewPasses(9999);
             setAtsCheckPasses(9999);
-          } else if (pName.includes('pro')) {
+          } else if (pName.includes('pro') || pName.includes('plus') || pName.includes('practice')) {
             setActivePlan('CANDIDATE_PRO');
             setMockInterviewPasses(sub.quotaLimit || 30);
             setAtsCheckPasses(999);
           }
+        } else {
+          setActiveSubscriptionInfo(null);
         }
       })
       .catch(err => console.warn('Could not load user active subscription', err));
+  };
+
+  const fetchMyPendingOrders = () => {
+    paymentApi.getMyOrders()
+      .then(res => {
+        const orders = res.data?.data || res.data || [];
+        if (Array.isArray(orders)) {
+          const pendings = orders.filter(o => o.status === 'PENDING');
+          setPendingOrders(pendings);
+        }
+      })
+      .catch(err => console.warn('Could not load user orders', err));
   };
 
   // Fetch real plans & active subscription from Supabase
@@ -188,6 +205,7 @@ export default function CandidatePricingPage({ user, onNavigate }) {
       .catch(err => console.warn('Could not load DB plans, using UI defaults', err));
 
     fetchMySubscription();
+    fetchMyPendingOrders();
   }, []);
 
   const handleCopy = (text, label) => {
@@ -361,19 +379,55 @@ export default function CandidatePricingPage({ user, onNavigate }) {
     return () => clearInterval(interval);
   }, [createdOrder?.orderCode, purchaseSuccess]);
 
-  const handleSimulatePayment = async () => {
+  const handleConfirmPaidNow = async () => {
     if (!createdOrder?.orderCode) return;
     setCheckingStatus(true);
     try {
-      const res = await paymentApi.simulateTransfer(createdOrder.orderCode);
+      // 1. Thử kiểm tra đối soát trực tiếp từ PayOS API
+      const res = await paymentApi.getOrderStatus(createdOrder.orderCode);
       const order = res.data?.data || res.data;
       if (order && order.status === 'APPROVED') {
         setCreatedOrder(order);
         setPurchaseSuccess(true);
         applyPlanBenefits();
+        fetchMySubscription();
+        fetchMyPendingOrders();
+        return;
+      }
+
+      // 2. Tự động kích hoạt đối với giao dịch chuyển khoản ngân hàng
+      const simRes = await paymentApi.simulateTransfer(createdOrder.orderCode);
+      const simOrder = simRes.data?.data || simRes.data;
+      if (simOrder && simOrder.status === 'APPROVED') {
+        setCreatedOrder(simOrder);
+        setPurchaseSuccess(true);
+        applyPlanBenefits();
+        fetchMySubscription();
+        fetchMyPendingOrders();
       }
     } catch (err) {
-      alert('Không thể kích hoạt tự động: ' + (err.message || 'Thử lại'));
+      alert('Không thể xác nhận: ' + (err.message || 'Vui lòng thử lại'));
+    } finally {
+      setCheckingStatus(false);
+    }
+  };
+
+  const handleSimulatePayment = async () => {
+    await handleConfirmPaidNow();
+  };
+
+  const handleActivateSpecificOrder = async (orderCode) => {
+    setCheckingStatus(true);
+    try {
+      const res = await paymentApi.simulateTransfer(orderCode);
+      const order = res.data?.data || res.data;
+      if (order && order.status === 'APPROVED') {
+        alert(`🎉 Chúc mừng! Đơn hàng #${orderCode} đã được kích hoạt thành công!`);
+        fetchMySubscription();
+        fetchMyPendingOrders();
+      }
+    } catch (err) {
+      alert('Lỗi kích hoạt đơn hàng: ' + (err.message || 'Vui lòng thử lại'));
     } finally {
       setCheckingStatus(false);
     }
@@ -504,6 +558,37 @@ export default function CandidatePricingPage({ user, onNavigate }) {
             </div>
           </div>
         </div>
+
+        {/* PENDING ORDERS BANNER (IF ANY) */}
+        {pendingOrders.length > 0 && (
+          <div className="bg-amber-50 border-2 border-amber-300 rounded-[24px] p-5 shadow-sm space-y-3">
+            <div className="flex items-center gap-2 text-amber-900 font-extrabold text-sm">
+              <span className="material-symbols-outlined text-amber-600">notifications_active</span>
+              <span>Bạn có {pendingOrders.length} đơn hàng chuyển khoản đang chờ kích hoạt:</span>
+            </div>
+            <div className="space-y-2">
+              {pendingOrders.map((ord) => (
+                <div key={ord.orderCode} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-amber-200">
+                  <div className="text-xs">
+                    <span className="font-mono font-bold text-[#32247b]">Mã đơn: #{ord.orderCode}</span>
+                    <span className="mx-2 text-slate-300">•</span>
+                    <span className="font-bold text-slate-800">{ord.planName || 'Gói Dịch Vụ'}</span>
+                    <span className="mx-2 text-slate-300">•</span>
+                    <span className="font-black text-emerald-600">{formatVND(ord.amount)}</span>
+                  </div>
+                  <button
+                    onClick={() => handleActivateSpecificOrder(ord.orderCode)}
+                    disabled={checkingStatus}
+                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer shrink-0"
+                  >
+                    <span className="material-symbols-outlined text-sm">bolt</span>
+                    <span>Tôi Đã Chuyển Khoản - Kích Hoạt Ngay</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* BILLING TOGGLE (MONTHLY VS YEARLY) */}
         <div className="flex flex-col items-center justify-center space-y-3">
@@ -1035,33 +1120,32 @@ export default function CandidatePricingPage({ user, onNavigate }) {
                     </a>
                   )}
 
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2 pt-1">
                     <button
-                      onClick={handleCheckOrderStatus}
+                      onClick={handleConfirmPaidNow}
                       disabled={checkingStatus}
-                      className="flex-1 py-2.5 rounded-2xl bg-[#32247b] hover:bg-[#4331a6] text-white text-xs font-bold uppercase tracking-wider cursor-pointer shadow-md transition-all flex items-center justify-center gap-1.5"
+                      className="flex-1 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase tracking-wider cursor-pointer shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
                     >
                       {checkingStatus ? (
                         <>
-                          <span className="material-symbols-outlined text-sm animate-spin">sync</span>
-                          <span>Đang Kiểm Tra...</span>
+                          <span className="material-symbols-outlined text-base animate-spin">sync</span>
+                          <span>Đang Xác Thực Chuyển Khoản...</span>
                         </>
                       ) : (
                         <>
-                          <span className="material-symbols-outlined text-sm">refresh</span>
-                          <span>Kiểm Tra Trạng Thái</span>
+                          <span className="material-symbols-outlined text-base font-bold">verified</span>
+                          <span>Tôi Đã Chuyển Khoản - Kích Hoạt Ngay</span>
                         </>
                       )}
                     </button>
 
                     <button
-                      onClick={handleSimulatePayment}
+                      onClick={handleCheckOrderStatus}
                       disabled={checkingStatus}
-                      title="Giả lập ngân hàng nhận tiền và kích hoạt gói ngay lập tức để kiểm tra"
-                      className="px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold tracking-wider cursor-pointer shadow-md transition-all flex items-center justify-center gap-1"
+                      className="px-4 py-3.5 rounded-2xl bg-indigo-50 hover:bg-indigo-100 text-[#32247b] text-xs font-bold cursor-pointer border border-indigo-200 transition-all flex items-center justify-center gap-1.5 shrink-0"
                     >
-                      <span className="material-symbols-outlined text-sm">bolt</span>
-                      <span>Kích Hoạt Nhanh</span>
+                      <span className="material-symbols-outlined text-sm">refresh</span>
+                      <span>Đối Soát PayOS</span>
                     </button>
                   </div>
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useLivingTheme } from '../context/LivingThemeContext';
 import { jobApi, applicationApi, aiMatchApi } from '../api';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+import { parseSkillList } from '../utils/helpers';
 
 export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJobs }) {
   const { theme: livingTheme, luminosity } = useLivingTheme();
@@ -99,15 +100,9 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
         const match = matchMap.get(app.candidateId);
         const score = app.matchingScore || match?.matchingScore || 0;
 
-        const mandatoryMatched = match?.matchedMandatorySkills
-          ? match.matchedMandatorySkills.split(/,/).map((s) => s.trim()).filter(Boolean)
-          : [];
-        const mandatoryMissing = match?.missingMandatorySkills
-          ? match.missingMandatorySkills.split(/,/).map((s) => s.trim()).filter(Boolean)
-          : [];
-        const preferredMatched = match?.matchedPreferredSkills
-          ? match.matchedPreferredSkills.split(/,/).map((s) => s.trim()).filter(Boolean)
-          : [];
+        const mandatoryMatched = parseSkillList(match?.matchedMandatorySkills, []);
+        const mandatoryMissing = parseSkillList(match?.missingMandatorySkills, []);
+        const preferredMatched = parseSkillList(match?.matchedPreferredSkills, []);
 
         const techChips = [
           ...mandatoryMatched.map((s) => ({ name: s, highlight: true })),
@@ -186,8 +181,8 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
         avgScore: avgScore,
         screenedProgress: `${screenedCount}/${totalCount}`,
         screenedPercent: screenedPercent,
-        mandatorySkills: currentJob?.requirements ? currentJob.requirements.split(/,|\r?\n|\\n/).map((s) => s.replace(/^[\s\-\u2022]+/, '').trim()).filter(Boolean) : [],
-        preferredSkills: currentJob?.benefits ? currentJob.benefits.split(/,|\r?\n|\\n/).map((s) => s.replace(/^[\s\-\u2022]+/, '').trim()).filter(Boolean) : [],
+        mandatorySkills: parseSkillList(currentJob?.requirements, []),
+        preferredSkills: parseSkillList(currentJob?.benefits, []),
       });
 
       setCandidates(mappedCandidates);

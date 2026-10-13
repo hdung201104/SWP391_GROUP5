@@ -38,31 +38,7 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  // Helper for quick testing with sample data if user wishes
-  const handleFillDemo = () => {
-    if (role === 'CANDIDATE') {
-      setCandName('Trần Bảo Long');
-      setCandEmail('longtran.dev@gmail.com');
-      setCandPhone('0987 654 321');
-      setCandHeadline('Fullstack Developer / AI Engineer');
-      setCandExp('1_3_YEARS');
-      setPassword('Password123@');
-      setConfirmPassword('Password123@');
-      setAgreed(true);
-    } else {
-      setRecName('Nguyễn Thị Mai');
-      setRecEmail('mai.hr@fptsoftware.com');
-      setRecPhone('0912 345 678');
-      setCompanyName('FPT Software Vietnam');
-      setCompanySize('500_1000');
-      setCompanyLocation('Tòa nhà FPT, Khu CNC Hòa Lạc, Hà Nội');
-      setCompanyWebsite('https://fpt-software.com');
-      setPassword('Password123@');
-      setConfirmPassword('Password123@');
-      setAgreed(true);
-    }
-    setErrorMsg('');
-  };
+
 
   // Demo Video Modal State
   const [showVideoModal, setShowVideoModal] = useState(false);
@@ -386,14 +362,6 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
                   : 'Đăng ký hồ sơ công ty và bắt đầu tiếp cận nhân tài công nghệ.'}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={handleFillDemo}
-              className="text-[11px] font-bold text-[#5b48bd] hover:text-[#32247b] bg-purple-50 hover:bg-purple-100 px-3 py-1 rounded-full border border-purple-200 shrink-0 transition-colors cursor-pointer"
-              title="Điền dữ liệu mẫu để thử nghiệm nhanh"
-            >
-              Điền mẫu thử
-            </button>
           </div>
 
           {/* Alerts */}
@@ -412,7 +380,13 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
           )}
 
           {/* Registration Form */}
-          <form onSubmit={handleSubmit} className="space-y-3.5">
+          <form onSubmit={handleSubmit} autoComplete="off" className="space-y-3.5">
+            {/* Hidden dummy fields to neutralize aggressive browser autofill */}
+            <div style={{ position: 'absolute', top: '-9999px', left: '-9999px', opacity: 0, height: 0, width: 0, pointerEvents: 'none', overflow: 'hidden' }} aria-hidden="true">
+              <input type="text" name="chrome_trap_user" tabIndex="-1" autoComplete="off" />
+              <input type="password" name="chrome_trap_pwd" tabIndex="-1" autoComplete="off" />
+            </div>
+
             {/* CANDIDATE FIELDS */}
             {role === 'CANDIDATE' && (
               <>
@@ -424,9 +398,11 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
                     <span className="material-symbols-outlined absolute left-3.5 text-[#5b48bd] text-base pointer-events-none">person</span>
                     <input
                       type="text"
+                      name="register_candidate_fullname"
                       value={candName}
                       onChange={(e) => setCandName(e.target.value)}
-                      placeholder="Ví dụ: Trần Bảo Long"
+                      placeholder="Ví dụ: Nguyễn Văn A"
+                      autoComplete="off"
                       required
                       className="w-full pl-10 pr-4 py-2.5 bg-purple-50/40 border border-purple-100 focus:border-[#5b48bd] focus:bg-white focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] placeholder-slate-400 focus:outline-none transition-all font-sans"
                     />
@@ -442,9 +418,11 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
                       <span className="material-symbols-outlined absolute left-3.5 text-[#5b48bd] text-base pointer-events-none">mail</span>
                       <input
                         type="email"
+                        name="register_candidate_email"
                         value={candEmail}
                         onChange={(e) => setCandEmail(e.target.value)}
-                        placeholder="Ví dụ: longtran@gmail.com"
+                        placeholder="Ví dụ: name@gmail.com"
+                        autoComplete="off"
                         required
                         className="w-full pl-10 pr-3 py-2.5 bg-purple-50/40 border border-purple-100 focus:border-[#5b48bd] focus:bg-white focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] placeholder-slate-400 focus:outline-none transition-all font-sans"
                       />
@@ -459,9 +437,11 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
                       <span className="material-symbols-outlined absolute left-3.5 text-[#5b48bd] text-base pointer-events-none">call</span>
                       <input
                         type="tel"
+                        name="register_candidate_phone"
                         value={candPhone}
                         onChange={(e) => setCandPhone(e.target.value)}
-                        placeholder="Ví dụ: 0987 654 321"
+                        placeholder="Ví dụ: 0912 xxx xxx"
+                        autoComplete="off"
                         required
                         className="w-full pl-10 pr-3 py-2.5 bg-purple-50/40 border border-purple-100 focus:border-[#5b48bd] focus:bg-white focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] placeholder-slate-400 focus:outline-none transition-all font-sans"
                       />
@@ -635,9 +615,11 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
                   <span className="material-symbols-outlined absolute left-3.5 text-[#5b48bd] text-base pointer-events-none">lock</span>
                   <input
                     type={showPassword ? 'text' : 'password'}
+                    name="register_user_password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Tối thiểu 6 ký tự"
+                    autoComplete="new-password"
                     required
                     className="w-full pl-10 pr-10 py-2.5 bg-purple-50/40 border border-purple-100 focus:border-[#5b48bd] focus:bg-white focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] placeholder-slate-400 focus:outline-none transition-all font-sans"
                   />
@@ -661,9 +643,11 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
                   <span className="material-symbols-outlined absolute left-3.5 text-[#5b48bd] text-base pointer-events-none">verified_user</span>
                   <input
                     type="password"
+                    name="register_user_confirm_password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Nhập lại mật khẩu"
+                    autoComplete="new-password"
                     required
                     className="w-full pl-10 pr-3 py-2.5 bg-purple-50/40 border border-purple-100 focus:border-[#5b48bd] focus:bg-white focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] placeholder-slate-400 focus:outline-none transition-all font-sans"
                   />
@@ -707,18 +691,6 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
               )}
             </button>
           </form>
-
-          {/* Footer Note */}
-          <div className="text-center pt-2 text-xs text-slate-500 font-normal">
-            Đã có tài khoản?{' '}
-            <button
-              type="button"
-              onClick={handleGoToLogin}
-              className="text-[#5b48bd] hover:text-[#32247b] font-bold underline transition-colors cursor-pointer"
-            >
-              Đăng nhập ngay →
-            </button>
-          </div>
         </div>
       </div>
 

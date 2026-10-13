@@ -29,6 +29,12 @@ public class GoogleCompleteRegistrationRequest {
 
     private String phone;
 
+    // Mật khẩu người dùng tự thiết lập để có thể đăng nhập bằng Email + Password
+    private String password;
+
+    // Mã OTP xác thực gửi về email
+    private String otp;
+
     // Trường bổ sung cho Ứng viên (CANDIDATE)
     private String headline;
 

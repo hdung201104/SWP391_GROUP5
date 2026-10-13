@@ -154,32 +154,49 @@ public class PaymentServiceImpl implements PaymentService {
             plan = subscriptionPlanRepository.findById(request.getPlanId()).orElse(null);
         }
         if (plan == null && request.getPlanName() != null) {
+            String target = request.getPlanName().trim().toLowerCase();
             List<SubscriptionPlan> allPlans = subscriptionPlanRepository.findAll();
             for (SubscriptionPlan p : allPlans) {
-                if (p.getPlanName().equalsIgnoreCase(request.getPlanName()) ||
-                    request.getPlanName().toLowerCase().contains(p.getPlanName().toLowerCase())) {
+                String pName = p.getPlanName().toLowerCase();
+                if (pName.equalsIgnoreCase(target) || target.contains(pName) || pName.contains(target)) {
                     plan = p;
                     break;
                 }
             }
         }
-        if (plan == null) {
-            String role = request.getTargetRole() != null ? request.getTargetRole() : "CANDIDATE";
+
+        String role = request.getTargetRole() != null ? request.getTargetRole() : "CANDIDATE";
+        // Nếu chưa khớp theo tên chính xác, khớp theo từ khóa đặc trưng (Pro, VIP, Ace, Plus, Starter)
+        if (plan == null && request.getPlanName() != null) {
+            String pLower = request.getPlanName().toLowerCase();
             List<SubscriptionPlan> rolePlans = subscriptionPlanRepository.findByTargetRoleAndIsActiveTrueOrderByPriceAsc(role);
-            if (!rolePlans.isEmpty()) {
+            for (SubscriptionPlan p : rolePlans) {
+                String name = p.getPlanName().toLowerCase();
+                if ((pLower.contains("pro") && name.contains("pro")) ||
+                    ((pLower.contains("vip") || pLower.contains("ace") || pLower.contains("elite")) && (name.contains("ace") || name.contains("elite") || name.contains("vip"))) ||
+                    ((pLower.contains("starter") || pLower.contains("plus")) && (name.contains("starter") || name.contains("plus")))) {
+                    plan = p;
+                    break;
+                }
+            }
+        }
+
+        // Nếu vẫn chưa tìm thấy và đơn hàng có giá trị tiền > 0, chọn gói có giá gần nhất
+        if (plan == null) {
+            List<SubscriptionPlan> rolePlans = subscriptionPlanRepository.findByTargetRoleAndIsActiveTrueOrderByPriceAsc(role);
+            BigDecimal reqAmt = request.getOriginalAmount() != null ? request.getOriginalAmount() : request.getAmount();
+            if (reqAmt != null && reqAmt.compareTo(BigDecimal.ZERO) > 0) {
+                List<SubscriptionPlan> paidPlans = rolePlans.stream()
+                        .filter(p -> p.getPrice() != null && p.getPrice().compareTo(BigDecimal.ZERO) > 0)
+                        .collect(Collectors.toList());
+                if (!paidPlans.isEmpty()) {
+                    plan = paidPlans.stream()
+                            .min(java.util.Comparator.comparing(p -> p.getPrice().subtract(reqAmt).abs()))
+                            .orElse(paidPlans.get(0));
+                }
+            }
+            if (plan == null && !rolePlans.isEmpty()) {
                 plan = rolePlans.get(0);
-            } else {
-                // Tạo gói mặc định nếu DB chưa có
-                plan = subscriptionPlanRepository.save(SubscriptionPlan.builder()
-                        .planName(request.getPlanName() != null ? request.getPlanName() : "HireMate Service Plan")
-                        .targetRole(role)
-                        .planType("COMBO")
-                        .price(request.getOriginalAmount() != null ? request.getOriginalAmount() : BigDecimal.valueOf(199000))
-                        .durationDays("YEARLY".equalsIgnoreCase(request.getBillingCycle()) ? 365 : 30)
-                        .quotaLimit(30)
-                        .description("Gói dịch vụ kích hoạt trực tuyến")
-                        .isActive(true)
-                        .build());
             }
         }
 
@@ -284,7 +301,7 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public PaymentOrderResponse getOrderByCode(String orderCode) {
         if (orderCode == null || orderCode.isBlank()) {
             throw new ResourceNotFoundException("Mã đơn hàng không được để trống.");
@@ -299,6 +316,24 @@ public class PaymentServiceImpl implements PaymentService {
                     return java.util.Optional.empty();
                 })
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng với mã: " + orderCode));
+
+        // Tự động kiểm tra đối soát trực tiếp từ cổng PayOS API khi đơn đang ở trạng thái PENDING
+        if (order.getStatus() == PaymentOrderStatus.PENDING && payOSClient.isConfigured()) {
+            try {
+                String numericPart = order.getOrderCode().replaceAll("\\D", "");
+                if (!numericPart.isBlank()) {
+                    Long numericCode = Long.parseLong(numericPart);
+                    com.hiremate.util.PayOSClient.PayOSLinkResult payosInfo = payOSClient.getPaymentLinkInformation(numericCode);
+                    if (payosInfo != null && "PAID".equalsIgnoreCase(payosInfo.getStatus())) {
+                        log.info("PayOS xác nhận đơn hàng {} đã thanh toán thành công (PAID). Đang kích hoạt gói dịch vụ...", order.getOrderCode());
+                        activateApprovedOrder(order, "Tự động duyệt 24/7 qua PayOS API Polling - Giao dịch chuyển khoản thành công");
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Không thể kiểm tra trạng thái PayOS cho đơn {}: {}", order.getOrderCode(), e.getMessage());
+            }
+        }
+
         return mapToResponse(order, null, null);
     }
 
@@ -431,14 +466,43 @@ public class PaymentServiceImpl implements PaymentService {
             return mapToResponse(order, null, null);
         }
 
+        activateApprovedOrder(order, "Tự động duyệt 24/7 qua PayOS Webhook - Giao dịch chuyển khoản thành công");
+        return mapToResponse(order, null, null);
+    }
+
+    private void activateApprovedOrder(PaymentOrder order, String adminNote) {
         order.setStatus(PaymentOrderStatus.APPROVED);
         order.setApprovedAt(LocalDateTime.now());
-        order.setAdminNote("Tự động duyệt 24/7 qua PayOS Webhook - Giao dịch chuyển khoản thành công");
+        if (adminNote != null && !adminNote.isBlank()) {
+            order.setAdminNote(adminNote);
+        }
+
+        // Đảm bảo đơn hàng được gán gói trả phí chính xác nếu trước đó bị gán nhầm Free Plan
+        SubscriptionPlan plan = order.getPlan();
+        if ((plan == null || (plan.getPrice() != null && plan.getPrice().compareTo(BigDecimal.ZERO) == 0))
+                && order.getAmount() != null && order.getAmount().compareTo(BigDecimal.ZERO) > 0) {
+            String role = (order.getUser() != null && order.getUser().getRole() != null)
+                    ? order.getUser().getRole().name() : "CANDIDATE";
+            List<SubscriptionPlan> paidPlans = subscriptionPlanRepository.findByTargetRoleAndIsActiveTrueOrderByPriceAsc(role).stream()
+                    .filter(p -> p.getPrice() != null && p.getPrice().compareTo(BigDecimal.ZERO) > 0)
+                    .collect(Collectors.toList());
+            if (!paidPlans.isEmpty()) {
+                SubscriptionPlan matched = paidPlans.get(0);
+                for (SubscriptionPlan p : paidPlans) {
+                    if (p.getPrice().compareTo(order.getAmount()) == 0) {
+                        matched = p;
+                        break;
+                    }
+                }
+                plan = matched;
+                order.setPlan(plan);
+            }
+        }
+
         paymentOrderRepository.save(order);
 
         // Kích hoạt Subscription tự động ngay lập tức
-        if (order.getUser() != null && order.getPlan() != null) {
-            SubscriptionPlan plan = order.getPlan();
+        if (order.getUser() != null && plan != null) {
             int durationDays = (plan.getDurationDays() != null && plan.getDurationDays() > 0) ? plan.getDurationDays() : 30;
             if (order.getAdminNote() != null && order.getAdminNote().contains("YEARLY")) {
                 durationDays = 365;
@@ -461,7 +525,7 @@ public class PaymentServiceImpl implements PaymentService {
                     .build();
 
             subscriptionRepository.save(subscription);
-            log.info("PayOS Webhook: ĐÃ TỰ ĐỘNG KÍCH HOẠT GÓI {} cho người dùng {} (Hạn dùng: {} ngày)",
+            log.info("ĐÃ KÍCH HOẠT THÀNH CÔNG GÓI {} cho tài khoản {} (Hạn dùng: {} ngày)",
                     plan.getPlanName(), order.getUser().getEmail(), durationDays);
         }
 
@@ -471,8 +535,6 @@ public class PaymentServiceImpl implements PaymentService {
             v.setUsedCount((v.getUsedCount() != null ? v.getUsedCount() : 0) + 1);
             voucherRepository.save(v);
         }
-
-        return mapToResponse(order, null, null);
     }
 
     private PaymentOrderResponse mapToResponse(

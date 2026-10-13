@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useGoogleLogin } from '@react-oauth/google';
-import { Mail, Lock, Eye, EyeOff, User, Building2, ArrowRight, ArrowLeft, X, UserPlus, AlertCircle, CheckCircle2, Sparkles } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, User, Building2, Shield, ArrowRight, ArrowLeft, X, UserPlus, AlertCircle, CheckCircle2, Sparkles } from 'lucide-react';
 import authApi from '../../api/authApi';
 import { useLivingTheme } from '../../context/LivingThemeContext';
 
@@ -55,10 +55,19 @@ export default function LoginPage({ onNavigateRegister, onLoginSuccess }) {
     if (!existingUser) {
       localStorage.removeItem('token');
     }
+    setEmail('');
+    setPassword('');
+    const t = setTimeout(() => {
+      setEmail('');
+      setPassword('');
+    }, 120);
+    return () => clearTimeout(t);
   }, []);
 
   const handleRoleChange = (newRole) => {
     setRole(newRole);
+    setEmail('');
+    setPassword('');
     setErrorMessage('');
     setSuccessMessage('');
   };
@@ -403,9 +412,27 @@ export default function LoginPage({ onNavigateRegister, onLoginSuccess }) {
 
       // 2. Authoritative Post-Response Role Boundary Check
       const actualRole = String(payload.role || res?.role || '').toUpperCase();
-      if (role === 'CANDIDATE' && (actualRole === 'RECRUITER' || actualRole === 'ADMIN')) {
+      if (role === 'ADMIN' && actualRole !== 'ADMIN') {
         setIsLoading(false);
-        setErrorMessage('Tài khoản này thuộc vai trò Nhà Tuyển Dụng. Vui lòng chuyển sang tab "Nhà Tuyển Dụng" để đăng nhập!');
+        setErrorMessage('Tài khoản này không có quyền Quản Trị Viên (Admin). Vui lòng chuyển sang đúng tab để đăng nhập!');
+        return;
+      }
+
+      if (role === 'CANDIDATE' && actualRole === 'ADMIN') {
+        setIsLoading(false);
+        setErrorMessage('Tài khoản này là Quản Trị Viên (Admin). Vui lòng chuyển sang tab "Quản Trị" để đăng nhập!');
+        return;
+      }
+
+      if (role === 'RECRUITER' && actualRole === 'ADMIN') {
+        setIsLoading(false);
+        setErrorMessage('Tài khoản này là Quản Trị Viên (Admin). Vui lòng chuyển sang tab "Quản Trị" để đăng nhập!');
+        return;
+      }
+
+      if (role === 'CANDIDATE' && actualRole === 'RECRUITER') {
+        setIsLoading(false);
+        setErrorMessage('Tài khoản này thuộc vai trò Nhà Tuyển Dụng. Vui lòng chuyển sang tab "Tuyển Dụng" để đăng nhập!');
         return;
       }
 
@@ -534,43 +561,58 @@ export default function LoginPage({ onNavigateRegister, onLoginSuccess }) {
             </div>
 
             {/* Role Switcher Pill */}
-            <div className="p-1 rounded-full bg-purple-50/80 border border-purple-100 grid grid-cols-2 gap-1">
+            <div className="p-1 rounded-full bg-purple-50/80 border border-purple-100 grid grid-cols-3 gap-1">
               <button
                 type="button"
                 onClick={() => handleRoleChange('CANDIDATE')}
-                className={`py-2 px-3 rounded-full text-xs font-bold flex items-center justify-center gap-2 transition-all duration-300 cursor-pointer ${
+                className={`py-2 px-2.5 rounded-full text-xs font-bold flex items-center justify-center gap-1.5 transition-all duration-300 cursor-pointer ${
                   role === 'CANDIDATE'
                     ? 'bg-[#5b48bd] text-white shadow-md'
                     : 'text-slate-600 hover:text-[#221d47]'
                 }`}
               >
-                <User className="w-4 h-4" />
+                <User className="w-3.5 h-3.5" />
                 <span>Ứng Viên</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => handleRoleChange('RECRUITER')}
-                className={`py-2 px-3 rounded-full text-xs font-bold flex items-center justify-center gap-2 transition-all duration-300 cursor-pointer ${
+                className={`py-2 px-2.5 rounded-full text-xs font-bold flex items-center justify-center gap-1.5 transition-all duration-300 cursor-pointer ${
                   role === 'RECRUITER'
                     ? 'bg-[#5b48bd] text-white shadow-md'
                     : 'text-slate-600 hover:text-[#221d47]'
                 }`}
               >
-                <Building2 className="w-4 h-4" />
+                <Building2 className="w-3.5 h-3.5" />
                 <span>Tuyển Dụng</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleRoleChange('ADMIN')}
+                className={`py-2 px-2.5 rounded-full text-xs font-bold flex items-center justify-center gap-1.5 transition-all duration-300 cursor-pointer ${
+                  role === 'ADMIN'
+                    ? 'bg-[#5b48bd] text-white shadow-md'
+                    : 'text-slate-600 hover:text-[#221d47]'
+                }`}
+              >
+                <Shield className="w-3.5 h-3.5" />
+                <span>Quản Trị</span>
               </button>
             </div>
 
             {/* Heading */}
             <div className="space-y-1">
               <h1 className="text-2xl sm:text-3xl font-extrabold text-[#221d47] tracking-tight">
-                {role === 'CANDIDATE' ? 'Chào mừng bạn trở lại' : 'Cổng Nhà Tuyển Dụng'}
+                {role === 'CANDIDATE' ? 'Chào mừng bạn trở lại' : role === 'RECRUITER' ? 'Cổng Nhà Tuyển Dụng' : 'Cổng Quản Trị Hệ Thống'}
               </h1>
               <p className="text-xs sm:text-sm text-slate-500 font-normal">
                 {role === 'CANDIDATE'
                   ? 'Đăng nhập để khám phá việc làm phù hợp và luyện phỏng vấn AI.'
-                  : 'Đăng nhập để quản lý tin tuyển dụng và theo dõi phễu ứng viên.'}
+                  : role === 'RECRUITER'
+                  ? 'Đăng nhập để quản lý tin tuyển dụng và theo dõi phễu ứng viên.'
+                  : 'Đăng nhập dành cho Quản trị viên để kiểm duyệt tin, người dùng và thanh toán.'}
               </p>
             </div>
 
@@ -626,7 +668,13 @@ export default function LoginPage({ onNavigateRegister, onLoginSuccess }) {
             )}
 
             {/* Real Database Credentials Form */}
-            <form onSubmit={handleSubmit} className="space-y-3.5">
+            <form onSubmit={handleSubmit} autoComplete="off" className="space-y-3.5">
+              {/* Hidden dummy fields to neutralize aggressive browser autofill */}
+              <div style={{ position: 'absolute', top: '-9999px', left: '-9999px', opacity: 0, height: 0, width: 0, pointerEvents: 'none', overflow: 'hidden' }} aria-hidden="true">
+                <input type="text" name="chrome_trap_user" tabIndex="-1" autoComplete="off" />
+                <input type="password" name="chrome_trap_pwd" tabIndex="-1" autoComplete="off" />
+              </div>
+
               {/* Email Field */}
               <div className="space-y-1">
                 <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
@@ -636,9 +684,11 @@ export default function LoginPage({ onNavigateRegister, onLoginSuccess }) {
                   <Mail className="w-4 h-4 text-[#5b48bd] absolute left-3.5 pointer-events-none" />
                   <input
                     type="email"
+                    name="login_user_email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder={role === 'CANDIDATE' ? 'longtran@candidate.hiremate.ai' : 'minhanh.hr@fptsoftware.com'}
+                    placeholder="Nhập địa chỉ email của bạn..."
+                    autoComplete="off"
                     required
                     className="w-full pl-10 pr-4 py-2.5 bg-purple-50/40 border border-purple-100 focus:border-[#5b48bd] focus:bg-white focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] placeholder-slate-400 focus:outline-none transition-all font-sans"
                   />
@@ -663,9 +713,11 @@ export default function LoginPage({ onNavigateRegister, onLoginSuccess }) {
                   <Lock className="w-4 h-4 text-[#5b48bd] absolute left-3.5 pointer-events-none" />
                   <input
                     type={showPassword ? 'text' : 'password'}
+                    name="login_user_password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••••••"
+                    placeholder="Nhập mật khẩu..."
+                    autoComplete="new-password"
                     required
                     className="w-full pl-10 pr-10 py-2.5 bg-purple-50/40 border border-purple-100 focus:border-[#5b48bd] focus:bg-white focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] placeholder-slate-400 focus:outline-none transition-all font-sans"
                   />

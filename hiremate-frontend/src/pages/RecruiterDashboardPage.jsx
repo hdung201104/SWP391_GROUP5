@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import RecruiterProfilePage from './RecruiterProfilePage';
 import RecruiterJobManagementPage from './RecruiterJobManagementPage';
 import { jobApi, applicationApi, aiMatchApi, companyApi } from '../api';
+import { parseSkillList } from '../utils/helpers';
 
 export default function RecruiterDashboardPage({ user, currentRoute }) {
   // Parse tab from currentRoute
@@ -105,8 +106,8 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
               interviewCount: interviewCount,
               offerCount: offerCount,
               postedDate: j.createdAt ? new Date(j.createdAt).toLocaleDateString('vi-VN') : 'Gần đây',
-              mandatorySkills: j.requirements ? j.requirements.split(/,|\r?\n|\\n/).map((s) => s.replace(/^[\s\-\u2022]+/, '').trim()).filter(Boolean) : ['Kỹ năng chuyên môn'],
-              preferredSkills: j.benefits ? j.benefits.split(/,|\r?\n|\\n/).map((s) => s.replace(/^[\s\-\u2022]+/, '').trim()).filter(Boolean) : ['Đãi ngộ tốt'],
+              mandatorySkills: parseSkillList(j.requirements, ['Kỹ năng chuyên môn']),
+              preferredSkills: parseSkillList(j.benefits, ['Đãi ngộ tốt']),
             };
           })
         );
@@ -308,7 +309,7 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
 
     filteredReportCandidates.forEach((c) => {
       let dayIdx = 2; // default Thứ Tư
-      if (c.appliedDate) {
+      if (c.appliedDate && typeof c.appliedDate === 'string') {
         const parts = c.appliedDate.split('/');
         if (parts.length === 3) {
           const d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);

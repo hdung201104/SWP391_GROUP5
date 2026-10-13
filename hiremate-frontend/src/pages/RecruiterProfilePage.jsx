@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLivingTheme } from '../context/LivingThemeContext';
 import { companyApi, jobApi, applicationApi } from '../api';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+import { parseSkillList } from '../utils/helpers';
 
 export default function RecruiterProfilePage({ user, onNavigate }) {
   const { theme: livingTheme, luminosity } = useLivingTheme();
@@ -93,7 +94,7 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
               salary: j.salaryMin && j.salaryMax ? `$${j.salaryMin} – $${j.salaryMax} USD / tháng` : 'Thỏa thuận',
               location: j.location || 'Việt Nam',
               level: j.employmentType || 'Toàn thời gian',
-              tags: j.requirements ? j.requirements.split(/,|\r?\n|\\n/).map((s) => s.replace(/^[\s\-\u2022]+/, '').trim()).filter(Boolean).slice(0, 4) : ['Kỹ năng chuyên môn'],
+              tags: parseSkillList(j.requirements, ['Kỹ năng chuyên môn']).slice(0, 4),
               postedTime: j.createdAt ? new Date(j.createdAt).toLocaleDateString('vi-VN') : 'Gần đây',
               applicantCount: appCount,
               isHot: j.status === 'PUBLISHED',

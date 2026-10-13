@@ -294,9 +294,11 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + userId));
 
+        boolean isOAuthPlaceholder = user.getPasswordHash() != null && user.getPasswordHash().contains("GoogleOAuth2_");
         boolean matches = passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())
                 || "123456".equals(request.getCurrentPassword())
-                || "Password123@".equals(request.getCurrentPassword());
+                || "Password123@".equals(request.getCurrentPassword())
+                || isOAuthPlaceholder;
 
         if (!matches) {
             throw new IllegalArgumentException("Mật khẩu hiện tại không chính xác");
@@ -407,10 +409,22 @@ public class AuthServiceImpl implements AuthService {
             throw new IllegalArgumentException("Email " + email + " đã tồn tại trong hệ thống. Vui lòng đăng nhập.");
         }
 
+        // Xác thực mã OTP nếu có gửi lên
+        if (request.getOtp() != null && !request.getOtp().isBlank()) {
+            boolean validOtp = otpService.verifyOtp(email, request.getOtp().trim(), "REGISTER");
+            if (!validOtp) {
+                throw new IllegalArgumentException("Mã xác thực OTP không chính xác hoặc đã hết hiệu lực.");
+            }
+        }
+
         UserRole role = request.getRole() != null ? request.getRole() : UserRole.CANDIDATE;
+        String rawPassword = (request.getPassword() != null && !request.getPassword().isBlank())
+                ? request.getPassword().trim()
+                : ("GoogleOAuth2_" + UUID.randomUUID());
+
         User user = User.builder()
                 .email(email)
-                .passwordHash(passwordEncoder.encode("GoogleOAuth2_" + UUID.randomUUID()))
+                .passwordHash(passwordEncoder.encode(rawPassword))
                 .fullName(request.getFullName())
                 .phone(request.getPhone())
                 .avatarUrl(request.getAvatarUrl())

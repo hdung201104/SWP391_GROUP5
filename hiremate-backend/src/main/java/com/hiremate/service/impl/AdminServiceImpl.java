@@ -204,11 +204,32 @@ public class AdminServiceImpl implements AdminService {
         if (adminNote != null && !adminNote.isBlank()) {
             order.setAdminNote(adminNote);
         }
+        // Đảm bảo đơn hàng được gán gói trả phí chính xác nếu trước đó bị gán Free Plan
+        SubscriptionPlan plan = order.getPlan();
+        if ((plan == null || (plan.getPrice() != null && plan.getPrice().compareTo(java.math.BigDecimal.ZERO) == 0))
+                && order.getAmount() != null && order.getAmount().compareTo(java.math.BigDecimal.ZERO) > 0) {
+            String role = (order.getUser() != null && order.getUser().getRole() != null)
+                    ? order.getUser().getRole().name() : "CANDIDATE";
+            List<SubscriptionPlan> paidPlans = subscriptionPlanRepository.findByTargetRoleAndIsActiveTrueOrderByPriceAsc(role).stream()
+                    .filter(p -> p.getPrice() != null && p.getPrice().compareTo(java.math.BigDecimal.ZERO) > 0)
+                    .collect(Collectors.toList());
+            if (!paidPlans.isEmpty()) {
+                SubscriptionPlan matched = paidPlans.get(0);
+                for (SubscriptionPlan p : paidPlans) {
+                    if (p.getPrice().compareTo(order.getAmount()) == 0) {
+                        matched = p;
+                        break;
+                    }
+                }
+                plan = matched;
+                order.setPlan(plan);
+            }
+        }
+
         paymentOrderRepository.save(order);
 
         // Kích hoạt hoặc gia hạn Subscription
-        if (order.getUser() != null && order.getPlan() != null) {
-            SubscriptionPlan plan = order.getPlan();
+        if (order.getUser() != null && plan != null) {
             int durationDays = (plan.getDurationDays() != null && plan.getDurationDays() > 0) ? plan.getDurationDays() : 30;
 
             Subscription subscription = Subscription.builder()

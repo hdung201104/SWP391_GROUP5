@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLivingTheme } from '../context/LivingThemeContext';
 import { applicationApi, aiMatchApi, jobApi } from '../api';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+import { parseSkillList } from '../utils/helpers';
 
 export default function CandidateEvaluationPage({ user, candidateId = 1, jobId = 101, onBack }) {
   const { theme: livingTheme, luminosity } = useLivingTheme();
@@ -150,20 +151,16 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
         const preferredScore = match?.preferredScore || Math.max(matchScore - 5, 75);
 
         const mandatoryMatched = match?.matchedMandatorySkills
-          ? match.matchedMandatorySkills.split(/,/).map((s) => s.trim()).filter(Boolean)
-          : (job?.requirements ? job.requirements.split(/,|\r?\n|\\n/).map((s) => s.replace(/^[\s\-\u2022]+/, '').trim()).filter(Boolean).slice(0, 3) : ['Java', 'Spring Boot', 'SQL']);
+          ? parseSkillList(match.matchedMandatorySkills, [])
+          : (job?.requirements ? parseSkillList(job.requirements, ['Java', 'Spring Boot', 'SQL']).slice(0, 3) : ['Java', 'Spring Boot', 'SQL']);
         
-        const mandatoryMissing = match?.missingMandatorySkills
-          ? match.missingMandatorySkills.split(/,/).map((s) => s.trim()).filter(Boolean)
-          : [];
+        const mandatoryMissing = parseSkillList(match?.missingMandatorySkills, []);
 
         const preferredMatched = match?.matchedPreferredSkills
-          ? match.matchedPreferredSkills.split(/,/).map((s) => s.trim()).filter(Boolean)
-          : (job?.benefits ? job.benefits.split(/,|\r?\n|\\n/).map((s) => s.replace(/^[\s\-\u2022]+/, '').trim()).filter(Boolean).slice(0, 2) : ['Docker', 'AWS']);
+          ? parseSkillList(match.matchedPreferredSkills, [])
+          : (job?.benefits ? parseSkillList(job.benefits, ['Docker', 'AWS']).slice(0, 2) : ['Docker', 'AWS']);
 
-        const preferredMissing = match?.missingPreferredSkills
-          ? match.missingPreferredSkills.split(/,/).map((s) => s.trim()).filter(Boolean)
-          : [];
+        const preferredMissing = parseSkillList(match?.missingPreferredSkills, []);
 
         const cvUrl = app?.cvUrl || (profile?.cvs && profile.cvs.length > 0 ? profile.cvs[0].fileUrl : '#');
 
@@ -382,7 +379,7 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
                       />
                     ) : (
                       <div className="w-16 h-16 rounded-2xl bg-[#8C9A84]/15 flex items-center justify-center font-serif font-bold text-2xl text-[#2D3A31]">
-                        {cand.name.split(' ').map((n) => n[0]).slice(-2).join('').toUpperCase()}
+                        {cand.name ? cand.name.split(' ').map((n) => n[0]).slice(-2).join('').toUpperCase() : 'UV'}
                       </div>
                     )}
                     <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[#8C9A84] flex items-center justify-center text-[11px] text-white font-bold">

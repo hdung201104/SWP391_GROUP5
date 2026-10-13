@@ -25,6 +25,16 @@
     font-weight: 700;
     letter-spacing: -0.02em;
   }
+
+  /* Prevent browser autofill from overriding input styles with harsh background */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover, 
+  input:-webkit-autofill:focus, 
+  input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 1000px #f5f3ff inset !important;
+    -webkit-text-fill-color: #1e1b4b !important;
+    transition: background-color 5000s ease-in-out 0s;
+  }
 }
 
 /* ==========================================================================

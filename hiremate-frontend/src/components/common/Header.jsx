@@ -812,9 +812,14 @@ export default function Header({
                       <p className="text-xs font-serif font-bold text-[#2D3A31] truncate">{displayName}</p>
                       <p className="text-[10px] text-[#667067] font-body truncate">{user.email}</p>
                       <div className="flex items-center gap-1.5 mt-1">
-                        <span className={`text-[9px] font-semibold px-2 py-0.5 rounded-full border border-[#E6E2DA] ${isRoleRecruiter ? 'bg-[#8C9A84]/15 text-[#2D3A31]' : 'bg-[#C27B66]/15 text-[#C27B66]'
-                          }`}>
-                          {isRoleRecruiter ? 'NHÀ TUYỂN DỤNG' : 'ỨNG VIÊN'}
+                        <span className={`text-[9px] font-semibold px-2 py-0.5 rounded-full border border-[#E6E2DA] ${
+                          user?.role === 'ADMIN'
+                            ? 'bg-rose-100 text-rose-700 border-rose-200'
+                            : isRoleRecruiter 
+                              ? 'bg-[#8C9A84]/15 text-[#2D3A31]' 
+                              : 'bg-[#C27B66]/15 text-[#C27B66]'
+                        }`}>
+                          {user?.role === 'ADMIN' ? 'QUẢN TRỊ VIÊN' : (isRoleRecruiter ? 'NHÀ TUYỂN DỤNG' : 'ỨNG VIÊN')}
                         </span>
                         <span className="text-[9px] text-[#667067] font-body">HM-{user?.userId || (isRoleCandidate ? '9082' : '2041')}</span>
                       </div>
@@ -921,13 +926,6 @@ export default function Header({
                   )}
 
                   <div className="border-t border-[#E2E8F0] mt-1 pt-1">
-                    <button
-                      onClick={() => { setShowProfileMenu(false); handleNav('#/admin-dashboard'); }}
-                      className="w-full text-left px-4 py-2 text-xs text-[#163026] hover:bg-gray-100 flex items-center gap-2 transition-colors cursor-pointer"
-                    >
-                      <span className="material-symbols-outlined text-sm text-[#244B3D]">dashboard</span>
-                      <span>Chuyển sang Quản Trị (Admin)</span>
-                    </button>
                     <button
                       onClick={() => { setShowProfileMenu(false); onLogout(); }}
                       className="w-full text-left px-4 py-2 text-xs text-[#EF4444] font-bold hover:bg-[#FEE2E2] flex items-center gap-2 transition-colors cursor-pointer"

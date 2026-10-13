@@ -148,6 +148,46 @@ public class PayOSClient {
     }
 
     /**
+     * Lấy thông tin thanh toán trực tiếp từ PayOS API theo orderCode
+     */
+    public PayOSLinkResult getPaymentLinkInformation(Long orderCode) {
+        if (!isConfigured() || orderCode == null) {
+            return null;
+        }
+
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(PAYOS_ENDPOINT + "/" + orderCode))
+                    .timeout(Duration.ofSeconds(10))
+                    .header("x-client-id", clientId.trim())
+                    .header("x-api-key", apiKey.trim())
+                    .GET()
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 200) {
+                JsonNode root = objectMapper.readTree(response.body());
+                String code = root.path("code").asText();
+                if ("00".equals(code)) {
+                    JsonNode data = root.path("data");
+                    return PayOSLinkResult.builder()
+                            .orderCode(data.path("orderCode").asLong())
+                            .amount(data.path("amount").asInt())
+                            .description(data.path("description").asText())
+                            .accountNumber(data.path("accountNumber").asText())
+                            .accountName(data.path("accountName").asText())
+                            .bin(data.path("bin").asText())
+                            .status(data.path("status").asText())
+                            .build();
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Không thể kiểm tra PayOS status cho order {}: {}", orderCode, e.getMessage());
+        }
+        return null;
+    }
+
+    /**
      * Xác thực chữ ký webhook từ PayOS
      */
     public boolean verifyWebhookSignature(Map<String, Object> data, String signature) {
