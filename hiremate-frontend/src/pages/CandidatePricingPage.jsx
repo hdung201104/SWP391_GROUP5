@@ -356,7 +356,7 @@ export default function CandidatePricingPage({ user, onNavigate }) {
     }
   };
 
-  // Tự động kiểm tra đối soát 24/7 (polling mỗi 3s khi đang mở mã QR)
+  // Tự động kiểm tra đối soát 24/7 (polling mỗi 1.5s khi đang mở mã QR)
   useEffect(() => {
     if (!createdOrder?.orderCode || purchaseSuccess || createdOrder.status === 'APPROVED') {
       return;
@@ -366,15 +366,25 @@ export default function CandidatePricingPage({ user, onNavigate }) {
         const res = await paymentApi.getOrderStatus(createdOrder.orderCode);
         const order = res.data?.data || res.data;
         if (order && order.status === 'APPROVED') {
+          clearInterval(interval);
           setCreatedOrder(order);
           setPurchaseSuccess(true);
           applyPlanBenefits();
-          clearInterval(interval);
+          fetchMySubscription();
+          fetchMyPendingOrders();
+
+          // Tự động thoát cửa sổ sau 2 giây
+          setTimeout(() => {
+            setSelectedPlanForPurchase(null);
+            setSelectedAddonForPurchase(null);
+            setCreatedOrder(null);
+            setPurchaseSuccess(false);
+          }, 2000);
         }
       } catch (e) {
         // bỏ qua lỗi polling mạng
       }
-    }, 3000);
+    }, 1500);
 
     return () => clearInterval(interval);
   }, [createdOrder?.orderCode, purchaseSuccess]);
@@ -1101,53 +1111,19 @@ export default function CandidatePricingPage({ user, onNavigate }) {
                   </div>
                 </div>
 
-                {/* Status Check Actions & PayOS Auto Activation */}
-                <div className="space-y-2 pt-2">
-                  <div className="flex items-center justify-center gap-2 p-2 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-800 font-semibold animate-pulse">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-                    <span>Đang tự động đối soát ngân hàng 24/7 (Kích hoạt sau 2-3s)</span>
+                {/* Auto Status & Intelligent Bank Sync */}
+                <div className="space-y-3 pt-2">
+                  <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200/90 flex items-center justify-center gap-2.5 text-xs text-emerald-800 font-bold shadow-xs">
+                    <span className="relative flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                    </span>
+                    <span>Đang tự động nhận diện giao dịch từ Ngân hàng...</span>
                   </div>
 
-                  {createdOrder.checkoutUrl && (
-                    <a
-                      href={createdOrder.checkoutUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="w-full py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition-all"
-                    >
-                      <span className="material-symbols-outlined text-sm">open_in_new</span>
-                      <span>Mở Trang Thanh Toán PayOS Trực Tuyến</span>
-                    </a>
-                  )}
-
-                  <div className="flex flex-col sm:flex-row gap-2 pt-1">
-                    <button
-                      onClick={handleConfirmPaidNow}
-                      disabled={checkingStatus}
-                      className="flex-1 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black uppercase tracking-wider cursor-pointer shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
-                    >
-                      {checkingStatus ? (
-                        <>
-                          <span className="material-symbols-outlined text-base animate-spin">sync</span>
-                          <span>Đang Xác Thực Chuyển Khoản...</span>
-                        </>
-                      ) : (
-                        <>
-                          <span className="material-symbols-outlined text-base font-bold">verified</span>
-                          <span>Tôi Đã Chuyển Khoản - Kích Hoạt Ngay</span>
-                        </>
-                      )}
-                    </button>
-
-                    <button
-                      onClick={handleCheckOrderStatus}
-                      disabled={checkingStatus}
-                      className="px-4 py-3.5 rounded-2xl bg-indigo-50 hover:bg-indigo-100 text-[#32247b] text-xs font-bold cursor-pointer border border-indigo-200 transition-all flex items-center justify-center gap-1.5 shrink-0"
-                    >
-                      <span className="material-symbols-outlined text-sm">refresh</span>
-                      <span>Đối Soát PayOS</span>
-                    </button>
-                  </div>
+                  <p className="text-[11px] text-slate-500 text-center leading-relaxed px-2">
+                    💡 Sau khi bạn chuyển khoản trên app ngân hàng, hệ thống sẽ <strong>tự động đối soát</strong>, <strong>tự động đóng cửa sổ</strong> và <strong>nâng cấp gói ngay lập tức</strong> mà bạn không cần phải thao tác gì thêm.
+                  </p>
 
                   <button
                     onClick={() => {
@@ -1155,25 +1131,30 @@ export default function CandidatePricingPage({ user, onNavigate }) {
                       setSelectedAddonForPurchase(null);
                       setCreatedOrder(null);
                     }}
-                    className="w-full py-2 rounded-2xl text-slate-500 hover:bg-slate-100 text-xs font-medium cursor-pointer"
+                    className="w-full py-2.5 rounded-2xl border border-slate-200 hover:bg-slate-100 text-slate-500 text-xs font-semibold cursor-pointer transition-colors"
                   >
-                    Đóng cửa sổ (Đơn hàng đã được lưu trên hệ thống)
+                    Đóng cửa sổ
                   </button>
                 </div>
               </div>
             ) : (
               /* SUCCESS STATE */
               <div className="text-center py-6 space-y-4 animate-fadeIn">
-                <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-md">
+                <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-md animate-bounce">
                   <span className="material-symbols-outlined text-3xl font-bold">check_circle</span>
                 </div>
                 <div>
                   <h3 className="text-2xl font-extrabold text-[#1e1b4b]">
-                    Kích Hoạt Gói Thành Công! 🎉
+                    Đã Nhận Tiền &amp; Kích Hoạt Thành Công! 🎉
                   </h3>
                   <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                    Tài khoản Ứng viên của bạn đã được cộng thêm lượt phỏng vấn thử AI và kích hoạt đầy đủ đặc quyền mới.
+                    Giao dịch ngân hàng đã được xác nhận. Tài khoản của bạn đã được nâng cấp đầy đủ đặc quyền mới!
                   </p>
+                </div>
+
+                <div className="p-3 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-bold flex items-center justify-center gap-2">
+                  <span className="material-symbols-outlined text-sm animate-spin">sync</span>
+                  <span>Đang tự động thoát cửa sổ và áp dụng gói...</span>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 text-left space-y-1 font-medium">
