@@ -29,4 +29,6 @@ public class AuthResponse {
     private String address;
     private String bio;
     private String githubUrl;
+    @Builder.Default
+    private Boolean isNewUser = false;
 }

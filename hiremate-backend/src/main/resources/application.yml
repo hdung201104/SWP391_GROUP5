@@ -53,6 +53,11 @@ google:
     client-id: ${GOOGLE_CLIENT_ID:647076772224-84rpqgs802aifka8dpasqp4nr14h7dhv.apps.googleusercontent.com}
     client-secret: ${GOOGLE_CLIENT_SECRET:}
 
+github:
+  oauth2:
+    client-id: ${GITHUB_CLIENT_ID:Ov23lin7fKu1DTd2VwAB}
+    client-secret: ${GITHUB_CLIENT_SECRET:5a845ff134b283d3eb40526625f82575f37bf034}
+
 cloudinary:
   cloud-name: ${CLOUDINARY_CLOUD_NAME:mezrtcb7}
   api-key: ${CLOUDINARY_API_KEY:632312897439654}

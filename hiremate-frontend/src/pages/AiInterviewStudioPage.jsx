@@ -149,51 +149,150 @@ const LEVELS = [
 
 
 // ============================================================================
-// BỘ SINH CÂU HỎI THÔNG MINH CHO TỪNG LĨNH VỰC THỰC TẾ
+// HỆ THỐNG GIỌNG ĐỌC AI TỰ NHIÊN (NATURAL NEURAL TTS ENGINE)
 // ============================================================================
-const generateQuestions = (topicName, domainId) => {
+const getBestVietnameseVoice = (voices, preferredGender = 'female') => {
+  if (!voices || voices.length === 0) return null;
+
+  // Lọc các giọng tiếng Việt khả dụng trên máy (vi-VN, vi_VN)
+  const viVoices = voices.filter(
+    (v) => v.lang && (v.lang.toLowerCase().includes('vi') || v.lang.toLowerCase().replace('_', '-').startsWith('vi-'))
+  );
+
+  if (viVoices.length === 0) {
+    const namedVi = voices.filter((v) => /vietnam|tiếng việt/i.test(v.name));
+    if (namedVi.length > 0) return namedVi[0];
+    return null;
+  }
+
+  if (preferredGender === 'male') {
+    // Ưu tiên Microsoft NamMinh Online (Natural) hoặc giọng Nam chuẩn
+    const naturalMale = viVoices.find((v) => /namminh|nam|male|man/i.test(v.name));
+    if (naturalMale) return naturalMale;
+  } else {
+    // Ưu tiên Microsoft HoaiMy Online (Natural) hoặc Google Tiếng Việt
+    const naturalFemale = viVoices.find((v) => /hoaimy|natural|online/i.test(v.name) && !/namminh|nam/i.test(v.name));
+    if (naturalFemale) return naturalFemale;
+    const googleVi = viVoices.find((v) => /google/i.test(v.name));
+    if (googleVi) return googleVi;
+  }
+
+  // Fallback: Tìm giọng Natural/Online bất kỳ
+  const anyNatural = viVoices.find((v) => /natural|online/i.test(v.name));
+  if (anyNatural) return anyNatural;
+
+  // Fallback: Giọng Google tiếng Việt
+  const googleVi = viVoices.find((v) => /google/i.test(v.name));
+  if (googleVi) return googleVi;
+
+  return viVoices[0];
+};
+
+const cleanTextForSpeech = (text) => {
+  if (!text) return '';
+  return text
+    .replace(/[*_#`~>]/g, '') // Lược bỏ markdown ký tự đặc biệt
+    .replace(/^(\d+[\.\)]|Câu\s*\d+[:\.]|Q\d+[:\.])\s*/i, '') // Lược bỏ số thứ tự "Câu 1:" để câu nói tự nhiên
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
+// ============================================================================
+// BỘ SINH CÂU HỎI THÔNG MINH ĐA CHIỀU (FALLBACK KHI GEMINI CHƯA PHẢN HỒI)
+// ============================================================================
+const generateFallbackQuestions = (topicName, domainId, levelId = 'middle') => {
+  const t = topicName || 'Chuyên môn nghiệp vụ';
+  const tLower = t.toLowerCase();
+
+  // 1. LĨNH VỰC CÔNG NGHỆ THÔNG TIN & PHẦN MỀM
+  if (domainId === 'it-software') {
+    if (tLower.contains ? tLower.contains('backend') || tLower.contains('java') : /backend|java|spring|api|microservice/i.test(tLower)) {
+      return [
+        `Hãy giới thiệu ngắn gọn về bản thân và kiến trúc backend phức tạp nhất bạn từng xây dựng liên quan đến: ${t}?`,
+        `Khi hệ thống gặp tải đột biến dẫn đến nghẽn Connection Pool và tăng latency ở tầng CSDL, bạn sẽ chẩn đoán và xử lý tối ưu như thế nào?`,
+        `Trong các bài toán xử lý đồng thời (Concurrency) và Transaction, bạn so sánh Optimistic Locking và Pessimistic Locking trong bối cảnh nào?`,
+        `Chia sẻ một sự cố Production nghiêm trọng (như Memory Leak, Deadlock hoặc CPU 100%) bạn từng trực tiếp khắc phục và bài học rút ra?`,
+        `Tại sao bạn lại chọn kiến trúc hiện tại cho ${t} thay vì các giải pháp thay thế khác? Quyết định đánh đổi (Trade-off) lớn nhất là gì?`
+      ];
+    }
+    if (/frontend|react|vue|web|ui/i.test(tLower)) {
+      return [
+        `Trình bày về một dự án Web Frontend phức tạp nhất bạn từng triển khai với: ${t}?`,
+        `Làm thế nào để bạn kiểm soát và tối ưu hóa các chỉ số Core Web Vitals (LCP, FID, CLS) khi ứng dụng có nhiều tương tác thời gian thực?`,
+        `Bạn giải quyết bài toán quản lý State toàn cục và chống re-render dư thừa trong các component lớn như thế nào?`,
+        `Khi đối mặt với yêu cầu hỗ trợ đa thiết bị và xử lý kết nối mạng chập chờn (Offline-first/PWA), bạn xây dựng kiến trúc UI ra sao?`,
+        `Kể về một tình huống bạn tối ưu hóa kích thước bundle và thời gian tải trang ban đầu thành công?`
+      ];
+    }
+    if (/devops|cloud|kubernetes|docker|ci\/cd/i.test(tLower)) {
+      return [
+        `Mô tả luồng triển khai CI/CD và chiến lược quản lý hạ tầng Infrastructure as Code (IaC) bạn áp dụng cho: ${t}?`,
+        `Khi triển khai Zero-Downtime Deployment (Blue/Green hoặc Canary), bạn xử lý vấn đề tương thích ngược của Database Schema ra sao?`,
+        `Trình bày giải pháp thiết lập cảnh báo, thu thập log và Distributed Tracing để phát hiện lỗi dịch vụ trong vòng 2 phút?`,
+        `Một sự cố mất an toàn bảo mật hoặc gián đoạn dịch vụ hạ tầng đám mây bạn từng xử lý và giải pháp ngăn ngừa tái diễn?`,
+        `Phương pháp tối ưu hóa chi phí hạ tầng Cloud (FinOps) mà vẫn đảm bảo tính sẵn sàng cao (High Availability)?`
+      ];
+    }
+    return [
+      `Hãy giới thiệu về năng lực cốt lõi và kinh nghiệm thực chiến tiêu biểu nhất của bạn với chủ đề: ${t}?`,
+      `Khi thiết kế giải pháp cho bài toán ${t}, bạn ưu tiên các tiêu chuẩn chất lượng và kiến trúc bền vững như thế nào?`,
+      `Mô tả một quyết định kỹ thuật gây tranh cãi trong team liên quan đến ${t} và cách bạn thuyết phục các bên liên quan?`,
+      `Cách bạn kiểm thử, tự động hóa và đảm bảo chất lượng trước khi release một tính năng trọng yếu ra thị trường?`,
+      `Xu hướng công nghệ mới nhất đang tác động và định hình lại tương lai của ${t} trong 2 năm tới là gì?`
+    ];
+  }
+
+  // 2. LĨNH VỰC KINH TẾ & TÀI CHÍNH
   if (domainId === 'kinh-te') {
     return [
-      `Hãy phân tích nguyên nhân và cách bạn đánh giá rủi ro tài chính của một doanh nghiệp khi thực hiện: ${topicName}?`,
-      `Khi các chỉ số thanh toán và biên lợi nhuận bị suy giảm trong bối cảnh lạm phát, bạn sẽ tham mưu giải pháp gì cho Ban Giám đốc trong ${topicName}?`,
-      `Chia sẻ một case study thực tế bạn đã áp dụng ${topicName} để tối ưu hóa dòng tiền hoặc cắt giảm chi phí cho doanh nghiệp?`,
-      `Các sai lầm hoặc gian lận phổ biến nhất cần kiểm soát chặt chẽ khi triển khai ${topicName} là gì?`,
-      `Nếu được giao quyền quyết định, bạn sẽ xây dựng quy trình kiểm soát và báo cáo định kỳ cho ${topicName} như thế nào?`,
+      `Hãy phân tích quy trình bạn đánh giá sức khỏe tài chính và rủi ro thanh khoản của một doanh nghiệp khi thực hiện: ${t}?`,
+      `Khi biên lợi nhuận bị xói mòn và chi phí vốn gia tăng do lạm phát, bạn sẽ tham mưu giải pháp tái cấu trúc dòng tiền nào cho Ban Điều hành?`,
+      `Chia sẻ một tình huống thực tế bạn phát hiện sai lệch số liệu hoặc rủi ro kiểm toán trọng yếu khi triển khai: ${t}?`,
+      `Bạn ứng dụng các chỉ số định lượng (NPV, IRR, WACC, DCF) ra sao để thẩm định tính khả thi của một quyết định đầu tư lớn?`,
+      `Nếu có sự xung đột giữa mục tiêu tăng trưởng doanh thu ngắn hạn và an toàn vốn dài hạn, bạn sẽ cân bằng bài toán này như thế nào?`
     ];
   }
+
+  // 3. LĨNH VỰC MARKETING & TRUYỀN THÔNG SỐ
   if (domainId === 'marketing') {
     return [
-      `Chiến lược cốt lõi của bạn để tối ưu hiệu quả và đo lường ROI khi triển khai: ${topicName} là gì?`,
-      `Khi ngân sách bị cắt giảm 30% nhưng mục tiêu KPI doanh số giữ nguyên, bạn sẽ tái cấu trúc ${topicName} như thế nào?`,
-      `Làm thế nào để phối hợp nhịp nhàng giữa đội ngũ Sáng tạo (Creative) và Đội ngũ Số liệu (Data/Performance) trong ${topicName}?`,
-      `Kể về một chiến dịch thất bại hoặc gặp khủng hoảng khi thực hiện ${topicName} và bài học đắt giá bạn rút ra được?`,
-      `Xu hướng công nghệ và hành vi khách hàng mới nhất đang tác động mạnh mẽ đến ${topicName} trong năm nay là gì?`,
+      `Mô tả cấu trúc phễu chuyển đổi (Full-funnel) và phương pháp đo lường ROI/ROAS của bạn khi thực thi chiến dịch: ${t}?`,
+      `Khi chi phí quảng cáo (CAC) tăng vọt 40% nhưng KPI doanh số giữ nguyên, bạn sẽ điều chỉnh phân bổ ngân sách và thông điệp ra sao?`,
+      `Làm thế nào bạn phối hợp ăn ý giữa đội ngũ Sáng tạo (Creative Storytelling) và đội ngũ Dữ liệu (Performance Analytics)?`,
+      `Kể về một chiến dịch truyền thông không đạt kỳ vọng hoặc gặp phản hồi tiêu cực từ cộng đồng và cách bạn xử lý khủng hoảng?`,
+      `Chiến lược giữ chân khách hàng (Retention & LTV) được bạn tích hợp thế nào trong kế hoạch tổng thể của: ${t}?`
     ];
   }
+
+  // 4. LĨNH VỰC SALES & PHÁT TRIỂN THỊ TRƯỜNG
   if (domainId === 'sales') {
     return [
-      `Quy trình chuẩn mực từng bước của bạn từ khâu tiếp cận đến chốt hợp đồng đối với: ${topicName}?`,
-      `Khách hàng lớn từ chối ký hợp đồng với lý do giá quá cao hoặc chưa đúng thời điểm, bạn sẽ xử lý phản đối trong ${topicName} ra sao?`,
-      `Làm thế nào bạn phân loại và ưu tiên các khách hàng tiềm năng có tỷ lệ chốt cao nhất trong ${topicName}?`,
-      `Chia sẻ về một thương vụ đàm phán khó khăn nhất bạn từng xoay chuyển tình thế thành công trong ${topicName}?`,
-      `Bí quyết của bạn để vừa đạt chỉ tiêu số mới (Hunting) vừa nuôi dưỡng quan hệ lâu dài (Farming) trong ${topicName}?`,
+      `Quy trình từng bước của bạn để thẩm định chân dung khách hàng mục tiêu và mở rộng phễu khách hàng tiềm năng cho: ${t}?`,
+      `Khi khách hàng doanh nghiệp lớn từ chối ký hợp đồng vì rào cản ngân sách hoặc đối thủ cạnh tranh chào giá thấp hơn, bạn xử lý ra sao?`,
+      `Chia sẻ về một thương vụ đàm phán kéo dài, phức tạp với nhiều người ra quyết định (Stakeholders) mà bạn chốt thành công?`,
+      `Bạn xây dựng mối quan hệ tin cậy dài hạn với khách hàng VIP để tạo ra doanh thu định kỳ (Cross-sell/Up-sell) bằng cách nào?`,
+      `Bí quyết để bạn liên tục duy trì động lực và hoàn thành 100% chỉ tiêu doanh số cá nhân ngay cả trong các quý thị trường trầm lắng?`
     ];
   }
+
+  // 5. LĨNH VỰC NHÂN SỰ & QUẢN TRỊ NGUỒN LỰC (HR)
   if (domainId === 'hr') {
     return [
-      `Phương pháp của bạn để xây dựng tiêu chí đánh giá chuẩn mực và thu hút ứng viên chất lượng cao trong: ${topicName}?`,
-      `Khi xảy ra xung đột quan điểm hoặc bất đồng lợi ích giữa nhân sự và doanh nghiệp, cách giải quyết của bạn trong ${topicName} là gì?`,
-      `Làm thế nào để đo lường định lượng hiệu quả (KPIs/Metrics) của các chương trình thuộc ${topicName}?`,
-      `Chia sẻ kinh nghiệm thực tế của bạn trong việc tái cấu trúc hoặc triển khai thành công một chính sách mới về ${topicName}?`,
-      `Bạn ứng dụng công nghệ và chuyển đổi số như thế nào để tối ưu năng suất lao động trong ${topicName}?`,
+      `Chiến lược của bạn để xây dựng thương hiệu tuyển dụng và thu hút nhân tài chất lượng cao trong lĩnh vực: ${t}?`,
+      `Khi xảy ra tranh chấp quyền lợi hoặc bất đồng gay gắt giữa nhân viên và quản lý cấp cao, quy trình hòa giải của bạn là gì?`,
+      `Phương pháp bạn thiết kế khung năng lực, chính sách đãi ngộ (C&B) và lộ trình thăng tiến để giữ chân nhân sự chủ chốt?`,
+      `Làm thế nào để đo lường định lượng mức độ gắn kết văn hóa và hiệu suất làm việc thông qua hệ thống OKRs/KPIs?`,
+      `Chia sẻ kinh nghiệm thực tế của bạn khi dẫn dắt một đợt tái cấu trúc tổ chức hoặc thay đổi quy chế làm việc lớn?`
     ];
   }
+
+  // 6. CÁC LĨNH VỰC KHÁC (VẬN HÀNH, QUẢN TRỊ, THIẾT KẾ)
   return [
-    `Hãy giải thích nguyên lý hoạt động cốt lõi và các tiêu chuẩn tốt nhất (Best Practices) của: ${topicName}?`,
-    `Khi hệ thống hoặc quy trình gặp sự cố về hiệu năng ở quy mô lớn, bạn sẽ chẩn đoán và khắc phục ${topicName} như thế nào?`,
-    `So sánh giải pháp ${topicName} với các phương án thay thế khác trên thị trường. Điểm đánh đổi (Trade-offs) quan trọng nhất là gì?`,
-    `Chia sẻ một bài học kinh nghiệm sâu sắc nhất bạn tích lũy được sau khi triển khai dự án thực tế về ${topicName}?`,
-    `Nếu bắt đầu thiết kế giải pháp cho khách hàng doanh nghiệp lớn, bạn sẽ kiến trúc ${topicName} theo mô hình nào?`,
+    `Hãy giới thiệu tổng quan về triết lý làm việc và những thành tựu thực tế nổi bật nhất của bạn trong chủ đề: ${t}?`,
+    `Khi quy trình vận hành hoặc dự án gặp sự cố phát sinh ngoài tầm kiểm soát, các bước xử lý ưu tiên của bạn là gì?`,
+    `So sánh phương án bạn đề xuất cho ${t} với các giải pháp khác. Đâu là điểm đánh đổi (Trade-offs) và rủi ro cần phòng ngừa?`,
+    `Chia sẻ một bài học kinh nghiệm sâu sắc nhất sau một lần ra quyết định chưa hoàn hảo và cách bạn cải tiến bản thân?`,
+    `Bạn sẽ xây dựng bộ chỉ số đo lường hiệu quả (Metrics/KPIs) và kế hoạch 90 ngày đầu tiên cho vị trí này như thế nào?`
   ];
 };
 
@@ -298,9 +397,23 @@ export default function AiInterviewStudioPage({ user }) {
   const [toast, setToast] = useState('');
   const [currentSessionId, setCurrentSessionId] = useState(null);
   const [isSubmittingAnswer, setIsSubmittingAnswer] = useState(false);
+  const [selectedVoiceType, setSelectedVoiceType] = useState('female'); // 'female' | 'male'
+  const [availableVoices, setAvailableVoices] = useState([]);
+  const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false);
+  const [isAdaptiveUpdating, setIsAdaptiveUpdating] = useState(false);
+  const [dialogueHistory, setDialogueHistory] = useState([]);
+  const [liveStageMode, setLiveStageMode] = useState('chatgpt'); // 'chatgpt' | 'studio'
   const timerRef = useRef(null);
   const videoPreviewRef = useRef(null);
   const recognitionRef = useRef(null);
+  const chatBottomRef = useRef(null);
+
+  // Auto-scroll conversational chat feed
+  useEffect(() => {
+    if (chatBottomRef.current) {
+      chatBottomRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [dialogueHistory, isAiTyping]);
 
   const topic = customTopic.trim() || selectedTopic;
 
@@ -374,15 +487,46 @@ export default function AiInterviewStudioPage({ user }) {
     return () => clearInterval(timerRef.current);
   }, [timerOn]);
 
-  // Web Speech Synthesis (AI Voice Reading)
+  // Load Natural Web Speech Voices (Microsoft Natural / Google Vietnamese)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    const syncVoices = () => {
+      const v = window.speechSynthesis.getVoices() || [];
+      if (v.length > 0) {
+        setAvailableVoices(v);
+      }
+    };
+    syncVoices();
+    window.speechSynthesis.onvoiceschanged = syncVoices;
+    return () => {
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.onvoiceschanged = null;
+      }
+    };
+  }, []);
+
+  // Web Speech Synthesis (AI Voice Reading với Natural Neural Voices)
   const speakQuestionText = (text) => {
     if (isMuted) return;
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
+      const clean = cleanTextForSpeech(text);
+      if (!clean) return;
+
+      const utterance = new SpeechSynthesisUtterance(clean);
       utterance.lang = 'vi-VN';
-      utterance.rate = 1.0;
-      utterance.pitch = 1.05;
+
+      const bestVoice = getBestVietnameseVoice(availableVoices, selectedVoiceType);
+      if (bestVoice) {
+        utterance.voice = bestVoice;
+        utterance.lang = bestVoice.lang;
+      }
+
+      // Tốc độ đĩnh đạc, âm sắc tự nhiên, ngắt nghỉ như người phỏng vấn thật
+      utterance.rate = 0.93;
+      utterance.pitch = selectedVoiceType === 'male' ? 0.95 : 1.0;
+      utterance.volume = 1.0;
+
       utterance.onstart = () => setIsAiSpeaking(true);
       utterance.onend = () => setIsAiSpeaking(false);
       utterance.onerror = () => setIsAiSpeaking(false);
@@ -398,6 +542,33 @@ export default function AiInterviewStudioPage({ user }) {
       window.speechSynthesis.cancel();
     }
     setIsAiSpeaking(false);
+  };
+
+  const testVoiceSample = (gender) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      showToast('⚠️ Trình duyệt của bạn không hỗ trợ Speech Synthesis.');
+      return;
+    }
+    window.speechSynthesis.cancel();
+    const sampleText = gender === 'male'
+      ? 'Xin chào bạn. Tôi là chuyên gia phỏng vấn Nam Minh. Rất hân hạnh được đồng hành và đánh giá chuyên môn cùng bạn hôm nay.'
+      : 'Xin chào bạn. Tôi là chuyên gia phỏng vấn Hoài My. Rất hân hạnh được đồng hành cùng bạn trong buổi phỏng vấn ngày hôm nay.';
+
+    const utterance = new SpeechSynthesisUtterance(sampleText);
+    utterance.lang = 'vi-VN';
+    const bestVoice = getBestVietnameseVoice(availableVoices, gender);
+    if (bestVoice) {
+      utterance.voice = bestVoice;
+      utterance.lang = bestVoice.lang;
+    }
+    utterance.rate = 0.93;
+    utterance.pitch = gender === 'male' ? 0.95 : 1.0;
+    utterance.volume = 1.0;
+    utterance.onstart = () => setIsAiSpeaking(true);
+    utterance.onend = () => setIsAiSpeaking(false);
+    utterance.onerror = () => setIsAiSpeaking(false);
+    window.speechSynthesis.speak(utterance);
+    showToast(`Đang phát thử ${gender === 'male' ? 'Giọng Nam Trầm Ấm (Nam Minh)' : 'Giọng Nữ Tự Nhiên (Hoài My)'}`);
   };
 
   // Toggle Microphone & Web Speech Recognition
@@ -500,7 +671,75 @@ export default function AiInterviewStudioPage({ user }) {
       showToast('⚠️ Vui lòng chọn lĩnh vực và chủ đề phỏng vấn!');
       return;
     }
-    const qs = generateQuestions(topic, selectedDomain.id).slice(0, numQuestions);
+
+    setIsGeneratingQuestions(true);
+    showToast('🤖 AI Agent đang thiết lập bộ câu hỏi phỏng vấn chuẩn hóa...');
+
+    const levelObj = LEVELS.find((l) => l.id === selectedLevel);
+    const levelLabel = levelObj?.label || 'Middle';
+
+    let qs = [];
+    let sessionId = null;
+
+    // 1. Sinh bộ câu hỏi thực sự từ Gemini AI trên backend
+    try {
+      const genRes = await interviewApi.generateQuestions({
+        targetPosition: topic,
+        level: levelLabel,
+        count: numQuestions,
+      });
+
+      if (genRes?.data && Array.isArray(genRes.data) && genRes.data.length > 0) {
+        qs = genRes.data.map((q) => (typeof q === 'string' ? q.trim() : String(q)));
+      }
+    } catch (err) {
+      console.warn('Backend generateQuestions failed, using intelligent domain fallback:', err);
+    }
+
+    // 2. Dự phòng thông minh đa chiều theo chuyên môn nếu Gemini chưa phản hồi
+    if (!qs || qs.length === 0) {
+      qs = generateFallbackQuestions(topic, selectedDomain.id, selectedLevel).slice(0, numQuestions);
+    }
+
+    // 3. Khởi tạo phiên phỏng vấn chính thức trên PostgreSQL (Supabase)
+    try {
+      const res = await interviewApi.startSession({
+        targetPosition: topic,
+        level: levelLabel,
+        interviewType: 'TECHNICAL',
+      });
+      if (res?.data?.sessionId) {
+        sessionId = res.data.sessionId;
+        setCurrentSessionId(sessionId);
+      }
+    } catch (err) {
+      console.warn('Backend startSession failed, running in local fallback:', err);
+    }
+
+    // Tạo lời mở đầu đàm thoại tự nhiên, ấm áp như ChatGPT Voice
+    const persona = getPersona(selectedDomain?.id);
+    const candidateName = user?.fullName || 'bạn';
+    const firstQ = qs[0] || 'Hãy chia sẻ về bản thân và một dự án tiêu biểu gần đây mà bạn cảm thấy tâm đắc nhất?';
+    
+    let openingSpeech = firstQ;
+    if (!/chào|xin chào/i.test(firstQ)) {
+      openingSpeech = `Chào ${candidateName}! Tôi là ${persona.name}. Rất vui được gặp bạn trong buổi phỏng vấn vị trí ${topic} hôm nay. Buổi trao đổi này sẽ như một cuộc trò chuyện cởi mở giữa hai chúng ta để hiểu hơn về kinh nghiệm và cách bạn tư duy giải quyết vấn đề thực tế. Để bắt đầu một cách tự nhiên nhất: ${firstQ}`;
+    }
+
+    const initialTurns = [
+      {
+        id: 'turn-ai-0',
+        sender: 'ai',
+        speakerName: persona.name,
+        roleTitle: persona.roleTitle,
+        avatar: persona.avatar,
+        text: openingSpeech,
+        timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+        questionIdx: 0,
+      }
+    ];
+
+    setDialogueHistory(initialTurns);
     setQuestions(qs);
     setAnswers({});
     setCurrentAnswer('');
@@ -509,27 +748,15 @@ export default function AiInterviewStudioPage({ user }) {
     setTimerOn(true);
     setDone(false);
     setResult(null);
-
-    // Call real backend session start in Supabase PostgreSQL
-    try {
-      const res = await interviewApi.startSession({
-        targetPosition: topic,
-        level: LEVELS.find((l) => l.id === selectedLevel)?.label || selectedLevel,
-        interviewType: 'TECHNICAL'
-      });
-      if (res?.data?.sessionId) {
-        setCurrentSessionId(res.data.sessionId);
-      }
-    } catch (err) {
-      console.warn('Backend startSession failed, running in local fallback:', err);
-    }
+    setIsGeneratingQuestions(false);
 
     setView('live');
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    // Speak first question
+
+    // AI đọc lời chào và câu hỏi đầu tiên bằng giọng tự nhiên
     setTimeout(() => {
-      speakQuestionText(qs[0]);
-    }, 600);
+      speakQuestionText(openingSpeech);
+    }, 700);
   };
 
   const handleNext = async () => {
@@ -539,7 +766,21 @@ export default function AiInterviewStudioPage({ user }) {
     setAnswers(upd);
     setCurrentAnswer('');
 
-    // Submit answer to real backend if sessionId exists
+    const persona = getPersona(selectedDomain?.id);
+
+    // Ghi nhận lượt nói của ứng viên vào dòng đối đáp hội thoại
+    const userTurn = {
+      id: `turn-user-${currentIdx}-${Date.now()}`,
+      sender: 'candidate',
+      speakerName: user?.fullName || 'Bạn (Ứng viên)',
+      avatar: user?.avatarUrl || null,
+      text: ansText || '(Ứng viên đã trả lời bằng giọng nói)',
+      timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+      questionIdx: currentIdx,
+    };
+    setDialogueHistory((prev) => [...prev, userTurn]);
+
+    // Gửi câu trả lời về backend để chấm điểm chi tiết bằng Gemini AI
     if (currentSessionId) {
       setIsSubmittingAnswer(true);
       try {
@@ -556,15 +797,62 @@ export default function AiInterviewStudioPage({ user }) {
     }
 
     if (currentIdx < questions.length - 1) {
+      const nextIdx = currentIdx + 1;
       setIsAiTyping(true);
+
+      // Multi-turn Adaptive AI Agent:
+      // Tự động phân tích câu trả lời vừa rồi để sinh câu hỏi phản biện thích ứng
+      let nextQuestion = questions[nextIdx];
+      if (currentSessionId && ansText.length > 10) {
+        setIsAdaptiveUpdating(true);
+        try {
+          const adaptRes = await interviewApi.getNextAdaptiveQuestion(currentSessionId);
+          if (adaptRes?.data && typeof adaptRes.data === 'string' && adaptRes.data.trim().length > 15) {
+            nextQuestion = adaptRes.data.trim();
+            setQuestions((prev) => {
+              const copy = [...prev];
+              copy[nextIdx] = nextQuestion;
+              return copy;
+            });
+            showToast('🎯 AI vừa lắng nghe và đưa ra câu hỏi phản biện nối tiếp câu trả lời của bạn!');
+          }
+        } catch (err) {
+          console.warn('Adaptive next question skipped:', err);
+        } finally {
+          setIsAdaptiveUpdating(false);
+        }
+      }
+
+      // Tạo câu phản hồi và dẫn dắt tự nhiên như người thật nếu câu hỏi chưa có lời phản hồi
+      let conversationalTurnText = nextQuestion;
+      if (!/cảm ơn|tôi hiểu|rất thú vị|ấn tượng|ghi nhận/i.test(conversationalTurnText)) {
+        const friendlyReactions = [
+          'Cảm ơn bạn! Phần chia sẻ vừa rồi rất rõ ràng và sát với thực tế.',
+          'Tôi hiểu giải pháp và cách tiếp cận bạn vừa lựa chọn.',
+          'Một góc nhìn khá thú vị về cách bạn xử lý bài toán này.',
+          'Cảm ơn bạn, tôi ghi nhận kinh nghiệm thực chiến của bạn trong tình huống vừa rồi.',
+        ];
+        const chosenReaction = friendlyReactions[currentIdx % friendlyReactions.length];
+        conversationalTurnText = `${chosenReaction} ${nextQuestion}`;
+      }
+
+      const aiNextTurn = {
+        id: `turn-ai-${nextIdx}-${Date.now()}`,
+        sender: 'ai',
+        speakerName: persona.name,
+        roleTitle: persona.roleTitle,
+        avatar: persona.avatar,
+        text: conversationalTurnText,
+        timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+        questionIdx: nextIdx,
+      };
+
       setTimeout(() => {
         setIsAiTyping(false);
-        setCurrentIdx((i) => {
-          const next = i + 1;
-          speakQuestionText(questions[next]);
-          return next;
-        });
-      }, 1000);
+        setDialogueHistory((prev) => [...prev, aiNextTurn]);
+        setCurrentIdx(nextIdx);
+        speakQuestionText(conversationalTurnText);
+      }, 700);
     } else {
       setTimerOn(false);
       setDone(true);
@@ -999,15 +1287,115 @@ export default function AiInterviewStudioPage({ user }) {
             </div>
           </section>
 
+          {/* 6. CHỌN GIỌNG ĐỌC PHỎNG VẤN AI (NATURAL NEURAL TTS) */}
+          <section className="bg-white rounded-3xl border border-purple-100 p-6 sm:p-7 space-y-4 shadow-sm font-sans">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-[#32247b] text-white flex items-center justify-center text-sm font-extrabold">
+                  6
+                </div>
+                <div>
+                  <h2 className="font-sans font-extrabold text-base text-[#1e1b4b]">Giọng Đọc Phỏng Vấn AI (Natural Neural Voice)</h2>
+                  <p className="text-xs text-slate-500 font-medium">Hệ thống tự động sử dụng giọng đọc tự nhiên (Natural/Neural) chuẩn tiếng Việt.</p>
+                </div>
+              </div>
+              <span className="px-3 py-1 rounded-full text-[11px] font-sans font-bold bg-purple-50 text-[#5b48bd] border border-purple-100 flex items-center gap-1">
+                <span className="material-symbols-outlined text-xs">graphic_eq</span>
+                Tốc độ chuẩn 0.93x (Đĩnh đạc, rõ nét)
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+              {/* Giọng Nữ */}
+              <div
+                onClick={() => setSelectedVoiceType('female')}
+                className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between gap-3 ${
+                  selectedVoiceType === 'female'
+                    ? 'bg-[#f5f3ff] border-[#5b48bd] ring-2 ring-[#5b48bd]/20 shadow-sm'
+                    : 'bg-[#f8f7ff] border-purple-100 hover:bg-purple-50'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-2xl">🌸</span>
+                    <div>
+                      <h3 className="text-xs font-sans font-extrabold text-[#1e1b4b]">Giọng Nữ Tự Nhiên (Hoài My / Google)</h3>
+                      <p className="text-[11px] text-slate-500 font-medium">Truyền cảm, chuẩn âm sắc, ngắt nghỉ chuyên nghiệp</p>
+                    </div>
+                  </div>
+                  {selectedVoiceType === 'female' && (
+                    <span className="material-symbols-outlined text-[#5b48bd] text-lg font-bold">check_circle</span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedVoiceType('female');
+                    testVoiceSample('female');
+                  }}
+                  className="self-start text-[11px] font-sans font-bold px-3 py-1 rounded-full bg-white hover:bg-purple-100 text-[#5b48bd] border border-purple-200 transition-all flex items-center gap-1 shadow-2xs"
+                >
+                  <span className="material-symbols-outlined text-xs">volume_up</span>
+                  <span>Nghe thử giọng nữ</span>
+                </button>
+              </div>
+
+              {/* Giọng Nam */}
+              <div
+                onClick={() => setSelectedVoiceType('male')}
+                className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between gap-3 ${
+                  selectedVoiceType === 'male'
+                    ? 'bg-[#f5f3ff] border-[#5b48bd] ring-2 ring-[#5b48bd]/20 shadow-sm'
+                    : 'bg-[#f8f7ff] border-purple-100 hover:bg-purple-50'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-2xl">🎙️</span>
+                    <div>
+                      <h3 className="text-xs font-sans font-extrabold text-[#1e1b4b]">Giọng Nam Chuyên Nghiệp (Nam Minh Neural)</h3>
+                      <p className="text-[11px] text-slate-500 font-medium">Trầm ấm, đĩnh đạc, phong thái hội đồng tuyển dụng</p>
+                    </div>
+                  </div>
+                  {selectedVoiceType === 'male' && (
+                    <span className="material-symbols-outlined text-[#5b48bd] text-lg font-bold">check_circle</span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedVoiceType('male');
+                    testVoiceSample('male');
+                  }}
+                  className="self-start text-[11px] font-sans font-bold px-3 py-1 rounded-full bg-white hover:bg-purple-100 text-[#5b48bd] border border-purple-200 transition-all flex items-center gap-1 shadow-2xs"
+                >
+                  <span className="material-symbols-outlined text-xs">volume_up</span>
+                  <span>Nghe thử giọng nam</span>
+                </button>
+              </div>
+            </div>
+          </section>
+
           {/* START CTA BUTTON */}
           <div className="pt-2 flex justify-center">
             <button
               onClick={handleStart}
-              disabled={!selectedDomain || (!selectedTopic && !customTopic)}
-              className="w-full sm:w-auto px-10 py-4 rounded-full bg-[#32247b] hover:bg-[#271a66] text-white text-sm uppercase tracking-wider font-extrabold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-3 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed font-sans"
+              disabled={isGeneratingQuestions || !selectedDomain || (!selectedTopic && !customTopic)}
+              className="w-full sm:w-auto px-10 py-4 rounded-full bg-[#32247b] hover:bg-[#271a66] text-white text-sm uppercase tracking-wider font-extrabold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-3 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed font-sans"
             >
-              <span className="material-symbols-outlined text-xl">play_circle</span>
-              <span>Bắt Đầu Phỏng Vấn Với Synthia AI</span>
+              {isGeneratingQuestions ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>Synthia AI Đang Soạn Câu Hỏi Thích Ứng...</span>
+                </>
+              ) : (
+                <>
+                  <span className="material-symbols-outlined text-xl">play_circle</span>
+                  <span>Bắt Đầu Phỏng Vấn Với Synthia AI</span>
+                </>
+              )}
             </button>
           </div>
         </main>
@@ -1074,6 +1462,23 @@ export default function AiInterviewStudioPage({ user }) {
                   <span>{fmt(timerSec)}</span>
                 </div>
 
+                {/* Quick Switch Voice Type */}
+                <button
+                  onClick={() => {
+                    const nextType = selectedVoiceType === 'female' ? 'male' : 'female';
+                    setSelectedVoiceType(nextType);
+                    showToast(`Đã đổi sang ${nextType === 'male' ? 'Giọng Nam (Nam Minh Neural)' : 'Giọng Nữ (Hoài My Neural)'}`);
+                    if (!isMuted && questions[currentIdx]) {
+                      speakQuestionText(questions[currentIdx]);
+                    }
+                  }}
+                  className="px-3 py-1.5 rounded-full border border-purple-100 bg-[#f8f7ff] hover:bg-purple-50 text-xs font-bold text-[#1e1b4b] flex items-center gap-1.5 cursor-pointer shadow-xs transition-all"
+                  title="Bấm để đổi giọng đọc Nữ / Nam"
+                >
+                  <span className="text-sm">{selectedVoiceType === 'female' ? '🌸' : '🎙️'}</span>
+                  <span className="hidden sm:inline">{selectedVoiceType === 'female' ? 'Giọng Nữ' : 'Giọng Nam'}</span>
+                </button>
+
                 {/* Mute AI Speech Toggle */}
                 <button
                   onClick={() => {
@@ -1115,7 +1520,275 @@ export default function AiInterviewStudioPage({ user }) {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start font-sans">
               {/* LEFT STAGE: AI PERSONA & CANDIDATE WORKSPACE (8 Columns) */}
               <div className="lg:col-span-8 space-y-5">
-                
+
+                {/* 2.0 CHỌN CHẾ ĐỘ PHỎNG VẤN */}
+                <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-purple-100 shadow-xs">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-sans font-extrabold text-[#1e1b4b]">Chế độ tương tác:</span>
+                    <div className="flex items-center p-1 bg-[#f8f7ff] rounded-xl border border-purple-100">
+                      <button
+                        onClick={() => setLiveStageMode('chatgpt')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-sans font-extrabold transition-all flex items-center gap-1.5 cursor-pointer ${
+                          liveStageMode === 'chatgpt'
+                            ? 'bg-[#32247b] text-white shadow-xs'
+                            : 'text-slate-600 hover:text-[#1e1b4b]'
+                        }`}
+                      >
+                        <span className="text-sm">🎙️</span>
+                        <span>Đàm Thoại Trực Tiếp (ChatGPT Voice)</span>
+                      </button>
+                      <button
+                        onClick={() => setLiveStageMode('studio')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-sans font-extrabold transition-all flex items-center gap-1.5 cursor-pointer ${
+                          liveStageMode === 'studio'
+                            ? 'bg-[#32247b] text-white shadow-xs'
+                            : 'text-slate-600 hover:text-[#1e1b4b]'
+                        }`}
+                      >
+                        <span className="text-sm">📋</span>
+                        <span>Bảng Điều Khiển (Studio Board)</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <span className="text-xs text-[#5b48bd] font-bold hidden sm:flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-sm">record_voice_over</span>
+                    <span>Hội thoại 2 chiều như người thật</span>
+                  </span>
+                </div>
+
+                {/* CHẾ ĐỘ 1: ĐÀM THOẠI TRỰC TIẾP CHATGPT VOICE */}
+                {liveStageMode === 'chatgpt' && (
+                  <div className="bg-white rounded-3xl border border-purple-100 p-5 sm:p-6 shadow-sm space-y-5 relative overflow-hidden transition-all duration-300 font-sans">
+                    {/* AI Presence Banner */}
+                    <div className="flex items-center justify-between gap-4 pb-4 border-b border-purple-100 flex-wrap">
+                      <div className="flex items-center gap-3.5">
+                        <div className="relative">
+                          <img 
+                            src={getPersona(selectedDomain?.id).avatar} 
+                            alt={getPersona(selectedDomain?.id).name}
+                            className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl object-cover border-2 border-purple-100 shadow-sm ring-2 ring-purple-500/10"
+                          />
+                          {isAiSpeaking && (
+                            <span className="absolute -bottom-1 -right-1 flex h-4 w-4">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#f97316] opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-4 w-4 bg-[#f97316] border-2 border-white flex items-center justify-center">
+                                <span className="material-symbols-outlined text-[10px] text-white">volume_up</span>
+                              </span>
+                            </span>
+                          )}
+                        </div>
+
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-sm sm:text-base font-sans font-extrabold text-[#1e1b4b]">
+                              {getPersona(selectedDomain?.id).name}
+                            </h3>
+                            <span className="text-[10px] font-sans px-2.5 py-0.5 rounded-full font-bold border bg-purple-100 text-[#5b48bd] border-purple-200">
+                              AI INTERVIEWER
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-500 font-medium">
+                            {getPersona(selectedDomain?.id).roleTitle} • <span className="text-slate-400">{getPersona(selectedDomain?.id).company}</span>
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Live Voice Status Indicator & Equalizer */}
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 bg-[#f8f7ff] px-3.5 py-1.5 rounded-full border border-purple-100">
+                          <span className="text-[11px] font-sans font-bold text-slate-700">
+                            {isAiSpeaking ? 'AI Đang Nói Chuyện' : isMicOn ? 'Đang Lắng Nghe Bạn...' : isAiTyping ? 'AI Đang Suy Nghĩ...' : 'Sẵn Sàng Trao Đổi'}
+                          </span>
+                          <div className="flex items-end gap-1 h-4 w-10">
+                            {[40, 80, 50, 100, 65, 30].map((h, i) => (
+                              <div 
+                                key={i} 
+                                className={`w-1 rounded-full transition-all duration-150 ${(isAiSpeaking || isMicOn) ? 'animate-bounce' : 'opacity-40'}`}
+                                style={{ 
+                                  height: (isAiSpeaking || isMicOn) ? `${h}%` : '30%',
+                                  backgroundColor: isMicOn ? '#ef4444' : '#f97316',
+                                  animationDelay: `${i * 100}ms`
+                                }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Conversational Dialogue Thread (2-way chat feed) */}
+                    <div className="space-y-4 max-h-[460px] overflow-y-auto p-3 sm:p-5 rounded-2xl bg-[#f8f7ff]/80 border border-purple-100 shadow-inner scroll-smooth">
+                      {dialogueHistory.map((turn) => {
+                        const isAi = turn.sender === 'ai';
+                        return (
+                          <div 
+                            key={turn.id} 
+                            className={`flex gap-3 items-start animate-fadeIn ${isAi ? 'justify-start' : 'justify-end'}`}
+                          >
+                            {isAi && (
+                              <img 
+                                src={turn.avatar || getPersona(selectedDomain?.id).avatar} 
+                                alt={turn.speakerName} 
+                                className="w-9 h-9 rounded-xl object-cover shrink-0 border border-purple-200 mt-1 shadow-2xs"
+                              />
+                            )}
+
+                            <div className={`max-w-[88%] sm:max-w-[80%] space-y-1.5 ${isAi ? 'items-start' : 'items-end'}`}>
+                              <div className={`flex items-center gap-2 text-[10px] font-sans font-bold ${isAi ? 'text-slate-500 justify-start' : 'text-slate-500 justify-end'}`}>
+                                <span>{turn.speakerName}</span>
+                                <span>•</span>
+                                <span className="font-mono text-slate-400">{turn.timestamp}</span>
+                              </div>
+
+                              <div 
+                                className={`p-4 sm:p-5 rounded-3xl text-xs sm:text-sm leading-relaxed transition-all shadow-xs ${
+                                  isAi 
+                                    ? 'bg-white border border-purple-100 text-[#1e1b4b] rounded-tl-sm' 
+                                    : 'bg-[#32247b] text-white rounded-tr-sm shadow-md'
+                                }`}
+                              >
+                                <p className="whitespace-pre-line font-sans font-medium">{turn.text}</p>
+
+                                {isAi && (
+                                  <div className="pt-2 flex justify-end">
+                                    <button
+                                      onClick={() => speakQuestionText(turn.text)}
+                                      disabled={isAiSpeaking}
+                                      className="text-[11px] font-sans font-bold px-2.5 py-1 rounded-full bg-[#f8f7ff] hover:bg-purple-100 text-[#5b48bd] border border-purple-100 flex items-center gap-1 cursor-pointer transition-all disabled:opacity-50"
+                                      title="Bấm để AI đọc lại đoạn này"
+                                    >
+                                      <span className="material-symbols-outlined text-xs">volume_up</span>
+                                      <span>Nghe lại</span>
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {!isAi && (
+                              <div className="w-9 h-9 rounded-xl bg-[#32247b] text-white font-extrabold flex items-center justify-center shrink-0 mt-1 shadow-sm text-xs">
+                                {user?.fullName ? user.fullName.charAt(0).toUpperCase() : 'U'}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                      {isAiTyping && (
+                        <div className="flex gap-3 items-start animate-fadeIn">
+                          <img 
+                            src={getPersona(selectedDomain?.id).avatar} 
+                            alt="AI" 
+                            className="w-9 h-9 rounded-xl object-cover shrink-0 border border-purple-200 mt-1"
+                          />
+                          <div className="p-4 rounded-3xl rounded-tl-sm bg-white border border-purple-100 text-[#1e1b4b] shadow-xs flex items-center gap-2 text-xs font-sans font-bold">
+                            <span className="animate-pulse">{getPersona(selectedDomain?.id).name} đang suy ngẫm câu trả lời của bạn...</span>
+                            <div className="flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#f97316] animate-bounce"></span>
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#f97316] animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#f97316] animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      <div ref={chatBottomRef} />
+                    </div>
+
+                    {/* Real-time Voice Interaction & Composer HUD */}
+                    <div className="bg-[#f8f7ff] rounded-2xl p-4 border border-purple-100 space-y-3 font-sans">
+                      {/* Large Central Voice Mic Action */}
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-purple-100 shadow-2xs">
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={toggleMic}
+                            className={`px-5 py-3 rounded-2xl text-xs sm:text-sm font-sans font-extrabold border transition-all cursor-pointer flex items-center gap-2 shadow-sm ${
+                              isMicOn
+                                ? 'bg-rose-600 text-white border-rose-600 animate-pulse shadow-rose-200 shadow-md ring-4 ring-rose-100'
+                                : 'bg-[#32247b] hover:bg-[#271a66] text-white border-[#32247b]'
+                            }`}
+                          >
+                            <span className="material-symbols-outlined text-lg">{isMicOn ? 'mic' : 'mic_none'}</span>
+                            <span>{isMicOn ? 'Đang Thu Âm (Bấm để Dừng)' : 'Bấm Micro Để Nói Chuyện'}</span>
+                          </button>
+
+                          <span className="text-xs text-slate-500 font-medium hidden sm:inline">
+                            {isMicOn ? '🔴 Đang nhận diện giọng nói tiếng Việt...' : 'Nói tự nhiên như đang gọi thoại'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] font-sans font-bold text-slate-500">
+                            Tiến trình: <strong className="text-[#1e1b4b]">{currentIdx + 1}/{questions.length}</strong>
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Text input area with live voice transcript sync */}
+                      <div className="relative">
+                        <textarea
+                          rows={3}
+                          value={currentAnswer}
+                          onChange={(e) => setCurrentAnswer(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              if (currentAnswer.trim().length > 0 && !isSubmittingAnswer) {
+                                handleNext();
+                              }
+                            }
+                          }}
+                          placeholder={isMicOn ? "🎤 Đang lắng nghe bạn nói... (chữ sẽ tự xuất hiện tại đây)" : "Nói qua Micro hoặc gõ câu trả lời của bạn tại đây... (Nhấn Enter để gửi)"}
+                          className="w-full bg-white border border-purple-100 focus:border-[#5b48bd] rounded-2xl p-3.5 text-xs sm:text-sm text-[#1e1b4b] font-medium placeholder:text-slate-400 focus:outline-none transition-all shadow-2xs resize-none"
+                        />
+                      </div>
+
+                      {/* Action buttons footer */}
+                      <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] text-slate-400 flex items-center gap-1 font-medium">
+                            <span className="material-symbols-outlined text-xs text-[#5b48bd]">smart_toy</span>
+                            AI đối đáp và dẫn dắt tự nhiên như ChatGPT Voice
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          {currentAnswer.trim().length > 0 && (
+                            <button
+                              onClick={() => setCurrentAnswer('')}
+                              className="text-xs font-sans px-3 py-1.5 rounded-xl text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-all font-bold cursor-pointer"
+                            >
+                              Xóa nội dung
+                            </button>
+                          )}
+
+                          <button
+                            onClick={handleNext}
+                            disabled={isSubmittingAnswer || currentAnswer.trim().length === 0}
+                            className="px-6 py-2.5 rounded-full bg-[#32247b] hover:bg-[#271a66] text-white text-xs sm:text-sm font-sans font-extrabold shadow-md hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {isSubmittingAnswer ? (
+                              <>
+                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                <span>Đang gửi câu trả lời...</span>
+                              </>
+                            ) : (
+                              <>
+                                <span>Gửi &amp; Nghe AI Phản Hồi</span>
+                                <span className="material-symbols-outlined text-base">send</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* CHẾ ĐỘ 2: BẢNG ĐIỀU KHIỂN CHUYÊN SÂU (STUDIO BOARD) */}
+                {liveStageMode === 'studio' && (
+                  <>
                 {/* 2.1 AI INTERVIEWER PERSONA STAGE CARD */}
                 <div className="bg-white rounded-3xl border border-purple-100 p-5 sm:p-6 shadow-sm relative overflow-hidden transition-all duration-300 font-sans">
                   {/* AI Persona Header Banner */}
@@ -1177,11 +1850,23 @@ export default function AiInterviewStudioPage({ user }) {
 
                   {/* Question Display Callout */}
                   <div className="py-4 space-y-3 font-sans">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-mono font-bold tracking-wider uppercase text-[#f97316] flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-[#f97316]"></span>
-                        CÂU HỎI SỐ #{currentIdx + 1} / {questions.length}
-                      </span>
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-mono font-bold tracking-wider uppercase text-[#f97316] flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-[#f97316]"></span>
+                          CÂU HỎI SỐ #{currentIdx + 1} / {questions.length}
+                        </span>
+                        {currentIdx > 0 && (
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-sans font-bold bg-purple-100 text-[#5b48bd] border border-purple-200 flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[11px]">psychology</span>
+                            <span>AI Phản Biện Thích Ứng (Adaptive Agent)</span>
+                          </span>
+                        )}
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-sans font-medium bg-slate-100 text-slate-600 border border-slate-200 hidden sm:inline-flex items-center gap-1">
+                          <span>{selectedVoiceType === 'female' ? '🌸 Hoài My' : '🎙️ Nam Minh'}</span>
+                          <span>• 0.93x</span>
+                        </span>
+                      </div>
 
                       {/* Re-play AI Audio speech */}
                       <button
@@ -1433,6 +2118,8 @@ export default function AiInterviewStudioPage({ user }) {
                     </div>
                   </div>
                 </div>
+                </>
+                )}
               </div>
 
               {/* RIGHT STAGE: REAL-TIME TELEMETRY & COACHING MATRIX (4 Columns) */}

@@ -3,6 +3,24 @@ import { useLivingTheme } from '../context/LivingThemeContext';
 import { cvApi } from '../api/cvApi';
 import { candidateApi } from '../api/candidateApi';
 
+
+// Safe Null-Guard Helpers
+const safeArr = (arr) => (Array.isArray(arr) ? arr : []);
+const safeStr = (str, fallback = '') => (typeof str === 'string' ? str : (str ? String(str) : fallback));
+const safeJsonArr = (jsonVal, fallback = []) => {
+  if (!jsonVal) return fallback;
+  if (Array.isArray(jsonVal)) return jsonVal;
+  if (typeof jsonVal === 'string') {
+    try {
+      const parsed = JSON.parse(jsonVal);
+      return Array.isArray(parsed) ? parsed : fallback;
+    } catch {
+      return fallback;
+    }
+  }
+  return fallback;
+};
+
 export default function CandidateProfilePage({ user }) {
   const { theme: livingTheme, luminosity } = useLivingTheme();
 
@@ -99,7 +117,7 @@ export default function CandidateProfilePage({ user }) {
   // Switch between CV versions
   const handleSelectCvVersion = (verId) => {
     setSelectedVersionId(verId);
-    const targetVer = currentCandidate.cvVersions.find(v => v.id === verId) || currentCandidate.cvVersions[0];
+    const targetVer = (currentCandidate?.cvVersions || []).find(v => v.id === verId) || currentCandidate?.cvVersions?.[0];
     showToast(`Đã chọn: ${targetVer?.versionName || "Bản CV"}`);
   };
 
@@ -107,7 +125,7 @@ export default function CandidateProfilePage({ user }) {
 
   // Set default CV for fast apply
   const handleSetDefaultCvVersion = (verId) => {
-    currentCandidate.cvVersions.forEach(v => {
+    (currentCandidate?.cvVersions || []).forEach(v => {
       v.isDefault = (v.id === verId);
     });
     showToast('Đã đặt bản CV này làm bản mặc định khi nộp hồ sơ Fast Apply!');
@@ -123,7 +141,7 @@ export default function CandidateProfilePage({ user }) {
       versionBadge: '📝 BẢN TÙY BIẾN MỚI',
       isDefault: false
     };
-    currentCandidate.cvVersions.push(duplicated);
+    if (currentCandidate?.cvVersions) currentCandidate.cvVersions.push(duplicated);
     setSelectedVersionId(newId);
     setCvData(duplicated);
     setIsEditing(true);
@@ -323,7 +341,7 @@ export default function CandidateProfilePage({ user }) {
             name: cv.fileName,
             fileUrl: cv.fileUrl,
             size: cv.fileSizeBytes ? `${(cv.fileSizeBytes / (1024 * 1024)).toFixed(1)} MB` : '1.2 MB',
-            uploaded: cv.createdAt ? cv.createdAt.split('T')[0] : 'Vừa xong',
+            uploaded: cv.createdAt ? (typeof cv.createdAt === 'string' && cv.createdAt.includes('T') ? cv.createdAt.split('T')[0] : String(cv.createdAt)) : 'Vừa xong',
             isDefault: Boolean(cv.isDefault),
             atsScore: 98,
             parsed: cv.parseStatus === 'COMPLETED' || true,
@@ -365,9 +383,9 @@ export default function CandidateProfilePage({ user }) {
               targetTitle: p.headline || prev.targetTitle,
               summary: p.bio || prev.summary,
               location: p.location || prev.location,
-              experiences: p.experiencesJson ? JSON.parse(p.experiencesJson) : prev.experiences,
-              projects: p.projectsJson ? JSON.parse(p.projectsJson) : prev.projects,
-              education: p.educationsJson ? JSON.parse(p.educationsJson) : prev.education,
+              experiences: safeJsonArr(p.experiencesJson, prev.experiences),
+              projects: safeJsonArr(p.projectsJson, prev.projects),
+              education: safeJsonArr(p.educationsJson, prev.education),
             }));
           }
         })
@@ -868,7 +886,7 @@ export default function CandidateProfilePage({ user }) {
                         <span>Học Vấn Chính Quy</span>
                       </h3>
 
-                      {cvData.education.map((edu, eIdx) => (
+                      {safeArr(cvData.education).map((edu, eIdx) => (
                         <div key={edu.id || eIdx} className="space-y-1.5 text-xs">
                           {isEditing ? (
                             <div className="space-y-1.5 p-2 rounded-xl bg-white border border-[#CBD5E1] shadow-sm">
@@ -963,7 +981,7 @@ export default function CandidateProfilePage({ user }) {
                       </div>
 
                       <div className="space-y-2">
-                        {cvData.certifications.map((cert, cIdx) => (
+                        {safeArr(cvData.certifications).map((cert, cIdx) => (
                           <div
                             key={cert.id || cIdx}
                             className={`p-2.5 rounded-xl border text-xs space-y-0.5 relative group ${canvasTheme === 'paper-white' ? 'bg-white border-slate-200 shadow-sm' : 'bg-white/80 border-[#E6E2DA] shadow-sm'
@@ -1045,7 +1063,7 @@ export default function CandidateProfilePage({ user }) {
                       </h3>
 
                       <div className="space-y-2 text-xs">
-                        {cvData.languages.map((lang, lIdx) => (
+                        {safeArr(cvData.languages).map((lang, lIdx) => (
                           <div key={lIdx} className="flex items-center justify-between border-b border-dashed border-[#E6E2DA] pb-1">
                             <span className={`font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>{lang.name}</span>
                             <span className={`text-[10px] font-mono ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{lang.score}</span>
@@ -1126,7 +1144,7 @@ export default function CandidateProfilePage({ user }) {
                             placeholder="Nhập phần tóm tắt năng lực, số năm kinh nghiệm và điểm mạnh cốt lõi..."
                           />
                           <p className="text-[10px] text-slate-500 text-right font-mono">
-                            Độ dài: {cvData.summary.length} ký tự • Tối ưu chuẩn ATS
+                            Độ dài: {safeStr(cvData.summary).length} ký tự • Tối ưu chuẩn ATS
                           </p>
                         </div>
                       ) : (
@@ -1134,7 +1152,7 @@ export default function CandidateProfilePage({ user }) {
                             ? 'bg-slate-50 border-l-4 border-slate-900 text-slate-800 border border-slate-200'
                             : 'bg-[#F2EFE9] border-l-4 border-[#2D3A31] text-[#2D3A31] border border-[#E6E2DA]'
                           }`}>
-                          {cvData.summary.split('\n\n').map((para, pIdx) => (
+                          {safeStr(cvData.summary).split('\n\n').map((para, pIdx) => (
                             <p key={pIdx} className="leading-relaxed font-medium">{para}</p>
                           ))}
                         </div>
@@ -1162,7 +1180,7 @@ export default function CandidateProfilePage({ user }) {
                       </div>
 
                       <div className="space-y-6">
-                        {cvData.experiences.map((exp, expIdx) => (
+                        {safeArr(cvData.experiences).map((exp, expIdx) => (
                           <div
                             key={exp.id || expIdx}
                             className={`space-y-2.5 ${isEditing ? 'p-3 rounded-2xl bg-white border border-slate-300 shadow-sm relative' : ''}`}
@@ -1246,7 +1264,7 @@ export default function CandidateProfilePage({ user }) {
                                 </span>
                               )}
 
-                              {exp.bullets.map((b, bIdx) => (
+                              {safeArr(exp.bullets).map((b, bIdx) => (
                                 <div key={bIdx} className="flex items-start gap-2">
                                   {isEditing ? (
                                     <>
@@ -1287,7 +1305,7 @@ export default function CandidateProfilePage({ user }) {
 
                             {/* Tags */}
                             <div className="flex flex-wrap items-center gap-1.5 pt-1.5">
-                              {exp.tags.map((t, sIdx) => (
+                              {safeArr(exp.tags).map((t, sIdx) => (
                                 <span
                                   key={sIdx}
                                   className={`px-2 py-0.5 rounded text-[11px] font-mono ${canvasTheme === 'paper-white'
@@ -1325,7 +1343,7 @@ export default function CandidateProfilePage({ user }) {
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                        {cvData.projects.map((proj, pIdx) => (
+                        {safeArr(cvData.projects).map((proj, pIdx) => (
                           <div
                             key={proj.id || pIdx}
                             className={`p-4 rounded-2xl border space-y-2 relative ${canvasTheme === 'paper-white'
@@ -1388,7 +1406,7 @@ export default function CandidateProfilePage({ user }) {
                                 <p className="text-xs font-semibold" style={{ color: livingTheme.primary }}>{proj.role}</p>
                                 <p className={`text-xs leading-relaxed font-body ${canvasTheme === 'paper-white' ? 'text-slate-700 font-medium' : 'text-[#4A554D] font-medium'}`}>{proj.summary}</p>
                                 <div className="flex flex-wrap gap-1 pt-1">
-                                  {proj.tags.map((t, idx) => (
+                                  {safeArr(proj.tags).map((t, idx) => (
                                     <span
                                       key={idx}
                                       className={`px-2 py-0.5 rounded text-[10px] font-mono ${canvasTheme === 'paper-white' ? 'bg-white border border-slate-300 text-slate-800' : 'bg-[#FAF9F5] border border-[#E6E2DA] text-[#2D3A31]'
@@ -1422,7 +1440,7 @@ export default function CandidateProfilePage({ user }) {
                       </div>
 
                       <div className="space-y-2.5 text-xs sm:text-sm">
-                        {cvData.skills.map((cat, catIdx) => (
+                        {safeArr(cvData.skills).map((cat, catIdx) => (
                           <div
                             key={catIdx}
                             className={`p-3 rounded-2xl border flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 transition-all ${canvasTheme === 'paper-white' ? 'bg-slate-50 border-slate-300' : 'bg-white border-[#E6E2DA] shadow-sm'
@@ -1436,7 +1454,7 @@ export default function CandidateProfilePage({ user }) {
 
                             <div className="flex-1 space-y-2">
                               <div className="flex flex-wrap gap-1.5">
-                                {cat.items.map((item, iIdx) => (
+                                {safeArr(cat.items).map((item, iIdx) => (
                                   <span
                                     key={iIdx}
                                     className={`px-2.5 py-0.5 rounded-lg text-xs font-mono font-medium flex items-center gap-1.5 ${canvasTheme === 'paper-white'
@@ -1536,7 +1554,7 @@ export default function CandidateProfilePage({ user }) {
                       }`}>
                       HỌC VẤN (EDUCATION)
                     </h2>
-                    {cvData.education.map((edu, eIdx) => (
+                    {safeArr(cvData.education).map((edu, eIdx) => (
                       <div key={edu.id || eIdx} className="text-xs space-y-0.5">
                         <div className={`flex justify-between font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
                           <span>{edu.school}</span>
@@ -1557,7 +1575,7 @@ export default function CandidateProfilePage({ user }) {
                       }`}>
                       KINH NGHIỆM LÀM VIỆC (PROFESSIONAL EXPERIENCE)
                     </h2>
-                    {cvData.experiences.map((exp, expIdx) => (
+                    {safeArr(cvData.experiences).map((exp, expIdx) => (
                       <div key={exp.id || expIdx} className="text-xs space-y-1">
                         <div className={`flex justify-between font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
                           <span>{exp.company} — {exp.role}</span>
@@ -1565,7 +1583,7 @@ export default function CandidateProfilePage({ user }) {
                         </div>
                         <p className={`text-[11px] italic ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{exp.location}</p>
                         <ul className={`list-disc list-outside pl-4 space-y-1 ${canvasTheme === 'paper-white' ? 'text-slate-800 font-medium' : 'text-[#4A5B4D] font-medium'}`}>
-                          {exp.bullets.map((b, bIdx) => (
+                          {safeArr(exp.bullets).map((b, bIdx) => (
                             <li key={bIdx}>{b}</li>
                           ))}
                         </ul>
@@ -1580,16 +1598,16 @@ export default function CandidateProfilePage({ user }) {
                       KỸ NĂNG, CHỨNG CHỈ &amp; NGOẠI NGỮ (SKILLS &amp; CERTIFICATIONS)
                     </h2>
                     <div className={`text-xs space-y-1.5 ${canvasTheme === 'paper-white' ? 'text-slate-800' : 'text-[#4A5B4D]'}`}>
-                      {cvData.skills.map((s, idx) => (
+                      {safeArr(cvData.skills).map((s, idx) => (
                         <p key={idx}>
-                          <strong className={canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}>{s.category}:</strong> {s.items.join(', ')}
+                          <strong className={canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}>{s.category}:</strong> {safeArr(s.items).join(', ')}
                         </p>
                       ))}
                       <p>
-                        <strong className={canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}>Chứng chỉ quốc tế:</strong> {cvData.certifications.map(c => `${c.name} (${c.issuer})`).join('; ')}
+                        <strong className={canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}>Chứng chỉ quốc tế:</strong> {safeArr(cvData.certifications).map(c => `${c.name} (${c.issuer})`).join('; ')}
                       </p>
                       <p>
-                        <strong className={canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}>Ngoại ngữ:</strong> {cvData.languages.map(l => `${l.name} (${l.score})`).join('; ')}
+                        <strong className={canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}>Ngoại ngữ:</strong> {safeArr(cvData.languages).map(l => `${l.name} (${l.score})`).join('; ')}
                       </p>
                     </div>
                   </section>
@@ -1646,7 +1664,7 @@ export default function CandidateProfilePage({ user }) {
                           }`}>
                           KINH NGHIỆM THỰC CHIẾN (EXPERIENCE)
                         </h3>
-                        {cvData.experiences.map((exp, eIdx) => (
+                        {safeArr(cvData.experiences).map((exp, eIdx) => (
                           <div key={exp.id || eIdx} className="space-y-1.5 text-xs sm:text-sm">
                             <div className={`flex justify-between font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
                               <span>{exp.role}</span>
@@ -1654,7 +1672,7 @@ export default function CandidateProfilePage({ user }) {
                             </div>
                             <p className="font-semibold text-xs" style={{ color: livingTheme.primary }}>{exp.company} — {exp.location}</p>
                             <ul className={`list-disc list-outside pl-4 space-y-1 text-xs ${canvasTheme === 'paper-white' ? 'text-slate-800 font-medium' : 'text-[#4A5B4D] font-medium'}`}>
-                              {exp.bullets.map((b, idx) => (
+                              {safeArr(exp.bullets).map((b, idx) => (
                                 <li key={idx}>{b}</li>
                               ))}
                             </ul>
@@ -1667,7 +1685,7 @@ export default function CandidateProfilePage({ user }) {
                           }`}>
                           DỰ ÁN TRỌNG ĐIỂM (KEY PROJECTS)
                         </h3>
-                        {cvData.projects.map((p, pIdx) => (
+                        {safeArr(cvData.projects).map((p, pIdx) => (
                           <div key={p.id || pIdx} className={`p-3.5 rounded-2xl border space-y-1 text-xs ${canvasTheme === 'paper-white' ? 'bg-slate-50 border-slate-300' : 'bg-[#F2F0EB] border-[#C5C0B6]'
                             }`}>
                             <h4 className={`font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>{p.name}</h4>
@@ -1685,11 +1703,11 @@ export default function CandidateProfilePage({ user }) {
                           KỸ NĂNG CHUYÊN SÂU
                         </h3>
                         <div className="space-y-2">
-                          {cvData.skills.map((sk, idx) => (
+                          {safeArr(cvData.skills).map((sk, idx) => (
                             <div key={idx} className="space-y-1 text-xs">
                               <p className={`font-bold text-[11px] ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>{sk.category}</p>
                               <div className="flex flex-wrap gap-1">
-                                {sk.items.map((it, iIdx) => (
+                                {safeArr(sk.items).map((it, iIdx) => (
                                   <span key={iIdx} className={`px-2 py-0.5 rounded text-[10px] font-mono ${canvasTheme === 'paper-white' ? 'bg-slate-100 text-slate-800 border border-slate-300' : livingTheme.tagBg
                                     }`}>
                                     {it}
@@ -1706,7 +1724,7 @@ export default function CandidateProfilePage({ user }) {
                           }`}>
                           HỌC VẤN &amp; CHỨNG CHỈ
                         </h3>
-                        {cvData.education.map((e, idx) => (
+                        {safeArr(cvData.education).map((e, idx) => (
                           <div key={e.id || idx} className="text-xs space-y-0.5">
                             <p className={`font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>{e.school}</p>
                             <p className={canvasTheme === 'paper-white' ? 'text-slate-700' : 'text-[#4A5B4D]'}>{e.degree}</p>
@@ -1714,7 +1732,7 @@ export default function CandidateProfilePage({ user }) {
                           </div>
                         ))}
                         <div className="pt-2 space-y-1.5">
-                          {cvData.certifications.map((c, idx) => (
+                          {safeArr(cvData.certifications).map((c, idx) => (
                             <div key={c.id || idx} className={`text-[11px] border-l-2 pl-2 ${canvasTheme === 'paper-white' ? 'border-slate-400' : 'border-[#C5C0B6]'}`}>
                               <p className={`font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>{c.name}</p>
                               <p className={`font-mono text-[10px] ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{c.issuer} ({c.year})</p>

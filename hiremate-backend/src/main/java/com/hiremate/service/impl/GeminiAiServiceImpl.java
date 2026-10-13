@@ -489,15 +489,16 @@ public class GeminiAiServiceImpl implements GeminiAiService {
         }
 
         try {
-            String prompt = "You are a Chief Technology Officer acting as an AI Interview Planner for '" + pos + "' (" + lvl + ").\n" +
-                    "STEP 1: Formulate a structured Interview Assessment Plan for " + questionCount + " progression stages:\n" +
-                    "- Phase 1: Core Technical Fundamentals & Concepts\n" +
-                    "- Phase 2: System Architecture & Hands-on Problem Solving\n" +
-                    "- Phase 3: Concurrency, Edge Cases & Distributed Scalability\n" +
-                    "- Phase 4: Practical Delivery Experience (STAR framework)\n" +
-                    "- Phase 5: Technical Trade-offs & Production Incident Handling\n\n" +
-                    "STEP 2: Generate exactly " + questionCount + " practical interview questions in Vietnamese aligning directly with this plan.\n" +
-                    "Return ONLY a valid JSON object: {\"planSummary\": \"...\", \"questions\": [\"Câu hỏi 1?\", \"Câu hỏi 2?\"]}";
+            String prompt = "Bạn là Hoàng - Technical Lead cấp cao với 10 năm kinh nghiệm, đang trực tiếp phỏng vấn ứng viên cho vị trí: " + pos + " (" + lvl + ").\n\n" +
+                    "TÍNH CÁCH & PHONG CÁCH GIAO TIẾP:\n" +
+                    "- Lịch thiệp, chuyên nghiệp, tự nhiên, mang tính gợi mở và đối thoại 2 chiều.\n" +
+                    "- Xưng hô: \"Mình\" hoặc \"Tôi\", gọi ứng viên là \"Bạn\".\n" +
+                    "- KHÔNG hành xử như một bài kiểm tra trắc nghiệm hay máy hỏi thi.\n" +
+                    "- Mỗi câu hỏi được mở đầu và diễn đạt tự nhiên như lời nói trực tiếp của phỏng vấn viên (ví dụ: 'Chào bạn, để bắt đầu buổi trao đổi hôm nay...', 'Trong các dự án gần đây bạn từng phụ trách...', 'Nếu gặp một bài toán thực tế về...').\n\n" +
+                    "Lộ trình phỏng vấn chuẩn bị (" + questionCount + " câu hỏi):\n" +
+                    "1) Khởi động & dự án tiêu biểu; 2) Thiết kế kiến trúc & giải quyết bài toán thực tế; 3) Chịu tải, concurrency & edge-cases; 4) Xử lý sự cố production / phối hợp team; 5) Đánh giá trade-off kỹ thuật.\n\n" +
+                    "Hãy sinh chính xác " + questionCount + " câu thoại phỏng vấn bằng tiếng Việt.\n" +
+                    "Trả về DUY NHẤT đối tượng JSON: {\"planSummary\": \"...\", \"questions\": [\"...\", \"...\"]}";
 
             String responseText = callGeminiApi(prompt, 700);
             if (responseText != null && !responseText.isBlank()) {
@@ -560,10 +561,12 @@ public class GeminiAiServiceImpl implements GeminiAiService {
     }
 
     @Override
-    public String generateAdaptiveFollowUpQuestion(String targetPosition, List<InterviewDetail> previousDetails, int nextQuestionNumber) {
+    public String generateAdaptiveFollowUpQuestion(String targetPosition, String candidateSkills, List<InterviewDetail> previousDetails, int nextQuestionNumber) {
         String pos = (targetPosition != null && !targetPosition.isBlank()) ? targetPosition : "Software Engineer";
+        String skills = (candidateSkills != null && !candidateSkills.isBlank()) ? candidateSkills : "Kỹ năng chuyên môn theo hồ sơ ứng viên";
+
         if (previousDetails == null || previousDetails.isEmpty()) {
-            return "Hãy giới thiệu về bản thân và một dự án kỹ thuật tiêu biểu nhất liên quan đến vị trí " + pos + " mà bạn từng tham gia?";
+            return "Chào bạn, mình là Hoàng - Technical Lead. Cảm ơn bạn đã tham gia buổi trao đổi hôm nay cho vị trí " + pos + ". Để bắt đầu một cách thoải mái nhất, bạn có thể chia sẻ đôi nét về bản thân và một dự án công nghệ tiêu biểu gần đây mà bạn cảm thấy tâm đắc nhất không?";
         }
 
         if (!isAvailable()) {
@@ -571,40 +574,40 @@ public class GeminiAiServiceImpl implements GeminiAiService {
         }
 
         try {
-            StringBuilder context = new StringBuilder();
+            StringBuilder history = new StringBuilder();
             int total = previousDetails.size();
-            int recentCount = Math.min(3, total);
-
-            // Tóm tắt các câu hỏi đầu tiên (để AI nắm tổng quan lộ trình)
-            if (total > recentCount) {
-                context.append("--- TÓM TẮT CÁC CÂU ĐẦU TIÊN (Q1 -> Q").append(total - recentCount).append(") ---\n");
-                for (int i = 0; i < total - recentCount; i++) {
-                    InterviewDetail d = previousDetails.get(i);
-                    int qN = d.getQuestionNumber() != null ? d.getQuestionNumber() : (i + 1);
-                    context.append("- Q").append(qN).append(": ").append(truncateText(d.getQuestionText(), 90)).append("\n");
-                }
-                context.append("\n");
-            }
-
-            // Tập trung ngữ cảnh sâu vào các lượt hỏi đáp gần nhất (Sliding Window Focus)
-            context.append("--- CÁC LƯỢT TRẢ LỜI GẦN NHẤT (ƯU TIÊN PHẢN HỒI TRỰC TIẾP) ---\n");
-            for (int i = total - recentCount; i < total; i++) {
+            for (int i = 0; i < total; i++) {
                 InterviewDetail d = previousDetails.get(i);
                 int qN = d.getQuestionNumber() != null ? d.getQuestionNumber() : (i + 1);
-                context.append("Q").append(qN).append(": ").append(truncateText(d.getQuestionText(), 250)).append("\n")
-                        .append("Candidate Answer: ").append(truncateText(d.getCandidateAnswerText(), 700)).append("\n\n");
+                history.append("Lượt ").append(qN).append(":\n");
+                history.append("- Hoàng (Tech Lead): ").append(truncateText(d.getQuestionText(), 300)).append("\n");
+                String ans = (d.getCandidateAnswerText() != null && !d.getCandidateAnswerText().isBlank())
+                        ? d.getCandidateAnswerText().trim() : "(Ứng viên chưa phản hồi chi tiết)";
+                history.append("- Ứng viên: ").append(truncateText(ans, 800)).append("\n\n");
             }
 
-            String prompt = "You are a Senior Tech Lead conducting a multi-turn adaptive technical interview for '" + pos + "'.\n" +
-                    "Here is the dialogue history of this candidate:\n" +
-                    context.toString() + "\n" +
-                    "INSTRUCTIONS FOR QUESTION #" + nextQuestionNumber + ":\n" +
-                    "1. Analyze what frameworks, databases, architecture patterns, or claims the candidate made in their recent answers.\n" +
-                    "2. Formulate ONE deep-dive follow-up question in Vietnamese that directly challenges their claims (e.g. asking about failure handling, edge cases, scalability, or trade-offs for the technology they mentioned).\n" +
-                    "3. Make the question sound organic, acknowledging what they previously said (e.g. 'Ở câu hỏi trước bạn có đề cập đến X, vậy trong trường hợp Y...').\n" +
-                    "Return ONLY a valid JSON object: {\"question\": \"...\"}";
+            String prompt = "Bạn là Hoàng - Technical Lead cấp cao với 10 năm kinh nghiệm, đang trực tiếp phỏng vấn ứng viên cho vị trí: " + pos + ".\n\n" +
+                    "TÍNH CÁCH & PHONG CÁCH GIAO TIẾP:\n" +
+                    "- Lịch thiệp, chuyên nghiệp, tự nhiên, mang tính gợi mở và đối thoại 2 chiều.\n" +
+                    "- Xưng hô: \"Mình\" hoặc \"Tôi\", gọi ứng viên là \"Bạn\".\n" +
+                    "- KHÔNG hành xử như một bài kiểm tra trắc nghiệm hay máy hỏi thi.\n\n" +
+                    "QUY TẮC PHỎNG VẤN THỰC CHIẾN:\n" +
+                    "1. LUÔN PHẢN HỒI Ý KIẾN TRƯỚC: Trước khi đặt câu hỏi mới, hãy nhận xét ngắn gọn (1 câu) về ý mà ứng viên vừa trả lời (Khen điểm hay hoặc chỉ ra điểm chưa rõ).\n" +
+                    "2. TẬP TRUNG ĐÀO SÂU (FOLLOW-UP):\n" +
+                    "   - Nếu ứng viên trả lời chung chung hoặc lý thuyết sách vở: Hãy bẻ lái hỏi vào thực tế dự án: \"Lý thuyết là vậy, nhưng nếu gặp trường hợp... thì bạn xử lý thế nào?\".\n" +
+                    "   - Không vội vàng nhảy sang chủ đề khác nếu câu trả lời trước chưa đủ sâu sắc.\n" +
+                    "3. LINH HOẠT THEO DIỄN BIẾN:\n" +
+                    "   - Dựa vào CV ứng viên và JD tuyển dụng để dẫn dắt câu chuyện tự nhiên nhất.\n" +
+                    "   - Mỗi lượt chỉ hỏi DUY NHẤT 1 câu hỏi trọng tâm, không hỏi dồn dập 2-3 câu cùng lúc làm ứng viên bị ngợp.\n\n" +
+                    "DỮ LIỆU ĐẦU VÀO:\n" +
+                    "- Vị trí ứng tuyển: " + pos + "\n" +
+                    "- Kỹ năng ứng viên (CV): " + skills + "\n" +
+                    "- Lịch sử đối thoại từ đầu buổi:\n" +
+                    history.toString() + "\n" +
+                    "HÃY ĐƯA RA LỜI THOẠI TIẾP THEO CỦA BẠN (TỰ NHIÊN, SÚC TÍCH).\n" +
+                    "Trả về DUY NHẤT một đối tượng JSON hợp lệ: {\"question\": \"[Lời thoại đối thoại tiếp theo của Hoàng, gồm 1 câu phản hồi tự nhiên và đúng 1 câu hỏi trọng tâm]\"}";
 
-            String responseText = callGeminiApi(prompt, 300);
+            String responseText = callGeminiApi(prompt, 400);
             if (responseText != null && !responseText.isBlank()) {
                 String jsonStr = extractJson(responseText);
                 JsonNode root = objectMapper.readTree(jsonStr);
@@ -1030,15 +1033,15 @@ public class GeminiAiServiceImpl implements GeminiAiService {
                 ? lastDetail.getCandidateAnswerText().toLowerCase() : "";
 
         if (lastAnswer.contains("redis") || lastAnswer.contains("caching") || lastAnswer.contains("cache")) {
-            return "Ở câu trước bạn có đề cập đến Caching. Vậy khi gặp hiện tượng Cache Stampede hoặc Cache Avalanche trong hệ thống chịu tải cao, bạn sẽ thiết kế giải pháp phòng ngừa như thế nào?";
+            return "Cảm ơn bạn! Phần chia sẻ về Caching vừa rồi khá chi tiết và thực tế. Vậy khi gặp hiện tượng Cache Stampede hoặc Cache Avalanche trong hệ thống chịu tải cao, bạn sẽ thiết kế giải pháp phòng ngừa như thế nào?";
         } else if (lastAnswer.contains("kafka") || lastAnswer.contains("queue") || lastAnswer.contains("message")) {
-            return "Bạn vừa nhắc đến Message Queue. Bạn xử lý bài toán đảm bảo Exactly-Once Delivery và duy trì thứ tự (message ordering) trong Kafka như thế nào?";
+            return "Tôi rất ấn tượng với kinh nghiệm của bạn về Message Queue. Tiếp nối bài toán này, bạn xử lý việc đảm bảo Exactly-Once Delivery và duy trì thứ tự (message ordering) trong Kafka như thế nào?";
         } else if (lastAnswer.contains("sql") || lastAnswer.contains("postgres") || lastAnswer.contains("database")) {
-            return "Về phần cơ sở dữ liệu bạn vừa chia sẻ, hãy phân tích trường hợp xảy ra Deadlock và giải pháp thiết kế Schema/Query để giảm thiểu tranh chấp Transaction?";
+            return "Cảm ơn góc nhìn của bạn về cơ sở dữ liệu. Vậy trong trường hợp xảy ra Deadlock ở quy mô phân tán, bạn sẽ tối ưu Schema và thiết kế Query ra sao để giảm thiểu tranh chấp Transaction?";
         } else if (lastAnswer.contains("microservice") || lastAnswer.contains("api") || lastAnswer.contains("gateway")) {
-            return "Với kiến trúc dịch vụ bạn vừa nêu, bạn áp dụng mẫu hình Circuit Breaker và Distributed Tracing ra sao khi một service hạ tầng bị chậm trễ?";
+            return "Kiến trúc dịch vụ bạn vừa nêu rất bài bản. Nếu một service hạ tầng bất ngờ bị nghẽn và phản hồi chậm, bạn áp dụng mẫu hình Circuit Breaker và Distributed Tracing ra sao để không ảnh hưởng toàn hệ thống?";
         } else {
-            return "Từ giải pháp kỹ thuật bạn vừa trình bày, nếu quy mô người dùng tăng gấp 10 lần (10x traffic), điểm nghẽn (bottleneck) lớn nhất sẽ nằm ở đâu và bạn tối ưu nó như thế nào?";
+            return "Cảm ơn giải pháp kỹ thuật bạn vừa trình bày. Giả sử trong tương lai gần quy mô người dùng tăng gấp 10 lần (10x traffic), bạn dự đoán điểm nghẽn lớn nhất sẽ nằm ở đâu và bạn tối ưu nó như thế nào?";
         }
     }
 }

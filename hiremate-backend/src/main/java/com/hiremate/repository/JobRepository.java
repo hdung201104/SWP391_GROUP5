@@ -32,7 +32,9 @@ public interface JobRepository extends JpaRepository<Job, Long> {
      */
     @Query("SELECT j FROM Job j WHERE j.status = com.hiremate.enums.JobStatus.PUBLISHED AND " +
            "(CAST(:keyword AS string) IS NULL OR LOWER(j.title) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
-           "   OR LOWER(j.description) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))) AND " +
+           "   OR LOWER(j.description) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
+           "   OR (j.requirements IS NOT NULL AND LOWER(j.requirements) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))) " +
+           "   OR (j.company IS NOT NULL AND LOWER(j.company.companyName) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))) AND " +
            "(CAST(:location AS string) IS NULL OR LOWER(j.location) LIKE LOWER(CONCAT('%', CAST(:location AS string), '%')))")
     List<Job> searchJobs(@Param("keyword") String keyword, @Param("location") String location);
 
@@ -41,14 +43,18 @@ public interface JobRepository extends JpaRepository<Job, Long> {
 
     @Query("SELECT j FROM Job j WHERE j.status = com.hiremate.enums.JobStatus.PUBLISHED AND " +
            "(CAST(:keyword AS string) IS NULL OR LOWER(j.title) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
-           "   OR LOWER(j.description) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))) AND " +
+           "   OR LOWER(j.description) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
+           "   OR (j.requirements IS NOT NULL AND LOWER(j.requirements) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))) " +
+           "   OR (j.company IS NOT NULL AND LOWER(j.company.companyName) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))) AND " +
            "(CAST(:location AS string) IS NULL OR LOWER(j.location) LIKE LOWER(CONCAT('%', CAST(:location AS string), '%')))")
     org.springframework.data.domain.Page<Job> searchJobsPaged(@Param("keyword") String keyword, @Param("location") String location, org.springframework.data.domain.Pageable pageable);
 
     @Query("SELECT j FROM Job j WHERE j.status = com.hiremate.enums.JobStatus.PUBLISHED AND " +
            "(j.deadlineDate IS NULL OR j.deadlineDate >= CURRENT_DATE) AND " +
            "(CAST(:keyword AS string) IS NULL OR LOWER(j.title) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
-           "   OR LOWER(j.description) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))) AND " +
+           "   OR LOWER(j.description) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
+           "   OR (j.requirements IS NOT NULL AND LOWER(j.requirements) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))) " +
+           "   OR (j.company IS NOT NULL AND LOWER(j.company.companyName) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))) AND " +
            "(CAST(:location AS string) IS NULL OR LOWER(j.location) LIKE LOWER(CONCAT('%', CAST(:location AS string), '%'))) AND " +
            "(:employmentType IS NULL OR j.employmentType = :employmentType) AND " +
            "(:minSalary IS NULL OR j.salaryMax >= :minSalary) AND " +

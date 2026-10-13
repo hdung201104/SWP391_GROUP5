@@ -87,6 +87,18 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.ok("Đăng nhập Google thành công", response));
     }
 
+    @PostMapping("/google/complete-registration")
+    public ResponseEntity<ApiResponse<AuthResponse>> completeGoogleRegistration(@Valid @RequestBody GoogleCompleteRegistrationRequest request) {
+        AuthResponse response = authService.completeGoogleRegistration(request);
+        return ResponseEntity.ok(ApiResponse.ok("Hoàn tất đăng ký tài khoản thành công", response));
+    }
+
+    @PostMapping("/github")
+    public ResponseEntity<ApiResponse<AuthResponse>> githubLogin(@RequestBody GitHubAuthRequest request) {
+        AuthResponse response = authService.githubLogin(request);
+        return ResponseEntity.ok(ApiResponse.ok("Đăng nhập GitHub thành công", response));
+    }
+
     @PostMapping("/refresh-token")
     public ResponseEntity<ApiResponse<AuthResponse>> refreshToken(@Valid @RequestBody com.hiremate.dto.request.RefreshTokenRequest request) {
         AuthResponse response = authService.refreshToken(request);

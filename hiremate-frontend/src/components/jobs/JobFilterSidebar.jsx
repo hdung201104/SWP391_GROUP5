@@ -1,54 +1,82 @@
-import React, { useState } from 'react';
+import React from 'react';
 
-export default function JobFilterSidebar({ filters, onFilterChange, onReset }) {
-  const [matchScore, setMatchScore] = useState(80);
-  const [onlyHighMatch, setOnlyHighMatch] = useState(true);
-  const [selectedSalaries, setSelectedSalaries] = useState(['$2,000 - $3,500']);
-  const [selectedTypes, setSelectedTypes] = useState(['Full-time', 'Remote / WFH', 'Hybrid']);
-  const [selectedLevels, setSelectedLevels] = useState(['Senior (4-7 yrs)', 'Lead / Architect (7+ yrs)']);
-  const [selectedSkills, setSelectedSkills] = useState(['Java 21', 'Spring Boot', 'Kafka', 'PostgreSQL']);
+export default function JobFilterSidebar({ 
+  filters = {}, 
+  onFilterChange, 
+  onReset,
+  jobCounts = {},
+  availableSkills = []
+}) {
+  const matchScore = filters.matchScore ?? 50;
+  const onlyHighMatch = filters.onlyHighMatch ?? false;
+  const selectedSalaries = filters.selectedSalaries ?? [];
+  const selectedTypes = filters.selectedTypes ?? [];
+  const selectedLevels = filters.selectedLevels ?? [];
+  const selectedSkills = filters.selectedSkills ?? [];
+
+  const salaryCounts = jobCounts.salaryCounts || {};
+  const typeCounts = jobCounts.typeCounts || {};
+  const levelCounts = jobCounts.levelCounts || {};
 
   const handleClearAll = () => {
-    setMatchScore(50);
-    setOnlyHighMatch(false);
-    setSelectedSalaries([]);
-    setSelectedTypes([]);
-    setSelectedLevels([]);
-    setSelectedSkills([]);
     if (onReset) onReset();
   };
 
+  const handleMatchScoreChange = (val) => {
+    if (onFilterChange) {
+      onFilterChange({ ...filters, matchScore: Number(val) });
+    }
+  };
+
+  const handleOnlyHighMatchToggle = (checked) => {
+    if (onFilterChange) {
+      onFilterChange({ 
+        ...filters, 
+        onlyHighMatch: checked, 
+        matchScore: checked ? Math.max(matchScore, 80) : matchScore 
+      });
+    }
+  };
+
   const toggleSalary = (val) => {
-    setSelectedSalaries(prev => 
-      prev.includes(val) ? prev.filter(x => x !== val) : [...prev, val]
-    );
+    const next = selectedSalaries.includes(val)
+      ? selectedSalaries.filter(x => x !== val)
+      : [...selectedSalaries, val];
+    if (onFilterChange) {
+      onFilterChange({ ...filters, selectedSalaries: next });
+    }
   };
 
   const toggleType = (val) => {
-    setSelectedTypes(prev => {
-      const next = prev.includes(val) ? prev.filter(x => x !== val) : [...prev, val];
-      if (onFilterChange) {
-        onFilterChange({ ...filters, employmentType: next.join(',') });
-      }
-      return next;
-    });
+    const next = selectedTypes.includes(val)
+      ? selectedTypes.filter(x => x !== val)
+      : [...selectedTypes, val];
+    if (onFilterChange) {
+      onFilterChange({ ...filters, selectedTypes: next });
+    }
   };
 
   const toggleLevel = (val) => {
-    setSelectedLevels(prev => 
-      prev.includes(val) ? prev.filter(x => x !== val) : [...prev, val]
-    );
+    const next = selectedLevels.includes(val)
+      ? selectedLevels.filter(x => x !== val)
+      : [...selectedLevels, val];
+    if (onFilterChange) {
+      onFilterChange({ ...filters, selectedLevels: next });
+    }
   };
 
   const toggleSkill = (skill) => {
-    setSelectedSkills(prev => {
-      const next = prev.includes(skill) ? prev.filter(x => x !== skill) : [...prev, skill];
-      if (onFilterChange) {
-        onFilterChange({ ...filters, keyword: next.join(' ') });
-      }
-      return next;
-    });
+    const next = selectedSkills.includes(skill)
+      ? selectedSkills.filter(x => x !== skill)
+      : [...selectedSkills, skill];
+    if (onFilterChange) {
+      onFilterChange({ ...filters, selectedSkills: next });
+    }
   };
+
+  const defaultSkillsList = availableSkills.length > 0 
+    ? availableSkills 
+    : ['Java', 'Spring Boot', 'React', 'Node.js', 'PostgreSQL', 'Python', 'AWS', 'Docker', 'TypeScript', 'Golang'];
 
   return (
     <aside className="space-y-5">
@@ -84,17 +112,17 @@ export default function JobFilterSidebar({ filters, onFilterChange, onReset }) {
             min="50" 
             type="range" 
             value={matchScore}
-            onChange={(e) => setMatchScore(Number(e.target.value))}
+            onChange={(e) => handleMatchScoreChange(e.target.value)}
           />
           <div className="flex justify-between text-[10px] font-medium text-slate-500 mt-1.5">
-            <span>50% (Rộng)</span>
+            <span>50% (Tất cả)</span>
             <span>80% (Khuyên dùng)</span>
             <span>95% (Chính xác)</span>
           </div>
           <label className="mt-3 flex items-center gap-2 text-xs font-semibold text-[#1e1b4b] cursor-pointer select-none">
             <input 
               checked={onlyHighMatch} 
-              onChange={(e) => setOnlyHighMatch(e.target.checked)}
+              onChange={(e) => handleOnlyHighMatchToggle(e.target.checked)}
               className="rounded border-purple-200 text-[#5b48bd] focus:ring-[#5b48bd] h-4 w-4 cursor-pointer" 
               type="checkbox"
             />
@@ -107,12 +135,13 @@ export default function JobFilterSidebar({ filters, onFilterChange, onReset }) {
           <h3 className="text-xs font-bold uppercase tracking-wider text-[#1e1b4b] mb-3">Mức Lương (Tháng)</h3>
           <div className="space-y-2 text-xs font-normal">
             {[
-              { label: '< $1,000', count: 18 },
-              { label: '$1,000 - $2,000', count: 54 },
-              { label: '$2,000 - $3,500', count: 82 },
-              { label: '> $3,500+', count: 35 },
+              { label: '< $1,000', countKey: '< $1,000' },
+              { label: '$1,000 - $2,000', countKey: '$1,000 - $2,000' },
+              { label: '$2,000 - $3,500', countKey: '$2,000 - $3,500' },
+              { label: '> $3,500+', countKey: '> $3,500+' },
             ].map(sal => {
               const isChecked = selectedSalaries.includes(sal.label);
+              const count = salaryCounts[sal.countKey] ?? 0;
               return (
                 <label 
                   key={sal.label} 
@@ -130,7 +159,7 @@ export default function JobFilterSidebar({ filters, onFilterChange, onReset }) {
                     <span>{sal.label}</span>
                   </div>
                   <span className={`text-[11px] font-medium ${isChecked ? 'text-[#5b48bd]' : 'text-slate-400'}`}>
-                    {sal.count}
+                    {count}
                   </span>
                 </label>
               );
@@ -143,12 +172,13 @@ export default function JobFilterSidebar({ filters, onFilterChange, onReset }) {
           <h3 className="text-xs font-bold uppercase tracking-wider text-[#1e1b4b] mb-3">Hình Thức Làm Việc</h3>
           <div className="space-y-2 text-xs font-normal">
             {[
-              { label: 'Full-time', count: 112 },
-              { label: 'Remote / WFH', count: 64 },
-              { label: 'Hybrid', count: 48 },
-              { label: 'Contract / Freelance', count: 16 },
+              { label: 'Full-time', countKey: 'Full-time' },
+              { label: 'Remote / WFH', countKey: 'Remote / WFH' },
+              { label: 'Hybrid', countKey: 'Hybrid' },
+              { label: 'Part-time', countKey: 'Part-time' },
             ].map(type => {
               const isChecked = selectedTypes.includes(type.label);
+              const count = typeCounts[type.countKey] ?? 0;
               return (
                 <label 
                   key={type.label} 
@@ -165,7 +195,9 @@ export default function JobFilterSidebar({ filters, onFilterChange, onReset }) {
                     />
                     <span>{type.label}</span>
                   </div>
-                  <span className="text-[11px] font-medium text-slate-400">{type.count}</span>
+                  <span className={`text-[11px] font-medium ${isChecked ? 'text-[#5b48bd]' : 'text-slate-400'}`}>
+                    {count}
+                  </span>
                 </label>
               );
             })}
@@ -177,13 +209,14 @@ export default function JobFilterSidebar({ filters, onFilterChange, onReset }) {
           <h3 className="text-xs font-bold uppercase tracking-wider text-[#1e1b4b] mb-3">Cấp Bậc &amp; Kinh Nghiệm</h3>
           <div className="space-y-2 text-xs font-normal">
             {[
-              { label: 'Intern / Fresher', count: 12 },
-              { label: 'Junior (1-2 yrs)', count: 28 },
-              { label: 'Middle (2-4 yrs)', count: 55 },
-              { label: 'Senior (4-7 yrs)', count: 72 },
-              { label: 'Lead / Architect (7+ yrs)', count: 23 },
+              { label: 'Intern / Fresher', countKey: 'Intern / Fresher' },
+              { label: 'Junior (1-2 yrs)', countKey: 'Junior (1-2 yrs)' },
+              { label: 'Middle (2-4 yrs)', countKey: 'Middle (2-4 yrs)' },
+              { label: 'Senior (4-7 yrs)', countKey: 'Senior (4-7 yrs)' },
+              { label: 'Lead / Architect (7+ yrs)', countKey: 'Lead / Architect (7+ yrs)' },
             ].map(exp => {
               const isChecked = selectedLevels.includes(exp.label);
+              const count = levelCounts[exp.countKey] ?? 0;
               return (
                 <label 
                   key={exp.label} 
@@ -200,7 +233,9 @@ export default function JobFilterSidebar({ filters, onFilterChange, onReset }) {
                     />
                     <span>{exp.label}</span>
                   </div>
-                  <span className="text-[11px] font-medium text-slate-400">{exp.count}</span>
+                  <span className={`text-[11px] font-medium ${isChecked ? 'text-[#5b48bd]' : 'text-slate-400'}`}>
+                    {count}
+                  </span>
                 </label>
               );
             })}
@@ -211,13 +246,7 @@ export default function JobFilterSidebar({ filters, onFilterChange, onReset }) {
         <div className="pt-4">
           <h3 className="text-xs font-bold uppercase tracking-wider text-[#1e1b4b] mb-3">Kỹ Năng &amp; Chuyên Môn</h3>
           <div className="grid grid-cols-2 gap-2 text-xs font-normal">
-            {[
-              'Financial Modeling', 'Valuation', 
-              'Omnichannel', 'CAC / LTV', 
-              'B2B Sales', 'HRBP Model', 
-              'Supply Chain', 'Java 21 / Spring', 
-              'ReactJS / UI', 'Python / AI'
-            ].map(skill => {
+            {defaultSkillsList.slice(0, 10).map(skill => {
               const isChecked = selectedSkills.includes(skill);
               return (
                 <label 
@@ -242,4 +271,3 @@ export default function JobFilterSidebar({ filters, onFilterChange, onReset }) {
     </aside>
   );
 }
-

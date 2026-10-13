@@ -52,11 +52,14 @@ public interface GeminiAiService {
     String generateMatchReasoning(String jobTitle, List<String> matchedMandatory, List<String> missingMandatory, Float score);
 
     /**
-     * AI Agent suy luận ngữ cảnh nhiều lượt (Multi-Turn Adaptive Agent Reasoning):
-     * Phân tích các câu hỏi và câu trả lời trước đó trong phiên để tự động sinh câu hỏi tiếp theo
-     * xoáy sâu vào các công nghệ và giải pháp mà ứng viên vừa trình bày.
+     * AI Agent suy luận ngữ cảnh nhiều lượt (Hoàng - Technical Lead 10 năm kinh nghiệm):
+     * Phản hồi 1 câu tự nhiên và đào sâu 1 câu hỏi thực chiến dựa trên vị trí, CV và lịch sử hội thoại.
      */
-    String generateAdaptiveFollowUpQuestion(String targetPosition, List<InterviewDetail> previousDetails, int nextQuestionNumber);
+    String generateAdaptiveFollowUpQuestion(String targetPosition, String candidateSkills, List<InterviewDetail> previousDetails, int nextQuestionNumber);
+
+    default String generateAdaptiveFollowUpQuestion(String targetPosition, List<InterviewDetail> previousDetails, int nextQuestionNumber) {
+        return generateAdaptiveFollowUpQuestion(targetPosition, "Kỹ năng chuyên môn theo vị trí", previousDetails, nextQuestionNumber);
+    }
 
     /**
      * Phân tích đối sánh ngữ nghĩa chuyên sâu (Semantic Skill Reasoning):

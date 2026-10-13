@@ -23,6 +23,7 @@ import AdminDashboardPage from './pages/AdminDashboardPage';
 import NotFoundPage from './pages/NotFoundPage';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
+import RegisterCompletePage from './pages/auth/RegisterCompletePage';
 
 /**
  * ErrorBoundary to safeguard UI from breaking unexpectedly
@@ -155,6 +156,15 @@ function AppContent() {
         <LoginPage
           onNavigateRegister={() => { window.location.hash = '#/register'; }}
           onLoginSuccess={handleLoginSuccess}
+        />
+      );
+    }
+
+    if (route.includes('register-complete') || route.includes('complete-registration')) {
+      return (
+        <RegisterCompletePage
+          onNavigateLogin={() => { window.location.hash = '#/login'; }}
+          onRegisterSuccess={handleLoginSuccess}
         />
       );
     }

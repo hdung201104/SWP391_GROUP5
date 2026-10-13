@@ -45,6 +45,12 @@ public class AuthServiceImpl implements AuthService {
     private final com.hiremate.service.GoogleTokenVerifierService googleTokenVerifierService;
     private final com.hiremate.service.TokenBlacklistService tokenBlacklistService;
 
+    @org.springframework.beans.factory.annotation.Value("${github.oauth2.client-id:Ov23lin7fKu1DTd2VwAB}")
+    private String githubClientId;
+
+    @org.springframework.beans.factory.annotation.Value("${github.oauth2.client-secret:5a845ff134b283d3eb40526625f82575f37bf034}")
+    private String githubClientSecret;
+
     @Override
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -350,9 +356,8 @@ public class AuthServiceImpl implements AuthService {
 
         Optional<User> existingUserOpt = userRepository.findByEmail(email);
 
-        User user;
         if (existingUserOpt.isPresent()) {
-            user = existingUserOpt.get();
+            User user = existingUserOpt.get();
             if (user.getStatus() != UserStatus.ACTIVE) {
                 throw new IllegalStateException("Tài khoản của bạn đã bị khóa hoặc ngừng kích hoạt. Vui lòng liên hệ quản trị viên.");
             }
@@ -360,76 +365,118 @@ public class AuthServiceImpl implements AuthService {
                 user.setAvatarUrl(avatarUrl);
                 userRepository.save(user);
             }
-            log.info(">> [AuthService] Đăng nhập Google thành công cho tài khoản: {}", email);
+            log.info(">> [AuthService] Đăng nhập Google thành công cho tài khoản đã tồn tại: {}", email);
+
+            Long companyId = null;
+            String companyName = null;
+            if (user.getRole() == UserRole.RECRUITER) {
+                Optional<Recruiter> recruiterOpt = recruiterRepository.findById(user.getUserId());
+                if (recruiterOpt.isPresent() && recruiterOpt.get().getCompany() != null) {
+                    companyId = recruiterOpt.get().getCompany().getCompanyId();
+                    companyName = recruiterOpt.get().getCompany().getCompanyName();
+                }
+            }
+
+            Map<String, Object> claims = new HashMap<>();
+            claims.put("userId", user.getUserId());
+            claims.put("role", user.getRole().name());
+            String token = jwtUtil.generateToken(user.getEmail(), claims);
+            String refreshToken = jwtUtil.generateRefreshToken(user.getEmail(), claims);
+
+            AuthResponse response = buildAuthResponse(user, token, refreshToken, companyId, companyName);
+            response.setIsNewUser(false);
+            return response;
         } else {
-            UserRole role = request.getRole() != null ? request.getRole() : UserRole.CANDIDATE;
-            user = User.builder()
+            // TRƯỜNG HỢP 2 (Tài khoản CHƯA TỒN TẠI - Người dùng mới):
+            // Trả về cờ isNewUser = true kèm thông tin đã xác thực từ Google để Frontend chuyển sang trang hoàn tất đăng ký
+            log.info(">> [AuthService] Phát hiện tài khoản Google mới chưa có trong hệ thống: {}", email);
+            return AuthResponse.builder()
+                    .isNewUser(true)
                     .email(email)
-                    .passwordHash(passwordEncoder.encode("GoogleOAuth2_" + UUID.randomUUID()))
                     .fullName(fullName)
                     .avatarUrl(avatarUrl)
-                    .role(role)
-                    .status(UserStatus.ACTIVE)
-                    .isEmailVerified(true)
                     .build();
-            user = userRepository.save(user);
-
-            // Tạo Candidate subclass record khi đăng ký mới qua Google
-            if (role == UserRole.CANDIDATE) {
-                Candidate candidate = Candidate.builder()
-                        .candidateId(user.getUserId())  // Shared PK
-                        .user(user)
-                        .headline("Ứng viên tiềm năng")
-                        .location("Việt Nam")
-                        .experienceYears(0)
-                        .build();
-                candidateRepository.save(candidate);
-            } else if (role == UserRole.RECRUITER) {
-                Company company = Company.builder()
-                        .companyName(fullName + "'s Company")
-                        .address("Việt Nam")
-                        .status(CompanyStatus.ACTIVE)
-                        .build();
-                Company savedCompany = companyRepository.saveAndFlush(company);
-
-                Recruiter recruiter = Recruiter.builder()
-                        .recruiterId(user.getUserId())
-                        .user(user)
-                        .company(savedCompany)
-                        .position("HR Recruiter")
-                        .build();
-                Recruiter savedRecruiter = recruiterRepository.saveAndFlush(recruiter);
-                savedCompany.setRecruiterId(savedRecruiter.getRecruiterId());
-                companyRepository.save(savedCompany);
-            }
-
-            try {
-                emailService.sendWelcomeEmail(user.getEmail(), user.getFullName(), user.getRole().name());
-            } catch (Exception e) {
-                log.error(">> [AuthService] Không thể gửi welcome email cho user Google: {}", e.getMessage());
-            }
-
-            notificationService.createNotification(
-                    user.getUserId(),
-                    com.hiremate.enums.NotificationType.SYSTEM_ALERT,
-                    "Chào mừng gia nhập HireMate AI qua tài khoản Google!",
-                    "Tài khoản của bạn đã được liên kết và kích hoạt thành công.",
-                    user.getUserId(),
-                    "users"
-            );
-
-            log.info(">> [AuthService] Khởi tạo tài khoản mới thành công qua Google OAuth2: {}", email);
         }
+    }
+
+    @Override
+    @Transactional
+    public AuthResponse completeGoogleRegistration(GoogleCompleteRegistrationRequest request) {
+        String email = request.getEmail().toLowerCase().trim();
+        if (userRepository.findByEmail(email).isPresent()) {
+            throw new IllegalArgumentException("Email " + email + " đã tồn tại trong hệ thống. Vui lòng đăng nhập.");
+        }
+
+        UserRole role = request.getRole() != null ? request.getRole() : UserRole.CANDIDATE;
+        User user = User.builder()
+                .email(email)
+                .passwordHash(passwordEncoder.encode("GoogleOAuth2_" + UUID.randomUUID()))
+                .fullName(request.getFullName())
+                .phone(request.getPhone())
+                .avatarUrl(request.getAvatarUrl())
+                .role(role)
+                .status(UserStatus.ACTIVE)
+                .isEmailVerified(true)
+                .build();
+        user = userRepository.save(user);
 
         Long companyId = null;
         String companyName = null;
-        if (user.getRole() == UserRole.RECRUITER) {
-            Optional<Recruiter> recruiterOpt = recruiterRepository.findById(user.getUserId());
-            if (recruiterOpt.isPresent() && recruiterOpt.get().getCompany() != null) {
-                companyId = recruiterOpt.get().getCompany().getCompanyId();
-                companyName = recruiterOpt.get().getCompany().getCompanyName();
-            }
+
+        if (role == UserRole.CANDIDATE) {
+            Candidate candidate = Candidate.builder()
+                    .candidateId(user.getUserId()) // Shared PK = user_id
+                    .user(user)
+                    .headline(request.getHeadline() != null && !request.getHeadline().isBlank() 
+                            ? request.getHeadline().trim() 
+                            : "Ứng viên tiềm năng")
+                    .location("Việt Nam")
+                    .experienceYears(0)
+                    .build();
+            candidateRepository.save(candidate);
+        } else if (role == UserRole.RECRUITER) {
+            String compName = (request.getCompanyName() != null && !request.getCompanyName().isBlank())
+                    ? request.getCompanyName().trim()
+                    : request.getFullName() + "'s Company";
+            Company company = Company.builder()
+                    .companyName(compName)
+                    .address("Việt Nam")
+                    .status(CompanyStatus.ACTIVE)
+                    .build();
+            Company savedCompany = companyRepository.saveAndFlush(company);
+
+            Recruiter recruiter = Recruiter.builder()
+                    .recruiterId(user.getUserId())
+                    .user(user)
+                    .company(savedCompany)
+                    .position(request.getPosition() != null && !request.getPosition().isBlank() 
+                            ? request.getPosition().trim() 
+                            : "HR Recruiter")
+                    .build();
+            Recruiter savedRecruiter = recruiterRepository.saveAndFlush(recruiter);
+            savedCompany.setRecruiterId(savedRecruiter.getRecruiterId());
+            companyRepository.save(savedCompany);
+
+            companyId = savedCompany.getCompanyId();
+            companyName = savedCompany.getCompanyName();
         }
+
+        try {
+            emailService.sendWelcomeEmail(user.getEmail(), user.getFullName(), user.getRole().name());
+        } catch (Exception e) {
+            log.error(">> [AuthService] Không thể gửi welcome email cho user Google mới: {}", e.getMessage());
+        }
+
+        notificationService.createNotification(
+                user.getUserId(),
+                com.hiremate.enums.NotificationType.SYSTEM_ALERT,
+                "Chào mừng gia nhập HireMate AI!",
+                "Tài khoản của bạn đã được thiết lập thành công qua Google.",
+                user.getUserId(),
+                "users"
+        );
+
+        log.info(">> [AuthService] Hoàn tất đăng ký thành công cho tài khoản Google mới: {} với vai trò {}", email, role);
 
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", user.getUserId());
@@ -437,7 +484,141 @@ public class AuthServiceImpl implements AuthService {
         String token = jwtUtil.generateToken(user.getEmail(), claims);
         String refreshToken = jwtUtil.generateRefreshToken(user.getEmail(), claims);
 
-        return buildAuthResponse(user, token, refreshToken, companyId, companyName);
+        AuthResponse response = buildAuthResponse(user, token, refreshToken, companyId, companyName);
+        response.setIsNewUser(false);
+        return response;
+    }
+
+    @Override
+    @Transactional
+    public AuthResponse githubLogin(GitHubAuthRequest request) {
+        String email = null;
+        String fullName = null;
+        String avatarUrl = null;
+
+        if (request.getCode() != null && !request.getCode().isBlank()) {
+            try {
+                // 1. Trao đổi OAuth code để lấy access_token từ GitHub
+                org.springframework.web.client.RestTemplate restTemplate = new org.springframework.web.client.RestTemplate();
+                org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+                headers.setAccept(java.util.Collections.singletonList(org.springframework.http.MediaType.APPLICATION_JSON));
+
+                java.util.Map<String, String> tokenParams = new java.util.HashMap<>();
+                tokenParams.put("client_id", githubClientId);
+                tokenParams.put("client_secret", githubClientSecret);
+                tokenParams.put("code", request.getCode().trim());
+
+                org.springframework.http.HttpEntity<java.util.Map<String, String>> tokenEntity = new org.springframework.http.HttpEntity<>(tokenParams, headers);
+                org.springframework.http.ResponseEntity<java.util.Map> tokenResponse = restTemplate.postForEntity(
+                        "https://github.com/login/oauth/access_token", tokenEntity, java.util.Map.class);
+
+                if (tokenResponse.getBody() != null && tokenResponse.getBody().get("access_token") != null) {
+                    String accessToken = (String) tokenResponse.getBody().get("access_token");
+
+                    // 2. Lấy hồ sơ tài khoản từ GitHub User API
+                    org.springframework.http.HttpHeaders userHeaders = new org.springframework.http.HttpHeaders();
+                    userHeaders.setBearerAuth(accessToken);
+                    userHeaders.set("User-Agent", "HireMate-AI-Platform");
+                    org.springframework.http.HttpEntity<Void> userEntity = new org.springframework.http.HttpEntity<>(userHeaders);
+
+                    org.springframework.http.ResponseEntity<java.util.Map> userResponse = restTemplate.exchange(
+                            "https://api.github.com/user", org.springframework.http.HttpMethod.GET, userEntity, java.util.Map.class);
+
+                    if (userResponse.getBody() != null) {
+                        java.util.Map userData = userResponse.getBody();
+                        String login = (String) userData.get("login");
+                        String name = (String) userData.get("name");
+                        fullName = (name != null && !name.isBlank()) ? name : login;
+                        avatarUrl = (String) userData.get("avatar_url");
+                        email = (String) userData.get("email");
+
+                        // 3. Nếu email là private, lấy email chính từ /user/emails
+                        if (email == null || email.isBlank()) {
+                            try {
+                                org.springframework.http.ResponseEntity<java.util.List> emailsResponse = restTemplate.exchange(
+                                        "https://api.github.com/user/emails", org.springframework.http.HttpMethod.GET, userEntity, java.util.List.class);
+                                if (emailsResponse.getBody() != null) {
+                                    for (Object item : emailsResponse.getBody()) {
+                                        if (item instanceof java.util.Map) {
+                                            java.util.Map emailItem = (java.util.Map) item;
+                                            Boolean primary = (Boolean) emailItem.get("primary");
+                                            if (Boolean.TRUE.equals(primary)) {
+                                                email = (String) emailItem.get("email");
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            } catch (Exception e) {
+                                log.warn(">> [AuthService] Không thể lấy email phụ từ GitHub: {}", e.getMessage());
+                            }
+                        }
+
+                        if (email == null || email.isBlank()) {
+                            email = login.toLowerCase() + "@github.com";
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.error(">> [AuthService] Lỗi khi trao đổi GitHub OAuth code: {}", e.getMessage());
+            }
+        }
+
+        // Fallback email / profile nếu không trao đổi được code
+        if (email == null && request.getEmail() != null && !request.getEmail().isBlank()) {
+            email = request.getEmail().toLowerCase().trim();
+            fullName = (request.getFullName() != null && !request.getFullName().isBlank())
+                    ? request.getFullName() : email.split("@")[0];
+            avatarUrl = request.getAvatarUrl();
+        }
+
+        if (email == null) {
+            throw new IllegalArgumentException("Không thể xác thực thông tin tài khoản GitHub của bạn.");
+        }
+
+        email = email.toLowerCase().trim();
+        Optional<User> existingUserOpt = userRepository.findByEmail(email);
+
+        if (existingUserOpt.isPresent()) {
+            User user = existingUserOpt.get();
+            if (user.getStatus() != UserStatus.ACTIVE) {
+                throw new IllegalStateException("Tài khoản của bạn đã bị khóa hoặc ngừng kích hoạt. Vui lòng liên hệ quản trị viên.");
+            }
+            if (avatarUrl != null && (user.getAvatarUrl() == null || user.getAvatarUrl().isBlank())) {
+                user.setAvatarUrl(avatarUrl);
+                userRepository.save(user);
+            }
+            log.info(">> [AuthService] Đăng nhập GitHub thành công cho tài khoản đã tồn tại: {}", email);
+
+            Long companyId = null;
+            String companyName = null;
+            if (user.getRole() == UserRole.RECRUITER) {
+                Optional<Recruiter> recruiterOpt = recruiterRepository.findById(user.getUserId());
+                if (recruiterOpt.isPresent() && recruiterOpt.get().getCompany() != null) {
+                    companyId = recruiterOpt.get().getCompany().getCompanyId();
+                    companyName = recruiterOpt.get().getCompany().getCompanyName();
+                }
+            }
+
+            Map<String, Object> claims = new HashMap<>();
+            claims.put("userId", user.getUserId());
+            claims.put("role", user.getRole().name());
+            String token = jwtUtil.generateToken(user.getEmail(), claims);
+            String refreshToken = jwtUtil.generateRefreshToken(user.getEmail(), claims);
+
+            AuthResponse authResp = buildAuthResponse(user, token, refreshToken, companyId, companyName);
+            authResp.setIsNewUser(false);
+            return authResp;
+        } else {
+            // TRƯỜNG HỢP 2 (Người dùng mới): Trả về isNewUser = true để chuyển sang trang hoàn tất hồ sơ
+            log.info(">> [AuthService] Phát hiện tài khoản GitHub mới chưa có trong hệ thống: {}", email);
+            return AuthResponse.builder()
+                    .isNewUser(true)
+                    .email(email)
+                    .fullName(fullName)
+                    .avatarUrl(avatarUrl)
+                    .build();
+        }
     }
 
     @Override

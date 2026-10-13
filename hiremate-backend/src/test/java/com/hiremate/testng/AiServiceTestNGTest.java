@@ -29,6 +29,7 @@ import com.hiremate.repository.InterviewSessionRepository;
 import com.hiremate.repository.JobRepository;
 import com.hiremate.repository.JobSkillRepository;
 import com.hiremate.repository.UserRepository;
+import com.hiremate.repository.CandidateSkillRepository;
 import com.hiremate.repository.PracticeProgressLogRepository;
 import com.hiremate.repository.SkillRepository;
 import com.hiremate.service.AiJobMatchService;
@@ -113,6 +114,7 @@ public class AiServiceTestNGTest {
         com.hiremate.agent.AgentMemoryManager memoryManager = new com.hiremate.agent.AgentMemoryManager(sessionRepository, detailRepository);
 
         fileStorageService = mock(FileStorageService.class);
+        CandidateSkillRepository candidateSkillRepository = mock(CandidateSkillRepository.class);
 
         aiInterviewService = new AiInterviewServiceImpl(
                 sessionRepository,
@@ -123,7 +125,9 @@ public class AiServiceTestNGTest {
                 mockedGeminiAiService,
                 objectMapper,
                 memoryManager,
-                fileStorageService
+                fileStorageService,
+                candidateSkillRepository,
+                skillRepository
         );
 
         sampleUser = User.builder()

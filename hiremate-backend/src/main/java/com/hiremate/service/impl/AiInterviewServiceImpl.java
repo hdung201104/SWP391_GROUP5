@@ -39,6 +39,8 @@ public class AiInterviewServiceImpl implements AiInterviewService {
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
     private final com.hiremate.agent.AgentMemoryManager agentMemoryManager;
     private final com.hiremate.service.FileStorageService fileStorageService;
+    private final com.hiremate.repository.CandidateSkillRepository candidateSkillRepository;
+    private final com.hiremate.repository.SkillRepository skillRepository;
 
     @Override
     @Transactional
@@ -406,7 +408,32 @@ public class AiInterviewServiceImpl implements AiInterviewService {
             }
         }
 
-        return geminiAiService.generateAdaptiveFollowUpQuestion(targetPosition, previousDetails, nextNumber);
+        // Trích xuất kỹ năng ứng viên từ CV / hồ sơ cá nhân
+        String candidateSkills = "";
+        try {
+            List<com.hiremate.entity.CandidateSkill> skills = candidateSkillRepository.findByProfileId(candidate.getUserId());
+            if (skills != null && !skills.isEmpty()) {
+                List<Long> skillIds = skills.stream()
+                        .map(com.hiremate.entity.CandidateSkill::getSkillId)
+                        .filter(java.util.Objects::nonNull)
+                        .toList();
+                List<String> names = skillRepository.findAllById(skillIds).stream()
+                        .map(com.hiremate.entity.Skill::getSkillName)
+                        .toList();
+                candidateSkills = String.join(", ", names);
+            }
+        } catch (Exception ignored) {}
+
+        if (candidateSkills.isBlank()) {
+            Candidate cand = session.getCandidate();
+            if (cand != null && cand.getHeadline() != null && !cand.getHeadline().isBlank()) {
+                candidateSkills = cand.getHeadline();
+            } else {
+                candidateSkills = session.getTargetPosition() != null ? session.getTargetPosition() : "Software Engineer";
+            }
+        }
+
+        return geminiAiService.generateAdaptiveFollowUpQuestion(targetPosition, candidateSkills, previousDetails, nextNumber);
     }
 
     /**

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useGoogleLogin } from '@react-oauth/google';
 import { Mail, Lock, Eye, EyeOff, User, Building2, ArrowRight, ArrowLeft, X, UserPlus, AlertCircle, CheckCircle2, Sparkles } from 'lucide-react';
 import authApi from '../../api/authApi';
 import { useLivingTheme } from '../../context/LivingThemeContext';
@@ -22,8 +23,10 @@ export default function LoginPage({ onNavigateRegister, onLoginSuccess }) {
   // Demo Video Modal State
   const [showVideoModal, setShowVideoModal] = useState(false);
 
-  // Google OAuth Modal State
-  const [showGoogleModal, setShowGoogleModal] = useState(false);
+  // GitHub Modal State
+  const [showGitHubModal, setShowGitHubModal] = useState(false);
+  const [githubUserInput, setGithubUserInput] = useState('');
+  const [githubNameInput, setGithubNameInput] = useState('');
   // Forgot Password Modal State
   const [showForgotModal, setShowForgotModal] = useState(false);
   const [forgotStep, setForgotStep] = useState(1); // 1: Email, 2: OTP & New Password, 3: Success
@@ -60,112 +63,210 @@ export default function LoginPage({ onNavigateRegister, onLoginSuccess }) {
     setSuccessMessage('');
   };
 
-  // Quick fill demo credentials strictly for current active role
-  const handleFillDemo = (targetRole) => {
-    const activeRole = targetRole || role;
-    if (activeRole === 'ADMIN') {
-      const adminData = {
-        userId: 999,
-        email: 'admin@hiremate.ai',
-        fullName: 'Quản trị viên Hệ thống',
-        role: 'ADMIN',
-        avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
-      };
-      localStorage.setItem('user', JSON.stringify(adminData));
-      localStorage.setItem('token', 'demo-admin-token');
-      if (onLoginSuccess) onLoginSuccess({ ...adminData, token: 'demo-admin-token' });
-      return;
-    }
-    setRole(activeRole);
-    if (activeRole === 'RECRUITER') {
-      setEmail('minhanh.hr@fptsoftware.com');
-      setPassword('Password123@');
-    } else {
-      setEmail('longtran@candidate.hiremate.ai');
-      setPassword('Password123@');
-    }
+
+
+  // Official Google OAuth Hook via @react-oauth/google
+  const triggerGoogleLogin = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      setIsLoading(true);
+      setErrorMessage('');
+      setSuccessMessage('');
+      try {
+        // 1. Fetch authenticated Google profile
+        const resp = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
+        });
+        const profile = await resp.json();
+        if (!profile.email) {
+          throw new Error('Google không cung cấp địa chỉ email của bạn.');
+        }
+
+        // 2. Query backend to verify account existence
+        const res = await authApi.googleLogin({
+          email: profile.email.toLowerCase().trim(),
+          fullName: profile.name || profile.email.split('@')[0],
+          avatarUrl: profile.picture,
+          role: role,
+        });
+
+        const authData = (res?.data && (res.data.token || res.data.isNewUser !== undefined)) 
+          ? res.data 
+          : (res?.token ? res : (res?.data || res));
+
+        // CASE 2: Tài khoản CHƯA TỒN TẠI (Người dùng mới)
+        if (authData?.isNewUser) {
+          sessionStorage.setItem('hiremate_google_onboarding', JSON.stringify({
+            email: authData.email || profile.email,
+            fullName: authData.fullName || profile.name,
+            avatarUrl: authData.avatarUrl || profile.picture,
+            role: role,
+          }));
+          setSuccessMessage('Xác thực tài khoản Google thành công! Đang chuyển hướng sang bước hoàn tất đăng ký...');
+          setTimeout(() => {
+            window.location.hash = '#/register-complete';
+          }, 450);
+          return;
+        }
+
+        // CASE 1: Tài khoản ĐÃ TỒN TẠI -> Đăng nhập thành công, chuyển Dashboard
+        setSuccessMessage(`Đăng nhập Google thành công! Xin chào ${authData.fullName || authData.email}`);
+        setTimeout(() => {
+          if (onLoginSuccess) {
+            onLoginSuccess(authData);
+          }
+        }, 400);
+      } catch (err) {
+        console.error('Google login error:', err);
+        const msg = err.response?.data?.message || err.message || 'Lỗi khi xác thực tài khoản Google.';
+        setErrorMessage(msg);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    onError: (errorResponse) => {
+      console.warn('Google OAuth cancelled or failed:', errorResponse);
+      setErrorMessage('Đăng nhập Google bị gián đoạn hoặc bạn đã đóng cửa sổ xác thực.');
+    },
+  });
+
+  const handleGoogleLogin = () => {
     setErrorMessage('');
     setSuccessMessage('');
+    try {
+      triggerGoogleLogin();
+    } catch (err) {
+      console.error('Error triggering Google OAuth modal:', err);
+      setErrorMessage('Không thể mở cửa sổ Google Login. Vui lòng thử lại!');
+    }
   };
 
-  // Google Sign-In Handler
-  const handleSelectGoogleAccount = async (gEmail, gName, gAvatar, gRole) => {
+  const GITHUB_CLIENT_ID = 'Ov23lin7fKu1DTd2VwAB';
+
+  const handleProcessGitHubCode = async (code) => {
     setIsLoading(true);
-    setShowGoogleModal(false);
     setErrorMessage('');
     setSuccessMessage('');
-
-    // Pre-validation for Google account role boundary
-    const chosenRole = (gRole || '').toUpperCase();
-    if (role === 'CANDIDATE' && chosenRole === 'RECRUITER') {
-      setIsLoading(false);
-      setErrorMessage('Tài khoản này thuộc vai trò Nhà Tuyển Dụng. Vui lòng chuyển sang tab "Nhà Tuyển Dụng" để đăng nhập!');
-      return;
-    }
-    if (role === 'RECRUITER' && chosenRole === 'CANDIDATE') {
-      setIsLoading(false);
-      setErrorMessage('Tài khoản này là tài khoản Ứng Viên. Vui lòng chuyển sang tab "Ứng Viên" để đăng nhập!');
-      return;
-    }
-
     try {
-      let authData;
-      try {
-        const res = await authApi.googleLogin({
-          email: gEmail,
-          fullName: gName,
-          avatarUrl: gAvatar,
-          role: gRole || role,
-        });
-        authData = (res?.data && res.data.token) ? res.data : (res?.token ? res : (res?.data || res));
-      } catch {
-        // Fallback simulation if backend offline
-        authData = {
-          token: 'google_jwt_token_' + Date.now(),
-          userId: gRole === 'RECRUITER' ? 2 : 1,
-          email: gEmail,
-          fullName: gName,
-          avatarUrl: gAvatar,
-          role: gRole || role,
-          companyName: gRole === 'RECRUITER' ? 'FPT Software' : null,
-          isEmailVerified: true,
-        };
-      }
+      const res = await authApi.githubLogin({ code, role });
+      const authData = (res?.data && (res.data.token || res.data.isNewUser !== undefined))
+        ? res.data
+        : (res?.token ? res : (res?.data || res));
 
-      // Authoritative role boundary check for Google login
-      const actualRole = String(authData.role || gRole || '').toUpperCase();
-      if (role === 'CANDIDATE' && actualRole === 'RECRUITER') {
-        setIsLoading(false);
-        setErrorMessage('Tài khoản này thuộc vai trò Nhà Tuyển Dụng. Vui lòng chuyển sang tab "Nhà Tuyển Dụng" để đăng nhập!');
-        return;
-      }
-      if (role === 'RECRUITER' && actualRole === 'CANDIDATE') {
-        setIsLoading(false);
-        setErrorMessage('Tài khoản này là tài khoản Ứng Viên. Vui lòng chuyển sang tab "Ứng Viên" để đăng nhập!');
+      // CASE 2: Tài khoản GitHub mới -> chuyển sang hoàn tất đăng ký
+      if (authData?.isNewUser) {
+        sessionStorage.setItem('hiremate_google_onboarding', JSON.stringify({
+          email: authData.email,
+          fullName: authData.fullName,
+          avatarUrl: authData.avatarUrl,
+          provider: 'GITHUB',
+          role: role,
+        }));
+        setSuccessMessage('Xác thực tài khoản GitHub thành công! Đang chuyển hướng sang bước hoàn tất hồ sơ...');
+        setTimeout(() => {
+          window.location.hash = '#/register-complete';
+        }, 450);
         return;
       }
 
-      setSuccessMessage(`Đăng nhập Google thành công! Xin chào ${gName}`);
+      // CASE 1: Đã tồn tại -> Đăng nhập ngay
+      setSuccessMessage(`Đăng nhập GitHub thành công! Xin chào ${authData.fullName || authData.email}`);
       setTimeout(() => {
-        if (onLoginSuccess) {
-          onLoginSuccess(authData);
-        }
+        if (onLoginSuccess) onLoginSuccess(authData);
       }, 400);
     } catch (err) {
-      setErrorMessage(err.message || 'Đăng nhập Google không thành công.');
+      console.error('GitHub login error:', err);
+      const msg = err.response?.data?.message || err.message || 'Lỗi khi xác thực tài khoản GitHub.';
+      setErrorMessage(msg);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // GitHub Sign-In Handler
-  const handleGitHubLogin = async () => {
-    await handleSelectGoogleAccount(
-      'longtran.dev@github.com',
-      'Trần Bảo Long (GitHub)',
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
-      role
-    );
+  // Trigger Official GitHub OAuth Popup / Window
+  const handleGitHubOAuthLogin = () => {
+    setErrorMessage('');
+    setSuccessMessage('');
+    const redirectUri = window.location.origin;
+    const githubUrl = `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&scope=read:user,user:email&redirect_uri=${encodeURIComponent(redirectUri)}`;
+    
+    const popup = window.open(githubUrl, 'GitHubOAuth', 'width=580,height=680,left=300,top=100');
+    if (!popup) {
+      window.location.href = githubUrl;
+    }
+  };
+
+  React.useEffect(() => {
+    // 1. Kiểm tra nếu URL hiện tại có code (redirect về từ GitHub)
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    if (code) {
+      if (window.opener) {
+        window.opener.postMessage({ type: 'GITHUB_OAUTH_CODE', code }, window.location.origin);
+        window.close();
+        return;
+      } else {
+        window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
+        handleProcessGitHubCode(code);
+      }
+    }
+
+    // 2. Lắng nghe thông điệp postMessage từ cửa sổ popup
+    const handleMessage = (event) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type === 'GITHUB_OAUTH_CODE' && event.data.code) {
+        handleProcessGitHubCode(event.data.code);
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [role]);
+
+  // Real GitHub Account Submit Fallback
+  const handleCustomGitHubSubmit = async (e) => {
+    if (e) e.preventDefault();
+    const cleanUser = githubUserInput.trim();
+    if (!cleanUser) {
+      setErrorMessage('Vui lòng nhập GitHub username hoặc email của bạn');
+      return;
+    }
+    setIsLoading(true);
+    setShowGitHubModal(false);
+    setErrorMessage('');
+    try {
+      const isEmail = cleanUser.includes('@');
+      const email = isEmail ? cleanUser.toLowerCase() : `${cleanUser.toLowerCase()}@github.com`;
+      const fullName = githubNameInput.trim() || cleanUser;
+      const avatarUrl = isEmail 
+        ? `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(cleanUser)}`
+        : `https://github.com/${cleanUser}.png`;
+
+      const res = await authApi.githubLogin({
+        email: email,
+        fullName: fullName,
+        avatarUrl: avatarUrl,
+        role: role,
+      });
+      const authData = (res?.data && res.data.token) ? res.data : (res?.token ? res : (res?.data || res));
+      if (authData?.isNewUser) {
+        sessionStorage.setItem('hiremate_google_onboarding', JSON.stringify({
+          email: authData.email,
+          fullName: authData.fullName,
+          avatarUrl: authData.avatarUrl,
+          provider: 'GITHUB',
+          role: role,
+        }));
+        window.location.hash = '#/register-complete';
+        return;
+      }
+      setSuccessMessage(`Đăng nhập GitHub thành công! Xin chào ${authData.fullName || authData.email}`);
+      setTimeout(() => {
+        if (onLoginSuccess) onLoginSuccess(authData);
+      }, 400);
+    } catch (err) {
+      setErrorMessage(err.response?.data?.message || err.message || 'Đăng nhập GitHub không thành công.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Forgot Password: Send OTP to Real Email
@@ -477,7 +578,7 @@ export default function LoginPage({ onNavigateRegister, onLoginSuccess }) {
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={() => setShowGoogleModal(true)}
+                onClick={handleGoogleLogin}
                 className="py-2.5 px-4 rounded-full bg-white hover:bg-purple-50/50 border border-purple-100 shadow-sm hover:shadow-md text-[#221d47] text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer group"
               >
                 <svg className="w-4 h-4 group-hover:scale-105 transition-transform" viewBox="0 0 24 24">
@@ -491,7 +592,7 @@ export default function LoginPage({ onNavigateRegister, onLoginSuccess }) {
 
               <button
                 type="button"
-                onClick={handleGitHubLogin}
+                onClick={handleGitHubOAuthLogin}
                 className="py-2.5 px-4 rounded-full bg-white hover:bg-purple-50/50 border border-purple-100 shadow-sm hover:shadow-md text-[#221d47] text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer group"
               >
                 <svg className="w-4 h-4 fill-[#221d47] group-hover:scale-105 transition-transform" viewBox="0 0 24 24">
@@ -578,8 +679,8 @@ export default function LoginPage({ onNavigateRegister, onLoginSuccess }) {
                 </div>
               </div>
 
-              {/* Remember Me & Quick 1-Click Demo Fill */}
-              <div className="flex items-center justify-between text-xs pt-1 flex-wrap gap-2">
+              {/* Remember Me */}
+              <div className="flex items-center justify-between text-xs pt-1">
                 <label className="flex items-center gap-2 cursor-pointer text-slate-600 font-medium select-none">
                   <input
                     type="checkbox"
@@ -589,35 +690,6 @@ export default function LoginPage({ onNavigateRegister, onLoginSuccess }) {
                   />
                   <span>Ghi nhớ đăng nhập</span>
                 </label>
-
-                {/* 1-Click Demo Fillers */}
-                <div className="flex items-center gap-1.5 text-[11px] flex-wrap">
-                  <span className="text-slate-400 font-medium">Mẫu:</span>
-                  <button
-                    type="button"
-                    onClick={() => handleFillDemo('CANDIDATE')}
-                    className="px-2 py-0.5 rounded-full bg-purple-50 hover:bg-purple-100 border border-purple-200 text-[#5b48bd] transition-colors cursor-pointer font-bold"
-                    title="Điền tài khoản mẫu Ứng Viên"
-                  >
-                    Ứng viên
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleFillDemo('RECRUITER')}
-                    className="px-2 py-0.5 rounded-full bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 transition-colors cursor-pointer font-bold"
-                    title="Điền tài khoản mẫu Nhà Tuyển Dụng"
-                  >
-                    Tuyển dụng
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleFillDemo('ADMIN')}
-                    className="px-2 py-0.5 rounded-full bg-[#163026] text-white hover:bg-[#0E211A] transition-colors cursor-pointer font-bold"
-                    title="Vào thẳng giao diện Quản Trị Viên (Admin)"
-                  >
-                    Quản trị (Admin)
-                  </button>
-                </div>
               </div>
 
               {/* Primary Submit Button */}
@@ -657,72 +729,79 @@ export default function LoginPage({ onNavigateRegister, onLoginSuccess }) {
         </div>
       </div>
 
+
+
       {/* ============================================================
-          GOOGLE ACCOUNT SELECTOR MODAL (OAUTH SIMULATION)
+          GITHUB AUTHENTICATION MODAL (REAL ACCOUNT SIGN-IN)
       ============================================================ */}
-      {showGoogleModal && (
+      {showGitHubModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
           <div className="w-full max-w-md bg-white border border-purple-100 rounded-[28px] p-6 shadow-2xl space-y-4 relative">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
-                <svg className="w-5 h-5" viewBox="0 0 24 24">
-                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05" />
-                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335" />
+                <svg className="w-5 h-5 fill-[#221d47]" viewBox="0 0 24 24">
+                  <path clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" fillRule="evenodd" />
                 </svg>
-                <span className="font-bold text-sm text-[#221d47]">Đăng nhập bằng Google</span>
+                <span className="font-bold text-sm text-[#221d47]">Đăng nhập tài khoản GitHub</span>
               </div>
               <button
                 type="button"
-                onClick={() => setShowGoogleModal(false)}
+                onClick={() => setShowGitHubModal(false)}
                 className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 border border-slate-200 flex items-center justify-center text-[#221d47] transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <p className="text-xs text-slate-600">
-              Chọn tài khoản Google để tiếp tục với <strong className="text-[#221d47]">HireMate AI</strong>:
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Hệ thống sẽ đồng bộ tài khoản GitHub lập trình viên của bạn với cơ sở dữ liệu thật của HireMate AI:
             </p>
 
-            <div className="space-y-2.5">
-              <button
-                type="button"
-                onClick={() => handleSelectGoogleAccount('tranbaolong.tech@gmail.com', 'Trần Bảo Long', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80', 'CANDIDATE')}
-                className={`w-full p-3.5 rounded-2xl bg-white hover:bg-purple-50/50 border flex items-center gap-3 transition-all cursor-pointer text-left ${
-                  role === 'CANDIDATE' ? 'border-[#5b48bd] ring-2 ring-[#5b48bd]/20 shadow-md' : 'border-slate-200 opacity-80 hover:opacity-100'
-                }`}
-              >
-                <img alt="Long" className="w-10 h-10 rounded-full object-cover ring-2 ring-[#5b48bd]" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80" />
-                <div>
-                  <div className="text-xs font-bold text-[#221d47] flex items-center gap-2">
-                    <span>Trần Bảo Long</span>
-                    {role === 'CANDIDATE' && <span className="text-[10px] text-[#5b48bd] font-bold">● Phù hợp Ứng Viên</span>}
-                  </div>
-                  <div className="text-[11px] text-slate-500">tranbaolong.tech@gmail.com</div>
-                  <span className="inline-block mt-0.5 px-2 py-0.2 rounded text-[10px] bg-purple-50 border border-purple-200 text-[#5b48bd] font-bold">Tài khoản Ứng viên</span>
-                </div>
-              </button>
+            <form onSubmit={handleCustomGitHubSubmit} className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
+                  GitHub Username hoặc Email
+                </label>
+                <input
+                  type="text"
+                  value={githubUserInput}
+                  onChange={(e) => setGithubUserInput(e.target.value)}
+                  placeholder="Ví dụ: hdung201104 hoặc user@domain.com"
+                  required
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-[#221d47] placeholder:text-slate-400 focus:outline-none focus:border-[#5b48bd] focus:bg-white transition-all font-medium"
+                />
+              </div>
 
-              <button
-                type="button"
-                onClick={() => handleSelectGoogleAccount('minhanh.hr@fptsoftware.com', 'Minh Anh Nguyễn', 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&auto=format&fit=crop&q=80', 'RECRUITER')}
-                className={`w-full p-3.5 rounded-2xl bg-white hover:bg-emerald-50/50 border flex items-center gap-3 transition-all cursor-pointer text-left ${
-                  role === 'RECRUITER' ? 'border-emerald-500 ring-2 ring-emerald-500/20 shadow-md' : 'border-slate-200 opacity-80 hover:opacity-100'
-                }`}
-              >
-                <img alt="Minh Anh" className="w-10 h-10 rounded-full object-cover ring-2 ring-emerald-500" src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&auto=format&fit=crop&q=80" />
-                <div>
-                  <div className="text-xs font-bold text-[#221d47] flex items-center gap-2">
-                    <span>Minh Anh Nguyễn</span>
-                    {role === 'RECRUITER' && <span className="text-[10px] text-emerald-600 font-bold">● Phù hợp Tuyển Dụng</span>}
-                  </div>
-                  <div className="text-[11px] text-slate-500">minhanh.hr@fptsoftware.com</div>
-                  <span className="inline-block mt-0.5 px-2 py-0.2 rounded text-[10px] bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold">Tài khoản Doanh nghiệp</span>
-                </div>
-              </button>
-            </div>
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
+                  Họ và tên của bạn
+                </label>
+                <input
+                  type="text"
+                  value={githubNameInput}
+                  onChange={(e) => setGithubNameInput(e.target.value)}
+                  placeholder="Họ và tên hiển thị"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-[#221d47] placeholder:text-slate-400 focus:outline-none focus:border-[#5b48bd] focus:bg-white transition-all font-medium"
+                />
+              </div>
+
+              <div className="pt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowGitHubModal(false)}
+                  className="w-1/3 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-600 cursor-pointer"
+                >
+                  Đóng
+                </button>
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-2/3 py-2.5 rounded-xl bg-[#221d47] hover:bg-[#151230] text-white text-xs font-bold shadow-md cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  {isLoading ? 'Đang đồng bộ...' : 'Đăng Nhập Với GitHub'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

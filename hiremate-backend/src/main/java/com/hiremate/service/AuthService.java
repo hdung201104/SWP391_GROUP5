@@ -14,6 +14,8 @@ public interface AuthService {
     void resetPassword(ResetPasswordRequest request);
     void changePassword(Long userId, ChangePasswordRequest request);
     AuthResponse googleLogin(GoogleAuthRequest request);
+    AuthResponse completeGoogleRegistration(GoogleCompleteRegistrationRequest request);
+    AuthResponse githubLogin(GitHubAuthRequest request);
     AuthResponse refreshToken(RefreshTokenRequest request);
     void logout(String authHeader);
 }
