@@ -503,17 +503,20 @@ public class AuthServiceImpl implements AuthService {
                 org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
                 headers.setAccept(java.util.Collections.singletonList(org.springframework.http.MediaType.APPLICATION_JSON));
 
-                java.util.Map<String, String> tokenParams = new java.util.HashMap<>();
+                Map<String, String> tokenParams = new HashMap<>();
                 tokenParams.put("client_id", githubClientId);
                 tokenParams.put("client_secret", githubClientSecret);
                 tokenParams.put("code", request.getCode().trim());
 
-                org.springframework.http.HttpEntity<java.util.Map<String, String>> tokenEntity = new org.springframework.http.HttpEntity<>(tokenParams, headers);
-                org.springframework.http.ResponseEntity<java.util.Map> tokenResponse = restTemplate.postForEntity(
-                        "https://github.com/login/oauth/access_token", tokenEntity, java.util.Map.class);
+                org.springframework.http.HttpEntity<Map<String, String>> tokenEntity = new org.springframework.http.HttpEntity<>(tokenParams, headers);
+                org.springframework.http.ResponseEntity<Map<String, Object>> tokenResponse = restTemplate.exchange(
+                        "https://github.com/login/oauth/access_token",
+                        org.springframework.http.HttpMethod.POST,
+                        tokenEntity,
+                        new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {});
 
                 if (tokenResponse.getBody() != null && tokenResponse.getBody().get("access_token") != null) {
-                    String accessToken = (String) tokenResponse.getBody().get("access_token");
+                    String accessToken = String.valueOf(tokenResponse.getBody().get("access_token"));
 
                     // 2. Lấy hồ sơ tài khoản từ GitHub User API
                     org.springframework.http.HttpHeaders userHeaders = new org.springframework.http.HttpHeaders();
@@ -521,11 +524,14 @@ public class AuthServiceImpl implements AuthService {
                     userHeaders.set("User-Agent", "HireMate-AI-Platform");
                     org.springframework.http.HttpEntity<Void> userEntity = new org.springframework.http.HttpEntity<>(userHeaders);
 
-                    org.springframework.http.ResponseEntity<java.util.Map> userResponse = restTemplate.exchange(
-                            "https://api.github.com/user", org.springframework.http.HttpMethod.GET, userEntity, java.util.Map.class);
+                    org.springframework.http.ResponseEntity<Map<String, Object>> userResponse = restTemplate.exchange(
+                            "https://api.github.com/user",
+                            org.springframework.http.HttpMethod.GET,
+                            userEntity,
+                            new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {});
 
                     if (userResponse.getBody() != null) {
-                        java.util.Map userData = userResponse.getBody();
+                        Map<String, Object> userData = userResponse.getBody();
                         String login = (String) userData.get("login");
                         String name = (String) userData.get("name");
                         fullName = (name != null && !name.isBlank()) ? name : login;
@@ -535,17 +541,17 @@ public class AuthServiceImpl implements AuthService {
                         // 3. Nếu email là private, lấy email chính từ /user/emails
                         if (email == null || email.isBlank()) {
                             try {
-                                org.springframework.http.ResponseEntity<java.util.List> emailsResponse = restTemplate.exchange(
-                                        "https://api.github.com/user/emails", org.springframework.http.HttpMethod.GET, userEntity, java.util.List.class);
+                                org.springframework.http.ResponseEntity<java.util.List<Map<String, Object>>> emailsResponse = restTemplate.exchange(
+                                        "https://api.github.com/user/emails",
+                                        org.springframework.http.HttpMethod.GET,
+                                        userEntity,
+                                        new org.springframework.core.ParameterizedTypeReference<java.util.List<Map<String, Object>>>() {});
                                 if (emailsResponse.getBody() != null) {
-                                    for (Object item : emailsResponse.getBody()) {
-                                        if (item instanceof java.util.Map) {
-                                            java.util.Map emailItem = (java.util.Map) item;
-                                            Boolean primary = (Boolean) emailItem.get("primary");
-                                            if (Boolean.TRUE.equals(primary)) {
-                                                email = (String) emailItem.get("email");
-                                                break;
-                                            }
+                                    for (Map<String, Object> emailItem : emailsResponse.getBody()) {
+                                        Boolean primary = (Boolean) emailItem.get("primary");
+                                        if (Boolean.TRUE.equals(primary)) {
+                                            email = (String) emailItem.get("email");
+                                            break;
                                         }
                                     }
                                 }
