@@ -5,14 +5,12 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 public class GoogleCompleteRegistrationRequest {
 
     @NotBlank(message = "Email không được để trống")
@@ -37,6 +35,10 @@ public class GoogleCompleteRegistrationRequest {
 
     // Trường bổ sung cho Ứng viên (CANDIDATE)
     private String headline;
+    private String dateOfBirth;
+    private String address;
+    private String bio;
+    private String githubUrl;
 
     // Trường bổ sung cho Nhà tuyển dụng (RECRUITER)
     private String companyName;

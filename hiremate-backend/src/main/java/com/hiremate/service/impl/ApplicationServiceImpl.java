@@ -81,8 +81,9 @@ public class ApplicationServiceImpl implements ApplicationService {
         // Tự động tính toán & lưu kết quả so khớp AI (70% mandatory + 30% preferred)
         try {
             aiJobMatchService.calculateAndSaveMatch(candidate, job, cv);
-        } catch (Exception ex) {
-            // Non-blocking fallback
+        } catch (Throwable ex) {
+            // Non-blocking fallback: Không để lỗi so khớp làm gián đoạn nộp hồ sơ ứng tuyển
+            log.warn("AI match calculation non-blocking warning: {}", ex.getMessage());
         }
 
         // Gửi thông báo cho ứng viên

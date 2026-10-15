@@ -28,4 +28,6 @@ public interface JobService {
     void closeJob(Long jobId, User recruiter);
     JobResponse updateJobStatus(Long jobId, com.hiremate.enums.JobStatus status, User recruiter);
     JobResponse cloneJob(Long jobId, User recruiter);
+    List<JobResponse> getAllJobsForAdmin();
+    JobResponse updateJobApproval(Long jobId, com.hiremate.enums.JobApprovalStatus status);
 }

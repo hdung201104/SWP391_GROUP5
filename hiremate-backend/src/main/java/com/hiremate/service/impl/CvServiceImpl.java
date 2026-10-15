@@ -1,5 +1,6 @@
 package com.hiremate.service.impl;
 
+import com.hiremate.dto.response.CvParsedDTO;
 import com.hiremate.dto.response.CvResponse;
 import com.hiremate.entity.Cv;
 import com.hiremate.entity.User;
@@ -28,10 +29,18 @@ public class CvServiceImpl implements CvService {
     private final com.hiremate.repository.CandidateSkillRepository candidateSkillRepository;
     private final com.hiremate.repository.CandidateRepository candidateRepository;
     private final com.hiremate.repository.UserRepository userRepository;
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     @Override
     @Transactional
     public CvResponse uploadCv(MultipartFile file, User candidate) {
+        byte[] fileBytes;
+        try {
+            fileBytes = file.getBytes();
+        } catch (Exception e) {
+            fileBytes = new byte[0];
+        }
+
         String fileUrl = fileStorageService.storeFile(file);
 
         String originalName = file.getOriginalFilename();
@@ -40,34 +49,109 @@ public class CvServiceImpl implements CvService {
             fileType = originalName.substring(originalName.lastIndexOf('.') + 1).toLowerCase();
         }
 
+        // Đảm bảo bản ghi Candidate trong bảng candidates tồn tại để thỏa mãn ràng buộc khóa ngoại cvs_candidate_id_fkey
+        candidateRepository.findByCandidateId(candidate.getUserId())
+                .orElseGet(() -> candidateRepository.save(com.hiremate.entity.Candidate.builder()
+                        .candidateId(candidate.getUserId())
+                        .user(candidate)
+                        .isNewEntity(true)
+                        .build()));
+
         List<Cv> existingCvs = cvRepository.findByCandidateId(candidate.getUserId());
         boolean isFirst = existingCvs.isEmpty();
 
         String parsedText = null;
         if ("pdf".equalsIgnoreCase(fileType)) {
-            try (org.apache.pdfbox.pdmodel.PDDocument document = org.apache.pdfbox.Loader.loadPDF(file.getBytes())) {
+            try (org.apache.pdfbox.pdmodel.PDDocument document = org.apache.pdfbox.Loader.loadPDF(fileBytes)) {
                 org.apache.pdfbox.text.PDFTextStripper stripper = new org.apache.pdfbox.text.PDFTextStripper();
                 String rawText = stripper.getText(document);
                 if (rawText != null && !rawText.isBlank()) {
                     parsedText = rawText.trim();
                     log.info(">> [CvService] Đã trích xuất thành công {} ký tự text từ CV PDF: {}", parsedText.length(), originalName);
                 }
+
+                // Nếu PDF dạng ảnh scan (không có text stream hoặc ít hơn 50 ký tự), dùng Gemini Vision OCR
+                if ((parsedText == null || parsedText.length() < 50) && document.getNumberOfPages() > 0) {
+                    log.info(">> [CvService] PDF có ít text (<50 ký tự), tiến hành render ảnh để OCR bằng Gemini Vision...");
+                    try {
+                        org.apache.pdfbox.rendering.PDFRenderer renderer = new org.apache.pdfbox.rendering.PDFRenderer(document);
+                        java.awt.image.BufferedImage bim = renderer.renderImageWithDPI(0, 150);
+                        java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+                        javax.imageio.ImageIO.write(bim, "png", baos);
+                        byte[] pageBytes = baos.toByteArray();
+                        com.hiremate.dto.ai.AiCvAnalysis visionAnalysis = geminiAiService.analyzeCvImage(pageBytes, "image/png");
+                        if (visionAnalysis != null) {
+                            StringBuilder sb = new StringBuilder();
+                            if (visionAnalysis.getCandidateName() != null) sb.append("Họ tên: ").append(visionAnalysis.getCandidateName()).append("\n");
+                            if (visionAnalysis.getHeadline() != null) sb.append("Chức danh: ").append(visionAnalysis.getHeadline()).append("\n");
+                            if (visionAnalysis.getSummary() != null) sb.append(visionAnalysis.getSummary()).append("\n");
+                            if (visionAnalysis.getSkills() != null && !visionAnalysis.getSkills().isEmpty()) {
+                                sb.append("Kỹ năng: ").append(String.join(", ", visionAnalysis.getSkills())).append("\n");
+                            }
+                            if (visionAnalysis.getExperiencesJson() != null && !"[]".equals(visionAnalysis.getExperiencesJson())) {
+                                sb.append("Kinh nghiệm: ").append(visionAnalysis.getExperiencesJson()).append("\n");
+                            }
+                            if (visionAnalysis.getEducationsJson() != null && !"[]".equals(visionAnalysis.getEducationsJson())) {
+                                sb.append("Học vấn: ").append(visionAnalysis.getEducationsJson()).append("\n");
+                            }
+                            if (sb.length() > 0) {
+                                parsedText = sb.toString().trim();
+                                log.info(">> [CvService] Đã trích xuất thành công {} ký tự từ scanned PDF qua Gemini Vision", parsedText.length());
+                            }
+                        }
+                    } catch (Exception ocrEx) {
+                        log.warn(">> [CvService] Không thể OCR file PDF scan: {}", ocrEx.getMessage());
+                    }
+                }
             } catch (Exception e) {
                 log.warn(">> [CvService] Không thể bóc tách text từ file PDF: {}", e.getMessage());
             }
         } else if ("docx".equalsIgnoreCase(fileType)) {
-            try (java.util.zip.ZipInputStream zis = new java.util.zip.ZipInputStream(file.getInputStream())) {
-                java.util.zip.ZipEntry entry;
-                while ((entry = zis.getNextEntry()) != null) {
-                    if ("word/document.xml".equals(entry.getName())) {
-                        String xmlContent = new String(zis.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
-                        parsedText = xmlContent.replaceAll("<[^>]+>", " ").replaceAll("\\s+", " ").trim();
-                        log.info(">> [CvService] Đã trích xuất thành công {} ký tự text từ CV DOCX: {}", parsedText.length(), originalName);
-                        break;
-                    }
+            try (java.io.ByteArrayInputStream bais = new java.io.ByteArrayInputStream(fileBytes);
+                 org.apache.poi.xwpf.usermodel.XWPFDocument doc = new org.apache.poi.xwpf.usermodel.XWPFDocument(bais);
+                 org.apache.poi.xwpf.extractor.XWPFWordExtractor extractor = new org.apache.poi.xwpf.extractor.XWPFWordExtractor(doc)) {
+                String rawText = extractor.getText();
+                if (rawText != null && !rawText.isBlank()) {
+                    parsedText = rawText.trim();
+                    log.info(">> [CvService] Đã trích xuất thành công {} ký tự text từ CV DOCX bằng Apache POI: {}", parsedText.length(), originalName);
                 }
             } catch (Exception e) {
-                log.warn(">> [CvService] Không thể bóc tách text từ file DOCX: {}", e.getMessage());
+                log.warn(">> [CvService] Apache POI đọc DOCX lỗi ({}), thử fallback ZipInputStream...", e.getMessage());
+                try (java.util.zip.ZipInputStream zis = new java.util.zip.ZipInputStream(new java.io.ByteArrayInputStream(fileBytes))) {
+                    java.util.zip.ZipEntry entry;
+                    while ((entry = zis.getNextEntry()) != null) {
+                        if ("word/document.xml".equals(entry.getName())) {
+                            String xmlContent = new String(zis.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                            String cleaned = xmlContent
+                                    .replaceAll("(?i)<w:p[^>]*>", "\n")
+                                    .replaceAll("(?i)<w:br[^>]*>", "\n")
+                                    .replaceAll("(?i)<w:tab[^>]*>", "\t")
+                                    .replaceAll("<[^>]+>", " ")
+                                    .replaceAll("[ \t]+", " ")
+                                    .replaceAll("\n\\s*\n", "\n")
+                                    .trim();
+                            if (!cleaned.isBlank()) {
+                                parsedText = cleaned;
+                                log.info(">> [CvService] Đã trích xuất {} ký tự từ DOCX qua fallback ZipInputStream", parsedText.length());
+                            }
+                            break;
+                        }
+                    }
+                } catch (Exception zipEx) {
+                    log.warn(">> [CvService] Không thể bóc tách text từ DOCX: {}", zipEx.getMessage());
+                }
+            }
+        } else if ("doc".equalsIgnoreCase(fileType)) {
+            try (java.io.ByteArrayInputStream bais = new java.io.ByteArrayInputStream(fileBytes);
+                 org.apache.poi.hwpf.HWPFDocument doc = new org.apache.poi.hwpf.HWPFDocument(bais);
+                 org.apache.poi.hwpf.extractor.WordExtractor extractor = new org.apache.poi.hwpf.extractor.WordExtractor(doc)) {
+                String rawText = extractor.getText();
+                if (rawText != null && !rawText.isBlank()) {
+                    parsedText = rawText.trim();
+                    log.info(">> [CvService] Đã trích xuất thành công {} ký tự Unicode từ CV DOC bằng Apache POI: {}", parsedText.length(), originalName);
+                }
+            } catch (Exception e) {
+                log.warn(">> [CvService] Không thể bóc tách Unicode từ file DOC qua Apache POI: {}", e.getMessage());
             }
         } else if ("png".equalsIgnoreCase(fileType) || "jpg".equalsIgnoreCase(fileType) || "jpeg".equalsIgnoreCase(fileType) || "webp".equalsIgnoreCase(fileType)) {
             try {
@@ -108,7 +192,13 @@ public class CvServiceImpl implements CvService {
         Cv saved = cvRepository.save(cv);
         log.info("CV saved successfully for candidate ID: {}, file: {}", candidate.getUserId(), originalName);
 
-        return mapToResponse(saved);
+        try {
+            // Automatically scan and parse CV with Gemini AI to extract real profile data
+            return analyzeCv(saved.getCvId(), candidate);
+        } catch (Throwable e) {
+            log.warn("Automatic CV analysis on upload encountered error, returning base saved CV: {}", e.getMessage());
+            return mapToResponse(saved);
+        }
     }
 
     @Override
@@ -240,6 +330,12 @@ public class CvServiceImpl implements CvService {
         if (analysis.getExperiencesJson() != null && !analysis.getExperiencesJson().isBlank() && !"[]".equals(analysis.getExperiencesJson())) {
             candidateProfile.setExperiencesJson(analysis.getExperiencesJson());
         }
+        if (analysis.getProjectsJson() != null && !analysis.getProjectsJson().isBlank() && !"[]".equals(analysis.getProjectsJson())) {
+            candidateProfile.setProjectsJson(analysis.getProjectsJson());
+        }
+        if (analysis.getAddress() != null && !analysis.getAddress().isBlank()) {
+            candidateProfile.setLocation(analysis.getAddress());
+        }
         if (analysis.getSummary() != null && !analysis.getSummary().isBlank()) {
             if (candidateProfile.getBio() == null || candidateProfile.getBio().isBlank()) {
                 candidateProfile.setBio(analysis.getSummary());
@@ -247,12 +343,20 @@ public class CvServiceImpl implements CvService {
         }
         candidateRepository.save(candidateProfile);
 
-        // 4. Nếu họ tên ứng viên chưa có hoặc trống, tự động cập nhật nếu AI trích xuất được
-        if (analysis.getCandidateName() != null && !analysis.getCandidateName().isBlank()) {
-            if (candidate.getFullName() == null || candidate.getFullName().isBlank()) {
-                candidate.setFullName(analysis.getCandidateName());
-                userRepository.save(candidate);
-            }
+        // 4. Cập nhật họ tên và số điện thoại ứng viên từ hồ sơ CV
+        boolean userUpdated = false;
+        if (analysis.getCandidateName() != null && !analysis.getCandidateName().isBlank() 
+                && !analysis.getCandidateName().toLowerCase().contains("của bạn")
+                && !analysis.getCandidateName().equalsIgnoreCase("Ứng Viên Tuyển Dụng")) {
+            candidate.setFullName(analysis.getCandidateName());
+            userUpdated = true;
+        }
+        if (analysis.getPhone() != null && !analysis.getPhone().isBlank() && !analysis.getPhone().contains("điện thoại")) {
+            candidate.setPhone(analysis.getPhone());
+            userUpdated = true;
+        }
+        if (userUpdated) {
+            userRepository.save(candidate);
         }
 
         // 5. Tự động chuẩn hóa & lưu kỹ năng phát hiện vào candidate_skills (ai_detected = true, chuẩn 3NF)
@@ -261,15 +365,128 @@ public class CvServiceImpl implements CvService {
             allDetectedSkills = analysis.getTopSkills();
         }
         if (allDetectedSkills != null) {
-            for (String skillName : allDetectedSkills) {
+            for (String rawSkill : allDetectedSkills) {
+                if (rawSkill == null || rawSkill.isBlank()) continue;
+                String[] subSkills = rawSkill.split("[,;•|\\t]");
+                for (String s : subSkills) {
+                    String trimmedSkill = s.trim();
+                    if (trimmedSkill.isBlank() || trimmedSkill.length() > 50 || trimmedSkill.length() < 2) continue;
+                    String lower = trimmedSkill.toLowerCase();
+                    if (lower.startsWith("nếu") || lower.contains("kinh nghiệm") || lower.contains("dự án") 
+                            || lower.contains("thay phần này") || lower.contains("hướng dẫn") || lower.contains("tháng/năm")
+                            || lower.contains("[") || lower.contains("]") || lower.contains("theo dõi") || lower.contains("chuẩn bị")
+                            || lower.contains("từng làm") || lower.contains("kết quả") || lower.contains("quy mô") || lower.contains("công nghệ")
+                            || lower.contains("tiếng anh") || lower.contains("tiếng nhật") || lower.contains("tiếng việt")
+                            || lower.contains("ielts") || lower.contains("jlpt") || lower.contains("toeic")
+                            || lower.contains("giao tiếp") || lower.contains("lãnh đạo") || lower.contains("áp lực cao")
+                            || lower.contains("tài liệu") || lower.contains("vị trí") || lower.contains("công ty")
+                            || trimmedSkill.length() > 35) {
+                        continue;
+                    }
+                    try {
+                        com.hiremate.entity.Skill skill = skillRepository.findBySkillNameIgnoreCase(trimmedSkill)
+                                .orElseGet(() -> skillRepository.save(com.hiremate.entity.Skill.builder()
+                                        .skillName(trimmedSkill)
+                                        .category("Technical")
+                                        .build()));
+
+                        if (candidateSkillRepository.findByProfileIdAndSkillId(candidate.getUserId(), skill.getSkillId()).isEmpty()) {
+                            candidateSkillRepository.save(com.hiremate.entity.CandidateSkill.builder()
+                                    .profileId(candidate.getUserId())
+                                    .skillId(skill.getSkillId())
+                                    .proficiencyLevel(com.hiremate.enums.SkillProficiency.INTERMEDIATE)
+                                    .aiDetected(true)
+                                    .build());
+                        }
+                    } catch (Exception skillEx) {
+                        log.warn(">> [CvService] Bỏ qua kỹ năng '{}' do lỗi: {}", trimmedSkill, skillEx.getMessage());
+                    }
+                }
+            }
+        }
+
+        // 6. Lưu bản tóm tắt thực sự của ứng viên và chuỗi rawJson vào CV
+        String cleanSummary = (analysis.getSummary() != null && !analysis.getSummary().isBlank())
+                ? analysis.getSummary()
+                : "Hồ sơ ứng viên chuyên nghiệp trên nền tảng HireMate AI.";
+        cv.setSummary(cleanSummary.trim());
+        if (analysis.getRawJson() != null && !analysis.getRawJson().isBlank()) {
+            cv.setParsedJson(analysis.getRawJson());
+        }
+        Cv updated = cvRepository.save(cv);
+        log.info(">> [CvService] CV ID {} analyzed successfully via Gemini ATS Engine", cvId);
+        return mapToResponse(updated);
+    }
+
+    @Override
+    @Transactional
+    public CvResponse updateCv(Long cvId, CvParsedDTO updateDto, User candidate) {
+        Cv cv = cvRepository.findById(cvId)
+                .orElseThrow(() -> new IllegalArgumentException("CV not found: " + cvId));
+
+        if (!cv.getCandidateId().equals(candidate.getUserId())) {
+            throw new SecurityException("You are not authorized to update this CV.");
+        }
+
+        if (updateDto.getSummary() != null && !updateDto.getSummary().isBlank()) {
+            cv.setSummary(updateDto.getSummary().trim());
+        }
+
+        try {
+            cv.setParsedJson(objectMapper.writeValueAsString(updateDto));
+        } catch (Exception ignored) {}
+
+        cvRepository.save(cv);
+
+        // Đồng bộ vào Candidate Profile
+        var candOpt = candidateRepository.findByCandidateId(candidate.getUserId());
+        if (candOpt.isPresent()) {
+            var cand = candOpt.get();
+            if (updateDto.getHeadline() != null) cand.setHeadline(updateDto.getHeadline());
+            if (updateDto.getSummary() != null) cand.setBio(updateDto.getSummary());
+            if (updateDto.getAddress() != null) cand.setLocation(updateDto.getAddress());
+            try {
+                if (updateDto.getExperiences() != null) {
+                    cand.setExperiencesJson(objectMapper.writeValueAsString(updateDto.getExperiences()));
+                }
+                if (updateDto.getEducations() != null) {
+                    cand.setEducationsJson(objectMapper.writeValueAsString(updateDto.getEducations()));
+                }
+                if (updateDto.getProjects() != null) {
+                    cand.setProjectsJson(objectMapper.writeValueAsString(updateDto.getProjects()));
+                }
+            } catch (Exception ignored) {}
+            candidateRepository.save(cand);
+        }
+
+        // Đồng bộ vào Users nếu có thông tin cá nhân
+        boolean userNeedsUpdate = false;
+        if (updateDto.getFullName() != null && !updateDto.getFullName().isBlank()) {
+            candidate.setFullName(updateDto.getFullName());
+            userNeedsUpdate = true;
+        }
+        if (updateDto.getPhone() != null && !updateDto.getPhone().isBlank()) {
+            candidate.setPhone(updateDto.getPhone());
+            userNeedsUpdate = true;
+        }
+        if (updateDto.getAddress() != null && !updateDto.getAddress().isBlank()) {
+            candidate.setAddress(updateDto.getAddress());
+            userNeedsUpdate = true;
+        }
+        if (userNeedsUpdate) {
+            userRepository.save(candidate);
+        }
+
+        // Cập nhật Skills nếu có
+        if (updateDto.getSkills() != null && !updateDto.getSkills().isEmpty()) {
+            for (String skillName : updateDto.getSkills()) {
                 if (skillName == null || skillName.isBlank()) continue;
-                String trimmedSkill = skillName.trim();
-                com.hiremate.entity.Skill skill = skillRepository.findBySkillNameIgnoreCase(trimmedSkill)
+                String trimmed = skillName.trim();
+                com.hiremate.entity.Skill skill = skillRepository.findBySkillNameIgnoreCase(trimmed)
                         .orElseGet(() -> skillRepository.save(com.hiremate.entity.Skill.builder()
-                                .skillName(trimmedSkill)
+                                .skillName(trimmed)
                                 .category("Technical")
                                 .build()));
-
                 if (candidateSkillRepository.findByProfileIdAndSkillId(candidate.getUserId(), skill.getSkillId()).isEmpty()) {
                     candidateSkillRepository.save(com.hiremate.entity.CandidateSkill.builder()
                             .profileId(candidate.getUserId())
@@ -281,34 +498,108 @@ public class CvServiceImpl implements CvService {
             }
         }
 
-        // 6. Xây dựng bản tóm tắt phân tích chuyên nghiệp lưu vào CV
-        StringBuilder sb = new StringBuilder();
-        if (analysis.getHeadline() != null && !analysis.getHeadline().isBlank()) {
-            sb.append("Vị trí: ").append(analysis.getHeadline()).append("\n");
-        }
-        if (analysis.getYearsOfExperience() != null) {
-            sb.append("Kinh nghiệm ước tính: ").append(analysis.getYearsOfExperience()).append(" năm\n\n");
-        }
-        if (analysis.getSummary() != null && !analysis.getSummary().isBlank()) {
-            sb.append(analysis.getSummary()).append("\n\n");
-        }
-        if (allDetectedSkills != null && !allDetectedSkills.isEmpty()) {
-            sb.append("Kỹ năng phát hiện: ").append(String.join(", ", allDetectedSkills)).append(".\n");
-        }
-        if (analysis.getSuggestedRoles() != null && !analysis.getSuggestedRoles().isEmpty()) {
-            sb.append("Vị trí đề xuất: ").append(String.join(", ", analysis.getSuggestedRoles())).append(".\n");
-        }
-        if (analysis.getImprovementAdvice() != null && !analysis.getImprovementAdvice().isBlank()) {
-            sb.append("Lời khuyên cải thiện CV: ").append(analysis.getImprovementAdvice());
-        }
-
-        cv.setSummary(sb.toString().trim());
-        Cv updated = cvRepository.save(cv);
-        log.info(">> [CvService] CV ID {} analyzed successfully via Gemini ATS Engine", cvId);
-        return mapToResponse(updated);
+        return mapToResponse(cv);
     }
 
     private CvResponse mapToResponse(Cv cv) {
+        String headline = null;
+        Integer experienceYears = null;
+        String educationsJson = null;
+        String experiencesJson = null;
+        String projectsJson = null;
+        String fullName = null;
+        String phone = null;
+        String email = null;
+        String address = null;
+        List<String> detectedSkills = new ArrayList<>();
+
+        if (cv.getCandidateId() != null) {
+            var candOpt = candidateRepository.findByCandidateId(cv.getCandidateId());
+            if (candOpt.isPresent()) {
+                var cand = candOpt.get();
+                headline = cand.getHeadline();
+                experienceYears = cand.getExperienceYears();
+                educationsJson = cand.getEducationsJson();
+                experiencesJson = cand.getExperiencesJson();
+                projectsJson = cand.getProjectsJson();
+                address = cand.getLocation();
+            }
+            User candUser = userRepository.findById(cv.getCandidateId()).orElse(null);
+            if (candUser != null) {
+                if (fullName == null) fullName = candUser.getFullName();
+                if (phone == null) phone = candUser.getPhone();
+                if (email == null) email = candUser.getEmail();
+                if (address == null) address = candUser.getAddress();
+            }
+        }
+
+        CvParsedDTO parsedData = null;
+        if (cv.getParsedJson() != null && !cv.getParsedJson().isBlank()) {
+            try {
+                parsedData = objectMapper.readValue(cv.getParsedJson(), CvParsedDTO.class);
+            } catch (Exception e) {
+                log.warn("Error parsing parsedJson for CV {}: {}", cv.getCvId(), e.getMessage());
+            }
+        }
+
+        if (parsedData != null && parsedData.getSkills() != null && !parsedData.getSkills().isEmpty()) {
+            for (String s : parsedData.getSkills()) {
+                if (s != null && !s.isBlank() && !detectedSkills.contains(s.trim())) {
+                    detectedSkills.add(s.trim());
+                }
+            }
+        } else {
+            var candSkills = candidateSkillRepository.findByProfileId(cv.getCandidateId());
+            for (var cs : candSkills) {
+                skillRepository.findById(cs.getSkillId()).ifPresent(sk -> {
+                    if (sk.getSkillName() != null && !sk.getSkillName().isBlank()) {
+                        String skn = sk.getSkillName().trim();
+                        if (!skn.contains("[") && !skn.contains("]") && skn.length() <= 35 && !detectedSkills.contains(skn)) {
+                            detectedSkills.add(skn);
+                        }
+                    }
+                });
+            }
+        }
+        if (parsedData == null) {
+            parsedData = CvParsedDTO.builder()
+                    .fullName(fullName)
+                    .headline(headline)
+                    .phone(phone)
+                    .email(email)
+                    .address(address)
+                    .summary(cv.getSummary())
+                    .skills(detectedSkills)
+                    .build();
+            try {
+                if (experiencesJson != null && !experiencesJson.isBlank() && !"[]".equals(experiencesJson)) {
+                    parsedData.setExperiences(objectMapper.readValue(experiencesJson, new com.fasterxml.jackson.core.type.TypeReference<List<CvParsedDTO.ExperienceItem>>() {}));
+                }
+                if (educationsJson != null && !educationsJson.isBlank() && !"[]".equals(educationsJson)) {
+                    parsedData.setEducations(objectMapper.readValue(educationsJson, new com.fasterxml.jackson.core.type.TypeReference<List<CvParsedDTO.EducationItem>>() {}));
+                }
+                if (projectsJson != null && !projectsJson.isBlank() && !"[]".equals(projectsJson)) {
+                    parsedData.setProjects(objectMapper.readValue(projectsJson, new com.fasterxml.jackson.core.type.TypeReference<List<CvParsedDTO.ProjectItem>>() {}));
+                }
+            } catch (Exception ignored) {}
+        }
+
+        String certificationsJson = "[]";
+        String languagesJson = "[]";
+        if (parsedData != null) {
+            try {
+                if ((projectsJson == null || "[]".equals(projectsJson)) && parsedData.getProjects() != null && !parsedData.getProjects().isEmpty()) {
+                    projectsJson = objectMapper.writeValueAsString(parsedData.getProjects());
+                }
+                if (parsedData.getCertifications() != null && !parsedData.getCertifications().isEmpty()) {
+                    certificationsJson = objectMapper.writeValueAsString(parsedData.getCertifications());
+                }
+                if (parsedData.getLanguages() != null && !parsedData.getLanguages().isEmpty()) {
+                    languagesJson = objectMapper.writeValueAsString(parsedData.getLanguages());
+                }
+            } catch (Exception ignored) {}
+        }
+
         return CvResponse.builder()
                 .cvId(cv.getCvId())
                 .candidateId(cv.getCandidateId())
@@ -320,6 +611,21 @@ public class CvServiceImpl implements CvService {
                 .isDefault(cv.getIsDefault())
                 .summary(cv.getSummary())
                 .createdAt(cv.getCreatedAt())
+                .headline(headline)
+                .experienceYears(experienceYears)
+                .educationsJson(educationsJson)
+                .experiencesJson(experiencesJson)
+                .projectsJson(projectsJson)
+                .certificationsJson(certificationsJson)
+                .languagesJson(languagesJson)
+                .detectedSkills(detectedSkills)
+                .fullName(fullName)
+                .phone(phone)
+                .email(email)
+                .address(address)
+                .parsedJson(cv.getParsedJson())
+                .parsedData(parsedData)
+                .parsedText(cv.getParsedText())
                 .build();
     }
 }

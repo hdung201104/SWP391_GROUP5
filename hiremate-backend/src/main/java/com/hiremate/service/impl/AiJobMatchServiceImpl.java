@@ -25,6 +25,7 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
     private final CandidateRepository candidateRepository;
     private final JobSkillRepository jobSkillRepository;
     private final SkillRepository skillRepository;
+    private final CandidateSkillRepository candidateSkillRepository;
     private final CvRepository cvRepository;
     private final UserRepository userRepository;
     private final com.hiremate.service.GeminiAiService geminiAiService;
@@ -251,53 +252,298 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
     }
 
     @Override
-    public List<AiJobMatchResponse> getJobRecommendations(User candidateUser, Float minScore, Integer limit) {
-        float effectiveMinScore = (minScore != null && minScore > 0) ? minScore : 50.0f;
-        int effectiveLimit = (limit != null && limit > 0) ? Math.min(50, limit) : 10;
-
+    @Transactional
+    public List<com.hiremate.dto.response.JobResponse> getIndustrialJobRecommendations(User candidateUser, Float minScore, Integer limit) {
+        float effectiveMinScore = (minScore != null) ? minScore : 0.0f;
+        int effectiveLimit = (limit != null && limit > 0) ? Math.min(50, limit) : 20;
         Long candidateId = candidateUser.getUserId();
 
-        // 1. Tìm các recommendations đã có sẵn trong bảng cache ai_job_matches
-        List<AiJobMatch> cachedMatches = aiJobMatchRepository.findRecommendations(candidateId, effectiveMinScore);
+        Candidate candidate = candidateRepository.findById(candidateId).orElse(null);
+        Cv defaultCv = cvRepository.findByCandidateIdAndIsDefaultTrue(candidateId)
+                .orElseGet(() -> {
+                    List<Cv> cvs = cvRepository.findByCandidateId(candidateId);
+                    return cvs.isEmpty() ? null : cvs.get(0);
+                });
 
-        // 2. Nếu số lượng recommendations đã cache ít hơn 5, chủ động tính toán thêm cho các Job đang tuyển chưa được match
-        if (cachedMatches.size() < 5) {
-            try {
-                Candidate candidate = candidateRepository.findById(candidateId).orElse(null);
-                if (candidate != null) {
-                    Cv defaultCv = cvRepository.findByCandidateIdAndIsDefaultTrue(candidateId).orElse(null);
-                    // Lấy các Job đang PUBLISHED và còn hạn
-                    List<Job> activeJobs = jobRepository.findByStatus(com.hiremate.enums.JobStatus.PUBLISHED);
-                    int scanned = 0;
-                    for (Job j : activeJobs) {
-                        if (j.getDeadlineDate() != null && j.getDeadlineDate().isBefore(java.time.LocalDate.now())) {
-                            continue;
-                        }
-                        // Nếu chưa từng tính match cho Job này
-                        if (aiJobMatchRepository.findByCandidate_CandidateIdAndJob_JobId(candidateId, j.getJobId()).isEmpty()) {
-                            calculateAndSaveMatch(candidate, j, defaultCv);
-                            scanned++;
-                            if (scanned >= 10) break; // Giới hạn on-demand 10 jobs để phản hồi nhanh
-                        }
-                    }
-                    if (scanned > 0) {
-                        cachedMatches = aiJobMatchRepository.findRecommendations(candidateId, effectiveMinScore);
-                    }
+        // 1. Thu thập thông tin hồ sơ ứng viên (Candidate Profile & Skills)
+        List<CandidateSkill> candSkills = candidateSkillRepository.findByProfileId(candidateId);
+        List<Long> skillIds = candSkills.stream().map(CandidateSkill::getSkillId).toList();
+        boolean hasSkills = !skillIds.isEmpty();
+
+        String headline = (candidate != null && candidate.getHeadline() != null) ? candidate.getHeadline().trim() : null;
+        boolean hasHeadline = headline != null && !headline.isBlank();
+
+        StringBuilder profileTextBuilder = new StringBuilder();
+        if (candidate != null) {
+            if (candidate.getHeadline() != null) profileTextBuilder.append("Vị trí/Headline: ").append(candidate.getHeadline()).append("\n");
+            if (candidate.getBio() != null) profileTextBuilder.append("Tóm tắt bản thân: ").append(candidate.getBio()).append("\n");
+            if (candidate.getExperiencesJson() != null) profileTextBuilder.append("Kinh nghiệm: ").append(candidate.getExperiencesJson()).append("\n");
+        }
+        if (defaultCv != null) {
+            if (defaultCv.getSummary() != null) profileTextBuilder.append("Tóm tắt CV: ").append(defaultCv.getSummary()).append("\n");
+            if (defaultCv.getParsedText() != null) profileTextBuilder.append("Nội dung CV: ").append(defaultCv.getParsedText()).append("\n");
+        }
+        if (!candSkills.isEmpty()) {
+            profileTextBuilder.append("Kỹ năng hồ sơ: ");
+            for (CandidateSkill cs : candSkills) {
+                skillRepository.findById(cs.getSkillId()).ifPresent(s -> profileTextBuilder.append(s.getSkillName()).append(", "));
+            }
+            profileTextBuilder.append("\n");
+        }
+        String candidateProfileText = profileTextBuilder.toString();
+
+        // -------------------------------------------------------------
+        // BƯỚC 1: LỌC THÔ BẰNG DATABASE SQL (PRE-FILTERING)
+        // -------------------------------------------------------------
+        List<Job> candidateJobs;
+        if (hasSkills || hasHeadline) {
+            candidateJobs = jobRepository.findCandidatePreFilteredJobs(
+                    skillIds, hasSkills, headline, hasHeadline, org.springframework.data.domain.PageRequest.of(0, 20)
+            );
+        } else {
+            candidateJobs = Collections.emptyList();
+        }
+
+        if (candidateJobs.size() < 5) {
+            List<Job> recentJobs = jobRepository.findRecentPublishedJobs(org.springframework.data.domain.PageRequest.of(0, 20));
+            Set<Long> existingIds = new HashSet<>();
+            for (Job j : candidateJobs) existingIds.add(j.getJobId());
+
+            List<Job> merged = new ArrayList<>(candidateJobs);
+            for (Job rj : recentJobs) {
+                if (existingIds.add(rj.getJobId())) {
+                    merged.add(rj);
+                    if (merged.size() >= 20) break;
                 }
-            } catch (Exception e) {
-                log.warn(">> [AiJobMatchService] Lỗi khi chủ động tính match cho recommendations: {}", e.getMessage());
+            }
+            candidateJobs = merged;
+        }
+
+        if (candidateJobs.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // -------------------------------------------------------------
+        // BƯỚC 2: KIỂM TRA CACHE & AI CHẤM ĐIỂM CHI TIẾT (BATCH SCORING)
+        // -------------------------------------------------------------
+        Map<Long, AiJobMatch> resolvedMatchesMap = new HashMap<>();
+        List<Job> jobsNeedingAiScore = new ArrayList<>();
+
+        for (Job job : candidateJobs) {
+            Optional<AiJobMatch> cachedOpt = aiJobMatchRepository
+                    .findByCandidate_CandidateIdAndJob_JobId(candidateId, job.getJobId());
+
+            if (cachedOpt.isPresent() && cachedOpt.get().getMatchingScore() != null) {
+                boolean cvChanged = defaultCv != null && cachedOpt.get().getCv() != null
+                        && !defaultCv.getCvId().equals(cachedOpt.get().getCv().getCvId());
+                if (!cvChanged) {
+                    resolvedMatchesMap.put(job.getJobId(), cachedOpt.get());
+                    continue;
+                }
+            }
+            jobsNeedingAiScore.add(job);
+        }
+
+        if (!jobsNeedingAiScore.isEmpty()) {
+            List<com.hiremate.dto.ai.JobBriefForMatching> briefs = new ArrayList<>();
+            for (Job j : jobsNeedingAiScore) {
+                List<JobSkill> jsList = jobSkillRepository.findByJobId(j.getJobId());
+                List<String> mandatory = new ArrayList<>();
+                List<String> preferred = new ArrayList<>();
+                for (JobSkill js : jsList) {
+                    skillRepository.findById(js.getSkillId()).ifPresent(s -> {
+                        if (js.getImportance() == SkillImportance.MANDATORY) {
+                            mandatory.add(s.getSkillName());
+                        } else {
+                            preferred.add(s.getSkillName());
+                        }
+                    });
+                }
+
+                briefs.add(com.hiremate.dto.ai.JobBriefForMatching.builder()
+                        .jobId(j.getJobId())
+                        .title(j.getTitle())
+                        .location(j.getLocation())
+                        .employmentType(j.getEmploymentType() != null ? j.getEmploymentType().name() : "FULL_TIME")
+                        .mandatorySkills(mandatory)
+                        .preferredSkills(preferred)
+                        .requirements(j.getRequirements())
+                        .build());
+            }
+
+            List<com.hiremate.dto.ai.AiBatchJobMatchResult> batchResults =
+                    geminiAiService.matchJobsBatch(candidateProfileText, briefs);
+
+            Map<Long, com.hiremate.dto.ai.AiBatchJobMatchResult> resultMap = new HashMap<>();
+            for (com.hiremate.dto.ai.AiBatchJobMatchResult r : batchResults) {
+                resultMap.put(r.getJobId(), r);
+            }
+
+            for (Job j : jobsNeedingAiScore) {
+                com.hiremate.dto.ai.AiBatchJobMatchResult res = resultMap.get(j.getJobId());
+                float score = res != null ? res.getMatchingScore() : 75.0f;
+                String reasoning = res != null ? res.getAiReasoning() : "Độ tương thích được tính toán dựa trên mức độ phù hợp kỹ năng.";
+
+                String gapJson;
+                try {
+                    gapJson = objectMapper.writeValueAsString(Map.of(
+                            "matched", res != null && res.getMatchedSkills() != null ? res.getMatchedSkills() : List.of(),
+                            "missing", res != null && res.getMissingSkills() != null ? res.getMissingSkills() : List.of()
+                    ));
+                } catch (Exception ex) {
+                    gapJson = "{}";
+                }
+
+                AiJobMatch match = aiJobMatchRepository
+                        .findByCandidate_CandidateIdAndJob_JobId(candidateId, j.getJobId())
+                        .orElse(AiJobMatch.builder()
+                                .candidate(candidate)
+                                .job(j)
+                                .build());
+
+                match.setCv(defaultCv);
+                match.setMatchingScore(score);
+                match.setAiReasoning(reasoning);
+                match.setSkillGapJson(gapJson);
+                match.setStatus(MatchStatus.COMPLETED);
+
+                AiJobMatch saved = aiJobMatchRepository.save(match);
+                resolvedMatchesMap.put(j.getJobId(), saved);
             }
         }
 
-        List<AiJobMatchResponse> responses = new ArrayList<>();
-        int count = 0;
-        for (AiJobMatch m : cachedMatches) {
-            responses.add(mapToResponse(m));
-            count++;
-            if (count >= effectiveLimit) break;
+        // -------------------------------------------------------------
+        // BƯỚC 3: LƯU VÀ HIỂN THỊ (SẮP XẾP matching_score DESC)
+        // -------------------------------------------------------------
+        List<com.hiremate.dto.response.JobResponse> jobResponses = new ArrayList<>();
+        for (Job job : candidateJobs) {
+            AiJobMatch match = resolvedMatchesMap.get(job.getJobId());
+            float score = (match != null && match.getMatchingScore() != null) ? match.getMatchingScore() : 0.0f;
+
+            if (score < effectiveMinScore) {
+                continue;
+            }
+
+            com.hiremate.dto.response.JobResponse resp = mapToJobResponse(job, match);
+            jobResponses.add(resp);
         }
 
+        jobResponses.sort((a, b) -> Float.compare(
+                b.getMatchingScore() != null ? b.getMatchingScore() : 0f,
+                a.getMatchingScore() != null ? a.getMatchingScore() : 0f
+        ));
+
+        if (jobResponses.size() > effectiveLimit) {
+            jobResponses = jobResponses.subList(0, effectiveLimit);
+        }
+
+        return jobResponses;
+    }
+
+    @Override
+    @Transactional
+    public List<com.hiremate.dto.response.JobResponse> reMatchJobs(User candidateUser) {
+        Long candidateId = candidateUser.getUserId();
+        log.info(">> [AiJobMatchService] Ứng viên {} yêu cầu Làm mới gợi ý AI (Re-Match). Xóa cache cũ...", candidateId);
+        aiJobMatchRepository.deleteByCandidate_CandidateId(candidateId);
+        return getIndustrialJobRecommendations(candidateUser, 50.0f, 20);
+    }
+
+    @Override
+    public List<AiJobMatchResponse> getJobRecommendations(User candidateUser, Float minScore, Integer limit) {
+        List<com.hiremate.dto.response.JobResponse> industrialJobs = getIndustrialJobRecommendations(candidateUser, minScore, limit);
+        List<AiJobMatchResponse> responses = new ArrayList<>();
+        for (com.hiremate.dto.response.JobResponse jr : industrialJobs) {
+            responses.add(AiJobMatchResponse.builder()
+                    .jobId(jr.getJobId())
+                    .jobTitle(jr.getTitle())
+                    .companyName(jr.getCompanyName())
+                    .location(jr.getLocation())
+                    .salaryMin(jr.getSalaryMin())
+                    .salaryMax(jr.getSalaryMax())
+                    .employmentType(jr.getEmploymentType())
+                    .matchingScore(jr.getMatchingScore())
+                    .aiReasoning(jr.getAiReasoning())
+                    .matchedMandatorySkills(jr.getMatchedSkills())
+                    .missingMandatorySkills(jr.getMissingSkills())
+                    .status(MatchStatus.COMPLETED)
+                    .build());
+        }
         return responses;
+    }
+
+    private com.hiremate.dto.response.JobResponse mapToJobResponse(Job job, AiJobMatch match) {
+        Company company = job.getCompany();
+
+        List<String> skillNames = new ArrayList<>();
+        try {
+            List<JobSkill> jobSkills = jobSkillRepository.findByJobId(job.getJobId());
+            for (JobSkill js : jobSkills) {
+                if (js.getSkillId() != null) {
+                    skillRepository.findById(js.getSkillId())
+                            .ifPresent(s -> skillNames.add(s.getSkillName()));
+                }
+            }
+        } catch (Exception ignored) {}
+
+        List<String> matchedSkills = new ArrayList<>();
+        List<String> missingSkills = new ArrayList<>();
+        Float score = null;
+        String reasoning = null;
+
+        if (match != null) {
+            score = match.getMatchingScore();
+            reasoning = match.getAiReasoning();
+            if (match.getSkillGapJson() != null && !match.getSkillGapJson().isBlank()) {
+                try {
+                    Map<String, Object> map = objectMapper.readValue(match.getSkillGapJson(), new TypeReference<>() {});
+                    if (map.get("matched") instanceof List<?> list) {
+                        list.forEach(i -> matchedSkills.add(String.valueOf(i)));
+                    }
+                    if (map.get("missing") instanceof List<?> list) {
+                        list.forEach(i -> missingSkills.add(String.valueOf(i)));
+                    }
+                } catch (Exception ignored) {}
+            }
+        }
+
+        return com.hiremate.dto.response.JobResponse.builder()
+                .jobId(job.getJobId())
+                .recruiterId(job.getRecruiter() != null ? job.getRecruiter().getRecruiterId() : null)
+                .companyId(company != null ? company.getCompanyId() : null)
+                .companyName(company != null ? company.getCompanyName() : "HireMate Partner")
+                .companyLogo(company != null ? company.getLogoUrl() : null)
+                .title(job.getTitle())
+                .description(job.getDescription())
+                .requirements(parseCleanList(job.getRequirements()))
+                .benefits(parseCleanList(job.getBenefits()))
+                .salaryMin(job.getSalaryMin())
+                .salaryMax(job.getSalaryMax())
+                .location(job.getLocation())
+                .employmentType(job.getEmploymentType())
+                .status(job.getStatus())
+                .vacanciesCount(job.getVacanciesCount())
+                .totalViews(job.getTotalViews())
+                .applicantCount(0L)
+                .deadlineDate(job.getDeadlineDate())
+                .skills(skillNames)
+                .matchingScore(score)
+                .aiReasoning(reasoning)
+                .matchedSkills(matchedSkills)
+                .missingSkills(missingSkills)
+                .createdAt(job.getCreatedAt())
+                .build();
+    }
+
+    private List<String> parseCleanList(String text) {
+        if (text == null || text.isBlank()) return Collections.emptyList();
+        String[] lines = text.split("[\r\n]+");
+        List<String> result = new ArrayList<>();
+        for (String line : lines) {
+            String clean = line.replaceFirst("^[-*•\\d.]+\\s*", "").trim();
+            if (!clean.isBlank()) result.add(clean);
+        }
+        return result.isEmpty() ? List.of(text.trim()) : result;
     }
 
     @Override

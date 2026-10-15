@@ -38,6 +38,15 @@ public class Company {
     @Column(name = "company_size", length = 50)
     private String companySize;
 
+    @Column(name = "description", columnDefinition = "TEXT")
+    private String description;
+
+    @Column(name = "industry", length = 100)
+    private String industry;
+
+    @Column(name = "founded_year")
+    private Integer foundedYear;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     @Builder.Default

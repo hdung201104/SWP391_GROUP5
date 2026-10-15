@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { applicationApi } from '../api';
 import { useLivingTheme } from '../context/LivingThemeContext';
+import { getSavedJobs, toggleSaveJob } from '../utils/savedJobsStorage';
 
 export default function CandidateApplicationsPage({ user }) {
   const { theme: livingTheme } = useLivingTheme();
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeFilter, setActiveFilter] = useState('ALL'); // 'ALL' | 'APPLIED' | 'INTERVIEW' | 'OFFER' | 'REJECTED'
+  const [activeFilter, setActiveFilter] = useState(() => window.location.hash.includes('tab=saved') ? 'SAVED' : 'ALL'); // 'ALL' | 'APPLIED' | 'INTERVIEW' | 'OFFER' | 'REJECTED' | 'SAVED'
+  const [savedJobs, setSavedJobs] = useState(() => getSavedJobs());
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('RECENT'); // 'RECENT' | 'ACTION' | 'MATCH'
   const [viewMode, setViewMode] = useState('list'); // 'list' | 'kanban'
@@ -18,6 +20,21 @@ export default function CandidateApplicationsPage({ user }) {
   const [offerSigned, setOfferSigned] = useState(false);
   const [chatMessageInput, setChatMessageInput] = useState('');
   const [chatHistory, setChatHistory] = useState([]);
+
+  useEffect(() => {
+    if (window.location.hash.includes('tab=saved')) {
+      setActiveFilter('SAVED');
+    }
+    const updateSaved = () => {
+      setSavedJobs(getSavedJobs());
+    };
+    window.addEventListener('hiremate_saved_jobs_updated', updateSaved);
+    window.addEventListener('storage', updateSaved);
+    return () => {
+      window.removeEventListener('hiremate_saved_jobs_updated', updateSaved);
+      window.removeEventListener('storage', updateSaved);
+    };
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -337,6 +354,17 @@ export default function CandidateApplicationsPage({ user }) {
             >
               Từ chối ({applications.filter(a => a.status === 'REJECTED').length})
             </button>
+            <button 
+              onClick={() => setActiveFilter('SAVED')}
+              className={`px-4 py-1.5 rounded-full font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
+                activeFilter === 'SAVED'
+                  ? 'bg-[#f97316] text-white shadow-sm'
+                  : 'text-[#1e1b4b] hover:text-[#f97316] hover:bg-orange-50/60'
+              }`}
+            >
+              <span className="material-symbols-outlined text-sm leading-none">bookmark</span>
+              <span>Đã lưu ({savedJobs.length})</span>
+            </button>
           </div>
 
           {/* Sort Select */}
@@ -502,6 +530,96 @@ export default function CandidateApplicationsPage({ user }) {
                 </div>
               </div>
             </div>
+          ) : activeFilter === 'SAVED' ? (
+            /* SAVED JOBS VIEW */
+            savedJobs.length === 0 ? (
+              <div className="card-botanical bg-white/95 rounded-3xl p-12 text-center border border-botanical-stone shadow-soft space-y-4">
+                <div className="w-16 h-16 rounded-2xl bg-orange-50 border border-orange-200 flex items-center justify-center mx-auto text-[#f97316]">
+                  <span className="material-symbols-outlined text-3xl">bookmark_border</span>
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-lg text-botanical-forest mb-1">Chưa Có Việc Làm Đã Lưu</h3>
+                  <p className="text-sm font-sans text-botanical-forest/70 max-w-md mx-auto">
+                    Bạn chưa đánh dấu lưu việc làm nào. Hãy bấm biểu tượng Bookmark trên các trang tin tuyển dụng để lưu và theo dõi tại đây!
+                  </p>
+                </div>
+                <div>
+                  <a href="#/" className="btn-botanical-primary inline-flex items-center gap-2 !px-6 !py-3 !text-xs shadow-soft">
+                    <span className="material-symbols-outlined text-sm">search</span>
+                    Khám Phá Việc Làm Ngay
+                  </a>
+                </div>
+              </div>
+            ) : (
+              savedJobs.map((sJob) => (
+                <div key={sJob.id || sJob.jobId} className="card-botanical bg-white/95 rounded-3xl p-6 sm:p-7 border border-botanical-stone shadow-soft transition-all duration-300 hover:shadow-soft-lg space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-start gap-4">
+                      <div 
+                        onClick={() => window.location.hash = `#/jobs/${sJob.jobId || sJob.id}`}
+                        className="w-14 h-14 rounded-2xl bg-[#f4f2fd] text-[#5b48bd] border border-purple-100 flex items-center justify-center font-serif font-bold text-lg shadow-soft cursor-pointer hover:scale-105 transition-transform shrink-0 overflow-hidden"
+                        title={sJob.companyName}
+                      >
+                        {sJob.companyLogo ? (
+                          <img src={sJob.companyLogo} alt={sJob.companyName} className="w-full h-full object-cover" />
+                        ) : (
+                          <span>{sJob.companyName?.slice(0, 2).toUpperCase() || 'HM'}</span>
+                        )}
+                      </div>
+                      <div>
+                        <h3 
+                          onClick={() => window.location.hash = `#/jobs/${sJob.jobId || sJob.id}`}
+                          className="text-lg font-serif font-bold text-botanical-forest hover:text-[#5b48bd] transition-colors cursor-pointer"
+                        >
+                          {sJob.title}
+                        </h3>
+                        <div className="text-sm font-sans font-medium text-slate-600 mt-0.5">{sJob.companyName}</div>
+                        <div className="flex flex-wrap items-center gap-y-1 gap-x-3 text-xs font-sans text-botanical-forest/70 mt-1.5">
+                          <span className="flex items-center gap-1 font-bold text-[#f97316]">
+                            <span className="material-symbols-outlined text-sm text-[#f97316]">payments</span>
+                            {sJob.salary || 'Thỏa thuận'}
+                          </span>
+                          <span>•</span>
+                          <span className="flex items-center gap-1">
+                            <span className="material-symbols-outlined text-sm">location_on</span>
+                            {sJob.location || 'Việt Nam'}
+                          </span>
+                          {sJob.savedAt && (
+                            <>
+                              <span>•</span>
+                              <span>Lưu: {new Date(sJob.savedAt).toLocaleDateString('vi-VN')}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 self-end sm:self-center">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          toggleSaveJob(sJob);
+                          setSavedJobs(getSavedJobs());
+                        }}
+                        className="px-3.5 py-2 rounded-xl border border-rose-200 text-rose-600 bg-rose-50 hover:bg-rose-100 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                        title="Bỏ lưu công việc này"
+                      >
+                        <span className="material-symbols-outlined text-sm">bookmark_remove</span>
+                        <span>Bỏ lưu</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => window.location.hash = `#/jobs/${sJob.jobId || sJob.id}`}
+                        className="px-4 py-2 rounded-xl bg-[#5b48bd] hover:bg-[#47369f] text-white text-xs font-bold transition-all shadow-sm cursor-pointer flex items-center gap-1.5"
+                      >
+                        <span>Xem chi tiết</span>
+                        <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )
           ) : (
             /* LIST VIEW MODE (RENDER REAL SUPABASE DATA) */
             filteredApps.length === 0 ? (

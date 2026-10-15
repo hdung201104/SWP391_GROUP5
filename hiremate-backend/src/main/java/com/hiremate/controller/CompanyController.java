@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 public class CompanyController {
 
     private final CompanyService companyService;
+    private final com.hiremate.service.FileStorageService fileStorageService;
 
     @GetMapping("/my")
     @PreAuthorize("hasRole('RECRUITER')")
@@ -44,6 +45,17 @@ public class CompanyController {
     ) {
         CompanyResponse response = companyService.uploadLogo(file, user);
         return ResponseEntity.ok(ApiResponse.ok("Tải lên và cập nhật logo công ty thành công", response));
+    }
+
+    @PostMapping(value = "/my/upload-image", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('RECRUITER')")
+    public ResponseEntity<ApiResponse<java.util.Map<String, String>>> uploadCompanyImage(
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+            @RequestParam(value = "folder", defaultValue = "workplace") String folder,
+            @AuthenticationPrincipal User user
+    ) {
+        String uploadedUrl = fileStorageService.storeFile(file, folder);
+        return ResponseEntity.ok(ApiResponse.ok("Tải ảnh lên Cloudinary thành công", java.util.Map.of("url", uploadedUrl)));
     }
 
     @GetMapping("/{id}")

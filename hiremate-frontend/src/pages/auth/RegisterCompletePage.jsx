@@ -16,10 +16,16 @@ import {
   Eye,
   EyeOff,
   KeyRound,
-  Send
+  Send,
+  Calendar,
+  MapPin,
+  Github,
+  GraduationCap
 } from 'lucide-react';
 import authApi from '../../api/authApi';
 import { useLivingTheme } from '../../context/LivingThemeContext';
+import { EDUCATION_LEVELS } from '../../utils/locationData';
+import VietnameseLocationPicker from '../../components/common/VietnameseLocationPicker';
 
 export default function RegisterCompletePage({ onNavigateLogin, onRegisterSuccess }) {
   const { theme: livingTheme } = useLivingTheme();
@@ -57,6 +63,10 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
 
   // Candidate-specific fields
   const [headline, setHeadline] = useState('');
+  const [education, setEducation] = useState('BACHELOR');
+  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [location, setLocation] = useState('');
+  const [githubUrl, setGithubUrl] = useState(googleData?.githubUrl || '');
 
   // Recruiter-specific fields
   const [companyName, setCompanyName] = useState('');
@@ -162,8 +172,13 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
         password: password.trim(),
         otp: otpCode.trim(),
         headline: role === 'CANDIDATE' ? headline.trim() : undefined,
+        dateOfBirth: role === 'CANDIDATE' && dateOfBirth ? dateOfBirth : undefined,
+        address: location || undefined,
+        githubUrl: role === 'CANDIDATE' && githubUrl ? githubUrl.trim() : undefined,
+        bio: EDUCATION_LEVELS.find((e) => e.value === education)?.label || education,
         companyName: role === 'RECRUITER' ? companyName.trim() : undefined,
         position: role === 'RECRUITER' ? position.trim() : undefined,
+        companyAddress: role === 'RECRUITER' ? location : undefined,
       };
 
       const res = await authApi.completeGoogleRegistration(payload);
@@ -411,6 +426,70 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
                     Tiêu đề này giúp thuật toán AI Matching gợi ý việc làm chính xác cho bạn.
                   </p>
                 </div>
+
+                {/* Additional Candidate Profile Fields: Education, DOB, Cascading Location, GitHub */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+                  <div className="space-y-1">
+                    <span className="text-xs text-slate-200 font-medium">Trình độ học vấn</span>
+                    <div className="relative flex items-center">
+                      <GraduationCap className="w-4 h-4 text-purple-300 absolute left-3.5 pointer-events-none" />
+                      <select
+                        value={education}
+                        onChange={(e) => setEducation(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2.5 bg-white/10 border border-white/20 focus:border-purple-400 focus:bg-white/15 rounded-xl text-sm text-white focus:outline-none transition-all cursor-pointer font-sans [&>option]:bg-slate-900 [&>option]:text-white"
+                      >
+                        {EDUCATION_LEVELS.map((edu) => (
+                          <option key={edu.value} value={edu.value}>{edu.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <span className="text-xs text-slate-200 font-medium">Ngày sinh</span>
+                    <div className="relative flex items-center">
+                      <Calendar className="w-4 h-4 text-purple-300 absolute left-3.5 pointer-events-none" />
+                      <input
+                        type="date"
+                        value={dateOfBirth}
+                        onChange={(e) => setDateOfBirth(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2.5 bg-white/10 border border-white/20 focus:border-purple-400 focus:bg-white/15 rounded-xl text-sm text-white placeholder-slate-400 focus:outline-none transition-all"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 1 Single Location Picker Field */}
+                <div className="space-y-1 pt-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-200 font-medium">
+                      Nơi cư trú (Tỉnh / TP • Quận / Huyện • Xã / Phường)
+                    </span>
+                    <span className="text-[11px] text-purple-300">Chọn 1 lần phân tầng tự động</span>
+                  </div>
+                  <VietnameseLocationPicker
+                    value={location}
+                    onChange={(val) => setLocation(val)}
+                    placeholder="Bấm chọn Tỉnh/TP → Quận/Huyện → Phường/Xã..."
+                    theme="dark"
+                  />
+                </div>
+
+                <div className="pt-1">
+                  <div className="space-y-1">
+                    <span className="text-xs text-slate-200 font-medium">Tài khoản GitHub (URL)</span>
+                    <div className="relative flex items-center">
+                      <Github className="w-4 h-4 text-purple-300 absolute left-3.5 pointer-events-none" />
+                      <input
+                        type="url"
+                        value={githubUrl}
+                        onChange={(e) => setGithubUrl(e.target.value)}
+                        placeholder="https://github.com/username"
+                        className="w-full pl-10 pr-4 py-2.5 bg-white/10 border border-white/20 focus:border-purple-400 focus:bg-white/15 rounded-xl text-sm text-white placeholder-slate-400 focus:outline-none transition-all"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="space-y-3 bg-cyan-950/30 border border-cyan-500/20 p-4 rounded-2xl">
@@ -453,6 +532,19 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
                     </div>
                   </div>
                 </div>
+
+                <div className="space-y-1 pt-1">
+                  <span className="text-xs text-slate-200 font-medium">
+                    Trụ sở chính công ty (Tỉnh / TP • Quận / Huyện • Xã / Phường)
+                  </span>
+                  <VietnameseLocationPicker
+                    value={location}
+                    onChange={(val) => setLocation(val)}
+                    placeholder="Bấm chọn Trụ sở chính công ty..."
+                    theme="dark"
+                  />
+                </div>
+
                 <p className="text-[11px] text-slate-400 mt-1">
                   Thông tin công ty giúp bạn quản lý bài đăng tuyển dụng và hồ sơ doanh nghiệp.
                 </p>

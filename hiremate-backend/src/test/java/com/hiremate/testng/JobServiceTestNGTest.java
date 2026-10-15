@@ -130,20 +130,19 @@ public class JobServiceTestNGTest {
     @Test(priority = 1, description = "TC01: Đăng tin tuyển dụng thành công với kỹ năng và gửi thông báo")
     public void testCreateJobSuccess() {
         // Arrange
-        JobCreateRequest request = JobCreateRequest.builder()
-                .title("Senior Java Spring Boot Engineer")
-                .description("Phát triển microservices.")
-                .requirements("Java 21, Spring Boot 3.")
-                .benefits("Lương hấp dẫn.")
-                .salaryMin(new BigDecimal("25000000"))
-                .salaryMax(new BigDecimal("45000000"))
-                .location("Da Nang, Vietnam")
-                .employmentType(EmploymentType.FULL_TIME)
-                .vacanciesCount(3)
-                .deadlineDate(LocalDate.now().plusDays(30))
-                .mandatorySkillIds(Arrays.asList(1L, 2L)) // Java, Spring Boot
-                .preferredSkillIds(Collections.singletonList(3L)) // PostgreSQL
-                .build();
+        JobCreateRequest request = new JobCreateRequest();
+        request.setTitle("Senior Java Spring Boot Engineer");
+        request.setDescription("Phát triển microservices.");
+        request.setRequirements("Java 21, Spring Boot 3.");
+        request.setBenefits("Lương hấp dẫn.");
+        request.setSalaryMin(new BigDecimal("25000000"));
+        request.setSalaryMax(new BigDecimal("45000000"));
+        request.setLocation("Da Nang, Vietnam");
+        request.setEmploymentType(EmploymentType.FULL_TIME);
+        request.setVacanciesCount(3);
+        request.setDeadlineDate(LocalDate.now().plusDays(30));
+        request.setMandatorySkillIds(Arrays.asList(1L, 2L));
+        request.setPreferredSkillIds(Collections.singletonList(3L));
 
         when(recruiterRepository.findById(201L)).thenReturn(Optional.of(sampleRecruiter));
         when(jobRepository.save(any(Job.class))).thenAnswer(invocation -> {
@@ -189,9 +188,8 @@ public class JobServiceTestNGTest {
           description = "TC02: Bắt lỗi khi người dùng chưa có hồ sơ Recruiter")
     public void testCreateJobRecruiterNotFound() {
         // Arrange
-        JobCreateRequest request = JobCreateRequest.builder()
-                .title("Software Engineer")
-                .build();
+        JobCreateRequest request = new JobCreateRequest();
+        request.setTitle("Software Engineer");
         when(recruiterRepository.findById(201L)).thenReturn(Optional.empty());
 
         // Act (Ném IllegalStateException)
@@ -205,17 +203,16 @@ public class JobServiceTestNGTest {
     @Test(priority = 3, description = "TC03: Cập nhật tin tuyển dụng thành công bởi đúng Recruiter sở hữu")
     public void testUpdateJobSuccess() {
         // Arrange
-        JobCreateRequest updateRequest = JobCreateRequest.builder()
-                .title("Lead Java Architect")
-                .description("Thiết kế kiến trúc hệ thống lớn.")
-                .requirements("Java 21, Microservices, Kubernetes.")
-                .benefits("Cổ phần ESOP.")
-                .salaryMin(new BigDecimal("40000000"))
-                .salaryMax(new BigDecimal("70000000"))
-                .location("Da Nang, Vietnam")
-                .employmentType(EmploymentType.FULL_TIME)
-                .vacanciesCount(1)
-                .build();
+        JobCreateRequest updateRequest = new JobCreateRequest();
+        updateRequest.setTitle("Lead Java Architect");
+        updateRequest.setDescription("Thiết kế kiến trúc hệ thống lớn.");
+        updateRequest.setRequirements("Java 21, Microservices, Kubernetes.");
+        updateRequest.setBenefits("Cổ phần ESOP.");
+        updateRequest.setSalaryMin(new BigDecimal("40000000"));
+        updateRequest.setSalaryMax(new BigDecimal("70000000"));
+        updateRequest.setLocation("Da Nang, Vietnam");
+        updateRequest.setEmploymentType(EmploymentType.FULL_TIME);
+        updateRequest.setVacanciesCount(1);
 
         when(jobRepository.findById(501L)).thenReturn(Optional.of(sampleJob));
         when(jobRepository.save(any(Job.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -249,9 +246,8 @@ public class JobServiceTestNGTest {
 
         when(jobRepository.findById(501L)).thenReturn(Optional.of(sampleJob));
 
-        JobCreateRequest request = JobCreateRequest.builder()
-                .title("Tampered Job Title")
-                .build();
+        JobCreateRequest request = new JobCreateRequest();
+        request.setTitle("Tampered Job Title");
 
         // Act (Ném SecurityException)
         jobService.updateJob(501L, request, hackerRecruiter);

@@ -1,5 +1,6 @@
 package com.hiremate.service;
 
+import com.hiremate.dto.response.CvParsedDTO;
 import com.hiremate.dto.response.CvResponse;
 import com.hiremate.entity.User;
 import org.springframework.web.multipart.MultipartFile;
@@ -14,4 +15,6 @@ public interface CvService {
     CvResponse getCvById(Long cvId);
     CvResponse analyzeCv(Long cvId, User candidate);
     CvResponse renameCv(Long cvId, String newName, User candidate);
+    CvResponse updateCv(Long cvId, CvParsedDTO updateDto, User candidate);
 }
+

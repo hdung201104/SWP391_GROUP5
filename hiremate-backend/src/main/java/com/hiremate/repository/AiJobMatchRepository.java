@@ -36,4 +36,7 @@ public interface AiJobMatchRepository extends JpaRepository<AiJobMatch, Long> {
             @org.springframework.data.repository.query.Param("candidateId") Long candidateId,
             @org.springframework.data.repository.query.Param("minScore") Float minScore
     );
+
+    /** Xóa các matches của candidate khi re-match */
+    void deleteByCandidate_CandidateId(Long candidateId);
 }

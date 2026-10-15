@@ -24,6 +24,8 @@ mvnw.cmd
 .env.*
 *.env
 *.env.local
+*.backup
+!*.example
 
 # IDE and Editor files
 .idea/

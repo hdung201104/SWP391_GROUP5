@@ -5,14 +5,12 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 public class RegisterRequest {
 
     @NotBlank(message = "Email is required")
@@ -34,6 +32,10 @@ public class RegisterRequest {
     private String headline;
     private String location;
     private Integer experienceYears;
+    private String dateOfBirth;
+    private String address;
+    private String bio;
+    private String githubUrl;
 
     // Recruiter specific fields (Company)
     private String companyName;

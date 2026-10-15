@@ -8,7 +8,6 @@ import java.math.BigDecimal;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 public class ValidateVoucherRequest {
     @NotBlank(message = "Mã voucher không được để trống")
     private String code;

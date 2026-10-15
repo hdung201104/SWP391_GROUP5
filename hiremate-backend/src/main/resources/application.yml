@@ -45,7 +45,7 @@ jwt:
 gemini:
   api:
     key: ${GEMINI_API_KEY:YOUR_GEMINI_API_KEY}
-    model: ${GEMINI_MODEL:gemini-3.5-flash}
+    model: ${GEMINI_MODEL:gemini-flash-latest}
     base-url: https://generativelanguage.googleapis.com/v1beta
 
 google:

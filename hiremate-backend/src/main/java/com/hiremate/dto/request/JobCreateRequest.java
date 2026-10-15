@@ -3,7 +3,6 @@ package com.hiremate.dto.request;
 import com.hiremate.enums.EmploymentType;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -14,7 +13,6 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 public class JobCreateRequest {
 
     @NotBlank(message = "Job title is required")

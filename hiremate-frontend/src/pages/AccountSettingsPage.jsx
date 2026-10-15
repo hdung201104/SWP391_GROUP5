@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import authApi from '../api/authApi';
+import VietnameseLocationPicker from '../components/common/VietnameseLocationPicker';
 
 // Helper to detect actual client operating system, browser, and device
 const detectCurrentDevice = () => {
@@ -95,20 +96,40 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
 
   const [activeTab, setActiveTab] = useState(getInitialTab);
 
-  // Profile Form State
-  const [fullName, setFullName] = useState(user?.fullName || (user?.role === 'RECRUITER' ? 'Nguyễn Minh Anh' : 'Trần Bảo Long'));
-  const [email, setEmail] = useState(user?.email || (user?.role === 'RECRUITER' ? 'minhanh.hr@fptsoftware.com' : 'longtran@candidate.hiremate.ai'));
-  const [phone, setPhone] = useState(user?.phone || '0912 345 678');
-  const [dob, setDob] = useState(user?.dateOfBirth || '1998-08-16');
-  const [gender, setGender] = useState('Nam');
-  const [city, setCity] = useState('TP. Hồ Chí Minh');
-  const [address, setAddress] = useState(user?.address || 'Thành phố Thủ Đức, TP. Hồ Chí Minh');
-  const [personalBio, setPersonalBio] = useState(
-    user?.bio || (user?.role === 'RECRUITER'
-      ? 'Chuyên viên tuyển dụng công nghệ cấp cao tại FPT Software, phụ trách săn tìm nhân tài Senior Backend & Cloud Architecture.'
-      : 'Kỹ sư phần mềm đam mê tối ưu hóa hệ thống phân tán, luôn học hỏi công nghệ mới và tìm kiếm môi trường thử thách phát triển sản phẩm quy mô lớn.')
-  );
-  const [githubUrl, setGithubUrl] = useState(user?.githubUrl || 'https://github.com/longtran-dev');
+  // Profile Form State (Initialize cleanly from user prop without injecting fake dummy data)
+  const [fullName, setFullName] = useState(user?.fullName || '');
+  const [email, setEmail] = useState(user?.email || '');
+  const [phone, setPhone] = useState(user?.phone || '');
+  const [dob, setDob] = useState(user?.dateOfBirth || user?.dob || '');
+  const [gender, setGender] = useState(user?.gender || '');
+  const [city, setCity] = useState(user?.city || '');
+  const [address, setAddress] = useState(user?.address || '');
+  const [personalBio, setPersonalBio] = useState(user?.bio || '');
+  const [githubUrl, setGithubUrl] = useState(user?.githubUrl || '');
+
+  // Tự động tải dữ liệu hồ sơ thực tế của tài khoản từ Supabase / Backend API
+  useEffect(() => {
+    authApi.getProfile()
+      .then((res) => {
+        const u = res?.data?.data || res?.data || res;
+        if (u) {
+          if (u.fullName) setFullName(u.fullName);
+          if (u.email) setEmail(u.email);
+          setPhone(u.phone || '');
+          setDob(u.dateOfBirth || u.dob || '');
+          setGender(u.gender || '');
+          setCity(u.city || '');
+          setAddress(u.address || '');
+          setPersonalBio(u.bio || '');
+          setGithubUrl(u.githubUrl || '');
+          setGithubConnected(Boolean(u.githubUrl));
+          if (u.avatarUrl) setAvatarUrl(u.avatarUrl);
+        }
+      })
+      .catch((err) => {
+        console.warn('Could not load profile from server, using user state:', err);
+      });
+  }, [user?.userId, user?.id]);
 
   // Avatar State
   const defaultCandidateAvatar = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80';
@@ -164,7 +185,7 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
   }, [passwordOtpCooldown]);
 
   // GitHub integration state
-  const [githubConnected, setGithubConnected] = useState(true);
+  const [githubConnected, setGithubConnected] = useState(Boolean(user?.githubUrl));
   const [githubSyncing, setGithubSyncing] = useState(false);
 
   // Active Sessions (Real-time device & token management)
@@ -629,13 +650,19 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
             <div className="flex-1 text-center md:text-left space-y-2.5">
               <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
                 <h2 className="text-2xl sm:text-3xl font-extrabold text-[#1e1b4b] tracking-tight">
-                  {fullName}
+                  {fullName || user?.fullName || 'Người Dùng'}
                 </h2>
               </div>
 
-              <p className="text-xs sm:text-sm text-slate-600 max-w-2xl line-clamp-2 font-sans leading-relaxed">
-                {personalBio}
-              </p>
+              {personalBio ? (
+                <p className="text-xs sm:text-sm text-slate-600 max-w-2xl line-clamp-2 font-sans leading-relaxed">
+                  {personalBio}
+                </p>
+              ) : (
+                <p className="text-xs text-slate-400 italic font-sans">
+                  Chưa có tiểu sử giới thiệu. Bạn có thể cập nhật thông tin ở biểu mẫu bên dưới.
+                </p>
+              )}
 
               {/* Security, Verification & GitHub Badges */}
               <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 text-xs font-sans pt-2">
@@ -655,7 +682,7 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                   </button>
                 )}
 
-                {githubUrl && (
+                {githubUrl ? (
                   <a
                     href={githubUrl}
                     target="_blank"
@@ -665,7 +692,7 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                     <span className="material-symbols-outlined text-base">code</span>
                     <span>GitHub: {githubUrl.replace('https://github.com/', '')}</span>
                   </a>
-                )}
+                ) : null}
               </div>
             </div>
           </div>
@@ -842,7 +869,7 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                       type="tel"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      placeholder="0912 345 678"
+                      placeholder="Chưa cập nhật (Ví dụ: 0912 xxx xxx)"
                       className="w-full pl-11 pr-4 py-2.5 bg-[#f8f7ff] border border-purple-100 rounded-2xl text-xs sm:text-sm text-[#1e1b4b] focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 focus:outline-none transition-all font-sans font-medium"
                     />
                   </div>
@@ -857,7 +884,7 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                     <span className="material-symbols-outlined absolute left-4 top-3 text-base text-slate-400">cake</span>
                     <input
                       type="date"
-                      value={dob}
+                      value={dob || ''}
                       onChange={(e) => setDob(e.target.value)}
                       className="w-full pl-11 pr-4 py-2.5 bg-[#f8f7ff] border border-purple-100 rounded-2xl text-xs sm:text-sm text-[#1e1b4b] focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 focus:outline-none transition-all font-sans font-medium"
                     />
@@ -872,10 +899,11 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                   <div className="relative">
                     <span className="material-symbols-outlined absolute left-4 top-3 text-base text-slate-400">wc</span>
                     <select
-                      value={gender}
+                      value={gender || ''}
                       onChange={(e) => setGender(e.target.value)}
                       className="w-full pl-11 pr-4 py-2.5 bg-[#f8f7ff] border border-purple-100 rounded-2xl text-xs sm:text-sm text-[#1e1b4b] focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 focus:outline-none transition-all font-sans font-medium cursor-pointer"
                     >
+                      <option value="">-- Chưa chọn giới tính --</option>
                       <option value="Nam">Nam</option>
                       <option value="Nữ">Nữ</option>
                       <option value="Khác">Khác / Không muốn tiết lộ</option>
@@ -883,26 +911,23 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                   </div>
                 </div>
 
-                {/* Tỉnh / Thành phố */}
+                {/* Nơi Cư Trú / Địa Chỉ */}
                 <div className="space-y-2">
-                  <label className="text-xs font-sans font-bold text-[#1e1b4b]">
-                    Tỉnh / Thành Phố Cư Trú
-                  </label>
-                  <div className="relative">
-                    <span className="material-symbols-outlined absolute left-4 top-3 text-base text-slate-400">location_city</span>
-                    <select
-                      value={city}
-                      onChange={(e) => setCity(e.target.value)}
-                      className="w-full pl-11 pr-4 py-2.5 bg-[#f8f7ff] border border-purple-100 rounded-2xl text-xs sm:text-sm text-[#1e1b4b] focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 focus:outline-none transition-all font-sans font-medium cursor-pointer"
-                    >
-                      <option value="TP. Hồ Chí Minh">TP. Hồ Chí Minh</option>
-                      <option value="Hà Nội">Hà Nội</option>
-                      <option value="Đà Nẵng">Đà Nẵng</option>
-                      <option value="Cần Thơ">Cần Thơ</option>
-                      <option value="Hải Phòng">Hải Phòng</option>
-                      <option value="Khác">Tỉnh / Thành phố khác</option>
-                    </select>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-sans font-bold text-[#1e1b4b]">
+                      Nơi Cư Trú / Địa Chỉ
+                    </label>
+                    <span className="text-[10px] text-[#5b48bd] font-medium">Chọn Tỉnh → Huyện → Xã</span>
                   </div>
+                  <VietnameseLocationPicker
+                    value={address || city || ''}
+                    onChange={(val) => {
+                      setAddress(val);
+                      setCity(val);
+                    }}
+                    placeholder="Bấm chọn Tỉnh/TP → Quận/Huyện → Phường/Xã..."
+                    theme="light"
+                  />
                 </div>
 
                 {/* Liên kết GitHub Profile */}
@@ -918,8 +943,11 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                     <input
                       type="url"
                       value={githubUrl}
-                      onChange={(e) => setGithubUrl(e.target.value)}
-                      placeholder="https://github.com/username"
+                      onChange={(e) => {
+                        setGithubUrl(e.target.value);
+                        setGithubConnected(Boolean(e.target.value.trim()));
+                      }}
+                      placeholder="Chưa liên kết (Ví dụ: https://github.com/username)"
                       className="w-full pl-11 pr-4 py-2.5 bg-[#f8f7ff] border border-purple-100 rounded-2xl text-xs sm:text-sm text-[#1e1b4b] focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 focus:outline-none transition-all font-sans font-medium"
                     />
                   </div>
@@ -936,7 +964,7 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                       type="text"
                       value={address}
                       onChange={(e) => setAddress(e.target.value)}
-                      placeholder="Số nhà, đường, phường/xã, quận/huyện..."
+                      placeholder="Chưa cập nhật địa chỉ cư trú..."
                       className="w-full pl-11 pr-4 py-2.5 bg-[#f8f7ff] border border-purple-100 rounded-2xl text-xs sm:text-sm text-[#1e1b4b] focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 focus:outline-none transition-all font-sans font-medium"
                     />
                   </div>
@@ -964,7 +992,15 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                 <button
                   type="reset"
                   onClick={() => {
-                    setFullName(user?.fullName || 'Trần Bảo Long');
+                    setFullName(user?.fullName || '');
+                    setPhone(user?.phone || '');
+                    setDob(user?.dateOfBirth || user?.dob || '');
+                    setGender(user?.gender || '');
+                    setCity(user?.city || '');
+                    setAddress(user?.address || '');
+                    setPersonalBio(user?.bio || '');
+                    setGithubUrl(user?.githubUrl || '');
+                    setGithubConnected(Boolean(user?.githubUrl));
                     triggerToast('Đã khôi phục dữ liệu ban đầu');
                   }}
                   className="bg-white hover:bg-purple-50/60 border border-purple-200 text-[#1e1b4b] font-semibold text-xs py-2.5 px-5 rounded-2xl shadow-sm transition-all cursor-pointer"
@@ -1470,15 +1506,17 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                   />
                 </div>
 
-                {githubConnected && (
+                {githubConnected && githubUrl.trim() && (
                   <div className="p-3.5 rounded-2xl bg-white border border-purple-100 text-xs space-y-1 font-sans">
                     <div className="flex items-center justify-between text-slate-600">
-                      <span>Repositories công khai:</span>
-                      <strong className="text-[#1e1b4b] font-mono">14 repos</strong>
+                      <span>Tài khoản liên kết:</span>
+                      <strong className="text-[#1e1b4b] font-mono">{githubUrl.replace('https://github.com/', '')}</strong>
                     </div>
                     <div className="flex items-center justify-between text-slate-600">
-                      <span>Stars nhận được:</span>
-                      <strong className="text-[#f97316] font-mono">★ 48</strong>
+                      <span>Trạng thái đồng bộ:</span>
+                      <span className="text-emerald-600 font-semibold flex items-center gap-1">
+                        <span className="material-symbols-outlined text-xs">check_circle</span> Sẵn sàng
+                      </span>
                     </div>
                   </div>
                 )}
@@ -1487,6 +1525,10 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                   <button
                     type="button"
                     onClick={() => {
+                      if (!githubUrl.trim()) {
+                        triggerToast('Vui lòng nhập đường dẫn GitHub hợp lệ');
+                        return;
+                      }
                       setGithubSyncing(true);
                       setTimeout(() => {
                         setGithubSyncing(false);

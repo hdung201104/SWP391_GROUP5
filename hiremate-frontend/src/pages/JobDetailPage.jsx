@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import ApplyJobModal from '../components/jobs/ApplyJobModal';
 import { jobApi } from '../api';
 import { useLivingTheme } from '../context/LivingThemeContext';
+import { isJobSaved, toggleSaveJob } from '../utils/savedJobsStorage';
 
 const JOBS_DATA = {
   101: {
@@ -136,9 +137,23 @@ export default function JobDetailPage({ user, jobId }) {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('ALL');
   const [isApplying, setIsApplying] = useState(false);
-  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [isBookmarked, setIsBookmarked] = useState(() => isJobSaved(currentId));
   const [copiedLink, setCopiedLink] = useState(false);
   const [chatToast, setChatToast] = useState(false);
+
+  useEffect(() => {
+    setIsBookmarked(isJobSaved(currentId));
+  }, [currentId]);
+
+  const handleToggleBookmark = () => {
+    if (!user) {
+      window.location.hash = '#/login';
+      return;
+    }
+    const targetJob = job || { id: currentId, jobId: currentId, title: 'Vị trí Tuyển dụng' };
+    const saved = toggleSaveJob(targetJob);
+    setIsBookmarked(saved);
+  };
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -158,11 +173,16 @@ export default function JobDetailPage({ user, jobId }) {
             const compName = apiData.companyName || 'Doanh Nghiệp Tuyển Dụng';
             const compShort = compName.replace(/[^a-zA-Z0-9\s]/g, '').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase() || 'CORP';
 
+            const recruiterName = apiData.recruiterName || 'Bộ Phận Tuyển Dụng';
+            const recruiterTitle = [apiData.recruiterPosition, apiData.recruiterDepartment].filter(Boolean).join(' • ') || 'Đại Diện Tuyển Dụng & Thu Hút Nhân Tài';
+            const recruiterAvatar = apiData.recruiterAvatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(recruiterName)}`;
+            const recruiterQuote = apiData.recruiterBio || `HireMate AI hỗ trợ ứng viên kết nối trực tiếp với ${compName} và phản hồi hồ sơ nhanh chóng.`;
+
             setJob({
               jobId: apiData.jobId,
               code: `HM-JOB-${apiData.jobId}`,
               division: '// TUYỂN DỤNG TRỰC TUYẾN',
-              industry: apiData.industry || 'Công nghệ & Đổi mới sáng tạo',
+              industry: apiData.companyIndustry || apiData.industry || 'Công nghệ & Đổi mới sáng tạo',
               title: apiData.title || 'Vị trí Tuyển dụng',
               subtitle: apiData.employmentType ? `(${apiData.employmentType})` : '',
               companyName: compName,
@@ -187,16 +207,19 @@ export default function JobDetailPage({ user, jobId }) {
                 { topic: 'Chuẩn bị CV ATS', note: 'Hãy cập nhật các kỹ năng trọng tâm khớp với bản mô tả công việc (JD).' }
               ],
               recruiter: {
-                name: 'Bộ Phận Tuyển Dụng',
-                title: 'Talent Acquisition Team',
+                name: recruiterName,
+                title: recruiterTitle,
+                email: apiData.recruiterEmail,
+                phone: apiData.recruiterPhone,
+                avatar: recruiterAvatar,
                 responseTime: 'Phản hồi trong vòng 24 giờ',
-                quote: 'HireMate AI hỗ trợ ứng viên kết nối trực tiếp với doanh nghiệp và phản hồi hồ sơ nhanh chóng.'
+                quote: recruiterQuote
               },
               companyInfo: {
-                size: 'Doanh nghiệp đã xác thực',
-                headquarters: apiData.location || 'Việt Nam',
+                size: apiData.companySize || 'Doanh nghiệp đã xác thực',
+                headquarters: apiData.companyAddress || apiData.location || 'Việt Nam',
                 markets: 'Toàn quốc',
-                desc: `${compName} đang tìm kiếm nhân tài phù hợp cho các dự án phát triển chiến lược.`,
+                desc: apiData.companyDescription || `${compName} đang tìm kiếm nhân tài phù hợp cho các dự án phát triển chiến lược.`,
                 otherJobsCount: 1
               }
             });
@@ -425,13 +448,7 @@ export default function JobDetailPage({ user, jobId }) {
               <div className="flex items-center gap-2 w-full lg:w-auto">
                 <button 
                   type="button"
-                  onClick={() => {
-                    if (!user) {
-                      window.location.hash = '#/login';
-                      return;
-                    }
-                    setIsBookmarked(!isBookmarked);
-                  }}
+                  onClick={handleToggleBookmark}
                   aria-label="Lưu công việc" 
                   className={`p-3 rounded-full border transition-all cursor-pointer ${
                     isBookmarked 
@@ -722,101 +739,131 @@ export default function JobDetailPage({ user, jobId }) {
 
           {/* ================= RIGHT COLUMN: AI INTELLIGENCE & RECRUITER (4 cols) ================= */}
           <aside className="lg:col-span-4 space-y-6 font-sans">
-            {/* CARD 1: HireMate AI Match Radar & ATS Check */}
-            <div className="rounded-3xl bg-white border border-purple-100/80 p-6 space-y-5 shadow-sm relative overflow-hidden font-sans">
-              <div className="flex items-center justify-between border-b border-purple-100 pb-3">
-                <span className="text-xs font-sans font-bold uppercase tracking-wider text-[#221d47] flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-base text-[#5b48bd]">psychology</span>
-                  HireMate AI Match Radar
-                </span>
-                <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                  ATS LIVE
-                </span>
-              </div>
-
-              {/* Circular Gauge & Score Summary */}
-              <div className="flex items-center gap-4 p-4 rounded-2xl bg-[#f8f7ff] border border-purple-100 shadow-sm">
-                <div className="relative flex items-center justify-center w-16 h-16 flex-shrink-0">
-                  <svg className="w-16 h-16 -rotate-90 transform" viewBox="0 0 100 100">
-                    <circle className="text-purple-100" cx="50" cy="50" fill="transparent" r="40" stroke="currentColor" strokeWidth="8"></circle>
-                    <circle 
-                      className="text-[#5b48bd]" 
-                      cx="50" 
-                      cy="50" 
-                      fill="transparent" 
-                      r="40" 
-                      stroke="currentColor" 
-                      strokeDasharray="251.2" 
-                      strokeDashoffset={`${251.2 * (1 - job.aiMatchScore / 100)}`} 
-                      strokeLinecap="round" 
-                      strokeWidth="8" 
-                    ></circle>
-                  </svg>
-                  <span className="absolute font-sans font-extrabold text-base text-[#5b48bd]">{job.aiMatchScore}%</span>
+            {/* CARD 1: Phân biệt Recruiter vs Candidate */}
+            {isRecruiter ? (
+              <div className="rounded-3xl bg-white border border-purple-100/80 p-6 space-y-5 shadow-sm relative overflow-hidden font-sans">
+                <div className="flex items-center justify-between border-b border-purple-100 pb-3">
+                  <span className="text-xs font-sans font-bold uppercase tracking-wider text-[#221d47] flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-base text-[#5b48bd]">dashboard</span>
+                    Trung Tâm Tuyển Dụng &amp; ATS
+                  </span>
+                  <span className="bg-purple-50 text-[#5b48bd] border border-purple-200 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
+                    RECRUITER
+                  </span>
                 </div>
-                <div>
-                  <div className="text-xs font-sans font-bold text-[#221d47]">{job.matchAssessment}</div>
-                  <p className="text-[11px] text-slate-500 mt-1 leading-snug font-sans">{job.matchRank}</p>
-                </div>
-              </div>
 
-              {/* Matched Skills Chips */}
-              <div className="space-y-3">
-                <div>
-                  <div className="flex items-center justify-between text-xs mb-2">
-                    <span className="text-[#221d47] font-bold flex items-center gap-1 font-sans">
-                      <span className="material-symbols-outlined text-[#10b981] text-sm">check_circle</span>
-                      Kỹ năng khớp 100%
-                    </span>
-                    <span className="text-[10px] font-sans font-bold text-slate-500">{job.matchedSkills.length}/{job.matchedSkills.length} Khớp</span>
+                {/* Recruiter Job Statistics */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3.5 rounded-2xl bg-[#f8f7ff] border border-purple-100 text-center">
+                    <div className="text-2xl font-extrabold text-[#5b48bd]">{job.applicantCount || 24}</div>
+                    <div className="text-[11px] font-semibold text-slate-500 mt-0.5">Ứng viên đã nộp</div>
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {job.matchedSkills.map((sk, idx) => (
-                      <span key={idx} className="bg-[#edeafd] text-[#5b48bd] border border-[#d6cefa] text-[11px] font-semibold px-2.5 py-1 rounded-full">
-                        {sk}
-                      </span>
-                    ))}
+                  <div className="p-3.5 rounded-2xl bg-[#f8f7ff] border border-purple-100 text-center">
+                    <div className="text-2xl font-extrabold text-[#f97316]">Top 5%</div>
+                    <div className="text-[11px] font-semibold text-slate-500 mt-0.5">AI sàng lọc cao</div>
                   </div>
                 </div>
 
-                <div className="pt-3 border-t border-purple-100">
-                  <div className="flex items-center justify-between text-xs mb-2">
-                    <span className="text-[#f97316] font-sans font-bold flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[#f97316] text-sm">tips_and_updates</span>
-                      Gợi ý chú ý trước phỏng vấn
-                    </span>
-                    <span className="text-[10px] font-sans text-slate-500 font-bold">{job.missingFocus.length} Điểm</span>
+                <div className="space-y-2 text-xs text-slate-600 bg-purple-50/50 p-3.5 rounded-2xl border border-purple-100">
+                  <div className="flex items-center gap-2 font-bold text-[#1e1b4b]">
+                    <span className="material-symbols-outlined text-sm text-[#5b48bd]">psychology</span>
+                    Tính năng AI Đánh giá Ứng viên:
                   </div>
-                  <div className="space-y-2">
-                    {job.missingFocus.map((mf, idx) => (
-                      <div key={idx} className="p-2.5 rounded-xl bg-[#f8f7ff] border border-purple-100 flex items-start gap-2 shadow-sm">
-                        <span className="material-symbols-outlined text-[#f97316] text-xs mt-0.5 shrink-0">arrow_forward</span>
-                        <span className="text-[11px] text-slate-700 leading-snug font-sans">
-                          <strong className="text-[#221d47] font-bold">{mf.topic}:</strong> {mf.note}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                  <p className="text-[11px] leading-relaxed text-slate-500">
+                    Hệ thống Gemini AI tự động chấm điểm độ tương thích CV của ứng viên nộp vào tin này theo trọng số 70% Bắt buộc và 30% Ưu tiên.
+                  </p>
                 </div>
-              </div>
 
-              {/* Call to Action Button */}
-              {isRecruiter ? (
+                {/* Action button for Recruiter */}
                 <button 
                   type="button"
                   onClick={() => { 
-                    if (!user) {
-                      window.location.hash = '#/login';
-                      return;
-                    }
                     window.location.hash = `#/applicants-management?jobId=${currentId}`; 
                   }}
                   className="w-full py-3 px-4 rounded-full bg-[#5b48bd] hover:bg-[#47369f] text-white text-xs font-bold uppercase tracking-wider shadow-md hover:scale-[1.02] transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-base">groups</span>
-                  <span>Xem {job.applicantCount || 24} ứng viên</span>
+                  <span>Xem &amp; Chấm điểm ứng viên ({job.applicantCount || 24})</span>
                 </button>
-              ) : (
+              </div>
+            ) : (
+              <div className="rounded-3xl bg-white border border-purple-100/80 p-6 space-y-5 shadow-sm relative overflow-hidden font-sans">
+                <div className="flex items-center justify-between border-b border-purple-100 pb-3">
+                  <span className="text-xs font-sans font-bold uppercase tracking-wider text-[#221d47] flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-base text-[#5b48bd]">psychology</span>
+                    HireMate AI Match Radar
+                  </span>
+                  <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                    ATS LIVE
+                  </span>
+                </div>
+
+                {/* Circular Gauge & Score Summary */}
+                <div className="flex items-center gap-4 p-4 rounded-2xl bg-[#f8f7ff] border border-purple-100 shadow-sm">
+                  <div className="relative flex items-center justify-center w-16 h-16 flex-shrink-0">
+                    <svg className="w-16 h-16 -rotate-90 transform" viewBox="0 0 100 100">
+                      <circle className="text-purple-100" cx="50" cy="50" fill="transparent" r="40" stroke="currentColor" strokeWidth="8"></circle>
+                      <circle 
+                        className="text-[#5b48bd]" 
+                        cx="50" 
+                        cy="50" 
+                        fill="transparent" 
+                        r="40" 
+                        stroke="currentColor" 
+                        strokeDasharray="251.2" 
+                        strokeDashoffset={`${251.2 * (1 - job.aiMatchScore / 100)}`} 
+                        strokeLinecap="round" 
+                        strokeWidth="8" 
+                      ></circle>
+                    </svg>
+                    <span className="absolute font-sans font-extrabold text-base text-[#5b48bd]">{job.aiMatchScore}%</span>
+                  </div>
+                  <div>
+                    <div className="text-xs font-sans font-bold text-[#221d47]">{job.matchAssessment}</div>
+                    <p className="text-[11px] text-slate-500 mt-1 leading-snug font-sans">{job.matchRank}</p>
+                  </div>
+                </div>
+
+                {/* Matched Skills Chips */}
+                <div className="space-y-3">
+                  <div>
+                    <div className="flex items-center justify-between text-xs mb-2">
+                      <span className="text-[#221d47] font-bold flex items-center gap-1 font-sans">
+                        <span className="material-symbols-outlined text-[#10b981] text-sm">check_circle</span>
+                        Kỹ năng khớp 100%
+                      </span>
+                      <span className="text-[10px] font-sans font-bold text-slate-500">{job.matchedSkills.length}/{job.matchedSkills.length} Khớp</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {job.matchedSkills.map((sk, idx) => (
+                        <span key={idx} className="bg-[#edeafd] text-[#5b48bd] border border-[#d6cefa] text-[11px] font-semibold px-2.5 py-1 rounded-full">
+                          {sk}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-purple-100">
+                    <div className="flex items-center justify-between text-xs mb-2">
+                      <span className="text-[#f97316] font-sans font-bold flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[#f97316] text-sm">tips_and_updates</span>
+                        Gợi ý chú ý trước phỏng vấn
+                      </span>
+                      <span className="text-[10px] font-sans text-slate-500 font-bold">{job.missingFocus.length} Điểm</span>
+                    </div>
+                    <div className="space-y-2">
+                      {job.missingFocus.map((mf, idx) => (
+                        <div key={idx} className="p-2.5 rounded-xl bg-[#f8f7ff] border border-purple-100 flex items-start gap-2 shadow-sm">
+                          <span className="material-symbols-outlined text-[#f97316] text-xs mt-0.5 shrink-0">arrow_forward</span>
+                          <span className="text-[11px] text-slate-700 leading-snug font-sans">
+                            <strong className="text-[#221d47] font-bold">{mf.topic}:</strong> {mf.note}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
                 <button 
                   type="button"
                   onClick={() => {
@@ -831,8 +878,8 @@ export default function JobDetailPage({ user, jobId }) {
                   <span className="material-symbols-outlined text-base text-[#5b48bd]">mic</span>
                   <span>Luyện phỏng vấn AI với bài đăng này</span>
                 </button>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* CARD 2: Nhà tuyển dụng phụ trách (Talent Partner Profile) */}
             <div className="rounded-3xl bg-white border border-purple-100/80 p-6 space-y-4 shadow-sm relative overflow-hidden font-sans">
@@ -847,8 +894,16 @@ export default function JobDetailPage({ user, jobId }) {
               </div>
 
               <div className="flex items-center gap-3.5">
-                <div className="relative w-14 h-14 rounded-2xl overflow-hidden border border-purple-200 shrink-0 shadow-sm">
-                  <img alt={job.recruiter.name} className="w-full h-full object-cover" src={job.recruiter.avatar} />
+                <div className="relative w-14 h-14 rounded-2xl overflow-hidden border border-purple-200 shrink-0 shadow-sm bg-purple-50 flex items-center justify-center">
+                  <img 
+                    alt={job.recruiter.name} 
+                    className="w-full h-full object-cover" 
+                    src={job.recruiter.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=hiremate'} 
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = 'https://api.dicebear.com/7.x/bottts/svg?seed=hiremate';
+                    }}
+                  />
                 </div>
                 <div>
                   <h3 className="text-sm font-sans font-bold text-[#221d47]">{job.recruiter.name}</h3>
@@ -864,20 +919,23 @@ export default function JobDetailPage({ user, jobId }) {
                 "{job.recruiter.quote}"
               </p>
 
-              <button 
-                type="button"
-                onClick={() => {
-                  if (!user) {
-                    window.location.hash = '#/login';
-                    return;
-                  }
-                  handleStartChat();
-                }}
-                className="w-full py-2.5 px-4 rounded-full bg-[#edeafd] hover:bg-[#d6cefa] text-[#5b48bd] text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-colors"
-              >
-                <span className="material-symbols-outlined text-base text-[#5b48bd]">chat</span>
-                <span>Nhắn tin với Recruiter</span>
-              </button>
+              {/* Chỉ hiển thị nút Nhắn tin cho Candidate (Recruiter đã có khung Quản lý ATS ở trên) */}
+              {!isRecruiter && (
+                <button 
+                  type="button"
+                  onClick={() => {
+                    if (!user) {
+                      window.location.hash = '#/login';
+                      return;
+                    }
+                    handleStartChat();
+                  }}
+                  className="w-full py-2.5 px-4 rounded-full bg-[#edeafd] hover:bg-[#d6cefa] text-[#5b48bd] text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                >
+                  <span className="material-symbols-outlined text-base text-[#5b48bd]">chat</span>
+                  <span>Nhắn tin với Recruiter</span>
+                </button>
+              )}
             </div>
 
             {/* CARD 3: Về công ty & Hệ sinh thái (About Enterprise) */}
@@ -957,13 +1015,13 @@ export default function JobDetailPage({ user, jobId }) {
             <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
               <button 
                 type="button"
-                onClick={() => setIsBookmarked(!isBookmarked)}
+                onClick={handleToggleBookmark}
                 className={`p-2.5 rounded-full border transition-all flex items-center justify-center cursor-pointer ${
                   isBookmarked 
                     ? 'border-[#f97316] text-[#f97316] bg-orange-50 shadow-sm' 
                     : 'border-purple-200 bg-white text-slate-700 hover:bg-purple-50'
                 }`} 
-                title="Lưu vị trí này"
+                title={isBookmarked ? "Đã lưu việc làm" : "Lưu việc làm này"}
               >
                 <span className="material-symbols-outlined text-lg">
                   {isBookmarked ? 'bookmark' : 'bookmark_border'}

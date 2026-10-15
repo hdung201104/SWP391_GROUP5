@@ -30,6 +30,7 @@ public class AdminServiceImpl implements AdminService {
     private final SubscriptionPlanRepository subscriptionPlanRepository;
     private final SubscriptionRepository subscriptionRepository;
     private final VoucherRepository voucherRepository;
+    private final com.hiremate.service.JobService jobService;
 
     @Override
     @Transactional(readOnly = true)
@@ -285,20 +286,14 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<Job> getAllJobs() {
-        return jobRepository.findAllByOrderByCreatedAtDesc();
+    public List<JobResponse> getAllJobs() {
+        return jobService.getAllJobsForAdmin();
     }
 
     @Override
     @Transactional
-    public Job updateJobApproval(Long jobId, JobApprovalStatus status) {
-        Job job = jobRepository.findById(jobId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy công việc ID: " + jobId));
-        job.setApprovalStatus(status);
-        if (status == JobApprovalStatus.APPROVED && job.getStatus() == JobStatus.DRAFT) {
-            job.setStatus(JobStatus.PUBLISHED);
-        }
-        return jobRepository.save(job);
+    public JobResponse updateJobApproval(Long jobId, JobApprovalStatus status) {
+        return jobService.updateJobApproval(jobId, status);
     }
 
     @Override

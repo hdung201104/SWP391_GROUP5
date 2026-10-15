@@ -20,6 +20,7 @@ import java.util.stream.Collectors;
 public class NotificationServiceImpl implements NotificationService {
 
     private final NotificationRepository notificationRepository;
+    private final com.hiremate.repository.SubscriptionRepository subscriptionRepository;
 
     @Override
     @Transactional
@@ -43,7 +44,32 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
+    @Transactional
     public List<NotificationResponse> getUserNotifications(User user) {
+        // Tự động đồng bộ thông báo nâng cấp nếu người dùng đã có gói active nhưng chưa được nhận thông báo
+        try {
+            subscriptionRepository.findFirstByUser_UserIdAndStatusOrderByCreatedAtDesc(user.getUserId(), com.hiremate.enums.SubscriptionStatus.ACTIVE)
+                    .ifPresent(sub -> {
+                        com.hiremate.entity.SubscriptionPlan plan = sub.getPlan();
+                        if (plan != null && plan.getPrice() != null && plan.getPrice().compareTo(java.math.BigDecimal.ZERO) > 0) {
+                            boolean hasSubNotif = notificationRepository.findByUserIdOrderByCreatedAtDesc(user.getUserId()).stream()
+                                    .anyMatch(n -> n.getTitle() != null && n.getTitle().contains("Nâng cấp"));
+                            if (!hasSubNotif) {
+                                createNotification(
+                                        user.getUserId(),
+                                        NotificationType.SYSTEM_ALERT,
+                                        "🎉 Nâng cấp tài khoản thành công!",
+                                        "Chúc mừng bạn đã nâng cấp thành công gói " + plan.getPlanName() + ". Toàn bộ đặc quyền AI cao cấp và hạn mức đã được kích hoạt!",
+                                        sub.getSubscriptionId(),
+                                        "subscriptions"
+                                );
+                            }
+                        }
+                    });
+        } catch (Exception e) {
+            log.warn("Không thể đồng bộ thông báo gói active: {}", e.getMessage());
+        }
+
         List<Notification> notifications = notificationRepository.findByUserIdOrderByCreatedAtDesc(user.getUserId());
         return notifications.stream()
                 .map(this::mapToResponse)

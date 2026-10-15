@@ -32,6 +32,9 @@ mvnw.cmd
 *.env.local
 hiremate-backend/.env
 hiremate-frontend/.env
+*.backup
+!*.example
+!**/.env.example
 
 # Archives & Compressed files
 *.zip

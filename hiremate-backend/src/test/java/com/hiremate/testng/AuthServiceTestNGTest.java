@@ -101,17 +101,22 @@ public class AuthServiceTestNGTest {
                 .build();
     }
 
+    private RegisterRequest buildRegisterReq(String email, String password, String fullName, UserRole role, String companyName) {
+        RegisterRequest req = new RegisterRequest();
+        req.setEmail(email);
+        req.setPassword(password);
+        req.setFullName(fullName);
+        req.setRole(role);
+        req.setCompanyName(companyName);
+        return req;
+    }
+
     // ========================================================================
     // TEST CASE 1: Đăng ký Candidate thành công (Kiểm tra assertX)
     // ========================================================================
     @Test(description = "TC01: Đăng ký tài khoản Ứng viên (CANDIDATE) thành công và mã hóa mật khẩu")
     public void test01_registerCandidate_Success() {
-        RegisterRequest request = RegisterRequest.builder()
-                .email("newcandidate@hiremate.ai")
-                .password("SecurePass2026@")
-                .fullName("Le Thi Thu")
-                .role(UserRole.CANDIDATE)
-                .build();
+        RegisterRequest request = buildRegisterReq("newcandidate@hiremate.ai", "SecurePass2026@", "Le Thi Thu", UserRole.CANDIDATE, null);
 
         when(userRepository.existsByEmail("newcandidate@hiremate.ai")).thenReturn(false);
         when(passwordEncoder.encode("SecurePass2026@")).thenReturn("bcrypt_encrypted_hash");
@@ -143,13 +148,7 @@ public class AuthServiceTestNGTest {
     // ========================================================================
     @Test(description = "TC02: Đăng ký Nhà tuyển dụng (RECRUITER) tự động khởi tạo Doanh nghiệp")
     public void test02_registerRecruiter_Success() {
-        RegisterRequest request = RegisterRequest.builder()
-                .email("hr@fpt.com")
-                .password("HrPassword123#")
-                .fullName("Tran Van HR")
-                .companyName("FPT Software")
-                .role(UserRole.RECRUITER)
-                .build();
+        RegisterRequest request = buildRegisterReq("hr@fpt.com", "HrPassword123#", "Tran Van HR", UserRole.RECRUITER, "FPT Software");
 
         when(userRepository.existsByEmail("hr@fpt.com")).thenReturn(false);
         when(passwordEncoder.encode(anyString())).thenReturn("hashed_hr_password");
@@ -189,11 +188,7 @@ public class AuthServiceTestNGTest {
         expectedExceptionsMessageRegExp = ".*Email already exists.*"
     )
     public void test03_register_DuplicateEmail_ThrowsException() {
-        RegisterRequest request = RegisterRequest.builder()
-                .email("candidate@hiremate.ai")
-                .password("Password123@")
-                .fullName("Trung Email")
-                .build();
+        RegisterRequest request = buildRegisterReq("candidate@hiremate.ai", "Password123@", "Trung Email", null, null);
 
         // Giả lập email đã tồn tại trong database
         when(userRepository.existsByEmail("candidate@hiremate.ai")).thenReturn(true);
@@ -218,12 +213,7 @@ public class AuthServiceTestNGTest {
         description = "TC04: DDT - Kiểm tra đăng ký ứng viên với nhiều kịch bản dữ liệu khác nhau"
     )
     public void test04_register_DataDrivenTesting_DDT(String email, String fullName, UserRole role) {
-        RegisterRequest req = RegisterRequest.builder()
-                .email(email)
-                .password("PassDDT123#")
-                .fullName(fullName)
-                .role(role)
-                .build();
+        RegisterRequest req = buildRegisterReq(email, "PassDDT123#", fullName, role, null);
 
         when(userRepository.existsByEmail(email)).thenReturn(false);
         when(passwordEncoder.encode(anyString())).thenReturn("hashed_pass");
@@ -247,10 +237,7 @@ public class AuthServiceTestNGTest {
     // ========================================================================
     @Test(description = "TC05: Đăng nhập thành công với email và mật khẩu chính xác")
     public void test05_login_ValidCredentials_Success() {
-        LoginRequest request = LoginRequest.builder()
-                .email("candidate@hiremate.ai")
-                .password("CorrectPassword123#")
-                .build();
+        LoginRequest request = new LoginRequest("candidate@hiremate.ai", "CorrectPassword123#");
 
         when(userRepository.findByEmail("candidate@hiremate.ai")).thenReturn(Optional.of(sampleCandidate));
         when(passwordEncoder.matches("CorrectPassword123#", sampleCandidate.getPasswordHash())).thenReturn(true);
@@ -274,10 +261,7 @@ public class AuthServiceTestNGTest {
         expectedExceptionsMessageRegExp = ".*không chính xác.*"
     )
     public void test06_login_WrongPassword_ThrowsException() {
-        LoginRequest request = LoginRequest.builder()
-                .email("candidate@hiremate.ai")
-                .password("TotallyWrongPassword999#")
-                .build();
+        LoginRequest request = new LoginRequest("candidate@hiremate.ai", "TotallyWrongPassword999#");
 
         when(userRepository.findByEmail("candidate@hiremate.ai")).thenReturn(Optional.of(sampleCandidate));
         when(passwordEncoder.matches("TotallyWrongPassword999#", sampleCandidate.getPasswordHash())).thenReturn(false);

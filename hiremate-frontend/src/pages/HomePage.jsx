@@ -21,7 +21,7 @@ export default function HomePage({ user }) {
 
   // Sidebar filter state
   const [sidebarFilters, setSidebarFilters] = useState({
-    matchScore: 50,
+    matchScore: 0,
     onlyHighMatch: false,
     selectedSalaries: [],
     selectedTypes: [],
@@ -31,13 +31,14 @@ export default function HomePage({ user }) {
 
   // UI & Display options
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
-  const [sortOption, setSortOption] = useState('Điểm AI Match cao nhất (≥90%)');
+  const [sortOption, setSortOption] = useState('Mới đăng gần đây');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 6;
 
   // Modals
   const [selectedJob, setSelectedJob] = useState(null);
   const [applyingJob, setApplyingJob] = useState(null);
+  const [isRematching, setIsRematching] = useState(false);
 
   // Fetch real jobs & skills from Supabase PostgreSQL
   const fetchRealJobs = async (keyword = '', location = '') => {
@@ -49,32 +50,50 @@ export default function HomePage({ user }) {
         params.location = location.trim();
       }
 
+      const isCandidate = user && (user.role === 'CANDIDATE' || user.role === 'ROLE_CANDIDATE');
+
       const [jobsRes, recsRes, skillsRes] = await Promise.allSettled([
         jobApi.getJobs(params),
-        user && user.role === 'CANDIDATE' ? jobApi.getRecommendations() : Promise.resolve({ data: [] }),
+        isCandidate ? jobApi.getRecommendations() : Promise.resolve({ data: [] }),
         skillApi.getAllSkills(),
       ]);
 
-      const rawJobs = jobsRes.status === 'fulfilled' && jobsRes.value?.data ? jobsRes.value.data : [];
-      const recs = recsRes.status === 'fulfilled' && recsRes.value?.data ? recsRes.value.data : [];
-      const dbSkills = skillsRes.status === 'fulfilled' && skillsRes.value?.data ? skillsRes.value.data : [];
+      const rawJobs = jobsRes.status === 'fulfilled' 
+        ? (Array.isArray(jobsRes.value?.data) ? jobsRes.value.data : (Array.isArray(jobsRes.value) ? jobsRes.value : [])) 
+        : [];
+      const recs = recsRes.status === 'fulfilled' 
+        ? (Array.isArray(recsRes.value?.data) ? recsRes.value.data : (Array.isArray(recsRes.value) ? recsRes.value : [])) 
+        : [];
+      const dbSkills = skillsRes.status === 'fulfilled' 
+        ? (Array.isArray(skillsRes.value?.data) ? skillsRes.value.data : (Array.isArray(skillsRes.value) ? skillsRes.value : [])) 
+        : [];
 
       const recMap = new Map();
+      const recReasoningMap = new Map();
       if (Array.isArray(recs)) {
         recs.forEach((r) => {
-          if (r.jobId) recMap.set(r.jobId, r.matchingScore);
+          if (r.jobId && r.matchingScore != null) {
+            recMap.set(r.jobId, Math.round(r.matchingScore));
+            if (r.aiReasoning) recReasoningMap.set(r.jobId, r.aiReasoning);
+          }
         });
       }
 
-      if (Array.isArray(rawJobs) && rawJobs.length > 0) {
-        const mapped = rawJobs.map((j) => {
+      // Chỉ hiển thị tin đã được Admin duyệt (APPROVED) lên Trang chủ, ẩn hoàn toàn tin PENDING hoặc REJECTED
+      const approvedJobsOnly = Array.isArray(rawJobs)
+        ? rawJobs.filter(j => !j.approvalStatus || j.approvalStatus === 'APPROVED')
+        : [];
+
+      if (approvedJobsOnly.length > 0) {
+        const mapped = approvedJobsOnly.map((j) => {
           const skillsArray = Array.isArray(j.skills) && j.skills.length > 0
             ? j.skills
             : Array.isArray(j.requirements) && j.requirements.length > 0
             ? j.requirements
             : ['Kỹ năng'];
 
-          const matchScore = recMap.get(j.jobId) || (90 + (j.jobId % 9));
+          const matchScore = recMap.get(j.jobId) ?? (j.matchingScore != null ? Math.round(j.matchingScore) : null);
+          const aiReasoning = recReasoningMap.get(j.jobId) || j.aiReasoning || '';
 
           return {
             ...j,
@@ -85,10 +104,17 @@ export default function HomePage({ user }) {
             postedTime: j.createdAt ? new Date(j.createdAt).toLocaleDateString('vi-VN') : 'Mới đăng',
             location: j.location || 'Toàn quốc',
             salaryText: j.salaryMin && j.salaryMax
-              ? `$${Number(j.salaryMin).toLocaleString()} - $${Number(j.salaryMax).toLocaleString()}/tháng`
+              ? (Number(j.salaryMin) >= 1000000
+                  ? `${Number(j.salaryMin).toLocaleString('vi-VN')} - ${Number(j.salaryMax).toLocaleString('vi-VN')} đ/tháng`
+                  : `$${Number(j.salaryMin).toLocaleString()} - $${Number(j.salaryMax).toLocaleString()}/tháng`)
+              : j.salaryMin
+              ? (Number(j.salaryMin) >= 1000000
+                  ? `Từ ${Number(j.salaryMin).toLocaleString('vi-VN')} đ/tháng`
+                  : `Từ $${Number(j.salaryMin).toLocaleString()}/tháng`)
               : 'Thương lượng',
             aiMatchScore: matchScore,
-            aiMatchDetail: matchScore >= 80 ? 'Rất Phù Hợp' : 'Phù Hợp Cơ Bản',
+            aiReasoning: aiReasoning,
+            aiMatchDetail: matchScore && matchScore >= 80 ? 'Rất Phù Hợp' : (matchScore ? 'Phù Hợp Cơ Bản' : 'Đang Tuyển'),
             atsTag: j.employmentType || 'FULL_TIME',
             skills: skillsArray.slice(0, 5),
             mockActionLabel: 'Luyện Phỏng Vấn AI',
@@ -106,8 +132,8 @@ export default function HomePage({ user }) {
           if (s.skillName) skillNameSet.add(s.skillName);
         });
       }
-      if (Array.isArray(rawJobs)) {
-        rawJobs.forEach(j => {
+      if (Array.isArray(approvedJobsOnly)) {
+        approvedJobsOnly.forEach(j => {
           if (Array.isArray(j.skills)) {
             j.skills.forEach(sk => skillNameSet.add(sk));
           }
@@ -140,6 +166,19 @@ export default function HomePage({ user }) {
     setSearchTitle(cleanTag);
     setCurrentPage(1);
     fetchRealJobs(cleanTag, selectedLocation);
+  };
+
+  const handleReMatch = async () => {
+    if (!user) return;
+    setIsRematching(true);
+    try {
+      await jobApi.reMatch();
+      await fetchRealJobs(searchTitle, selectedLocation);
+    } catch (err) {
+      console.warn('Re-match error:', err);
+    } finally {
+      setIsRematching(false);
+    }
   };
 
   // Compute dynamic counts from the real database jobs for the Sidebar
@@ -233,10 +272,10 @@ export default function HomePage({ user }) {
       }
 
       // 4. Sidebar AI Match Score
-      if (sidebarFilters.matchScore && (job.aiMatchScore || 0) < sidebarFilters.matchScore) {
+      if (sidebarFilters.onlyHighMatch && (job.aiMatchScore || 0) < 80) {
         return false;
       }
-      if (sidebarFilters.onlyHighMatch && (job.aiMatchScore || 0) < 80) {
+      if (sidebarFilters.matchScore > 0 && (job.aiMatchScore || 0) < sidebarFilters.matchScore) {
         return false;
       }
 
@@ -301,7 +340,14 @@ export default function HomePage({ user }) {
   const sortedJobs = useMemo(() => {
     const list = [...filteredJobs];
     if (sortOption === 'Điểm AI Match cao nhất (≥90%)') {
-      list.sort((a, b) => (b.aiMatchScore || 0) - (a.aiMatchScore || 0));
+      list.sort((a, b) => {
+        const scoreA = a.aiMatchScore != null ? a.aiMatchScore : -1;
+        const scoreB = b.aiMatchScore != null ? b.aiMatchScore : -1;
+        if (scoreB !== scoreA) {
+          return scoreB - scoreA;
+        }
+        return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+      });
     } else if (sortOption === 'Mới đăng gần đây') {
       list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
     } else if (sortOption === 'Lương: Cao đến thấp') {
@@ -329,7 +375,7 @@ export default function HomePage({ user }) {
     setSelectedLocation('All Locations');
     setSelectedSalary('All Salaries');
     setSidebarFilters({
-      matchScore: 50,
+      matchScore: 0,
       onlyHighMatch: false,
       selectedSalaries: [],
       selectedTypes: [],
@@ -340,6 +386,8 @@ export default function HomePage({ user }) {
     fetchRealJobs('', '');
   };
 
+  const isRecruiter = user?.role === 'RECRUITER';
+
   return (
     <div className="bg-transparent font-sans text-[#1e1b4b] antialiased min-h-screen flex flex-col">
       {/* ========================================================= */}
@@ -347,16 +395,33 @@ export default function HomePage({ user }) {
       {/* ========================================================= */}
       <section className="relative w-full overflow-hidden bg-transparent py-12 lg:py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
-          <h1 className="font-extrabold text-4xl sm:text-6xl lg:text-7xl text-[#1e1b4b] tracking-tight max-w-4xl mx-auto leading-[1.15]">
-            Discover Your Next Career with{" "}
-            <span className="text-[#5b48bd]">
-              Precision AI Matching
-            </span>
-          </h1>
+          {isRecruiter ? (
+            <>
+              <h1 className="font-extrabold text-4xl sm:text-6xl lg:text-7xl text-[#1e1b4b] tracking-tight max-w-4xl mx-auto leading-[1.15]">
+                Khảo Sát Thị Trường &amp; Tuyển Dụng{" "}
+                <span className="text-[#5b48bd]">
+                  Nhân Tài Công Nghệ với AI
+                </span>
+              </h1>
 
-          <p className="font-sans text-base sm:text-lg text-slate-600 mt-4 max-w-2xl mx-auto leading-relaxed font-medium">
-            HireMate AI — Hệ thống tuyển dụng &amp; luyện phỏng vấn thông minh, kết nối ứng viên với việc làm thực tế từ cơ sở dữ liệu doanh nghiệp đã kiểm duyệt.
-          </p>
+              <p className="font-sans text-base sm:text-lg text-slate-600 mt-4 max-w-2xl mx-auto leading-relaxed font-medium">
+                HireMate AI — Nền tảng kết nối doanh nghiệp với ứng viên chất lượng cao, tự động xếp hạng hồ sơ và tối ưu quy trình phỏng vấn chuẩn hóa.
+              </p>
+            </>
+          ) : (
+            <>
+              <h1 className="font-extrabold text-4xl sm:text-6xl lg:text-7xl text-[#1e1b4b] tracking-tight max-w-4xl mx-auto leading-[1.15]">
+                Discover Your Next Career with{" "}
+                <span className="text-[#5b48bd]">
+                  Precision AI Matching
+                </span>
+              </h1>
+
+              <p className="font-sans text-base sm:text-lg text-slate-600 mt-4 max-w-2xl mx-auto leading-relaxed font-medium">
+                HireMate AI — Hệ thống tuyển dụng &amp; luyện phỏng vấn thông minh, kết nối ứng viên với việc làm thực tế từ cơ sở dữ liệu doanh nghiệp đã kiểm duyệt.
+              </p>
+            </>
+          )}
 
           {/* Central Search Container - Mindskills White Card */}
           <div className="mt-8 max-w-5xl mx-auto bg-white p-4 sm:p-5 rounded-3xl border border-purple-100 shadow-xl">
@@ -366,7 +431,7 @@ export default function HomePage({ user }) {
                 <span className="material-symbols-outlined mr-2 text-xl text-[#5b48bd]">search</span>
                 <input 
                   className="w-full bg-transparent text-sm text-[#1e1b4b] placeholder:text-purple-400 focus:outline-none font-sans font-medium" 
-                  placeholder="Tìm vị trí, kỹ năng, doanh nghiệp..." 
+                  placeholder={isRecruiter ? "Tìm vị trí, kỹ năng khảo sát trên thị trường..." : "Tìm vị trí, kỹ năng, doanh nghiệp..."} 
                   type="text" 
                   value={searchTitle}
                   onChange={(e) => setSearchTitle(e.target.value)}
@@ -417,46 +482,69 @@ export default function HomePage({ user }) {
                   type="submit"
                 >
                   <span className="material-symbols-outlined text-base">search</span>
-                  <span>Tìm Việc</span>
+                  <span>{isRecruiter ? 'Khảo Sát' : 'Tìm Việc'}</span>
                 </button>
               </div>
             </form>
           </div>
 
-          {/* Quick Trending Filter Chips */}
+          {/* Quick Trending / Action Chips */}
           <div className="mt-6 flex flex-wrap items-center justify-center gap-2 text-xs font-body">
-            <span className="text-slate-500 flex items-center gap-1 mr-1 font-medium">
-              <span className="material-symbols-outlined text-sm text-[#5b48bd]">trending_up</span> Xu hướng:
-            </span>
-            {['#Java', '#ReactJS', '#Remote', '#Senior', '#FullStack'].map((chip) => (
-              <button 
-                key={chip}
-                onClick={() => handleTrendingClick(chip)}
-                className="px-3.5 py-1.5 rounded-full bg-white text-[#1e1b4b] border border-purple-100 hover:border-[#5b48bd] hover:bg-purple-50 text-xs font-semibold transition-all cursor-pointer shadow-sm"
-                type="button"
-              >
-                {chip}
-              </button>
-            ))}
-            <button 
-              onClick={() => {
-                setSidebarFilters(prev => ({
-                  ...prev,
-                  onlyHighMatch: !prev.onlyHighMatch,
-                  matchScore: !prev.onlyHighMatch ? 80 : 50,
-                }));
-                setCurrentPage(1);
-              }}
-              className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border font-bold text-xs cursor-pointer shadow-sm transition-colors ${
-                sidebarFilters.onlyHighMatch 
-                  ? 'bg-emerald-600 text-white border-emerald-600' 
-                  : 'bg-emerald-50 text-[#059669] border-emerald-200 hover:bg-emerald-100'
-              }`}
-              type="button"
-            >
-              <span className={`w-2 h-2 rounded-full ${sidebarFilters.onlyHighMatch ? 'bg-white' : 'bg-[#10b981]'}`}></span>
-              <span>AI Match ≥ 80%</span>
-            </button>
+            {isRecruiter ? (
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <button 
+                  onClick={() => { window.location.hash = '#/job-dashboard'; }}
+                  className="px-4 py-2 rounded-full bg-[#5b48bd] hover:bg-[#4a39a8] text-white font-bold text-xs shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+                  type="button"
+                >
+                  <span className="material-symbols-outlined text-base leading-none">add_circle</span>
+                  <span>Đăng Tin Tuyển Dụng Mới</span>
+                </button>
+                <button 
+                  onClick={() => { window.location.hash = '#/recruiter-dashboard?tab=pipeline'; }}
+                  className="px-4 py-2 rounded-full bg-white hover:bg-purple-50 text-[#5b48bd] border border-purple-200 font-bold text-xs shadow-sm transition-all cursor-pointer flex items-center gap-1.5"
+                  type="button"
+                >
+                  <span className="material-symbols-outlined text-base leading-none">groups</span>
+                  <span>Quản Lý Ứng Viên</span>
+                </button>
+              </div>
+            ) : (
+              <>
+                <span className="text-slate-500 flex items-center gap-1 mr-1 font-medium">
+                  <span className="material-symbols-outlined text-sm text-[#5b48bd]">trending_up</span> Xu hướng:
+                </span>
+                {['#Java', '#ReactJS', '#Remote', '#Senior', '#FullStack'].map((chip) => (
+                  <button 
+                    key={chip}
+                    onClick={() => handleTrendingClick(chip)}
+                    className="px-3.5 py-1.5 rounded-full bg-white text-[#1e1b4b] border border-purple-100 hover:border-[#5b48bd] hover:bg-purple-50 text-xs font-semibold transition-all cursor-pointer shadow-sm"
+                    type="button"
+                  >
+                    {chip}
+                  </button>
+                ))}
+                <button 
+                  onClick={() => {
+                    setSidebarFilters(prev => ({
+                      ...prev,
+                      onlyHighMatch: !prev.onlyHighMatch,
+                      matchScore: !prev.onlyHighMatch ? 80 : 0,
+                    }));
+                    setCurrentPage(1);
+                  }}
+                  className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border font-bold text-xs cursor-pointer shadow-sm transition-colors ${
+                    sidebarFilters.onlyHighMatch 
+                      ? 'bg-emerald-600 text-white border-emerald-600' 
+                      : 'bg-emerald-50 text-[#059669] border-emerald-200 hover:bg-emerald-100'
+                  }`}
+                  type="button"
+                >
+                  <span className={`w-2 h-2 rounded-full ${sidebarFilters.onlyHighMatch ? 'bg-white' : 'bg-[#10b981]'}`}></span>
+                  <span>AI Match ≥ 80%</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
       </section>
@@ -471,6 +559,7 @@ export default function HomePage({ user }) {
           {/* ===================================================== */}
           <aside className="lg:col-span-3 lg:sticky lg:top-24 space-y-5">
             <JobFilterSidebar 
+              user={user}
               filters={sidebarFilters}
               onFilterChange={(newFilters) => {
                 setSidebarFilters(newFilters);
@@ -581,15 +670,31 @@ export default function HomePage({ user }) {
                   </button>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {user && user.role === 'CANDIDATE' && (
+                    <button
+                      onClick={handleReMatch}
+                      disabled={isRematching}
+                      className="py-1.5 px-3 bg-white hover:bg-purple-50 text-[#5b48bd] rounded-full text-xs font-sans font-bold border border-purple-200 flex items-center gap-1 shadow-xs cursor-pointer transition-all disabled:opacity-50"
+                      title="Xóa cache cũ và yêu cầu Gemini AI chấm điểm lại toàn bộ việc làm phù hợp với CV mới"
+                      type="button"
+                    >
+                      <span className={`material-symbols-outlined text-sm ${isRematching ? 'animate-spin' : ''}`}>
+                        {isRematching ? 'sync' : 'auto_awesome'}
+                      </span>
+                      <span>{isRematching ? 'AI Đang Quét...' : 'Làm mới gợi ý AI'}</span>
+                    </button>
+                  )}
                   <span className="text-xs font-sans font-medium text-slate-500">Sắp xếp:</span>
                   <select 
                     value={sortOption}
                     onChange={(e) => setSortOption(e.target.value)}
                     className="py-1.5 px-3 bg-purple-50 rounded-full text-xs font-sans font-semibold text-[#1e1b4b] border border-purple-200 focus:border-[#5b48bd] focus:outline-none cursor-pointer"
                   >
-                    <option value="Điểm AI Match cao nhất (≥90%)">Điểm AI Match cao nhất (≥90%)</option>
                     <option value="Mới đăng gần đây">Mới đăng gần đây</option>
+                    {!isRecruiter && (
+                      <option value="Điểm AI Match cao nhất (≥90%)">Điểm AI Match cao nhất (≥90%)</option>
+                    )}
                     <option value="Lương: Cao đến thấp">Lương: Cao đến thấp</option>
                     <option value="Doanh nghiệp tuyển gấp">Doanh nghiệp tuyển gấp</option>
                   </select>
@@ -621,6 +726,7 @@ export default function HomePage({ user }) {
                 <JobCard 
                   key={job.jobId} 
                   job={job}
+                  user={user}
                   onSelectJob={(j) => {
                     window.location.hash = `#/jobs/${j.jobId || 101}`;
                   }}

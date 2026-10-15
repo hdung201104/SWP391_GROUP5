@@ -97,6 +97,7 @@ public class AiServiceTestNGTest {
         skillRepository = mock(SkillRepository.class);
         cvRepository = mock(CvRepository.class);
         UserRepository userRepository = mock(UserRepository.class);
+        CandidateSkillRepository candidateSkillRepository = mock(CandidateSkillRepository.class);
 
         aiJobMatchService = new AiJobMatchServiceImpl(
                 aiJobMatchRepository,
@@ -104,6 +105,7 @@ public class AiServiceTestNGTest {
                 candidateRepository,
                 jobSkillRepository,
                 skillRepository,
+                candidateSkillRepository,
                 cvRepository,
                 userRepository,
                 mockedGeminiAiService
@@ -114,7 +116,6 @@ public class AiServiceTestNGTest {
         com.hiremate.agent.AgentMemoryManager memoryManager = new com.hiremate.agent.AgentMemoryManager(sessionRepository, detailRepository);
 
         fileStorageService = mock(FileStorageService.class);
-        CandidateSkillRepository candidateSkillRepository = mock(CandidateSkillRepository.class);
 
         aiInterviewService = new AiInterviewServiceImpl(
                 sessionRepository,
@@ -198,13 +199,7 @@ public class AiServiceTestNGTest {
             return d;
         });
 
-        InterviewAnswerRequest req = InterviewAnswerRequest.builder()
-                .questionNumber(1)
-                .questionText("Giải thích mô hình MVC?")
-                .candidateAnswerText("Model là dữ liệu, View là giao diện, Controller là điều khiển.")
-                .wordsPerMinute(140f)
-                .clarityScore(90f)
-                .build();
+        InterviewAnswerRequest req = new InterviewAnswerRequest(1, "Giải thích mô hình MVC?", "Model là dữ liệu, View là giao diện, Controller là điều khiển.", null, 140f, 90f);
 
         InterviewDetailResponse res = aiInterviewService.submitAnswer(1L, req, sampleUser);
 
@@ -221,7 +216,7 @@ public class AiServiceTestNGTest {
         when(sessionRepository.findById(1L)).thenReturn(Optional.of(sampleSession));
 
         User unauthorizedUser = User.builder().userId(999L).build();
-        InterviewAnswerRequest req = InterviewAnswerRequest.builder().build();
+        InterviewAnswerRequest req = new InterviewAnswerRequest();
 
         aiInterviewService.submitAnswer(1L, req, unauthorizedUser);
     }
@@ -368,26 +363,14 @@ public class AiServiceTestNGTest {
         // Trường hợp 1: Nhịp độ lý tưởng (140 WPM -> paceScore = 100), Clarity = 90
         // Delivery = 100 * 0.5 + 90 * 0.5 = 95.0
         // Blended = 80.0 * 0.60 + 95.0 * 0.40 = 48.0 + 38.0 = 86.0
-        InterviewAnswerRequest reqNormal = InterviewAnswerRequest.builder()
-                .questionNumber(1)
-                .questionText("Java là gì?")
-                .candidateAnswerText("Java là ngôn ngữ lập trình hướng đối tượng độc lập nền tảng.")
-                .wordsPerMinute(140f)
-                .clarityScore(90f)
-                .build();
+        InterviewAnswerRequest reqNormal = new InterviewAnswerRequest(1, "Java là gì?", "Java là ngôn ngữ lập trình hướng đối tượng độc lập nền tảng.", null, 140f, 90f);
         InterviewDetailResponse resNormal = aiInterviewService.submitAnswer(1L, reqNormal, sampleUser);
         Assert.assertEquals(resNormal.getAiEvaluationScore(), Float.valueOf(86.0f));
 
         // Trường hợp 2: Nói quá nhanh bất thường do run (220 WPM -> paceScore = 100 - (220-160)*0.7 = 58), Clarity = 80
         // Delivery = 58 * 0.5 + 80 * 0.5 = 69.0
         // Blended = 80.0 * 0.60 + 69.0 * 0.40 = 48.0 + 27.6 = 75.6
-        InterviewAnswerRequest reqRushed = InterviewAnswerRequest.builder()
-                .questionNumber(2)
-                .questionText("Thread là gì?")
-                .candidateAnswerText("Thread là luồng thực thi trong tiến trình có thể chạy song song.")
-                .wordsPerMinute(220f)
-                .clarityScore(80f)
-                .build();
+        InterviewAnswerRequest reqRushed = new InterviewAnswerRequest(2, "Thread là gì?", "Thread là luồng thực thi trong tiến trình có thể chạy song song.", null, 220f, 80f);
         InterviewDetailResponse resRushed = aiInterviewService.submitAnswer(1L, reqRushed, sampleUser);
         Assert.assertEquals(resRushed.getAiEvaluationScore(), Float.valueOf(75.6f));
     }

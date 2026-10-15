@@ -87,7 +87,11 @@ public class CandidateServiceImpl implements CandidateService {
         // Lấy danh sách CV của ứng viên
         List<Cv> cvList = cvRepository.findByCandidateId(candidateId);
         List<CvResponse> cvResponses = new ArrayList<>();
+        Cv primaryCv = null;
         for (Cv cv : cvList) {
+            if (primaryCv == null || Boolean.TRUE.equals(cv.getIsDefault())) {
+                primaryCv = cv;
+            }
             cvResponses.add(CvResponse.builder()
                     .cvId(cv.getCvId())
                     .candidateId(cv.getCandidateId())
@@ -98,8 +102,19 @@ public class CandidateServiceImpl implements CandidateService {
                     .parseStatus(cv.getParseStatus())
                     .isDefault(cv.getIsDefault())
                     .summary(cv.getSummary())
+                    .parsedJson(cv.getParsedJson())
+                    .parsedText(cv.getParsedText())
                     .createdAt(cv.getCreatedAt())
                     .build());
+        }
+
+        String experiencesJson = candidate != null ? candidate.getExperiencesJson() : null;
+        String educationsJson = candidate != null ? candidate.getEducationsJson() : null;
+        String projectsJson = candidate != null ? candidate.getProjectsJson() : null;
+        String headline = candidate != null ? candidate.getHeadline() : null;
+        String bio = candidate != null && candidate.getBio() != null ? candidate.getBio() : user.getBio();
+        if ((bio == null || bio.isBlank()) && primaryCv != null && primaryCv.getSummary() != null) {
+            bio = primaryCv.getSummary();
         }
 
         return CandidateProfileResponse.builder()
@@ -112,16 +127,16 @@ public class CandidateServiceImpl implements CandidateService {
                 .dateOfBirth(user.getDateOfBirth())
                 .address(user.getAddress())
                 .githubUrl(user.getGithubUrl())
-                .headline(candidate != null ? candidate.getHeadline() : null)
+                .headline(headline)
                 .location(candidate != null ? candidate.getLocation() : user.getAddress())
-                .bio(candidate != null && candidate.getBio() != null ? candidate.getBio() : user.getBio())
+                .bio(bio)
                 .experienceYears(candidate != null ? candidate.getExperienceYears() : 0)
                 .desiredSalaryMin(candidate != null ? candidate.getDesiredSalaryMin() : null)
                 .desiredSalaryMax(candidate != null ? candidate.getDesiredSalaryMax() : null)
                 .careerGoals(candidate != null ? candidate.getCareerGoals() : null)
-                .educationsJson(candidate != null ? candidate.getEducationsJson() : null)
-                .experiencesJson(candidate != null ? candidate.getExperiencesJson() : null)
-                .projectsJson(candidate != null ? candidate.getProjectsJson() : null)
+                .educationsJson(educationsJson)
+                .experiencesJson(experiencesJson)
+                .projectsJson(projectsJson)
                 .skills(skillResponses)
                 .cvs(cvResponses)
                 .createdAt(user.getCreatedAt())

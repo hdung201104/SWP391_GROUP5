@@ -1,13 +1,15 @@
 import React from 'react';
 
 export default function JobFilterSidebar({ 
+  user,
   filters = {}, 
   onFilterChange, 
   onReset,
   jobCounts = {},
   availableSkills = []
 }) {
-  const matchScore = filters.matchScore ?? 50;
+  const isRecruiter = user?.role === 'RECRUITER';
+  const matchScore = filters.matchScore ?? 0;
   const onlyHighMatch = filters.onlyHighMatch ?? false;
   const selectedSalaries = filters.selectedSalaries ?? [];
   const selectedTypes = filters.selectedTypes ?? [];
@@ -24,7 +26,12 @@ export default function JobFilterSidebar({
 
   const handleMatchScoreChange = (val) => {
     if (onFilterChange) {
-      onFilterChange({ ...filters, matchScore: Number(val) });
+      const numVal = Number(val);
+      onFilterChange({ 
+        ...filters, 
+        matchScore: numVal,
+        onlyHighMatch: numVal >= 80 ? onlyHighMatch : false
+      });
     }
   };
 
@@ -33,7 +40,7 @@ export default function JobFilterSidebar({
       onFilterChange({ 
         ...filters, 
         onlyHighMatch: checked, 
-        matchScore: checked ? Math.max(matchScore, 80) : matchScore 
+        matchScore: checked ? Math.max(matchScore, 80) : 0 
       });
     }
   };
@@ -85,7 +92,9 @@ export default function JobFilterSidebar({
         <div className="flex items-center justify-between pb-4 border-b border-purple-100">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-[#5b48bd] text-xl">filter_alt</span>
-            <h2 className="font-bold text-sm tracking-wide text-[#1e1b4b]">Bộ Lọc Tuyển Dụng</h2>
+            <h2 className="font-bold text-sm tracking-wide text-[#1e1b4b]">
+              {isRecruiter ? 'Bộ Lọc Thị Trường' : 'Bộ Lọc Tuyển Dụng'}
+            </h2>
           </div>
           <button 
             onClick={handleClearAll}
@@ -96,39 +105,42 @@ export default function JobFilterSidebar({
           </button>
         </div>
 
-        {/* Filter Group: AI Match Score Slider / Threshold */}
-        <div className="pt-4 pb-4 border-b border-purple-100">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-[#1e1b4b] flex items-center gap-1">
-              <span className="material-symbols-outlined text-sm text-[#5b48bd]">psychology</span> Điểm AI Match
-            </span>
-            <span className="text-xs font-bold text-[#5b48bd] bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-200">
-              ≥ {matchScore}%
-            </span>
-          </div>
-          <input 
-            className="w-full h-1.5 bg-purple-100 rounded-lg appearance-none cursor-pointer accent-[#5b48bd]" 
-            max="100" 
-            min="50" 
-            type="range" 
-            value={matchScore}
-            onChange={(e) => handleMatchScoreChange(e.target.value)}
-          />
-          <div className="flex justify-between text-[10px] font-medium text-slate-500 mt-1.5">
-            <span>50% (Tất cả)</span>
-            <span>80% (Khuyên dùng)</span>
-            <span>95% (Chính xác)</span>
-          </div>
-          <label className="mt-3 flex items-center gap-2 text-xs font-semibold text-[#1e1b4b] cursor-pointer select-none">
+        {/* Filter Group: AI Match Score Slider / Threshold - Ẩn đối với Nhà tuyển dụng */}
+        {!isRecruiter && (
+          <div className="pt-4 pb-4 border-b border-purple-100">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#1e1b4b] flex items-center gap-1">
+                <span className="material-symbols-outlined text-sm text-[#5b48bd]">psychology</span> Điểm AI Match
+              </span>
+              <span className="text-xs font-bold text-[#5b48bd] bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-200">
+                {matchScore > 0 ? `≥ ${matchScore}%` : 'Tất cả'}
+              </span>
+            </div>
             <input 
-              checked={onlyHighMatch} 
-              onChange={(e) => handleOnlyHighMatchToggle(e.target.checked)}
-              className="rounded border-purple-200 text-[#5b48bd] focus:ring-[#5b48bd] h-4 w-4 cursor-pointer" 
-              type="checkbox"
+              className="w-full h-1.5 bg-purple-100 rounded-lg appearance-none cursor-pointer accent-[#5b48bd]" 
+              max="100" 
+              min="0" 
+              step="5"
+              type="range" 
+              value={matchScore}
+              onChange={(e) => handleMatchScoreChange(e.target.value)}
             />
-            <span>Chỉ hiện AI Match ≥ 80%</span>
-          </label>
-        </div>
+            <div className="flex justify-between text-[10px] font-medium text-slate-500 mt-1.5">
+              <span>Tất cả (0%)</span>
+              <span>≥ 50%</span>
+              <span>≥ 80% (Khuyên dùng)</span>
+            </div>
+            <label className="mt-3 flex items-center gap-2 text-xs font-semibold text-[#1e1b4b] cursor-pointer select-none">
+              <input 
+                checked={onlyHighMatch} 
+                onChange={(e) => handleOnlyHighMatchToggle(e.target.checked)}
+                className="rounded border-purple-200 text-[#5b48bd] focus:ring-[#5b48bd] h-4 w-4 cursor-pointer" 
+                type="checkbox"
+              />
+              <span>Chỉ hiện AI Match ≥ 80%</span>
+            </label>
+          </div>
+        )}
 
         {/* Filter Group 1: Salary Range */}
         <div className="py-4 border-b border-purple-100">

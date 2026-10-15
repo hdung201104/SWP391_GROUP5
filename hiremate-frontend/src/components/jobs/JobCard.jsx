@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 
-export default function JobCard({ job, onSelectJob, onApplyJob, onPracticeInterview }) {
+export default function JobCard({ job, user, onSelectJob, onApplyJob, onPracticeInterview }) {
+  const isRecruiter = user?.role === 'RECRUITER';
+  const isMyJob = isRecruiter && user?.userId && job.recruiterId === user.userId;
   const [bookmarked, setBookmarked] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const hoverTimeoutRef = useRef(null);
@@ -49,7 +51,7 @@ export default function JobCard({ job, onSelectJob, onApplyJob, onPracticeInterv
     return 'Lương thỏa thuận';
   };
 
-  const aiMatchScore = job.aiMatchScore || 95;
+  const aiMatchScore = job.aiMatchScore != null ? job.aiMatchScore : (job.matchingScore != null ? Math.round(job.matchingScore) : null);
   const skillsList = job.skills || job.mandatorySkills || ['Java 17', 'Spring Boot', 'Apache Kafka', 'K8s'];
 
   // Parse or synthesize structured details for hover popup
@@ -177,30 +179,75 @@ export default function JobCard({ job, onSelectJob, onApplyJob, onPracticeInterv
       <div className="shrink-0 flex flex-row sm:flex-col justify-between items-end gap-3 min-w-[140px] pt-3 sm:pt-0 border-t sm:border-t-0 border-purple-100">
         {/* AI Match Score Header */}
         <div className="text-right flex items-center sm:block gap-2 sm:gap-0">
-          <div className="text-2xl sm:text-3xl font-extrabold text-[#f97316] leading-none">
-            {aiMatchScore}%
-          </div>
-          <div className="text-[10px] uppercase font-bold tracking-wider text-slate-400 mt-1">
-            AI MATCH
-          </div>
+          {isRecruiter ? (
+            <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold shadow-2xs ${
+              isMyJob 
+                ? 'bg-purple-100 text-[#5b48bd] border border-purple-300' 
+                : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+            }`}>
+              <span className="material-symbols-outlined text-sm">{isMyJob ? 'storefront' : 'verified'}</span>
+              <span>{isMyJob ? 'TIN CỦA BẠN' : 'ĐANG TUYỂN'}</span>
+            </div>
+          ) : aiMatchScore != null ? (
+            <>
+              <div className="text-2xl sm:text-3xl font-extrabold text-[#f97316] leading-none" title={job.aiReasoning || 'Điểm tương thích AI'}>
+                {aiMatchScore}%
+              </div>
+              <div className="text-[10px] uppercase font-bold tracking-wider text-slate-400 mt-1">
+                AI MATCH
+              </div>
+            </>
+          ) : (
+            <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200 shadow-2xs">
+              <span className="material-symbols-outlined text-sm">verified</span>
+              <span>ĐANG TUYỂN</span>
+            </div>
+          )}
         </div>
 
         {/* Stacked Action Buttons */}
         <div className="space-y-2 w-full sm:w-36">
-          <button
-            onClick={() => onApplyJob ? onApplyJob(job) : (window.location.hash = `#/jobs/${job.jobId || 101}`)}
-            className="w-full py-2 px-4 rounded-xl bg-[#5b48bd] hover:bg-[#47369f] text-white font-bold text-xs shadow-sm hover:shadow transition-all cursor-pointer text-center whitespace-nowrap block"
-            type="button"
-          >
-            Ứng tuyển ngay
-          </button>
-          <button
-            onClick={() => onSelectJob ? onSelectJob(job) : (window.location.hash = `#/jobs/${job.jobId || 101}`)}
-            className="w-full py-2 px-4 rounded-xl bg-[#f8f7ff] hover:bg-[#edeafd] text-[#5b48bd] border border-purple-200 font-bold text-xs transition-all cursor-pointer text-center whitespace-nowrap block"
-            type="button"
-          >
-            Xem chi tiết
-          </button>
+          {isRecruiter ? (
+            <>
+              {isMyJob && (
+                <button
+                  onClick={() => window.location.hash = '#/job-dashboard'}
+                  className="w-full py-2 px-3 rounded-xl bg-[#5b48bd] hover:bg-[#47369f] text-white font-bold text-xs shadow-sm hover:shadow transition-all cursor-pointer text-center whitespace-nowrap block"
+                  type="button"
+                >
+                  Quản lý tin đăng
+                </button>
+              )}
+              <button
+                onClick={() => onSelectJob ? onSelectJob(job) : (window.location.hash = `#/jobs/${job.jobId || 101}`)}
+                className={`w-full py-2 px-3 rounded-xl font-bold text-xs transition-all cursor-pointer text-center whitespace-nowrap block ${
+                  isMyJob
+                    ? 'bg-[#f8f7ff] hover:bg-[#edeafd] text-[#5b48bd] border border-purple-200'
+                    : 'bg-[#5b48bd] hover:bg-[#47369f] text-white shadow-sm hover:shadow'
+                }`}
+                type="button"
+              >
+                Xem chi tiết
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => onApplyJob ? onApplyJob(job) : (window.location.hash = `#/jobs/${job.jobId || 101}`)}
+                className="w-full py-2 px-4 rounded-xl bg-[#5b48bd] hover:bg-[#47369f] text-white font-bold text-xs shadow-sm hover:shadow transition-all cursor-pointer text-center whitespace-nowrap block"
+                type="button"
+              >
+                Ứng tuyển ngay
+              </button>
+              <button
+                onClick={() => onSelectJob ? onSelectJob(job) : (window.location.hash = `#/jobs/${job.jobId || 101}`)}
+                className="w-full py-2 px-4 rounded-xl bg-[#f8f7ff] hover:bg-[#edeafd] text-[#5b48bd] border border-purple-200 font-bold text-xs transition-all cursor-pointer text-center whitespace-nowrap block"
+                type="button"
+              >
+                Xem chi tiết
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -243,9 +290,15 @@ export default function JobCard({ job, onSelectJob, onApplyJob, onPracticeInterv
               </div>
             </div>
             <div className="shrink-0 text-right">
-              <div className="px-2.5 py-1 rounded-xl bg-orange-50 border border-orange-200/80 text-[#f97316] font-extrabold text-xs shadow-2xs">
-                {aiMatchScore}% MATCH
-              </div>
+              {isRecruiter ? (
+                <div className="px-2.5 py-1 rounded-xl bg-purple-50 border border-purple-200 text-[#5b48bd] font-extrabold text-xs shadow-2xs">
+                  {job.employmentType || 'FULL TIME'}
+                </div>
+              ) : (
+                <div className="px-2.5 py-1 rounded-xl bg-orange-50 border border-orange-200/80 text-[#f97316] font-extrabold text-xs shadow-2xs">
+                  {aiMatchScore != null ? `${aiMatchScore}% MATCH` : 'ĐANG TUYỂN'}
+                </div>
+              )}
             </div>
           </div>
 
@@ -337,27 +390,45 @@ export default function JobCard({ job, onSelectJob, onApplyJob, onPracticeInterv
             </div>
 
             <div className="flex items-center gap-2">
+              {isRecruiter && isMyJob && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    window.location.hash = '#/job-dashboard';
+                  }}
+                  className="px-4 py-2 rounded-xl bg-[#5b48bd] hover:bg-[#47369f] text-white font-bold text-xs transition-all cursor-pointer shadow-sm"
+                >
+                  Quản lý tin
+                </button>
+              )}
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   if (onSelectJob) onSelectJob(job);
                 }}
-                className="px-4 py-2 rounded-xl bg-[#f8f7ff] hover:bg-[#edeafd] text-[#5b48bd] border border-purple-200 font-bold text-xs transition-all cursor-pointer shadow-2xs"
+                className={`px-4 py-2 rounded-xl font-bold text-xs transition-all cursor-pointer shadow-2xs ${
+                  isRecruiter && !isMyJob 
+                    ? 'bg-[#5b48bd] hover:bg-[#47369f] text-white' 
+                    : 'bg-[#f8f7ff] hover:bg-[#edeafd] text-[#5b48bd] border border-purple-200'
+                }`}
               >
                 Xem chi tiết
               </button>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (onApplyJob) onApplyJob(job);
-                }}
-                className="px-5 py-2 rounded-xl bg-[#5b48bd] hover:bg-[#47369f] text-white font-bold text-xs transition-all cursor-pointer shadow-md hover:scale-[1.02] flex items-center gap-1.5"
-              >
-                <span>Ứng tuyển ngay</span>
-                <span className="material-symbols-outlined text-sm">send</span>
-              </button>
+              {!isRecruiter && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onApplyJob) onApplyJob(job);
+                  }}
+                  className="px-5 py-2 rounded-xl bg-[#5b48bd] hover:bg-[#47369f] text-white font-bold text-xs transition-all cursor-pointer shadow-md hover:scale-[1.02] flex items-center gap-1.5"
+                >
+                  <span>Ứng tuyển ngay</span>
+                  <span className="material-symbols-outlined text-sm">send</span>
+                </button>
+              )}
             </div>
           </div>
         </div>

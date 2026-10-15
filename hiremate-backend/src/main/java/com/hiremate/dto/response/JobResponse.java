@@ -31,10 +31,27 @@ public class JobResponse {
     private String location;
     private EmploymentType employmentType;
     private JobStatus status;
+    private com.hiremate.enums.JobApprovalStatus approvalStatus;
     private Integer vacanciesCount;
     private Integer totalViews;
     private Long applicantCount;
     private LocalDate deadlineDate;
     private List<String> skills;
+    private Float matchingScore;
+    private String aiReasoning;
+    private List<String> matchedSkills;
+    private List<String> missingSkills;
+    private String recruiterName;
+    private String recruiterEmail;
+    private String recruiterPhone;
+    private String recruiterAvatar;
+    private String recruiterPosition;
+    private String recruiterDepartment;
+    private String recruiterBio;
+    private String companySize;
+    private String companyAddress;
+    private String companyDescription;
+    private String companyWebsite;
+    private String companyIndustry;
     private LocalDateTime createdAt;
 }

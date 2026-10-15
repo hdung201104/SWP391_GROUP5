@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import authApi from '../../api/authApi';
 import { useLivingTheme } from '../../context/LivingThemeContext';
+import { EDUCATION_LEVELS } from '../../utils/locationData';
+import VietnameseLocationPicker from '../../components/common/VietnameseLocationPicker';
 
 /**
  * HireMate AI - Modern Glass Executive Register Page
@@ -19,6 +21,10 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
   const [candPhone, setCandPhone] = useState('');
   const [candHeadline, setCandHeadline] = useState('');
   const [candExp, setCandExp] = useState('1_3_YEARS');
+  const [candEducation, setCandEducation] = useState('BACHELOR');
+  const [candDob, setCandDob] = useState('');
+  const [candLocation, setCandLocation] = useState('');
+  const [candGithub, setCandGithub] = useState('');
 
   // Recruiter State (Starts clean and empty)
   const [recName, setRecName] = useState('');
@@ -193,7 +199,11 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
         phone: candPhone,
         role: 'CANDIDATE',
         headline: candHeadline,
-        location: 'Việt Nam',
+        location: candLocation || 'Việt Nam',
+        address: candLocation || undefined,
+        dateOfBirth: candDob || undefined,
+        githubUrl: candGithub.trim() || undefined,
+        bio: EDUCATION_LEVELS.find((e) => e.value === candEducation)?.label || candEducation,
         experienceYears: candExp === '1_3_YEARS' ? 2 : candExp === '3_5_YEARS' ? 4 : candExp === 'OVER_5_YEARS' ? 6 : 1,
       };
 
@@ -469,7 +479,7 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
 
                   <div className="space-y-1">
                     <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
-                      Kinh nghiệm làm việc
+                       Kinh nghiệm làm việc
                     </label>
                     <div className="relative flex items-center">
                       <span className="material-symbols-outlined absolute left-3.5 text-[#5b48bd] text-base pointer-events-none">work_history</span>
@@ -485,6 +495,73 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
                       </select>
                     </div>
                   </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
+                      Trình độ học vấn
+                    </label>
+                    <div className="relative flex items-center">
+                      <span className="material-symbols-outlined absolute left-3.5 text-[#5b48bd] text-base pointer-events-none">school</span>
+                      <select
+                        value={candEducation}
+                        onChange={(e) => setCandEducation(e.target.value)}
+                        className="w-full pl-10 pr-3 py-2.5 bg-purple-50/40 border border-purple-100 focus:border-[#5b48bd] focus:bg-white focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] focus:outline-none transition-all cursor-pointer font-sans"
+                      >
+                        {EDUCATION_LEVELS.map((edu) => (
+                          <option key={edu.value} value={edu.value}>{edu.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
+                      Ngày sinh
+                    </label>
+                    <div className="relative flex items-center">
+                      <span className="material-symbols-outlined absolute left-3.5 text-[#5b48bd] text-base pointer-events-none">calendar_today</span>
+                      <input
+                        type="date"
+                        value={candDob}
+                        onChange={(e) => setCandDob(e.target.value)}
+                        className="w-full pl-10 pr-3 py-2.5 bg-purple-50/40 border border-purple-100 focus:border-[#5b48bd] focus:bg-white focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] focus:outline-none transition-all font-sans"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
+                      Tài khoản GitHub (URL)
+                    </label>
+                    <div className="relative flex items-center">
+                      <span className="material-symbols-outlined absolute left-3.5 text-[#5b48bd] text-base pointer-events-none">code</span>
+                      <input
+                        type="url"
+                        value={candGithub}
+                        onChange={(e) => setCandGithub(e.target.value)}
+                        placeholder="https://github.com/username"
+                        className="w-full pl-10 pr-3 py-2.5 bg-purple-50/40 border border-purple-100 focus:border-[#5b48bd] focus:bg-white focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] placeholder-slate-400 focus:outline-none transition-all font-sans"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 1 SINGLE LOCATION PICKER FIELD */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
+                      Nơi cư trú (Tỉnh / TP • Quận / Huyện • Xã / Phường)
+                    </label>
+                    <span className="text-[10px] text-[#5b48bd] font-medium">Chọn 1 lần phân tầng tự động</span>
+                  </div>
+                  <VietnameseLocationPicker
+                    value={candLocation}
+                    onChange={(val) => setCandLocation(val)}
+                    placeholder="Bấm chọn Tỉnh/TP → Quận/Huyện → Phường/Xã..."
+                    theme="light"
+                  />
                 </div>
               </>
             )}
@@ -570,19 +647,14 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
-                      Trụ sở chính
+                      Trụ sở chính (Tỉnh / TP • Quận / Huyện • Xã / Phường)
                     </label>
-                    <div className="relative flex items-center">
-                      <span className="material-symbols-outlined absolute left-3.5 text-[#5b48bd] text-base pointer-events-none">location_on</span>
-                      <input
-                        type="text"
-                        value={companyLocation}
-                        onChange={(e) => setCompanyLocation(e.target.value)}
-                        placeholder="Ví dụ: Cầu Giấy, Hà Nội"
-                        required
-                        className="w-full pl-10 pr-3 py-2.5 bg-purple-50/40 border border-purple-100 focus:border-[#5b48bd] focus:bg-white focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] placeholder-slate-400 focus:outline-none transition-all font-sans"
-                      />
-                    </div>
+                    <VietnameseLocationPicker
+                      value={companyLocation}
+                      onChange={(val) => setCompanyLocation(val)}
+                      placeholder="Bấm chọn Trụ sở chính công ty..."
+                      theme="light"
+                    />
                   </div>
 
                   <div className="space-y-1">

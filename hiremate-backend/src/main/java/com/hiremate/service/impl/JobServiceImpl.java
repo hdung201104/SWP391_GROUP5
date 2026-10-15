@@ -7,6 +7,7 @@ import com.hiremate.entity.Job;
 import com.hiremate.entity.JobSkill;
 import com.hiremate.entity.Recruiter;
 import com.hiremate.entity.User;
+import com.hiremate.enums.JobApprovalStatus;
 import com.hiremate.enums.JobStatus;
 import com.hiremate.enums.SkillImportance;
 import com.hiremate.repository.JobRepository;
@@ -27,6 +28,7 @@ import java.util.stream.Collectors;
 @lombok.extern.slf4j.Slf4j
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class JobServiceImpl implements JobService {
 
     private final JobRepository jobRepository;
@@ -35,6 +37,10 @@ public class JobServiceImpl implements JobService {
     private final RecruiterRepository recruiterRepository;
     private final ApplicationRepository applicationRepository;
     private final com.hiremate.service.NotificationService notificationService;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.hiremate.repository.UserRepository userRepository;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.hiremate.repository.CompanyRepository companyRepository;
 
     @Override
     @Transactional
@@ -61,6 +67,7 @@ public class JobServiceImpl implements JobService {
                 .vacanciesCount(request.getVacanciesCount() != null ? request.getVacanciesCount() : 1)
                 .deadlineDate(request.getDeadlineDate())
                 .status(JobStatus.PUBLISHED)
+                .approvalStatus(JobApprovalStatus.PENDING)
                 .build();
 
         Job savedJob = jobRepository.save(job);
@@ -373,7 +380,68 @@ public class JobServiceImpl implements JobService {
      * Truy xuất companyId và recruiterId qua object navigation.
      */
     private JobResponse mapToResponse(Job job) {
-        Company company = job.getCompany();
+        Company company = null;
+        try {
+            company = job.getCompany();
+        } catch (Exception ignored) {}
+
+        Recruiter recruiter = null;
+        try {
+            recruiter = job.getRecruiter();
+        } catch (Exception ignored) {}
+
+        User recruiterUser = null;
+        String recruiterPosition = null;
+        String recruiterDepartment = null;
+
+        if (recruiter != null) {
+            try {
+                recruiterUser = recruiter.getUser();
+            } catch (Exception ignored) {}
+            if (recruiterUser == null && recruiter.getRecruiterId() != null && userRepository != null) {
+                try {
+                    recruiterUser = userRepository.findById(recruiter.getRecruiterId()).orElse(null);
+                } catch (Exception ignored) {}
+            }
+            if (company == null) {
+                try {
+                    company = recruiter.getCompany();
+                } catch (Exception ignored) {}
+            }
+            if (company == null && recruiter.getRecruiterId() != null && companyRepository != null) {
+                try {
+                    company = companyRepository.findByRecruiterId(recruiter.getRecruiterId()).orElse(null);
+                } catch (Exception ignored) {}
+            }
+            try {
+                recruiterPosition = recruiter.getPosition();
+            } catch (Exception ignored) {}
+            try {
+                recruiterDepartment = recruiter.getDepartment();
+            } catch (Exception ignored) {}
+        }
+
+        Long companyId = null;
+        String companyName = "HireMate Partner";
+        String companyLogo = null;
+        String companySize = null;
+        String companyAddress = null;
+        String companyDescription = null;
+        String companyWebsite = null;
+        String companyIndustry = null;
+
+        if (company != null) {
+            try {
+                companyId = company.getCompanyId();
+                if (company.getCompanyName() != null) companyName = company.getCompanyName();
+                companyLogo = company.getLogoUrl();
+                companySize = company.getCompanySize();
+                companyAddress = company.getAddress();
+                companyDescription = company.getDescription();
+                companyWebsite = company.getWebsite();
+                companyIndustry = company.getIndustry();
+            } catch (Exception ignored) {}
+        }
 
         // Load skills list for this job
         List<String> skillNames = new ArrayList<>();
@@ -390,11 +458,23 @@ public class JobServiceImpl implements JobService {
         return JobResponse.builder()
                 .jobId(job.getJobId())
                 // Truy xuất qua Recruiter subclass (Shared PK: recruiterId = userId)
-                .recruiterId(job.getRecruiter() != null ? job.getRecruiter().getRecruiterId() : null)
+                .recruiterId(recruiter != null ? recruiter.getRecruiterId() : null)
+                .recruiterName(recruiterUser != null ? recruiterUser.getFullName() : null)
+                .recruiterEmail(recruiterUser != null ? recruiterUser.getEmail() : null)
+                .recruiterPhone(recruiterUser != null ? recruiterUser.getPhone() : null)
+                .recruiterAvatar(recruiterUser != null ? recruiterUser.getAvatarUrl() : null)
+                .recruiterPosition(recruiterPosition)
+                .recruiterDepartment(recruiterDepartment)
+                .recruiterBio(recruiterUser != null ? recruiterUser.getBio() : null)
                 // Truy xuất qua Company object
-                .companyId(company != null ? company.getCompanyId() : null)
-                .companyName(company != null ? company.getCompanyName() : "HireMate Partner")
-                .companyLogo(company != null ? company.getLogoUrl() : null)
+                .companyId(companyId)
+                .companyName(companyName)
+                .companyLogo(companyLogo)
+                .companySize(companySize)
+                .companyAddress(companyAddress)
+                .companyDescription(companyDescription)
+                .companyWebsite(companyWebsite)
+                .companyIndustry(companyIndustry)
                 .title(job.getTitle())
                 .description(job.getDescription())
                 .requirements(parseCleanList(job.getRequirements()))
@@ -404,6 +484,7 @@ public class JobServiceImpl implements JobService {
                 .location(job.getLocation())
                 .employmentType(job.getEmploymentType())
                 .status(job.getStatus())
+                .approvalStatus(job.getApprovalStatus())
                 .vacanciesCount(job.getVacanciesCount())
                 .totalViews(job.getTotalViews())
                 .applicantCount(applicationRepository != null ? applicationRepository.countByJob_JobId(job.getJobId()) : 0L)
@@ -456,5 +537,51 @@ public class JobServiceImpl implements JobService {
         }
 
         return list;
+    }
+
+    @Override
+    public List<JobResponse> getAllJobsForAdmin() {
+        return jobRepository.findAllByOrderByCreatedAtDesc().stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public JobResponse updateJobApproval(Long jobId, JobApprovalStatus status) {
+        Job job = jobRepository.findById(jobId)
+                .orElseThrow(() -> new com.hiremate.exception.ResourceNotFoundException("Không tìm thấy công việc ID: " + jobId));
+        job.setApprovalStatus(status);
+        if (status == JobApprovalStatus.APPROVED) {
+            job.setStatus(JobStatus.PUBLISHED);
+        } else if (status == JobApprovalStatus.REJECTED) {
+            job.setStatus(JobStatus.CLOSED);
+        }
+        Job saved = jobRepository.save(job);
+
+        // Gửi thông báo cho nhà tuyển dụng
+        try {
+            if (saved.getRecruiter() != null && saved.getRecruiter().getRecruiterId() != null) {
+                Long recruiterUserId = saved.getRecruiter().getRecruiterId();
+                String notiTitle = status == JobApprovalStatus.APPROVED
+                        ? "Tin tuyển dụng đã được phê duyệt"
+                        : "Tin tuyển dụng bị từ chối phê duyệt";
+                String notiContent = status == JobApprovalStatus.APPROVED
+                        ? "Tin tuyển dụng \"" + saved.getTitle() + "\" của bạn đã được Admin phê duyệt và xuất bản công khai."
+                        : "Tin tuyển dụng \"" + saved.getTitle() + "\" chưa đạt yêu cầu kiểm duyệt. Vui lòng cập nhật lại nội dung.";
+                notificationService.createNotification(
+                        recruiterUserId,
+                        com.hiremate.enums.NotificationType.SYSTEM_ALERT,
+                        notiTitle,
+                        notiContent,
+                        saved.getJobId(),
+                        "jobs"
+                );
+            }
+        } catch (Exception e) {
+            log.warn("Không thể gửi notification cho recruiter: {}", e.getMessage());
+        }
+
+        return mapToResponse(saved);
     }
 }

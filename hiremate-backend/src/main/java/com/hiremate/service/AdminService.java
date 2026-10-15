@@ -25,8 +25,8 @@ public interface AdminService {
     List<SubscriptionPlan> getAllPlans();
     SubscriptionPlan savePlan(SubscriptionPlan plan);
     
-    List<Job> getAllJobs();
-    Job updateJobApproval(Long jobId, JobApprovalStatus status);
+    List<JobResponse> getAllJobs();
+    JobResponse updateJobApproval(Long jobId, JobApprovalStatus status);
 
     List<com.hiremate.entity.Voucher> getAllVouchers();
     com.hiremate.entity.Voucher toggleVoucher(Long voucherId);

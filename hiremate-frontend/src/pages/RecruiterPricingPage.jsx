@@ -154,6 +154,14 @@ const FAQS = [
   }
 ];
 
+const getRecruiterPlanTier = (planId) => {
+  if (!planId) return 0;
+  const id = planId.toUpperCase();
+  if (id.includes('ENTERPRISE') || id.includes('VIP') || id.includes('ELITE')) return 2;
+  if (id.includes('PROFESSIONAL') || id.includes('PRO') || id.includes('HIRING')) return 1;
+  return 0; // BASIC / STARTER
+};
+
 export default function RecruiterPricingPage({ user, onNavigate }) {
   const [billingCycle, setBillingCycle] = useState('MONTHLY'); // 'MONTHLY' | 'YEARLY'
   const [selectedPlanForPurchase, setSelectedPlanForPurchase] = useState(null);
@@ -205,10 +213,14 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
             setActivePlan('ENTERPRISE');
             setUserCredits(3000);
             setUserActiveJobsCount(99);
-          } else if (pName.includes('pro') || pName.includes('starter') || pName.includes('hiring') || pName.includes('professional')) {
+          } else if (pName.includes('pro') || pName.includes('professional') || pName.includes('hiring')) {
             setActivePlan('PROFESSIONAL');
             setUserCredits(sub.quotaLimit || 500);
             setUserActiveJobsCount(15);
+          } else {
+            setActivePlan('BASIC');
+            setUserCredits(50);
+            setUserActiveJobsCount(3);
           }
         }
       })
@@ -289,6 +301,7 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
 
   const handleOpenPlanModal = (plan) => {
     if (plan.id === activePlan) return;
+    if (getRecruiterPlanTier(plan.id) < getRecruiterPlanTier(activePlan)) return;
     setSelectedPlanForPurchase(plan);
     setSelectedAddonForPurchase(null);
     setPromoCode('');
@@ -320,6 +333,7 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
       if (selectedAddonForPurchase.id === 'CREDITS_500') setUserCredits(prev => prev + 500);
     }
     fetchMySubscription();
+    window.dispatchEvent(new CustomEvent('hiremate-notification-sync'));
   };
 
   const handleConfirmPurchase = async () => {
@@ -655,17 +669,22 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
         {/* PRICING CARDS GRID */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
           {plansToDisplay.map((plan) => {
+            const currentTier = getRecruiterPlanTier(activePlan);
+            const planTier = getRecruiterPlanTier(plan.id);
             const isSelected = activePlan === plan.id;
+            const isLowerTier = !isSelected && planTier < currentTier;
             const price = billingCycle === 'YEARLY' ? plan.yearlyPrice : plan.monthlyPrice;
 
             return (
               <div
                 key={plan.id}
                 className={`relative rounded-[32px] bg-white p-8 flex flex-col justify-between transition-all duration-300 border ${
-                  plan.isPopular
-                    ? 'border-[#5b46e0] shadow-[0_20px_50px_rgba(91,70,224,0.18)] ring-2 ring-[#5b46e0]/20 scale-102'
-                    : isSelected
+                  isSelected
                     ? 'border-emerald-500 shadow-lg ring-2 ring-emerald-500/20'
+                    : isLowerTier
+                    ? 'border-slate-200/60 bg-slate-50/40 opacity-75'
+                    : plan.isPopular
+                    ? 'border-[#5b46e0] shadow-[0_20px_50px_rgba(91,70,224,0.18)] ring-2 ring-[#5b46e0]/20 scale-102'
                     : 'border-slate-200/80 shadow-sm hover:shadow-xl hover:border-indigo-200'
                 }`}
               >
@@ -675,12 +694,17 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
                     {plan.badgeText}
                   </span>
 
-                  {isSelected && (
+                  {isSelected ? (
                     <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-extrabold border border-emerald-300 flex items-center gap-1">
                       <span className="material-symbols-outlined text-sm font-bold">check_circle</span>
                       <span>ĐANG SỬ DỤNG</span>
                     </span>
-                  )}
+                  ) : isLowerTier ? (
+                    <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-500 text-[11px] font-semibold border border-slate-200 flex items-center gap-1">
+                      <span className="material-symbols-outlined text-xs">verified</span>
+                      <span>ĐÃ BAO GỒM</span>
+                    </span>
+                  ) : null}
                 </div>
 
                 {/* Card Title & Pricing */}
@@ -741,17 +765,25 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
                 <div className="pt-8">
                   <button
                     onClick={() => handleOpenPlanModal(plan)}
-                    disabled={isSelected}
-                    className={`w-full py-3.5 px-6 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center justify-center gap-2 shadow-md ${
-                      isSelected
-                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
+                    disabled={isSelected || isLowerTier}
+                    className={`w-full py-3.5 px-6 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-2 shadow-md ${
+                      isSelected || isLowerTier
+                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200 shadow-none'
                         : plan.isPopular
-                        ? 'bg-[#10b981] hover:bg-[#059669] text-white hover:scale-102 shadow-emerald-500/25'
-                        : 'bg-[#32247b] hover:bg-[#4331a6] text-white hover:scale-102'
+                        ? 'bg-[#10b981] hover:bg-[#059669] text-white hover:scale-102 shadow-emerald-500/25 cursor-pointer'
+                        : 'bg-[#32247b] hover:bg-[#4331a6] text-white hover:scale-102 cursor-pointer'
                     }`}
                   >
-                    <span className="material-symbols-outlined text-base">shopping_cart</span>
-                    <span>{isSelected ? 'Gói Bạn Đang Dùng' : plan.buttonText}</span>
+                    <span className="material-symbols-outlined text-base">
+                      {isSelected || isLowerTier ? 'check_circle' : 'shopping_cart'}
+                    </span>
+                    <span>
+                      {isSelected
+                        ? 'Gói Bạn Đang Dùng'
+                        : isLowerTier
+                        ? 'Đã Bao Gồm Trong Gói Hiện Tại'
+                        : plan.buttonText}
+                    </span>
                   </button>
                 </div>
               </div>

@@ -158,11 +158,7 @@ public class ApplicationServiceTestNGTest {
     @Test(priority = 1, description = "TC01: Ứng viên nộp đơn ứng tuyển thành công, ghi audit log và gửi thông báo")
     public void testApplyToJobSuccess() {
         // Arrange
-        ApplyRequest request = ApplyRequest.builder()
-                .jobId(501L)
-                .cvId(301L)
-                .coverLetter("Tôi rất mong muốn được cống hiến cho công ty.")
-                .build();
+        ApplyRequest request = new ApplyRequest(501L, 301L, "Tôi rất mong muốn được cống hiến cho công ty.");
 
         when(jobRepository.findById(501L)).thenReturn(Optional.of(sampleJob));
         when(candidateRepository.findById(101L)).thenReturn(Optional.of(sampleCandidate));
@@ -210,9 +206,7 @@ public class ApplicationServiceTestNGTest {
           description = "TC02: Ngăn chặn nộp hồ sơ trùng lặp vào cùng 1 bài tuyển dụng")
     public void testApplyDuplicateThrowsException() {
         // Arrange
-        ApplyRequest request = ApplyRequest.builder()
-                .jobId(501L)
-                .build();
+        ApplyRequest request = new ApplyRequest(501L, null, null);
 
         when(jobRepository.findById(501L)).thenReturn(Optional.of(sampleJob));
         when(candidateRepository.findById(101L)).thenReturn(Optional.of(sampleCandidate));
@@ -232,9 +226,7 @@ public class ApplicationServiceTestNGTest {
           expectedExceptionsMessageRegExp = ".*Candidate profile not found for user.*",
           description = "TC03: Bắt lỗi khi người dùng chưa có hồ sơ Candidate")
     public void testApplyCandidateNotFound() {
-        ApplyRequest request = ApplyRequest.builder()
-                .jobId(501L)
-                .build();
+        ApplyRequest request = new ApplyRequest(501L, null, null);
 
         when(jobRepository.findById(501L)).thenReturn(Optional.of(sampleJob));
         when(candidateRepository.findById(101L)).thenReturn(Optional.empty());
@@ -321,10 +313,7 @@ public class ApplicationServiceTestNGTest {
           description = "TC06: Data-Driven Testing chuyển trạng thái pipeline và gửi thông báo cho ứng viên")
     public void testUpdateApplicationStatusWithDataProvider(ApplicationStatus targetStatus, String notes) {
         // Arrange
-        UpdateApplicationStatusRequest request = UpdateApplicationStatusRequest.builder()
-                .status(targetStatus)
-                .notes(notes)
-                .build();
+        UpdateApplicationStatusRequest request = new UpdateApplicationStatusRequest(targetStatus, notes);
 
         sampleApp.setStatus(ApplicationStatus.APPLIED);
         when(applicationRepository.findById(701L)).thenReturn(Optional.of(sampleApp));
@@ -385,9 +374,7 @@ public class ApplicationServiceTestNGTest {
           expectedExceptionsMessageRegExp = "Application not found: 9999",
           description = "TC08: Bắt lỗi khi cập nhật trạng thái đơn không tồn tại")
     public void testUpdateStatusApplicationNotFound() {
-        UpdateApplicationStatusRequest request = UpdateApplicationStatusRequest.builder()
-                .status(ApplicationStatus.SCREENING)
-                .build();
+        UpdateApplicationStatusRequest request = new UpdateApplicationStatusRequest(ApplicationStatus.SCREENING, null);
         when(applicationRepository.findById(9999L)).thenReturn(Optional.empty());
 
         // Act (Ném IllegalArgumentException)

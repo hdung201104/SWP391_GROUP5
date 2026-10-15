@@ -31,12 +31,19 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
   const [createForm, setCreateForm] = useState({
     title: '',
     code: 'JD-' + Math.floor(100 + Math.random() * 900),
-    domain: 'Engineering R&D',
-    location: 'TP.HCM (Hybrid)',
+    domain: 'Công Nghệ Thông Tin / Phần Mềm',
+    employmentType: 'FULL_TIME',
     salary: '$2,500 - $4,000',
+    salaryMin: 2500,
+    salaryMax: 4000,
+    location: 'TP.HCM (Hybrid)',
+    vacanciesCount: 1,
+    deadlineDate: '',
+    description: '',
+    requirements: '',
+    benefits: '',
     mandatorySkillsInput: 'Java 21, Spring Boot 3, PostgreSQL',
     preferredSkillsInput: 'Kafka, Redis Cluster, Docker',
-    description: '',
   });
 
   const fetchMyJobs = async () => {
@@ -68,12 +75,19 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
               badgeType: j.status === 'PUBLISHED' ? 'high-priority' : 'frontend',
               title: j.title || 'Vị trí Tuyển Dụng',
               status: j.status === 'PUBLISHED' ? 'ACTIVE' : j.status === 'CLOSED' ? 'CLOSED' : 'PAUSED',
+              approvalStatus: j.approvalStatus || 'APPROVED',
               domain: j.company?.industry || j.companyName || 'Công Nghệ & Kỹ Thuật',
               domainIcon: 'work',
               location: j.location || 'Việt Nam',
               salary: j.salaryMin && j.salaryMax ? `$${j.salaryMin} - $${j.salaryMax}` : 'Thỏa thuận',
               salaryMin: j.salaryMin,
               salaryMax: j.salaryMax,
+              employmentType: j.employmentType || 'FULL_TIME',
+              vacanciesCount: j.vacanciesCount || 1,
+              deadlineDate: j.deadlineDate || '',
+              description: j.description || '',
+              requirements: Array.isArray(j.requirements) ? j.requirements.join('\n') : (j.requirements || ''),
+              benefits: Array.isArray(j.benefits) ? j.benefits.join('\n') : (j.benefits || ''),
               totalApplicants: applicantCount,
               aiMatchHighCount: aiHigh,
               mandatorySkills: parseSkillList(j.requirements, ['Yêu cầu chuyên môn']),
@@ -136,34 +150,42 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
     try {
       const salaryStr = createForm.salary || '';
       const nums = salaryStr.match(/\d+[\d,.]*/g);
-      const salaryMin = nums && nums[0] ? parseFloat(nums[0].replace(/,/g, '')) : 2000;
-      const salaryMax = nums && nums[1] ? parseFloat(nums[1].replace(/,/g, '')) : 3500;
+      const salaryMin = nums && nums[0] ? parseFloat(nums[0].replace(/,/g, '')) : (createForm.salaryMin || 2000);
+      const salaryMax = nums && nums[1] ? parseFloat(nums[1].replace(/,/g, '')) : (createForm.salaryMax || 3500);
 
       const payload = {
         title: createForm.title,
-        description: createForm.description || createForm.title,
-        requirements: createForm.mandatorySkillsInput,
-        benefits: createForm.preferredSkillsInput,
+        description: createForm.description || '',
+        requirements: createForm.requirements || createForm.mandatorySkillsInput,
+        benefits: createForm.benefits || '',
         salaryMin: salaryMin,
         salaryMax: salaryMax,
         location: createForm.location,
-        employmentType: 'FULL_TIME',
-        vacanciesCount: 1,
+        employmentType: createForm.employmentType || 'FULL_TIME',
+        vacanciesCount: Number(createForm.vacanciesCount) || 1,
+        deadlineDate: createForm.deadlineDate || null,
         status: 'PUBLISHED',
       };
 
       await jobApi.createJob(payload);
-      triggerToast(`Đã xuất bản thành công tin tuyển dụng mới lên Supabase: ${createForm.title}`);
+      triggerToast(`Đã xuất bản thành công tin tuyển dụng mới: ${createForm.title} (Đang chờ Admin phê duyệt)`);
       setShowCreateModal(false);
       setCreateForm({
         title: '',
         code: 'JD-' + Math.floor(100 + Math.random() * 900),
-        domain: 'Engineering R&D',
-        location: 'TP.HCM (Hybrid)',
+        domain: 'Công Nghệ Thông Tin / Phần Mềm',
+        employmentType: 'FULL_TIME',
         salary: '$2,500 - $4,000',
+        salaryMin: 2500,
+        salaryMax: 4000,
+        location: 'TP.HCM (Hybrid)',
+        vacanciesCount: 1,
+        deadlineDate: '',
+        description: '',
+        requirements: '',
+        benefits: '',
         mandatorySkillsInput: 'Java 21, Spring Boot 3, PostgreSQL',
         preferredSkillsInput: 'Kafka, Redis Cluster, Docker',
-        description: '',
       });
       await fetchMyJobs();
     } catch (err) {
@@ -182,14 +204,15 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
 
       const payload = {
         title: editingJob.title,
-        description: editingJob.description || editingJob.raw?.description || editingJob.title,
-        requirements: Array.isArray(editingJob.mandatorySkills) ? editingJob.mandatorySkills.join(', ') : (editingJob.mandatorySkills || ''),
-        benefits: Array.isArray(editingJob.preferredSkills) ? editingJob.preferredSkills.join(', ') : (editingJob.preferredSkills || ''),
+        description: editingJob.description || '',
+        requirements: editingJob.requirements || '',
+        benefits: editingJob.benefits || '',
         salaryMin: salaryMin,
         salaryMax: salaryMax,
         location: editingJob.location,
-        employmentType: editingJob.raw?.employmentType || 'FULL_TIME',
-        vacanciesCount: editingJob.raw?.vacanciesCount || 1,
+        employmentType: editingJob.employmentType || editingJob.raw?.employmentType || 'FULL_TIME',
+        vacanciesCount: Number(editingJob.vacanciesCount) || 1,
+        deadlineDate: editingJob.deadlineDate || null,
         status: editingJob.status === 'ACTIVE' ? 'PUBLISHED' : editingJob.status === 'CLOSED' ? 'CLOSED' : 'DRAFT',
       };
 
@@ -505,19 +528,33 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                     <span className="text-[11px] text-slate-400 font-mono font-medium">Mã: {job.code}</span>
                   </div>
 
-                  {/* Status Toggle Pill */}
-                  <button
-                    type="button"
-                    onClick={() => handleToggleStatus(job.id)}
-                    className={`shrink-0 flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-all cursor-pointer ${job.status === 'ACTIVE'
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                      : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
-                      }`}
-                    title="Nhấp để chuyển trạng thái Đang tuyển / Tạm dừng"
-                  >
-                    <span className={`w-2 h-2 rounded-full ${job.status === 'ACTIVE' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
-                    <span>{job.status === 'ACTIVE' ? 'Đang tuyển' : 'Tạm dừng'}</span>
-                  </button>
+                  {/* Status Toggle & Approval Pill */}
+                  <div className="flex items-center gap-2">
+                    {job.approvalStatus === 'PENDING' ? (
+                      <span className="shrink-0 flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 shadow-2xs">
+                        <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                        <span>Chờ Admin duyệt</span>
+                      </span>
+                    ) : job.approvalStatus === 'REJECTED' ? (
+                      <span className="shrink-0 flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 shadow-2xs">
+                        <span className="w-2 h-2 rounded-full bg-rose-500" />
+                        <span>Bị từ chối duyệt</span>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleToggleStatus(job.id)}
+                        className={`shrink-0 flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-all cursor-pointer ${job.status === 'ACTIVE'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                          : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
+                          }`}
+                        title="Nhấp để chuyển trạng thái Đang tuyển / Tạm dừng"
+                      >
+                        <span className={`w-2 h-2 rounded-full ${job.status === 'ACTIVE' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                        <span>{job.status === 'ACTIVE' ? 'Đã duyệt • Đang tuyển' : 'Đã duyệt • Tạm dừng'}</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* 2. Job Title */}
@@ -742,16 +779,110 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[#221d47] mb-1 font-bold uppercase tracking-wider">Hình Thức Làm Việc</label>
+                  <select
+                    value={createForm.employmentType}
+                    onChange={(e) => setCreateForm({ ...createForm, employmentType: e.target.value })}
+                    className="w-full bg-[#f8f7ff] border border-purple-200 rounded-xl p-2.5 text-[#221d47] focus:outline-none focus:border-[#5b48bd] font-sans cursor-pointer"
+                  >
+                    <option value="FULL_TIME">Toàn thời gian (Full-time)</option>
+                    <option value="PART_TIME">Bán thời gian (Part-time)</option>
+                    <option value="CONTRACT">Hợp đồng (Contract)</option>
+                    <option value="INTERNSHIP">Thực tập sinh (Internship)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[#221d47] mb-1 font-bold uppercase tracking-wider">Số Lượng Tuyển</label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={createForm.vacanciesCount}
+                    onChange={(e) => setCreateForm({ ...createForm, vacanciesCount: e.target.value })}
+                    className="w-full bg-[#f8f7ff] border border-purple-200 rounded-xl p-2.5 text-[#221d47] focus:outline-none focus:border-[#5b48bd] font-sans"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[#221d47] mb-1 font-bold uppercase tracking-wider">Hạn Chót Nộp Hồ Sơ</label>
+                  <input
+                    type="date"
+                    value={createForm.deadlineDate}
+                    onChange={(e) => setCreateForm({ ...createForm, deadlineDate: e.target.value })}
+                    className="w-full bg-[#f8f7ff] border border-purple-200 rounded-xl p-2.5 text-[#221d47] focus:outline-none focus:border-[#5b48bd] font-sans"
+                  />
+                </div>
+              </div>
+
               <div>
-                <label className="block text-[#221d47] mb-1 font-bold uppercase tracking-wider">Địa Điểm &amp; Hình Thức Làm Việc</label>
+                <label className="block text-[#221d47] mb-1 font-bold uppercase tracking-wider">Địa Điểm Làm Việc *</label>
                 <input
                   type="text"
                   required
-                  placeholder="TP.HCM (Hybrid) hoặc Hà Nội / Remote"
+                  placeholder="Ví dụ: TP.HCM (Hybrid), Tòa nhà VNG Campus hoặc Hà Nội / Remote"
                   value={createForm.location}
                   onChange={(e) => setCreateForm({ ...createForm, location: e.target.value })}
                   className="w-full bg-[#f8f7ff] border border-purple-200 rounded-xl p-2.5 text-[#221d47] focus:outline-none focus:border-[#5b48bd] font-sans"
                 />
+              </div>
+
+              {/* NỘI DUNG CHI TIẾT TIN TUYỂN DỤNG */}
+              <div className="p-4 rounded-2xl bg-[#f8f7ff] border border-purple-100 space-y-4">
+                <div className="flex items-center gap-2 pb-2 border-b border-purple-200">
+                  <span className="material-symbols-outlined text-[#5b48bd] text-base">description</span>
+                  <span className="font-sans font-bold text-sm text-[#221d47]">
+                    Nội Dung Chi Tiết Bài Đăng Tuyển Dụng
+                  </span>
+                </div>
+
+                {/* 1. MÔ TẢ CÔNG VIỆC */}
+                <div>
+                  <label className="block text-[#5b48bd] mb-1 font-bold uppercase text-xs flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-[#5b48bd]"></span>
+                    Mô Tả Công Việc (Job Description) *
+                  </label>
+                  <textarea
+                    rows={4}
+                    required
+                    placeholder="- Tham gia phát triển hệ thống lõi phục vụ hàng triệu người dùng...&#10;- Thiết kế kiến trúc giải pháp và tối ưu hóa hiệu năng hệ thống...&#10;- Phối hợp chặt chẽ với team Product và các bộ phận liên quan..."
+                    value={createForm.description}
+                    onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
+                    className="w-full bg-white border border-purple-200 rounded-xl p-3 text-[#221d47] placeholder-slate-400 focus:outline-none focus:border-[#5b48bd] font-sans leading-relaxed text-xs"
+                  />
+                </div>
+
+                {/* 2. YÊU CẦU ỨNG VIÊN */}
+                <div>
+                  <label className="block text-[#f97316] mb-1 font-bold uppercase text-xs flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-[#f97316]"></span>
+                    Yêu Cầu Ứng Viên (Requirements) *
+                  </label>
+                  <textarea
+                    rows={4}
+                    required
+                    placeholder="- Tối thiểu 1.5 - 2 năm kinh nghiệm làm việc thực tế với tech stack tương đương...&#10;- Nắm vững kiến thức nền tảng về cấu trúc dữ liệu, giải thuật và OOP...&#10;- Tinh thần trách nhiệm cao, chủ động học hỏi và kỹ năng làm việc nhóm tốt..."
+                    value={createForm.requirements}
+                    onChange={(e) => setCreateForm({ ...createForm, requirements: e.target.value })}
+                    className="w-full bg-white border border-purple-200 rounded-xl p-3 text-[#221d47] placeholder-slate-400 focus:outline-none focus:border-[#f97316] font-sans leading-relaxed text-xs"
+                  />
+                </div>
+
+                {/* 3. QUYỀN LỢI & PHÚC LỢI */}
+                <div>
+                  <label className="block text-[#10b981] mb-1 font-bold uppercase text-xs flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-[#10b981]"></span>
+                    Quyền Lợi &amp; Chế Độ Đãi Ngộ (Benefits) *
+                  </label>
+                  <textarea
+                    rows={4}
+                    required
+                    placeholder="- Lương tháng 13 + thưởng hiệu quả kinh doanh dự án định kỳ...&#10;- Bảo hiểm sức khỏe cao cấp cho nhân viên và người thân...&#10;- Cung cấp trang thiết bị làm việc hiện đại (Macbook Pro, màn hình 4K)...&#10;- Du lịch, teambuilding hàng năm cùng công ty..."
+                    value={createForm.benefits}
+                    onChange={(e) => setCreateForm({ ...createForm, benefits: e.target.value })}
+                    className="w-full bg-white border border-purple-200 rounded-xl p-3 text-[#221d47] placeholder-slate-400 focus:outline-none focus:border-[#10b981] font-sans leading-relaxed text-xs"
+                  />
+                </div>
               </div>
 
               {/* AI SKILLS MATRIX BUILDER */}
@@ -878,7 +1009,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
       {/* ======================================================== */}
       {showEditModal && editingJob && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in font-sans">
-          <div className="relative w-full max-w-xl bg-white border border-purple-100 rounded-[32px] p-6 sm:p-8 max-h-[90vh] overflow-y-auto shadow-2xl text-[#221d47]">
+          <div className="relative w-full max-w-3xl bg-white border border-purple-100 rounded-[32px] p-6 sm:p-8 max-h-[90vh] overflow-y-auto shadow-2xl text-[#221d47]">
             <button
               onClick={() => setShowEditModal(false)}
               className="absolute top-6 right-6 w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
@@ -893,7 +1024,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
 
             <form onSubmit={handleEditSubmit} className="space-y-4 text-xs mt-4">
               <div>
-                <label className="block text-[#221d47] mb-1 font-bold uppercase">Tiêu đề vị trí</label>
+                <label className="block text-[#221d47] mb-1 font-bold uppercase">Tiêu đề vị trí *</label>
                 <input
                   type="text"
                   required
@@ -903,7 +1034,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-[#221d47] mb-1 font-bold uppercase">Mức lương</label>
                   <input
@@ -914,7 +1045,35 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                   />
                 </div>
                 <div>
-                  <label className="block text-[#221d47] mb-1 font-bold uppercase">Địa điểm</label>
+                  <label className="block text-[#221d47] mb-1 font-bold uppercase">Hình thức làm việc</label>
+                  <select
+                    value={editingJob.employmentType || 'FULL_TIME'}
+                    onChange={(e) => setEditingJob({ ...editingJob, employmentType: e.target.value })}
+                    className="w-full bg-[#f8f7ff] border border-purple-200 rounded-xl p-2.5 text-[#221d47] focus:outline-none focus:border-[#5b48bd] cursor-pointer font-sans"
+                  >
+                    <option value="FULL_TIME">Toàn thời gian (Full-time)</option>
+                    <option value="PART_TIME">Bán thời gian (Part-time)</option>
+                    <option value="CONTRACT">Hợp đồng (Contract)</option>
+                    <option value="INTERNSHIP">Thực tập sinh (Internship)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[#221d47] mb-1 font-bold uppercase">Trạng thái tin</label>
+                  <select
+                    value={editingJob.status}
+                    onChange={(e) => setEditingJob({ ...editingJob, status: e.target.value })}
+                    className="w-full bg-[#f8f7ff] border border-purple-200 rounded-xl p-2.5 text-[#221d47] focus:outline-none focus:border-[#5b48bd] cursor-pointer font-sans"
+                  >
+                    <option value="ACTIVE">ACTIVE (Đang bật tuyển dụng)</option>
+                    <option value="PAUSED">PAUSED (Tạm dừng)</option>
+                    <option value="CLOSED">CLOSED (Đã đóng)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[#221d47] mb-1 font-bold uppercase">Địa điểm làm việc</label>
                   <input
                     type="text"
                     value={editingJob.location}
@@ -922,19 +1081,58 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                     className="w-full bg-[#f8f7ff] border border-purple-200 rounded-xl p-2.5 text-[#221d47] focus:outline-none focus:border-[#5b48bd] font-sans"
                   />
                 </div>
+                <div>
+                  <label className="block text-[#221d47] mb-1 font-bold uppercase">Số lượng tuyển</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={editingJob.vacanciesCount || 1}
+                    onChange={(e) => setEditingJob({ ...editingJob, vacanciesCount: e.target.value })}
+                    className="w-full bg-[#f8f7ff] border border-purple-200 rounded-xl p-2.5 text-[#221d47] focus:outline-none focus:border-[#5b48bd] font-sans"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[#221d47] mb-1 font-bold uppercase">Hạn chót ứng tuyển</label>
+                  <input
+                    type="date"
+                    value={editingJob.deadlineDate || ''}
+                    onChange={(e) => setEditingJob({ ...editingJob, deadlineDate: e.target.value })}
+                    className="w-full bg-[#f8f7ff] border border-purple-200 rounded-xl p-2.5 text-[#221d47] focus:outline-none focus:border-[#5b48bd] font-sans"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-[#221d47] mb-1 font-bold uppercase">Trạng thái tin</label>
-                <select
-                  value={editingJob.status}
-                  onChange={(e) => setEditingJob({ ...editingJob, status: e.target.value })}
-                  className="w-full bg-[#f8f7ff] border border-purple-200 rounded-xl p-2.5 text-[#221d47] focus:outline-none focus:border-[#5b48bd] cursor-pointer font-sans"
-                >
-                  <option value="ACTIVE">ACTIVE (Đang bật tuyển dụng)</option>
-                  <option value="PAUSED">PAUSED (Tạm dừng)</option>
-                  <option value="CLOSED">CLOSED (Đã đóng)</option>
-                </select>
+              {/* NỘI DUNG CHI TIẾT */}
+              <div className="p-4 rounded-2xl bg-[#f8f7ff] border border-purple-100 space-y-3">
+                <div>
+                  <label className="block text-[#5b48bd] mb-1 font-bold uppercase text-xs">Mô Tả Công Việc (Job Description)</label>
+                  <textarea
+                    rows={4}
+                    value={editingJob.description || ''}
+                    onChange={(e) => setEditingJob({ ...editingJob, description: e.target.value })}
+                    className="w-full bg-white border border-purple-200 rounded-xl p-2.5 text-[#221d47] focus:outline-none focus:border-[#5b48bd] font-sans leading-relaxed text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[#f97316] mb-1 font-bold uppercase text-xs">Yêu Cầu Ứng Viên (Requirements)</label>
+                  <textarea
+                    rows={4}
+                    value={editingJob.requirements || ''}
+                    onChange={(e) => setEditingJob({ ...editingJob, requirements: e.target.value })}
+                    className="w-full bg-white border border-purple-200 rounded-xl p-2.5 text-[#221d47] focus:outline-none focus:border-[#f97316] font-sans leading-relaxed text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[#10b981] mb-1 font-bold uppercase text-xs">Quyền Lợi &amp; Phúc Lợi (Benefits)</label>
+                  <textarea
+                    rows={4}
+                    value={editingJob.benefits || ''}
+                    onChange={(e) => setEditingJob({ ...editingJob, benefits: e.target.value })}
+                    className="w-full bg-white border border-purple-200 rounded-xl p-2.5 text-[#221d47] focus:outline-none focus:border-[#10b981] font-sans leading-relaxed text-xs"
+                  />
+                </div>
               </div>
 
               <div className="pt-3 flex items-center justify-end gap-3">

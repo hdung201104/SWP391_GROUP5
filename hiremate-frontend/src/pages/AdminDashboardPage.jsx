@@ -220,16 +220,114 @@ const INITIAL_USERS = [
   { id: 1006, name: 'Vũ Quốc Bảo', email: 'bao.vu@yahoo.com', role: 'CANDIDATE', company: '-', status: 'LOCKED', joined: '10/04/2026' },
 ];
 
+const INITIAL_JOBS = [
+  {
+    jobId: 101,
+    title: 'Senior Java Backend Engineer (Spring Boot / Microservices)',
+    companyName: 'FPT Software',
+    recruiterName: 'Nguyễn Minh Anh',
+    recruiterEmail: 'minhanh.hr@fptsoftware.com',
+    location: 'Hà Nội (Hybrid)',
+    salaryMin: 30000000,
+    salaryMax: 45000000,
+    employmentType: 'FULL_TIME',
+    approvalStatus: 'PENDING',
+    status: 'DRAFT',
+    createdAt: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
+    deadline: '2026-11-30',
+    skills: ['Java', 'Spring Boot', 'PostgreSQL', 'Docker', 'Kafka'],
+    description: 'Tham gia thiết kế kiến trúc và phát triển hệ thống backend phân tán quy mô lớn cho khách hàng quốc tế. Tối ưu hóa hiệu năng và độ tin cậy của các dịch vụ microservices.',
+    requirements: 'Tối thiểu 3 năm kinh nghiệm với Java Spring Boot. Nắm vững kiến trúc Microservices, RESTful API, PostgreSQL, Redis và Message Broker (Kafka/RabbitMQ).',
+    benefits: 'Lương thưởng cạnh tranh, tháng 13 + thưởng hiệu quả kinh doanh. Gói bảo hiểm sức khỏe FPT Care cho bản thân và gia đình. Làm việc Hybrid linh hoạt.',
+  },
+  {
+    jobId: 102,
+    title: 'Frontend ReactJS / Next.js Developer',
+    companyName: 'VNG Corporation',
+    recruiterName: 'VNG Recruitment Team',
+    recruiterEmail: 'recruitment@vng.com.vn',
+    location: 'Hồ Chí Minh',
+    salaryMin: 22000000,
+    salaryMax: 35000000,
+    employmentType: 'FULL_TIME',
+    approvalStatus: 'PENDING',
+    status: 'DRAFT',
+    createdAt: new Date(Date.now() - 5 * 3600 * 1000).toISOString(),
+    deadline: '2026-11-15',
+    skills: ['React', 'Next.js', 'TypeScript', 'TailwindCSS'],
+    description: 'Phát triển các tính năng giao diện người dùng hiện đại, tối ưu trải nghiệm và hiệu năng tải trang cho nền tảng giải trí và thanh toán điện tử của VNG.',
+    requirements: 'Ít nhất 2 năm làm việc với ReactJS, Next.js, TypeScript. Hiểu biết sâu về State Management (Redux/Zustand), Responsive Web Design và Web Performance.',
+    benefits: 'Môi trường công nghệ hàng đầu tại VNG Campus. Hỗ trợ cơm trưa, phòng gym, hồ bơi, xe đưa đón. Thưởng theo dự án hàng năm.',
+  },
+  {
+    jobId: 103,
+    title: 'AI / Machine Learning Engineer (LLM & NLP)',
+    companyName: 'Viettel Telecom',
+    recruiterName: 'Phạm Đức Long',
+    recruiterEmail: 'longpd@viettel.com.vn',
+    location: 'Hà Nội',
+    salaryMin: 35000000,
+    salaryMax: 60000000,
+    employmentType: 'FULL_TIME',
+    approvalStatus: 'APPROVED',
+    status: 'PUBLISHED',
+    createdAt: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
+    deadline: '2026-12-01',
+    skills: ['Python', 'PyTorch', 'NLP', 'LangChain', 'LLM'],
+    description: 'Nghiên cứu ứng dụng các mô hình học sâu và AI tạo sinh (GenAI, Large Language Models) để xây dựng trợ lý ảo chăm sóc khách hàng tự động cho tập đoàn Viettel.',
+    requirements: 'Thành thạo Python, PyTorch/TensorFlow. Có kinh nghiệm triển khai NLP, RAG, prompt engineering hoặc fine-tuning mô hình ngôn ngữ lớn.',
+    benefits: 'Mức thu nhập hấp dẫn thuộc top đầu thị trường viễn thông. Cơ hội tham gia các dự án cấp quốc gia, tài trợ chứng chỉ công nghệ quốc tế.',
+  },
+  {
+    jobId: 104,
+    title: 'Chuyên Viên Tuyển Dụng & Đào Tạo (HR Executive)',
+    companyName: 'MISA Joint Stock Company',
+    recruiterName: 'Lê Hoàng Yến',
+    recruiterEmail: 'hr@misa.com.vn',
+    location: 'Đà Nẵng',
+    salaryMin: 12000000,
+    salaryMax: 18000000,
+    employmentType: 'FULL_TIME',
+    approvalStatus: 'APPROVED',
+    status: 'PUBLISHED',
+    createdAt: new Date(Date.now() - 48 * 3600 * 1000).toISOString(),
+    deadline: '2026-11-20',
+    skills: ['Tuyển dụng', 'HR', 'Giao tiếp', 'Phỏng vấn', 'Onboarding'],
+    description: 'Chịu trách nhiệm toàn bộ quy trình thu hút nhân tài, đăng tin tuyển dụng, sàng lọc CV, phối hợp phỏng vấn và hỗ trợ nhân viên mới hòa nhập văn hóa MISA.',
+    requirements: 'Tốt nghiệp Đại học khối ngành Quản trị nhân lực, Kinh tế, Ngoại ngữ. Tối thiểu 1 năm kinh nghiệm tuyển dụng khối kỹ thuật hoặc kinh doanh.',
+    benefits: 'Chế độ phúc lợi đầy đủ theo luật Lao động. Thưởng KPI theo tháng, du lịch nghỉ dưỡng hàng năm, lộ trình thăng tiến rõ ràng.',
+  },
+  {
+    jobId: 105,
+    title: 'Cộng Tác Viên Đăng Bài & Nhập Liệu Online (Cảnh báo dấu hiệu lừa đảo)',
+    companyName: 'Cá nhân tự do (Chưa xác minh)',
+    recruiterName: 'Trương Văn X',
+    recruiterEmail: 'fake.recruiter@spam.com',
+    location: 'Toàn quốc (Remote)',
+    salaryMin: 15000000,
+    salaryMax: 20000000,
+    employmentType: 'PART_TIME',
+    approvalStatus: 'REJECTED',
+    status: 'DRAFT',
+    createdAt: new Date(Date.now() - 72 * 3600 * 1000).toISOString(),
+    deadline: '2026-10-30',
+    skills: ['Nhập liệu', 'Gõ văn bản'],
+    description: 'Công việc nhẹ nhàng không cần kinh nghiệm, gõ văn bản tại nhà nhận tiền ngay. Ứng viên cần đặt cọc trước 300.000 đ phí bảo lãnh tài liệu.',
+    requirements: 'Có điện thoại hoặc máy tính, rảnh 1-2 tiếng mỗi ngày.',
+    benefits: 'Nhận tiền mặt qua ATM hàng ngày.',
+  },
+];
+
 export default function AdminDashboardPage({ user, onLogout }) {
   // Parse initial tab from URL hash if present
   const getInitialTab = () => {
     const rawHash = window.location.hash || '';
+    if (rawHash.includes('tab=jobs') || rawHash.includes('tab=job')) return 'jobs';
     if (rawHash.includes('tab=companies') || rawHash.includes('tab=company')) return 'companies';
     if (rawHash.includes('tab=orders')) return 'orders';
     if (rawHash.includes('tab=packages')) return 'packages';
     if (rawHash.includes('tab=promotions')) return 'promotions';
     if (rawHash.includes('tab=users')) return 'users';
-    if (rawHash.includes('tab=analytics')) return 'analytics';
     if (rawHash.includes('tab=settings')) return 'settings';
     return 'dashboard';
   };
@@ -242,12 +340,12 @@ export default function AdminDashboardPage({ user, onLogout }) {
   useEffect(() => {
     const handleHash = () => {
       const rawHash = window.location.hash || '';
-      if (rawHash.includes('tab=companies') || rawHash.includes('tab=company')) setActiveTab('companies');
+      if (rawHash.includes('tab=jobs') || rawHash.includes('tab=job')) setActiveTab('jobs');
+      else if (rawHash.includes('tab=companies') || rawHash.includes('tab=company')) setActiveTab('companies');
       else if (rawHash.includes('tab=orders')) setActiveTab('orders');
       else if (rawHash.includes('tab=packages')) setActiveTab('packages');
       else if (rawHash.includes('tab=promotions')) setActiveTab('promotions');
       else if (rawHash.includes('tab=users')) setActiveTab('users');
-      else if (rawHash.includes('tab=analytics')) setActiveTab('analytics');
       else if (rawHash.includes('tab=settings')) setActiveTab('settings');
       else if (rawHash.includes('admin')) setActiveTab('dashboard');
     };
@@ -261,6 +359,11 @@ export default function AdminDashboardPage({ user, onLogout }) {
   const [vouchers, setVouchers] = useState(INITIAL_VOUCHERS);
   const [packagesList, setPackagesList] = useState(INITIAL_PACKAGES);
   const [usersList, setUsersList] = useState(INITIAL_USERS);
+  const [jobsList, setJobsList] = useState(INITIAL_JOBS);
+  const [selectedJob, setSelectedJob] = useState(null);
+  const [jobApprovalFilter, setJobApprovalFilter] = useState('ALL');
+  const [userRoleFilterTab, setUserRoleFilterTab] = useState('ALL');
+  const [userStatusFilterTab, setUserStatusFilterTab] = useState('ALL');
   const [realStats, setRealStats] = useState(null);
   const [loadingRealData, setLoadingRealData] = useState(false);
 
@@ -268,13 +371,14 @@ export default function AdminDashboardPage({ user, onLogout }) {
   const fetchRealData = async () => {
     try {
       setLoadingRealData(true);
-      const [statsRes, usersRes, companiesRes, ordersRes, plansRes, vouchersRes] = await Promise.allSettled([
+      const [statsRes, usersRes, companiesRes, ordersRes, plansRes, vouchersRes, jobsRes] = await Promise.allSettled([
         adminApi.getStats(),
         adminApi.getUsers(),
         adminApi.getCompanies(),
         adminApi.getOrders(),
         adminApi.getPlans(),
         adminApi.getVouchers(),
+        adminApi.getJobs(),
       ]);
 
       if (statsRes.status === 'fulfilled' && statsRes.value?.data) {
@@ -371,6 +475,14 @@ export default function AdminDashboardPage({ user, onLogout }) {
           badgeBg: v.isActive ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-slate-100 text-slate-600 border-slate-200',
         })));
       }
+
+      if (jobsRes.status === 'fulfilled') {
+        const jRaw = jobsRes.value?.data || jobsRes.value || [];
+        const jList = Array.isArray(jRaw) ? jRaw : (jRaw?.data || []);
+        if (Array.isArray(jList)) {
+          setJobsList(jList);
+        }
+      }
     } catch (err) {
       console.warn('Lỗi kết nối Supabase:', err);
     } finally {
@@ -407,6 +519,56 @@ export default function AdminDashboardPage({ user, onLogout }) {
   const pendingCompanies = companies.filter((c) => c.status === 'PENDING');
   const verifiedCompanies = companies.filter((c) => c.status === 'VERIFIED');
   const rejectedCompanies = companies.filter((c) => c.status === 'REJECTED');
+
+  const pendingJobs = jobsList.filter((j) => j.approvalStatus === 'PENDING' || !j.approvalStatus);
+  const approvedJobs = jobsList.filter((j) => j.approvalStatus === 'APPROVED');
+  const rejectedJobs = jobsList.filter((j) => j.approvalStatus === 'REJECTED');
+
+  const handleApproveJob = async (jobId) => {
+    try {
+      await adminApi.updateJobApproval(jobId, 'APPROVED');
+      setJobsList((prev) =>
+        prev.map((j) => (j.jobId === jobId ? { ...j, approvalStatus: 'APPROVED', status: 'PUBLISHED' } : j))
+      );
+      if (selectedJob && selectedJob.jobId === jobId) {
+        setSelectedJob((prev) => ({ ...prev, approvalStatus: 'APPROVED', status: 'PUBLISHED' }));
+      }
+      triggerToast(`Đã phê duyệt tin tuyển dụng #${jobId} thành công! Tin đã xuất bản.`);
+    } catch (err) {
+      console.warn('Lỗi duyệt tin từ API, cập nhật cục bộ:', err);
+      // Fallback update cho mock jobs hoặc khi offline
+      setJobsList((prev) =>
+        prev.map((j) => (j.jobId === jobId ? { ...j, approvalStatus: 'APPROVED', status: 'PUBLISHED' } : j))
+      );
+      if (selectedJob && selectedJob.jobId === jobId) {
+        setSelectedJob((prev) => ({ ...prev, approvalStatus: 'APPROVED', status: 'PUBLISHED' }));
+      }
+      triggerToast(`Đã phê duyệt tin tuyển dụng #${jobId} thành công!`);
+    }
+  };
+
+  const handleRejectJob = async (jobId) => {
+    try {
+      await adminApi.updateJobApproval(jobId, 'REJECTED');
+      setJobsList((prev) =>
+        prev.map((j) => (j.jobId === jobId ? { ...j, approvalStatus: 'REJECTED', status: 'CLOSED' } : j))
+      );
+      if (selectedJob && selectedJob.jobId === jobId) {
+        setSelectedJob((prev) => ({ ...prev, approvalStatus: 'REJECTED', status: 'CLOSED' }));
+      }
+      triggerToast(`Đã từ chối tin tuyển dụng #${jobId}.`);
+    } catch (err) {
+      console.warn('Lỗi từ chối tin từ API, cập nhật cục bộ:', err);
+      // Fallback update cho mock jobs hoặc khi offline
+      setJobsList((prev) =>
+        prev.map((j) => (j.jobId === jobId ? { ...j, approvalStatus: 'REJECTED', status: 'CLOSED' } : j))
+      );
+      if (selectedJob && selectedJob.jobId === jobId) {
+        setSelectedJob((prev) => ({ ...prev, approvalStatus: 'REJECTED', status: 'CLOSED' }));
+      }
+      triggerToast(`Đã từ chối tin tuyển dụng #${jobId}.`);
+    }
+  };
 
   const totalApprovedRev = realStats?.totalRevenue != null 
     ? Number(realStats.totalRevenue) 
@@ -678,6 +840,34 @@ export default function AdminDashboardPage({ user, onLogout }) {
     window.location.hash = `#/admin-dashboard?tab=${tabId}`;
   };
 
+  // Group activeTab into top-level navigation sections
+  const getNavGroup = () => {
+    if (['jobs', 'users', 'companies'].includes(activeTab)) return 'moderation';
+    if (['orders', 'packages', 'promotions'].includes(activeTab)) return 'finance';
+    if (activeTab === 'settings') return 'settings';
+    return 'dashboard';
+  };
+
+  const currentNavGroup = getNavGroup();
+
+  // Subtabs corresponding strictly to each group
+  const groupTabsMap = {
+    dashboard: [],
+    moderation: [
+      { id: 'jobs', label: `Duyệt Tin Đăng (${pendingJobs.length})`, icon: 'fact_check' },
+      { id: 'users', label: `Quản Lý Tài Khoản (${usersList.length})`, icon: 'manage_accounts' },
+      { id: 'companies', label: `Doanh Nghiệp (${pendingCompanies.length})`, icon: 'corporate_fare' },
+    ],
+    finance: [
+      { id: 'orders', label: 'Lịch Sử Giao Dịch', icon: 'receipt_long' },
+      { id: 'packages', label: 'Gói Dịch Vụ', icon: 'inventory_2' },
+      { id: 'promotions', label: 'Khuyến Mãi', icon: 'sell' },
+    ],
+    settings: [],
+  };
+
+  const currentGroupTabs = groupTabsMap[currentNavGroup] || [];
+
   return (
     <div className="admin-page min-h-screen bg-transparent text-[#1e1b4b] py-4 sm:py-6 px-2 sm:px-6 lg:px-8 font-sans animate-fade-in relative">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -695,34 +885,57 @@ export default function AdminDashboardPage({ user, onLogout }) {
         {/* ========================================================= */}
         {/* EXECUTIVE ADMIN PORTAL TOP BANNER CARD                   */}
         {/* ========================================================= */}
-        <div className="bg-white border border-purple-100 rounded-3xl p-5 sm:p-6 shadow-md flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-[#5b48bd] text-white shadow-md shrink-0 flex items-center justify-center font-bold text-lg">
-            ADM
+        <div className="bg-white border border-purple-100 rounded-3xl p-5 sm:p-6 shadow-md flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-[#5b48bd] text-white shadow-md shrink-0 flex items-center justify-center font-bold text-lg">
+              ADM
+            </div>
+            <div>
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h1 className="font-bold text-2xl sm:text-3xl text-[#1e1b4b]">
+                  {user?.fullName || 'Quản trị viên Hệ thống'}
+                </h1>
+                <span className="px-3 py-1 rounded-full text-xs font-extrabold uppercase bg-purple-50 text-[#5b48bd] border border-purple-200">
+                  {currentNavGroup === 'moderation' && 'Kiểm Duyệt & Quản Trị'}
+                  {currentNavGroup === 'finance' && 'Tài Chính & Dịch Vụ'}
+                  {currentNavGroup === 'settings' && 'Cấu Hình Hệ Thống'}
+                  {currentNavGroup === 'dashboard' && 'Tổng Quan'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                {currentNavGroup === 'moderation' && 'Khu vực kiểm duyệt tin tuyển dụng, tài khoản người dùng và hồ sơ doanh nghiệp'}
+                {currentNavGroup === 'finance' && 'Theo dõi thanh toán VietQR, quản trị gói dịch vụ và phát hành mã khuyến mãi'}
+                {currentNavGroup === 'settings' && 'Cài đặt tham số thuật toán AI Matching 70/30 và vận hành nền tảng'}
+                {currentNavGroup === 'dashboard' && 'Bảng điều khiển theo dõi tăng trưởng, người dùng và doanh thu thời gian thực'}
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="font-bold text-2xl sm:text-3xl text-[#1e1b4b]">
-              {user?.fullName || 'Quản trị viên Hệ thống'}
-            </h1>
-          </div>
+
+          <button
+            onClick={fetchRealData}
+            disabled={loadingRealData}
+            className="px-4 py-2.5 rounded-2xl border border-purple-200 bg-purple-50/70 hover:bg-purple-100/80 text-[#5b48bd] text-xs font-bold flex items-center gap-2 cursor-pointer transition-all shadow-xs"
+            title="Đồng bộ dữ liệu Supabase"
+          >
+            <span className={`material-symbols-outlined text-base ${loadingRealData ? 'animate-spin' : ''}`}>sync</span>
+            <span>{loadingRealData ? 'Đang đồng bộ...' : 'Đồng bộ Supabase'}</span>
+          </button>
         </div>
 
         {/* ========================================================= */}
-        {/* OVERVIEW SUB-NAVIGATION PILL BAR ("Nơi tổng quan")       */}
+        {/* ADMIN SUBNAV TAB BAR: CHỈ HIỂN THỊ CÁC TAB CỦA TRANG HIỆN TẠI */}
         {/* ========================================================= */}
-        {(activeTab === 'dashboard' || activeTab === 'analytics') && (
-          <div className="bg-white p-2.5 rounded-3xl border border-purple-100 shadow-sm flex items-center gap-2 overflow-x-auto no-scrollbar">
-            {[
-              { id: 'dashboard', label: 'Báo Cáo Tổng Quan', icon: 'dashboard' },
-              { id: 'analytics', label: 'Phân Tích Doanh Thu', icon: 'trending_up' },
-            ].map((tab) => {
+        {currentGroupTabs.length > 0 && (
+          <div className="bg-white p-2 rounded-3xl border border-purple-100 shadow-sm flex items-center gap-2 overflow-x-auto no-scrollbar">
+            {currentGroupTabs.map((tab) => {
               const isActive = activeTab === tab.id;
               return (
                 <button
                   key={tab.id}
                   onClick={() => handleTabSelect(tab.id)}
-                  className={`px-5 py-2.5 rounded-full text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+                  className={`px-5 py-2.5 rounded-full text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer shrink-0 ${
                     isActive
-                      ? 'bg-[#5b48bd] text-white shadow-md font-extrabold'
+                      ? 'bg-[#5b48bd] text-white shadow-md font-extrabold scale-[1.01]'
                       : 'text-[#47369f] hover:bg-purple-50 hover:text-[#5b48bd] border border-transparent'
                   }`}
                 >
@@ -893,23 +1106,28 @@ export default function AdminDashboardPage({ user, onLogout }) {
                 </div>
               </div>
 
-              {/* Card 5: Đơn mua chờ duyệt */}
+              {/* Card 5: Tin tuyển dụng chờ duyệt */}
               <div 
-                onClick={() => handleTabSelect('orders')}
-                className="bg-white rounded-3xl border border-purple-100 p-5 shadow-md hover:shadow-lg transition-all flex flex-col justify-between cursor-pointer group hover:border-rose-300"
+                onClick={() => handleTabSelect('jobs')}
+                className="bg-white rounded-3xl border border-purple-100 p-5 shadow-md hover:shadow-lg transition-all flex flex-col justify-between cursor-pointer group hover:border-[#5b48bd]"
               >
                 <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
-                  <span>Đơn mua chờ duyệt</span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-200">
-                    Cần xử lý
-                  </span>
+                  <span>Tin tuyển dụng chờ duyệt</span>
+                  <div className="w-9 h-9 rounded-2xl bg-purple-50 text-[#5b48bd] border border-purple-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                    <span className="material-symbols-outlined text-lg">fact_check</span>
+                  </div>
                 </div>
                 <div className="mt-3">
-                  <div className="text-2xl font-extrabold text-[#1e1b4b] tracking-tight">
-                    {realStats ? realStats.pendingOrders : pendingOrders.length}
+                  <div className="text-2xl font-extrabold text-[#1e1b4b] tracking-tight flex items-center gap-2">
+                    <span>{pendingJobs.length}</span>
+                    {pendingJobs.length > 0 && (
+                      <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 animate-pulse">
+                        Cần duyệt
+                      </span>
+                    )}
                   </div>
-                  <div className="mt-1.5 text-[11px] text-rose-600 font-medium flex items-center gap-1">
-                    <span className="material-symbols-outlined text-xs">schedule</span>Chờ duyệt VietQR →
+                  <div className="mt-1.5 text-[11px] text-[#5b48bd] font-bold flex items-center gap-1">
+                    <span>Kiểm duyệt tin đăng →</span>
                   </div>
                 </div>
               </div>
@@ -1085,6 +1303,390 @@ export default function AdminDashboardPage({ user, onLogout }) {
                 </div>
               </div>
             </div>
+
+            {/* BÁO CÁO DOANH THU & KÊNH THANH TOÁN VIETQR */}
+            <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-md space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-bold text-[#1e1b4b] flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[#5b48bd]">payments</span>
+                    Báo Cáo Doanh Thu & Kênh Thanh Toán VietQR
+                  </h3>
+                  <p className="text-xs text-slate-500">Phân tích dòng tiền trực tuyến, tăng trưởng ARPU và giao dịch VietQR</p>
+                </div>
+                <button
+                  onClick={() => handleTabSelect('orders')}
+                  className="px-3 py-1.5 rounded-full bg-purple-50 text-[#5b48bd] hover:bg-purple-100 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                >
+                  <span>Chi tiết giao dịch</span>
+                  <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+                <div className="p-4 rounded-2xl bg-purple-50/60 border border-purple-100">
+                  <span className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Tổng Doanh Thu Lũy Kế</span>
+                  <div className="text-2xl font-black text-[#1e1b4b] mt-1">{totalApprovedRev.toLocaleString('vi-VN')} đ</div>
+                  <div className="text-[11px] text-emerald-600 font-semibold mt-0.5 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-xs">verified</span>
+                    Đồng bộ thực từ Supabase
+                  </div>
+                </div>
+                <div className="p-4 rounded-2xl bg-blue-50/60 border border-blue-100">
+                  <span className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">ARPU (Doanh Thu / User)</span>
+                  <div className="text-2xl font-black text-[#1e1b4b] mt-1">{calculatedArpu.toLocaleString('vi-VN')} đ</div>
+                  <div className="text-[11px] text-blue-600 font-semibold mt-0.5">Trên {totalUsersCount} người dùng</div>
+                </div>
+                <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-100">
+                  <span className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Cổng Thanh Toán VietQR</span>
+                  <div className="text-2xl font-black text-emerald-700 mt-1">100% Tự Động</div>
+                  <div className="text-[11px] text-emerald-600 font-semibold mt-0.5">Quét mã VietQR chuẩn MBBank</div>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <div className="flex items-center justify-between text-xs font-semibold mb-1.5">
+                  <span className="text-slate-600">VietQR Direct Bank Transfer</span>
+                  <span className="font-extrabold text-[#5b48bd]">{totalApprovedRev.toLocaleString('vi-VN')} đ (100%)</span>
+                </div>
+                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                  <div className="bg-[#5b48bd] h-full rounded-full" style={{ width: '100%' }}></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* TAB: DUYỆT TIN TUYỂN DỤNG CỦA DOANH NGHIỆP                */}
+        {/* ========================================================= */}
+        {activeTab === 'jobs' && (
+          <div className="space-y-6 animate-fade-in font-sans">
+            {/* Header & Title */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-bold text-[#1e1b4b]">
+                  Kiểm Duyệt Tin Tuyển Dụng Doanh Nghiệp
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Kiểm duyệt nội dung bài đăng tuyển dụng, mức lương và yêu cầu kỹ năng trước khi xuất bản ra trang chủ cho ứng viên
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={fetchRealData}
+                  disabled={loadingRealData}
+                  className="px-4 py-2 bg-purple-50 hover:bg-purple-100 text-[#5b48bd] rounded-full text-xs font-bold flex items-center gap-1.5 cursor-pointer border border-purple-200 shadow-xs"
+                >
+                  <span className={`material-symbols-outlined text-base ${loadingRealData ? 'animate-spin' : ''}`}>sync</span>
+                  <span>Làm mới danh sách</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 4 STAT KPI CARDS */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Card 1: Chờ duyệt */}
+              <button
+                onClick={() => setJobApprovalFilter('PENDING')}
+                className={`text-left rounded-3xl border p-4 shadow-sm transition-all cursor-pointer ${
+                  jobApprovalFilter === 'PENDING'
+                    ? 'bg-amber-100/80 border-amber-400 ring-2 ring-amber-300'
+                    : 'bg-amber-50/50 border-amber-200 hover:bg-amber-100/50'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-bold text-amber-800 flex items-center gap-1">
+                      <span>Tin chờ duyệt</span>
+                      {pendingJobs.length > 0 && <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>}
+                    </div>
+                    <div className="text-2xl font-extrabold text-amber-900 mt-1">{pendingJobs.length}</div>
+                    <div className="text-[11px] text-amber-700 mt-0.5">Cần phê duyệt để xuất bản</div>
+                  </div>
+                  <div className="w-12 h-12 rounded-2xl bg-amber-200/80 text-amber-900 border border-amber-300 flex items-center justify-center font-bold shadow-xs">
+                    <span className="material-symbols-outlined text-2xl">pending_actions</span>
+                  </div>
+                </div>
+              </button>
+
+              {/* Card 2: Đã duyệt */}
+              <button
+                onClick={() => setJobApprovalFilter('APPROVED')}
+                className={`text-left rounded-3xl border p-4 shadow-sm transition-all cursor-pointer ${
+                  jobApprovalFilter === 'APPROVED'
+                    ? 'bg-emerald-100/80 border-emerald-400 ring-2 ring-emerald-300'
+                    : 'bg-emerald-50/40 border-emerald-200 hover:bg-emerald-100/50'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-bold text-emerald-800">Tin đã phê duyệt</div>
+                    <div className="text-2xl font-extrabold text-emerald-900 mt-1">{approvedJobs.length}</div>
+                    <div className="text-[11px] text-emerald-700 mt-0.5">Đang hiển thị trên trang chủ</div>
+                  </div>
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center justify-center font-bold shadow-xs">
+                    <span className="material-symbols-outlined text-2xl">check_circle</span>
+                  </div>
+                </div>
+              </button>
+
+              {/* Card 3: Bị từ chối */}
+              <button
+                onClick={() => setJobApprovalFilter('REJECTED')}
+                className={`text-left rounded-3xl border p-4 shadow-sm transition-all cursor-pointer ${
+                  jobApprovalFilter === 'REJECTED'
+                    ? 'bg-rose-100/80 border-rose-400 ring-2 ring-rose-300'
+                    : 'bg-rose-50/40 border-rose-200 hover:bg-rose-100/50'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-bold text-rose-800">Tin bị từ chối</div>
+                    <div className="text-2xl font-extrabold text-rose-900 mt-1">{rejectedJobs.length}</div>
+                    <div className="text-[11px] text-rose-700 mt-0.5">Chưa đạt tiêu chuẩn kiểm duyệt</div>
+                  </div>
+                  <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-800 border border-rose-300 flex items-center justify-center font-bold shadow-xs">
+                    <span className="material-symbols-outlined text-2xl">cancel</span>
+                  </div>
+                </div>
+              </button>
+
+              {/* Card 4: Tất cả tin */}
+              <button
+                onClick={() => setJobApprovalFilter('ALL')}
+                className={`text-left rounded-3xl border p-4 shadow-sm transition-all cursor-pointer ${
+                  jobApprovalFilter === 'ALL'
+                    ? 'bg-purple-100 border-purple-400 ring-2 ring-purple-300'
+                    : 'bg-white border-purple-100 hover:bg-purple-50'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-bold text-[#5b48bd]">Tất cả tin đăng</div>
+                    <div className="text-2xl font-extrabold text-[#1e1b4b] mt-1">{jobsList.length}</div>
+                    <div className="text-[11px] text-purple-700 mt-0.5">Tổng bài đăng trên hệ thống</div>
+                  </div>
+                  <div className="w-12 h-12 rounded-2xl bg-purple-100 text-[#5b48bd] border border-purple-200 flex items-center justify-center font-bold shadow-xs">
+                    <span className="material-symbols-outlined text-2xl">work</span>
+                  </div>
+                </div>
+              </button>
+            </div>
+
+            {/* Filter and Search Bar */}
+            <div className="bg-white p-4 rounded-3xl border border-purple-100 flex flex-wrap items-center justify-between gap-4 shadow-sm">
+              <div className="flex items-center gap-2 flex-1 max-w-md bg-purple-50/50 px-3.5 py-2 rounded-full border border-purple-100">
+                <span className="material-symbols-outlined text-[#5b48bd]">search</span>
+                <input
+                  type="text"
+                  placeholder="Tìm theo Tiêu đề tin, Tên công ty, HR, Địa điểm, Kỹ năng..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="bg-transparent text-xs w-full outline-none font-sans"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-1 bg-purple-50 p-1 rounded-full border border-purple-100">
+                  {[
+                    { id: 'PENDING', label: `Chờ duyệt (${pendingJobs.length})` },
+                    { id: 'APPROVED', label: `Đã duyệt (${approvedJobs.length})` },
+                    { id: 'REJECTED', label: `Từ chối (${rejectedJobs.length})` },
+                    { id: 'ALL', label: `Tất cả (${jobsList.length})` },
+                  ].map((st) => (
+                    <button
+                      key={st.id}
+                      onClick={() => setJobApprovalFilter(st.id)}
+                      className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                        jobApprovalFilter === st.id
+                          ? 'bg-[#5b48bd] text-white shadow-xs font-extrabold'
+                          : 'text-slate-600 hover:text-[#5b48bd]'
+                      }`}
+                    >
+                      {st.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Table or Empty State */}
+            {(() => {
+              const filteredJobs = jobsList.filter((job) => {
+                const status = job.approvalStatus || 'PENDING';
+                const matchStatus = jobApprovalFilter === 'ALL' || status === jobApprovalFilter;
+                const q = searchQuery.toLowerCase();
+                const matchQuery =
+                  !searchQuery ||
+                  (job.title && job.title.toLowerCase().includes(q)) ||
+                  (job.companyName && job.companyName.toLowerCase().includes(q)) ||
+                  (job.recruiterName && job.recruiterName.toLowerCase().includes(q)) ||
+                  (job.location && job.location.toLowerCase().includes(q)) ||
+                  (job.skills && job.skills.some((s) => s.toLowerCase().includes(q)));
+                return matchStatus && matchQuery;
+              });
+
+              if (filteredJobs.length === 0) {
+                return (
+                  <div className="bg-white rounded-3xl border border-purple-100 p-12 text-center space-y-3 shadow-md">
+                    <div className="w-16 h-16 rounded-full bg-purple-50 text-[#5b48bd] mx-auto flex items-center justify-center">
+                      <span className="material-symbols-outlined text-3xl">fact_check</span>
+                    </div>
+                    <h3 className="text-base font-bold text-[#1e1b4b]">Không có tin tuyển dụng nào phù hợp</h3>
+                    <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                      Hiện tại không có tin tuyển dụng nào theo bộ lọc đang chọn. Thử chọn "Tất cả" hoặc thay đổi từ khóa tìm kiếm.
+                    </p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="bg-white rounded-3xl border border-purple-100 overflow-hidden shadow-md">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-[#32247b] text-white text-[11px] uppercase tracking-wider font-bold">
+                      <tr>
+                        <th className="py-3.5 px-4">Tin Tuyển Dụng / Vị Trí</th>
+                        <th className="py-3.5 px-4">Doanh Nghiệp &amp; HR</th>
+                        <th className="py-3.5 px-4">Mức Lương / Địa Điểm</th>
+                        <th className="py-3.5 px-4">Kỹ Năng Yêu Cầu</th>
+                        <th className="py-3.5 px-4">Ngày Đăng</th>
+                        <th className="py-3.5 px-4 text-center">Trạng Thái Duyệt</th>
+                        <th className="py-3.5 px-4 text-right">Thao Tác</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-purple-100">
+                      {filteredJobs.map((job) => {
+                        const status = job.approvalStatus || 'PENDING';
+                        return (
+                          <tr key={job.jobId} className="hover:bg-purple-50/40 transition-colors">
+                            <td className="py-4 px-4 font-bold text-[#1e1b4b]">
+                              <div
+                                className="font-bold text-sm text-[#1e1b4b] hover:text-[#5b48bd] transition-colors cursor-pointer"
+                                onClick={() => setSelectedJob(job)}
+                              >
+                                {job.title}
+                              </div>
+                              <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-500 font-normal">
+                                <span className="font-mono text-purple-700 font-semibold">#{job.jobId}</span>
+                                <span>•</span>
+                                <span className="bg-purple-50 text-purple-800 px-2 py-0.5 rounded-md font-semibold">
+                                  {job.employmentType === 'FULL_TIME' ? 'Toàn thời gian' : job.employmentType === 'PART_TIME' ? 'Bán thời gian' : job.employmentType === 'INTERNSHIP' ? 'Thực tập sinh' : (job.employmentType || 'Toàn thời gian')}
+                                </span>
+                              </div>
+                            </td>
+
+                            <td className="py-4 px-4">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-xl bg-purple-100 text-[#5b48bd] flex items-center justify-center font-bold text-xs shrink-0">
+                                  {job.companyName ? job.companyName.charAt(0).toUpperCase() : 'C'}
+                                </div>
+                                <div>
+                                  <div className="font-bold text-[#1e1b4b]">{job.companyName || 'HireMate Partner'}</div>
+                                  <div className="text-[11px] text-slate-500">{job.recruiterName || 'HR Tuyển dụng'}</div>
+                                  {job.recruiterEmail && (
+                                    <div className="text-[10px] text-slate-400 font-mono">{job.recruiterEmail}</div>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+
+                            <td className="py-4 px-4">
+                              <div className="font-bold text-[#5b48bd]">
+                                {job.salaryMin && job.salaryMax
+                                  ? `${Number(job.salaryMin).toLocaleString('vi-VN')} - ${Number(job.salaryMax).toLocaleString('vi-VN')} đ`
+                                  : job.salaryMin
+                                  ? `Từ ${Number(job.salaryMin).toLocaleString('vi-VN')} đ`
+                                  : 'Thỏa thuận'}
+                              </div>
+                              <div className="text-[11px] text-slate-500 flex items-center gap-0.5 mt-0.5">
+                                <span className="material-symbols-outlined text-[13px] text-slate-400">location_on</span>
+                                <span>{job.location || 'Toàn quốc'}</span>
+                              </div>
+                            </td>
+
+                            <td className="py-4 px-4">
+                              <div className="flex flex-wrap gap-1 max-w-[200px]">
+                                {job.skills && job.skills.length > 0 ? (
+                                  job.skills.slice(0, 3).map((sk, idx) => (
+                                    <span key={idx} className="px-2 py-0.5 rounded-md bg-purple-50 text-purple-800 border border-purple-200 text-[10px] font-semibold">
+                                      {sk}
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span className="text-slate-400 text-[11px] italic">Không có kỹ năng cụ thể</span>
+                                )}
+                                {job.skills && job.skills.length > 3 && (
+                                  <span className="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-bold">
+                                    +{job.skills.length - 3}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+
+                            <td className="py-4 px-4 text-slate-500">
+                              {job.createdAt ? new Date(job.createdAt).toLocaleDateString('vi-VN') : 'Mới'}
+                            </td>
+
+                            <td className="py-4 px-4 text-center">
+                              <span
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${
+                                  status === 'APPROVED'
+                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                    : status === 'REJECTED'
+                                    ? 'bg-rose-50 text-rose-800 border-rose-200'
+                                    : 'bg-amber-50 text-amber-800 border-amber-200'
+                                }`}
+                              >
+                                <span className="material-symbols-outlined text-xs">
+                                  {status === 'APPROVED' ? 'check_circle' : status === 'REJECTED' ? 'cancel' : 'pending'}
+                                </span>
+                                <span>
+                                  {status === 'APPROVED' ? 'Đã duyệt' : status === 'REJECTED' ? 'Từ chối' : 'Chờ duyệt'}
+                                </span>
+                              </span>
+                            </td>
+
+                            <td className="py-4 px-4 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  onClick={() => setSelectedJob(job)}
+                                  className="p-1.5 rounded-xl border border-purple-200 text-[#5b48bd] hover:bg-purple-50 cursor-pointer"
+                                  title="Xem chi tiết bài đăng"
+                                >
+                                  <span className="material-symbols-outlined text-base">visibility</span>
+                                </button>
+                                {status !== 'APPROVED' && (
+                                  <button
+                                    onClick={() => handleApproveJob(job.jobId)}
+                                    className="px-2.5 py-1 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] flex items-center gap-1 cursor-pointer shadow-xs transition-all"
+                                    title="Phê duyệt tin này"
+                                  >
+                                    <span className="material-symbols-outlined text-xs">check</span>
+                                    <span>Duyệt</span>
+                                  </button>
+                                )}
+                                {status !== 'REJECTED' && (
+                                  <button
+                                    onClick={() => handleRejectJob(job.jobId)}
+                                    className="px-2.5 py-1 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-[11px] flex items-center gap-1 cursor-pointer transition-all"
+                                    title="Từ chối duyệt tin này"
+                                  >
+                                    <span className="material-symbols-outlined text-xs">close</span>
+                                    <span>Từ chối</span>
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
           </div>
         )}
 
@@ -2005,137 +2607,299 @@ export default function AdminDashboardPage({ user, onLogout }) {
         {/* ========================================================= */}
         {activeTab === 'users' && (
           <div className="space-y-6 animate-fade-in font-sans">
-            <div>
-              <h2 className="text-xl font-bold text-[#1e1b4b]">Quản Lý Người Dùng &amp; Phân Quyền</h2>
-              <p className="text-xs text-slate-500">Danh sách tài khoản Candidate, Recruiter và Admin trên hệ thống HireMate AI</p>
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-bold text-[#1e1b4b]">
+                  Quản Lý Tài Khoản Người Dùng &amp; Phân Quyền
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Quản lý và phân quyền tài khoản Ứng viên (Candidate), Nhà tuyển dụng (Recruiter) và Quản trị viên (Admin)
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={fetchRealData}
+                  disabled={loadingRealData}
+                  className="px-4 py-2 bg-purple-50 hover:bg-purple-100 text-[#5b48bd] rounded-full text-xs font-bold flex items-center gap-1.5 cursor-pointer border border-purple-200 shadow-xs"
+                >
+                  <span className={`material-symbols-outlined text-base ${loadingRealData ? 'animate-spin' : ''}`}>sync</span>
+                  <span>Đồng bộ tài khoản</span>
+                </button>
+              </div>
             </div>
 
-            <div className="bg-white p-4 rounded-3xl border border-purple-100 flex items-center justify-between gap-4 shadow-sm">
+            {/* 4 KPI CARDS */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Card 1: Tổng người dùng */}
+              <button
+                onClick={() => setUserRoleFilterTab('ALL')}
+                className={`text-left rounded-3xl border p-4 shadow-sm transition-all cursor-pointer ${
+                  userRoleFilterTab === 'ALL'
+                    ? 'bg-purple-100 border-purple-400 ring-2 ring-purple-300'
+                    : 'bg-white border-purple-100 hover:bg-purple-50'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-bold text-[#5b48bd]">Tổng tài khoản</div>
+                    <div className="text-2xl font-extrabold text-[#1e1b4b] mt-1">{usersList.length}</div>
+                    <div className="text-[11px] text-purple-700 mt-0.5">Tất cả tài khoản trong hệ thống</div>
+                  </div>
+                  <div className="w-12 h-12 rounded-2xl bg-purple-50 text-[#5b48bd] border border-purple-200 flex items-center justify-center font-bold">
+                    <span className="material-symbols-outlined text-2xl">group</span>
+                  </div>
+                </div>
+              </button>
+
+              {/* Card 2: Ứng viên (Candidate) */}
+              <button
+                onClick={() => setUserRoleFilterTab('CANDIDATE')}
+                className={`text-left rounded-3xl border p-4 shadow-sm transition-all cursor-pointer ${
+                  userRoleFilterTab === 'CANDIDATE'
+                    ? 'bg-blue-100/80 border-blue-400 ring-2 ring-blue-300'
+                    : 'bg-blue-50/40 border-blue-200 hover:bg-blue-100/50'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-bold text-blue-800">Ứng viên (Candidate)</div>
+                    <div className="text-2xl font-extrabold text-blue-900 mt-1">
+                      {usersList.filter((u) => u.role === 'CANDIDATE').length}
+                    </div>
+                    <div className="text-[11px] text-blue-700 mt-0.5">Tài khoản tìm việc &amp; luyện tập</div>
+                  </div>
+                  <div className="w-12 h-12 rounded-2xl bg-blue-100 text-blue-800 border border-blue-300 flex items-center justify-center font-bold">
+                    <span className="material-symbols-outlined text-2xl">person</span>
+                  </div>
+                </div>
+              </button>
+
+              {/* Card 3: Nhà tuyển dụng (Recruiter) */}
+              <button
+                onClick={() => setUserRoleFilterTab('RECRUITER')}
+                className={`text-left rounded-3xl border p-4 shadow-sm transition-all cursor-pointer ${
+                  userRoleFilterTab === 'RECRUITER'
+                    ? 'bg-emerald-100/80 border-emerald-400 ring-2 ring-emerald-300'
+                    : 'bg-emerald-50/40 border-emerald-200 hover:bg-emerald-100/50'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-bold text-emerald-800">Nhà tuyển dụng (Recruiter)</div>
+                    <div className="text-2xl font-extrabold text-emerald-900 mt-1">
+                      {usersList.filter((u) => u.role === 'RECRUITER').length}
+                    </div>
+                    <div className="text-[11px] text-emerald-700 mt-0.5">HR &amp; Đại diện doanh nghiệp</div>
+                  </div>
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center justify-center font-bold">
+                    <span className="material-symbols-outlined text-2xl">badge</span>
+                  </div>
+                </div>
+              </button>
+
+              {/* Card 4: Quản trị viên (Admin) */}
+              <button
+                onClick={() => setUserRoleFilterTab('ADMIN')}
+                className={`text-left rounded-3xl border p-4 shadow-sm transition-all cursor-pointer ${
+                  userRoleFilterTab === 'ADMIN'
+                    ? 'bg-amber-100/80 border-amber-400 ring-2 ring-amber-300'
+                    : 'bg-amber-50/40 border-amber-200 hover:bg-amber-100/50'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-bold text-amber-800">Quản trị viên (Admin)</div>
+                    <div className="text-2xl font-extrabold text-amber-900 mt-1">
+                      {usersList.filter((u) => u.role === 'ADMIN').length}
+                    </div>
+                    <div className="text-[11px] text-amber-700 mt-0.5">Quyền kiểm duyệt toàn hệ thống</div>
+                  </div>
+                  <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-800 border border-amber-300 flex items-center justify-center font-bold">
+                    <span className="material-symbols-outlined text-2xl">admin_panel_settings</span>
+                  </div>
+                </div>
+              </button>
+            </div>
+
+            {/* Filter and Search Bar */}
+            <div className="bg-white p-4 rounded-3xl border border-purple-100 flex flex-wrap items-center justify-between gap-4 shadow-sm">
               <div className="flex items-center gap-2 flex-1 max-w-md bg-purple-50/50 px-3.5 py-2 rounded-full border border-purple-100">
                 <span className="material-symbols-outlined text-[#5b48bd]">search</span>
                 <input
                   type="text"
-                  placeholder="Tìm theo Họ tên, Email, Công ty..."
+                  placeholder="Tìm theo Họ tên, Email, Số điện thoại, Công ty..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="bg-transparent text-xs w-full outline-none font-sans"
                 />
               </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Role Filter Pills */}
+                <div className="flex items-center gap-1 bg-purple-50 p-1 rounded-full border border-purple-100">
+                  {[
+                    { id: 'ALL', label: `Tất cả vai trò` },
+                    { id: 'CANDIDATE', label: `Ứng viên` },
+                    { id: 'RECRUITER', label: `Nhà tuyển dụng` },
+                    { id: 'ADMIN', label: `Quản trị` },
+                  ].map((r) => (
+                    <button
+                      key={r.id}
+                      onClick={() => setUserRoleFilterTab(r.id)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                        userRoleFilterTab === r.id
+                          ? 'bg-[#5b48bd] text-white shadow-xs font-extrabold'
+                          : 'text-slate-600 hover:text-[#5b48bd]'
+                      }`}
+                    >
+                      {r.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Status Filter */}
+                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-full border border-slate-200">
+                  {[
+                    { id: 'ALL', label: 'Tất cả trạng thái' },
+                    { id: 'ACTIVE', label: 'Hoạt động' },
+                    { id: 'LOCKED', label: 'Bị khóa' },
+                  ].map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => setUserStatusFilterTab(s.id)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                        userStatusFilterTab === s.id
+                          ? 'bg-white text-[#1e1b4b] shadow-xs'
+                          : 'text-slate-500 hover:text-[#1e1b4b]'
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
-            <div className="bg-white rounded-3xl border border-purple-100 overflow-hidden shadow-md">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-[#32247b] text-white text-[11px] uppercase tracking-wider font-bold">
-                  <tr>
-                    <th className="py-3 px-4">ID / Họ và Tên</th>
-                    <th className="py-3 px-4">Email</th>
-                    <th className="py-3 px-4">Vai trò (Role)</th>
-                    <th className="py-3 px-4">Tổ chức / Công ty</th>
-                    <th className="py-3 px-4">Ngày tham gia</th>
-                    <th className="py-3 px-4 text-center">Trạng thái</th>
-                    <th className="py-3 px-4 text-right">Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-purple-100">
-                  {usersList
-                    .filter(
-                      (u) =>
-                        u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        u.role.toLowerCase().includes(searchQuery.toLowerCase())
-                    )
-                    .map((u) => (
-                      <tr key={u.id} className="hover:bg-purple-50/40 transition-colors">
-                        <td className="py-3.5 px-4 font-bold text-[#1e1b4b]">
-                          #{u.id} - {u.name}
-                        </td>
-                        <td className="py-3.5 px-4 text-slate-500 font-mono">{u.email}</td>
-                        <td className="py-3.5 px-4">
-                          <span
-                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                              u.role === 'ADMIN'
-                                ? 'bg-purple-100 text-purple-800'
-                                : u.role === 'RECRUITER'
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : 'bg-slate-100 text-slate-700'
-                            }`}
-                          >
-                            {u.role}
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4 font-semibold text-slate-700">{u.company}</td>
-                        <td className="py-3.5 px-4 text-slate-400">{u.joined}</td>
-                        <td className="py-3.5 px-4 text-center">
-                          <span
-                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                              u.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
-                            }`}
-                          >
-                            {u.status === 'ACTIVE' ? 'Hoạt động' : 'Khóa'}
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4 text-right">
-                          <button
-                            onClick={() => handleToggleUserLock(u.id)}
-                            className="px-3 py-1 text-xs font-bold rounded-full border border-slate-200 hover:bg-slate-100 cursor-pointer"
-                          >
-                            {u.status === 'ACTIVE' ? 'Khóa' : 'Mở khóa'}
-                          </button>
-                        </td>
+            {/* Table */}
+            {(() => {
+              const filteredUsers = usersList.filter((u) => {
+                const matchRole = userRoleFilterTab === 'ALL' || u.role === userRoleFilterTab;
+                const matchStatus = userStatusFilterTab === 'ALL' || u.status === userStatusFilterTab;
+                const q = searchQuery.toLowerCase();
+                const matchQuery =
+                  !searchQuery ||
+                  (u.name && u.name.toLowerCase().includes(q)) ||
+                  (u.email && u.email.toLowerCase().includes(q)) ||
+                  (u.phone && u.phone.toLowerCase().includes(q)) ||
+                  (u.company && u.company.toLowerCase().includes(q)) ||
+                  (u.role && u.role.toLowerCase().includes(q));
+                return matchRole && matchStatus && matchQuery;
+              });
+
+              if (filteredUsers.length === 0) {
+                return (
+                  <div className="bg-white rounded-3xl border border-purple-100 p-12 text-center space-y-3 shadow-md">
+                    <div className="w-16 h-16 rounded-full bg-purple-50 text-[#5b48bd] mx-auto flex items-center justify-center">
+                      <span className="material-symbols-outlined text-3xl">no_accounts</span>
+                    </div>
+                    <h3 className="text-base font-bold text-[#1e1b4b]">Không tìm thấy tài khoản nào</h3>
+                    <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                      Thử thay đổi từ khóa tìm kiếm hoặc bỏ bớt các bộ lọc vai trò, trạng thái.
+                    </p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="bg-white rounded-3xl border border-purple-100 overflow-hidden shadow-md">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-[#32247b] text-white text-[11px] uppercase tracking-wider font-bold">
+                      <tr>
+                        <th className="py-3.5 px-4">Tài Khoản / Thành Viên</th>
+                        <th className="py-3.5 px-4">Email &amp; Số Điện Thoại</th>
+                        <th className="py-3.5 px-4">Vai Trò (Role)</th>
+                        <th className="py-3.5 px-4">Tổ Chức / Doanh Nghiệp</th>
+                        <th className="py-3.5 px-4">Ngày Tham Gia</th>
+                        <th className="py-3.5 px-4 text-center">Trạng Thái</th>
+                        <th className="py-3.5 px-4 text-right">Thao Tác</th>
                       </tr>
-                    ))}
-                </tbody>
-              </table>
-            </div>
+                    </thead>
+                    <tbody className="divide-y divide-purple-100">
+                      {filteredUsers.map((u) => (
+                        <tr key={u.id} className="hover:bg-purple-50/40 transition-colors">
+                          <td className="py-3.5 px-4 font-bold text-[#1e1b4b]">
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-2xl bg-[#5b48bd] text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
+                                {u.name ? u.name.charAt(0).toUpperCase() : 'U'}
+                              </div>
+                              <div>
+                                <div className="font-bold text-[#1e1b4b] text-sm">{u.name}</div>
+                                <div className="text-[10px] text-slate-400 font-mono">ID: #{u.id}</div>
+                              </div>
+                            </div>
+                          </td>
+
+                          <td className="py-3.5 px-4">
+                            <div className="text-slate-600 font-mono">{u.email}</div>
+                            {u.phone && u.phone !== '-' && (
+                              <div className="text-[11px] text-slate-400">{u.phone}</div>
+                            )}
+                          </td>
+
+                          <td className="py-3.5 px-4">
+                            <span
+                              className={`px-3 py-1 rounded-full text-[10px] font-extrabold border ${
+                                u.role === 'ADMIN'
+                                  ? 'bg-purple-100 text-purple-900 border-purple-300'
+                                  : u.role === 'RECRUITER'
+                                  ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                                  : 'bg-blue-100 text-blue-900 border-blue-300'
+                              }`}
+                            >
+                              {u.role === 'ADMIN' ? 'Quản Trị Viên' : u.role === 'RECRUITER' ? 'Nhà Tuyển Dụng' : 'Ứng Viên'}
+                            </span>
+                          </td>
+
+                          <td className="py-3.5 px-4 font-semibold text-slate-700">{u.company}</td>
+                          <td className="py-3.5 px-4 text-slate-500 font-medium">{u.joined}</td>
+
+                          <td className="py-3.5 px-4 text-center">
+                            <span
+                              className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
+                                u.status === 'ACTIVE'
+                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                  : 'bg-rose-50 text-rose-800 border-rose-200'
+                              }`}
+                            >
+                              {u.status === 'ACTIVE' ? 'Hoạt động' : 'Tài khoản bị khóa'}
+                            </span>
+                          </td>
+
+                          <td className="py-3.5 px-4 text-right">
+                            <button
+                              onClick={() => handleToggleUserLock(u.id)}
+                              className={`px-3 py-1.5 text-xs font-bold rounded-full border transition-all cursor-pointer ${
+                                u.status === 'ACTIVE'
+                                  ? 'bg-white text-rose-700 border-rose-200 hover:bg-rose-50'
+                                  : 'bg-[#10b981] text-white border-transparent hover:bg-[#059669]'
+                              }`}
+                            >
+                              {u.status === 'ACTIVE' ? 'Khóa tài khoản' : 'Mở khóa'}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
           </div>
         )}
 
-        {/* ========================================================= */}
-        {/* TAB 7: THỐNG KÊ DOANH THU (REVENUE ANALYTICS)              */}
-        {/* ========================================================= */}
-        {activeTab === 'analytics' && (
-          <div className="space-y-6 animate-fade-in font-sans">
-            <div>
-              <h2 className="text-xl font-bold text-[#1e1b4b]">Báo Cáo Doanh Thu Chi Tiết</h2>
-              <p className="text-xs text-slate-500">Phân tích dòng tiền, tăng trưởng ARPU và nguồn doanh thu gói</p>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-md">
-                <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Tổng Doanh Thu Lũy Kế</span>
-                <div className="text-3xl font-extrabold text-[#1e1b4b] mt-2">
-                  {totalApprovedRev.toLocaleString('vi-VN')} đ
-                </div>
-                <div className="text-xs text-emerald-600 font-bold mt-1">Đồng bộ từ CSDL Supabase</div>
-              </div>
-              <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-md">
-                <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">ARPU (Doanh thu / User)</span>
-                <div className="text-3xl font-extrabold text-[#1e1b4b] mt-2">
-                  {calculatedArpu.toLocaleString('vi-VN')} đ
-                </div>
-                <div className="text-xs text-emerald-600 font-bold mt-1">Tính theo {totalUsersCount} người dùng</div>
-              </div>
-              <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-md">
-                <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Thanh Toán VietQR Tự Động</span>
-                <div className="text-3xl font-extrabold text-[#1e1b4b] mt-2">100%</div>
-                <div className="text-xs text-slate-400 mt-1">Chuẩn quét mã VietQR MBBank</div>
-              </div>
-            </div>
-
-            <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-md space-y-4">
-              <h3 className="text-base font-bold text-[#1e1b4b]">Doanh Thu Theo Kênh Thanh Toán</h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-xs font-semibold">
-                  <span>VietQR Direct Bank Transfer</span>
-                  <span className="font-extrabold text-[#5b48bd]">{totalApprovedRev.toLocaleString('vi-VN')} đ (100%)</span>
-                </div>
-                <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
-                  <div className="bg-[#5b48bd] h-full rounded-full" style={{ width: '100%' }}></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* ========================================================= */}
         {/* TAB 8: CÀI ĐẶT HỆ THỐNG (SYSTEM SETTINGS)                */}
@@ -2674,6 +3438,182 @@ export default function AdminDashboardPage({ user, onLogout }) {
               >
                 Áp dụng
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: XEM CHI TIẾT & KIỂM DUYỆT BÀI ĐĂNG TUYỂN DỤNG */}
+      {selectedJob && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in font-sans">
+          <div className="bg-white max-w-2xl w-full rounded-3xl shadow-2xl border border-purple-100 max-h-[90vh] flex flex-col overflow-hidden">
+            {/* Header */}
+            <div className="p-6 border-b border-purple-100 flex items-start justify-between bg-purple-50/50">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-bold text-purple-700 bg-purple-100 px-2.5 py-0.5 rounded-full">
+                    Mã tin: #{selectedJob.jobId}
+                  </span>
+                  <span
+                    className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                      selectedJob.approvalStatus === 'APPROVED'
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                        : selectedJob.approvalStatus === 'REJECTED'
+                        ? 'bg-rose-50 text-rose-800 border-rose-200'
+                        : 'bg-amber-50 text-amber-800 border-amber-200'
+                    }`}
+                  >
+                    {selectedJob.approvalStatus === 'APPROVED'
+                      ? 'Đã duyệt'
+                      : selectedJob.approvalStatus === 'REJECTED'
+                      ? 'Từ chối'
+                      : 'Chờ duyệt'}
+                  </span>
+                </div>
+                <h3 className="text-xl font-bold text-[#1e1b4b] mt-1">{selectedJob.title}</h3>
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <span className="font-bold text-[#5b48bd]">{selectedJob.companyName || 'HireMate Partner'}</span>
+                  <span>•</span>
+                  <span>HR: {selectedJob.recruiterName || 'Chưa cập nhật'}</span>
+                  {selectedJob.recruiterEmail && (
+                    <>
+                      <span>•</span>
+                      <span className="font-mono text-slate-400">{selectedJob.recruiterEmail}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedJob(null)}
+                className="w-9 h-9 rounded-full bg-white hover:bg-slate-100 text-slate-400 hover:text-slate-600 flex items-center justify-center transition-colors shadow-xs"
+              >
+                <span className="material-symbols-outlined text-lg">close</span>
+              </button>
+            </div>
+
+            {/* Content Body */}
+            <div className="p-6 overflow-y-auto space-y-5 text-xs">
+              {/* Highlight cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-purple-50/40 p-4 rounded-2xl border border-purple-100">
+                <div>
+                  <div className="text-[11px] text-slate-400 font-semibold">Mức lương</div>
+                  <div className="font-extrabold text-[#5b48bd] text-sm mt-0.5">
+                    {selectedJob.salaryMin && selectedJob.salaryMax
+                      ? `${Number(selectedJob.salaryMin).toLocaleString('vi-VN')} - ${Number(selectedJob.salaryMax).toLocaleString('vi-VN')} đ`
+                      : selectedJob.salaryMin
+                      ? `Từ ${Number(selectedJob.salaryMin).toLocaleString('vi-VN')} đ`
+                      : 'Thỏa thuận'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[11px] text-slate-400 font-semibold">Địa điểm</div>
+                  <div className="font-bold text-slate-700 mt-0.5">{selectedJob.location || 'Toàn quốc'}</div>
+                </div>
+                <div>
+                  <div className="text-[11px] text-slate-400 font-semibold">Hình thức</div>
+                  <div className="font-bold text-slate-700 mt-0.5">
+                    {selectedJob.employmentType === 'FULL_TIME'
+                      ? 'Toàn thời gian'
+                      : selectedJob.employmentType === 'PART_TIME'
+                      ? 'Bán thời gian'
+                      : selectedJob.employmentType === 'INTERNSHIP'
+                      ? 'Thực tập sinh'
+                      : (selectedJob.employmentType || 'Toàn thời gian')}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[11px] text-slate-400 font-semibold">Hạn nộp hồ sơ</div>
+                  <div className="font-bold text-slate-700 mt-0.5">
+                    {selectedJob.deadlineDate
+                      ? new Date(selectedJob.deadlineDate).toLocaleDateString('vi-VN')
+                      : selectedJob.deadline
+                      ? new Date(selectedJob.deadline).toLocaleDateString('vi-VN')
+                      : 'Không giới hạn'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Skills */}
+              {selectedJob.skills && selectedJob.skills.length > 0 && (
+                <div>
+                  <h4 className="font-bold text-slate-800 text-xs mb-2">Kỹ năng yêu cầu:</h4>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedJob.skills.map((sk, idx) => (
+                      <span
+                        key={idx}
+                        className="px-3 py-1 rounded-full bg-purple-50 text-purple-800 border border-purple-200 text-xs font-semibold"
+                      >
+                        {sk}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Description */}
+              {selectedJob.description && (
+                <div>
+                  <h4 className="font-bold text-slate-800 text-xs mb-1.5">Mô tả công việc:</h4>
+                  <div className="text-slate-600 leading-relaxed whitespace-pre-line bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+                    {selectedJob.description}
+                  </div>
+                </div>
+              )}
+
+              {/* Requirements */}
+              {selectedJob.requirements && (
+                <div>
+                  <h4 className="font-bold text-slate-800 text-xs mb-1.5">Yêu cầu ứng viên:</h4>
+                  <div className="text-slate-600 leading-relaxed whitespace-pre-line bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+                    {Array.isArray(selectedJob.requirements)
+                      ? selectedJob.requirements.join('\n• ')
+                      : selectedJob.requirements}
+                  </div>
+                </div>
+              )}
+
+              {/* Benefits */}
+              {selectedJob.benefits && (
+                <div>
+                  <h4 className="font-bold text-slate-800 text-xs mb-1.5">Quyền lợi đãi ngộ:</h4>
+                  <div className="text-slate-600 leading-relaxed whitespace-pre-line bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+                    {Array.isArray(selectedJob.benefits)
+                      ? selectedJob.benefits.join('\n• ')
+                      : selectedJob.benefits}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer Actions */}
+            <div className="p-4 border-t border-purple-100 flex items-center justify-between bg-slate-50">
+              <button
+                onClick={() => setSelectedJob(null)}
+                className="px-5 py-2.5 rounded-full bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold text-xs cursor-pointer"
+              >
+                Đóng
+              </button>
+
+              <div className="flex items-center gap-2">
+                {selectedJob.approvalStatus !== 'REJECTED' && (
+                  <button
+                    onClick={() => handleRejectJob(selectedJob.jobId)}
+                    className="px-5 py-2.5 rounded-full bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-xs transition-all"
+                  >
+                    <span className="material-symbols-outlined text-sm">close</span>
+                    <span>Từ chối duyệt</span>
+                  </button>
+                )}
+                {selectedJob.approvalStatus !== 'APPROVED' && (
+                  <button
+                    onClick={() => handleApproveJob(selectedJob.jobId)}
+                    className="px-6 py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-md transition-all"
+                  >
+                    <span className="material-symbols-outlined text-sm">check</span>
+                    <span>Phê duyệt xuất bản</span>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>

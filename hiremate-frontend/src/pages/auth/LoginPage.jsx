@@ -168,6 +168,7 @@ export default function LoginPage({ onNavigateRegister, onLoginSuccess }) {
           fullName: authData.fullName,
           avatarUrl: authData.avatarUrl,
           provider: 'GITHUB',
+          githubUrl: authData.githubUrl || undefined,
           role: role,
         }));
         setSuccessMessage('Xác thực tài khoản GitHub thành công! Đang chuyển hướng sang bước hoàn tất hồ sơ...');
@@ -262,6 +263,7 @@ export default function LoginPage({ onNavigateRegister, onLoginSuccess }) {
           fullName: authData.fullName,
           avatarUrl: authData.avatarUrl,
           provider: 'GITHUB',
+          githubUrl: authData.githubUrl || (!isEmail ? `https://github.com/${cleanUser}` : undefined),
           role: role,
         }));
         window.location.hash = '#/register-complete';

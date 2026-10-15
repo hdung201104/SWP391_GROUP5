@@ -65,6 +65,10 @@ public class AuthServiceImpl implements AuthService {
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .fullName(request.getFullName())
                 .phone(request.getPhone())
+                .dateOfBirth(request.getDateOfBirth() != null && !request.getDateOfBirth().isBlank() ? request.getDateOfBirth().trim() : null)
+                .address(request.getAddress() != null && !request.getAddress().isBlank() ? request.getAddress().trim() : (request.getLocation() != null ? request.getLocation().trim() : null))
+                .bio(request.getBio() != null && !request.getBio().isBlank() ? request.getBio().trim() : null)
+                .githubUrl(request.getGithubUrl() != null && !request.getGithubUrl().isBlank() ? request.getGithubUrl().trim() : null)
                 .role(role)
                 .status(UserStatus.ACTIVE)
                 .isEmailVerified(true)
@@ -84,7 +88,8 @@ public class AuthServiceImpl implements AuthService {
                     .candidateId(savedUser.getUserId())  // Shared PK
                     .user(savedUser)
                     .headline(request.getHeadline())
-                    .location(request.getLocation())
+                    .location(savedUser.getAddress() != null ? savedUser.getAddress() : request.getLocation())
+                    .bio(savedUser.getBio())
                     .experienceYears(request.getExperienceYears() != null ? request.getExperienceYears() : 0)
                     .build();
             candidateRepository.save(candidate);
@@ -427,6 +432,10 @@ public class AuthServiceImpl implements AuthService {
                 .passwordHash(passwordEncoder.encode(rawPassword))
                 .fullName(request.getFullName())
                 .phone(request.getPhone())
+                .dateOfBirth(request.getDateOfBirth() != null && !request.getDateOfBirth().isBlank() ? request.getDateOfBirth().trim() : null)
+                .address(request.getAddress() != null && !request.getAddress().isBlank() ? request.getAddress().trim() : null)
+                .bio(request.getBio() != null && !request.getBio().isBlank() ? request.getBio().trim() : null)
+                .githubUrl(request.getGithubUrl() != null && !request.getGithubUrl().isBlank() ? request.getGithubUrl().trim() : null)
                 .avatarUrl(request.getAvatarUrl())
                 .role(role)
                 .status(UserStatus.ACTIVE)
@@ -444,7 +453,8 @@ public class AuthServiceImpl implements AuthService {
                     .headline(request.getHeadline() != null && !request.getHeadline().isBlank() 
                             ? request.getHeadline().trim() 
                             : "Ứng viên tiềm năng")
-                    .location("Việt Nam")
+                    .location(user.getAddress() != null ? user.getAddress() : "Việt Nam")
+                    .bio(user.getBio())
                     .experienceYears(0)
                     .build();
             candidateRepository.save(candidate);
@@ -509,6 +519,7 @@ public class AuthServiceImpl implements AuthService {
         String email = null;
         String fullName = null;
         String avatarUrl = null;
+        String githubUrl = null;
 
         if (request.getCode() != null && !request.getCode().isBlank()) {
             try {
@@ -551,6 +562,9 @@ public class AuthServiceImpl implements AuthService {
                         fullName = (name != null && !name.isBlank()) ? name : login;
                         avatarUrl = (String) userData.get("avatar_url");
                         email = (String) userData.get("email");
+                        if (login != null && !login.isBlank()) {
+                            githubUrl = "https://github.com/" + login;
+                        }
 
                         // 3. Nếu email là private, lấy email chính từ /user/emails
                         if (email == null || email.isBlank()) {
@@ -608,6 +622,12 @@ public class AuthServiceImpl implements AuthService {
                 user.setAvatarUrl(avatarUrl);
                 userRepository.save(user);
             }
+            if (user.getGithubUrl() == null || user.getGithubUrl().isBlank()) {
+                if (githubUrl != null) {
+                    user.setGithubUrl(githubUrl);
+                    userRepository.save(user);
+                }
+            }
             log.info(">> [AuthService] Đăng nhập GitHub thành công cho tài khoản đã tồn tại: {}", email);
 
             Long companyId = null;
@@ -637,6 +657,7 @@ public class AuthServiceImpl implements AuthService {
                     .email(email)
                     .fullName(fullName)
                     .avatarUrl(avatarUrl)
+                    .githubUrl(githubUrl)
                     .build();
         }
     }

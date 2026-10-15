@@ -59,6 +59,8 @@ public class CompanyServiceImpl implements CompanyService {
                     .website(request.getWebsite())
                     .address(request.getAddress())
                     .companySize(request.getCompanySize())
+                    .description(request.getDescription())
+                    .industry(request.getIndustry())
                     .status(CompanyStatus.ACTIVE)
                     .build();
             company = companyRepository.save(company);
@@ -70,6 +72,8 @@ public class CompanyServiceImpl implements CompanyService {
             if (request.getWebsite() != null) company.setWebsite(request.getWebsite());
             if (request.getAddress() != null) company.setAddress(request.getAddress());
             if (request.getCompanySize() != null) company.setCompanySize(request.getCompanySize());
+            if (request.getDescription() != null) company.setDescription(request.getDescription());
+            if (request.getIndustry() != null) company.setIndustry(request.getIndustry());
             company = companyRepository.save(company);
         }
 
@@ -125,6 +129,8 @@ public class CompanyServiceImpl implements CompanyService {
                 .website(c.getWebsite())
                 .address(c.getAddress())
                 .companySize(c.getCompanySize())
+                .description(c.getDescription())
+                .industry(c.getIndustry())
                 .status(c.getStatus())
                 .createdAt(c.getCreatedAt())
                 .build();

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLivingTheme } from '../../context/LivingThemeContext';
+import { getSavedJobs } from '../../utils/savedJobsStorage';
 
 export default function Header({
   user,
@@ -15,6 +16,19 @@ export default function Header({
   const [showNotificationPopup, setShowNotificationPopup] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [avatarError, setAvatarError] = useState(false);
+  const [savedJobsCount, setSavedJobsCount] = useState(() => getSavedJobs().length);
+
+  useEffect(() => {
+    const handleSavedJobsUpdate = () => {
+      setSavedJobsCount(getSavedJobs().length);
+    };
+    window.addEventListener('hiremate_saved_jobs_updated', handleSavedJobsUpdate);
+    window.addEventListener('storage', handleSavedJobsUpdate);
+    return () => {
+      window.removeEventListener('hiremate_saved_jobs_updated', handleSavedJobsUpdate);
+      window.removeEventListener('storage', handleSavedJobsUpdate);
+    };
+  }, []);
 
   useEffect(() => {
     if (propRoute) {
@@ -143,6 +157,22 @@ export default function Header({
   const [notificationTab, setNotificationTab] = useState('ALL'); // 'ALL' | 'UNREAD' | 'RECRUITMENT' | 'AI_STUDIO'
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [activePlanName, setActivePlanName] = useState('');
+
+  const fetchActiveSubscription = async () => {
+    if (!user) return;
+    try {
+      const res = await import('../../api/paymentApi').then(m => m.default.getMySubscription());
+      const sub = res?.data?.data || res?.data;
+      if (sub && sub.active) {
+        setActivePlanName(sub.planName || '');
+      } else {
+        setActivePlanName('');
+      }
+    } catch {
+      // ignore
+    }
+  };
 
   // Fetch real notifications from backend
   const fetchNotifications = async () => {
@@ -171,6 +201,11 @@ export default function Header({
             icon = 'auto_awesome';
             color = 'tertiary';
             targetRoute = n.refId ? `#/jobs/${n.refId}` : '#/';
+            category = 'RECRUITMENT';
+          } else if (n.title && (n.title.includes('Nâng cấp') || n.title.includes('gói') || n.title.includes('VIP') || n.title.includes('Pro'))) {
+            icon = 'workspace_premium';
+            color = 'primary';
+            targetRoute = isRoleRecruiter ? '#/recruiter-pricing' : '#/candidate-pricing';
             category = 'RECRUITMENT';
           }
 
@@ -241,8 +276,15 @@ export default function Header({
 
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 10000); // Polling every 10s
-    const handleSync = () => fetchNotifications();
+    fetchActiveSubscription();
+    const interval = setInterval(() => {
+      fetchNotifications();
+      fetchActiveSubscription();
+    }, 10000); // Polling every 10s
+    const handleSync = () => {
+      fetchNotifications();
+      fetchActiveSubscription();
+    };
     window.addEventListener('hiremate-notification-sync', handleSync);
     return () => {
       clearInterval(interval);
@@ -347,9 +389,11 @@ export default function Header({
           {/* =================================================== */}
           {isRoleAdmin && (
             <>
+              {/* 1. TỔNG QUAN */}
               <button
                 onClick={() => handleNav('#/admin-dashboard?tab=dashboard')}
-                className={`px-2.5 py-1.5 xl:px-3 py-1.5 rounded-full transition-all duration-300 cursor-pointer font-bold flex items-center gap-1.5 ${activeRoute.includes('tab=dashboard') || activeRoute.endsWith('admin-dashboard') || activeRoute.endsWith('admin')
+                className={`px-3 py-1.5 rounded-full transition-all duration-300 cursor-pointer font-bold flex items-center gap-1.5 ${
+                  activeRoute.includes('tab=dashboard') || activeRoute.endsWith('admin-dashboard') || activeRoute.endsWith('admin')
                     ? 'mindskills-active-pill'
                     : 'mindskills-inactive-pill'
                   }`}
@@ -358,54 +402,123 @@ export default function Header({
                 <span>TỔNG QUAN</span>
               </button>
 
-              <button
-                onClick={() => handleNav('#/admin-dashboard?tab=companies')}
-                className={`px-2.5 py-1.5 xl:px-3 py-1.5 rounded-full transition-all duration-300 cursor-pointer font-bold flex items-center gap-1.5 ${activeRoute.includes('tab=companies') || activeRoute.includes('tab=company') || activeRoute.includes('tab=users')
-                    ? 'mindskills-active-pill'
-                    : 'mindskills-inactive-pill text-amber-300 hover:text-amber-200'
-                  }`}
-                title="Quản lý hồ sơ công ty và thành viên hệ thống"
-              >
-                <span className="material-symbols-outlined text-[16px] text-amber-400">group</span>
-                <span>QUẢN LÝ THÀNH VIÊN</span>
-              </button>
+              {/* 2. MỤC RIÊNG: KIỂM DUYỆT & QUẢN LÝ */}
+              <div className="relative group">
+                <button
+                  onClick={() => handleNav('#/admin-dashboard?tab=jobs')}
+                  className={`px-3 py-1.5 rounded-full transition-all duration-300 cursor-pointer font-bold flex items-center gap-1.5 ${
+                    activeRoute.includes('tab=jobs') || activeRoute.includes('tab=users') || activeRoute.includes('tab=companies') || activeRoute.includes('tab=company')
+                      ? 'mindskills-active-pill'
+                      : 'mindskills-inactive-pill'
+                    }`}
+                  title="Kiểm duyệt tin đăng, tài khoản và hồ sơ doanh nghiệp"
+                >
+                  <span className="material-symbols-outlined text-[16px]">verified_user</span>
+                  <span>KIỂM DUYỆT &amp; QUẢN TRỊ</span>
+                  <span className="material-symbols-outlined text-[14px] group-hover:rotate-180 transition-transform">expand_more</span>
+                </button>
 
-              <button
-                onClick={() => handleNav('#/admin-dashboard?tab=orders')}
-                className={`px-2.5 py-1.5 xl:px-3 py-1.5 rounded-full transition-all duration-300 cursor-pointer font-bold flex items-center gap-1.5 ${activeRoute.includes('tab=orders')
-                    ? 'mindskills-active-pill'
-                    : 'mindskills-inactive-pill'
-                  }`}
-              >
-                <span className="material-symbols-outlined text-[16px]">shopping_cart</span>
-                <span>ĐƠN MUA</span>
-              </button>
+                {/* Submenu Dropdown */}
+                <div className="absolute top-full left-0 mt-1.5 w-56 bg-[#1e1b4b] border border-purple-500/40 rounded-2xl shadow-2xl py-2 hidden group-hover:flex flex-col z-50 animate-fade-in backdrop-blur-md">
+                  <button
+                    onClick={() => handleNav('#/admin-dashboard?tab=jobs')}
+                    className={`px-4 py-2.5 text-left text-xs font-bold flex items-center gap-2.5 transition-colors cursor-pointer ${
+                      activeRoute.includes('tab=jobs')
+                        ? 'text-amber-300 bg-purple-900/60 font-extrabold'
+                        : 'text-purple-100 hover:text-white hover:bg-purple-800/40'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[16px] text-amber-400">fact_check</span>
+                    <span>Duyệt Tin Đăng</span>
+                  </button>
 
-              <button
-                onClick={() => handleNav('#/admin-dashboard?tab=packages')}
-                className={`px-2.5 py-1.5 xl:px-3 py-1.5 rounded-full transition-all duration-300 cursor-pointer font-bold flex items-center gap-1.5 ${activeRoute.includes('tab=packages')
-                    ? 'mindskills-active-pill'
-                    : 'mindskills-inactive-pill'
-                  }`}
-              >
-                <span className="material-symbols-outlined text-[16px]">inventory_2</span>
-                <span>GÓI DỊCH VỤ</span>
-              </button>
+                  <button
+                    onClick={() => handleNav('#/admin-dashboard?tab=users')}
+                    className={`px-4 py-2.5 text-left text-xs font-bold flex items-center gap-2.5 transition-colors cursor-pointer ${
+                      activeRoute.includes('tab=users')
+                        ? 'text-amber-300 bg-purple-900/60 font-extrabold'
+                        : 'text-purple-100 hover:text-white hover:bg-purple-800/40'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[16px] text-blue-400">manage_accounts</span>
+                    <span>Quản Lý Tài Khoản</span>
+                  </button>
 
-              <button
-                onClick={() => handleNav('#/admin-dashboard?tab=promotions')}
-                className={`px-2.5 py-1.5 xl:px-3 py-1.5 rounded-full transition-all duration-300 cursor-pointer font-bold flex items-center gap-1.5 ${activeRoute.includes('tab=promotions')
-                    ? 'mindskills-active-pill'
-                    : 'mindskills-inactive-pill'
-                  }`}
-              >
-                <span className="material-symbols-outlined text-[16px]">sell</span>
-                <span>KHUYẾN MÃI</span>
-              </button>
+                  <button
+                    onClick={() => handleNav('#/admin-dashboard?tab=companies')}
+                    className={`px-4 py-2.5 text-left text-xs font-bold flex items-center gap-2.5 transition-colors cursor-pointer ${
+                      activeRoute.includes('tab=companies') || activeRoute.includes('tab=company')
+                        ? 'text-amber-300 bg-purple-900/60 font-extrabold'
+                        : 'text-purple-100 hover:text-white hover:bg-purple-800/40'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[16px] text-emerald-400">corporate_fare</span>
+                    <span>Hồ Sơ Doanh Nghiệp</span>
+                  </button>
+                </div>
+              </div>
 
+              {/* 3. MỤC RIÊNG: TÀI CHÍNH & DỊCH VỤ */}
+              <div className="relative group">
+                <button
+                  onClick={() => handleNav('#/admin-dashboard?tab=orders')}
+                  className={`px-3 py-1.5 rounded-full transition-all duration-300 cursor-pointer font-bold flex items-center gap-1.5 ${
+                    activeRoute.includes('tab=orders') || activeRoute.includes('tab=packages') || activeRoute.includes('tab=promotions')
+                      ? 'mindskills-active-pill'
+                      : 'mindskills-inactive-pill'
+                    }`}
+                  title="Quản lý giao dịch, gói dịch vụ và khuyến mãi"
+                >
+                  <span className="material-symbols-outlined text-[16px]">account_balance_wallet</span>
+                  <span>TÀI CHÍNH &amp; DỊCH VỤ</span>
+                  <span className="material-symbols-outlined text-[14px] group-hover:rotate-180 transition-transform">expand_more</span>
+                </button>
+
+                {/* Submenu Dropdown */}
+                <div className="absolute top-full left-0 mt-1.5 w-56 bg-[#1e1b4b] border border-purple-500/40 rounded-2xl shadow-2xl py-2 hidden group-hover:flex flex-col z-50 animate-fade-in backdrop-blur-md">
+                  <button
+                    onClick={() => handleNav('#/admin-dashboard?tab=orders')}
+                    className={`px-4 py-2.5 text-left text-xs font-bold flex items-center gap-2.5 transition-colors cursor-pointer ${
+                      activeRoute.includes('tab=orders')
+                        ? 'text-amber-300 bg-purple-900/60 font-extrabold'
+                        : 'text-purple-100 hover:text-white hover:bg-purple-800/40'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[16px] text-emerald-400">receipt_long</span>
+                    <span>Lịch Sử Giao Dịch</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleNav('#/admin-dashboard?tab=packages')}
+                    className={`px-4 py-2.5 text-left text-xs font-bold flex items-center gap-2.5 transition-colors cursor-pointer ${
+                      activeRoute.includes('tab=packages')
+                        ? 'text-amber-300 bg-purple-900/60 font-extrabold'
+                        : 'text-purple-100 hover:text-white hover:bg-purple-800/40'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[16px] text-purple-400">inventory_2</span>
+                    <span>Gói Dịch Vụ</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleNav('#/admin-dashboard?tab=promotions')}
+                    className={`px-4 py-2.5 text-left text-xs font-bold flex items-center gap-2.5 transition-colors cursor-pointer ${
+                      activeRoute.includes('tab=promotions')
+                        ? 'text-amber-300 bg-purple-900/60 font-extrabold'
+                        : 'text-purple-100 hover:text-white hover:bg-purple-800/40'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[16px] text-pink-400">sell</span>
+                    <span>Mã Khuyến Mãi</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 4. CẤU HÌNH */}
               <button
                 onClick={() => handleNav('#/admin-dashboard?tab=settings')}
-                className={`px-2.5 py-1.5 xl:px-3 py-1.5 rounded-full transition-all duration-300 cursor-pointer font-bold flex items-center gap-1.5 ${activeRoute.includes('tab=settings')
+                className={`px-3 py-1.5 rounded-full transition-all duration-300 cursor-pointer font-bold flex items-center gap-1.5 ${
+                  activeRoute.includes('tab=settings')
                     ? 'mindskills-active-pill'
                     : 'mindskills-inactive-pill text-amber-300 hover:text-amber-200'
                   }`}
@@ -582,24 +695,61 @@ export default function Header({
           {/* Saved Jobs (for Candidate) & Quick Upgrade Pro */}
           {user && isRoleCandidate && (
             <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => handleNav('#/candidate-pricing')}
-                className="hidden lg:flex px-2.5 py-1.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-[11px] font-extrabold tracking-wider flex items-center gap-1 cursor-pointer shadow-md transition-all hover:scale-105 border border-amber-300/40"
-                title="Xem bảng giá và nâng cấp gói Candidate Pro AI"
-              >
-                <span className="material-symbols-outlined text-xs font-bold animate-bounce">workspace_premium</span>
-                <span>NÂNG CẤP PRO</span>
-              </button>
+              {(() => {
+                const planLower = (activePlanName || '').toLowerCase();
+                const isVip = planLower.includes('vip') || planLower.includes('mastery') || planLower.includes('enterprise');
+                const isPro = planLower.includes('pro') || planLower.includes('professional');
+
+                if (isVip) {
+                  return (
+                    <button
+                      onClick={() => handleNav('#/candidate-pricing')}
+                      className="hidden lg:flex px-3 py-1.5 rounded-full bg-gradient-to-r from-purple-800 via-indigo-700 to-purple-900 hover:opacity-95 text-amber-300 text-[11px] font-black tracking-wider flex items-center gap-1.5 cursor-pointer shadow-md transition-all hover:scale-105 border border-amber-300/50"
+                      title="Gói Career Mastery VIP đang hoạt động - Xem đặc quyền"
+                    >
+                      <span className="material-symbols-outlined text-xs font-bold text-amber-300">stars</span>
+                      <span>CAREER VIP 👑</span>
+                    </button>
+                  );
+                }
+
+                if (isPro) {
+                  return (
+                    <button
+                      onClick={() => handleNav('#/candidate-pricing')}
+                      className="hidden lg:flex px-3 py-1.5 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-[11px] font-bold tracking-wider flex items-center gap-1.5 cursor-pointer shadow-md transition-all hover:scale-105 border border-emerald-300/40"
+                      title="Gói Pro AI đang hoạt động - Bấm để xem chi tiết hoặc nâng cấp VIP"
+                    >
+                      <span className="material-symbols-outlined text-xs font-bold">verified</span>
+                      <span>PRO AI ⭐</span>
+                    </button>
+                  );
+                }
+
+                return (
+                  <button
+                    onClick={() => handleNav('#/candidate-pricing')}
+                    className="hidden lg:flex px-2.5 py-1.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-[11px] font-extrabold tracking-wider flex items-center gap-1 cursor-pointer shadow-md transition-all hover:scale-105 border border-amber-300/40"
+                    title="Xem bảng giá và nâng cấp gói Candidate Pro AI"
+                  >
+                    <span className="material-symbols-outlined text-xs font-bold animate-bounce">workspace_premium</span>
+                    <span>NÂNG CẤP PRO</span>
+                  </button>
+                );
+              })()}
 
               <button
-                onClick={() => handleNav('#/candidate-dashboard?tab=applications')}
+                onClick={() => handleNav('#/applications?tab=saved')}
                 className="relative p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all duration-300 flex items-center justify-center cursor-pointer border border-white/20"
-                title="Việc làm đã lưu"
+                title={savedJobsCount > 0 ? `Việc làm đã lưu (${savedJobsCount})` : 'Việc làm đã lưu'}
+                type="button"
               >
                 <span className="material-symbols-outlined text-lg">bookmark</span>
-                <span className="absolute -top-1 -right-1 px-1.5 py-0.2 rounded-full bg-[#f97316] text-white text-[9px] font-bold">
-                  5
-                </span>
+                {savedJobsCount > 0 && (
+                  <span className="absolute -top-1 -right-1 px-1.5 py-0.2 rounded-full bg-[#f97316] text-white text-[9px] font-bold shadow-sm">
+                    {savedJobsCount > 99 ? '99+' : savedJobsCount}
+                  </span>
+                )}
               </button>
             </div>
           )}

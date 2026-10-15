@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import com.hiremate.service.FileStorageService;
 
 @RestController
 @RequestMapping("/api/v1/cvs")
@@ -20,6 +21,65 @@ import java.util.List;
 public class CvController {
 
     private final CvService cvService;
+    private final FileStorageService fileStorageService;
+
+    @GetMapping("/{id}/preview")
+    public ResponseEntity<byte[]> previewCv(@PathVariable Long id) {
+        CvResponse cv = cvService.getCvById(id);
+        byte[] bytes = fileStorageService.loadFileAsBytes(cv.getFileUrl());
+        if (bytes == null || bytes.length == 0) {
+            return ResponseEntity.notFound().build();
+        }
+        String fn = cv.getFileName() != null ? cv.getFileName() : "cv.pdf";
+        if (cv.getFileUrl() != null && cv.getFileUrl().toLowerCase().endsWith(".docx") && !fn.toLowerCase().endsWith(".docx")) {
+            fn = fn + ".docx";
+        } else if (cv.getFileUrl() != null && cv.getFileUrl().toLowerCase().endsWith(".pdf") && !fn.toLowerCase().endsWith(".pdf")) {
+            fn = fn + ".pdf";
+        }
+        String contentType = "application/pdf";
+        if (fn.toLowerCase().endsWith(".docx")) {
+            contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+        } else if (fn.toLowerCase().endsWith(".doc")) {
+            contentType = "application/msword";
+        }
+        String contentDisposition = org.springframework.http.ContentDisposition.inline()
+                .filename(fn, java.nio.charset.StandardCharsets.UTF_8)
+                .build().toString();
+        return ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, contentDisposition)
+                .contentType(MediaType.parseMediaType(contentType))
+                .body(bytes);
+    }
+
+    @GetMapping("/{id}/download")
+    public ResponseEntity<byte[]> downloadCv(@PathVariable Long id) {
+        CvResponse cv = cvService.getCvById(id);
+        byte[] bytes = fileStorageService.loadFileAsBytes(cv.getFileUrl());
+        if (bytes == null || bytes.length == 0) {
+            return ResponseEntity.notFound().build();
+        }
+        String fn = cv.getFileName() != null ? cv.getFileName() : "cv.pdf";
+        if (cv.getFileUrl() != null && cv.getFileUrl().toLowerCase().endsWith(".docx") && !fn.toLowerCase().endsWith(".docx")) {
+            fn = fn + ".docx";
+        } else if (cv.getFileUrl() != null && cv.getFileUrl().toLowerCase().endsWith(".pdf") && !fn.toLowerCase().endsWith(".pdf")) {
+            fn = fn + ".pdf";
+        }
+        String contentType = "application/octet-stream";
+        if (fn.toLowerCase().endsWith(".pdf")) {
+            contentType = "application/pdf";
+        } else if (fn.toLowerCase().endsWith(".docx")) {
+            contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+        } else if (fn.toLowerCase().endsWith(".doc")) {
+            contentType = "application/msword";
+        }
+        String contentDisposition = org.springframework.http.ContentDisposition.attachment()
+                .filename(fn, java.nio.charset.StandardCharsets.UTF_8)
+                .build().toString();
+        return ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, contentDisposition)
+                .contentType(MediaType.parseMediaType(contentType))
+                .body(bytes);
+    }
 
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('CANDIDATE')")
@@ -42,6 +102,17 @@ public class CvController {
     public ResponseEntity<ApiResponse<CvResponse>> getCvById(@PathVariable Long id) {
         CvResponse cv = cvService.getCvById(id);
         return ResponseEntity.ok(ApiResponse.ok(cv));
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('CANDIDATE')")
+    public ResponseEntity<ApiResponse<CvResponse>> updateCv(
+            @PathVariable Long id,
+            @RequestBody com.hiremate.dto.response.CvParsedDTO updateDto,
+            @AuthenticationPrincipal User user
+    ) {
+        CvResponse response = cvService.updateCv(id, updateDto, user);
+        return ResponseEntity.ok(ApiResponse.ok("CV updated successfully", response));
     }
 
     @PutMapping("/{id}/default")

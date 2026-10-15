@@ -47,9 +47,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         // Public endpoints
                         .requestMatchers("/api/v1/auth/**").permitAll()
+                        .requestMatchers("/api/v1/jobs/recommendations", "/api/v1/jobs/re-match").hasRole("CANDIDATE")
                         .requestMatchers(HttpMethod.GET, "/api/v1/jobs/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/skills/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/companies/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/cvs/*/download", "/api/v1/cvs/*/preview").permitAll()
                         .requestMatchers("/api/v1/payment/**").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()

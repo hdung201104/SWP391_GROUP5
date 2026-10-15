@@ -70,6 +70,9 @@ public class FileStorageConfig implements WebMvcConfigurer {
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         // Expose uploaded files safely outside classpath
         String absolutePath = Paths.get(uploadDir).toAbsolutePath().toUri().toString();
+        if (!absolutePath.endsWith("/")) {
+            absolutePath = absolutePath + "/";
+        }
         registry.addResourceHandler("/uploads/**")
                 .addResourceLocations(absolutePath);
     }

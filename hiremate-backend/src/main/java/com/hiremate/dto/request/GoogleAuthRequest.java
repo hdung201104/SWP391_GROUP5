@@ -3,14 +3,12 @@ package com.hiremate.dto.request;
 import com.fasterxml.jackson.annotation.JsonAlias;
 import com.hiremate.enums.UserRole;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 public class GoogleAuthRequest {
 
     /**
@@ -31,7 +29,6 @@ public class GoogleAuthRequest {
 
     private String googleId;
 
-    @Builder.Default
     private UserRole role = UserRole.CANDIDATE;
 }
 

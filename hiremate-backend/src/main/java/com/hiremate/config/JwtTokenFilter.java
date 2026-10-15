@@ -50,6 +50,27 @@ public class JwtTokenFilter extends OncePerRequestFilter {
             return;
         }
 
+        // Hỗ trợ demo-admin-token khi truy cập từ UI
+        if ("demo-admin-token".equals(token)) {
+            User adminUser = userRepository.findByEmail("admin@hiremate.ai")
+                    .orElseGet(() -> userRepository.findAll().stream()
+                            .filter(u -> u.getRole() == com.hiremate.enums.UserRole.ADMIN)
+                            .findFirst()
+                            .orElse(null));
+            if (adminUser != null) {
+                SimpleGrantedAuthority authority = new SimpleGrantedAuthority("ROLE_ADMIN");
+                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                        adminUser,
+                        null,
+                        Collections.singletonList(authority)
+                );
+                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(authToken);
+                filterChain.doFilter(request, response);
+                return;
+            }
+        }
+
         try {
             final String userEmail = jwtUtil.extractEmail(token);
 

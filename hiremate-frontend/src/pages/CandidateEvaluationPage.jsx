@@ -126,26 +126,78 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
         // Find this candidate's application
         const app = apps.find((a) => Number(a.candidateId) === targetCandId) || null;
 
-        // Parse experiences and educations JSON
+        // 1. Identify the CV submitted with this application
+        const submittedCvId = app?.cvId;
+        const cvList = profile?.cvs || [];
+        const targetCv = (submittedCvId ? cvList.find(c => Number(c.cvId) === Number(submittedCvId)) : null)
+          || cvList.find(c => c.isDefault)
+          || cvList[0]
+          || null;
+
+        // 2. Parse CV's parsedJson or fields
+        let cvParsed = null;
+        try {
+          if (targetCv?.parsedJson) {
+            cvParsed = typeof targetCv.parsedJson === 'string'
+              ? JSON.parse(targetCv.parsedJson)
+              : targetCv.parsedJson;
+          }
+        } catch (ignored) {}
+
+        // 3. Parse experiences, educations, projects
         let parsedExperiences = [];
         let parsedEducations = [];
-        try {
-          if (profile?.experiencesJson) {
+        let parsedProjects = [];
+
+        if (cvParsed?.experiences && Array.isArray(cvParsed.experiences) && cvParsed.experiences.length > 0) {
+          parsedExperiences = cvParsed.experiences;
+        } else if (targetCv?.experiencesJson) {
+          try {
+            parsedExperiences = typeof targetCv.experiencesJson === 'string'
+              ? JSON.parse(targetCv.experiencesJson)
+              : targetCv.experiencesJson;
+          } catch (ignored) {}
+        } else if (profile?.experiencesJson) {
+          try {
             parsedExperiences = typeof profile.experiencesJson === 'string'
               ? JSON.parse(profile.experiencesJson)
               : profile.experiencesJson;
-          }
-        } catch (ignored) {}
+          } catch (ignored) {}
+        }
 
-        try {
-          if (profile?.educationsJson) {
+        if (cvParsed?.educations && Array.isArray(cvParsed.educations) && cvParsed.educations.length > 0) {
+          parsedEducations = cvParsed.educations;
+        } else if (targetCv?.educationsJson) {
+          try {
+            parsedEducations = typeof targetCv.educationsJson === 'string'
+              ? JSON.parse(targetCv.educationsJson)
+              : targetCv.educationsJson;
+          } catch (ignored) {}
+        } else if (profile?.educationsJson) {
+          try {
             parsedEducations = typeof profile.educationsJson === 'string'
               ? JSON.parse(profile.educationsJson)
               : profile.educationsJson;
-          }
-        } catch (ignored) {}
+          } catch (ignored) {}
+        }
 
-        const candidateName = profile?.fullName || app?.candidateName || `Ứng viên #${targetCandId}`;
+        if (cvParsed?.projects && Array.isArray(cvParsed.projects) && cvParsed.projects.length > 0) {
+          parsedProjects = cvParsed.projects;
+        }
+
+        // 4. Extract clean skills (prioritize actual CV parsed skills, filter out noise/placeholders)
+        let cleanSkills = [];
+        if (cvParsed?.skills && Array.isArray(cvParsed.skills) && cvParsed.skills.length > 0) {
+          cleanSkills = Array.from(new Set(cvParsed.skills))
+            .filter(s => typeof s === 'string' && s.trim().length > 1 && s.trim().length <= 35 && !s.includes('[') && !s.includes(']'));
+        } else if (Array.isArray(profile?.skills) && profile.skills.length > 0) {
+          cleanSkills = profile.skills
+            .map(s => s.skillName || s.name || s)
+            .filter(name => typeof name === 'string' && name.trim().length > 1 && name.trim().length <= 35 && !name.includes('[') && !name.includes(']'));
+        }
+
+        const candidateName = cvParsed?.full_name || profile?.fullName || app?.candidateName || `Ứng viên #${targetCandId}`;
+        const headline = cvParsed?.headline || profile?.headline || 'Kỹ Sư Phần Mềm Chuyên Nghiệp';
         const matchScore = app?.matchingScore || match?.matchingScore || 85;
         const mandatoryScore = match?.mandatoryScore || Math.min(matchScore + 5, 98);
         const preferredScore = match?.preferredScore || Math.max(matchScore - 5, 75);
@@ -162,7 +214,7 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
 
         const preferredMissing = parseSkillList(match?.missingPreferredSkills, []);
 
-        const cvUrl = app?.cvUrl || (profile?.cvs && profile.cvs.length > 0 ? profile.cvs[0].fileUrl : '#');
+        const cvUrl = app?.cvUrl || targetCv?.fileUrl || (profile?.cvs && profile.cvs.length > 0 ? profile.cvs[0].fileUrl : '#');
 
         const assessmentLabel = matchScore >= 90
           ? 'XUẤT SẮC • ĐỀ CỬ VÒNG KỸ THUẬT'
@@ -176,21 +228,21 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
           id: targetCandId,
           applicationId: app?.applicationId || null,
           name: candidateName,
-          title: profile?.headline || 'Kỹ Sư Phần Mềm Chuyên Nghiệp',
-          roleSummary: profile?.headline ? profile.headline.toUpperCase() : 'SENIOR SOFTWARE ENGINEER',
+          title: headline,
+          roleSummary: headline.toUpperCase(),
           matchScore: matchScore,
           mandatoryScore: mandatoryScore,
           preferredScore: preferredScore,
           avatar: profile?.avatarUrl || null,
-          location: job?.location || 'Việt Nam',
-          experience: `${profile?.yearsOfExperience || 3}+ năm kinh nghiệm`,
-          yearsOfExperience: profile?.yearsOfExperience || 3,
+          location: cvParsed?.address || profile?.location || user?.address || job?.location || 'Việt Nam',
+          experience: `${profile?.yearsOfExperience || targetCv?.experienceYears || 3}+ năm kinh nghiệm`,
+          yearsOfExperience: profile?.yearsOfExperience || targetCv?.experienceYears || 3,
           salary: job?.salaryMin && job?.salaryMax ? `$${job.salaryMin} - $${job.salaryMax}` : 'Thỏa thuận',
-          email: app?.candidateEmail || 'ungvien@email.com',
-          phone: profile?.phone || '(+84) 090 123 4567',
+          email: cvParsed?.email || app?.candidateEmail || profile?.email || 'ungvien@email.com',
+          phone: cvParsed?.phone || profile?.phone || '(+84) 090 123 4567',
           status: app?.status ? `Trạng thái: ${app.status}` : 'Sẵn sàng phỏng vấn',
           aiFitAssessment: assessmentLabel,
-          summary: profile?.bio || app?.coverLetter || `${candidateName} có kinh nghiệm thực chiến vững chắc trong phát triển phần mềm, khả năng nắm bắt nhanh các giải pháp công nghệ hiện đại.`,
+          summary: cvParsed?.summary || profile?.bio || app?.coverLetter || `${candidateName} có kinh nghiệm thực chiến vững chắc trong phát triển phần mềm, khả năng nắm bắt nhanh các giải pháp công nghệ hiện đại.`,
           company: job?.companyName || 'HireMate Tech Partner',
           jobCode: `JD-${targetJobId}`,
           jobTitle: job?.title || 'Vị trí Tuyển Dụng',
@@ -200,9 +252,10 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
           matchedPreferredSkills: preferredMatched,
           missingPreferredSkills: preferredMissing,
           aiReasoning: match?.aiReasoning || app?.coverLetter || `Hệ thống AI đánh giá ứng viên đạt ${matchScore}% độ tương thích dựa trên tỷ trọng 70% bắt buộc và 30% ưu tiên.`,
-          skills: profile?.skills || [],
+          skills: cleanSkills,
           experiences: parsedExperiences,
           educations: parsedEducations,
+          projects: parsedProjects,
         });
 
         setAiRejectionEmail(
@@ -833,17 +886,34 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
                         <div key={idx} className="relative pl-5 before:absolute before:left-0 before:top-2 before:bottom-0 before:w-0.5 before:bg-[#E6E2DA]">
                           <span className="absolute -left-1 top-2 w-2.5 h-2.5 rounded-full bg-[#8C9A84]" />
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                            <h4 className="text-sm font-serif font-bold text-[#2D3A31]">{exp.position || exp.title || 'Kỹ Sư Phần Mềm'}</h4>
+                            <h4 className="text-sm font-serif font-bold text-[#2D3A31]">{exp.role || exp.position || exp.title || 'Kỹ Sư Phần Mềm'}</h4>
                             <span className="text-xs font-semibold text-[#8C9A84] bg-[#8C9A84]/15 px-2.5 py-0.5 rounded-full border border-[#8C9A84]/30">
-                              {exp.startDate || '2022'} — {exp.endDate || 'Hiện tại'}
+                              {exp.period || (exp.startDate ? `${exp.startDate} — ${exp.endDate || 'Hiện tại'}` : '2022 — Hiện tại')}
                             </span>
                           </div>
                           <div className="text-xs text-[#2D3A31]/70 font-medium mt-0.5">
-                            {exp.companyName || exp.company || 'Doanh Nghiệp'}
+                            {exp.company || exp.companyName || 'Doanh Nghiệp'} {exp.location ? `• ${exp.location}` : ''}
                           </div>
-                          <p className="mt-2 text-xs text-[#2D3A31]/80 leading-relaxed">
-                            {exp.description || 'Tham gia thiết kế, phát triển và tối ưu hóa hệ thống backend và dịch vụ số.'}
-                          </p>
+                          {Array.isArray(exp.bullets) && exp.bullets.length > 0 ? (
+                            <ul className="mt-2 space-y-1 list-disc list-inside text-xs text-[#2D3A31]/80 leading-relaxed">
+                              {exp.bullets.map((b, bIdx) => (
+                                <li key={bIdx}>{b}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="mt-2 text-xs text-[#2D3A31]/80 leading-relaxed">
+                              {exp.description || 'Tham gia thiết kế, phát triển và tối ưu hóa hệ thống backend và dịch vụ số.'}
+                            </p>
+                          )}
+                          {Array.isArray(exp.tags) && exp.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mt-2.5">
+                              {exp.tags.map((tag, tIdx) => (
+                                <span key={tIdx} className="px-2 py-0.5 rounded text-[10px] font-mono bg-[#8C9A84]/10 text-[#2D3A31]/80 border border-[#8C9A84]/20">
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       ))
                     ) : (
@@ -877,9 +947,38 @@ export default function CandidateEvaluationPage({ user, candidateId = 1, jobId =
                         <div key={idx} className="p-3.5 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] flex items-center justify-between">
                           <div>
                             <h5 className="font-bold text-xs text-[#2D3A31]">{edu.school || edu.institution || 'Trường Đại Học'}</h5>
-                            <p className="text-[11px] text-[#2D3A31]/70">{edu.major || edu.degree || 'Chuyên ngành Công Nghệ Thông Tin'}</p>
+                            <p className="text-[11px] text-[#2D3A31]/70">{edu.degree || edu.major || 'Chuyên ngành Công Nghệ Thông Tin'}</p>
+                            {edu.grade && (
+                              <p className="text-[10px] text-[#8C9A84] font-medium mt-0.5">{edu.grade}</p>
+                            )}
                           </div>
-                          <span className="text-xs text-[#8C9A84] font-semibold">{edu.year || edu.gradYear || 'Tốt nghiệp'}</span>
+                          <span className="text-xs text-[#8C9A84] font-semibold">{edu.period || edu.year || edu.gradYear || 'Tốt nghiệp'}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 6. DỰ ÁN NỔI BẬT */}
+                {cand.projects && cand.projects.length > 0 && (
+                  <div>
+                    <h3 className="text-xs uppercase tracking-widest text-[#2D3A31] font-bold mb-3 flex items-center gap-2">
+                      <span className="w-2.5 h-0.5 bg-[#2D3A31]" /> 5. DỰ ÁN NỔI BẬT
+                    </h3>
+                    <div className="space-y-4">
+                      {cand.projects.map((proj, idx) => (
+                        <div key={idx} className="p-4 rounded-2xl bg-[#F9F8F4] border border-[#E6E2DA] space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <h5 className="font-bold text-xs text-[#2D3A31]">{proj.name || proj.project_name || 'Dự Án Phần Mềm'}</h5>
+                            <span className="text-xs font-semibold text-[#8C9A84]">{proj.period || '2023'}</span>
+                          </div>
+                          {proj.role && (
+                            <p className="text-[11px] text-[#8C9A84] font-medium">Vai trò: {proj.role}</p>
+                          )}
+                          <p className="text-xs text-[#2D3A31]/80 leading-relaxed">{proj.description || proj.summary}</p>
+                          {proj.technologies && (
+                            <p className="text-[10px] text-[#2D3A31]/60 font-mono">Công nghệ: {proj.technologies}</p>
+                          )}
                         </div>
                       ))}
                     </div>

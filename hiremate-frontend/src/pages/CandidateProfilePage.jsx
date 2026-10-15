@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLivingTheme } from '../context/LivingThemeContext';
 import { cvApi } from '../api/cvApi';
 import { candidateApi } from '../api/candidateApi';
@@ -21,6 +21,212 @@ const safeJsonArr = (jsonVal, fallback = []) => {
   return fallback;
 };
 
+const normalizeProjects = (rawList) => {
+  const arr = safeJsonArr(rawList, []);
+  if (arr.length === 0) return [];
+  return arr.map((p, idx) => ({
+    id: p.id || idx + 1,
+    name: p.name || p.project_name || p.projectName || 'Dự án',
+    role: p.role || 'Thành viên Dự án',
+    period: p.period || '2023 — 2024',
+    summary: p.summary || p.description || '',
+    tags: Array.isArray(p.tags) && p.tags.length > 0
+      ? p.tags
+      : (p.technologies ? p.technologies.split(/[,;]+/).map(t => t.trim()) : ['Dự án'])
+  }));
+};
+
+const normalizeExperiences = (rawList) => {
+  const arr = safeJsonArr(rawList, []);
+  if (arr.length === 0) return [];
+  return arr.map((exp, idx) => {
+    let cleanRole = exp.role || 'Chuyên viên';
+    if (cleanRole.toLowerCase().includes('thay phần này') || cleanRole.toLowerCase().includes('chính thức')) {
+      cleanRole = 'Chuyên viên Chuyên môn';
+    }
+    return {
+      id: exp.id || idx + 1,
+      role: cleanRole,
+      company: exp.company || 'Doanh nghiệp / Tổ chức',
+      period: exp.period || exp.duration || '2022 — Hiện tại',
+      location: exp.location || 'Việt Nam • Toàn thời gian',
+      bullets: (Array.isArray(exp.bullets) && exp.bullets.length > 0)
+        ? exp.bullets
+        : ((Array.isArray(exp.highlights) && exp.highlights.length > 0)
+            ? exp.highlights
+            : (exp.description ? [exp.description] : ['Hoàn thành tốt các nhiệm vụ chuyên môn được giao'])),
+      tags: Array.isArray(exp.tags) && exp.tags.length > 0 ? exp.tags : ['Thực tế', 'Chuyên môn']
+    };
+  });
+};
+
+const normalizeEducations = (rawList) => {
+  const arr = safeJsonArr(rawList, []);
+  if (arr.length === 0) return [];
+  return arr.map((edu, idx) => ({
+    id: edu.id || idx + 1,
+    school: edu.school || 'Đại học chuyên ngành',
+    degree: edu.degree || edu.major || 'Cử nhân Chuyên ngành',
+    period: edu.period || edu.year || '2020 — 2024',
+    grade: edu.grade || 'Tốt nghiệp Khá - Giỏi',
+    highlight: edu.highlight || 'Hoàn thành chương trình đào tạo chính quy đạt kết quả tốt.'
+  }));
+};
+
+const normalizeCertifications = (rawList) => {
+  const arr = safeJsonArr(rawList, []);
+  if (arr.length > 0) {
+    return arr.map((c, idx) => {
+      if (typeof c === 'string') {
+        return {
+          id: idx + 1,
+          name: c,
+          issuer: 'Tổ chức cấp chứng chỉ',
+          year: '2023',
+          code: 'VERIFIED'
+        };
+      }
+      return {
+        id: c.id || idx + 1,
+        name: c.name || c.title || 'Chứng chỉ Chuyên môn',
+        issuer: c.issuer || c.organization || 'Tổ chức cấp chứng chỉ',
+        year: c.year || c.date || '2023',
+        code: c.code || 'VERIFIED'
+      };
+    });
+  }
+  return [];
+};
+
+const normalizeLanguages = (rawList) => {
+  const arr = safeJsonArr(rawList, []);
+  if (arr.length > 0) {
+    return arr.map((l, idx) => {
+      if (typeof l === 'string') {
+        return {
+          id: idx + 1,
+          name: l,
+          level: 'Thành thạo',
+          score: 'Đạt chuẩn'
+        };
+      }
+      return {
+        id: l.id || idx + 1,
+        name: l.name || 'Ngoại ngữ',
+        level: l.level || 'Thành thạo',
+        score: l.score || l.level || 'Đạt chuẩn'
+      };
+    });
+  }
+  return [];
+};
+
+const normalizeSkillsToCategories = (rawSkills, parsedCategories) => {
+  if (Array.isArray(parsedCategories) && parsedCategories.length > 0 && parsedCategories[0].category && Array.isArray(parsedCategories[0].items)) {
+    return parsedCategories;
+  }
+
+  if (Array.isArray(rawSkills) && rawSkills.length > 0 && typeof rawSkills[0] === 'object' && rawSkills[0].category && rawSkills[0].category !== 'Kỹ Năng Đã Quét' && Array.isArray(rawSkills[0].items)) {
+    return rawSkills;
+  }
+
+  let flatList = [];
+  if (Array.isArray(rawSkills)) {
+    rawSkills.forEach(item => {
+      if (typeof item === 'string') {
+        flatList.push(item.trim());
+      } else if (item && typeof item === 'object') {
+        if (Array.isArray(item.items)) {
+          flatList.push(...item.items.map(s => String(s).trim()));
+        } else if (item.skillName || item.name) {
+          flatList.push(String(item.skillName || item.name).trim());
+        }
+      }
+    });
+  }
+
+  // Loại bỏ các đoạn text rác từ template, ngoại ngữ (vì ngoại ngữ đã ở cột bên trái) và câu văn dài
+  flatList = [...new Set(flatList.filter(s => {
+    if (!s) return false;
+    const lower = s.toLowerCase();
+    if (lower.startsWith('nếu') || lower.includes('[') || lower.includes(']') || lower.includes('theo dõi')
+      || lower.includes('chuẩn bị') || lower.includes('từng làm') || lower.includes('kết quả') || lower.includes('quy mô')
+      || lower.includes('tiếng anh') || lower.includes('tiếng nhật') || lower.includes('tiếng việt')
+      || lower.includes('ielts') || lower.includes('jlpt') || lower.includes('toeic')
+      || lower.includes('thành thạo') || lower.includes('giao tiếp') || lower.includes('lãnh đạo') || lower.includes('áp lực cao')
+      || lower.includes('tài liệu') || lower.includes('vị trí') || lower.includes('công ty')
+      || s.length > 35) {
+      return false;
+    }
+    return true;
+  }))];
+
+  if (flatList.length === 0) return [];
+
+  const groups = [
+    {
+      category: 'Phát Triển Phần Mềm & Kiến Trúc (Software & Architecture)',
+      patterns: [
+        'fullstack', 'full-stack', 'backend', 'frontend', 'microservices', 'api gateway',
+        'websocket', 'distributed', 'restful', 'grpc', 'kafka', 'sdn', 'network'
+      ],
+      items: []
+    },
+    {
+      category: 'Ngôn Ngữ Lập Trình & Frameworks (Languages & Tech Stacks)',
+      patterns: [
+        'nodejs', 'node.js', 'golang', 'go', 'java', 'react', 'reactjs', 'typescript',
+        'javascript', 'python', 'spring', 'nestjs', 'c#', '.net'
+      ],
+      items: []
+    },
+    {
+      category: 'Cơ Sở Dữ Liệu & Hạ Tầng Cloud (Database & Cloud DevOps)',
+      patterns: [
+        'postgresql', 'postgres', 'sql', 'redis', 'aws', 'docker', 'kubernetes', 'ci/cd',
+        'tcp/ip', 'tcp', 'ip', 'mongodb', 'mysql'
+      ],
+      items: []
+    },
+    {
+      category: 'Phân Tích Nghiệp Vụ & Thiết Kế (BA & Design)',
+      patterns: [
+        'ba', 'business analyst', 'bpmn', 'uml', 'brse', 'srs', 'use case', 'wireframe', 'figma'
+      ],
+      items: []
+    }
+  ];
+
+  const assigned = new Set();
+
+  groups.forEach(group => {
+    flatList.forEach(skill => {
+      const lower = skill.toLowerCase().trim();
+      const isMatch = group.patterns.some(p => {
+        if (p === lower) return true;
+        const regex = new RegExp(`(^|\\b|\\s)${p.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}(\\b|\\s|$)`, 'i');
+        return regex.test(lower);
+      });
+      if (isMatch && !assigned.has(skill)) {
+        group.items.push(skill);
+        assigned.add(skill);
+      }
+    });
+  });
+
+  const otherItems = flatList.filter(s => !assigned.has(s));
+  const result = groups.filter(g => g.items.length > 0);
+
+  if (otherItems.length > 0) {
+    result.push({
+      category: 'Kỹ Năng Kỹ Thuật Bổ Trợ',
+      items: otherItems
+    });
+  }
+
+  return result.length > 0 ? result : [{ category: 'Kỹ Năng Chuyên Môn', items: flatList }];
+};
+
 export default function CandidateProfilePage({ user }) {
   const { theme: livingTheme, luminosity } = useLivingTheme();
 
@@ -39,6 +245,17 @@ export default function CandidateProfilePage({ user }) {
   // Job search status: 'OPEN_TO_WORK' | 'EXPLORING' | 'NOT_LOOKING'
   const [jobSearchStatus, setJobSearchStatus] = useState('OPEN_TO_WORK');
 
+  // AI CV Scanner Modal & Progress State
+  const [scanState, setScanState] = useState({
+    isScanning: false,
+    step: 1,
+    fileName: '',
+    progress: 0,
+    statusText: '',
+  });
+  const [isCustomCreated, setIsCustomCreated] = useState(false);
+  const fileUploadInputRef = useRef(null);
+
   // ==========================================================================
   // REAL CANDIDATE PROFILE & MULTIPLE CV VERSIONS (SYNCED TO SUPABASE)
   // ==========================================================================
@@ -53,61 +270,26 @@ export default function CandidateProfilePage({ user }) {
     versionName: 'Bản CV Trực Tuyến HireMate',
     versionBadge: '⭐ MẶC ĐỊNH FAST APPLY',
     isDefault: true,
-    targetTitle: user?.headline || 'Chuyên viên Kỹ thuật & Công nghệ',
-    tagline: 'Ứng viên năng động, sở hữu kỹ năng chuyên môn vững vàng và tinh thần học hỏi cao.',
-    summary: 'Tôi là người luôn chủ động tìm kiếm các giải pháp tối ưu cho sản phẩm, có tinh thần trách nhiệm cao và khả năng phối hợp hiệu quả trong môi trường làm việc chuyên nghiệp. Mong muốn đóng góp giá trị thực tiễn vào sự phát triển của doanh nghiệp.',
-    education: [
-      {
-        id: 1,
-        school: 'Đại học / Học viện của bạn',
-        degree: 'Cử nhân Chuyên ngành Kỹ thuật / Kinh tế',
-        period: '2020 — 2024',
-        grade: 'Tốt nghiệp',
-        highlight: 'Tham gia các đề án nghiên cứu và hoạt động phong trào chuyên môn tại trường.'
-      }
-    ],
-    certifications: [
-      { id: 1, name: 'Chứng chỉ Chuyên môn / Ngoại ngữ', issuer: 'Tổ chức cấp chứng chỉ', year: '2024', code: 'CERT-ID-2024' }
-    ],
-    languages: [
-      { name: 'Tiếng Việt', level: 'Bản ngữ (Native)', score: 'Bản ngữ' },
-      { name: 'Tiếng Anh', level: 'Giao tiếp làm việc', score: 'B2 / Professional' }
-    ],
-    skills: [
-      { category: 'Kỹ Năng Cốt Lõi', items: ['Tư duy logic & Giải quyết vấn đề', 'Làm việc nhóm & Giao tiếp', 'Phân tích yêu cầu'] },
-      { category: 'Công Cụ & Nền Tảng', items: ['Git / GitHub', 'MS Office / Google Workspace', 'Quản trị công việc'] }
-    ],
-    experiences: [
-      {
-        id: 1,
-        role: 'Chuyên viên / Kỹ sư dự án',
-        company: 'Doanh nghiệp / Dự án thực tế',
-        period: '2024 — Hiện tại',
-        location: 'Việt Nam • Toàn thời gian',
-        bullets: [
-          'Chủ động tham gia phát triển, vận hành và tối ưu hóa quy trình nghiệp vụ.',
-          'Phối hợp nhịp nhàng cùng các phòng ban liên quan nhằm hoàn thành mục tiêu đúng tiến độ.',
-          'Nghiên cứu và ứng dụng các phương pháp mới để nâng cao chất lượng công việc.'
-        ],
-        tags: ['Problem Solving', 'Teamwork', 'Execution']
-      }
-    ],
-    projects: [
-      {
-        id: 1,
-        name: 'Dự án Tiêu biểu Cá nhân / Doanh nghiệp',
-        role: 'Thành viên cốt lõi',
-        period: '2024',
-        desc: 'Tham gia thiết kế và triển khai giải pháp thực tiễn giải quyết bài toán nghiệp vụ.',
-        tags: ['Project', 'Technology']
-      }
-    ]
+    candidateName: user?.fullName || '',
+    phone: user?.phone || '',
+    email: user?.email || '',
+    location: user?.address || '',
+    targetTitle: user?.headline || 'Chuyên viên Chuyên môn',
+    tagline: '',
+    summary: user?.bio || '',
+    education: [],
+    certifications: [],
+    languages: [],
+    skills: [],
+    experiences: [],
+    projects: []
   }));
 
   // State for skill inputs
   const [skillCategoryInputs, setSkillCategoryInputs] = useState({});
   const [toastMessage, setToastMessage] = useState('');
   const [isRewritingBio, setIsRewritingBio] = useState(false);
+  const [viewingFile, setViewingFile] = useState(null);
 
   const showToast = (msg) => {
     setToastMessage(msg);
@@ -117,8 +299,14 @@ export default function CandidateProfilePage({ user }) {
   // Switch between CV versions
   const handleSelectCvVersion = (verId) => {
     setSelectedVersionId(verId);
-    const targetVer = (currentCandidate?.cvVersions || []).find(v => v.id === verId) || currentCandidate?.cvVersions?.[0];
-    showToast(`Đã chọn: ${targetVer?.versionName || "Bản CV"}`);
+    const targetFile = cvFiles.find(f => `cv_${f.id}` === verId);
+    if (targetFile) {
+      applyCvToOnlineView(targetFile);
+      showToast(`Đã chuyển sang: ${targetFile.name}`);
+    } else {
+      const targetVer = (currentCandidate?.cvVersions || []).find(v => v.id === verId) || currentCandidate?.cvVersions?.[0];
+      showToast(`Đã chọn: ${targetVer?.versionName || "Bản CV"}`);
+    }
   };
 
   // Duplicate current CV version / Upload new
@@ -301,18 +489,38 @@ export default function CandidateProfilePage({ user }) {
 
   // CV Files State for ATS Vault Tab (Connected to Supabase PostgreSQL via cvApi)
   const [cvFiles, setCvFiles] = useState([]);
-    const currentCandidate = {
-    accountName: user?.fullName || profileData?.fullName || 'Ứng Viên HireMate',
-    accountIndustry: cvData.targetTitle || profileData?.headline || 'Công Nghệ & Kỹ Thuật',
-    avatarUrl: user?.avatarUrl || profileData?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
-    email: user?.email || profileData?.email || '',
-    phone: user?.phone || profileData?.phone || 'Chưa cập nhật số điện thoại',
-    location: profileData?.location || user?.address || 'Việt Nam',
-    dob: profileData?.dateOfBirth || 'Chưa cập nhật ngày sinh',
-    gender: 'Chưa cập nhật',
-    linkedin: profileData?.linkedinUrl || 'Chưa liên kết',
-    github: profileData?.githubUrl || 'Chưa liên kết',
-    portfolio: profileData?.portfolioUrl || 'Chưa liên kết',
+  const [candidateAvatarUrl, setCandidateAvatarUrl] = useState(null);
+
+  const handleCandidateAvatarFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      showToast('Đang tải ảnh đại diện lên Cloudinary CDN...');
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await candidateApi.uploadAvatar(fd);
+      const newAvatar = res.data?.data?.avatarUrl || res.data?.avatarUrl;
+      if (newAvatar) {
+        setCandidateAvatarUrl(newAvatar);
+        showToast('Đã cập nhật ảnh đại diện lên Cloudinary CDN!');
+      }
+    } catch (err) {
+      showToast('Lỗi tải ảnh lên Cloud: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
+  const currentCandidate = {
+    accountName: cvData.candidateName || user?.fullName || profileData?.fullName || 'Dũng Hoàng',
+    accountIndustry: cvData.targetTitle || profileData?.headline || 'Business Analyst (BA) | Bridge System Engineer (BrSE)',
+    avatarUrl: candidateAvatarUrl || user?.avatarUrl || profileData?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+    email: cvData.email || user?.email || profileData?.email || 'hdung201104@gmail.com',
+    phone: cvData.phone || user?.phone || profileData?.phone || '0943430099',
+    location: cvData.location || profileData?.location || user?.address || 'Việt Nam',
+    dob: profileData?.dateOfBirth && profileData.dateOfBirth !== 'Chưa cập nhật ngày sinh' ? profileData.dateOfBirth : '20/11/2004',
+    gender: 'Nam',
+    linkedin: profileData?.linkedinUrl && profileData.linkedinUrl !== 'Chưa liên kết' ? profileData.linkedinUrl : 'linkedin.com/in/dunghoang',
+    github: profileData?.githubUrl && profileData.githubUrl !== 'Chưa liên kết' ? profileData.githubUrl : 'github.com/dunghoang',
+    portfolio: profileData?.portfolioUrl && profileData.portfolioUrl !== 'Chưa liên kết' ? profileData.portfolioUrl : 'hiremate.ai/cv/dunghoang',
     cvVersions: cvFiles.length > 0
       ? cvFiles.map((f, i) => ({
           id: `cv_${f.id}`,
@@ -320,16 +528,56 @@ export default function CandidateProfilePage({ user }) {
           versionBadge: f.isDefault ? '⭐ MẶC ĐỊNH FAST APPLY' : `TỆP ĐÃ TẢI LÊN #${i + 1}`,
           isDefault: Boolean(f.isDefault),
         }))
-      : [
-          {
-            id: 'cv_default_online',
-            versionName: 'Bản CV Trực Tuyến HireMate',
-            versionBadge: '⭐ MẶC ĐỊNH FAST APPLY',
-            isDefault: true,
-          }
-        ]
+      : (isCustomCreated
+          ? [
+              {
+                id: 'cv_default_online',
+                versionName: cvData.versionName || 'Bản CV Trực Tuyến HireMate',
+                versionBadge: '⭐ MẶC ĐỊNH FAST APPLY',
+                isDefault: true,
+              }
+            ]
+          : [])
   };
   const [isUploading, setIsUploading] = useState(false);
+  const hasCv = cvFiles.length > 0 || isCustomCreated || (cvData.experiences && cvData.experiences.length > 0) || (cvData.education && cvData.education.length > 0);
+
+  const applyCvToOnlineView = (cvItem) => {
+    if (!cvItem) return;
+    const pData = cvItem.parsedData || {};
+    const candidateName = pData.full_name || pData.fullName || pData.candidate_name || pData.candidateName || cvItem.fullName || cvItem.candidateName;
+    const phone = pData.phone || cvItem.phone;
+    const email = pData.email || cvItem.email;
+    const location = pData.address || pData.location || cvItem.address || cvItem.location;
+    const headline = pData.headline || cvItem.headline || cvData.targetTitle;
+    const summary = pData.summary || cvItem.summary || cvData.summary;
+    const exp = normalizeExperiences(pData.experiences || cvItem.experiencesJson || []);
+    const edu = normalizeEducations(pData.educations || cvItem.educationsJson || []);
+    const proj = normalizeProjects(pData.projects || cvItem.projectsJson || []);
+    const cert = normalizeCertifications(pData.certifications || cvItem.certificationsJson || [], headline);
+    const lang = normalizeLanguages(pData.languages || cvItem.languagesJson || [], headline);
+    const sk = (pData.skills && pData.skills.length > 0)
+      ? pData.skills
+      : (cvItem.detectedSkills && cvItem.detectedSkills.length > 0 ? cvItem.detectedSkills : []);
+
+    setCvData(prev => ({
+      ...prev,
+      id: `cv_${cvItem.id}`,
+      versionName: cvItem.name || prev.versionName,
+      candidateName: candidateName || prev.candidateName,
+      phone: phone || prev.phone,
+      email: email || prev.email,
+      location: location || prev.location,
+      targetTitle: headline || prev.targetTitle,
+      summary: summary || prev.summary,
+      experiences: exp,
+      education: edu,
+      projects: proj,
+      certifications: cert,
+      languages: lang,
+      skills: normalizeSkillsToCategories(sk, cvItem.parsedData?.skillCategories || pData.skillCategories)
+    }));
+  };
 
   const fetchMyCvs = () => {
     cvApi.getMyCvs()
@@ -340,29 +588,37 @@ export default function CandidateProfilePage({ user }) {
             id: cv.cvId,
             name: cv.fileName,
             fileUrl: cv.fileUrl,
+            fullName: cv.fullName,
+            candidateName: cv.fullName,
+            phone: cv.phone,
+            email: cv.email,
+            address: cv.address,
+            location: cv.address,
             size: cv.fileSizeBytes ? `${(cv.fileSizeBytes / (1024 * 1024)).toFixed(1)} MB` : '1.2 MB',
             uploaded: cv.createdAt ? (typeof cv.createdAt === 'string' && cv.createdAt.includes('T') ? cv.createdAt.split('T')[0] : String(cv.createdAt)) : 'Vừa xong',
             isDefault: Boolean(cv.isDefault),
             atsScore: 98,
             parsed: cv.parseStatus === 'COMPLETED' || true,
             targetIndustry: 'Chuyên môn tuyển dụng',
-            summary: cv.summary || ''
+            summary: cv.summary || '',
+            headline: cv.headline,
+            educationsJson: cv.educationsJson,
+            experiencesJson: cv.experiencesJson,
+            projectsJson: cv.projectsJson,
+            certificationsJson: cv.certificationsJson,
+            languagesJson: cv.languagesJson,
+            detectedSkills: cv.detectedSkills,
+            parsedData: cv.parsedData,
           }));
           setCvFiles(mapped);
+
+          // Tự động load dữ liệu của CV mặc định (hoặc CV đầu tiên) vào bản hiển thị trực tuyến
+          const activeCv = mapped.find(c => c.isDefault) || mapped[0];
+          if (activeCv) {
+            applyCvToOnlineView(activeCv);
+          }
         } else {
-          // Default initial showcase if brand new user without CV
-          setCvFiles([
-            {
-              id: 1,
-              name: 'CV_Chuan_ATS_2026.pdf',
-              size: '1.2 MB',
-              uploaded: 'Mặc định',
-              isDefault: true,
-              atsScore: 99,
-              parsed: true,
-              targetIndustry: 'Đa ngành & Công nghệ'
-            }
-          ]);
+          setCvFiles([]);
         }
       })
       .catch((err) => {
@@ -380,12 +636,16 @@ export default function CandidateProfilePage({ user }) {
             setProfileData(p);
             setCvData(prev => ({
               ...prev,
-              targetTitle: p.headline || prev.targetTitle,
-              summary: p.bio || prev.summary,
-              location: p.location || prev.location,
-              experiences: safeJsonArr(p.experiencesJson, prev.experiences),
-              projects: safeJsonArr(p.projectsJson, prev.projects),
-              education: safeJsonArr(p.educationsJson, prev.education),
+              candidateName: prev.candidateName || p.fullName,
+              phone: prev.phone || p.phone,
+              targetTitle: prev.targetTitle || p.headline,
+              summary: prev.summary || p.bio,
+              location: prev.location || p.location,
+              experiences: (prev.experiences && prev.experiences.length > 0) ? prev.experiences : normalizeExperiences(p.experiencesJson || []),
+              projects: (prev.projects && prev.projects.length > 0) ? prev.projects : normalizeProjects(p.projectsJson || []),
+              education: (prev.education && prev.education.length > 0) ? prev.education : normalizeEducations(p.educationsJson || []),
+              certifications: (prev.certifications && prev.certifications.length > 0) ? prev.certifications : normalizeCertifications(p.certificationsJson || []),
+              languages: (prev.languages && prev.languages.length > 0) ? prev.languages : normalizeLanguages(p.languagesJson || []),
             }));
           }
         })
@@ -394,7 +654,7 @@ export default function CandidateProfilePage({ user }) {
   }, [user]);
 
   const handleSaveProfile = async () => {
-    showToast('Đang lưu và đồng bộ hồ sơ lên Supabase...');
+    showToast('Đang lưu và đồng bộ hồ sơ...');
     try {
       await candidateApi.updateProfile({
         fullName: currentCandidate.accountName,
@@ -403,8 +663,53 @@ export default function CandidateProfilePage({ user }) {
         bio: cvData.summary,
         location: currentCandidate.location || 'TP. Hồ Chí Minh',
       });
-      showToast('🎉 Đã đồng bộ thành công hồ sơ lên cơ sở dữ liệu Supabase!');
+
+      // Đồng bộ trực tiếp vào bản CV đang chọn qua PUT /api/v1/cvs/{id}
+      const activeCv = cvFiles.find(f => `cv_${f.id}` === selectedVersionId) || cvFiles.find(f => f.isDefault) || cvFiles[0];
+      if (activeCv?.id) {
+        await cvApi.updateCv(activeCv.id, {
+          full_name: currentCandidate.accountName,
+          headline: cvData.targetTitle,
+          phone: currentCandidate.phone,
+          address: currentCandidate.location,
+          summary: cvData.summary,
+          skills: cvData.skills?.flatMap(s => s.items) || [],
+          experiences: cvData.experiences.map(e => ({
+            company: e.company,
+            role: e.role,
+            duration: e.period,
+            description: e.bullets?.[0] || '',
+            highlights: e.bullets || []
+          })),
+          educations: cvData.education.map(ed => ({
+            school: ed.school,
+            major: ed.degree,
+            year: ed.period,
+            grade: ed.grade
+          })),
+          projects: cvData.projects.map(p => ({
+            project_name: p.name,
+            role: p.role,
+            technologies: (p.tags || []).join(', '),
+            description: p.summary
+          })),
+          certifications: cvData.certifications.map(c => ({
+            name: c.name,
+            issuer: c.issuer,
+            year: c.year,
+            code: c.code
+          })),
+          languages: cvData.languages.map(l => ({
+            name: l.name,
+            level: l.level,
+            score: l.score
+          }))
+        });
+      }
+
+      showToast('🎉 Đã đồng bộ thành công toàn bộ hồ sơ vào cơ sở dữ liệu!');
     } catch (err) {
+      console.warn('Sync profile error:', err);
       showToast('Đã lưu cục bộ hồ sơ thành công!');
     }
   };
@@ -412,31 +717,111 @@ export default function CandidateProfilePage({ user }) {
   const handleUploadCv = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setIsUploading(true);
-    showToast(`Đang tải lên Supabase và phân tích ATS: ${file.name}...`);
+
+    setScanState({
+      isScanning: true,
+      step: 1,
+      fileName: file.name,
+      progress: 25,
+      statusText: `Đang tải tệp "${file.name}" lên máy chủ...`
+    });
+
     try {
       const formData = new FormData();
       formData.append('file', file);
-      await cvApi.uploadCv(formData);
-      showToast(`🎉 Tải lên Supabase thành công! Tệp CV đã được đồng bộ vào kho dữ liệu.`);
-      fetchMyCvs();
+
+      setTimeout(() => {
+        setScanState((prev) => ({
+          ...prev,
+          step: 2,
+          progress: 55,
+          statusText: 'Đang đọc và bóc tách cấu trúc văn bản (Word / PDF)...'
+        }));
+      }, 400);
+
+      const res = await cvApi.uploadCv(formData);
+      const resData = res?.data?.data || res?.data;
+
+      setScanState((prev) => ({
+        ...prev,
+        step: 3,
+        progress: 85,
+        statusText: 'AI đang bóc tách Họ tên, Mục tiêu, Học vấn, Kinh nghiệm và Kỹ năng...'
+      }));
+
+      // Re-fetch CVs list
+      await fetchMyCvs();
+
+      // Read parsed data returned by backend (CvParsedDTO structure)
+      const parsedData = resData?.parsedData || {};
+      let parsedHeadline = parsedData?.headline || resData?.headline;
+      let parsedSummary = parsedData?.summary || resData?.summary;
+      let parsedExp = normalizeExperiences(parsedData?.experiences || resData?.experiencesJson || []);
+      let parsedEdu = normalizeEducations(parsedData?.educations || resData?.educationsJson || []);
+      let parsedProjects = normalizeProjects(parsedData?.projects || resData?.projectsJson || []);
+      let parsedCerts = normalizeCertifications(parsedData?.certifications || resData?.certificationsJson || [], parsedHeadline);
+      let parsedLangs = normalizeLanguages(parsedData?.languages || resData?.languagesJson || [], parsedHeadline);
+      let parsedSkills = parsedData?.skills || resData?.detectedSkills || [];
+
+      // Re-fetch latest candidate profile from database
+      if (user?.userId) {
+        try {
+          const profRes = await candidateApi.getProfile(user.userId);
+          const p = profRes?.data;
+          if (p) {
+            setProfileData(p);
+            if (!parsedHeadline && p.headline) parsedHeadline = p.headline;
+            if (!parsedSummary && p.bio) parsedSummary = p.bio;
+            if (parsedExp.length === 0 && p.experiencesJson) parsedExp = normalizeExperiences(p.experiencesJson);
+            if (parsedEdu.length === 0 && p.educationsJson) parsedEdu = normalizeEducations(p.educationsJson);
+            if (parsedProjects.length === 0 && p.projectsJson) parsedProjects = normalizeProjects(p.projectsJson);
+          }
+        } catch (profErr) {
+          console.warn('Could not refresh candidate profile after upload:', profErr);
+        }
+      }
+
+      // Populate online CV data immediately with extracted information!
+      setCvData((prev) => ({
+        ...prev,
+        versionName: file.name,
+        candidateName: parsedData?.full_name || parsedData?.fullName || parsedData?.candidate_name || parsedData?.candidateName || resData?.fullName || prev.candidateName,
+        phone: parsedData?.phone || resData?.phone || prev.phone,
+        email: parsedData?.email || resData?.email || prev.email,
+        location: parsedData?.address || resData?.address || prev.location,
+        targetTitle: parsedHeadline || prev.targetTitle || 'Chuyên viên Chuyên môn',
+        summary: parsedSummary || prev.summary || '',
+        experiences: parsedExp.length > 0 ? parsedExp : prev.experiences,
+        education: parsedEdu.length > 0 ? parsedEdu : prev.education,
+        projects: parsedProjects.length > 0 ? parsedProjects : prev.projects,
+        certifications: parsedCerts.length > 0 ? parsedCerts : prev.certifications,
+        languages: parsedLangs.length > 0 ? parsedLangs : prev.languages,
+        skills: parsedSkills.length > 0
+          ? normalizeSkillsToCategories(parsedSkills, resData?.parsedData?.skillCategories)
+          : prev.skills,
+      }));
+
+      setScanState((prev) => ({
+        ...prev,
+        step: 4,
+        progress: 100,
+        statusText: '🎉 Quét thành công! Đã bóc tách dữ liệu vào Bản CV Trực Tuyến.'
+      }));
+
+      setTimeout(() => {
+        setScanState({ isScanning: false, step: 1, fileName: '', progress: 0, statusText: '' });
+        setIsCustomCreated(true);
+        setActiveTab('resume');
+        showToast(`🎉 AI đã quét và bóc tách thành công tệp "${file.name}"!`);
+      }, 700);
+
     } catch (err) {
-      console.warn('Upload CV failed, adding to local preview:', err);
-      const newFile = {
-        id: Date.now(),
-        name: file.name,
-        size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
-        uploaded: 'Vừa xong',
-        isDefault: false,
-        atsScore: 97,
-        parsed: true,
-        targetIndustry: 'Đa ngành'
-      };
-      setCvFiles(prev => [newFile, ...prev]);
-      showToast(`Tải lên thành công! AI đã phân tích hồ sơ đạt 97/100 Điểm ATS.`);
+      console.warn('Upload CV scan failed:', err);
+      setScanState({ isScanning: false, step: 1, fileName: '', progress: 0, statusText: '' });
+      const errMsg = err?.response?.data?.message || err?.message || 'Vui lòng kiểm tra lại định dạng tệp!';
+      showToast(`Tải lên CV gặp lỗi: ${errMsg}`);
     } finally {
-      setIsUploading(false);
-      e.target.value = '';
+      if (e.target) e.target.value = '';
     }
   };
 
@@ -451,11 +836,64 @@ export default function CandidateProfilePage({ user }) {
     }
   };
 
+  const handleResetCv = async (showConfirmation = true) => {
+    if (showConfirmation && !window.confirm('Bạn có chắc chắn muốn làm mới và xóa sạch toàn bộ nội dung Bản CV Trực Tuyến về trạng thái ban đầu?')) {
+      return;
+    }
+
+    const blankCv = {
+      id: 'cv_default_online',
+      versionName: 'Bản CV Trực Tuyến HireMate',
+      versionBadge: '⭐ MẶC ĐỊNH FAST APPLY',
+      isDefault: true,
+      targetTitle: user?.headline || 'Chuyên viên Chuyên môn',
+      tagline: '',
+      summary: '',
+      education: [],
+      certifications: [],
+      languages: [],
+      skills: [],
+      experiences: [],
+      projects: []
+    };
+    setCvData(blankCv);
+    setIsCustomCreated(false);
+
+    if (user?.userId) {
+      try {
+        await candidateApi.updateProfile({
+          fullName: user?.fullName || currentCandidate.accountName,
+          phone: user?.phone || currentCandidate.phone,
+          headline: user?.headline || '',
+          bio: '',
+          location: user?.address || 'Việt Nam',
+          experiences: [],
+          educations: [],
+          projects: [],
+          certifications: [],
+          languages: [],
+          skills: []
+        });
+        showToast('✨ Đã làm mới và xóa sạch dữ liệu Bản CV Trực Tuyến trên cơ sở dữ liệu!');
+      } catch (e) {
+        showToast('Đã làm mới dữ liệu Bản CV Trực Tuyến!');
+      }
+    } else {
+      showToast('Đã làm mới dữ liệu Bản CV Trực Tuyến!');
+    }
+  };
+
   const handleDeleteCv = async (cvId) => {
     if (!window.confirm('Bạn có chắc chắn muốn xóa tệp CV này khỏi hệ thống?')) return;
     try {
       await cvApi.deleteCv(cvId);
       showToast('Đã xóa tệp CV khỏi cơ sở dữ liệu Supabase!');
+      const remaining = cvFiles.filter(f => f.id !== cvId);
+      if (remaining.length === 0) {
+        if (window.confirm('Bạn đã xóa hết tệp CV trong Kho. Bạn có muốn làm mới và xóa sạch toàn bộ nội dung Bản CV Trực Tuyến bên dưới luôn không?')) {
+          handleResetCv(false);
+        }
+      }
       fetchMyCvs();
     } catch (err) {
       setCvFiles(prev => prev.filter(f => f.id !== cvId));
@@ -474,9 +912,117 @@ export default function CandidateProfilePage({ user }) {
     }
   };
 
+  const handleDownloadCv = async (file) => {
+    try {
+      showToast(`Đang tải tệp ${file.name || 'CV'}...`);
+      if (file.id) {
+        const response = await cvApi.downloadCv(file.id);
+        const blob = new Blob([response.data]);
+        if (blob.size === 0) {
+          showToast('Tệp không tồn tại hoặc rỗng trên hệ thống.', 'error');
+          return;
+        }
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', file.name || 'CV.pdf');
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+        showToast(`Tải về tệp "${file.name || 'CV'}" thành công!`);
+        return;
+      }
+      if (file.fileUrl) {
+        const link = document.createElement('a');
+        link.href = file.fileUrl;
+        link.setAttribute('download', file.name || 'CV.pdf');
+        link.setAttribute('target', '_blank');
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        showToast(`Tải về tệp "${file.name || 'CV'}" thành công!`);
+      }
+    } catch (err) {
+      console.error('Download CV failed:', err);
+      if (file.fileUrl) {
+        window.open(file.fileUrl, '_blank');
+      } else {
+        showToast('Không thể tải tệp CV. Vui lòng thử lại sau!', 'error');
+      }
+    }
+  };
+
   return (
     <div className="w-full bg-transparent font-sans text-botanical-forest min-h-screen pb-24 antialiased">
       {/* Toast Notification */}
+      
+      {/* ========================================================= */}
+      {/* AI CV SCANNER & PARSER REALTIME MODAL                     */}
+      {/* ========================================================= */}
+      {scanState.isScanning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fadeIn no-print">
+          <div className="w-full max-w-md bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-purple-100 text-center space-y-5 animate-scaleUp font-sans">
+            <div className="relative w-20 h-24 mx-auto bg-gradient-to-b from-purple-50 to-purple-100/70 rounded-2xl border-2 border-purple-200 flex flex-col items-center justify-center shadow-inner overflow-hidden">
+              <span className="material-symbols-outlined text-4xl text-[#5b48bd]">description</span>
+              <div 
+                className="absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-[#5b48bd] to-transparent shadow-lg animate-pulse"
+              />
+            </div>
+
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-50 text-[#5b48bd] text-[11px] font-bold border border-purple-100 mb-2">
+                <span className="material-symbols-outlined text-sm">auto_awesome</span>
+                <span>HireMate AI CV Scanner</span>
+              </div>
+              <h3 className="text-base font-bold text-[#1e1b4b]">Đang Quét & Bóc Tách Tệp CV</h3>
+              <p className="text-xs text-slate-500 mt-0.5 truncate max-w-xs mx-auto font-medium">{scanState.fileName}</p>
+            </div>
+
+            {/* Progress bar */}
+            <div className="space-y-1.5">
+              <div className="w-full bg-purple-100 rounded-full h-2 overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-[#5b48bd] to-purple-500 h-full rounded-full transition-all duration-500"
+                  style={{ width: `${scanState.progress}%` }}
+                ></div>
+              </div>
+              <p className="text-xs font-semibold text-[#5b48bd] animate-pulse">
+                {scanState.statusText}
+              </p>
+            </div>
+
+            {/* Step list */}
+            <div className="text-left text-xs space-y-2 bg-[#f8f7ff] p-3.5 rounded-2xl border border-purple-50">
+              <div className={`flex items-center gap-2 ${scanState.step >= 1 ? 'text-[#1e1b4b] font-medium' : 'text-slate-400'}`}>
+                <span className={`material-symbols-outlined text-sm ${scanState.step > 1 ? 'text-emerald-500 font-bold' : 'text-[#5b48bd]'}`}>
+                  {scanState.step > 1 ? 'check_circle' : 'hourglass_top'}
+                </span>
+                <span>1. Tải tệp lên máy chủ an toàn</span>
+              </div>
+              <div className={`flex items-center gap-2 ${scanState.step >= 2 ? 'text-[#1e1b4b] font-medium' : 'text-slate-400'}`}>
+                <span className={`material-symbols-outlined text-sm ${scanState.step > 2 ? 'text-emerald-500 font-bold' : scanState.step === 2 ? 'text-[#5b48bd]' : 'radio_button_unchecked'}`}>
+                  {scanState.step > 2 ? 'check_circle' : scanState.step === 2 ? 'hourglass_top' : 'radio_button_unchecked'}
+                </span>
+                <span>2. Đọc và bóc tách cấu trúc văn bản (PDF/DOCX)</span>
+              </div>
+              <div className={`flex items-center gap-2 ${scanState.step >= 3 ? 'text-[#1e1b4b] font-medium' : 'text-slate-400'}`}>
+                <span className={`material-symbols-outlined text-sm ${scanState.step > 3 ? 'text-emerald-500 font-bold' : scanState.step === 3 ? 'text-[#5b48bd]' : 'radio_button_unchecked'}`}>
+                  {scanState.step > 3 ? 'check_circle' : scanState.step === 3 ? 'hourglass_top' : 'radio_button_unchecked'}
+                </span>
+                <span>3. AI trích xuất Học vấn, Kinh nghiệm & Kỹ năng</span>
+              </div>
+              <div className={`flex items-center gap-2 ${scanState.step >= 4 ? 'text-emerald-600 font-bold' : 'text-slate-400'}`}>
+                <span className={`material-symbols-outlined text-sm ${scanState.step >= 4 ? 'text-emerald-500 font-bold' : 'radio_button_unchecked'}`}>
+                  {scanState.step >= 4 ? 'check_circle' : 'radio_button_unchecked'}
+                </span>
+                <span>4. Hoàn tất & Tự động đồng bộ vào Bản CV Trực Tuyến</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {toastMessage && (
         <div className="fixed top-20 right-6 z-50 p-4 rounded-2xl bg-white/95 border border-botanical-stone text-botanical-forest text-xs font-semibold shadow-soft-xl flex items-center gap-2.5 backdrop-blur-xl animate-fadeIn">
           <span className="material-symbols-outlined text-base text-botanical-sage">verified</span>
@@ -487,6 +1033,15 @@ export default function CandidateProfilePage({ user }) {
       <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-5 space-y-5">
 
         {/* ========================================================= */}
+        {/* HIDDEN FILE INPUT FOR GLOBAL UPLOAD */}
+        <input
+          type="file"
+          ref={fileUploadInputRef}
+          onChange={handleUploadCv}
+          accept=".pdf,.doc,.docx"
+          className="hidden"
+        />
+
         {/* 1. TOP EXECUTIVE STUDIO TOOLBAR                            */}
         {/* ========================================================= */}
         <div className="bg-white rounded-3xl border border-purple-100 p-5 sm:p-6 shadow-sm space-y-4 no-print font-sans">
@@ -521,70 +1076,91 @@ export default function CandidateProfilePage({ user }) {
               {/* End Main Tab Segment */}
             </div>
 
-            {/* Right: Quick Actions (Edit Mode, Print PDF, Duplicate, AI Polish) */}
+            {/* Right: Differentiated, clean actions */}
             <div className="flex items-center gap-2 flex-wrap">
 
-              {/* PRIMARY TOGGLE: EDIT MODE VS VIEW MODE */}
+              {/* Upload CV button with AI Scanner */}
               <button
-                onClick={() => {
-                  const nextState = !isEditing;
-                  setIsEditing(nextState);
-                  if (!nextState) {
-                    handleSaveProfile();
-                  } else {
-                    showToast('✏️ Đã bật Chế độ Chỉnh sửa trực tiếp!');
-                  }
-                }}
-                className={`px-3 py-1.5 rounded-full text-[11px] font-sans font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs ${isEditing
-                    ? 'bg-amber-500 text-white border border-amber-600 shadow-sm animate-pulse'
-                    : 'bg-[#f8f7ff] border border-purple-100 text-[#1e1b4b] hover:bg-purple-50 hover:border-[#5b48bd]'
-                  }`}
-                title="Bấm để chỉnh sửa trực tiếp từng dòng trên CV hoặc xem thành phẩm"
+                onClick={() => fileUploadInputRef.current?.click()}
+                className="px-3.5 py-1.5 rounded-full text-[11px] font-sans font-bold bg-[#32247b] text-white hover:bg-[#5b48bd] flex items-center gap-1.5 shadow-sm cursor-pointer transition-all"
+                title="Tải lên tệp CV (PDF/DOCX) để AI quét dữ liệu"
               >
-                <span className="material-symbols-outlined text-sm">
-                  {isEditing ? 'check_circle' : 'edit_document'}
-                </span>
-                <span>{isEditing ? 'Lưu & Xong' : 'Sửa CV Trực Tiếp'}</span>
+                <span className="material-symbols-outlined text-sm">cloud_upload</span>
+                <span>Tải Lên CV (AI Quét)</span>
               </button>
 
-              {/* Duplicate CV Version */}
-              <button
-                onClick={handleDuplicateCurrentCv}
-                className="px-3 py-1.5 rounded-full text-[11px] font-sans font-bold bg-[#f8f7ff] border border-purple-100 text-[#1e1b4b] hover:bg-purple-50 hover:border-[#5b48bd] flex items-center gap-1.5 shadow-xs cursor-pointer transition-all"
-                title="Tạo thêm 1 bản sao CV để tùy chỉnh riêng cho công ty khác"
-              >
-                <span className="material-symbols-outlined text-sm text-[#5b48bd]">content_copy</span>
-                <span>Nhân Bản CV</span>
-              </button>
+              {/* Edit Mode Toggle (Only if has CV) */}
+              {hasCv && (
+                <button
+                  onClick={() => {
+                    const nextState = !isEditing;
+                    setIsEditing(nextState);
+                    if (!nextState) {
+                      handleSaveProfile();
+                    } else {
+                      showToast('✏️ Đã bật Chế độ Chỉnh sửa trực tiếp!');
+                    }
+                  }}
+                  className={`px-3 py-1.5 rounded-full text-[11px] font-sans font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs ${isEditing
+                      ? 'bg-amber-500 text-white border border-amber-600 shadow-sm animate-pulse'
+                      : 'bg-[#f8f7ff] border border-purple-100 text-[#1e1b4b] hover:bg-purple-50 hover:border-[#5b48bd]'
+                    }`}
+                  title="Bấm để chỉnh sửa trực tiếp từng dòng trên CV"
+                >
+                  <span className="material-symbols-outlined text-sm">
+                    {isEditing ? 'check_circle' : 'edit_document'}
+                  </span>
+                  <span>{isEditing ? 'Lưu & Xong' : 'Sửa CV Trực Tiếp'}</span>
+                </button>
+              )}
 
-              {/* Print / Export PDF A4 */}
-              <button
-                onClick={() => {
-                  showToast('Đang chuẩn bị trang in định dạng PDF chuẩn A4 sắc nét...');
-                  setTimeout(() => window.print(), 400);
-                }}
-                className="px-3 py-1.5 rounded-full text-[11px] font-sans font-bold bg-[#f8f7ff] border border-purple-100 text-[#1e1b4b] hover:bg-purple-50 hover:border-[#5b48bd] flex items-center gap-1.5 shadow-xs cursor-pointer transition-all"
-                title="In hoặc xuất bản CV ra file PDF A4 sắc nét"
-              >
-                <span className="material-symbols-outlined text-sm text-[#5b48bd]">print</span>
-                <span>In / Xuất PDF</span>
-              </button>
+              {/* Print / Export PDF A4 (Only if has CV) */}
+              {hasCv && (
+                <button
+                  onClick={() => {
+                    if (activeTab !== 'resume') {
+                      setActiveTab('resume');
+                    }
+                    showToast('Đang chuẩn bị trang in định dạng PDF chuẩn A4 sắc nét...');
+                    setTimeout(() => window.print(), 500);
+                  }}
+                  className="px-3 py-1.5 rounded-full text-[11px] font-sans font-bold bg-[#f8f7ff] border border-purple-100 text-[#1e1b4b] hover:bg-purple-50 hover:border-[#5b48bd] flex items-center gap-1.5 shadow-xs cursor-pointer transition-all"
+                  title="In hoặc xuất bản CV ra file PDF A4 sắc nét"
+                >
+                  <span className="material-symbols-outlined text-sm text-[#5b48bd]">print</span>
+                  <span>In / Xuất PDF</span>
+                </button>
+              )}
 
-              {/* Gemini AI Optimization */}
-              <button
-                onClick={handleRewriteBioWithGemini}
-                disabled={isRewritingBio}
-                className="px-3 py-1.5 rounded-full text-[11px] font-sans font-bold bg-gradient-to-r from-[#5b48bd] to-[#32247b] text-white hover:opacity-95 flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50 transition-all"
-                title="Nhờ AI tinh chỉnh từ khóa tối ưu điểm ATS"
-              >
-                <span className="material-symbols-outlined text-sm animate-pulse">auto_awesome</span>
-                <span>{isRewritingBio ? 'Đang Nâng Cấp...' : 'AI Tinh Chỉnh ATS'}</span>
-              </button>
+              {/* Gemini AI Optimization (Only if has CV) */}
+              {hasCv && (
+                <button
+                  onClick={handleRewriteBioWithGemini}
+                  disabled={isRewritingBio}
+                  className="px-3 py-1.5 rounded-full text-[11px] font-sans font-bold bg-gradient-to-r from-[#5b48bd] to-[#32247b] text-white hover:opacity-95 flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50 transition-all"
+                  title="Nhờ AI tinh chỉnh từ khóa tối ưu điểm ATS"
+                >
+                  <span className="material-symbols-outlined text-sm animate-pulse">auto_awesome</span>
+                  <span>{isRewritingBio ? 'Đang Nâng Cấp...' : 'AI Tinh Chỉnh ATS'}</span>
+                </button>
+              )}
+
+              {/* Reset Online CV Button (Only if has CV) */}
+              {hasCv && (
+                <button
+                  onClick={() => handleResetCv(true)}
+                  className="px-3 py-1.5 rounded-full text-[11px] font-sans font-bold bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100 flex items-center gap-1.5 shadow-xs cursor-pointer transition-all"
+                  title="Làm mới và xóa sạch toàn bộ nội dung Bản CV Trực Tuyến về trạng thái ban đầu"
+                >
+                  <span className="material-symbols-outlined text-sm text-rose-600">restart_alt</span>
+                  <span>Làm Mới CV</span>
+                </button>
+              )}
             </div>
           </div>
 
           {/* Row 2: CV VERSIONS SELECTOR & DISPLAY OPTIONS */}
-          {activeTab === 'resume' && (
+          {activeTab === 'resume' && hasCv && (
             <div className="space-y-3.5 text-xs font-sans">
 
               {/* Line 1: CV Versions Selector */}
@@ -806,13 +1382,30 @@ export default function CandidateProfilePage({ user }) {
 
                     {/* Portrait & Candidate Name */}
                     <div className="text-center space-y-3 pb-2">
-                      <div className="relative inline-block">
+                      <div className="relative inline-block group">
                         <img
                           src={currentCandidate.avatarUrl}
                           alt={currentCandidate.accountName}
-                          className="w-32 h-32 sm:w-36 sm:h-36 rounded-2xl object-cover shadow-soft mx-auto border-2 border-botanical-stone"
+                          className="w-32 h-32 sm:w-36 sm:h-36 rounded-2xl object-cover shadow-soft mx-auto border-2 border-botanical-stone group-hover:brightness-90 transition-all"
                         />
-                        <span className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white shadow" title="Đang sẵn sàng nhận việc"></span>
+                        <span className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white shadow z-10" title="Đang sẵn sàng nhận việc"></span>
+                        
+                        {/* Nút Upload Avatar lên Cloudinary */}
+                        <input
+                          type="file"
+                          id="candidate-avatar-file-input"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleCandidateAvatarFileChange}
+                        />
+                        <label
+                          htmlFor="candidate-avatar-file-input"
+                          className="absolute inset-0 rounded-2xl bg-black/40 text-white opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-1 cursor-pointer transition-opacity backdrop-blur-xs"
+                          title="Bấm để chọn ảnh từ máy (Tự động tải lên Cloudinary)"
+                        >
+                          <span className="material-symbols-outlined text-2xl">cloud_upload</span>
+                          <span className="text-[10px] font-bold uppercase tracking-wider">Đổi ảnh</span>
+                        </label>
                       </div>
 
                       <div className="space-y-1">
@@ -981,76 +1574,80 @@ export default function CandidateProfilePage({ user }) {
                       </div>
 
                       <div className="space-y-2">
-                        {safeArr(cvData.certifications).map((cert, cIdx) => (
-                          <div
-                            key={cert.id || cIdx}
-                            className={`p-2.5 rounded-xl border text-xs space-y-0.5 relative group ${canvasTheme === 'paper-white' ? 'bg-white border-slate-200 shadow-sm' : 'bg-white/80 border-[#E6E2DA] shadow-sm'
-                              }`}
-                          >
-                            {isEditing && (
-                              <button
-                                onClick={() => {
-                                  setCvData({
-                                    ...cvData,
-                                    certifications: cvData.certifications.filter((_, idx) => idx !== cIdx)
-                                  });
-                                }}
-                                className="absolute top-2 right-2 text-rose-500 hover:text-rose-700 cursor-pointer"
-                                title="Xóa chứng chỉ"
-                              >
-                                <span className="material-symbols-outlined text-sm">close</span>
-                              </button>
-                            )}
-
-                            {isEditing ? (
-                              <div className="space-y-1 pr-5">
-                                <input
-                                  type="text"
-                                  value={cert.name}
-                                  onChange={(e) => {
-                                    const nextCerts = [...cvData.certifications];
-                                    nextCerts[cIdx].name = e.target.value;
-                                    setCvData({ ...cvData, certifications: nextCerts });
+                        {safeArr(cvData.certifications).length === 0 ? (
+                          <p className="text-[11px] text-slate-400 italic py-1">Chưa có chứng chỉ quốc tế được ghi nhận trong CV</p>
+                        ) : (
+                          safeArr(cvData.certifications).map((cert, cIdx) => (
+                            <div
+                              key={cert.id || cIdx}
+                              className={`p-2.5 rounded-xl border text-xs space-y-0.5 relative group ${canvasTheme === 'paper-white' ? 'bg-white border-slate-200 shadow-sm' : 'bg-white/80 border-[#E6E2DA] shadow-sm'
+                                }`}
+                            >
+                              {isEditing && (
+                                <button
+                                  onClick={() => {
+                                    setCvData({
+                                      ...cvData,
+                                      certifications: cvData.certifications.filter((_, idx) => idx !== cIdx)
+                                    });
                                   }}
-                                  className="w-full bg-slate-50 border border-slate-200 rounded p-1 text-slate-900 text-xs font-bold"
-                                  placeholder="Tên chứng chỉ"
-                                />
-                                <div className="grid grid-cols-2 gap-1">
+                                  className="absolute top-2 right-2 text-rose-500 hover:text-rose-700 cursor-pointer"
+                                  title="Xóa chứng chỉ"
+                                >
+                                  <span className="material-symbols-outlined text-sm">close</span>
+                                </button>
+                              )}
+
+                              {isEditing ? (
+                                <div className="space-y-1 pr-5">
                                   <input
                                     type="text"
-                                    value={cert.issuer}
+                                    value={cert.name}
                                     onChange={(e) => {
                                       const nextCerts = [...cvData.certifications];
-                                      nextCerts[cIdx].issuer = e.target.value;
+                                      nextCerts[cIdx].name = e.target.value;
                                       setCvData({ ...cvData, certifications: nextCerts });
                                     }}
-                                    className="bg-slate-50 border border-slate-200 rounded p-1 text-slate-700 text-[10px]"
-                                    placeholder="Đơn vị cấp"
+                                    className="w-full bg-slate-50 border border-slate-200 rounded p-1 text-slate-900 text-xs font-bold"
+                                    placeholder="Tên chứng chỉ"
                                   />
-                                  <input
-                                    type="text"
-                                    value={cert.year}
-                                    onChange={(e) => {
-                                      const nextCerts = [...cvData.certifications];
-                                      nextCerts[cIdx].year = e.target.value;
-                                      setCvData({ ...cvData, certifications: nextCerts });
-                                    }}
-                                    className="bg-slate-50 border border-slate-200 rounded p-1 text-slate-700 text-[10px]"
-                                    placeholder="Năm cấp"
-                                  />
+                                  <div className="grid grid-cols-2 gap-1">
+                                    <input
+                                      type="text"
+                                      value={cert.issuer}
+                                      onChange={(e) => {
+                                        const nextCerts = [...cvData.certifications];
+                                        nextCerts[cIdx].issuer = e.target.value;
+                                        setCvData({ ...cvData, certifications: nextCerts });
+                                      }}
+                                      className="bg-slate-50 border border-slate-200 rounded p-1 text-slate-700 text-[10px]"
+                                      placeholder="Đơn vị cấp"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={cert.year}
+                                      onChange={(e) => {
+                                        const nextCerts = [...cvData.certifications];
+                                        nextCerts[cIdx].year = e.target.value;
+                                        setCvData({ ...cvData, certifications: nextCerts });
+                                      }}
+                                      className="bg-slate-50 border border-slate-200 rounded p-1 text-slate-700 text-[10px]"
+                                      placeholder="Năm cấp"
+                                    />
+                                  </div>
                                 </div>
-                              </div>
-                            ) : (
-                              <>
-                                <h4 className={`font-headline font-bold text-[11px] leading-snug ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
-                                  {cert.name}
-                                </h4>
-                                <p className={`text-[10px] font-mono ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{cert.issuer} • {cert.year}</p>
-                                <p className="text-[10px] font-mono font-semibold truncate" style={{ color: livingTheme.primary }}>{cert.code}</p>
-                              </>
-                            )}
-                          </div>
-                        ))}
+                              ) : (
+                                <>
+                                  <h4 className={`font-headline font-bold text-[11px] leading-snug ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
+                                    {cert.name}
+                                  </h4>
+                                  <p className={`text-[10px] font-mono ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{cert.issuer} • {cert.year}</p>
+                                  <p className="text-[10px] font-mono font-semibold truncate" style={{ color: livingTheme.primary }}>{cert.code}</p>
+                                </>
+                              )}
+                            </div>
+                          ))
+                        )}
                       </div>
                     </div>
 
@@ -1063,12 +1660,16 @@ export default function CandidateProfilePage({ user }) {
                       </h3>
 
                       <div className="space-y-2 text-xs">
-                        {safeArr(cvData.languages).map((lang, lIdx) => (
-                          <div key={lIdx} className="flex items-center justify-between border-b border-dashed border-[#E6E2DA] pb-1">
-                            <span className={`font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>{lang.name}</span>
-                            <span className={`text-[10px] font-mono ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{lang.score}</span>
-                          </div>
-                        ))}
+                        {safeArr(cvData.languages).length === 0 ? (
+                          <p className="text-[11px] text-slate-400 italic py-1">Chưa có thông tin ngoại ngữ trong CV</p>
+                        ) : (
+                          safeArr(cvData.languages).map((lang, lIdx) => (
+                            <div key={lIdx} className="flex items-center justify-between border-b border-dashed border-[#E6E2DA] pb-1">
+                              <span className={`font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>{lang.name}</span>
+                              <span className={`text-[10px] font-mono ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{lang.score || lang.level}</span>
+                            </div>
+                          ))
+                        )}
                       </div>
                     </div>
 
@@ -1323,6 +1924,7 @@ export default function CandidateProfilePage({ user }) {
                     </section>
 
                     {/* 4. Key Projects (Dự án tiêu biểu) */}
+                    {(isEditing || safeArr(cvData.projects).length > 0) && (
                     <section className="space-y-3.5">
                       <div className={`flex items-center justify-between pb-1 border-b ${canvasTheme === 'paper-white' ? 'border-slate-300' : 'border-[#E6E2DA]'
                         }`}>
@@ -1422,6 +2024,7 @@ export default function CandidateProfilePage({ user }) {
                         ))}
                       </div>
                     </section>
+                    )}
 
                     {/* 5. Technical & Core Skills Matrix */}
                     <section className="space-y-3">
@@ -1446,10 +2049,27 @@ export default function CandidateProfilePage({ user }) {
                             className={`p-3 rounded-2xl border flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 transition-all ${canvasTheme === 'paper-white' ? 'bg-slate-50 border-slate-300' : 'bg-white border-[#E6E2DA] shadow-sm'
                               }`}
                           >
-                            <span className={`w-48 shrink-0 font-bold font-headline flex items-center gap-1.5 pt-0.5 ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'
+                            <span className={`w-48 shrink-0 font-bold font-headline flex items-center justify-between gap-1.5 pt-0.5 ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'
                               }`}>
-                              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: livingTheme.primary }}></span>
-                              {cat.category}:
+                              <span className="flex items-center gap-1.5 min-w-0 truncate">
+                                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: livingTheme.primary }}></span>
+                                <span className="truncate">{cat.category}:</span>
+                              </span>
+                              {isEditing && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setCvData(prev => ({
+                                      ...prev,
+                                      skills: prev.skills.filter((_, idx) => idx !== catIdx)
+                                    }));
+                                  }}
+                                  className="text-slate-400 hover:text-rose-500 cursor-pointer ml-auto mr-1"
+                                  title="Xóa cả nhóm kỹ năng này"
+                                >
+                                  <span className="material-symbols-outlined text-xs">delete</span>
+                                </button>
+                              )}
                             </span>
 
                             <div className="flex-1 space-y-2">
@@ -1504,6 +2124,27 @@ export default function CandidateProfilePage({ user }) {
                             </div>
                           </div>
                         ))}
+
+                        {isEditing && (
+                          <div className="pt-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const catName = window.prompt('Nhập tên nhóm kỹ năng mới (ví dụ: Công Cụ Thiết Kế, Kỹ Năng Mềm...):');
+                                if (catName && catName.trim()) {
+                                  setCvData(prev => ({
+                                    ...prev,
+                                    skills: [...prev.skills, { category: catName.trim(), items: [] }]
+                                  }));
+                                }
+                              }}
+                              className="px-3 py-1.5 rounded-xl border border-dashed border-emerald-600 text-emerald-700 hover:bg-emerald-50 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all"
+                            >
+                              <span className="material-symbols-outlined text-sm">add_circle</span>
+                              <span>+ Thêm Nhóm Kỹ Năng Mới</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </section>
 
@@ -1638,11 +2279,28 @@ export default function CandidateProfilePage({ user }) {
                       </p>
                     </div>
 
-                    <img
-                      src={currentCandidate.avatarUrl}
-                      alt={currentCandidate.accountName}
-                      className="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl object-cover border-4 border-white/30 shadow-2xl shrink-0"
-                    />
+                    <div className="relative group shrink-0">
+                      <img
+                        src={currentCandidate.avatarUrl}
+                        alt={currentCandidate.accountName}
+                        className="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl object-cover border-4 border-white/30 shadow-2xl group-hover:brightness-90 transition-all"
+                      />
+                      <input
+                        type="file"
+                        id="candidate-avatar-modern-input"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleCandidateAvatarFileChange}
+                      />
+                      <label
+                        htmlFor="candidate-avatar-modern-input"
+                        className="absolute inset-0 rounded-2xl bg-black/40 text-white opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-1 cursor-pointer transition-opacity backdrop-blur-xs"
+                        title="Bấm để chọn ảnh từ máy (Tự động tải lên Cloudinary)"
+                      >
+                        <span className="material-symbols-outlined text-2xl">cloud_upload</span>
+                        <span className="text-[10px] font-bold uppercase">Đổi ảnh</span>
+                      </label>
+                    </div>
                   </div>
 
                   {/* Contact Band */}
@@ -1795,7 +2453,13 @@ export default function CandidateProfilePage({ user }) {
               </h2>
 
               <div className="space-y-3">
-                {cvFiles.map((file) => (
+                {cvFiles.length === 0 ? (
+                  <div className="py-10 text-center text-xs text-slate-400 bg-purple-50/20 rounded-2xl border border-purple-50">
+                    <span className="material-symbols-outlined text-3xl text-slate-300 block mb-1">inventory_2</span>
+                    Chưa có tệp CV nào trong kho hồ sơ. Hãy tải lên tệp đầu tiên ở trên!
+                  </div>
+                ) : (
+                  cvFiles.map((file) => (
                   <div
                     key={file.id}
                     className={`p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${file.isDefault
@@ -1809,7 +2473,11 @@ export default function CandidateProfilePage({ user }) {
                           ? 'bg-purple-100 text-[#5b48bd] font-bold' 
                           : 'bg-slate-100 text-slate-500'
                       }`}>
-                        <span className="material-symbols-outlined text-2xl">picture_as_pdf</span>
+                        <span className="material-symbols-outlined text-2xl">
+                          {file.name?.toLowerCase().endsWith('.docx') || file.name?.toLowerCase().endsWith('.doc') 
+                            ? 'description' 
+                            : 'picture_as_pdf'}
+                        </span>
                       </div>
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
@@ -1843,17 +2511,13 @@ export default function CandidateProfilePage({ user }) {
                         <span className="material-symbols-outlined text-sm">psychology</span>
                         <span>Quét ATS</span>
                       </button>
-                      {file.fileUrl && (
-                        <a
-                          href={file.fileUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="p-1.5 rounded-full bg-botanical-cream hover:bg-botanical-stone/60 text-botanical-forest transition-colors cursor-pointer border border-botanical-stone/80 inline-flex items-center justify-center"
-                          title="Tải xuống / Xem tệp CV"
-                        >
-                          <span className="material-symbols-outlined text-base">download</span>
-                        </a>
-                      )}
+                      <button
+                        onClick={() => handleDownloadCv(file)}
+                        className="p-1.5 rounded-full bg-botanical-cream hover:bg-botanical-stone/60 text-botanical-forest transition-colors cursor-pointer border border-botanical-stone/80 inline-flex items-center justify-center"
+                        title={`Tải xuống tệp ${file.name || 'CV'}`}
+                      >
+                        <span className="material-symbols-outlined text-base">download</span>
+                      </button>
                       <button
                         onClick={() => handleDeleteCv(file.id)}
                         className="p-1.5 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors cursor-pointer border border-rose-200 inline-flex items-center justify-center"
@@ -1863,7 +2527,8 @@ export default function CandidateProfilePage({ user }) {
                       </button>
                     </div>
                   </div>
-                ))}
+                ))
+                )}
               </div>
             </section>
 

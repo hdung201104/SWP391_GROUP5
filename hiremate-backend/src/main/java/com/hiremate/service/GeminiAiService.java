@@ -68,4 +68,14 @@ public interface GeminiAiService {
      * Trả về Map chứa: Kỹ năng -> Bằng chứng ngữ nghĩa thực tế trích từ CV.
      */
     java.util.Map<String, String> evaluateSemanticSkillMatches(String jobTitle, String candidateProfileText, List<String> potentialMissingSkills);
+
+    /**
+     * Chấm điểm và xếp hạng hàng loạt công việc cho ứng viên (Batch AI Job Matching).
+     * BƯỚC 2: Gửi thông tin Hồ sơ Ứng viên và Danh sách Jobs, ép Gemini trả về JSON format chuẩn xác:
+     * job_id, matching_score, matched_skills, missing_skills, ai_reasoning.
+     */
+    List<com.hiremate.dto.ai.AiBatchJobMatchResult> matchJobsBatch(
+            String candidateProfileInfo,
+            List<com.hiremate.dto.ai.JobBriefForMatching> jobsToScore
+    );
 }

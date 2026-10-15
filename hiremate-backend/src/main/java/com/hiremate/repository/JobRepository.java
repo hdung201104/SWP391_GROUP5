@@ -18,10 +18,13 @@ import java.util.List;
 public interface JobRepository extends JpaRepository<Job, Long> {
 
     /** Lấy tất cả jobs của một recruiter (qua Recruiter subclass FK) */
-    List<Job> findByRecruiter_RecruiterId(Long recruiterId);
+    @Query("SELECT j FROM Job j LEFT JOIN FETCH j.company LEFT JOIN FETCH j.recruiter WHERE j.recruiter.recruiterId = :recruiterId")
+    List<Job> findByRecruiter_RecruiterId(@Param("recruiterId") Long recruiterId);
 
-    /** Lấy jobs theo status */
-    List<Job> findByStatus(JobStatus status);
+    /** Lấy jobs theo status (chỉ lấy tin đã được duyệt APPROVED) */
+    @Query("SELECT j FROM Job j WHERE j.status = :status AND " +
+           "(j.approvalStatus IS NULL OR j.approvalStatus = com.hiremate.enums.JobApprovalStatus.APPROVED)")
+    List<Job> findByStatus(@Param("status") JobStatus status);
 
     /** Lấy jobs theo company */
     List<Job> findByCompany_CompanyId(Long companyId);
@@ -31,6 +34,7 @@ public interface JobRepository extends JpaRepository<Job, Long> {
      * Sử dụng JPQL path traversal qua Recruiter subclass.
      */
     @Query("SELECT j FROM Job j WHERE j.status = com.hiremate.enums.JobStatus.PUBLISHED AND " +
+           "(j.approvalStatus IS NULL OR j.approvalStatus = com.hiremate.enums.JobApprovalStatus.APPROVED) AND " +
            "(CAST(:keyword AS string) IS NULL OR LOWER(j.title) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
            "   OR LOWER(j.description) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
            "   OR (j.requirements IS NOT NULL AND LOWER(j.requirements) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))) " +
@@ -38,10 +42,13 @@ public interface JobRepository extends JpaRepository<Job, Long> {
            "(CAST(:location AS string) IS NULL OR LOWER(j.location) LIKE LOWER(CONCAT('%', CAST(:location AS string), '%')))")
     List<Job> searchJobs(@Param("keyword") String keyword, @Param("location") String location);
 
-    /** Tìm kiếm phân trang (Pageable) cho published jobs */
-    org.springframework.data.domain.Page<Job> findByStatus(JobStatus status, org.springframework.data.domain.Pageable pageable);
+    /** Tìm kiếm phân trang (Pageable) cho published jobs (chỉ lấy tin đã được duyệt APPROVED) */
+    @Query("SELECT j FROM Job j WHERE j.status = :status AND " +
+           "(j.approvalStatus IS NULL OR j.approvalStatus = com.hiremate.enums.JobApprovalStatus.APPROVED)")
+    org.springframework.data.domain.Page<Job> findByStatus(@Param("status") JobStatus status, org.springframework.data.domain.Pageable pageable);
 
     @Query("SELECT j FROM Job j WHERE j.status = com.hiremate.enums.JobStatus.PUBLISHED AND " +
+           "(j.approvalStatus IS NULL OR j.approvalStatus = com.hiremate.enums.JobApprovalStatus.APPROVED) AND " +
            "(CAST(:keyword AS string) IS NULL OR LOWER(j.title) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
            "   OR LOWER(j.description) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
            "   OR (j.requirements IS NOT NULL AND LOWER(j.requirements) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))) " +
@@ -50,6 +57,7 @@ public interface JobRepository extends JpaRepository<Job, Long> {
     org.springframework.data.domain.Page<Job> searchJobsPaged(@Param("keyword") String keyword, @Param("location") String location, org.springframework.data.domain.Pageable pageable);
 
     @Query("SELECT j FROM Job j WHERE j.status = com.hiremate.enums.JobStatus.PUBLISHED AND " +
+           "(j.approvalStatus IS NULL OR j.approvalStatus = com.hiremate.enums.JobApprovalStatus.APPROVED) AND " +
            "(j.deadlineDate IS NULL OR j.deadlineDate >= CURRENT_DATE) AND " +
            "(CAST(:keyword AS string) IS NULL OR LOWER(j.title) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
            "   OR LOWER(j.description) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
@@ -72,4 +80,36 @@ public interface JobRepository extends JpaRepository<Job, Long> {
     List<Job> findAllByOrderByCreatedAtDesc();
     List<Job> findByApprovalStatusOrderByCreatedAtDesc(com.hiremate.enums.JobApprovalStatus approvalStatus);
     long countByApprovalStatus(com.hiremate.enums.JobApprovalStatus approvalStatus);
+
+    /**
+     * BƯỚC 1: Lọc thô bằng SQL Database (Pre-filtering)
+     * Tìm các công việc PUBLISHED & APPROVED, cùng ngành nghề hoặc có ít nhất 1 kỹ năng trùng với ứng viên.
+     */
+    @Query("SELECT DISTINCT j FROM Job j " +
+           "LEFT JOIN JobSkill js ON js.jobId = j.jobId " +
+           "WHERE j.status = com.hiremate.enums.JobStatus.PUBLISHED " +
+           "AND (j.approvalStatus IS NULL OR j.approvalStatus = com.hiremate.enums.JobApprovalStatus.APPROVED) " +
+           "AND (j.deadlineDate IS NULL OR j.deadlineDate >= CURRENT_DATE) " +
+           "AND (" +
+           "     (:hasSkills = true AND js.skillId IN :skillIds) " +
+           "  OR (:hasKeyword = true AND (" +
+           "       LOWER(j.title) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "       OR LOWER(j.description) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "     ))" +
+           ") " +
+           "ORDER BY j.createdAt DESC")
+    List<Job> findCandidatePreFilteredJobs(
+            @Param("skillIds") List<Long> skillIds,
+            @Param("hasSkills") boolean hasSkills,
+            @Param("keyword") String keyword,
+            @Param("hasKeyword") boolean hasKeyword,
+            org.springframework.data.domain.Pageable pageable
+    );
+
+    @Query("SELECT j FROM Job j " +
+           "WHERE j.status = com.hiremate.enums.JobStatus.PUBLISHED " +
+           "AND (j.approvalStatus IS NULL OR j.approvalStatus = com.hiremate.enums.JobApprovalStatus.APPROVED) " +
+           "AND (j.deadlineDate IS NULL OR j.deadlineDate >= CURRENT_DATE) " +
+           "ORDER BY j.createdAt DESC")
+    List<Job> findRecentPublishedJobs(org.springframework.data.domain.Pageable pageable);
 }

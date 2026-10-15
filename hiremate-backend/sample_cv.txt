@@ -1,0 +1,15 @@
+NGUYEN VAN TEST
+Senior Java Backend Developer
+Email: testcand@hiremate.ai
+Phone: 0987654321
+Address: Ha Noi, Viet Nam
+
+MỤC TIÊU NGHỀ NGHIỆP
+Phát triển hệ thống microservices chịu tải cao.
+
+KỸ NĂNG:
+Java, Spring Boot, PostgreSQL, Docker, Redis
+
+KINH NGHIỆM LÀM VIỆC:
+FPT Software - Senior Java Developer (2022 - Nay)
+Phát triển nền tảng xử lý dữ liệu lớn.

@@ -107,18 +107,18 @@ public class AdminController {
     }
 
     @GetMapping("/jobs")
-    public ResponseEntity<ApiResponse<List<Job>>> getAllJobs() {
+    public ResponseEntity<ApiResponse<List<JobResponse>>> getAllJobs() {
         return ResponseEntity.ok(ApiResponse.ok(adminService.getAllJobs()));
     }
 
     @PutMapping("/jobs/{jobId}/approval")
-    public ResponseEntity<ApiResponse<Job>> updateJobApproval(
+    public ResponseEntity<ApiResponse<JobResponse>> updateJobApproval(
             @PathVariable Long jobId,
             @RequestBody Map<String, String> body
     ) {
         String statusStr = body.get("status");
         JobApprovalStatus status = JobApprovalStatus.valueOf(statusStr.toUpperCase());
-        Job updated = adminService.updateJobApproval(jobId, status);
+        JobResponse updated = adminService.updateJobApproval(jobId, status);
         return ResponseEntity.ok(ApiResponse.ok("Cập nhật duyệt tin tuyển dụng thành công", updated));
     }
 

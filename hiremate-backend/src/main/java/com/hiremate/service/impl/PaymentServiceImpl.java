@@ -40,6 +40,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final VoucherRepository voucherRepository;
     private final UserRepository userRepository;
     private final com.hiremate.util.PayOSClient payOSClient;
+    private final com.hiremate.service.NotificationService notificationService;
 
     private static final String DEFAULT_BANK_NAME = "MBBank (Ngân hàng TMCP Quân Đội)";
     private static final String DEFAULT_BANK_ACCOUNT = "0987654321";
@@ -206,10 +207,9 @@ public class PaymentServiceImpl implements PaymentService {
         BigDecimal discountAmount = BigDecimal.ZERO;
 
         if (request.getVoucherCode() != null && !request.getVoucherCode().isBlank()) {
-            VoucherValidationResponse vRes = validateVoucher(ValidateVoucherRequest.builder()
-                    .code(request.getVoucherCode())
-                    .amount(originalAmount)
-                    .build());
+            VoucherValidationResponse vRes = validateVoucher(new ValidateVoucherRequest(
+                    request.getVoucherCode(),
+                    originalAmount));
             if (Boolean.TRUE.equals(vRes.getValid())) {
                 voucher = voucherRepository.findByCode(vRes.getCode()).orElse(null);
                 discountAmount = vRes.getDiscountAmount();
@@ -283,6 +283,19 @@ public class PaymentServiceImpl implements PaymentService {
                 voucher.setUsedCount((voucher.getUsedCount() != null ? voucher.getUsedCount() : 0) + 1);
                 voucherRepository.save(voucher);
             }
+
+            try {
+                notificationService.createNotification(
+                        effectiveUser.getUserId(),
+                        com.hiremate.enums.NotificationType.SYSTEM_ALERT,
+                        "🎉 Nâng cấp tài khoản thành công!",
+                        "Chúc mừng bạn đã nâng cấp thành công gói " + plan.getPlanName() + " (" + durationDays + " ngày). Toàn bộ đặc quyền AI cao cấp đã được mở khóa!",
+                        order.getOrderId(),
+                        "payment_orders"
+                );
+            } catch (Exception notifEx) {
+                log.warn("Không thể gửi thông báo nâng cấp gói: {}", notifEx.getMessage());
+            }
         }
 
         // 6. Tích hợp tạo mã PayOS thực tế nếu có cấu hình
@@ -319,7 +332,6 @@ public class PaymentServiceImpl implements PaymentService {
 
         // Tự động kiểm tra đối soát trực tiếp từ cổng PayOS API và hệ thống ngân hàng khi đơn đang ở trạng thái PENDING
         if (order.getStatus() == PaymentOrderStatus.PENDING) {
-            boolean approved = false;
             if (payOSClient.isConfigured()) {
                 try {
                     String numericPart = order.getOrderCode().replaceAll("\\D", "");
@@ -329,18 +341,11 @@ public class PaymentServiceImpl implements PaymentService {
                         if (payosInfo != null && ("PAID".equalsIgnoreCase(payosInfo.getStatus()) || (payosInfo.getAmount() != null && payosInfo.getAmount() > 0 && "PAID".equalsIgnoreCase(payosInfo.getStatus())))) {
                             log.info("PayOS xác nhận đơn hàng {} đã thanh toán thành công (PAID). Đang kích hoạt gói dịch vụ...", order.getOrderCode());
                             activateApprovedOrder(order, "Tự động duyệt 24/7 qua PayOS API Polling - Giao dịch chuyển khoản thành công");
-                            approved = true;
                         }
                     }
                 } catch (Exception e) {
                     log.warn("Không thể kiểm tra trạng thái PayOS cho đơn {}: {}", order.getOrderCode(), e.getMessage());
                 }
-            }
-
-            // Tự động nhận diện khi người dùng đã quét mã và thực hiện chuyển khoản ngân hàng (sau 4s tạo đơn)
-            if (!approved && order.getCreatedAt() != null && java.time.Duration.between(order.getCreatedAt(), java.time.LocalDateTime.now()).getSeconds() >= 4) {
-                log.info("Hệ thống tự động xác nhận đơn hàng {} sau khi quét VietQR/Napas247. Đang kích hoạt tài khoản...", order.getOrderCode());
-                activateApprovedOrder(order, "Tự động duyệt 24/7 qua Napas247 VietQR Smart Polling - Giao dịch chuyển khoản thành công");
             }
         }
 
@@ -537,6 +542,19 @@ public class PaymentServiceImpl implements PaymentService {
             subscriptionRepository.save(subscription);
             log.info("ĐÃ KÍCH HOẠT THÀNH CÔNG GÓI {} cho tài khoản {} (Hạn dùng: {} ngày)",
                     plan.getPlanName(), order.getUser().getEmail(), durationDays);
+
+            try {
+                notificationService.createNotification(
+                        order.getUser().getUserId(),
+                        com.hiremate.enums.NotificationType.SYSTEM_ALERT,
+                        "🎉 Nâng cấp tài khoản thành công!",
+                        "Chúc mừng bạn đã nâng cấp thành công gói " + plan.getPlanName() + " (" + durationDays + " ngày). Toàn bộ đặc quyền AI cao cấp đã được kích hoạt!",
+                        order.getOrderId(),
+                        "payment_orders"
+                );
+            } catch (Exception notifEx) {
+                log.warn("Không thể gửi thông báo nâng cấp gói cho user {}: {}", order.getUser().getUserId(), notifEx.getMessage());
+            }
         }
 
         // Tăng lượt dùng voucher nếu có

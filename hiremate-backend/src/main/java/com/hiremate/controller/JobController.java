@@ -20,6 +20,27 @@ import java.util.List;
 public class JobController {
 
     private final JobService jobService;
+    private final com.hiremate.service.AiJobMatchService aiJobMatchService;
+
+    @GetMapping("/recommendations")
+    @PreAuthorize("hasRole('CANDIDATE')")
+    public ResponseEntity<ApiResponse<List<JobResponse>>> getJobRecommendations(
+            @RequestParam(required = false, defaultValue = "0.0") Float minMatch,
+            @RequestParam(required = false, defaultValue = "20") Integer limit,
+            @AuthenticationPrincipal User user
+    ) {
+        List<JobResponse> recommendations = aiJobMatchService.getIndustrialJobRecommendations(user, minMatch, limit);
+        return ResponseEntity.ok(ApiResponse.ok("Lấy danh sách việc làm gợi ý cá nhân hóa AI thành công", recommendations));
+    }
+
+    @PostMapping("/re-match")
+    @PreAuthorize("hasRole('CANDIDATE')")
+    public ResponseEntity<ApiResponse<List<JobResponse>>> reMatchJobs(
+            @AuthenticationPrincipal User user
+    ) {
+        List<JobResponse> recommendations = aiJobMatchService.reMatchJobs(user);
+        return ResponseEntity.ok(ApiResponse.ok("Làm mới và tính toán lại gợi ý việc làm AI thành công", recommendations));
+    }
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<JobResponse>>> getJobs(

@@ -6,7 +6,6 @@ import lombok.*;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 public class CompanyUpdateRequest {
 
     @NotBlank(message = "Tên công ty không được để trống")
