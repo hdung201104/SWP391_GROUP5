@@ -29,7 +29,17 @@ public class CvServiceImpl implements CvService {
     private final com.hiremate.repository.CandidateSkillRepository candidateSkillRepository;
     private final com.hiremate.repository.CandidateRepository candidateRepository;
     private final com.hiremate.repository.UserRepository userRepository;
+    private final com.hiremate.repository.ApplicationRepository applicationRepository;
+    private final com.hiremate.repository.AiJobMatchRepository aiJobMatchRepository;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    @org.springframework.context.annotation.Lazy
+    private com.hiremate.service.AiJobMatchService aiJobMatchService;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    @org.springframework.context.annotation.Lazy
+    private com.hiremate.service.NotificationService notificationService;
 
     @Override
     @Transactional
@@ -165,6 +175,12 @@ public class CvServiceImpl implements CvService {
                     if (visionAnalysis.getSkills() != null && !visionAnalysis.getSkills().isEmpty()) {
                         extracted.append("Kỹ năng: ").append(String.join(", ", visionAnalysis.getSkills())).append("\n");
                     }
+                    if (visionAnalysis.getExperiencesJson() != null && !"[]".equals(visionAnalysis.getExperiencesJson())) {
+                        extracted.append("Kinh nghiệm: ").append(visionAnalysis.getExperiencesJson()).append("\n");
+                    }
+                    if (visionAnalysis.getEducationsJson() != null && !"[]".equals(visionAnalysis.getEducationsJson())) {
+                        extracted.append("Học vấn: ").append(visionAnalysis.getEducationsJson()).append("\n");
+                    }
                     parsedText = extracted.toString().trim();
                     log.info(">> [CvService] Đã trích xuất thành công {} ký tự text từ CV ảnh bằng Gemini Vision OCR", parsedText.length());
                 }
@@ -241,10 +257,35 @@ public class CvServiceImpl implements CvService {
             throw new SecurityException("You are not authorized to delete this CV.");
         }
 
-        // Delete from storage (Cloudinary CDN or local disk fallback)
-        fileStorageService.deleteFile(cv.getFileUrl());
+        // 1. Clear any foreign key references to this CV in applications & ai_job_matches
+        try {
+            applicationRepository.clearCvReference(cvId);
+            aiJobMatchRepository.clearCvReference(cvId);
+        } catch (Exception e) {
+            log.warn("Could not clear FK references for CV {}: {}", cvId, e.getMessage());
+        }
 
+        // 2. Delete physical storage file (Cloudinary CDN or local disk fallback) safely
+        try {
+            fileStorageService.deleteFile(cv.getFileUrl());
+        } catch (Exception e) {
+            log.warn("Could not delete physical storage file for CV {}: {}", cvId, e.getMessage());
+        }
+
+        // 3. Delete CV entity from database
         cvRepository.delete(cv);
+        log.info("CV ID {} deleted successfully from database", cvId);
+
+        // 4. If the deleted CV was default, promote another CV if available
+        if (Boolean.TRUE.equals(cv.getIsDefault())) {
+            List<Cv> remaining = cvRepository.findByCandidateId(candidate.getUserId());
+            if (!remaining.isEmpty()) {
+                Cv newDefault = remaining.get(0);
+                newDefault.setIsDefault(true);
+                cvRepository.save(newDefault);
+                log.info("Promoted CV {} as new default for candidate {}", newDefault.getCvId(), candidate.getUserId());
+            }
+        }
     }
 
     @Override
@@ -415,6 +456,29 @@ public class CvServiceImpl implements CvService {
         }
         Cv updated = cvRepository.save(cv);
         log.info(">> [CvService] CV ID {} analyzed successfully via Gemini ATS Engine", cvId);
+
+        // 7. Tự động tính toán & lưu cache ma trận khớp nối việc làm AI (Rule 3) và gửi thông báo cho ứng viên
+        try {
+            if (aiJobMatchService != null) {
+                List<com.hiremate.dto.response.JobResponse> matches = aiJobMatchService.reMatchJobs(candidate);
+                long highMatchesCount = matches.stream()
+                        .filter(j -> j.getMatchingScore() != null && j.getMatchingScore() >= 70.0f)
+                        .count();
+                if (notificationService != null && highMatchesCount > 0) {
+                    notificationService.createNotification(
+                            candidate.getUserId(),
+                            com.hiremate.enums.NotificationType.AI_MATCH_DONE,
+                            "🎯 Đã tìm thấy " + highMatchesCount + " việc làm phù hợp với CV mới của bạn!",
+                            "Hệ thống HireMate AI đã tự động so khớp hồ sơ của bạn và tìm thấy " + highMatchesCount + " việc làm có độ tương thích cao (>70%). Hãy khám phá ngay!",
+                            null,
+                            "jobs"
+                    );
+                }
+            }
+        } catch (Exception matchEx) {
+            log.warn(">> [CvService] Tự động tính toán gợi ý việc làm sau khi phân tích CV gặp lỗi nhỏ: {}", matchEx.getMessage());
+        }
+
         return mapToResponse(updated);
     }
 
@@ -562,15 +626,14 @@ public class CvServiceImpl implements CvService {
             }
         }
         if (parsedData == null) {
-            parsedData = CvParsedDTO.builder()
-                    .fullName(fullName)
-                    .headline(headline)
-                    .phone(phone)
-                    .email(email)
-                    .address(address)
-                    .summary(cv.getSummary())
-                    .skills(detectedSkills)
-                    .build();
+            parsedData = new CvParsedDTO();
+            parsedData.setFullName(fullName);
+            parsedData.setHeadline(headline);
+            parsedData.setPhone(phone);
+            parsedData.setEmail(email);
+            parsedData.setAddress(address);
+            parsedData.setSummary(cv.getSummary());
+            parsedData.setSkills(detectedSkills);
             try {
                 if (experiencesJson != null && !experiencesJson.isBlank() && !"[]".equals(experiencesJson)) {
                     parsedData.setExperiences(objectMapper.readValue(experiencesJson, new com.fasterxml.jackson.core.type.TypeReference<List<CvParsedDTO.ExperienceItem>>() {}));

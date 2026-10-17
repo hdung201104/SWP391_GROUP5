@@ -2,6 +2,7 @@ package com.hiremate.service.impl;
 
 import com.hiremate.dto.request.ApplyRequest;
 import com.hiremate.dto.request.UpdateApplicationStatusRequest;
+import com.hiremate.dto.response.AiJobMatchResponse;
 import com.hiremate.dto.response.ApplicationResponse;
 import com.hiremate.entity.*;
 import com.hiremate.enums.ApplicationStatus;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -113,11 +115,45 @@ public class ApplicationServiceImpl implements ApplicationService {
 
     @Override
     public List<ApplicationResponse> getCandidateApplications(Long candidateId) {
-        // Dùng method mới qua Candidate subclass relationship
         List<Application> apps = applicationRepository.findByCandidate_CandidateId(candidateId);
-        List<ApplicationResponse> list = new ArrayList<>();
+        if (apps == null || apps.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // Batch pre-fetch all AI matches for this candidate in 1 single query instead of N queries
+        Map<Long, Float> matchScoreMap = new HashMap<>();
+        try {
+            List<AiJobMatch> matches = aiJobMatchRepository.findByCandidate_CandidateIdOrderByMatchingScoreDesc(candidateId);
+            for (AiJobMatch m : matches) {
+                if (m.getJob() != null && m.getJob().getJobId() != null && m.getMatchingScore() != null) {
+                    boolean isStale = m.getMatchingScore() == 70.0f;
+                    if (!isStale) {
+                        matchScoreMap.putIfAbsent(m.getJob().getJobId(), m.getMatchingScore());
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+
+        List<ApplicationResponse> list = new ArrayList<>(apps.size());
         for (Application app : apps) {
-            list.add(mapToResponse(app));
+            Float score = (app.getJob() != null) ? matchScoreMap.get(app.getJob().getJobId()) : null;
+            // Nếu chưa có điểm hoặc điểm cũ bị stale phẳng 70%, tính toán động riêng theo CV nộp thực tế của đơn
+            if (score == null && app.getCandidate() != null && app.getJob() != null) {
+                try {
+                    Cv appCv = app.getCv() != null ? app.getCv()
+                            : cvRepository.findByCandidateIdAndIsDefaultTrue(app.getCandidate().getCandidateId()).orElse(null);
+                    AiJobMatchResponse matchRes = aiJobMatchService.calculateAndSaveMatch(
+                            app.getCandidate(), app.getJob(), appCv
+                    );
+                    if (matchRes != null && matchRes.getMatchingScore() != null) {
+                        score = matchRes.getMatchingScore();
+                        matchScoreMap.put(app.getJob().getJobId(), score);
+                    }
+                } catch (Exception ex) {
+                    log.warn("Lỗi tính điểm so khớp động cho đơn ứng tuyển ID {}: {}", app.getApplicationId(), ex.getMessage());
+                }
+            }
+            list.add(mapToResponse(app, score));
         }
         return list;
     }
@@ -141,9 +177,43 @@ public class ApplicationServiceImpl implements ApplicationService {
                 ? applicationRepository.findByJob_JobIdAndStatus(jobId, status)
                 : applicationRepository.findByJob_JobId(jobId);
 
-        List<ApplicationResponse> list = new ArrayList<>();
+        if (apps == null || apps.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // Batch pre-fetch all AI matches for this job in 1 single query
+        Map<Long, Float> matchScoreMap = new HashMap<>();
+        try {
+            List<AiJobMatch> matches = aiJobMatchRepository.findByJob_JobIdOrderByMatchingScoreDesc(jobId);
+            for (AiJobMatch m : matches) {
+                if (m.getCandidate() != null && m.getCandidate().getCandidateId() != null && m.getMatchingScore() != null) {
+                    boolean isStale = m.getMatchingScore() == 70.0f;
+                    if (!isStale) {
+                        matchScoreMap.putIfAbsent(m.getCandidate().getCandidateId(), m.getMatchingScore());
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+
+        List<ApplicationResponse> list = new ArrayList<>(apps.size());
         for (Application app : apps) {
-            list.add(mapToResponse(app));
+            Float score = (app.getCandidate() != null) ? matchScoreMap.get(app.getCandidate().getCandidateId()) : null;
+            if (score == null && app.getCandidate() != null && app.getJob() != null) {
+                try {
+                    Cv appCv = app.getCv() != null ? app.getCv()
+                            : cvRepository.findByCandidateIdAndIsDefaultTrue(app.getCandidate().getCandidateId()).orElse(null);
+                    AiJobMatchResponse matchRes = aiJobMatchService.calculateAndSaveMatch(
+                            app.getCandidate(), app.getJob(), appCv
+                    );
+                    if (matchRes != null && matchRes.getMatchingScore() != null) {
+                        score = matchRes.getMatchingScore();
+                        matchScoreMap.put(app.getCandidate().getCandidateId(), score);
+                    }
+                } catch (Exception ex) {
+                    log.warn("Lỗi tính điểm so khớp động cho recruiter xem đơn ID {}: {}", app.getApplicationId(), ex.getMessage());
+                }
+            }
+            list.add(mapToResponse(app, score));
         }
 
         // Sắp xếp ứng viên theo matching_score DESC (theo chuẩn UC-28: View Rank Candidates)
@@ -323,18 +393,38 @@ public class ApplicationServiceImpl implements ApplicationService {
      * Truy xuất toàn bộ thông tin qua object navigation (không dùng raw Long FKs).
      */
     private ApplicationResponse mapToResponse(Application app) {
+        return mapToResponse(app, null);
+    }
+
+    private ApplicationResponse mapToResponse(Application app, Float overrideScore) {
         Job job = app.getJob();
         Candidate candidate = app.getCandidate();
         User candidateUser = candidate != null ? candidate.getUser() : null;
         Cv cv = app.getCv();
+        if (cv == null && candidate != null) {
+            cv = cvRepository.findByCandidateIdAndIsDefaultTrue(candidate.getCandidateId())
+                    .orElseGet(() -> {
+                        List<Cv> cvs = cvRepository.findByCandidateId(candidate.getCandidateId());
+                        return cvs.isEmpty() ? null : cvs.get(0);
+                    });
+        }
 
         String jobTitle = job != null ? job.getTitle() : "Unknown Job";
         Company company = job != null ? job.getCompany() : null;
         String companyName = company != null ? company.getCompanyName() : "HireMate Partner";
 
-        // Lấy AI matching score từ cache (KHÔNG gọi lại Gemini API)
-        Float score = null;
-        if (job != null && candidate != null) {
+        Recruiter recruiter = job != null ? job.getRecruiter() : null;
+        User recruiterUser = recruiter != null ? recruiter.getUser() : null;
+        if (recruiterUser == null && recruiter != null && recruiter.getRecruiterId() != null) {
+            recruiterUser = userRepository.findById(recruiter.getRecruiterId()).orElse(null);
+        }
+        String recruiterName = recruiterUser != null ? recruiterUser.getFullName() : "Bộ phận Tuyển dụng";
+        String recruiterEmail = recruiterUser != null ? recruiterUser.getEmail() : null;
+        Long recruiterId = recruiter != null ? recruiter.getRecruiterId() : null;
+
+        // Lấy AI matching score từ override hoặc cache (KHÔNG gọi lại Gemini API)
+        Float score = overrideScore;
+        if (score == null && job != null && candidate != null) {
             Optional<AiJobMatch> match = aiJobMatchRepository
                     .findByCandidate_CandidateIdAndJob_JobId(
                             candidate.getCandidateId(),
@@ -352,6 +442,9 @@ public class ApplicationServiceImpl implements ApplicationService {
                 .candidateId(candidate != null ? candidate.getCandidateId() : null)
                 .candidateName(candidateUser != null ? candidateUser.getFullName() : "Candidate")
                 .candidateEmail(candidateUser != null ? candidateUser.getEmail() : null)
+                .recruiterId(recruiterId)
+                .recruiterName(recruiterName)
+                .recruiterEmail(recruiterEmail)
                 .cvId(cv != null ? cv.getCvId() : null)
                 .cvUrl(cv != null ? cv.getFileUrl() : null)
                 .status(app.getStatus())

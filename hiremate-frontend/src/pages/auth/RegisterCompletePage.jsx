@@ -199,7 +199,7 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
         } else {
           localStorage.setItem('token', authData.token);
           localStorage.setItem('user', JSON.stringify(authData));
-          window.location.hash = authData.role === 'RECRUITER' ? '#/recruiter-dashboard' : '#/';
+          window.location.hash = '#/';
         }
       }, 700);
 
@@ -241,7 +241,7 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
           {avatarUrl && (
             <img 
               src={avatarUrl} 
-              alt="Google Avatar" 
+              alt={`${providerName} Avatar`} 
               className="w-12 h-12 rounded-full border-2 border-purple-400 shadow-md object-cover"
               referrerPolicy="no-referrer"
             />

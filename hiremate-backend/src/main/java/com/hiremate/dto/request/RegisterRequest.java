@@ -37,9 +37,15 @@ public class RegisterRequest {
     private String bio;
     private String githubUrl;
 
-    // Recruiter specific fields (Company)
+    // Recruiter specific fields (Company & Legal)
     private String companyName;
     private String website;
     private String companySize;
     private String companyAddress;
+    private String taxCode;
+    private String licenseNumber;
+    private String licenseDocUrl;
+    private String licenseDocName;
+    private String legalRepresentative;
 }
+

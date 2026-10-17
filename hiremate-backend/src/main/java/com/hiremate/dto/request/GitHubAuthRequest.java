@@ -23,5 +23,7 @@ public class GitHubAuthRequest {
 
     private String avatarUrl;
 
+    private String redirectUri;
+
     private UserRole role = UserRole.CANDIDATE;
 }

@@ -20,6 +20,16 @@ public class CompanyResponse {
     private String companySize;
     private String description;
     private String industry;
+    private String taxCode;
+    private String licenseNumber;
+    private String licenseDocUrl;
+    private String licenseDocName;
+    private String legalRepresentative;
+    private String rejectionReason;
+    private LocalDateTime verifiedAt;
     private CompanyStatus status;
+    private Integer activeJobsCount;
+    private java.util.List<String> locations;
     private LocalDateTime createdAt;
 }
+

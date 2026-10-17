@@ -1,8 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { calculateJobDeadline } from '../../utils/jobTimeUtils';
 
 export default function JobCard({ job, user, onSelectJob, onApplyJob, onPracticeInterview }) {
   const isRecruiter = user?.role === 'RECRUITER';
+  const isCandidate = user?.role === 'CANDIDATE' || user?.role === 'ROLE_CANDIDATE';
+  const isGuest = !user;
   const isMyJob = isRecruiter && user?.userId && job.recruiterId === user.userId;
+  const deadlineInfo = calculateJobDeadline(job.deadlineDate || job.deadline);
   const [bookmarked, setBookmarked] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const hoverTimeoutRef = useRef(null);
@@ -92,6 +96,16 @@ export default function JobCard({ job, user, onSelectJob, onApplyJob, onPractice
 
   const { responsibilities, projectTasks } = getJobDetailsData();
 
+  const handleOpenJobDetail = (e) => {
+    if (e && e.stopPropagation) e.stopPropagation();
+    const targetId = job.jobId || job.id || 101;
+    if (onSelectJob) {
+      onSelectJob(job);
+    } else {
+      window.location.hash = `#/jobs/${targetId}`;
+    }
+  };
+
   return (
     <article
       onMouseEnter={handleMouseEnter}
@@ -105,7 +119,7 @@ export default function JobCard({ job, user, onSelectJob, onApplyJob, onPractice
         {/* Row 1: Logo & Title + Company */}
         <div className="flex items-start gap-3.5">
           <div
-            onClick={() => onSelectJob ? onSelectJob(job) : (window.location.hash = `#/jobs/${job.jobId || 101}`)}
+            onClick={handleOpenJobDetail}
             className="w-12 h-12 rounded-xl bg-[#f4f2fd] border border-purple-100 flex items-center justify-center font-extrabold text-base text-[#5b48bd] hover:scale-105 transition-transform shrink-0 cursor-pointer shadow-sm overflow-hidden"
             title="Xem chi tiết việc làm"
           >
@@ -119,7 +133,7 @@ export default function JobCard({ job, user, onSelectJob, onApplyJob, onPractice
           <div className="space-y-0.5 min-w-0 flex-1">
             <div className="flex items-center justify-between gap-2">
               <h3
-                onClick={() => onSelectJob ? onSelectJob(job) : (window.location.hash = `#/jobs/${job.jobId || 101}`)}
+                onClick={handleOpenJobDetail}
                 className="font-extrabold text-base sm:text-lg text-[#221d47] group-hover:text-[#5b48bd] transition-colors leading-snug cursor-pointer line-clamp-1"
                 title="Xem chi tiết việc làm"
               >
@@ -143,13 +157,13 @@ export default function JobCard({ job, user, onSelectJob, onApplyJob, onPractice
 
         {/* Row 2: Salary Line */}
         <div 
-          onClick={() => onSelectJob ? onSelectJob(job) : (window.location.hash = `#/jobs/${job.jobId || 101}`)}
+          onClick={handleOpenJobDetail}
           className="text-base sm:text-lg font-extrabold text-[#f97316] cursor-pointer pt-0.5"
         >
           {formatSalary()}
         </div>
 
-        {/* Row 3: Location & Time */}
+        {/* Row 3: Location, Time & Deadline Status */}
         <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 font-medium">
           <div className="flex items-center gap-1">
             <span className="material-symbols-outlined text-sm text-slate-400">location_on</span>
@@ -160,6 +174,14 @@ export default function JobCard({ job, user, onSelectJob, onApplyJob, onPractice
             <span className="material-symbols-outlined text-sm text-slate-400">schedule</span>
             <span>Đăng {job.postedTime || '2 giờ trước'}</span>
           </div>
+          <span>•</span>
+          {/* Deadline Countdown & Status Pill */}
+          <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold border flex items-center gap-1 shadow-2xs ${deadlineInfo.badgeClass}`}>
+            <span className="material-symbols-outlined text-[13px]">
+              {deadlineInfo.isExpired ? 'event_busy' : deadlineInfo.isExpiringSoon ? 'alarm' : 'schedule'}
+            </span>
+            <span>{deadlineInfo.label}</span>
+          </span>
         </div>
 
         {/* Row 4: Skill Chips */}
@@ -183,12 +205,26 @@ export default function JobCard({ job, user, onSelectJob, onApplyJob, onPractice
             <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold shadow-2xs ${
               isMyJob 
                 ? 'bg-purple-100 text-[#5b48bd] border border-purple-300' 
-                : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
             }`}>
-              <span className="material-symbols-outlined text-sm">{isMyJob ? 'storefront' : 'verified'}</span>
-              <span>{isMyJob ? 'TIN CỦA BẠN' : 'ĐANG TUYỂN'}</span>
+              <span className="material-symbols-outlined text-sm">{isMyJob ? 'storefront' : 'travel_explore'}</span>
+              <span>{isMyJob ? 'TIN CỦA BẠN' : 'TIN THỊ TRƯỜNG'}</span>
             </div>
-          ) : aiMatchScore != null ? (
+          ) : isGuest ? (
+            <div 
+              onClick={() => { window.location.hash = '#/login'; }}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 hover:bg-purple-50 text-slate-600 hover:text-[#5b48bd] text-[11px] font-bold border border-slate-200 transition-colors cursor-pointer shadow-2xs"
+              title="Đăng nhập tài khoản Ứng viên để AI so khớp CV với công việc này"
+            >
+              <span className="material-symbols-outlined text-xs">lock</span>
+              <span>ĐĂNG NHẬP XEM MATCH</span>
+            </div>
+          ) : deadlineInfo.isExpired ? (
+            <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-rose-50 text-rose-700 text-xs font-bold border border-rose-300 shadow-2xs">
+              <span className="material-symbols-outlined text-sm">event_busy</span>
+              <span>ĐÃ HẾT HẠN</span>
+            </div>
+          ) : isCandidate && aiMatchScore != null ? (
             <>
               <div className="text-2xl sm:text-3xl font-extrabold text-[#f97316] leading-none" title={job.aiReasoning || 'Điểm tương thích AI'}>
                 {aiMatchScore}%
@@ -197,12 +233,7 @@ export default function JobCard({ job, user, onSelectJob, onApplyJob, onPractice
                 AI MATCH
               </div>
             </>
-          ) : (
-            <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200 shadow-2xs">
-              <span className="material-symbols-outlined text-sm">verified</span>
-              <span>ĐANG TUYỂN</span>
-            </div>
-          )}
+          ) : null}
         </div>
 
         {/* Stacked Action Buttons */}
@@ -219,7 +250,7 @@ export default function JobCard({ job, user, onSelectJob, onApplyJob, onPractice
                 </button>
               )}
               <button
-                onClick={() => onSelectJob ? onSelectJob(job) : (window.location.hash = `#/jobs/${job.jobId || 101}`)}
+                onClick={handleOpenJobDetail}
                 className={`w-full py-2 px-3 rounded-xl font-bold text-xs transition-all cursor-pointer text-center whitespace-nowrap block ${
                   isMyJob
                     ? 'bg-[#f8f7ff] hover:bg-[#edeafd] text-[#5b48bd] border border-purple-200'
@@ -230,17 +261,45 @@ export default function JobCard({ job, user, onSelectJob, onApplyJob, onPractice
                 Xem chi tiết
               </button>
             </>
-          ) : (
+          ) : isGuest ? (
             <>
               <button
-                onClick={() => onApplyJob ? onApplyJob(job) : (window.location.hash = `#/jobs/${job.jobId || 101}`)}
+                onClick={handleOpenJobDetail}
                 className="w-full py-2 px-4 rounded-xl bg-[#5b48bd] hover:bg-[#47369f] text-white font-bold text-xs shadow-sm hover:shadow transition-all cursor-pointer text-center whitespace-nowrap block"
                 type="button"
               >
-                Ứng tuyển ngay
+                Xem chi tiết JD
               </button>
               <button
-                onClick={() => onSelectJob ? onSelectJob(job) : (window.location.hash = `#/jobs/${job.jobId || 101}`)}
+                onClick={() => { window.location.hash = '#/login'; }}
+                className="w-full py-2 px-4 rounded-xl bg-[#f8f7ff] hover:bg-[#edeafd] text-[#5b48bd] border border-purple-200 font-bold text-xs transition-all cursor-pointer text-center whitespace-nowrap block"
+                type="button"
+              >
+                Đăng nhập nộp CV
+              </button>
+            </>
+          ) : (
+            <>
+              {deadlineInfo.isExpired ? (
+                <button
+                  disabled
+                  className="w-full py-2 px-3 rounded-xl bg-slate-200 text-slate-500 font-bold text-xs cursor-not-allowed text-center whitespace-nowrap block border border-slate-300 shadow-none"
+                  type="button"
+                  title="Vị trí tuyển dụng đã hết hạn tiếp nhận hồ sơ"
+                >
+                  Đã hết hạn nộp
+                </button>
+              ) : (
+                <button
+                  onClick={() => onApplyJob ? onApplyJob(job) : (window.location.hash = `#/jobs/${job.jobId || 101}`)}
+                  className="w-full py-2 px-4 rounded-xl bg-[#5b48bd] hover:bg-[#47369f] text-white font-bold text-xs shadow-sm hover:shadow transition-all cursor-pointer text-center whitespace-nowrap block"
+                  type="button"
+                >
+                  Ứng tuyển ngay
+                </button>
+              )}
+              <button
+                onClick={handleOpenJobDetail}
                 className="w-full py-2 px-4 rounded-xl bg-[#f8f7ff] hover:bg-[#edeafd] text-[#5b48bd] border border-purple-200 font-bold text-xs transition-all cursor-pointer text-center whitespace-nowrap block"
                 type="button"
               >
@@ -263,7 +322,7 @@ export default function JobCard({ job, user, onSelectJob, onApplyJob, onPractice
           {/* 1. Header: Logo, Company Name, Job Title & Match Pill */}
           <div className="flex items-start gap-3.5 mb-3.5">
             <div
-              onClick={() => onSelectJob ? onSelectJob(job) : (window.location.hash = `#/jobs/${job.jobId || 101}`)}
+              onClick={handleOpenJobDetail}
               className="w-13 h-13 rounded-2xl bg-[#f4f2fd] border border-purple-100 p-1 flex items-center justify-center shrink-0 overflow-hidden shadow-2xs cursor-pointer hover:scale-105 transition-transform"
             >
               {job.companyLogo ? (
@@ -294,9 +353,13 @@ export default function JobCard({ job, user, onSelectJob, onApplyJob, onPractice
                 <div className="px-2.5 py-1 rounded-xl bg-purple-50 border border-purple-200 text-[#5b48bd] font-extrabold text-xs shadow-2xs">
                   {job.employmentType || 'FULL TIME'}
                 </div>
+              ) : isGuest ? (
+                <div className="px-2.5 py-1 rounded-xl bg-slate-100 border border-slate-200 text-slate-600 font-extrabold text-xs shadow-2xs">
+                  {job.employmentType || 'FULL TIME'}
+                </div>
               ) : (
                 <div className="px-2.5 py-1 rounded-xl bg-orange-50 border border-orange-200/80 text-[#f97316] font-extrabold text-xs shadow-2xs">
-                  {aiMatchScore != null ? `${aiMatchScore}% MATCH` : 'ĐANG TUYỂN'}
+                  {isCandidate && aiMatchScore != null ? `${aiMatchScore}% MATCH` : 'ĐANG TUYỂN'}
                 </div>
               )}
             </div>
@@ -323,8 +386,12 @@ export default function JobCard({ job, user, onSelectJob, onApplyJob, onPractice
                 <span className="truncate">Cập nhật: {job.updatedDate || '12/10/2026'}</span>
               </div>
               <div className="flex items-center gap-2 text-slate-500 font-medium text-[11px] truncate">
-                <span className="material-symbols-outlined text-[15px] text-slate-400 leading-none shrink-0">event</span>
-                <span className="truncate">Hết hạn: {job.deadline || '12/11/2026'}</span>
+                <span className={`material-symbols-outlined text-[15px] leading-none shrink-0 ${deadlineInfo.isExpired ? 'text-rose-600' : deadlineInfo.isExpiringSoon ? 'text-amber-600' : 'text-slate-400'}`}>
+                  {deadlineInfo.isExpired ? 'event_busy' : deadlineInfo.isExpiringSoon ? 'alarm' : 'event'}
+                </span>
+                <span className={`truncate font-semibold ${deadlineInfo.isExpired ? 'text-rose-600' : deadlineInfo.isExpiringSoon ? 'text-amber-700' : 'text-slate-600'}`}>
+                  {deadlineInfo.isExpired ? `Quá hạn (${deadlineInfo.deadlineFormatted})` : `Hạn: ${deadlineInfo.deadlineFormatted || job.deadline || '31/12/2026'}`}
+                </span>
               </div>
             </div>
           </div>

@@ -27,5 +27,9 @@ public class AdminCompanyResponse {
     private LocalDateTime createdAt;
     private String docUrl;
     private String docName;
+    private String licenseNumber;
+    private String legalRepresentative;
+    private LocalDateTime verifiedAt;
     private String notes;
 }
+

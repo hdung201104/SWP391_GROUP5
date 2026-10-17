@@ -1,10 +1,12 @@
 import React from 'react';
+import { HIREMATE_LOGO_URL } from '../../constants/branding';
 
 export default function Footer() {
   return (
     <footer className="w-full bg-[#F9F8F4] mt-16 py-10 border-t border-[#E6E2DA] transition-all">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-3">
+          <img src={HIREMATE_LOGO_URL} alt="HireMate AI Logo" className="w-7 h-7 object-contain rounded-lg shadow-sm" />
           <span className="font-serif font-bold text-base text-[#2D3A31] tracking-wide">
             HireMate<span className="italic font-normal text-[#C27B66]">.AI</span>
           </span>

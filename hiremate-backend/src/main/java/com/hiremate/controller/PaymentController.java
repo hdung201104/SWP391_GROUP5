@@ -48,6 +48,15 @@ public class PaymentController {
         return ResponseEntity.ok(ApiResponse.ok("Lấy trạng thái đơn hàng thành công", response));
     }
 
+    @PostMapping("/orders/{orderCode}/cancel")
+    public ResponseEntity<ApiResponse<PaymentOrderResponse>> cancelOrder(
+            @AuthenticationPrincipal User user,
+            @PathVariable String orderCode
+    ) {
+        PaymentOrderResponse response = paymentService.cancelOrder(user, orderCode);
+        return ResponseEntity.ok(ApiResponse.ok("Hủy đơn hàng thành công", response));
+    }
+
     @GetMapping("/my-orders")
     public ResponseEntity<ApiResponse<List<PaymentOrderResponse>>> getMyOrders(
             @AuthenticationPrincipal User user

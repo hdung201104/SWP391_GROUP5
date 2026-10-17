@@ -18,6 +18,9 @@ public class ApplicationResponse {
     private Long candidateId;
     private String candidateName;
     private String candidateEmail;
+    private Long recruiterId;
+    private String recruiterName;
+    private String recruiterEmail;
     private Long cvId;
     private String cvUrl;
     private ApplicationStatus status;
@@ -37,6 +40,9 @@ public class ApplicationResponse {
         private Long candidateId;
         private String candidateName;
         private String candidateEmail;
+        private Long recruiterId;
+        private String recruiterName;
+        private String recruiterEmail;
         private Long cvId;
         private String cvUrl;
         private ApplicationStatus status;
@@ -79,6 +85,21 @@ public class ApplicationResponse {
             return this;
         }
 
+        public ApplicationResponseBuilder recruiterId(Long recruiterId) {
+            this.recruiterId = recruiterId;
+            return this;
+        }
+
+        public ApplicationResponseBuilder recruiterName(String recruiterName) {
+            this.recruiterName = recruiterName;
+            return this;
+        }
+
+        public ApplicationResponseBuilder recruiterEmail(String recruiterEmail) {
+            this.recruiterEmail = recruiterEmail;
+            return this;
+        }
+
         public ApplicationResponseBuilder cvId(Long cvId) {
             this.cvId = cvId;
             return this;
@@ -112,8 +133,8 @@ public class ApplicationResponse {
         public ApplicationResponse build() {
             return new ApplicationResponse(
                     applicationId, jobId, jobTitle, companyName, candidateId,
-                    candidateName, candidateEmail, cvId, cvUrl, status,
-                    coverLetter, matchingScore, createdAt
+                    candidateName, candidateEmail, recruiterId, recruiterName, recruiterEmail,
+                    cvId, cvUrl, status, coverLetter, matchingScore, createdAt
             );
         }
     }

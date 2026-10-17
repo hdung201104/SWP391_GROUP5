@@ -97,7 +97,14 @@ CREATE TABLE companies (
     industry            VARCHAR(100),
     company_size        VARCHAR(50),
     address             VARCHAR(300),
-    status              VARCHAR(20)     DEFAULT 'ACTIVE',
+    tax_code            VARCHAR(50),
+    license_number      VARCHAR(100),
+    license_doc_url     TEXT,
+    license_doc_name    VARCHAR(255),
+    legal_representative VARCHAR(150),
+    rejection_reason    TEXT,
+    verified_at         TIMESTAMPTZ,
+    status              VARCHAR(20)     DEFAULT 'PENDING',
     founded_year        INT,
     created_at          TIMESTAMPTZ     DEFAULT NOW()
 );

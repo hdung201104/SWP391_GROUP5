@@ -10,8 +10,12 @@ spring:
     password: ${SPRING_DATASOURCE_PASSWORD:${DB_PASSWORD:Hoangdung1122}}
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: ${HIKARI_MAX_POOL_SIZE:5}
+      maximum-pool-size: ${HIKARI_MAX_POOL_SIZE:10}
       minimum-idle: ${HIKARI_MIN_IDLE:2}
+      connection-timeout: 20000
+      idle-timeout: 60000
+      max-lifetime: 180000
+      keepalive-time: 30000
   jpa:
     hibernate:
       ddl-auto: none            # Dùng trực tiếp schema Supabase PostgreSQL, không can thiệp schema
@@ -26,7 +30,7 @@ spring:
     host: ${SPRING_MAIL_HOST:smtp.gmail.com}
     port: ${SPRING_MAIL_PORT:587}
     username: ${SPRING_MAIL_USERNAME:hdung201104@gmail.com}
-    password: ${SPRING_MAIL_PASSWORD:fejontaojqwexuts}
+    password: ${SPRING_MAIL_PASSWORD:}
     properties:
       mail:
         smtp:
@@ -44,7 +48,7 @@ jwt:
 
 gemini:
   api:
-    key: ${GEMINI_API_KEY:YOUR_GEMINI_API_KEY}
+    key: ${GEMINI_API_KEY:your_gemini_api_key_here}
     model: ${GEMINI_MODEL:gemini-flash-latest}
     base-url: https://generativelanguage.googleapis.com/v1beta
 
@@ -55,18 +59,18 @@ google:
 
 github:
   oauth2:
-    client-id: ${GITHUB_CLIENT_ID:Ov23lin7fKu1DTd2VwAB}
-    client-secret: ${GITHUB_CLIENT_SECRET:5a845ff134b283d3eb40526625f82575f37bf034}
+    client-id: ${GITHUB_CLIENT_ID:Ov23lin7fKu1DTd2VWAB}
+    client-secret: ${GITHUB_CLIENT_SECRET:}
 
 cloudinary:
   cloud-name: ${CLOUDINARY_CLOUD_NAME:mezrtcb7}
   api-key: ${CLOUDINARY_API_KEY:632312897439654}
-  api-secret: ${CLOUDINARY_API_SECRET:8xXBIOnHqHLocisqNwH_3f4Aykw}
+  api-secret: ${CLOUDINARY_API_SECRET:}
 
 payos:
   client-id: ${PAYOS_CLIENT_ID:e2d0f50b-68aa-4cd9-b83f-72c4b3293db4}
   api-key: ${PAYOS_API_KEY:425f9314-c0b3-4373-a332-7855f1d9e9d4}
-  checksum-key: ${PAYOS_CHECKSUM_KEY:007567eb3a0cf7565f8c4dca7a780336db04c33ec2fc8e0b7d9312dbe5fa447e}
+  checksum-key: ${PAYOS_CHECKSUM_KEY:}
   return-url: ${PAYOS_RETURN_URL:http://localhost:3000/#/payment/success}
   cancel-url: ${PAYOS_CANCEL_URL:http://localhost:3000/#/payment/cancel}
 

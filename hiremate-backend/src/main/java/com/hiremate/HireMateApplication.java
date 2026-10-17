@@ -8,6 +8,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * Spec: PROJECT_MASTER_SPECIFICATION.md
  */
 @org.springframework.scheduling.annotation.EnableAsync
+@org.springframework.scheduling.annotation.EnableScheduling
 @SpringBootApplication
 public class HireMateApplication {
 
@@ -41,6 +42,10 @@ public class HireMateApplication {
                 if (eqIdx > 0) {
                     String key = line.substring(0, eqIdx).trim();
                     String value = line.substring(eqIdx + 1).trim();
+                    // Bỏ qua giá trị rỗng hoặc placeholder mẫu (YOUR_...) để không ghi đè fallback trong application.yml
+                    if (value.isEmpty() || value.startsWith("YOUR_") || value.startsWith("<your_")) {
+                        continue;
+                    }
                     if (System.getProperty(key) == null && System.getenv(key) == null) {
                         System.setProperty(key, value);
                     }

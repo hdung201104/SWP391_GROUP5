@@ -42,9 +42,11 @@ public class AdminServiceImpl implements AdminService {
 
         long totalCompanies = companyRepository.count();
         long activeCompanies = companyRepository.findAll().stream()
-                .filter(c -> c.getStatus() == CompanyStatus.ACTIVE)
+                .filter(c -> c.getStatus() == CompanyStatus.ACTIVE || c.getStatus() == CompanyStatus.VERIFIED)
                 .count();
-        long pendingCompanies = 0; // Companies do not have pending status currently, default to 0
+        long pendingCompanies = companyRepository.findAll().stream()
+                .filter(c -> c.getStatus() == CompanyStatus.PENDING)
+                .count();
 
         long totalJobs = jobRepository.count();
         long publishedJobs = jobRepository.countByApprovalStatus(JobApprovalStatus.APPROVED);
@@ -61,24 +63,24 @@ public class AdminServiceImpl implements AdminService {
             totalRevenue = BigDecimal.ZERO;
         }
 
-        return AdminStatsResponse.builder()
-                .totalUsers(totalUsers)
-                .candidateCount(candidateCount)
-                .recruiterCount(recruiterCount)
-                .adminCount(adminCount)
-                .totalCompanies(totalCompanies)
-                .activeCompanies(activeCompanies)
-                .pendingCompanies(pendingCompanies)
-                .totalJobs(totalJobs)
-                .publishedJobs(publishedJobs)
-                .pendingApprovalJobs(pendingApprovalJobs)
-                .totalApplications(totalApplications)
-                .totalInterviews(totalInterviews)
-                .totalOrders(totalOrders)
-                .pendingOrders(pendingOrders)
-                .approvedOrders(approvedOrders)
-                .totalRevenue(totalRevenue)
-                .build();
+        AdminStatsResponse stats = new AdminStatsResponse();
+        stats.setTotalUsers(totalUsers);
+        stats.setCandidateCount(candidateCount);
+        stats.setRecruiterCount(recruiterCount);
+        stats.setAdminCount(adminCount);
+        stats.setTotalCompanies(totalCompanies);
+        stats.setActiveCompanies(activeCompanies);
+        stats.setPendingCompanies(pendingCompanies);
+        stats.setTotalJobs(totalJobs);
+        stats.setPublishedJobs(publishedJobs);
+        stats.setPendingApprovalJobs(pendingApprovalJobs);
+        stats.setTotalApplications(totalApplications);
+        stats.setTotalInterviews(totalInterviews);
+        stats.setTotalOrders(totalOrders);
+        stats.setPendingOrders(pendingOrders);
+        stats.setApprovedOrders(approvedOrders);
+        stats.setTotalRevenue(totalRevenue);
+        return stats;
     }
 
     @Override
@@ -93,17 +95,27 @@ public class AdminServiceImpl implements AdminService {
                                 .orElse(null);
                     }
 
-                    return AdminUserResponse.builder()
-                            .id(user.getUserId())
-                            .name(user.getFullName())
-                            .email(user.getEmail())
-                            .phone(user.getPhone())
-                            .role(user.getRole())
-                            .company(companyName != null ? companyName : "-")
-                            .status(user.getStatus())
-                            .joined(user.getCreatedAt())
-                            .isEmailVerified(user.getIsEmailVerified())
-                            .build();
+                    String authProvider = "LOCAL";
+                    if (user.getPasswordHash() != null && user.getPasswordHash().contains("GoogleOAuth2_")) {
+                        authProvider = "GOOGLE";
+                    } else if (user.getAvatarUrl() != null && user.getAvatarUrl().contains("googleusercontent.com")) {
+                        authProvider = "GOOGLE";
+                    }
+
+                    AdminUserResponse resp = new AdminUserResponse();
+                    resp.setId(user.getUserId());
+                    resp.setName(user.getFullName());
+                    resp.setEmail(user.getEmail());
+                    resp.setPhone(user.getPhone());
+                    resp.setRole(user.getRole());
+                    resp.setCompany(companyName != null ? companyName : "-");
+                    resp.setStatus(user.getStatus());
+                    resp.setJoined(user.getCreatedAt());
+                    resp.setIsEmailVerified(user.getIsEmailVerified());
+                    resp.setAuthProvider(authProvider);
+                    resp.setAvatarUrl(user.getAvatarUrl());
+                    resp.setLastActiveAt(user.getUpdatedAt() != null ? user.getUpdatedAt() : user.getCreatedAt());
+                    return resp;
                 })
                 .collect(Collectors.toList());
     }
@@ -116,16 +128,21 @@ public class AdminServiceImpl implements AdminService {
         user.setStatus(status);
         userRepository.save(user);
 
-        return AdminUserResponse.builder()
-                .id(user.getUserId())
-                .name(user.getFullName())
-                .email(user.getEmail())
-                .phone(user.getPhone())
-                .role(user.getRole())
-                .status(user.getStatus())
-                .joined(user.getCreatedAt())
-                .isEmailVerified(user.getIsEmailVerified())
-                .build();
+        String authProvider = (user.getPasswordHash() != null && user.getPasswordHash().contains("GoogleOAuth2_")) ? "GOOGLE" : "LOCAL";
+
+        AdminUserResponse resp = new AdminUserResponse();
+        resp.setId(user.getUserId());
+        resp.setName(user.getFullName());
+        resp.setEmail(user.getEmail());
+        resp.setPhone(user.getPhone());
+        resp.setRole(user.getRole());
+        resp.setStatus(user.getStatus());
+        resp.setJoined(user.getCreatedAt());
+        resp.setIsEmailVerified(user.getIsEmailVerified());
+        resp.setAuthProvider(authProvider);
+        resp.setAvatarUrl(user.getAvatarUrl());
+        resp.setLastActiveAt(user.getUpdatedAt() != null ? user.getUpdatedAt() : user.getCreatedAt());
+        return resp;
     }
 
     @Override
@@ -145,26 +162,29 @@ public class AdminServiceImpl implements AdminService {
                         }
                     }
 
-                    return AdminCompanyResponse.builder()
-                            .id(comp.getCompanyId())
-                            .name(comp.getCompanyName())
-                            .shortName(comp.getCompanyName())
-                            .taxCode("MST-" + comp.getCompanyId())
-                            .recruiterId(comp.getRecruiterId())
-                            .recruiterName(recruiterName != null ? recruiterName : "Chưa gắn recruiter")
-                            .recruiterEmail(recruiterEmail != null ? recruiterEmail : "-")
-                            .recruiterPhone(recruiterPhone != null ? recruiterPhone : "-")
-                            .industry("Công nghệ & Dịch vụ")
-                            .scale(comp.getCompanySize() != null ? comp.getCompanySize() : "50-100")
-                            .headquarters(comp.getAddress() != null ? comp.getAddress() : "-")
-                            .website(comp.getWebsite() != null ? comp.getWebsite() : "-")
-                            .logoUrl(comp.getLogoUrl())
-                            .status(comp.getStatus())
-                            .createdAt(comp.getCreatedAt())
-                            .docUrl(null)
-                            .docName(null)
-                            .notes(null)
-                            .build();
+                    AdminCompanyResponse resp = new AdminCompanyResponse();
+                    resp.setId(comp.getCompanyId());
+                    resp.setName(comp.getCompanyName());
+                    resp.setShortName(comp.getCompanyName());
+                    resp.setTaxCode(comp.getTaxCode() != null ? comp.getTaxCode() : "MST-" + comp.getCompanyId());
+                    resp.setRecruiterId(comp.getRecruiterId());
+                    resp.setRecruiterName(recruiterName != null ? recruiterName : "Chưa gắn recruiter");
+                    resp.setRecruiterEmail(recruiterEmail != null ? recruiterEmail : "-");
+                    resp.setRecruiterPhone(recruiterPhone != null ? recruiterPhone : "-");
+                    resp.setIndustry(comp.getIndustry() != null ? comp.getIndustry() : "Công nghệ & Dịch vụ");
+                    resp.setScale(comp.getCompanySize() != null ? comp.getCompanySize() : "50-100");
+                    resp.setHeadquarters(comp.getAddress() != null ? comp.getAddress() : "-");
+                    resp.setWebsite(comp.getWebsite() != null ? comp.getWebsite() : "-");
+                    resp.setLogoUrl(comp.getLogoUrl());
+                    resp.setStatus(comp.getStatus() != null ? comp.getStatus() : CompanyStatus.PENDING);
+                    resp.setCreatedAt(comp.getCreatedAt());
+                    resp.setDocUrl(comp.getLicenseDocUrl());
+                    resp.setDocName(comp.getLicenseDocName() != null ? comp.getLicenseDocName() : "GPKD_Doanh_Nghiep.pdf");
+                    resp.setLicenseNumber(comp.getLicenseNumber());
+                    resp.setLegalRepresentative(comp.getLegalRepresentative());
+                    resp.setVerifiedAt(comp.getVerifiedAt());
+                    resp.setNotes(comp.getRejectionReason());
+                    return resp;
                 })
                 .collect(Collectors.toList());
     }
@@ -175,15 +195,22 @@ public class AdminServiceImpl implements AdminService {
         Company company = companyRepository.findById(companyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy công ty với ID: " + companyId));
         company.setStatus(status);
+        if (status == CompanyStatus.VERIFIED || status == CompanyStatus.ACTIVE) {
+            company.setVerifiedAt(LocalDateTime.now());
+        }
         companyRepository.save(company);
 
-        return AdminCompanyResponse.builder()
-                .id(company.getCompanyId())
-                .name(company.getCompanyName())
-                .shortName(company.getCompanyName())
-                .status(company.getStatus())
-                .createdAt(company.getCreatedAt())
-                .build();
+        AdminCompanyResponse resp = new AdminCompanyResponse();
+        resp.setId(company.getCompanyId());
+        resp.setName(company.getCompanyName());
+        resp.setShortName(company.getCompanyName());
+        resp.setTaxCode(company.getTaxCode());
+        resp.setLicenseNumber(company.getLicenseNumber());
+        resp.setLegalRepresentative(company.getLegalRepresentative());
+        resp.setVerifiedAt(company.getVerifiedAt());
+        resp.setStatus(company.getStatus());
+        resp.setCreatedAt(company.getCreatedAt());
+        return resp;
     }
 
     @Override
@@ -333,22 +360,22 @@ public class AdminServiceImpl implements AdminService {
     }
 
     private PaymentOrderResponse mapToPaymentOrderResponse(PaymentOrder order) {
-        return PaymentOrderResponse.builder()
-                .orderId(order.getOrderId())
-                .orderCode(order.getOrderCode())
-                .userId(order.getUser() != null ? order.getUser().getUserId() : null)
-                .userName(order.getUser() != null ? order.getUser().getFullName() : "N/A")
-                .userEmail(order.getUser() != null ? order.getUser().getEmail() : "N/A")
-                .userRole(order.getUser() != null && order.getUser().getRole() != null ? order.getUser().getRole().name() : "USER")
-                .planId(order.getPlan() != null ? order.getPlan().getPlanId() : null)
-                .planName(order.getPlan() != null ? order.getPlan().getPlanName() : "Gói dịch vụ")
-                .amount(order.getAmount())
-                .discountAmount(order.getDiscountAmount())
-                .voucherCode(order.getVoucher() != null ? order.getVoucher().getCode() : null)
-                .status(order.getStatus())
-                .adminNote(order.getAdminNote())
-                .createdAt(order.getCreatedAt())
-                .approvedAt(order.getApprovedAt())
-                .build();
+        PaymentOrderResponse resp = new PaymentOrderResponse();
+        resp.setOrderId(order.getOrderId());
+        resp.setOrderCode(order.getOrderCode());
+        resp.setUserId(order.getUser() != null ? order.getUser().getUserId() : null);
+        resp.setUserName(order.getUser() != null ? order.getUser().getFullName() : "N/A");
+        resp.setUserEmail(order.getUser() != null ? order.getUser().getEmail() : "N/A");
+        resp.setUserRole(order.getUser() != null && order.getUser().getRole() != null ? order.getUser().getRole().name() : "USER");
+        resp.setPlanId(order.getPlan() != null ? order.getPlan().getPlanId() : null);
+        resp.setPlanName(order.getPlan() != null ? order.getPlan().getPlanName() : "Gói dịch vụ");
+        resp.setAmount(order.getAmount());
+        resp.setDiscountAmount(order.getDiscountAmount());
+        resp.setVoucherCode(order.getVoucher() != null ? order.getVoucher().getCode() : null);
+        resp.setStatus(order.getStatus());
+        resp.setAdminNote(order.getAdminNote());
+        resp.setCreatedAt(order.getCreatedAt());
+        resp.setApprovedAt(order.getApprovedAt());
+        return resp;
     }
 }

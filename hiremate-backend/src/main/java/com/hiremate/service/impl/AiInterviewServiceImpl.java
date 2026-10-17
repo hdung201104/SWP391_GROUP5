@@ -41,6 +41,57 @@ public class AiInterviewServiceImpl implements AiInterviewService {
     private final com.hiremate.service.FileStorageService fileStorageService;
     private final com.hiremate.repository.CandidateSkillRepository candidateSkillRepository;
     private final com.hiremate.repository.SkillRepository skillRepository;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.hiremate.repository.SubscriptionRepository subscriptionRepository;
+
+    /**
+     * Kiểm tra phân quyền và hạn ngạch lượt phỏng vấn AI thực tế của Ứng viên.
+     * - Admin: Không giới hạn.
+     * - Ứng viên VIP (đã mua gói ACTIVE): Luyện tập theo hạn ngạch ngày của gói (hoặc không giới hạn nếu quota = 999).
+     * - Ứng viên miễn phí (Free Tier): Tối đa 3 lượt phỏng vấn thử nghiệm AI trên toàn hệ thống.
+     */
+    private void checkCandidateInterviewQuota(User user) {
+        if (user == null) return;
+        if (user.getRole() == com.hiremate.enums.UserRole.ADMIN) {
+            return; // Admin có quyền tối cao
+        }
+
+        com.hiremate.entity.Subscription activeSub = null;
+        if (subscriptionRepository != null) {
+            activeSub = subscriptionRepository.findFirstByUser_UserIdAndStatusOrderByCreatedAtDesc(
+                    user.getUserId(), com.hiremate.enums.SubscriptionStatus.ACTIVE).orElse(null);
+        }
+
+        // Tự động kiểm tra hết hạn gói nếu có
+        if (activeSub != null && activeSub.getEndDate() != null && activeSub.getEndDate().isBefore(LocalDateTime.now())) {
+            activeSub.setStatus(com.hiremate.enums.SubscriptionStatus.EXPIRED);
+            subscriptionRepository.save(activeSub);
+            activeSub = null;
+        }
+
+        if (activeSub != null) {
+            int dailyQuota = (activeSub.getPlan() != null && activeSub.getPlan().getQuotaLimit() != null)
+                    ? activeSub.getPlan().getQuotaLimit() : 10;
+            if (dailyQuota < 999) {
+                LocalDateTime startOfDay = java.time.LocalDate.now().atStartOfDay();
+                long todayCount = sessionRepository.countByCandidate_CandidateIdAndStartedAtAfter(user.getUserId(), startOfDay);
+                if (todayCount >= dailyQuota) {
+                    String planName = activeSub.getPlan() != null ? activeSub.getPlan().getPlanName() : "gói dịch vụ hiện tại";
+                    throw new IllegalArgumentException(String.format(
+                            "Bạn đã sử dụng hết hạn ngạch (%d/%d phiên) hôm nay của gói \"%s\". Vui lòng quay lại vào ngày mai hoặc nâng cấp gói không giới hạn.",
+                            todayCount, dailyQuota, planName));
+                }
+            }
+        } else {
+            // Tài khoản ứng viên miễn phí (Free Tier): Tối đa 3 phiên phỏng vấn thử nghiệm
+            long totalSessions = sessionRepository.countByCandidate_CandidateId(user.getUserId());
+            if (totalSessions >= 3) {
+                throw new IllegalArgumentException(String.format(
+                        "Tài khoản miễn phí đã sử dụng hết 3 lượt phỏng vấn AI dùng thử (Bạn đã hoàn thành %d phiên). Vui lòng nâng cấp gói Career VIP để mở khóa luyện phỏng vấn không giới hạn cùng trợ lý ảo AI.",
+                        totalSessions));
+            }
+        }
+    }
 
     @Override
     @Transactional
@@ -51,6 +102,9 @@ public class AiInterviewServiceImpl implements AiInterviewService {
             Long parentSessionId,
             User user
     ) {
+        // 1. Kiểm tra hạn ngạch và quyền hạn sử dụng phỏng vấn AI của ứng viên
+        checkCandidateInterviewQuota(user);
+
         // Lấy Candidate subclass – candidate_id = user_id (Shared PK)
         Candidate candidate = candidateRepository.findById(user.getUserId())
                 .orElseThrow(() -> new IllegalStateException(

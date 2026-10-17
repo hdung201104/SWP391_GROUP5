@@ -7,18 +7,34 @@ import com.hiremate.entity.User;
 import com.hiremate.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
 public class AuthController {
 
     private final AuthService authService;
+    private final com.hiremate.service.FileStorageService fileStorageService;
+
+    @PostMapping(value = "/upload-license", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<Map<String, String>>> uploadLicenseBeforeRegister(
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file
+    ) {
+        String uploadedUrl = fileStorageService.storeFile(file, "licenses");
+        String fileName = file.getOriginalFilename() != null ? file.getOriginalFilename() : "business_license.pdf";
+        return ResponseEntity.ok(ApiResponse.ok("Tải tệp GPKD thành công", Map.of(
+                "url", uploadedUrl,
+                "fileName", fileName
+        )));
+    }
 
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request) {

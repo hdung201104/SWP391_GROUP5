@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLivingTheme } from '../../context/LivingThemeContext';
 import { getSavedJobs } from '../../utils/savedJobsStorage';
+import { HIREMATE_LOGO_URL } from '../../constants/branding';
+
 
 export default function Header({
   user,
@@ -17,6 +19,7 @@ export default function Header({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [avatarError, setAvatarError] = useState(false);
   const [savedJobsCount, setSavedJobsCount] = useState(() => getSavedJobs().length);
+
 
   useEffect(() => {
     const handleSavedJobsUpdate = () => {
@@ -58,7 +61,7 @@ export default function Header({
 
   const isRoleAdmin = user?.role === 'ADMIN' || activeRoute.includes('admin') || activeRoute.includes('quan-tri');
   const isRoleRecruiter = user?.role === 'RECRUITER' && !isRoleAdmin;
-  const isRoleCandidate = (user?.role === 'CANDIDATE' || !user) && !isRoleRecruiter && !isRoleAdmin;
+  const isRoleCandidate = (user?.role === 'CANDIDATE' || user?.role === 'ROLE_CANDIDATE') && !isRoleAdmin;
   const isGuest = !user && !isRoleAdmin;
 
   // Active state checkers (synchronized for Candidate, Recruiter & Guest)
@@ -280,7 +283,7 @@ export default function Header({
     const interval = setInterval(() => {
       fetchNotifications();
       fetchActiveSubscription();
-    }, 10000); // Polling every 10s
+    }, 30000); // Polling every 30s to reduce server load
     const handleSync = () => {
       fetchNotifications();
       fetchActiveSubscription();
@@ -302,6 +305,13 @@ export default function Header({
       console.warn('API markAllAsRead error', e);
     }
   };
+
+  // Automatically mark all as read whenever the notification popup is opened
+  useEffect(() => {
+    if (showNotificationPopup && unreadCount > 0) {
+      markAllAsRead();
+    }
+  }, [showNotificationPopup, unreadCount]);
 
   const markAsRead = async (id) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
@@ -341,6 +351,8 @@ export default function Header({
     }
   };
 
+  const totalUnreadCount = unreadCount;
+
   // Display details
   const displayName = user?.fullName || (isGuest ? 'Khách (Guest)' : 'Long Tran');
   const displaySubtitle = isRoleCandidate
@@ -363,8 +375,8 @@ export default function Header({
             className="flex items-center gap-2 group cursor-pointer text-left bg-transparent border-none p-0 shrink-0"
             title="HireMate AI Mindskills Portal"
           >
-            <div className="h-8.5 w-8.5 sm:h-9 sm:w-9 rounded-xl bg-white text-[#32247b] flex items-center justify-center shadow-lg group-hover:scale-105 transition-all duration-300">
-              <span className="material-symbols-outlined text-[20px] sm:text-[22px] font-bold text-[#5b48bd]">psychology</span>
+            <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center shadow-lg group-hover:scale-105 transition-all duration-300 p-1 border border-white/20 overflow-hidden shrink-0">
+              <img src={HIREMATE_LOGO_URL} alt="HireMate AI Logo" className="w-full h-full object-contain rounded-lg drop-shadow" />
             </div>
             <div className="flex flex-col">
               <div className="flex items-center gap-1.5">
@@ -556,6 +568,8 @@ export default function Header({
                 <span>ỨNG TUYỂN</span>
               </button>
 
+
+
               <button
                 onClick={() => handleNav('#/ai-interview')}
                 className={`px-2.5 py-1.5 xl:px-3.5 xl:py-1.5 rounded-full transition-all duration-300 cursor-pointer font-bold flex items-center gap-1.5 ${isInterviewActive
@@ -578,18 +592,6 @@ export default function Header({
                 <span className="material-symbols-outlined text-[16px]">description</span>
                 <span>QUẢN LÝ CV</span>
               </button>
-
-              <button
-                onClick={() => handleNav('#/candidate-pricing')}
-                className={`px-2.5 py-1.5 xl:px-3.5 xl:py-1.5 rounded-full transition-all duration-300 cursor-pointer font-bold flex items-center gap-1.5 ${isCandidatePricingActive
-                    ? 'mindskills-active-pill'
-                    : 'mindskills-inactive-pill text-amber-300 hover:text-amber-200'
-                  }`}
-                title="Bảng giá các gói ứng viên &amp; lượt AI Voice Mock Interview"
-              >
-                <span className="material-symbols-outlined text-[16px] text-amber-400">workspace_premium</span>
-                <span>GÓI DỊCH VỤ</span>
-              </button>
             </>
           )}
 
@@ -604,10 +606,10 @@ export default function Header({
                     ? 'mindskills-active-pill'
                     : 'mindskills-inactive-pill'
                   }`}
-                title="Cổng việc làm công khai trên thị trường"
+                title="Mạng lưới đối tác doanh nghiệp trong hệ sinh thái HireMate"
               >
-                <span className="material-symbols-outlined text-[16px]">travel_explore</span>
-                <span>VIỆC LÀM</span>
+                <span className="material-symbols-outlined text-[16px]">apartment</span>
+                <span>MẠNG LƯỚI DOANH NGHIỆP</span>
               </button>
 
               <button
@@ -621,6 +623,8 @@ export default function Header({
                 <span className="material-symbols-outlined text-[16px]">post_add</span>
                 <span>TIN ĐĂNG</span>
               </button>
+
+
 
               <button
                 onClick={() => handleNav('#/recruiter-dashboard?tab=overview')}
@@ -645,14 +649,45 @@ export default function Header({
                 <span className="material-symbols-outlined text-[16px]">domain</span>
                 <span>HỒ SƠ CÔNG TY</span>
               </button>
+            </>
+          )}
+
+          {/* =================================================== */}
+          {/* 3. GUEST NAVBAR LINKS (CHƯA ĐĂNG NHẬP)             */}
+          {/* =================================================== */}
+          {isGuest && (
+            <>
+              <button
+                onClick={() => handleNav('#/')}
+                className={`px-2.5 py-1.5 xl:px-3.5 xl:py-1.5 rounded-full transition-all duration-300 cursor-pointer font-bold flex items-center gap-1.5 ${isHomeActive
+                    ? 'mindskills-active-pill'
+                    : 'mindskills-inactive-pill'
+                  }`}
+                title="Khám phá cơ hội việc làm công khai"
+              >
+                <span className="material-symbols-outlined text-[16px]">travel_explore</span>
+                <span>VIỆC LÀM</span>
+              </button>
 
               <button
-                onClick={() => handleNav('#/recruiter-pricing')}
-                className={`px-2.5 py-1.5 xl:px-3.5 xl:py-1.5 rounded-full text-[11px] xl:text-xs font-bold uppercase tracking-wider transition-all duration-300 cursor-pointer flex items-center gap-1.5 ${isRecruiterPricingActive
+                onClick={() => handleNav('#/ai-interview')}
+                className={`px-2.5 py-1.5 xl:px-3.5 xl:py-1.5 rounded-full transition-all duration-300 cursor-pointer font-bold flex items-center gap-1.5 ${isInterviewActive
+                    ? 'mindskills-active-pill'
+                    : 'mindskills-inactive-pill'
+                  }`}
+                title="Công nghệ phỏng vấn mô phỏng AI Voice Studio"
+              >
+                <span className="material-symbols-outlined text-[16px]">psychology</span>
+                <span>AI STUDIO</span>
+              </button>
+
+              <button
+                onClick={() => handleNav('#/candidate-pricing')}
+                className={`px-2.5 py-1.5 xl:px-3.5 xl:py-1.5 rounded-full transition-all duration-300 cursor-pointer font-bold flex items-center gap-1.5 ${isCandidatePricingActive
                     ? 'mindskills-active-pill'
                     : 'mindskills-inactive-pill text-amber-300 hover:text-amber-200'
                   }`}
-                title="Bảng giá các gói dịch vụ & mua thêm lượt AI Matching"
+                title="Bảng giá các gói dịch vụ & luyện phỏng vấn AI"
               >
                 <span className="material-symbols-outlined text-[16px] text-amber-400">workspace_premium</span>
                 <span>GÓI DỊCH VỤ</span>
@@ -695,49 +730,14 @@ export default function Header({
           {/* Saved Jobs (for Candidate) & Quick Upgrade Pro */}
           {user && isRoleCandidate && (
             <div className="flex items-center gap-1.5">
-              {(() => {
-                const planLower = (activePlanName || '').toLowerCase();
-                const isVip = planLower.includes('vip') || planLower.includes('mastery') || planLower.includes('enterprise');
-                const isPro = planLower.includes('pro') || planLower.includes('professional');
-
-                if (isVip) {
-                  return (
-                    <button
-                      onClick={() => handleNav('#/candidate-pricing')}
-                      className="hidden lg:flex px-3 py-1.5 rounded-full bg-gradient-to-r from-purple-800 via-indigo-700 to-purple-900 hover:opacity-95 text-amber-300 text-[11px] font-black tracking-wider flex items-center gap-1.5 cursor-pointer shadow-md transition-all hover:scale-105 border border-amber-300/50"
-                      title="Gói Career Mastery VIP đang hoạt động - Xem đặc quyền"
-                    >
-                      <span className="material-symbols-outlined text-xs font-bold text-amber-300">stars</span>
-                      <span>CAREER VIP 👑</span>
-                    </button>
-                  );
-                }
-
-                if (isPro) {
-                  return (
-                    <button
-                      onClick={() => handleNav('#/candidate-pricing')}
-                      className="hidden lg:flex px-3 py-1.5 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-[11px] font-bold tracking-wider flex items-center gap-1.5 cursor-pointer shadow-md transition-all hover:scale-105 border border-emerald-300/40"
-                      title="Gói Pro AI đang hoạt động - Bấm để xem chi tiết hoặc nâng cấp VIP"
-                    >
-                      <span className="material-symbols-outlined text-xs font-bold">verified</span>
-                      <span>PRO AI ⭐</span>
-                    </button>
-                  );
-                }
-
-                return (
-                  <button
-                    onClick={() => handleNav('#/candidate-pricing')}
-                    className="hidden lg:flex px-2.5 py-1.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-[11px] font-extrabold tracking-wider flex items-center gap-1 cursor-pointer shadow-md transition-all hover:scale-105 border border-amber-300/40"
-                    title="Xem bảng giá và nâng cấp gói Candidate Pro AI"
-                  >
-                    <span className="material-symbols-outlined text-xs font-bold animate-bounce">workspace_premium</span>
-                    <span>NÂNG CẤP PRO</span>
-                  </button>
-                );
-              })()}
-
+              <button
+                onClick={() => handleNav('#/candidate-pricing')}
+                className="hidden lg:flex px-2.5 py-1.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-[11px] font-extrabold tracking-wider flex items-center gap-1 cursor-pointer shadow-md transition-all hover:scale-105 border border-amber-300/40"
+                title="Xem bảng giá và nâng cấp gói dịch vụ"
+              >
+                <span className="material-symbols-outlined text-xs font-bold animate-bounce">workspace_premium</span>
+                <span>NÂNG CẤP GÓI</span>
+              </button>
               <button
                 onClick={() => handleNav('#/applications?tab=saved')}
                 className="relative p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all duration-300 flex items-center justify-center cursor-pointer border border-white/20"
@@ -758,33 +758,39 @@ export default function Header({
           {user && (
             <div className="relative">
               <button
-                onClick={() => setShowNotificationPopup(!showNotificationPopup)}
+                onClick={() => {
+                  const nextState = !showNotificationPopup;
+                  setShowNotificationPopup(nextState);
+                  if (nextState && unreadCount > 0) {
+                    markAllAsRead();
+                  }
+                }}
                 className="relative p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all duration-300 cursor-pointer flex items-center justify-center border border-white/20"
-                title="Trung tâm thông báo hệ thống"
+                title="Trung tâm thông báo hệ thống & Tin nhắn"
                 type="button"
               >
                 <span className="material-symbols-outlined text-xl">notifications</span>
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 px-1.5 py-0.2 rounded-full bg-[#C27B66] text-white text-[9px] font-bold shadow-sm">
-                    {unreadCount}
+                {totalUnreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[9px] font-bold shadow-sm animate-pulse">
+                    {totalUnreadCount}
                   </span>
                 )}
               </button>
 
               {showNotificationPopup && (
-                <div className="absolute right-0 mt-3 w-88 sm:w-[410px] rounded-[28px] bg-white border border-indigo-100 shadow-[0_20px_50px_rgba(50,36,123,0.22)] p-5 z-50 font-body text-slate-900 animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="absolute right-0 mt-3 w-88 sm:w-[420px] rounded-[28px] bg-white border border-indigo-100 shadow-[0_20px_50px_rgba(50,36,123,0.22)] p-5 z-50 font-body text-slate-900 animate-in fade-in slide-in-from-top-2 duration-300">
                   {/* Header */}
                   <div className="flex items-center justify-between pb-3.5 border-b border-slate-100 mb-3.5">
                     <div className="flex items-center gap-2">
                       <span className="font-serif font-bold text-base text-[#32247b]">Trung Tâm Thông Báo</span>
-                      {unreadCount > 0 && (
+                      {totalUnreadCount > 0 && (
                         <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-[#5b46e0] border border-indigo-100 shadow-xs">
-                          {unreadCount} mới
+                          {totalUnreadCount} mới
                         </span>
                       )}
                     </div>
                     <div className="flex items-center gap-2">
-                      {unreadCount > 0 && (
+                      {totalUnreadCount > 0 && (
                         <button
                           onClick={markAllAsRead}
                           className="text-xs text-[#5b46e0] hover:text-[#32247b] transition-all cursor-pointer flex items-center gap-1 font-bold"
@@ -808,20 +814,21 @@ export default function Header({
                   </div>
 
                   {/* Filter Tabs */}
-                  <div className="flex items-center gap-1 p-1 bg-slate-100/80 rounded-full border border-slate-200/70 text-xs mb-3.5">
+                  <div className="flex items-center gap-1 p-1 bg-slate-100/80 rounded-full border border-slate-200/70 text-xs mb-3.5 overflow-x-auto no-scrollbar">
                     {[
                       { id: 'ALL', label: 'Tất cả' },
-                      { id: 'UNREAD', label: `Chưa đọc (${unreadCount})` },
+                      { id: 'UNREAD', label: `Chưa đọc (${totalUnreadCount})` },
                       { id: 'RECRUITMENT', label: 'Tuyển dụng' },
                       { id: 'AI_STUDIO', label: 'AI Studio' },
                     ].map((tab) => (
                       <button
                         key={tab.id}
                         onClick={() => setNotificationTab(tab.id)}
-                        className={`flex-1 py-1.5 text-center rounded-full font-bold transition-all cursor-pointer text-xs ${notificationTab === tab.id
+                        className={`flex-1 py-1.5 px-2 text-center rounded-full font-bold transition-all cursor-pointer text-[11px] whitespace-nowrap ${
+                          notificationTab === tab.id
                             ? 'bg-[#32247b] text-white shadow-md'
                             : 'text-slate-600 hover:text-[#32247b]'
-                          }`}
+                        }`}
                       >
                         {tab.label}
                       </button>
@@ -829,7 +836,7 @@ export default function Header({
                   </div>
 
                   {/* Notifications List */}
-                  <div className="max-h-84 overflow-y-auto space-y-3 pr-0.5">
+                  <div className="max-h-88 overflow-y-auto space-y-2.5 pr-0.5">
                     {notifications
                       .filter((n) => {
                         if (notificationTab === 'UNREAD') return !n.isRead;
@@ -845,34 +852,46 @@ export default function Header({
                             setShowNotificationPopup(false);
                             if (item.targetRoute) handleNav(item.targetRoute);
                           }}
-                          className={`group p-3.5 rounded-[20px] transition-all cursor-pointer flex items-start gap-3.5 relative border ${!item.isRead
-                              ? 'bg-indigo-50/80 border-indigo-200/80 hover:bg-indigo-50 shadow-xs'
+                          className={`group p-3 rounded-[20px] transition-all cursor-pointer flex items-start gap-3 relative border ${
+                            !item.isRead
+                              ? 'bg-purple-50/90 border-purple-200/90 hover:bg-purple-100/70 shadow-xs'
                               : 'bg-slate-50/70 border-slate-200/70 opacity-80 hover:opacity-100 hover:bg-slate-100'
-                            }`}
+                          }`}
                         >
-                          {/* Indigo Circle Icon matching Homepage brand theme */}
-                          <div className="w-10 h-10 rounded-full shrink-0 flex items-center justify-center bg-[#32247b] text-white shadow-md group-hover:scale-105 transition-transform">
+                          <div className="w-10 h-10 rounded-2xl shrink-0 flex items-center justify-center bg-[#32247b] text-white shadow-md group-hover:scale-105 transition-transform mt-0.5">
                             <span className="material-symbols-outlined text-lg">{item.icon || 'notifications'}</span>
                           </div>
 
-                          <div className="flex-1 min-w-0 pr-6">
+                          <div className="flex-1 min-w-0 pr-4">
                             <div className="flex items-center justify-between gap-1">
-                              <h4 className={`text-xs sm:text-sm truncate ${!item.isRead ? 'text-[#32247b] font-bold' : 'text-slate-700 font-semibold'}`}>
+                              <h4
+                                className={`text-xs sm:text-sm truncate ${
+                                  !item.isRead ? 'text-[#1e1b4b] font-extrabold' : 'text-slate-700 font-semibold'
+                                }`}
+                              >
                                 {item.title}
                               </h4>
                               {!item.isRead && (
-                                <span className="w-2.5 h-2.5 rounded-full bg-[#5b46e0] shrink-0"></span>
+                                <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0"></span>
                               )}
                             </div>
-                            <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed mt-1 font-sans">
+
+                            {item.subTitle && (
+                              <p className="text-[11px] font-bold text-[#5b48bd] truncate mt-0.5">
+                                {item.subTitle}
+                              </p>
+                            )}
+
+                            <p className="text-xs leading-relaxed mt-1 font-sans line-clamp-2 text-slate-600">
                               {item.body}
                             </p>
-                            <span className="text-[11px] text-slate-400 font-mono block mt-1.5 font-medium">
+
+                            <span className="text-[10px] text-slate-400 font-mono block mt-1 font-medium">
                               {item.time}
                             </span>
                           </div>
 
-                          {/* Delete Action Button */}
+                          {/* Delete Action Button for System Notifications */}
                           <button
                             type="button"
                             onClick={(e) => deleteNotification(item.id, e)}
@@ -884,7 +903,15 @@ export default function Header({
                         </div>
                       ))}
 
-                    {notifications.filter((n) => notificationTab === 'UNREAD' ? !n.isRead : notificationTab === 'RECRUITMENT' ? n.type === 'RECRUITMENT' : notificationTab === 'AI_STUDIO' ? n.type === 'AI_STUDIO' : true).length === 0 && (
+                    {notifications.filter((n) =>
+                      notificationTab === 'UNREAD'
+                        ? !n.isRead
+                        : notificationTab === 'RECRUITMENT'
+                        ? n.type === 'RECRUITMENT'
+                        : notificationTab === 'AI_STUDIO'
+                        ? n.type === 'AI_STUDIO'
+                        : true
+                    ).length === 0 && (
                       <div className="py-8 text-center text-slate-400 text-xs space-y-1">
                         <span className="material-symbols-outlined text-2xl text-slate-300">notifications_off</span>
                         <p>Không có thông báo nào trong mục này</p>
@@ -1212,8 +1239,8 @@ export default function Header({
                     : 'text-[#64748B] hover:text-[#1E293B] hover:bg-[#F1F5F9]'
                   }`}
               >
-                <span className="material-symbols-outlined text-base">travel_explore</span>
-                <span>Cổng Việc Làm</span>
+                <span className="material-symbols-outlined text-base">apartment</span>
+                <span>Mạng Lưới Doanh Nghiệp</span>
               </button>
 
               <button
@@ -1226,6 +1253,7 @@ export default function Header({
                 <span className="material-symbols-outlined text-base">post_add</span>
                 <span>Tin Tuyển Dụng</span>
               </button>
+
 
               <button
                 onClick={() => handleNav('#/recruiter-dashboard?tab=overview')}
@@ -1273,7 +1301,7 @@ export default function Header({
                   }`}
               >
                 <span className="material-symbols-outlined text-base">travel_explore</span>
-                <span>Cổng Việc Làm</span>
+                <span>Khám Phá Việc Làm</span>
               </button>
 
               <button

@@ -28,6 +28,10 @@ export const paymentApi = {
   // Simulate instant payment transfer (test auto-activation without live webhook)
   simulateTransfer: (orderCode) =>
     axiosClient.post(`/payment/simulate-transfer/${orderCode}`),
+
+  // Cancel pending order
+  cancelOrder: (orderCode) =>
+    axiosClient.post(`/payment/orders/${orderCode}/cancel`),
 };
 
 export default paymentApi;

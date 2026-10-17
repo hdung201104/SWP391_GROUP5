@@ -23,12 +23,15 @@ public class DataInitializer implements CommandLineRunner {
 
     private final UserRepository userRepository;
     private final JobRepository jobRepository;
+    private final com.hiremate.repository.PaymentOrderRepository paymentOrderRepository;
+    private final com.hiremate.repository.SubscriptionPlanRepository subscriptionPlanRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Override
     public void run(String... args) {
         initAdminUser();
         initPendingJobsForModeration();
+        initPaymentOrders();
     }
 
     private void initAdminUser() {
@@ -69,6 +72,100 @@ public class DataInitializer implements CommandLineRunner {
             }
         } catch (Exception e) {
             log.warn(">> [DataInitializer] Lỗi cập nhật bài đăng PENDING: {}", e.getMessage());
+        }
+    }
+
+    private void initPaymentOrders() {
+        try {
+            if (paymentOrderRepository.count() == 0) {
+                List<User> users = userRepository.findAll();
+                List<com.hiremate.entity.SubscriptionPlan> plans = subscriptionPlanRepository.findAll();
+                if (users.isEmpty() || plans.isEmpty()) {
+                    return;
+                }
+
+                User candidate = users.stream()
+                        .filter(u -> u.getRole() == UserRole.CANDIDATE)
+                        .findFirst()
+                        .orElse(users.get(0));
+
+                User candidate2 = users.stream()
+                        .filter(u -> u.getRole() == UserRole.CANDIDATE && !u.getUserId().equals(candidate.getUserId()))
+                        .findFirst()
+                        .orElse(candidate);
+
+                User recruiter = users.stream()
+                        .filter(u -> u.getRole() == UserRole.RECRUITER)
+                        .findFirst()
+                        .orElse(users.get(0));
+
+                User recruiter2 = users.stream()
+                        .filter(u -> u.getRole() == UserRole.RECRUITER && !u.getUserId().equals(recruiter.getUserId()))
+                        .findFirst()
+                        .orElse(recruiter);
+
+                com.hiremate.entity.SubscriptionPlan starterPlan = plans.stream()
+                        .filter(p -> p.getPlanName().contains("Starter") || p.getPrice().compareTo(java.math.BigDecimal.ZERO) > 0)
+                        .findFirst()
+                        .orElse(plans.get(0));
+
+                com.hiremate.entity.SubscriptionPlan practicePlan = plans.stream()
+                        .filter(p -> p.getPlanName().contains("Practice") || p.getPlanName().contains("Candidate"))
+                        .findFirst()
+                        .orElse(starterPlan);
+
+                com.hiremate.entity.SubscriptionPlan elitePlan = plans.stream()
+                        .filter(p -> p.getPlanName().contains("Elite") || p.getPlanName().contains("Pro"))
+                        .findFirst()
+                        .orElse(starterPlan);
+
+                // 1. Đơn hàng 1: Thành công
+                com.hiremate.entity.PaymentOrder o1 = com.hiremate.entity.PaymentOrder.builder()
+                        .orderCode("ORD-MB-829104")
+                        .user(recruiter)
+                        .plan(starterPlan)
+                        .amount(starterPlan.getPrice())
+                        .status(com.hiremate.enums.PaymentOrderStatus.APPROVED)
+                        .adminNote("Kích hoạt tự động qua cổng VietQR Napas247 MBBank")
+                        .approvedAt(java.time.LocalDateTime.now().minusHours(2))
+                        .build();
+
+                // 2. Đơn hàng 2: Đang chờ thanh toán
+                com.hiremate.entity.PaymentOrder o2 = com.hiremate.entity.PaymentOrder.builder()
+                        .orderCode("ORD-MB-654321")
+                        .user(recruiter2)
+                        .plan(elitePlan)
+                        .amount(elitePlan.getPrice())
+                        .status(com.hiremate.enums.PaymentOrderStatus.PENDING)
+                        .adminNote("Khách đang quét mã VietQR, chờ webhook đối soát")
+                        .build();
+
+                // 3. Đơn hàng 3: Ứng viên mua gói luyện phỏng vấn AI
+                com.hiremate.entity.PaymentOrder o3 = com.hiremate.entity.PaymentOrder.builder()
+                        .orderCode("ORD-MB-771829")
+                        .user(candidate)
+                        .plan(practicePlan)
+                        .amount(practicePlan.getPrice())
+                        .status(com.hiremate.enums.PaymentOrderStatus.APPROVED)
+                        .adminNote("Nâng cấp gói luyện phỏng vấn AI - MBBank xác nhận")
+                        .approvedAt(java.time.LocalDateTime.now().minusDays(1))
+                        .build();
+
+                // 4. Đơn hàng 4: Đã hủy do hết hạn quét mã
+                com.hiremate.entity.PaymentOrder o4 = com.hiremate.entity.PaymentOrder.builder()
+                        .orderCode("ORD-MB-341209")
+                        .user(candidate2)
+                        .plan(starterPlan)
+                        .amount(starterPlan.getPrice())
+                        .status(com.hiremate.enums.PaymentOrderStatus.REJECTED)
+                        .adminNote("Giao dịch quá thời hạn quét mã QR 15 phút")
+                        .build();
+
+                paymentOrderRepository.saveAll(List.of(o1, o2, o3, o4));
+                log.info(">> [DataInitializer] Đã khởi tạo 4 đơn hàng giao dịch mẫu thực tế trong bảng payment_orders.");
+            }
+        } catch (Exception e) {
+            log.warn(">> [DataInitializer] Lỗi khởi tạo đơn hàng thanh toán: {}", e.getMessage());
         }
     }
 }

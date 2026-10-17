@@ -11,6 +11,7 @@ public interface JobService {
     JobResponse updateJob(Long jobId, JobCreateRequest request, User recruiter);
     JobResponse getJobById(Long jobId);
     List<JobResponse> getPublishedJobs(String keyword, String location);
+    List<JobResponse> getPublishedJobsByCompanyId(Long companyId);
     com.hiremate.dto.response.PageResponse<JobResponse> getPublishedJobsPaged(String keyword, String location, int page, int size, String sortBy, String sortDir);
     com.hiremate.dto.response.PageResponse<JobResponse> getPublishedJobsPagedAdvanced(
             String keyword,
@@ -26,8 +27,13 @@ public interface JobService {
     List<JobResponse> getRecruiterJobs(Long recruiterId);
     com.hiremate.dto.response.PageResponse<JobResponse> getRecruiterJobsPaged(Long recruiterId, int page, int size);
     void closeJob(Long jobId, User recruiter);
+    void deleteJob(Long jobId, User recruiter);
     JobResponse updateJobStatus(Long jobId, com.hiremate.enums.JobStatus status, User recruiter);
     JobResponse cloneJob(Long jobId, User recruiter);
     List<JobResponse> getAllJobsForAdmin();
     JobResponse updateJobApproval(Long jobId, com.hiremate.enums.JobApprovalStatus status);
+    List<JobResponse> mapToResponses(List<com.hiremate.entity.Job> jobs);
+    JobResponse mapToResponse(com.hiremate.entity.Job job);
+    java.util.Map<String, Object> parseJdFile(org.springframework.web.multipart.MultipartFile file, String rawText);
 }
+

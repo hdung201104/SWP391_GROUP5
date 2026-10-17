@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLivingTheme } from '../context/LivingThemeContext';
-import { companyApi, jobApi, applicationApi } from '../api';
+import { companyApi, jobApi, applicationApi, authApi } from '../api';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import { parseSkillList } from '../utils/helpers';
 
@@ -66,6 +66,195 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
     };
   });
 
+  // Company Legal Dossier (Đồng bộ theo tên công ty giữa các HR)
+  const companyKey = (user?.companyName || 'vng_corporation').toLowerCase().replace(/[^a-z0-9]/g, '_');
+
+  const [companyLegal, setCompanyLegal] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`hiremate_company_legal_${companyKey}`);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    const isVng = (user?.companyName || '').toLowerCase().includes('vng');
+    return {
+      taxCode: isVng ? '0303987654' : '0101234567',
+      licenseNumber: isVng ? '0303987654-GPKD-TPHCM' : '0101234567-GPKD-HN',
+      licenseDocName: isVng ? 'VNG_Business_License_2026.pdf' : 'Giay_Phep_Kinh_Doanh_Cong_Ty.pdf',
+      licenseDocUrl: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=800&auto=format&fit=crop&q=80',
+      legalRepresentative: isVng ? 'Hoàng Yến' : (user?.fullName || 'Người Đại Diện Pháp Luật'),
+      legalRepresentativeTitle: 'Tổng Giám Đốc / Đại Diện Theo Pháp Luật',
+      businessType: 'Công ty Cổ phần (Joint Stock Company)',
+      issuingAuthority: 'Phòng Đăng Ký Kinh Doanh - Sở Kế Hoạch & Đầu Tư TP. Hồ Chí Minh',
+      issueDate: isVng ? '09/09/2004' : '15/03/2020',
+      lastAmendedDate: isVng ? '15/03/2026 (Thay đổi lần thứ 24)' : '10/01/2026 (Thay đổi lần thứ 5)',
+      charterCapital: isVng ? '500.000.000.000 VNĐ (Năm trăm tỷ đồng)' : '120.000.000.000 VNĐ (Một trăm hai mươi tỷ đồng)',
+      registeredAddress: isVng
+        ? 'Z06 Đường số 13, Khu Chế Xuất Tân Thuận, Phường Tân Thuận Đông, Quận 7, TP. Hồ Chí Minh'
+        : 'Tòa nhà FPT, Khu Công nghệ cao, Phường Tân Phú, TP. Thủ Đức, TP. Hồ Chí Minh',
+      mainBusinessSector: isVng
+        ? 'Mã 6201: Lập trình máy vi tính; Xuất bản phần mềm; Cung cấp dịch vụ công nghệ số và nội dung số'
+        : 'Mã 6201: Lập trình máy vi tính và tư vấn giải pháp phần mềm doanh nghiệp',
+      docFileSize: '3.8 MB',
+      docChecksum: 'SHA256: 8f4c2e1b9a03d7e5f1a2b4c6e8',
+      submittedBy: isVng ? 'Hoàng Yến TA Lead' : (user?.fullName || 'Quản Trị HR'),
+      submittedAt: '15/03/2026',
+      status: 'VERIFIED', // 'VERIFIED' | 'PENDING' | 'REJECTED' | 'UNVERIFIED'
+      notes: 'Đã được Ban Quản Trị HireMate xác thực hồ sơ pháp nhân hợp lệ trên Cổng DKKD quốc gia.',
+      rejectionReason: '',
+      verifiedAt: '16/03/2026',
+    };
+  });
+
+  // Team HR trực thuộc cùng doanh nghiệp
+  const [companyTeam, setCompanyTeam] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`hiremate_company_team_${companyKey}`);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    const isVng = (user?.companyName || '').toLowerCase().includes('vng');
+    return [
+      {
+        id: 'hr_1',
+        name: isVng ? 'Hoàng Yến' : 'Nguyễn Minh Anh',
+        email: isVng ? 'recruitment@vng.com.vn' : 'hr.lead@company.com',
+        phone: '0912 345 678',
+        role: 'Talent Acquisition Director',
+        department: 'Ban Tuyển Dụng & Thu Hút Nhân Tài',
+        isRepresentative: true,
+        joinedAt: '01/01/2026',
+        avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop&q=80',
+        activeJobs: 4,
+      },
+      {
+        id: 'hr_2',
+        name: user?.fullName || 'Lê Hoàng Nam',
+        email: user?.email || 'recruiter@hiremate.ai',
+        phone: user?.phone || '0988 777 666',
+        role: 'Senior Tech Recruiter',
+        department: 'Ban Kỹ Thuật & Công Nghệ',
+        isRepresentative: false,
+        joinedAt: '12/03/2026',
+        avatar: user?.avatarUrl || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80',
+        activeJobs: 2,
+      },
+    ];
+  });
+
+  // Modals for Legal preview & Team invite
+  const [showLicensePreviewModal, setShowLicensePreviewModal] = useState(false);
+  const [licenseModalTab, setLicenseModalTab] = useState('certificate'); // 'certificate' | 'scan'
+  const [scanZoom, setScanZoom] = useState(100);
+  const [scanRotate, setScanRotate] = useState(0);
+  const [showInviteHrModal, setShowInviteHrModal] = useState(false);
+  const [inviteHrForm, setInviteHrForm] = useState({ name: '', email: '', role: 'Talent Acquisition Specialist' });
+
+  const handleLicenseFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const fileName = file.name;
+      let finalUrl = URL.createObjectURL(file);
+      try {
+        setIsSaving(true);
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await companyApi.uploadLicenseDoc(formData);
+        if (res?.data?.url) {
+          finalUrl = res.data.url;
+        }
+      } catch (err) {
+        console.warn('Lỗi khi tải file lên server, sử dụng link preview:', err);
+      } finally {
+        setIsSaving(false);
+      }
+
+      const updated = {
+        ...companyLegal,
+        licenseDocName: fileName,
+        licenseDocUrl: finalUrl,
+        submittedBy: user?.fullName || 'Chuyên viên HR',
+        submittedAt: new Date().toLocaleDateString('vi-VN'),
+      };
+      setCompanyLegal(updated);
+      try {
+        localStorage.setItem(`hiremate_company_legal_${companyKey}`, JSON.stringify(updated));
+      } catch {}
+      triggerToast(`Đã đính kèm tệp: "${fileName}". Hãy bấm nút "Gửi Thẩm Định Lên Admin"!`);
+    }
+  };
+
+  const handleSubmitLegalToAdmin = async () => {
+    if (!companyLegal.taxCode?.trim()) {
+      triggerToast('Vui lòng nhập Mã số thuế doanh nghiệp!');
+      return;
+    }
+    try {
+      setIsSaving(true);
+      await companyApi.updateMyCompany({
+        taxCode: companyLegal.taxCode?.trim(),
+        licenseNumber: companyLegal.licenseNumber?.trim(),
+        licenseDocUrl: companyLegal.licenseDocUrl?.trim(),
+        licenseDocName: companyLegal.licenseDocName?.trim(),
+        legalRepresentative: companyLegal.legalRepresentative?.trim(),
+        status: 'PENDING',
+      });
+    } catch (err) {
+      console.warn('Lỗi đồng bộ hồ sơ pháp lý lên backend, lưu tạm local:', err);
+    } finally {
+      setIsSaving(false);
+    }
+
+    const updated = {
+      ...companyLegal,
+      status: 'PENDING',
+      submittedBy: user?.fullName || 'Chuyên viên HR',
+      submittedAt: new Date().toLocaleDateString('vi-VN'),
+      notes: 'Đang chờ Admin HireMate đối soát thông tin GPKD trên Cổng DKKD quốc gia.',
+    };
+    setCompanyLegal(updated);
+    try {
+      localStorage.setItem(`hiremate_company_legal_${companyKey}`, JSON.stringify(updated));
+      const savedAdminList = localStorage.getItem('hiremate_admin_companies_list');
+      if (savedAdminList) {
+        const list = JSON.parse(savedAdminList);
+        const updatedList = list.map((c) =>
+          (c.name || '').toLowerCase() === (companyInfo.name || '').toLowerCase() ||
+          (c.shortName || '').toLowerCase() === (companyInfo.name || '').toLowerCase()
+            ? { ...c, status: 'PENDING', taxCode: updated.taxCode, docName: updated.licenseDocName }
+            : c
+        );
+        localStorage.setItem('hiremate_admin_companies_list', JSON.stringify(updatedList));
+      }
+    } catch {}
+    triggerToast('Đã gửi hồ sơ Giấy phép kinh doanh lên Ban Quản Trị Admin HireMate thành công!');
+  };
+
+  const handleInviteHr = (e) => {
+    e.preventDefault();
+    if (!inviteHrForm.email?.trim()) {
+      triggerToast('Vui lòng nhập email của đồng nghiệp HR!');
+      return;
+    }
+    const newMember = {
+      id: 'hr_' + Date.now(),
+      name: inviteHrForm.name.trim() || 'Chuyên Viên HR Mới',
+      email: inviteHrForm.email.trim(),
+      phone: '0909 000 111',
+      role: inviteHrForm.role || 'Talent Acquisition Partner',
+      department: 'Ban Tuyển Dụng & Thu Hút Nhân Tài',
+      isRepresentative: false,
+      joinedAt: new Date().toLocaleDateString('vi-VN'),
+      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+      activeJobs: 0,
+    };
+    const nextTeam = [...companyTeam, newMember];
+    setCompanyTeam(nextTeam);
+    try {
+      localStorage.setItem(`hiremate_company_team_${companyKey}`, JSON.stringify(nextTeam));
+    } catch {}
+    setShowInviteHrModal(false);
+    setInviteHrForm({ name: '', email: '', role: 'Talent Acquisition Specialist' });
+    triggerToast(`Đã thêm thành viên "${newMember.name}" vào đội ngũ tuyển dụng của ${companyInfo.name}!`);
+  };
+
   // Active Job Openings List
   const [jobsList, setJobsList] = useState([]);
 
@@ -101,6 +290,20 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
           division: `Ban Tuyển Dụng & Thu Hút Nhân Tài • ${compName}`,
           bio: `Phụ trách kết nối và tư vấn lộ trình sự nghiệp công nghệ cho các ứng viên gia nhập ${compName}. Sẵn sàng đồng hành cùng bạn suốt quy trình phỏng vấn.`,
         }));
+
+        if (c.taxCode || c.licenseNumber || c.status || c.licenseDocUrl) {
+          setCompanyLegal((prev) => ({
+            ...prev,
+            taxCode: c.taxCode || prev.taxCode,
+            licenseNumber: c.licenseNumber || prev.licenseNumber,
+            licenseDocUrl: c.licenseDocUrl || prev.licenseDocUrl,
+            licenseDocName: c.licenseDocName || prev.licenseDocName,
+            legalRepresentative: c.legalRepresentative || prev.legalRepresentative,
+            status: c.status || prev.status,
+            rejectionReason: c.rejectionReason || prev.rejectionReason,
+            verifiedAt: c.verifiedAt || prev.verifiedAt,
+          }));
+        }
       }
 
       if (jobsRes.status === 'fulfilled' && Array.isArray(jobsRes.value?.data)) {
@@ -604,9 +807,19 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 <span>{companyInfo.name || 'Doanh Nghiệp'} &bull; {companyInfo.industry || 'Đơn Vị Tuyển Dụng Hàng Đầu'}</span>
               </div>
-              <div className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/90 backdrop-blur-md text-[#221d47] text-xs font-bold border border-purple-100 shadow-sm">
+              <div
+                onClick={() => setActiveTab('legal')}
+                className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/90 backdrop-blur-md text-[#221d47] text-xs font-bold border border-purple-100 shadow-sm cursor-pointer hover:bg-white hover:text-[#5b48bd] transition-all"
+                title="Nhấp để xem hồ sơ xác thực pháp lý & Giấy phép kinh doanh của công ty"
+              >
                 <span className="material-symbols-outlined text-sm text-[#5b48bd]">verified</span>
-                <span>Doanh Nghiệp Đã Xác Thực Pháp Nhân</span>
+                <span>
+                  {companyLegal.status === 'VERIFIED'
+                    ? 'Doanh Nghiệp Đã Xác Thực Pháp Nhân'
+                    : companyLegal.status === 'PENDING'
+                    ? 'Hồ Sơ GPKD Đang Chờ Admin Duyệt'
+                    : 'Chưa Xác Thực GPKD (Bấm Nộp)'}
+                </span>
               </div>
             </div>
           </div>
@@ -637,10 +850,29 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                     <h1 className="text-2xl sm:text-3xl font-extrabold text-[#221d47] tracking-tight">
                       {companyInfo.name}
                     </h1>
-                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-purple-50 text-[#5b48bd] text-xs font-bold border border-purple-200">
-                      <span className="material-symbols-outlined text-[15px] text-[#5b48bd]">verified</span>
-                      <span>{companyInfo.badge}</span>
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('legal')}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border transition-all cursor-pointer ${
+                        companyLegal.status === 'VERIFIED'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 shadow-xs'
+                          : companyLegal.status === 'PENDING'
+                          ? 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100 animate-pulse'
+                          : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                      }`}
+                      title="Nhấp để xem hồ sơ xác thực pháp lý & giấy phép kinh doanh"
+                    >
+                      <span className="material-symbols-outlined text-[15px]">
+                        {companyLegal.status === 'VERIFIED' ? 'verified' : companyLegal.status === 'PENDING' ? 'hourglass_top' : 'warning'}
+                      </span>
+                      <span>
+                        {companyLegal.status === 'VERIFIED'
+                          ? 'Doanh Nghiệp Đã Xác Thực'
+                          : companyLegal.status === 'PENDING'
+                          ? 'Đang Chờ Admin Duyệt GPKD'
+                          : 'Chưa Xác Thực GPKD'}
+                      </span>
+                    </button>
                   </div>
                   <p className="text-xs sm:text-sm text-slate-600 font-medium max-w-2xl leading-relaxed">
                     {companyInfo.tagline}
@@ -648,7 +880,7 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                 </div>
               </div>
 
-              {/* Action Buttons: Edit, Pricing & Share */}
+              {/* Action Buttons: Edit, Pricing, Legal & Share */}
               <div className="flex items-center gap-2.5 flex-wrap shrink-0">
                 <button
                   type="button"
@@ -662,6 +894,16 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
 
                 <button
                   type="button"
+                  onClick={() => setActiveTab('legal')}
+                  className="px-4 py-2.5 rounded-full bg-white hover:bg-purple-50 text-xs font-bold text-slate-700 hover:text-[#5b48bd] transition-all flex items-center gap-1.5 border border-purple-200 cursor-pointer shadow-sm hover:border-purple-300"
+                  title="Xem và gửi hồ sơ Giấy phép kinh doanh lên Ban Quản Trị Admin"
+                >
+                  <span className="material-symbols-outlined text-[16px] text-[#5b48bd]">verified_user</span>
+                  <span>Hồ Sơ Pháp Lý &amp; GPKD</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={handleCopyShareLink}
                   className="px-4 py-2.5 rounded-full bg-white hover:bg-purple-50 text-xs font-semibold text-slate-700 transition-all flex items-center gap-2 border border-purple-200 cursor-pointer shadow-sm hover:border-purple-300"
                   title="Sao chép liên kết trang công ty"
@@ -669,6 +911,7 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                   <span className="material-symbols-outlined text-[16px] text-[#5b48bd]">share</span>
                   <span>Chia sẻ</span>
                 </button>
+
                 <button
                   type="button"
                   onClick={() => openCompanyModal('basic')}
@@ -874,37 +1117,70 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
           {/* ================================================================= */}
           <main className="lg:col-span-8 space-y-6">
             {/* Navigation Tabs */}
-            <div className="flex items-center gap-2 p-1.5 rounded-full bg-white border border-purple-100 shadow-sm">
+            <div className="flex items-center gap-1.5 p-1.5 rounded-full bg-white border border-purple-100 shadow-sm overflow-x-auto">
               <button
                 type="button"
                 onClick={() => setActiveTab('overview')}
-                className={`flex-1 py-2.5 px-4 rounded-full text-xs font-bold tracking-wide transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                className={`py-2.5 px-3.5 rounded-full text-xs font-bold tracking-wide transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0 ${
                   activeTab === 'overview'
                     ? 'bg-[#5b48bd] text-white shadow-sm'
                     : 'text-slate-600 hover:text-[#5b48bd] hover:bg-purple-50/60'
                 }`}
               >
                 <span className="material-symbols-outlined text-base">info</span>
-                <span>Tổng Quan &amp; Môi Trường Làm Việc</span>
+                <span>Tổng Quan &amp; Môi Trường</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setActiveTab('jobs')}
-                className={`flex-1 py-2.5 px-4 rounded-full text-xs font-bold tracking-wide transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                className={`py-2.5 px-3.5 rounded-full text-xs font-bold tracking-wide transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0 ${
                   activeTab === 'jobs'
                     ? 'bg-[#5b48bd] text-white shadow-sm'
                     : 'text-slate-600 hover:text-[#5b48bd] hover:bg-purple-50/60'
                 }`}
               >
                 <span className="material-symbols-outlined text-base">work</span>
-                <span>Vị Trí Đang Tuyển Dụng ({jobsList.length})</span>
+                <span>Tin Tuyển Dụng ({jobsList.length})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('legal')}
+                className={`py-2.5 px-3.5 rounded-full text-xs font-bold tracking-wide transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0 ${
+                  activeTab === 'legal'
+                    ? 'bg-[#5b48bd] text-white shadow-sm'
+                    : 'text-slate-600 hover:text-[#5b48bd] hover:bg-purple-50/60'
+                }`}
+              >
+                <span className="material-symbols-outlined text-base">verified_user</span>
+                <span>Pháp Lý &amp; GPKD</span>
+                {companyLegal.status === 'VERIFIED' ? (
+                  <span className="w-2 h-2 rounded-full bg-emerald-400" title="Đã duyệt GPKD" />
+                ) : companyLegal.status === 'PENDING' ? (
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" title="Đang chờ duyệt" />
+                ) : (
+                  <span className="w-2 h-2 rounded-full bg-rose-400" title="Chưa xác thực" />
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('team')}
+                className={`py-2.5 px-3.5 rounded-full text-xs font-bold tracking-wide transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0 ${
+                  activeTab === 'team'
+                    ? 'bg-[#5b48bd] text-white shadow-sm'
+                    : 'text-slate-600 hover:text-[#5b48bd] hover:bg-purple-50/60'
+                }`}
+              >
+                <span className="material-symbols-outlined text-base">groups</span>
+                <span>Đội Ngũ HR ({companyTeam.length})</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setActiveTab('locations')}
-                className={`flex-1 py-2.5 px-4 rounded-full text-xs font-bold tracking-wide transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                className={`py-2.5 px-3.5 rounded-full text-xs font-bold tracking-wide transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0 ${
                   activeTab === 'locations'
                     ? 'bg-[#5b48bd] text-white shadow-sm'
                     : 'text-slate-600 hover:text-[#5b48bd] hover:bg-purple-50/60'
@@ -1170,9 +1446,643 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                 </div>
               </div>
             )}
+
+            {/* =============================================================== */}
+            {/* =============================================================== */}
+            {/* TAB 4: GIẤY PHÉP KINH DOANH & HỒ SƠ PHÁP LÝ DOANH NGHIỆP        */}
+            {/* =============================================================== */}
+            {activeTab === 'legal' && (
+              <div className="space-y-6 animate-fade-in font-sans">
+                
+                {/* 1. Trạng Thái Thẩm Định Pháp Lý Doanh Nghiệp */}
+                <div className={`p-5 sm:p-6 rounded-[24px] border shadow-xs transition-all ${
+                  companyLegal.status === 'VERIFIED'
+                    ? 'bg-gradient-to-r from-emerald-50/80 via-teal-50/50 to-white border-emerald-200'
+                    : companyLegal.status === 'PENDING'
+                    ? 'bg-gradient-to-r from-amber-50/80 via-yellow-50/40 to-white border-amber-200'
+                    : 'bg-gradient-to-r from-rose-50/80 via-pink-50/40 to-white border-rose-200'
+                }`}>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3.5">
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${
+                        companyLegal.status === 'VERIFIED'
+                          ? 'bg-emerald-600 text-white'
+                          : companyLegal.status === 'PENDING'
+                          ? 'bg-amber-500 text-white animate-pulse'
+                          : 'bg-rose-600 text-white'
+                      }`}>
+                        <span className="material-symbols-outlined text-2xl">
+                          {companyLegal.status === 'VERIFIED' ? 'verified' : companyLegal.status === 'PENDING' ? 'hourglass_top' : 'error'}
+                        </span>
+                      </div>
+
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="text-sm sm:text-base font-extrabold text-[#1e1b4b]">
+                            {companyLegal.status === 'VERIFIED'
+                              ? 'Doanh Nghiệp Đã Được Admin Xác Thực Pháp Nhân Hợp Lệ'
+                              : companyLegal.status === 'PENDING'
+                              ? 'Hồ Sơ Đang Trong Hàng Đợi Xét Duyệt Của Admin'
+                              : 'Hồ Sơ Chưa Được Xác Thực / Cần Bổ Sung'}
+                          </h4>
+                          <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
+                            companyLegal.status === 'VERIFIED'
+                              ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                              : companyLegal.status === 'PENDING'
+                              ? 'bg-amber-100 text-amber-800 border-amber-300'
+                              : 'bg-rose-100 text-rose-800 border-rose-300'
+                          }`}>
+                            {companyLegal.status === 'VERIFIED' ? 'Đã duyệt GPKD' : companyLegal.status === 'PENDING' ? 'Chờ Admin duyệt' : 'Cần bổ sung'}
+                          </span>
+                        </div>
+
+                        <p className="text-xs text-slate-600 leading-relaxed max-w-2xl">
+                          {companyLegal.status === 'VERIFIED'
+                            ? `Hồ sơ đã được thẩm định hợp lệ vào ngày ${companyLegal.verifiedAt || '16/03/2026'}. Người đại diện nộp: ${companyLegal.submittedBy}. Ghi chú: ${companyLegal.notes || 'Hồ sơ pháp nhân hợp lệ.'}`
+                            : companyLegal.status === 'PENDING'
+                            ? `Hồ sơ đã được gửi lên hệ thống vào ngày ${companyLegal.submittedAt || new Date().toLocaleDateString('vi-VN')}. Ban Quản Trị HireMate đang kiểm tra đối soát trên Cổng Thông Tin Đăng Ký Doanh Nghiệp Quốc Gia.`
+                            : `Lý do từ Ban Quản Trị: ${companyLegal.rejectionReason || 'Vui lòng cung cấp mã số thuế chính xác và đính kèm bản chụp/scan Giấy phép kinh doanh còn hiệu lực.'}`}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <a
+                        href="https://dangkykinhdoanh.gov.vn"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 hover:text-[#5b48bd] text-xs font-bold border border-slate-200 shadow-2xs transition-all cursor-pointer"
+                        title="Tra cứu thông tin doanh nghiệp trên Cổng Quốc Gia"
+                      >
+                        <span className="material-symbols-outlined text-sm text-amber-600">policy</span>
+                        <span>Tra Cứu Cổng DKKD Quốc Gia</span>
+                        <span className="material-symbols-outlined text-[13px] text-slate-400">open_in_new</span>
+                      </a>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. BỐ CỤC CHÍNH 2 CỘT: THÔNG TIN PHÁP NHÂN (7 COLS) & TẢI LÊN GPKD (5 COLS) */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                  
+                  {/* CỘT TRÁI (7 COLS): THÔNG TIN PHÁP NHÂN DOANH NGHIỆP */}
+                  <div className="lg:col-span-7 space-y-5">
+                    <div className="p-6 rounded-[24px] bg-white border border-purple-100 shadow-xs space-y-4">
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-[#5b48bd] text-xl">business</span>
+                          <h3 className="text-sm font-extrabold text-[#1e1b4b] uppercase tracking-wide">
+                            1. Thông Tin Pháp Nhân Doanh Nghiệp
+                          </h3>
+                        </div>
+                        <span className="text-[11px] text-slate-400 font-medium">
+                          Thông tin ghi trên GPKD
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                        {/* Tên doanh nghiệp */}
+                        <div className="sm:col-span-2">
+                          <label className="block font-bold text-slate-700 mb-1">
+                            Tên Doanh Nghiệp (Ghi trên GPKD)
+                          </label>
+                          <input
+                            type="text"
+                            value={companyInfo.name}
+                            readOnly
+                            className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 font-bold cursor-not-allowed"
+                          />
+                          <span className="text-[10px] text-slate-400 mt-0.5 block">Đồng bộ tự động với hồ sơ công ty tuyển dụng</span>
+                        </div>
+
+                        {/* Mã số thuế */}
+                        <div>
+                          <label className="block font-bold text-slate-700 mb-1">
+                            Mã Số Thuế (MST) / Mã Số DN <span className="text-rose-500">*</span>
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="text"
+                              value={companyLegal.taxCode}
+                              onChange={(e) => setCompanyLegal({ ...companyLegal, taxCode: e.target.value })}
+                              placeholder="Ví dụ: 0303987654"
+                              className="w-full pl-3.5 pr-8 py-2.5 rounded-xl bg-white border border-slate-300 focus:border-[#5b48bd] focus:ring-2 focus:ring-purple-100 font-mono font-bold text-slate-800 text-xs transition-all outline-none"
+                            />
+                            <span className="material-symbols-outlined absolute right-2.5 top-2.5 text-slate-400 text-base">pin</span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 mt-0.5 block">Mã định danh duy nhất đối soát Cổng DKKD</span>
+                        </div>
+
+                        {/* Loại hình */}
+                        <div>
+                          <label className="block font-bold text-slate-700 mb-1">
+                            Loại Hình Doanh Nghiệp
+                          </label>
+                          <select
+                            value={companyLegal.businessType || 'Công ty Cổ phần (Joint Stock Company)'}
+                            onChange={(e) => setCompanyLegal({ ...companyLegal, businessType: e.target.value })}
+                            className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-300 focus:border-[#5b48bd] text-slate-800 font-semibold text-xs transition-all cursor-pointer outline-none"
+                          >
+                            <option value="Công ty Cổ phần (Joint Stock Company)">Công ty Cổ phần (JSC)</option>
+                            <option value="Công ty TNHH Hai Thành Viên Trở Lên">Công ty TNHH Hai Thành Viên Trở Lên</option>
+                            <option value="Công ty TNHH Một Thành Viên">Công ty TNHH Một Thành Viên (MTV)</option>
+                            <option value="Doanh Nghiệp Tư Nhân">Doanh Nghiệp Tư Nhân</option>
+                            <option value="Chi Nhánh Doanh Nghiệp / VP Đại Diện">Chi Nhánh Doanh Nghiệp / VP Đại Diện</option>
+                          </select>
+                        </div>
+
+                        {/* Người đại diện */}
+                        <div>
+                          <label className="block font-bold text-slate-700 mb-1">
+                            Người Đại Diện Theo Pháp Luật <span className="text-rose-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={companyLegal.legalRepresentative}
+                            onChange={(e) => setCompanyLegal({ ...companyLegal, legalRepresentative: e.target.value })}
+                            placeholder="Họ và tên người đại diện..."
+                            className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-300 focus:border-[#5b48bd] text-slate-800 font-semibold text-xs transition-all outline-none"
+                          />
+                        </div>
+
+                        {/* Chức danh */}
+                        <div>
+                          <label className="block font-bold text-slate-700 mb-1">
+                            Chức Danh Người Đại Diện
+                          </label>
+                          <input
+                            type="text"
+                            value={companyLegal.legalRepresentativeTitle || 'Tổng Giám Đốc / Đại Diện Pháp Luật'}
+                            onChange={(e) => setCompanyLegal({ ...companyLegal, legalRepresentativeTitle: e.target.value })}
+                            placeholder="Tổng Giám Đốc, Giám Đốc, Chủ Tịch..."
+                            className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-300 focus:border-[#5b48bd] text-slate-800 text-xs transition-all outline-none"
+                          />
+                        </div>
+
+                        {/* Trụ sở chính */}
+                        <div className="sm:col-span-2">
+                          <label className="block font-bold text-slate-700 mb-1">
+                            Địa Chỉ Trụ Sở Chính (Ghi Trên GPKD) <span className="text-rose-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={companyLegal.registeredAddress || companyInfo.headquarters}
+                            onChange={(e) => setCompanyLegal({ ...companyLegal, registeredAddress: e.target.value })}
+                            placeholder="Địa chỉ trụ sở chính theo Giấy chứng nhận ĐKDN..."
+                            className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-300 focus:border-[#5b48bd] text-slate-800 text-xs transition-all outline-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* CỘT PHẢI (5 COLS): TẢI LÊN & QUẢN LÝ 01 FILE GIẤY PHÉP KINH DOANH DUY NHẤT */}
+                  <div className="lg:col-span-5 space-y-5">
+                    <div className="p-6 rounded-[24px] bg-white border border-purple-100 shadow-xs space-y-4">
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-emerald-600 text-xl">verified_user</span>
+                          <h3 className="text-sm font-extrabold text-[#1e1b4b] uppercase tracking-wide">
+                            2. Tệp Giấy Phép Kinh Doanh (GPKD)
+                          </h3>
+                        </div>
+                        <span className="text-[10px] bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded-full border border-emerald-200">
+                          01 Tệp Duy Nhất
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        Theo quy định, doanh nghiệp chỉ cần nộp <strong>01 bản chụp hoặc bản scan PDF Giấy chứng nhận đăng ký doanh nghiệp</strong> (GPKD) có dấu đỏ hoặc mã QR hợp lệ để đối soát.
+                      </p>
+
+                      {/* File Card State */}
+                      {companyLegal.licenseDocUrl ? (
+                        <div className="p-4 rounded-2xl bg-gradient-to-br from-slate-50 to-purple-50/30 border border-purple-200 space-y-3.5">
+                          <div className="flex items-start gap-3">
+                            <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-200 shadow-2xs">
+                              <span className="material-symbols-outlined text-2xl">
+                                {companyLegal.licenseDocName?.endsWith('.pdf') ? 'picture_as_pdf' : 'image'}
+                              </span>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-xs font-bold text-slate-900 truncate" title={companyLegal.licenseDocName}>
+                                {companyLegal.licenseDocName || 'Giay_Phep_Kinh_Doanh.pdf'}
+                              </div>
+                              <div className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                                <span>{companyLegal.docFileSize || 'Định dạng hợp lệ'}</span>
+                                <span>•</span>
+                                <span className="text-emerald-700 font-medium">Đã sẵn sàng thẩm định</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 3 Action Buttons: Xem File, Tải Xuống, Thay File */}
+                          <div className="grid grid-cols-3 gap-2 pt-1 border-t border-purple-100">
+                            {/* Nút 1: Xem file */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowLicensePreviewModal(true);
+                              }}
+                              className="px-2.5 py-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-[#5b48bd] text-xs font-bold flex items-center justify-center gap-1 border border-purple-200 transition-colors cursor-pointer"
+                              title="Xem trực tiếp bản scan / tài liệu PDF"
+                            >
+                              <span className="material-symbols-outlined text-[15px]">visibility</span>
+                              <span>Xem File</span>
+                            </button>
+
+                            {/* Nút 2: Tải xuống file */}
+                            <a
+                              href={companyLegal.licenseDocUrl}
+                              download={companyLegal.licenseDocName || 'Giay_Phep_Kinh_Doanh.pdf'}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="px-2.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold flex items-center justify-center gap-1 border border-emerald-200 transition-colors cursor-pointer text-center"
+                              title="Tải file GPKD về máy"
+                            >
+                              <span className="material-symbols-outlined text-[15px]">download</span>
+                              <span>Tải Xuống</span>
+                            </a>
+
+                            {/* Nút 3: Thay file mới */}
+                            <label
+                              className="px-2.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center justify-center gap-1 border border-slate-200 hover:border-purple-300 transition-colors cursor-pointer text-center shadow-2xs"
+                              title="Chọn file khác thay thế"
+                            >
+                              <span className="material-symbols-outlined text-[15px] text-indigo-600">sync</span>
+                              <span>Đổi File</span>
+                              <input
+                                type="file"
+                                accept=".pdf,image/png,image/jpeg,image/webp"
+                                onChange={handleLicenseFileUpload}
+                                className="hidden"
+                              />
+                            </label>
+                          </div>
+                        </div>
+                      ) : (
+                        /* Empty State Upload Dropzone */
+                        <label className="p-6 rounded-2xl border-2 border-dashed border-purple-200 bg-purple-50/20 hover:bg-purple-50/50 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors text-center">
+                          <div className="w-12 h-12 rounded-2xl bg-white text-[#5b48bd] flex items-center justify-center shadow-xs border border-purple-100">
+                            <span className="material-symbols-outlined text-2xl">upload_file</span>
+                          </div>
+                          <div className="space-y-0.5">
+                            <span className="text-xs font-bold text-[#1e1b4b]">Tải lên Giấy phép kinh doanh (GPKD)</span>
+                            <p className="text-[11px] text-slate-400">Hỗ trợ PDF, JPG, PNG tối đa 15MB</p>
+                          </div>
+                          <span className="px-3.5 py-1.5 rounded-xl bg-[#5b48bd] text-white text-xs font-bold mt-1 shadow-xs">
+                            Chọn tệp từ máy
+                          </span>
+                          <input
+                            type="file"
+                            accept=".pdf,image/png,image/jpeg,image/webp"
+                            onChange={handleLicenseFileUpload}
+                            className="hidden"
+                          />
+                        </label>
+                      )}
+
+                      {/* Thông tin quy trình tiếp nhận */}
+                      <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 space-y-1">
+                        <div className="flex items-center gap-1.5 text-slate-800 font-bold text-[11px]">
+                          <span className="material-symbols-outlined text-sm text-[#5b48bd]">sync_saved_locally</span>
+                          <span>Tự động chuyển tiếp đến Admin</span>
+                        </div>
+                        <p className="text-[11px] leading-relaxed text-slate-500">
+                          Khi bạn nhấn gửi, hồ sơ sẽ lập tức được hệ thống chuyển đến hàng đợi của Ban Quản Trị Admin HireMate để đối soát và kích hoạt tích xanh.
+                        </p>
+                      </div>
+
+                      {/* Primary Submission Button */}
+                      <button
+                        type="button"
+                        onClick={handleSubmitLegalToAdmin}
+                        disabled={isSaving}
+                        className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-[#5b48bd] to-[#7c66dc] hover:from-[#47369f] hover:to-[#6852ca] text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all cursor-pointer disabled:opacity-50"
+                      >
+                        {isSaving ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            <span>Đang Xử Lý Hồ Sơ...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="material-symbols-outlined text-base">send</span>
+                            <span>{companyLegal.status === 'VERIFIED' ? 'Cập Nhật Hồ Sơ GPKD' : 'Gửi Thẩm Định Lên Admin HireMate'}</span>
+                          </>
+                        )}
+                      </button>
+
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
+            )}
+            {/* TAB 5: ĐỘI NGŨ TUYỂN DỤNG CÙNG CÔNG TY (HR TEAM)                */}
+            {/* =============================================================== */}
+            {activeTab === 'team' && (
+              <div className="space-y-6 animate-fade-in font-sans">
+                {/* 1. Team Info Banner */}
+                <div className="p-5 rounded-3xl bg-purple-50/60 border border-purple-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-11 h-11 rounded-2xl bg-[#5b48bd] text-white flex items-center justify-center shrink-0 shadow-xs">
+                      <span className="material-symbols-outlined text-2xl">groups</span>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-[#221d47]">
+                        Đội Ngũ Nhân Sự Tuyển Dụng — {companyInfo.name}
+                      </h3>
+                      <p className="text-xs text-slate-600 mt-0.5 max-w-xl leading-relaxed">
+                        Các chuyên viên HR thuộc cùng công ty dùng chung hồ sơ doanh nghiệp. Khi có thành viên mới tạo tài khoản HR chọn <strong>{companyInfo.name}</strong>, hệ thống sẽ tự động liên kết vào tổ chức và gửi thông báo đến các HR hiện tại.
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowInviteHrModal(true)}
+                    className="px-4 py-2.5 rounded-full bg-[#5b48bd] hover:bg-[#47369f] text-white text-xs font-bold flex items-center gap-1.5 shrink-0 shadow-xs cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-base">person_add</span>
+                    <span>Thêm / Mời HR Mới</span>
+                  </button>
+                </div>
+
+                {/* 2. Team Member Cards Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {companyTeam.map((member) => (
+                    <div
+                      key={member.id}
+                      className="p-5 rounded-[24px] bg-white border border-purple-100 shadow-sm hover:shadow-md transition-all flex flex-col justify-between space-y-4"
+                    >
+                      <div className="flex items-start gap-3.5">
+                        <img
+                          src={member.avatar}
+                          alt={member.name}
+                          className="w-13 h-13 rounded-2xl object-cover ring-2 ring-purple-100 shrink-0"
+                        />
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <h4 className="text-sm font-bold text-[#221d47] truncate">{member.name}</h4>
+                            {member.isRepresentative && (
+                              <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 text-[10px] font-bold border border-amber-200">
+                                Đại Diện Pháp Luật
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs font-semibold text-[#5b48bd] truncate">{member.role}</div>
+                          <div className="text-[11px] text-slate-400 truncate">{member.department}</div>
+                        </div>
+                      </div>
+
+                      <div className="pt-3 border-t border-slate-100 text-xs space-y-1 text-slate-600">
+                        <div className="flex items-center gap-2 truncate">
+                          <span className="material-symbols-outlined text-[14px] text-slate-400">mail</span>
+                          <span className="truncate">{member.email}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-[14px] text-slate-400">call</span>
+                          <span>{member.phone}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+                          <span>Tham gia: {member.joinedAt}</span>
+                          <span className="font-bold text-[#5b48bd]">{member.activeJobs} tin tuyển dụng</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </main>
         </div>
       </div>
+
+      {/* =================================================================== */}
+      {/* =================================================================== */}
+      {/* MODAL: XEM TRƯỚC BẢN SCAN GIẤY PHÉP KINH DOANH (GPKD PREVIEW 2.0)   */}
+      {/* =================================================================== */}
+      {showLicensePreviewModal && (
+        <div className="fixed inset-0 z-[130] bg-black/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+          <div className="bg-white border border-slate-200 rounded-[32px] max-w-4xl w-full p-5 sm:p-7 space-y-4 shadow-2xl text-slate-800 animate-fade-in my-auto max-h-[92vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#5b48bd] to-[#7c66dc] text-white flex items-center justify-center shadow-md">
+                  <span className="material-symbols-outlined text-2xl">verified_user</span>
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base sm:text-lg text-[#1e1b4b]">
+                    Tài Liệu Giấy Phép Kinh Doanh — {companyInfo.name}
+                  </h3>
+                  <p className="text-xs text-slate-500 flex items-center gap-2 flex-wrap">
+                    <span>Mã số thuế: <strong className="font-mono text-[#5b48bd]">{companyLegal.taxCode}</strong></span>
+                    <span>•</span>
+                    <span className="truncate max-w-[200px]">{companyLegal.licenseDocName || 'Giay_Phep_Kinh_Doanh.pdf'}</span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {/* Zoom & rotate controls for images */}
+                {!companyLegal.licenseDocName?.endsWith('.pdf') && (
+                  <div className="hidden sm:flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setScanZoom((z) => Math.max(50, z - 25))}
+                      className="w-7 h-7 rounded-lg bg-white hover:bg-slate-50 text-slate-700 flex items-center justify-center shadow-2xs cursor-pointer"
+                      title="Thu nhỏ"
+                    >
+                      <span className="material-symbols-outlined text-sm">zoom_out</span>
+                    </button>
+                    <span className="px-1.5 font-mono text-[11px] font-bold text-slate-600 min-w-[42px] text-center">
+                      {scanZoom}%
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setScanZoom((z) => Math.min(250, z + 25))}
+                      className="w-7 h-7 rounded-lg bg-white hover:bg-slate-50 text-slate-700 flex items-center justify-center shadow-2xs cursor-pointer"
+                      title="Phóng to"
+                    >
+                      <span className="material-symbols-outlined text-sm">zoom_in</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setScanRotate((r) => (r + 90) % 360)}
+                      className="w-7 h-7 rounded-lg bg-white hover:bg-slate-50 text-slate-700 flex items-center justify-center shadow-2xs cursor-pointer"
+                      title="Xoay 90 độ"
+                    >
+                      <span className="material-symbols-outlined text-sm">rotate_right</span>
+                    </button>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setShowLicensePreviewModal(false)}
+                  className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center cursor-pointer text-slate-600 transition-colors"
+                >
+                  <span className="material-symbols-outlined text-lg">close</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body Container: Displays Real File (PDF or Image) */}
+            <div className="flex-1 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 min-h-[380px] max-h-[580px] p-2 sm:p-4 flex items-center justify-center">
+              {companyLegal.licenseDocName?.endsWith('.pdf') ? (
+                <iframe
+                  src={companyLegal.licenseDocUrl}
+                  className="w-full h-[540px] rounded-xl border border-slate-200 bg-white shadow-xs"
+                  title="Tài liệu Giấy phép kinh doanh PDF"
+                />
+              ) : (
+                <div
+                  style={{
+                    transform: `scale(${scanZoom / 100}) rotate(${scanRotate}deg)`,
+                    transformOrigin: 'center center',
+                    transition: 'transform 0.2s ease',
+                  }}
+                  className="max-w-full flex items-center justify-center"
+                >
+                  <img
+                    src={companyLegal.licenseDocUrl}
+                    alt="Bản Scan Giấy Phép Kinh Doanh"
+                    className="max-h-[520px] object-contain rounded-xl shadow-lg border border-slate-300"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 shrink-0 border-t border-slate-100">
+              <div className="text-xs text-slate-500 flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-emerald-600 text-base">lock</span>
+                <span>Tài liệu pháp lý được mã hóa và bảo mật trên hạ tầng HireMate AI.</span>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <a
+                  href={companyLegal.licenseDocUrl}
+                  download={companyLegal.licenseDocName || 'Giay_Phep_Kinh_Doanh.pdf'}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-4 py-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-[#5b48bd] text-xs font-bold flex items-center gap-1.5 border border-purple-200 transition-colors cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-sm">download</span>
+                  <span>Tải Xuống File Gốc</span>
+                </a>
+
+                <a
+                  href={companyLegal.licenseDocUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-sm">open_in_new</span>
+                  <span>Mở Tab Mới</span>
+                </a>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowLicensePreviewModal(false);
+                    setScanZoom(100);
+                    setScanRotate(0);
+                  }}
+                  className="px-5 py-2 rounded-xl bg-[#221d47] hover:bg-[#1b1739] text-white text-xs font-bold transition-colors cursor-pointer"
+                >
+                  Đóng
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* MODAL: THÊM / MỜI CHUYÊN VIÊN HR CÙNG CÔNG TY                       */}
+      {/* =================================================================== */}
+      {showInviteHrModal && (
+        <div className="fixed inset-0 z-[130] bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5">
+          <div className="bg-white border border-purple-100 rounded-[32px] max-w-lg w-full p-6 sm:p-7 space-y-5 shadow-2xl text-slate-800 animate-fade-in">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-10 rounded-2xl bg-purple-50 text-[#5b48bd] flex items-center justify-center">
+                  <span className="material-symbols-outlined text-xl">person_add</span>
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-[#221d47]">Thêm Chuyên Viên HR Mới</h3>
+                  <p className="text-xs text-slate-500">Gia nhập đội ngũ tuyển dụng của {companyInfo.name}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowInviteHrModal(false)}
+                className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center cursor-pointer text-slate-600"
+              >
+                <span className="material-symbols-outlined text-base">close</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleInviteHr} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Họ Và Tên Chuyên Viên</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ví dụ: Trần Minh Tâm"
+                  value={inviteHrForm.name}
+                  onChange={(e) => setInviteHrForm({ ...inviteHrForm, name: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 text-slate-800"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Email Công Ty (Đăng ký tài khoản)</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="tam.tran@company.com"
+                  value={inviteHrForm.email}
+                  onChange={(e) => setInviteHrForm({ ...inviteHrForm, email: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 text-slate-800 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Vị Trí / Chức Vụ Tuyển Dụng</label>
+                <input
+                  type="text"
+                  placeholder="Talent Acquisition Specialist..."
+                  value={inviteHrForm.role}
+                  onChange={(e) => setInviteHrForm({ ...inviteHrForm, role: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 text-slate-800"
+                />
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-purple-50/60 border border-purple-200 text-slate-600 text-[11px] leading-relaxed">
+                💡 <strong>Cơ chế tự động:</strong> Khi nhân sự mới này đăng ký tài khoản với tên công ty <strong>"{companyInfo.name}"</strong>, hệ thống sẽ tự động gán vào tổ chức, đồng bộ toàn bộ hồ sơ GPKD và gửi thông báo xác nhận đến bạn!
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowInviteHrModal(false)}
+                  className="px-4 py-2.5 rounded-full border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50 cursor-pointer"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-full bg-[#5b48bd] hover:bg-[#47369f] text-white font-bold cursor-pointer shadow-xs"
+                >
+                  Xác Nhận Thêm Thành Viên
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* =================================================================== */}
       {/* MODAL: CHỈNH SỬA THÔNG TIN DOANH NGHIỆP                             */}

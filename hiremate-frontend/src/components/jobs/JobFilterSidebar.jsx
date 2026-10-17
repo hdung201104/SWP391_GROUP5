@@ -9,6 +9,8 @@ export default function JobFilterSidebar({
   availableSkills = []
 }) {
   const isRecruiter = user?.role === 'RECRUITER';
+  const isCandidate = user?.role === 'CANDIDATE' || user?.role === 'ROLE_CANDIDATE';
+  const isGuest = !user;
   const matchScore = filters.matchScore ?? 0;
   const onlyHighMatch = filters.onlyHighMatch ?? false;
   const selectedSalaries = filters.selectedSalaries ?? [];
@@ -105,8 +107,31 @@ export default function JobFilterSidebar({
           </button>
         </div>
 
-        {/* Filter Group: AI Match Score Slider / Threshold - Ẩn đối với Nhà tuyển dụng */}
-        {!isRecruiter && (
+        {/* Guest AI Matching Callout */}
+        {isGuest && (
+          <div className="pt-4 pb-4 border-b border-purple-100">
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-purple-50/80 via-white to-indigo-50/80 border border-purple-200/90 shadow-2xs text-[#1e1b4b]">
+              <div className="flex items-center gap-1.5 font-bold text-xs text-[#5b48bd] mb-1.5">
+                <span className="material-symbols-outlined text-base">psychology</span>
+                <span>So Khớp AI Cá Nhân Hóa</span>
+              </div>
+              <p className="text-[11px] text-slate-600 leading-relaxed mb-3">
+                Đăng nhập tài khoản Ứng viên và tải lên CV để AI tự động so khớp kỹ năng và chấm điểm % độ phù hợp với từng công việc.
+              </p>
+              <button
+                type="button"
+                onClick={() => { window.location.hash = '#/login'; }}
+                className="w-full py-2 px-3 rounded-xl bg-[#5b48bd] hover:bg-[#47369f] text-white font-bold text-xs shadow-xs hover:shadow transition-all text-center cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <span className="material-symbols-outlined text-sm">login</span>
+                <span>Đăng nhập để xem điểm</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Filter Group: AI Match Score Slider / Threshold - Chỉ hiển thị cho Ứng viên đã đăng nhập */}
+        {isCandidate && (
           <div className="pt-4 pb-4 border-b border-purple-100">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold uppercase tracking-wider text-[#1e1b4b] flex items-center gap-1">

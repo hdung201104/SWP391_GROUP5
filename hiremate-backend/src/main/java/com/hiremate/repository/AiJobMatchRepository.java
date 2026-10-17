@@ -24,9 +24,16 @@ public interface AiJobMatchRepository extends JpaRepository<AiJobMatch, Long> {
     /** Lấy tất cả matches của một candidate, sắp xếp điểm cao nhất trước */
     List<AiJobMatch> findByCandidate_CandidateIdOrderByMatchingScoreDesc(Long candidateId);
 
+    /** Xóa tất cả matches liên quan đến một job */
+    void deleteByJob_JobId(Long jobId);
+
     /** Lấy danh sách việc làm gợi ý cho candidate: Job PUBLISHED, chưa hết hạn, matchingScore >= minScore */
     @org.springframework.data.jpa.repository.Query("SELECT m FROM AiJobMatch m " +
-            "JOIN m.job j " +
+            "JOIN FETCH m.job j " +
+            "LEFT JOIN FETCH j.company " +
+            "LEFT JOIN FETCH j.recruiter r " +
+            "LEFT JOIN FETCH r.user " +
+            "LEFT JOIN FETCH m.cv " +
             "WHERE m.candidate.candidateId = :candidateId " +
             "AND m.matchingScore >= :minScore " +
             "AND j.status = com.hiremate.enums.JobStatus.PUBLISHED " +
@@ -39,4 +46,9 @@ public interface AiJobMatchRepository extends JpaRepository<AiJobMatch, Long> {
 
     /** Xóa các matches của candidate khi re-match */
     void deleteByCandidate_CandidateId(Long candidateId);
+
+    /** Xóa tham chiếu cv khi CV bị xóa để tránh vi phạm khóa ngoại */
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("UPDATE AiJobMatch m SET m.cv = null WHERE m.cv.cvId = :cvId")
+    void clearCvReference(@org.springframework.data.repository.query.Param("cvId") Long cvId);
 }

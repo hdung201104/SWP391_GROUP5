@@ -1,36 +1,78 @@
-import React, { useState, useEffect } from 'react';
-import { applicationApi } from '../api';
+import React, { useState, useEffect, useMemo } from 'react';
+import { applicationApi, jobApi } from '../api';
 import { useLivingTheme } from '../context/LivingThemeContext';
 import { getSavedJobs, toggleSaveJob } from '../utils/savedJobsStorage';
+import { createCandidateToHrMailto } from '../utils/emailUtils';
+import JobDetailModal from '../components/jobs/JobDetailModal';
+import CvViewModal from '../components/common/CvViewModal';
+
+// Brand logos helper for realistic corporate presence
+const getBrandLogo = (companyName = '', logoUrl = null) => {
+  if (logoUrl && logoUrl !== '#' && !logoUrl.includes('placeholder')) return logoUrl;
+  const name = (companyName || '').toLowerCase();
+  if (name.includes('fpt software')) {
+    return 'https://cdn.haitrieu.com/wp-content/uploads/2021/11/Logo-FPT-Software.png';
+  }
+  if (name.includes('fpt')) {
+    return 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/11/FPT_logo.svg/1200px-FPT_logo.svg.png';
+  }
+  if (name.includes('vng')) {
+    return 'https://cdn.haitrieu.com/wp-content/uploads/2022/01/Logo-VNG.png';
+  }
+  if (name.includes('viettel')) {
+    return 'https://cdn.haitrieu.com/wp-content/uploads/2022/01/Logo-Viettel.png';
+  }
+  return null;
+};
 
 export default function CandidateApplicationsPage({ user }) {
   const { theme: livingTheme } = useLivingTheme();
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeFilter, setActiveFilter] = useState(() => window.location.hash.includes('tab=saved') ? 'SAVED' : 'ALL'); // 'ALL' | 'APPLIED' | 'INTERVIEW' | 'OFFER' | 'REJECTED' | 'SAVED'
+  const [activeFilter, setActiveFilter] = useState(() => {
+    const hash = window.location.hash || '';
+    if (hash.includes('tab=saved')) return 'SAVED';
+    return 'ALL';
+  }); // 'ALL' | 'SCREENING' | 'INTERVIEW' | 'OFFER' | 'REJECTED' | 'SAVED'
   const [savedJobs, setSavedJobs] = useState(() => getSavedJobs());
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState('RECENT'); // 'RECENT' | 'ACTION' | 'MATCH'
+  const [sortBy, setSortBy] = useState('RECENT'); // 'RECENT' | 'MATCH' | 'ACTION'
   const [viewMode, setViewMode] = useState('list'); // 'list' | 'kanban'
 
+  // Pagination states for Candidate Applications List
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 5;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeFilter, searchQuery, sortBy]);
+
   // Modals and feedback state
-  const [activeModal, setActiveModal] = useState(null); // 'OFFER' | 'INVITATION' | 'CHAT'
+  const [activeModal, setActiveModal] = useState(null); // 'OFFER' | 'INVITATION'
   const [modalData, setModalData] = useState(null);
   const [toastMessage, setToastMessage] = useState('');
   const [offerSigned, setOfferSigned] = useState(false);
-  const [chatMessageInput, setChatMessageInput] = useState('');
-  const [chatHistory, setChatHistory] = useState([]);
+  const [selectedJobForModal, setSelectedJobForModal] = useState(null);
+  const [selectedCvForModal, setSelectedCvForModal] = useState(null);
 
   useEffect(() => {
-    if (window.location.hash.includes('tab=saved')) {
-      setActiveFilter('SAVED');
-    }
+    const handleUrlHash = () => {
+      const hash = window.location.hash || '';
+      if (hash.includes('tab=saved')) {
+        setActiveFilter('SAVED');
+      }
+    };
+    handleUrlHash();
+    window.addEventListener('hashchange', handleUrlHash);
+
     const updateSaved = () => {
       setSavedJobs(getSavedJobs());
     };
+
     window.addEventListener('hiremate_saved_jobs_updated', updateSaved);
     window.addEventListener('storage', updateSaved);
     return () => {
+      window.removeEventListener('hashchange', handleUrlHash);
       window.removeEventListener('hiremate_saved_jobs_updated', updateSaved);
       window.removeEventListener('storage', updateSaved);
     };
@@ -38,45 +80,101 @@ export default function CandidateApplicationsPage({ user }) {
 
   useEffect(() => {
     setLoading(true);
-    applicationApi.getMyApplications()
-      .then(res => {
+    applicationApi
+      .getMyApplications()
+      .then((res) => {
         const rawList = res?.data || (Array.isArray(res) ? res : []);
         if (Array.isArray(rawList) && rawList.length > 0) {
           const mapped = rawList.map((app, idx) => {
-            const comp = app.job?.company?.companyName || app.companyName || 'Doanh Nghiệp Tuyển Dụng';
-            const compShort = comp.replace(/[^a-zA-Z0-9\s]/g, '').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase() || 'CORP';
+            const comp =
+              app.job?.company?.companyName || app.companyName || 'Doanh Nghiệp Tuyển Dụng';
+            const compShort =
+              comp
+                .replace(/[^a-zA-Z0-9\s]/g, '')
+                .trim()
+                .split(/\s+/)
+                .slice(0, 2)
+                .map((w) => w[0])
+                .join('')
+                .toUpperCase() || 'CORP';
             const st = app.status || 'APPLIED';
             const step = st === 'OFFER' ? 4 : st === 'INTERVIEW' ? 3 : st === 'SCREENING' ? 2 : 1;
-            const appliedDate = app.createdAt ? new Date(app.createdAt).toLocaleDateString('vi-VN') : 'Mới nộp';
-            const matchScore = app.matchingScore != null ? Math.round(app.matchingScore) : 92;
+            const appliedDate = app.createdAt
+              ? new Date(app.createdAt).toLocaleDateString('vi-VN')
+              : 'Mới nộp';
+            const matchScore =
+              app.matchingScore != null
+                ? Math.round(app.matchingScore)
+                : app.aiMatch != null
+                ? Math.round(app.aiMatch)
+                : null;
 
             return {
               id: app.applicationId || idx + 1,
               company: comp,
               companyShort: compShort,
-              division: app.job?.company?.industry ? `// ${app.job.company.industry}` : '// Tuyển Dụng Trực Tuyến',
+              division: app.job?.company?.industry
+                ? `Lĩnh vực: ${app.job.company.industry}`
+                : 'Doanh nghiệp tuyển dụng trực tuyến',
               title: app.job?.title || app.jobTitle || 'Vị trí Ứng Tuyển',
-              salary: (app.job?.salaryMin && app.job?.salaryMax) ? `$${app.job.salaryMin} - $${app.job.salaryMax}/tháng` : 'Theo thỏa thuận',
+              salary:
+                app.job?.salaryMin && app.job?.salaryMax
+                  ? `$${app.job.salaryMin} - $${app.job.salaryMax}/tháng`
+                  : 'Theo thỏa thuận',
               location: app.job?.location || 'Việt Nam',
               appliedDate,
               aiMatch: matchScore,
-              cvUsed: app.cv?.fileName || (app.cvUrl ? app.cvUrl.split('/').pop() : 'CV_Ung_Vien.pdf'),
-              atsScore: matchScore >= 80 ? matchScore : 88,
-              responseNotice: st === 'OFFER' ? 'Đã Nhận Offer Trúng Tuyển' : st === 'INTERVIEW' ? 'Đã Vào Vòng Phỏng Vấn' : 'Đang xử lý hồ sơ',
+              cvId: app.cvId || app.cv?.cvId || app.cv?.id,
+              cvUrl: app.cvUrl || app.cv?.fileUrl || app.cv?.url,
+              cvUsed:
+                app.cv?.fileName || (app.cvUrl ? app.cvUrl.split('/').pop() : 'CV_Ung_Vien.pdf'),
+              atsScore: matchScore != null ? matchScore : null,
+              responseNotice:
+                st === 'OFFER'
+                  ? 'Đã Nhận Thư Mời Nhận Việc (Offer)'
+                  : st === 'INTERVIEW'
+                  ? 'Đã Vào Vòng Phỏng Vấn Tuyển Dụng'
+                  : 'Hồ sơ đang trong quá trình xét duyệt',
               status: st,
-              statusLabel: st === 'OFFER' ? 'Đã Nhận Offer' : st === 'INTERVIEW' ? 'Vòng Phỏng Vấn' : st === 'SCREENING' ? 'Đang Duyệt CV' : st === 'REJECTED' ? 'Chưa Phù Hợp' : 'Đã Nộp Hồ Sơ',
-              themeColor: st === 'OFFER' ? 'secondary' : 'primary',
+              statusLabel:
+                st === 'OFFER'
+                  ? 'Đã Nhận Offer'
+                  : st === 'INTERVIEW'
+                  ? 'Vòng Phỏng Vấn'
+                  : st === 'SCREENING'
+                  ? 'Đang Duyệt CV'
+                  : st === 'REJECTED'
+                  ? 'Chưa Phù Hợp'
+                  : 'Đã Nộp Hồ Sơ',
               currentStep: step,
               steps: [
-                { step: 1, title: '1. Đã Nộp', date: appliedDate, status: 'completed' },
-                { step: 2, title: '2. Duyệt CV', date: `Đạt ${matchScore}%`, status: step >= 2 ? 'completed' : 'active' },
-                { step: 3, title: '3. Phỏng Vấn', date: 'Vòng Đánh Giá', status: step >= 3 ? (step === 3 ? 'active' : 'completed') : 'pending' },
-                { step: 4, title: '4. Nhận Offer', date: 'Kết quả', status: step === 4 ? 'completed' : 'pending' },
+                { step: 1, title: 'Đã Nộp', date: appliedDate, status: 'completed' },
+                {
+                  step: 2,
+                  title: 'Thẩm Định CV',
+                  date: matchScore ? `Match ${matchScore}%` : 'Đang xử lý',
+                  status: step >= 2 ? 'completed' : 'active',
+                },
+                {
+                  step: 3,
+                  title: 'Phỏng Vấn',
+                  date: 'Đánh giá AI',
+                  status: step >= 3 ? (step === 3 ? 'active' : 'completed') : 'pending',
+                },
+                {
+                  step: 4,
+                  title: 'Nhận Offer',
+                  date: 'Kết quả',
+                  status: step === 4 ? 'completed' : 'pending',
+                },
               ],
               recruiter: {
-                name: app.job?.recruiter?.user?.fullName || 'Bộ Phận Tuyển Dụng',
+                name: app.recruiterName || app.job?.recruiter?.user?.fullName || 'Bộ Phận Tuyển Dụng',
                 role: app.job?.recruiter?.position || 'Talent Acquisition Team',
+                email: app.recruiterEmail || app.job?.recruiter?.user?.email || 'tuyendung@fpt.com',
               },
+              recruiterName: app.recruiterName || app.job?.recruiter?.user?.fullName || 'Bộ Phận Tuyển Dụng',
+              recruiterEmail: app.recruiterEmail || app.job?.recruiter?.user?.email || 'tuyendung@fpt.com',
               jobId: app.job?.jobId || app.jobId,
             };
           });
@@ -86,7 +184,7 @@ export default function CandidateApplicationsPage({ user }) {
         }
       })
       .catch((err) => {
-        console.warn('Could not load applications from Supabase backend:', err);
+        console.warn('Could not load applications from backend:', err);
         setApplications([]);
       })
       .finally(() => {
@@ -109,27 +207,21 @@ export default function CandidateApplicationsPage({ user }) {
     setActiveModal('INVITATION');
   };
 
-  const handleOpenChatModal = (recruiterName, company) => {
-    setModalData({ recruiterName, company });
-    setChatHistory([
-      { sender: 'recruiter', text: `Chào bạn! Tôi là ${recruiterName} từ ${company}. Rất vui được trao đổi về hồ sơ ứng tuyển của bạn.` }
-    ]);
-    setActiveModal('CHAT');
+  const handleOpenJobModal = (app) => {
+    const jId = app.jobId || app.job?.jobId;
+    if (jId) {
+      window.location.hash = `#/jobs/${jId}`;
+    }
   };
 
-  const handleSendChat = (e) => {
-    e.preventDefault();
-    if (!chatMessageInput.trim()) return;
-    const newMsg = { sender: 'me', text: chatMessageInput.trim() };
-    setChatHistory(prev => [...prev, newMsg]);
-    setChatMessageInput('');
-
-    setTimeout(() => {
-      setChatHistory(prev => [
-        ...prev,
-        { sender: 'recruiter', text: 'Cảm ơn phản hồi của bạn! Bộ phận tuyển dụng đã ghi nhận và sẽ phản hồi sớm nhất.' }
-      ]);
-    }, 1000);
+  const handleOpenCvModal = (app) => {
+    setSelectedCvForModal({
+      cvId: app.cvId,
+      cvUrl: app.cvUrl,
+      fileName: app.cvUsed || 'CV_Ung_Vien.pdf',
+      candidateName: user?.fullName || 'Ứng viên',
+      atsScore: app.atsScore,
+    });
   };
 
   const handleSignOffer = () => {
@@ -142,818 +234,830 @@ export default function CandidateApplicationsPage({ user }) {
   };
 
   // Filter & Search Logic
-  const filteredApps = applications.filter(app => {
-    const matchesFilter = activeFilter === 'ALL' || app.status === activeFilter;
-    const q = searchQuery.toLowerCase().trim();
-    const matchesSearch = !q || 
-      app.company.toLowerCase().includes(q) || 
-      app.title.toLowerCase().includes(q);
-    return matchesFilter && matchesSearch;
-  }).sort((a, b) => {
-    if (sortBy === 'MATCH') return b.aiMatch - a.aiMatch;
-    if (sortBy === 'ACTION') {
-      const priority = { OFFER: 4, INTERVIEW: 3, SCREENING: 2, APPLIED: 1, REJECTED: 0 };
-      return (priority[b.status] || 0) - (priority[a.status] || 0);
-    }
-    return b.id - a.id;
-  });
+  const filteredApps = applications
+    .filter((app) => {
+      let matchesFilter = true;
+      if (activeFilter === 'SCREENING') {
+        matchesFilter = app.status === 'APPLIED' || app.status === 'SCREENING';
+      } else if (activeFilter !== 'ALL') {
+        matchesFilter = app.status === activeFilter;
+      }
+      const q = searchQuery.toLowerCase().trim();
+      const matchesSearch =
+        !q || app.company.toLowerCase().includes(q) || app.title.toLowerCase().includes(q);
+      return matchesFilter && matchesSearch;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'MATCH') return (b.aiMatch || 0) - (a.aiMatch || 0);
+      if (sortBy === 'ACTION') {
+        const priority = { OFFER: 4, INTERVIEW: 3, SCREENING: 2, APPLIED: 1, REJECTED: 0 };
+        return (priority[b.status] || 0) - (priority[a.status] || 0);
+      }
+      return b.id - a.id;
+    });
+
+  // Paginated Applications calculation
+  const totalPages = Math.max(1, Math.ceil(filteredApps.length / PAGE_SIZE));
+  const validCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedApps = useMemo(() => {
+    const start = (validCurrentPage - 1) * PAGE_SIZE;
+    return filteredApps.slice(start, start + PAGE_SIZE);
+  }, [filteredApps, validCurrentPage, PAGE_SIZE]);
+
+  const interviewCount = applications.filter((a) => a.status === 'INTERVIEW').length;
+  const offerCount = applications.filter((a) => a.status === 'OFFER').length;
+  const screeningCount = applications.filter(
+    (a) => a.status === 'APPLIED' || a.status === 'SCREENING'
+  ).length;
 
   return (
-    <div className="w-full flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-fade-in font-sans">
+    <div className="w-full flex-1 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 animate-fade-in font-sans">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-20 right-6 z-50 px-5 py-3 rounded-2xl bg-botanical-forest text-white text-xs font-semibold shadow-soft-xl flex items-center gap-2.5 animate-bounce border border-botanical-sage/30">
-          <span className="material-symbols-outlined text-sm text-botanical-terracotta">check_circle</span>
+        <div className="fixed top-20 right-6 z-50 px-5 py-3 rounded-2xl bg-[#221d47] text-white text-xs font-semibold shadow-2xl flex items-center gap-2.5 animate-bounce border border-purple-400/30">
+          <span className="material-symbols-outlined text-sm text-[#10b981]">check_circle</span>
           <span>{toastMessage}</span>
         </div>
       )}
 
       {/* ========================================================= */}
-      {/* 1. HEADER & KPI QUICK METRICS                             */}
+      {/* 1. HERO HEADER: CLEAN, PROFESSIONAL & ELEGANT             */}
       {/* ========================================================= */}
-      <section className="flex flex-col gap-6">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="w-2 h-2 rounded-full bg-botanical-sage animate-pulse"></span>
-              <span className="text-xs uppercase tracking-widest text-botanical-forest/70 font-semibold font-sans">
-                Active Pipeline Tracker
-              </span>
-            </div>
-            <h1 className="text-3xl sm:text-4xl font-serif font-extrabold text-botanical-forest tracking-tight">
-              Đơn Tuyển Dụng Đã Nộp
-            </h1>
-            <p className="text-xs sm:text-sm text-botanical-forest/75 mt-1 font-sans">
-              Theo dõi tiến trình xét duyệt hồ sơ và lịch phỏng vấn kết nối trực tiếp với nhà tuyển dụng.
-            </p>
+      <section className="bg-white/95 backdrop-blur-md rounded-3xl p-6 sm:p-8 border border-purple-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="space-y-2 max-w-2xl">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-50 border border-purple-200/70 text-[#5b48bd] text-xs font-bold uppercase tracking-wider">
+            <span className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse"></span>
+            <span>Hồ Sơ &amp; Tiến Trình Tuyển Dụng</span>
           </div>
-
-          <div className="flex items-center gap-3">
-            <a 
-              href="#/ai-interview" 
-              className="btn-botanical-secondary !text-xs !py-2.5 !px-4 flex items-center gap-1.5 shadow-soft cursor-pointer hover:scale-105 transition-transform"
-            >
-              <span className="material-symbols-outlined text-sm text-botanical-sage">psychology</span>
-              Luyện Phỏng Vấn AI
-            </a>
-            <a 
-              href="#/" 
-              className="btn-botanical-primary !text-xs !py-2.5 !px-5 flex items-center gap-2 shadow-soft cursor-pointer hover:scale-105 transition-transform"
-            >
-              <span className="material-symbols-outlined text-sm">search</span>
-              Tìm Thêm Việc Làm
-            </a>
-          </div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-[#1e1b4b] tracking-tight">
+            Quản Lý Đơn Ứng Tuyển
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 font-medium leading-relaxed">
+            Theo dõi tình trạng hồ sơ đã gửi, đối thoại trực tiếp 2 chiều với Bộ Phận Tuyển Dụng và chuẩn bị lịch phỏng vấn thông minh.
+          </p>
         </div>
 
-        {/* 4 Summary Stat Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Card 1 */}
-          <div 
-            onClick={() => setActiveFilter('ALL')}
-            className={`card-botanical p-5 rounded-3xl border transition-all duration-300 cursor-pointer shadow-soft hover:scale-[1.01] ${
-              activeFilter === 'ALL' ? 'bg-white border-botanical-sage ring-1 ring-botanical-sage/50' : 'bg-white/90 border-botanical-stone hover:bg-white'
-            }`}
+        <div className="flex items-center gap-3 shrink-0 flex-wrap sm:flex-nowrap">
+          <a
+            href="#/ai-interview"
+            className="px-4 py-2.5 rounded-2xl bg-purple-50 hover:bg-purple-100 text-[#5b48bd] font-bold text-xs border border-purple-200 transition-all flex items-center gap-2 cursor-pointer shadow-xs hover:shadow-sm"
           >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-botanical-forest/70 uppercase tracking-wider">Tổng Đơn Nộp</span>
-              <span className="material-symbols-outlined text-lg text-botanical-sage">layers</span>
-            </div>
-            <div className="mt-2.5 flex items-baseline gap-2">
-              <span className="text-3xl font-serif font-bold text-botanical-forest">{applications.length}</span>
-              <span className="text-[11px] font-medium text-botanical-forest/70">hồ sơ</span>
-            </div>
-          </div>
-
-          {/* Card 2 */}
-          <div 
-            onClick={() => setActiveFilter('SCREENING')}
-            className={`card-botanical p-5 rounded-3xl border transition-all duration-300 cursor-pointer shadow-soft hover:scale-[1.01] ${
-              activeFilter === 'SCREENING' ? 'bg-white border-botanical-sage ring-1 ring-botanical-sage/50' : 'bg-white/90 border-botanical-stone hover:bg-white'
-            }`}
+            <span className="material-symbols-outlined text-base text-[#5b48bd]">psychology</span>
+            <span>Luyện Phỏng Vấn AI</span>
+          </a>
+          <a
+            href="#/"
+            className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-[#221d47] to-[#5b48bd] hover:from-[#1b1739] hover:to-[#47369f] text-white font-bold text-xs transition-all flex items-center gap-2 cursor-pointer shadow-md hover:shadow-lg"
           >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-botanical-forest/70 uppercase tracking-wider">Đang Duyệt CV</span>
-              <span className="material-symbols-outlined text-lg text-botanical-sage">pending_actions</span>
-            </div>
-            <div className="mt-2.5 flex items-baseline gap-2">
-              <span className="text-3xl font-serif font-bold text-botanical-forest">
-                {applications.filter(a => a.status === 'APPLIED' || a.status === 'SCREENING').length}
-              </span>
-              <span className="text-[11px] font-medium text-botanical-forest/70">đang xử lý</span>
-            </div>
-          </div>
-
-          {/* Card 3 */}
-          <div 
-            onClick={() => setActiveFilter('INTERVIEW')}
-            className={`card-botanical p-5 rounded-3xl border transition-all duration-300 cursor-pointer shadow-soft hover:scale-[1.01] ${
-              activeFilter === 'INTERVIEW' ? 'bg-white border-botanical-sage ring-1 ring-botanical-sage/50' : 'bg-white/90 border-botanical-stone hover:bg-white'
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-botanical-terracotta uppercase tracking-wider">Vòng Phỏng Vấn</span>
-              <span className="material-symbols-outlined text-lg text-botanical-terracotta animate-pulse">videocam</span>
-            </div>
-            <div className="mt-2.5 flex items-baseline gap-2">
-              <span className="text-3xl font-serif font-bold text-botanical-terracotta">
-                {applications.filter(a => a.status === 'INTERVIEW').length}
-              </span>
-              <span className="text-[11px] font-medium text-botanical-terracotta">cần chuẩn bị</span>
-            </div>
-          </div>
-
-          {/* Card 4 */}
-          <div 
-            onClick={() => setActiveFilter('OFFER')}
-            className={`card-botanical p-5 rounded-3xl border transition-all duration-300 cursor-pointer shadow-soft hover:scale-[1.01] ${
-              activeFilter === 'OFFER' ? 'bg-white border-botanical-sage ring-1 ring-botanical-sage/50' : 'bg-white/90 border-botanical-stone hover:bg-white'
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-botanical-forest/70 uppercase tracking-wider">Đề Nghị Nhận Việc</span>
-              <span className="material-symbols-outlined text-lg text-botanical-sage">verified</span>
-            </div>
-            <div className="mt-2.5 flex items-baseline gap-2">
-              <span className="text-3xl font-serif font-bold text-botanical-forest">
-                {applications.filter(a => a.status === 'OFFER').length}
-              </span>
-              <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-botanical-sage/20 text-botanical-forest border border-botanical-sage/30">Thành công</span>
-            </div>
-          </div>
+            <span className="material-symbols-outlined text-base">travel_explore</span>
+            <span>Tìm Việc Làm Mới</span>
+          </a>
         </div>
       </section>
 
       {/* ========================================================= */}
-      {/* 2. FILTER & TOOLBAR SECTION                               */}
+      {/* 2. REFINED FILTER BAR & CONTROLS                          */}
       {/* ========================================================= */}
-      <section className="p-4 sm:p-5 rounded-3xl bg-white border border-purple-100 shadow-sm flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 font-sans">
+      <section className="p-4 sm:p-5 rounded-3xl bg-white border border-purple-100 shadow-sm flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
         {/* Search Input */}
-        <div className="relative flex-1 min-w-[260px]">
-          <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
-          <input 
+        <div className="relative flex-1 min-w-[240px]">
+          <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-lg">
+            search
+          </span>
+          <input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 text-xs bg-[#f8f7ff] border border-purple-100 rounded-full text-[#1e1b4b] font-semibold placeholder:text-slate-400 focus:outline-none focus:border-[#5b48bd] focus:ring-2 focus:ring-purple-100 transition-all font-sans" 
-            placeholder="Tìm theo công ty, vị trí ứng tuyển..." 
+            className="w-full pl-10 pr-4 py-2.5 text-xs bg-[#f8f7ff] border border-purple-100 rounded-2xl text-[#1e1b4b] font-semibold placeholder:text-slate-400 focus:outline-none focus:border-[#5b48bd] focus:ring-2 focus:ring-purple-100 transition-all"
+            placeholder="Tìm theo tên công ty hoặc vị trí ứng tuyển..."
             type="text"
           />
         </div>
 
-        {/* Filters & Actions */}
-        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
-          {/* Status Tabs */}
-          <div className="flex items-center p-1 rounded-full bg-[#f8f7ff] border border-purple-100 overflow-x-auto text-xs font-sans">
-            <button 
-              onClick={() => setActiveFilter('ALL')}
-              className={`px-4 py-1.5 rounded-full font-bold transition-all whitespace-nowrap cursor-pointer ${
-                activeFilter === 'ALL'
-                  ? 'bg-[#32247b] text-white shadow-sm'
-                  : 'text-[#1e1b4b] hover:text-[#5b48bd] hover:bg-purple-50/60'
-              }`}
-            >
-              Tất cả ({applications.length})
-            </button>
-            <button 
-              onClick={() => setActiveFilter('APPLIED')}
-              className={`px-4 py-1.5 rounded-full font-bold transition-all whitespace-nowrap cursor-pointer ${
-                activeFilter === 'APPLIED'
-                  ? 'bg-[#32247b] text-white shadow-sm'
-                  : 'text-[#1e1b4b] hover:text-[#5b48bd] hover:bg-purple-50/60'
-              }`}
-            >
-              Chờ duyệt ({applications.filter(a => a.status === 'APPLIED' || a.status === 'SCREENING').length})
-            </button>
-            <button 
-              onClick={() => setActiveFilter('INTERVIEW')}
-              className={`px-4 py-1.5 rounded-full font-bold transition-all whitespace-nowrap cursor-pointer ${
-                activeFilter === 'INTERVIEW'
-                  ? 'bg-[#32247b] text-white shadow-sm'
-                  : 'text-[#1e1b4b] hover:text-[#5b48bd] hover:bg-purple-50/60'
-              }`}
-            >
-              Phỏng vấn ({applications.filter(a => a.status === 'INTERVIEW').length})
-            </button>
-            <button 
-              onClick={() => setActiveFilter('OFFER')}
-              className={`px-4 py-1.5 rounded-full font-bold transition-all whitespace-nowrap cursor-pointer ${
-                activeFilter === 'OFFER'
-                  ? 'bg-[#32247b] text-white shadow-sm'
-                  : 'text-[#1e1b4b] hover:text-[#5b48bd] hover:bg-purple-50/60'
-              }`}
-            >
-              Đã nhận Offer ({applications.filter(a => a.status === 'OFFER').length})
-            </button>
-            <button 
-              onClick={() => setActiveFilter('REJECTED')}
-              className={`px-4 py-1.5 rounded-full font-bold transition-all whitespace-nowrap cursor-pointer ${
-                activeFilter === 'REJECTED'
-                  ? 'bg-[#32247b] text-white shadow-sm'
-                  : 'text-[#1e1b4b] hover:text-[#5b48bd] hover:bg-purple-50/60'
-              }`}
-            >
-              Từ chối ({applications.filter(a => a.status === 'REJECTED').length})
-            </button>
-            <button 
-              onClick={() => setActiveFilter('SAVED')}
-              className={`px-4 py-1.5 rounded-full font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
-                activeFilter === 'SAVED'
-                  ? 'bg-[#f97316] text-white shadow-sm'
-                  : 'text-[#1e1b4b] hover:text-[#f97316] hover:bg-orange-50/60'
-              }`}
-            >
-              <span className="material-symbols-outlined text-sm leading-none">bookmark</span>
-              <span>Đã lưu ({savedJobs.length})</span>
-            </button>
-          </div>
+        {/* Status Filter Tabs */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 lg:pb-0 text-xs">
+          <button
+            type="button"
+            onClick={() => setActiveFilter('ALL')}
+            className={`px-3.5 py-2 rounded-2xl font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
+              activeFilter === 'ALL'
+                ? 'bg-[#5b48bd] text-white shadow-sm'
+                : 'bg-[#f8f7ff] text-slate-700 hover:bg-purple-50 hover:text-[#5b48bd] border border-purple-100/60'
+            }`}
+          >
+            <span>Tất cả</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20 text-inherit font-extrabold">
+              {applications.length}
+            </span>
+          </button>
 
-          {/* Sort Select */}
-          <div className="relative">
-            <select 
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="appearance-none pl-3.5 pr-8 py-2 text-xs font-sans font-bold bg-white border border-purple-100 rounded-full text-[#1e1b4b] focus:outline-none focus:border-[#5b48bd] cursor-pointer shadow-sm"
-            >
-              <option value="RECENT">Gần đây nhất</option>
-              <option value="ACTION">Cần hành động ngay</option>
-              <option value="MATCH">AI Match: Cao nhất</option>
-            </select>
-            <span className="material-symbols-outlined pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-[#1e1b4b]/70">expand_more</span>
-          </div>
+          <button
+            type="button"
+            onClick={() => setActiveFilter('SCREENING')}
+            className={`px-3.5 py-2 rounded-2xl font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
+              activeFilter === 'SCREENING'
+                ? 'bg-[#5b48bd] text-white shadow-sm'
+                : 'bg-[#f8f7ff] text-slate-700 hover:bg-purple-50 hover:text-[#5b48bd] border border-purple-100/60'
+            }`}
+          >
+            <span>Đang duyệt CV</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20 text-inherit font-extrabold">
+              {screeningCount}
+            </span>
+          </button>
 
-          {/* View Toggle (List vs Kanban) */}
-          <div className="flex items-center rounded-full bg-[#f8f7ff] border border-purple-100 p-0.5 shadow-sm">
-            <button 
+          <button
+            type="button"
+            onClick={() => setActiveFilter('INTERVIEW')}
+            className={`px-3.5 py-2 rounded-2xl font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
+              activeFilter === 'INTERVIEW'
+                ? 'bg-[#5b48bd] text-white shadow-sm'
+                : 'bg-[#f8f7ff] text-slate-700 hover:bg-purple-50 hover:text-[#5b48bd] border border-purple-100/60'
+            }`}
+          >
+            <span>Phỏng vấn</span>
+            {interviewCount > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-rose-500 text-white font-extrabold">
+                {interviewCount}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveFilter('OFFER')}
+            className={`px-3.5 py-2 rounded-2xl font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
+              activeFilter === 'OFFER'
+                ? 'bg-[#5b48bd] text-white shadow-sm'
+                : 'bg-[#f8f7ff] text-slate-700 hover:bg-purple-50 hover:text-[#5b48bd] border border-purple-100/60'
+            }`}
+          >
+            <span>Đã nhận Offer</span>
+            {offerCount > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-500 text-white font-extrabold">
+                {offerCount}
+              </span>
+            )}
+          </button>
+
+
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveFilter('SAVED');
+              window.location.hash = '#/applications?tab=saved';
+            }}
+            className={`px-3.5 py-2 rounded-2xl font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
+              activeFilter === 'SAVED'
+                ? 'bg-[#5b48bd] text-white shadow-sm'
+                : 'bg-[#f8f7ff] text-slate-700 hover:bg-purple-50 hover:text-[#5b48bd] border border-purple-100/60'
+            }`}
+          >
+            <span className="material-symbols-outlined text-[15px]">bookmark</span>
+            <span>Đã lưu ({savedJobs.length})</span>
+          </button>
+        </div>
+
+        {/* View Mode & Sort Dropdown */}
+        <div className="flex items-center gap-2 self-end lg:self-center">
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="px-3 py-2 bg-[#f8f7ff] border border-purple-100 rounded-2xl text-xs font-semibold text-[#1e1b4b] focus:outline-none cursor-pointer"
+          >
+            <option value="RECENT">Mới nộp gần đây</option>
+            <option value="MATCH">Điểm AI Match cao nhất</option>
+            <option value="ACTION">Ưu tiên xử lý</option>
+          </select>
+
+          <div className="inline-flex rounded-2xl bg-[#f8f7ff] border border-purple-100 p-1">
+            <button
+              type="button"
               onClick={() => setViewMode('list')}
-              className={`p-1.5 rounded-full transition-colors cursor-pointer ${
-                viewMode === 'list' ? 'bg-[#32247b] text-white font-bold' : 'text-slate-400 hover:text-[#32247b]'
+              className={`p-1.5 rounded-xl cursor-pointer transition-all ${
+                viewMode === 'list' ? 'bg-[#5b48bd] text-white shadow-xs' : 'text-slate-500 hover:text-[#5b48bd]'
               }`}
-              title="Chế độ Danh sách"
+              title="Xem danh sách"
             >
-              <span className="material-symbols-outlined text-[18px]">view_list</span>
+              <span className="material-symbols-outlined text-base">format_list_bulleted</span>
             </button>
-            <button 
+            <button
+              type="button"
               onClick={() => setViewMode('kanban')}
-              className={`p-1.5 rounded-full transition-colors cursor-pointer ${
-                viewMode === 'kanban' ? 'bg-[#32247b] text-white font-bold' : 'text-slate-400 hover:text-[#32247b]'
+              className={`p-1.5 rounded-xl cursor-pointer transition-all ${
+                viewMode === 'kanban' ? 'bg-[#5b48bd] text-white shadow-xs' : 'text-slate-500 hover:text-[#5b48bd]'
               }`}
-              title="Chế độ Kanban"
+              title="Xem bảng Kanban"
             >
-              <span className="material-symbols-outlined text-[18px]">view_kanban</span>
+              <span className="material-symbols-outlined text-base">view_kanban</span>
             </button>
           </div>
         </div>
       </section>
 
       {/* ========================================================= */}
-      {/* 3. MAIN WORKSPACE: APPLICATION LIST & RIGHT SIDEBAR       */}
+      {/* 3. ACTIVE INTERVIEW NOTIFICATION BANNER                   */}
       {/* ========================================================= */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* LEFT / CENTER: APPLICATIONS LIST (8 Columns) */}
-        <main className="lg:col-span-8 flex flex-col gap-5">
-          {loading ? (
-            <div className="card-botanical bg-white/95 rounded-3xl p-16 text-center border border-botanical-stone shadow-soft">
-              <div className="w-12 h-12 border-4 border-botanical-forest border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-              <p className="text-xs text-botanical-forest/70 font-semibold">Đang tải hồ sơ ứng tuyển từ hệ thống...</p>
+      {interviewCount > 0 && activeFilter !== 'SAVED' && (
+        <div className="p-5 rounded-3xl bg-gradient-to-r from-purple-900 via-[#3b2b8e] to-[#5b48bd] text-white shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined text-2xl text-amber-300 animate-pulse">
+                celebration
+              </span>
             </div>
-          ) : viewMode === 'kanban' ? (
-            /* KANBAN BOARD VIEW */
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Column 1: Đã nộp */}
-              <div className="card-botanical bg-white/95 border border-botanical-stone rounded-3xl p-4 flex flex-col gap-3 shadow-soft">
-                <div className="flex items-center justify-between pb-2 border-b border-botanical-stone">
-                  <span className="text-xs font-serif font-bold text-botanical-forest">1. Đã Nộp Hồ Sơ</span>
-                  <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-botanical-cream text-botanical-forest font-sans border border-botanical-stone">
-                    {applications.filter(a => a.status === 'APPLIED').length}
-                  </span>
-                </div>
-                <div className="space-y-2.5 max-h-[500px] overflow-y-auto pr-1">
-                  {applications.filter(a => a.status === 'APPLIED').length === 0 ? (
-                    <div className="p-4 text-center text-xs text-slate-400 italic">Chưa có đơn ở giai đoạn này</div>
-                  ) : (
-                    applications.filter(a => a.status === 'APPLIED').map(a => (
-                      <div key={a.id} className="p-3.5 rounded-2xl bg-[#FAF9F5] border border-botanical-stone space-y-1.5 hover:shadow-soft transition-all">
-                        <div className="text-xs font-serif font-bold text-botanical-forest">{a.company}</div>
-                        <div className="text-[11px] text-botanical-forest/70 font-sans">{a.title}</div>
-                        <div className="text-[10px] font-sans font-semibold text-botanical-sage">{a.aiMatch}% AI Match</div>
-                        {a.jobId && (
-                          <a href={`#/jobs/${a.jobId}`} className="block text-center text-[10px] py-1 rounded-full btn-botanical-secondary font-medium mt-1">
-                            Xem JD
-                          </a>
-                        )}
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              {/* Column 2: Duyệt CV */}
-              <div className="card-botanical bg-white/95 border border-botanical-stone rounded-3xl p-4 flex flex-col gap-3 shadow-soft">
-                <div className="flex items-center justify-between pb-2 border-b border-botanical-stone">
-                  <span className="text-xs font-serif font-bold text-botanical-forest">2. Duyệt CV</span>
-                  <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-botanical-sage/20 text-botanical-forest font-sans border border-botanical-sage/30">
-                    {applications.filter(a => a.status === 'SCREENING').length}
-                  </span>
-                </div>
-                <div className="space-y-2.5 max-h-[500px] overflow-y-auto pr-1">
-                  {applications.filter(a => a.status === 'SCREENING').length === 0 ? (
-                    <div className="p-4 text-center text-xs text-slate-400 italic">Chưa có đơn ở giai đoạn này</div>
-                  ) : (
-                    applications.filter(a => a.status === 'SCREENING').map(a => (
-                      <div key={a.id} className="p-3.5 rounded-2xl bg-[#FAF9F5] border border-botanical-stone space-y-1.5 hover:shadow-soft transition-all">
-                        <div className="text-xs font-serif font-bold text-botanical-forest">{a.company}</div>
-                        <div className="text-[11px] text-botanical-forest/70 font-sans">{a.title}</div>
-                        <div className="text-[10px] text-botanical-terracotta font-sans font-semibold">Đang thẩm định hồ sơ</div>
-                        {a.jobId && (
-                          <a href={`#/ai-interview?jobId=${a.jobId}`} className="block text-center text-[10px] py-1 rounded-full btn-botanical-primary font-medium mt-1">
-                            Luyện Phỏng Vấn
-                          </a>
-                        )}
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              {/* Column 3: Phỏng vấn */}
-              <div className="card-botanical bg-white/95 border border-botanical-stone rounded-3xl p-4 flex flex-col gap-3 shadow-soft ring-1 ring-botanical-terracotta/30">
-                <div className="flex items-center justify-between pb-2 border-b border-botanical-stone">
-                  <span className="text-xs font-serif font-bold text-botanical-terracotta">3. Phỏng Vấn</span>
-                  <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-botanical-terracotta/15 text-botanical-terracotta font-sans font-bold border border-botanical-terracotta/30">
-                    {applications.filter(a => a.status === 'INTERVIEW').length}
-                  </span>
-                </div>
-                <div className="space-y-2.5 max-h-[500px] overflow-y-auto pr-1">
-                  {applications.filter(a => a.status === 'INTERVIEW').length === 0 ? (
-                    <div className="p-4 text-center text-xs text-slate-400 italic">Chưa có đơn ở giai đoạn này</div>
-                  ) : (
-                    applications.filter(a => a.status === 'INTERVIEW').map(a => (
-                      <div key={a.id} className="p-3.5 rounded-2xl bg-[#FAF9F5] border border-botanical-stone space-y-1.5 hover:shadow-soft transition-all">
-                        <div className="text-xs font-serif font-bold text-botanical-forest">{a.company}</div>
-                        <div className="text-[11px] text-botanical-forest/70 font-sans">{a.title}</div>
-                        <div className="text-[10px] text-botanical-terracotta font-sans font-semibold">Vòng Phỏng Vấn</div>
-                        <a href={`#/ai-interview?jobId=${a.jobId || ''}`} className="block text-center text-[10px] py-1.5 rounded-full btn-botanical-primary font-medium mt-1">
-                          Ôn luyện ngay
-                        </a>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              {/* Column 4: Đã nhận Offer */}
-              <div className="card-botanical bg-white/95 border border-botanical-stone rounded-3xl p-4 flex flex-col gap-3 shadow-soft ring-1 ring-botanical-sage/30">
-                <div className="flex items-center justify-between pb-2 border-b border-botanical-stone">
-                  <span className="text-xs font-serif font-bold text-botanical-forest">4. Nhận Offer</span>
-                  <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-botanical-sage/20 text-botanical-forest font-sans border border-botanical-sage/30">
-                    {applications.filter(a => a.status === 'OFFER').length}
-                  </span>
-                </div>
-                <div className="space-y-2.5 max-h-[500px] overflow-y-auto pr-1">
-                  {applications.filter(a => a.status === 'OFFER').length === 0 ? (
-                    <div className="p-4 text-center text-xs text-slate-400 italic">Chưa có thư mời nhận việc</div>
-                  ) : (
-                    applications.filter(a => a.status === 'OFFER').map(a => (
-                      <div key={a.id} className="p-3.5 rounded-2xl bg-[#FAF9F5] border border-botanical-stone space-y-1.5 hover:shadow-soft transition-all">
-                        <div className="text-xs font-serif font-bold text-botanical-forest">{a.company}</div>
-                        <div className="text-[11px] text-botanical-forest/70 font-sans">{a.title}</div>
-                        <div className="text-[10px] text-botanical-terracotta font-serif font-bold">{a.salary}</div>
-                        <button 
-                          onClick={() => handleOpenOfferModal(a)}
-                          className="w-full text-center text-[10px] py-1.5 rounded-full btn-botanical-secondary font-medium cursor-pointer mt-1"
-                        >
-                          Xem Thư Offer
-                        </button>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
+            <div>
+              <h3 className="font-bold text-sm sm:text-base">
+                Bạn có {interviewCount} đơn tuyển dụng đã bước vào vòng Phỏng Vấn!
+              </h3>
+              <p className="text-xs text-purple-200 mt-0.5">
+                Hãy luyện tập phản xạ cùng trợ lý AI Mock Interview để đạt kết quả tốt nhất trước nhà tuyển dụng.
+              </p>
             </div>
-          ) : activeFilter === 'SAVED' ? (
-            /* SAVED JOBS VIEW */
-            savedJobs.length === 0 ? (
-              <div className="card-botanical bg-white/95 rounded-3xl p-12 text-center border border-botanical-stone shadow-soft space-y-4">
-                <div className="w-16 h-16 rounded-2xl bg-orange-50 border border-orange-200 flex items-center justify-center mx-auto text-[#f97316]">
-                  <span className="material-symbols-outlined text-3xl">bookmark_border</span>
+          </div>
+          <a
+            href="#/ai-interview"
+            className="px-5 py-2.5 rounded-2xl bg-white hover:bg-purple-50 text-[#3b2b8e] font-extrabold text-xs shadow-md transition-all shrink-0 text-center cursor-pointer"
+          >
+            Vào Phòng Luyện AI Ngay →
+          </a>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* 4. MAIN WORKSPACE: APPLICATIONS LIST OR KANBAN            */}
+      {/* ========================================================= */}
+      {loading ? (
+        <div className="bg-white rounded-3xl p-16 text-center border border-purple-100 shadow-sm space-y-3">
+          <div className="w-10 h-10 border-4 border-[#5b48bd] border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-xs text-slate-500 font-semibold">Đang tải hồ sơ ứng tuyển của bạn...</p>
+        </div>
+      ) : viewMode === 'kanban' ? (
+        /* ================= KANBAN BOARD VIEW ================= */
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            { id: 'APPLIED', title: '1. Đã Nộp', count: applications.filter((a) => a.status === 'APPLIED').length },
+            { id: 'SCREENING', title: '2. Duyệt CV', count: applications.filter((a) => a.status === 'SCREENING').length },
+            { id: 'INTERVIEW', title: '3. Phỏng Vấn', count: applications.filter((a) => a.status === 'INTERVIEW').length },
+            { id: 'OFFER', title: '4. Nhận Offer', count: applications.filter((a) => a.status === 'OFFER').length },
+          ].map((col) => {
+            const colApps = applications.filter((a) => a.status === col.id);
+            return (
+              <div key={col.id} className="bg-white border border-purple-100 rounded-3xl p-4 flex flex-col gap-3 shadow-sm min-h-[420px]">
+                <div className="flex items-center justify-between pb-2 border-b border-purple-100">
+                  <span className="text-xs font-bold text-[#1e1b4b] uppercase tracking-wider">{col.title}</span>
+                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-purple-50 text-[#5b48bd] font-bold border border-purple-200">
+                    {col.count}
+                  </span>
                 </div>
-                <div>
-                  <h3 className="font-serif font-bold text-lg text-botanical-forest mb-1">Chưa Có Việc Làm Đã Lưu</h3>
-                  <p className="text-sm font-sans text-botanical-forest/70 max-w-md mx-auto">
-                    Bạn chưa đánh dấu lưu việc làm nào. Hãy bấm biểu tượng Bookmark trên các trang tin tuyển dụng để lưu và theo dõi tại đây!
-                  </p>
-                </div>
-                <div>
-                  <a href="#/" className="btn-botanical-primary inline-flex items-center gap-2 !px-6 !py-3 !text-xs shadow-soft">
-                    <span className="material-symbols-outlined text-sm">search</span>
-                    Khám Phá Việc Làm Ngay
-                  </a>
-                </div>
-              </div>
-            ) : (
-              savedJobs.map((sJob) => (
-                <div key={sJob.id || sJob.jobId} className="card-botanical bg-white/95 rounded-3xl p-6 sm:p-7 border border-botanical-stone shadow-soft transition-all duration-300 hover:shadow-soft-lg space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-start gap-4">
-                      <div 
-                        onClick={() => window.location.hash = `#/jobs/${sJob.jobId || sJob.id}`}
-                        className="w-14 h-14 rounded-2xl bg-[#f4f2fd] text-[#5b48bd] border border-purple-100 flex items-center justify-center font-serif font-bold text-lg shadow-soft cursor-pointer hover:scale-105 transition-transform shrink-0 overflow-hidden"
-                        title={sJob.companyName}
-                      >
-                        {sJob.companyLogo ? (
-                          <img src={sJob.companyLogo} alt={sJob.companyName} className="w-full h-full object-cover" />
-                        ) : (
-                          <span>{sJob.companyName?.slice(0, 2).toUpperCase() || 'HM'}</span>
+                <div className="space-y-3 overflow-y-auto max-h-[500px]">
+                  {colApps.length === 0 ? (
+                    <div className="p-6 text-center text-xs text-slate-400 italic">Không có đơn ở chặng này</div>
+                  ) : (
+                    colApps.map((a) => (
+                      <div key={a.id} className="p-4 rounded-2xl bg-[#f8f7ff] border border-purple-100 space-y-2 hover:shadow-md transition-all">
+                        <div className="font-bold text-xs text-[#1e1b4b] truncate">{a.company}</div>
+                        <div className="text-[11px] text-[#5b48bd] font-semibold truncate">{a.title}</div>
+                        {a.aiMatch && (
+                          <div className="text-[10px] font-bold text-emerald-600 inline-block px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200">
+                            {a.aiMatch}% AI Match
+                          </div>
                         )}
-                      </div>
-                      <div>
-                        <h3 
-                          onClick={() => window.location.hash = `#/jobs/${sJob.jobId || sJob.id}`}
-                          className="text-lg font-serif font-bold text-botanical-forest hover:text-[#5b48bd] transition-colors cursor-pointer"
-                        >
-                          {sJob.title}
-                        </h3>
-                        <div className="text-sm font-sans font-medium text-slate-600 mt-0.5">{sJob.companyName}</div>
-                        <div className="flex flex-wrap items-center gap-y-1 gap-x-3 text-xs font-sans text-botanical-forest/70 mt-1.5">
-                          <span className="flex items-center gap-1 font-bold text-[#f97316]">
-                            <span className="material-symbols-outlined text-sm text-[#f97316]">payments</span>
-                            {sJob.salary || 'Thỏa thuận'}
-                          </span>
-                          <span>•</span>
-                          <span className="flex items-center gap-1">
-                            <span className="material-symbols-outlined text-sm">location_on</span>
-                            {sJob.location || 'Việt Nam'}
-                          </span>
-                          {sJob.savedAt && (
-                            <>
-                              <span>•</span>
-                              <span>Lưu: {new Date(sJob.savedAt).toLocaleDateString('vi-VN')}</span>
-                            </>
+                        <div className="pt-2 border-t border-purple-100 flex items-center justify-between gap-2">
+                          <a
+                            href={createCandidateToHrMailto({
+                              hrEmail: a.recruiterEmail || 'tuyendung@fpt.com',
+                              hrName: a.recruiterName,
+                              companyName: a.company,
+                              jobTitle: a.title,
+                              candidateName: user?.fullName || user?.name || 'Ứng viên',
+                              candidateEmail: user?.email,
+                            })}
+                            className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer"
+                            title="Gửi email cho HR phụ trách"
+                          >
+                            <span>✉️ Email HR</span>
+                          </a>
+                          {a.jobId && (
+                            <a
+                              href={`#/jobs/${a.jobId}`}
+                              className="text-[11px] font-semibold text-slate-500 hover:text-slate-800"
+                            >
+                              Xem JD →
+                            </a>
                           )}
                         </div>
                       </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 self-end sm:self-center">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          toggleSaveJob(sJob);
-                          setSavedJobs(getSavedJobs());
-                        }}
-                        className="px-3.5 py-2 rounded-xl border border-rose-200 text-rose-600 bg-rose-50 hover:bg-rose-100 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
-                        title="Bỏ lưu công việc này"
-                      >
-                        <span className="material-symbols-outlined text-sm">bookmark_remove</span>
-                        <span>Bỏ lưu</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => window.location.hash = `#/jobs/${sJob.jobId || sJob.id}`}
-                        className="px-4 py-2 rounded-xl bg-[#5b48bd] hover:bg-[#47369f] text-white text-xs font-bold transition-all shadow-sm cursor-pointer flex items-center gap-1.5"
-                      >
-                        <span>Xem chi tiết</span>
-                        <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )
-          ) : (
-            /* LIST VIEW MODE (RENDER REAL SUPABASE DATA) */
-            filteredApps.length === 0 ? (
-              <div className="card-botanical bg-white/95 rounded-3xl p-12 text-center border border-botanical-stone shadow-soft space-y-4">
-                <div className="w-16 h-16 rounded-2xl bg-botanical-sage/15 border border-botanical-stone flex items-center justify-center mx-auto text-botanical-sage">
-                  <span className="material-symbols-outlined text-3xl">work_outline</span>
-                </div>
-                <div>
-                  <h3 className="font-serif font-bold text-lg text-botanical-forest mb-1">Chưa Có Đơn Ứng Tuyển Nào</h3>
-                  <p className="text-sm font-sans text-botanical-forest/70 max-w-md mx-auto">
-                    Bạn chưa ứng tuyển vào vị trí nào phù hợp với bộ lọc này. Hãy tìm kiếm các cơ hội việc làm hấp dẫn và nộp hồ sơ ngay hôm nay!
-                  </p>
-                </div>
-                <div>
-                  <a href="#/" className="btn-botanical-primary inline-flex items-center gap-2 !px-6 !py-3 !text-xs shadow-soft">
-                    <span className="material-symbols-outlined text-sm">search</span>
-                    Khám Phá Cơ Hội Việc Làm
-                  </a>
+                    ))
+                  )}
                 </div>
               </div>
-            ) : (
-              filteredApps.map((app) => (
-                <div key={app.id} className="card-botanical bg-white/95 rounded-3xl p-6 sm:p-7 border border-botanical-stone shadow-soft transition-all duration-300 hover:shadow-soft-lg space-y-5">
-                  {/* Top Row: Company Info & AI Match */}
+            );
+          })}
+        </div>
+      ) : activeFilter === 'SAVED' ? (
+        /* ================= SAVED JOBS VIEW ================= */
+        savedJobs.length === 0 ? (
+          <div className="bg-white rounded-3xl p-12 text-center border border-purple-100 shadow-sm space-y-4">
+            <div className="w-16 h-16 rounded-3xl bg-amber-50 border border-amber-200 flex items-center justify-center mx-auto text-amber-500">
+              <span className="material-symbols-outlined text-3xl">bookmark_border</span>
+            </div>
+            <div>
+              <h3 className="font-bold text-lg text-[#1e1b4b] mb-1">Chưa Có Việc Làm Đã Lưu</h3>
+              <p className="text-xs text-slate-500 max-w-md mx-auto">
+                Bạn chưa đánh dấu lưu việc làm nào. Hãy bấm biểu tượng Bookmark trên các trang tin tuyển dụng để lưu và theo dõi tại đây!
+              </p>
+            </div>
+            <a
+              href="#/"
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-2xl bg-[#5b48bd] hover:bg-[#47369f] text-white text-xs font-bold shadow-md cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-sm">search</span>
+              <span>Khám Phá Việc Làm Ngay</span>
+            </a>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {savedJobs.map((sJob) => (
+              <div
+                key={sJob.id || sJob.jobId}
+                className="bg-white rounded-3xl p-6 border border-purple-100 shadow-sm hover:shadow-md transition-all space-y-4"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-start gap-4">
+                    <div
+                      onClick={() => (window.location.hash = `#/jobs/${sJob.jobId || sJob.id}`)}
+                      className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#221d47] to-[#5b48bd] text-white flex items-center justify-center font-bold text-base shadow-sm cursor-pointer hover:scale-105 transition-transform shrink-0 overflow-hidden"
+                    >
+                      {sJob.companyLogo ? (
+                        <img src={sJob.companyLogo} alt={sJob.companyName} className="w-full h-full object-cover" />
+                      ) : (
+                        <span>{sJob.companyName?.slice(0, 2).toUpperCase() || 'JD'}</span>
+                      )}
+                    </div>
+                    <div>
+                      <h3
+                        onClick={() => (window.location.hash = `#/jobs/${sJob.jobId || sJob.id}`)}
+                        className="text-base sm:text-lg font-bold text-[#1e1b4b] hover:text-[#5b48bd] transition-colors cursor-pointer"
+                      >
+                        {sJob.title}
+                      </h3>
+                      <div className="text-xs font-semibold text-slate-600 mt-0.5">{sJob.companyName}</div>
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 mt-2">
+                        <span className="inline-flex items-center gap-1 font-bold text-emerald-600">
+                          <span className="material-symbols-outlined text-sm">payments</span>
+                          {sJob.salary || 'Thỏa thuận'}
+                        </span>
+                        <span>•</span>
+                        <span className="inline-flex items-center gap-1">
+                          <span className="material-symbols-outlined text-sm">location_on</span>
+                          {sJob.location || 'Việt Nam'}
+                        </span>
+                        {sJob.savedAt && (
+                          <>
+                            <span>•</span>
+                            <span>Đã lưu: {new Date(sJob.savedAt).toLocaleDateString('vi-VN')}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 self-end sm:self-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        toggleSaveJob(sJob);
+                        setSavedJobs(getSavedJobs());
+                      }}
+                      className="px-3.5 py-2 rounded-xl border border-rose-200 text-rose-600 bg-rose-50 hover:bg-rose-100 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-sm">bookmark_remove</span>
+                      <span>Bỏ lưu</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => (window.location.hash = `#/jobs/${sJob.jobId || sJob.id}`)}
+                      className="px-4 py-2 rounded-xl bg-[#5b48bd] hover:bg-[#47369f] text-white text-xs font-bold transition-all shadow-sm cursor-pointer flex items-center gap-1.5"
+                    >
+                      <span>Xem tin</span>
+                      <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      ) : (
+        /* ================= LIST VIEW (MAIN HIGH-END CARDS) ================= */
+        filteredApps.length === 0 ? (
+          <div className="bg-white rounded-3xl p-16 text-center border border-purple-100 shadow-sm space-y-4">
+            <div className="w-16 h-16 rounded-3xl bg-purple-50 border border-purple-100 flex items-center justify-center mx-auto text-[#5b48bd]">
+              <span className="material-symbols-outlined text-3xl">inbox</span>
+            </div>
+            <div>
+              <h3 className="font-bold text-lg text-[#1e1b4b] mb-1">Chưa Có Đơn Ứng Tuyển Phù Hợp</h3>
+              <p className="text-xs text-slate-500 max-w-md mx-auto">
+                Hiện tại bạn chưa nộp hồ sơ ở trạng thái này. Khám phá các vị trí tuyển dụng phù hợp với CV của bạn ngay hôm nay!
+              </p>
+            </div>
+            <a
+              href="#/"
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-2xl bg-gradient-to-r from-[#221d47] to-[#5b48bd] hover:from-[#1b1739] hover:to-[#47369f] text-white text-xs font-bold shadow-md cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-sm">travel_explore</span>
+              <span>Khám Phá Cơ Hội Việc Làm</span>
+            </a>
+          </div>
+        ) : (
+          <div className="space-y-5">
+            {paginatedApps.map((app) => {
+              const brandLogo = getBrandLogo(app.company);
+              return (
+                <div
+                  key={app.id}
+                  className="bg-white rounded-3xl p-6 sm:p-7 border border-purple-100/90 shadow-sm hover:shadow-xl transition-all duration-300 space-y-5 relative overflow-hidden group"
+                >
+                  {/* Card Header: Company, Job Info & Badges */}
                   <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                     <div className="flex items-start gap-4">
-                      <div 
+                      {/* Company Avatar / Logo */}
+                      <div
                         onClick={() => app.jobId && (window.location.hash = `#/jobs/${app.jobId}`)}
-                        className="w-14 h-14 rounded-2xl bg-botanical-sage/15 text-botanical-forest border border-botanical-stone flex items-center justify-center font-serif font-bold text-lg shadow-soft cursor-pointer hover:scale-105 transition-transform shrink-0"
+                        className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#221d47] to-[#5b48bd] text-white flex items-center justify-center font-bold text-base shadow-sm cursor-pointer hover:scale-105 transition-transform shrink-0 overflow-hidden p-1.5"
                         title={app.company}
                       >
-                        {app.companyShort}
+                        {brandLogo ? (
+                          <img
+                            src={brandLogo}
+                            alt={app.company}
+                            className="w-full h-full object-contain filter drop-shadow-xs"
+                          />
+                        ) : (
+                          <span>{app.companyShort}</span>
+                        )}
                       </div>
+
+                      {/* Job & Company Details */}
                       <div>
-                        <div className="flex items-center gap-2.5">
-                          <h3 
-                            onClick={() => app.jobId && (window.location.hash = `#/jobs/${app.jobId}`)}
-                            className="text-lg font-serif font-bold text-botanical-forest hover:text-botanical-terracotta transition-colors cursor-pointer"
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span
+                            onClick={() => handleOpenJobModal(app)}
+                            className="text-base font-bold text-[#1e1b4b] hover:text-[#5b48bd] transition-colors cursor-pointer flex items-center gap-1"
+                            title="Bấm để xem thông tin chi tiết công ty và bài đăng"
                           >
-                            {app.company}
-                          </h3>
-                          <span className="text-xs font-sans text-botanical-forest/60">• {app.division || 'Tuyển Dụng'}</span>
+                            <span>{app.company}</span>
+                            <span className="material-symbols-outlined text-[#10b981] text-[16px]" title="Nhà tuyển dụng xác thực">
+                              verified
+                            </span>
+                          </span>
+                          <span className="text-xs text-slate-400">•</span>
+                          <span className="text-xs text-slate-500 font-medium">{app.division}</span>
                         </div>
-                        <h4 className="text-sm font-sans font-semibold text-botanical-terracotta mt-0.5">{app.title}</h4>
-                        <div className="flex flex-wrap items-center gap-y-1 gap-x-3 text-xs font-sans text-botanical-forest/70 mt-1.5">
-                          <span className="flex items-center gap-1 font-medium text-botanical-forest">
-                            <span className="material-symbols-outlined text-sm text-botanical-sage">payments</span>
-                            {app.salary || 'Thương lượng'}
+
+                        <h3
+                          onClick={() => handleOpenJobModal(app)}
+                          className="text-lg sm:text-xl font-extrabold text-[#3b2b8e] mt-0.5 hover:text-[#5b48bd] transition-colors cursor-pointer"
+                          title="Bấm để mở xem chi tiết bài đăng tuyển dụng"
+                        >
+                          {app.title}
+                        </h3>
+
+                        <div className="flex flex-wrap items-center gap-y-1.5 gap-x-3 text-xs text-slate-500 mt-2">
+                          <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200/60">
+                            <span className="material-symbols-outlined text-[15px] text-emerald-600">payments</span>
+                            {app.salary}
                           </span>
                           <span>•</span>
-                          <span className="flex items-center gap-1">
-                            <span className="material-symbols-outlined text-sm">location_on</span>
-                            {app.location || 'Việt Nam'}
+                          <span className="inline-flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[15px] text-slate-400">location_on</span>
+                            {app.location}
                           </span>
                           <span>•</span>
-                          <span>Nộp: {app.appliedDate}</span>
+                          <span className="inline-flex items-center gap-1 text-slate-400">
+                            <span className="material-symbols-outlined text-[15px]">schedule</span>
+                            Nộp: {app.appliedDate}
+                          </span>
                         </div>
                       </div>
                     </div>
 
-                    {/* Badges: AI Match & Status */}
+                    {/* Right Badges: AI Match & Stage Status */}
                     <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
-                      <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-botanical-sage/20 border border-botanical-sage/40 text-botanical-forest font-serif font-bold text-xs shadow-soft">
-                        <span className="material-symbols-outlined text-sm text-botanical-sage">bolt</span>
-                        {app.aiMatch}% AI Match
-                      </div>
-                      <span className={`text-xs px-3 py-1.5 rounded-full font-serif font-semibold border ${
-                        app.status === 'OFFER' ? 'bg-botanical-terracotta/15 border-botanical-terracotta/30 text-botanical-terracotta' :
-                        app.status === 'INTERVIEW' ? 'bg-botanical-sage/20 border-botanical-sage/30 text-botanical-forest' :
-                        app.status === 'REJECTED' ? 'bg-rose-50 border-rose-200 text-rose-600' :
-                        'bg-botanical-cream border-botanical-stone text-botanical-forest/80'
-                      }`}>
+                      {app.aiMatch != null && (
+                        <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200/90 text-[#5b48bd] font-black text-xs shadow-2xs">
+                          <span className="material-symbols-outlined text-sm text-[#5b48bd]">auto_awesome</span>
+                          <span>{app.aiMatch}% AI Match</span>
+                        </div>
+                      )}
+
+                      <span
+                        className={`text-xs px-3.5 py-1.5 rounded-full font-bold border ${
+                          app.status === 'OFFER'
+                            ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
+                            : app.status === 'INTERVIEW'
+                            ? 'bg-purple-50 border-purple-300 text-[#5b48bd]'
+                            : app.status === 'REJECTED'
+                            ? 'bg-rose-50 border-rose-200 text-rose-600'
+                            : 'bg-amber-50 border-amber-200 text-amber-700'
+                        }`}
+                      >
                         {app.statusLabel}
                       </span>
                     </div>
                   </div>
 
-                  {/* CV Used & Metadata bar */}
-                  <div className="pt-3 border-t border-botanical-stone/80 flex flex-wrap items-center justify-between text-xs font-sans text-botanical-forest/70 gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-sm text-botanical-sage">description</span>
-                      <span>CV: <strong className="text-botanical-forest font-medium">{app.cvUsed || 'Hồ sơ đã nộp'}</strong></span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-botanical-cream text-botanical-forest border border-botanical-stone">ATS {app.atsScore || 90}/100</span>
+                  {/* CV Used & Recruiter Contact Strip */}
+                  <div className="pt-3 border-t border-purple-100/70 flex flex-wrap items-center justify-between text-xs text-slate-500 gap-2">
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <span className="material-symbols-outlined text-base text-[#5b48bd]">description</span>
+                      <span>
+                        Hồ sơ gửi kèm:{' '}
+                        <button
+                          type="button"
+                          onClick={() => handleOpenCvModal(app)}
+                          className="text-[#5b48bd] hover:text-[#32247b] font-bold hover:underline cursor-pointer inline-flex items-center gap-1"
+                          title="Bấm để mở và xem chi tiết tệp CV đã nộp"
+                        >
+                          <span>{app.cvUsed}</span>
+                          <span className="material-symbols-outlined text-[14px]">visibility</span>
+                        </button>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenCvModal(app)}
+                        className="px-3 py-1 rounded-full bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 text-[#5b48bd] font-extrabold text-[11px] border border-purple-200/90 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs hover:shadow-xs"
+                        title="Bấm để mở xem và tải tệp CV đã nộp"
+                      >
+                        <span className="material-symbols-outlined text-[14px] text-[#5b48bd]">picture_as_pdf</span>
+                        <span>Mở Xem CV Đã Nộp</span>
+                      </button>
                     </div>
-                    <span className="text-[11px] text-botanical-terracotta font-medium flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-botanical-terracotta animate-pulse"></span>
-                      {app.responseNotice}
-                    </span>
+                    <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                      <span className="material-symbols-outlined text-sm text-slate-400">person</span>
+                      <span>
+                        Người phụ trách: <strong className="text-[#1e1b4b]">{app.recruiter?.name}</strong>
+                      </span>
+                    </div>
                   </div>
 
-                  {/* Stepper Pipeline Tracker */}
-                  <div className="p-4 sm:p-5 rounded-2xl bg-white border border-purple-100 shadow-sm font-sans">
-                    <div className="text-[11px] font-sans font-extrabold uppercase tracking-wider text-[#1e1b4b] mb-3.5 flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-[#f97316]"></span>
-                      Tiến Trình Ứng Tuyển
+                  {/* Redesigned Pipeline Stepper */}
+                  <div className="p-4 sm:p-5 rounded-2xl bg-[#f8f7ff] border border-purple-100 shadow-2xs">
+                    <div className="flex items-center justify-between mb-3 text-xs">
+                      <span className="font-bold text-[#1e1b4b] uppercase tracking-wider flex items-center gap-1.5 text-[11px]">
+                        <span className="w-2 h-2 rounded-full bg-[#5b48bd]"></span>
+                        Tiến Trình Ứng Tuyển Tuyển Dụng
+                      </span>
+                      <span className="text-[11px] font-semibold text-[#5b48bd] flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] animate-ping"></span>
+                        {app.responseNotice}
+                      </span>
                     </div>
+
                     <div className="grid grid-cols-4 gap-2 relative">
-                      {(app.steps || [
-                        { step: 1, title: '1. Đã Nộp', date: app.appliedDate, status: 'completed' },
-                        { step: 2, title: '2. Duyệt CV', date: `Đạt ${app.aiMatch}%`, status: app.currentStep >= 2 ? 'completed' : 'active' },
-                        { step: 3, title: '3. Phỏng Vấn', date: 'Đánh giá AI', status: app.currentStep >= 3 ? (app.currentStep === 3 ? 'active' : 'completed') : 'pending' },
-                        { step: 4, title: '4. Nhận Offer', date: 'Kết quả', status: app.currentStep === 4 ? 'completed' : 'pending' },
-                      ]).map((st) => (
+                      {app.steps.map((st) => (
                         <div key={st.step} className="flex flex-col items-center sm:items-start text-center sm:text-left">
                           <div className="w-full flex items-center mb-2">
-                            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-extrabold shadow-sm shrink-0 ${
-                              st.status === 'completed' ? 'bg-[#32247b] text-white' :
-                              st.status === 'active' ? 'bg-[#f97316] text-white ring-4 ring-orange-500/20 animate-pulse' :
-                              'bg-slate-100 text-slate-400 border border-purple-100'
-                            }`}>
+                            <div
+                              className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black shadow-xs shrink-0 transition-all ${
+                                st.status === 'completed'
+                                  ? 'bg-[#5b48bd] text-white'
+                                  : st.status === 'active'
+                                  ? 'bg-gradient-to-r from-[#221d47] to-[#5b48bd] text-white ring-4 ring-purple-200 animate-pulse'
+                                  : 'bg-slate-200 text-slate-400'
+                              }`}
+                            >
                               {st.status === 'completed' ? (
-                                <span className="material-symbols-outlined text-sm font-extrabold">check</span>
+                                <span className="material-symbols-outlined text-sm">check</span>
                               ) : (
                                 st.step
                               )}
                             </div>
                             {st.step < 4 && (
-                              <div className={`flex-1 h-1 mx-1 rounded-full ${
-                                st.status === 'completed' ? 'bg-[#32247b]' :
-                                st.status === 'active' ? 'bg-[#f97316]' : 'bg-purple-100'
-                              }`} />
+                              <div
+                                className={`flex-1 h-1 mx-1.5 rounded-full transition-all ${
+                                  st.status === 'completed'
+                                    ? 'bg-[#5b48bd]'
+                                    : st.status === 'active'
+                                    ? 'bg-purple-300'
+                                    : 'bg-slate-200'
+                                }`}
+                              />
                             )}
                           </div>
-                          <div className={`text-xs font-sans font-extrabold ${
-                            st.status === 'active' ? 'text-[#f97316]' :
-                            st.status === 'completed' ? 'text-[#1e1b4b]' : 'text-slate-400'
-                          }`}>{st.title}</div>
-                          <div className="text-[11px] font-sans text-slate-500 font-semibold mt-0.5">{st.date}</div>
+                          <div
+                            className={`text-xs font-bold ${
+                              st.status === 'active'
+                                ? 'text-[#5b48bd]'
+                                : st.status === 'completed'
+                                ? 'text-[#1e1b4b]'
+                                : 'text-slate-400'
+                            }`}
+                          >
+                            {st.title}
+                          </div>
+                          <div className="text-[11px] text-slate-400 font-medium mt-0.5">{st.date}</div>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  {/* Action Buttons */}
+                  {/* Actions Toolbar */}
                   <div className="flex flex-wrap items-center gap-3 pt-1">
+                    {/* Primary Email Button (Direct professional HR contact) */}
+                    <a
+                      href={createCandidateToHrMailto({
+                        hrEmail: app.recruiterEmail || 'tuyendung@fpt.com',
+                        hrName: app.recruiterName,
+                        companyName: app.company,
+                        jobTitle: app.title,
+                        candidateName: user?.fullName || user?.name || 'Ứng viên',
+                        candidateEmail: user?.email,
+                      })}
+                      className="px-4 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white border border-emerald-200 font-bold text-xs transition-all shadow-xs hover:shadow flex items-center gap-1.5 cursor-pointer"
+                      title="Gửi email trao đổi trực tiếp với HR phụ trách hồ sơ này"
+                    >
+                      <span>✉️ Liên hệ HR qua Email</span>
+                    </a>
+
+                    {/* View JD Details */}
+                    <button
+                      type="button"
+                      onClick={() => handleOpenJobModal(app)}
+                      className="px-4 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
+                      title="Xem toàn bộ mô tả, yêu cầu kỹ năng và quyền lợi của bài đăng tuyển dụng"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">visibility</span>
+                      <span>Xem Chi Tiết JD</span>
+                    </button>
+
+                    {/* Contextual Action when Interviewing */}
                     {app.status === 'INTERVIEW' && (
                       <>
-                        <a 
+                        <a
                           href={`#/ai-interview?jobId=${app.jobId || ''}`}
-                          className="btn-botanical-primary !text-xs !py-2.5 !px-5 flex items-center gap-2 cursor-pointer shadow-soft"
+                          className="px-5 py-2 rounded-xl bg-gradient-to-r from-[#221d47] to-[#5b48bd] hover:from-[#1b1739] hover:to-[#47369f] text-white font-bold text-xs shadow-md hover:shadow-lg flex items-center gap-2 cursor-pointer transition-all ml-auto"
                         >
-                          <span className="material-symbols-outlined text-sm">smart_toy</span>
-                          Vào Phòng Phỏng Vấn AI Ôn Luyện
+                          <span className="material-symbols-outlined text-[16px]">psychology</span>
+                          <span>Vào Phòng Luyện AI Studio</span>
                         </a>
-                        <button 
+                        <button
+                          type="button"
                           onClick={() => handleOpenInvitationModal(app)}
-                          className="btn-botanical-secondary !text-xs !py-2.5 !px-4 flex items-center gap-1.5 cursor-pointer shadow-soft"
+                          className="px-4 py-2 rounded-xl bg-purple-100 hover:bg-purple-200 text-[#3b2b8e] font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5"
                         >
-                          <span className="material-symbols-outlined text-sm">mark_email_read</span>
-                          Xem Lịch Phỏng Vấn
+                          <span className="material-symbols-outlined text-[16px]">calendar_month</span>
+                          <span>Xem Lịch Phỏng Vấn</span>
                         </button>
                       </>
                     )}
 
+                    {/* Contextual Action when Offered */}
                     {app.status === 'OFFER' && (
-                      <button 
+                      <button
+                        type="button"
                         onClick={() => handleOpenOfferModal(app)}
-                        className="btn-botanical-primary !text-xs !py-2.5 !px-5 flex items-center gap-2 cursor-pointer shadow-soft"
+                        className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-xs shadow-md hover:shadow-lg flex items-center gap-2 cursor-pointer transition-all ml-auto"
                       >
-                        <span className="material-symbols-outlined text-sm">assignment_turned_in</span>
-                        Xem Chi Tiết Offer & Ký
+                        <span className="material-symbols-outlined text-[16px]">assignment_turned_in</span>
+                        <span>Xem Chi Tiết Offer &amp; Ký</span>
                       </button>
                     )}
-
-                    <button 
-                      onClick={() => handleOpenChatModal(app.recruiter?.name || 'Tuyển Dụng', app.company)}
-                      className="btn-botanical-secondary !text-xs !py-2.5 !px-4 flex items-center gap-1.5 cursor-pointer shadow-soft"
-                    >
-                      <span className="material-symbols-outlined text-sm text-botanical-sage">chat</span>
-                      Nhắn Tin Tuyển Dụng
-                    </button>
-
-                    {app.jobId && (
-                      <a 
-                        href={`#/jobs/${app.jobId}`}
-                        className="btn-botanical-secondary !text-xs !py-2.5 !px-4 cursor-pointer shadow-soft"
-                      >
-                        Xem Chi Tiết JD
-                      </a>
-                    )}
                   </div>
                 </div>
-              ))
-            )
-          )}
-        </main>
+              );
+            })}
 
-        {/* RIGHT SIDEBAR: UPCOMING EVENTS & AI MENTOR COPILOT */}
-        <aside className="lg:col-span-4 flex flex-col gap-6 sticky top-24">
-          {/* SIDEBAR BLOCK 1: UPCOMING SCHEDULE */}
-          <div className="card-botanical bg-white/95 rounded-3xl p-6 border border-botanical-stone shadow-soft">
-            <div className="flex items-center justify-between pb-3.5 border-b border-botanical-stone">
-              <div className="flex items-center gap-2.5">
-                <span className="material-symbols-outlined text-botanical-forest text-xl">calendar_month</span>
-                <h3 className="text-base font-serif font-bold text-botanical-forest">Lịch Trình Sắp Tới</h3>
+            {/* Pagination Bar for Candidate Applications */}
+            {filteredApps.length > 0 && (
+            <div className="bg-white/95 backdrop-blur-xs p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
+              <div className="text-xs text-slate-500 font-medium">
+                Hiển thị <span className="font-bold text-[#1e1b4b]">{(validCurrentPage - 1) * PAGE_SIZE + 1}</span> - <span className="font-bold text-[#1e1b4b]">{Math.min(validCurrentPage * PAGE_SIZE, filteredApps.length)}</span> trong tổng số <span className="font-bold text-[#5b48bd]">{filteredApps.length}</span> hồ sơ ứng tuyển đã lọc
               </div>
-              <span className="text-[11px] font-sans font-medium px-2.5 py-0.5 rounded-full bg-botanical-sage/20 text-botanical-forest border border-botanical-sage/30">
-                {applications.filter(a => a.status === 'INTERVIEW').length} Phỏng Vấn
-              </span>
-            </div>
-            <div className="mt-4 space-y-3.5">
-              {applications.filter(a => a.status === 'INTERVIEW').length === 0 ? (
-                <div className="p-4 rounded-2xl bg-[#FAF9F5] border border-botanical-stone text-center text-xs font-sans text-botanical-forest/70 space-y-1.5">
-                  <span className="material-symbols-outlined text-2xl text-botanical-sage mb-1 block">event_available</span>
-                  <p className="font-medium text-botanical-forest">Chưa có lịch phỏng vấn sắp tới</p>
-                  <p className="text-[11px] text-botanical-forest/60">Khi hồ sơ được thông qua vòng duyệt, thông báo lịch phỏng vấn sẽ xuất hiện tại đây.</p>
-                </div>
-              ) : (
-                applications.filter(a => a.status === 'INTERVIEW').slice(0, 3).map((app) => (
-                  <div key={app.id} className="p-4 rounded-2xl bg-[#FAF9F5] border border-botanical-stone hover:border-botanical-sage/50 transition-all space-y-1.5">
-                    <div className="flex items-center justify-between text-xs font-sans">
-                      <span className="text-botanical-terracotta font-serif font-bold">{app.company}</span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-botanical-terracotta/15 text-botanical-terracotta font-bold">Vòng Phỏng Vấn</span>
-                    </div>
-                    <h4 className="text-xs font-serif font-bold text-botanical-forest">{app.title}</h4>
-                    <p className="text-[11px] text-botanical-forest/70 font-sans">Phỏng vấn đánh giá năng lực & kỹ năng thực chiến</p>
-                    <div className="pt-2 border-t border-botanical-stone flex items-center justify-between">
-                      <span className="text-[11px] text-botanical-sage font-medium flex items-center gap-1">
-                        <span className="material-symbols-outlined text-xs">videocam</span> Trực tuyến
-                      </span>
-                      <a 
-                        href={`#/ai-interview?jobId=${app.jobId || ''}`}
-                        className="text-xs text-botanical-forest font-bold hover:underline cursor-pointer"
-                      >
-                        Ôn luyện AI →
-                      </a>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
 
-          {/* SIDEBAR BLOCK 2: AI INTERVIEW MENTOR RADAR */}
-          <div className="card-botanical bg-white/95 rounded-3xl p-6 border border-botanical-stone shadow-soft relative overflow-hidden">
-            <div className="flex items-center gap-2.5 pb-3.5 border-b border-botanical-stone">
-              <span className="material-symbols-outlined text-botanical-sage text-xl">smart_toy</span>
-              <h3 className="text-base font-serif font-bold text-botanical-forest">AI Mentor Đề Xuất Ôn Tập</h3>
-            </div>
-            <div className="mt-4 space-y-3">
-              <p className="text-xs text-botanical-forest/70 leading-relaxed font-sans">
-                {applications.length > 0 
-                  ? `Dựa trên các đơn ứng tuyển của bạn (${applications[0]?.title}), HireMate AI gợi ý ôn luyện các kỹ năng trọng tâm:`
-                  : 'Hãy chuẩn bị kỹ năng phỏng vấn chuyên nghiệp cùng trợ lý AI của HireMate:'}
-              </p>
-              <div className="space-y-2 font-sans">
-                <div className="p-3 rounded-2xl bg-[#FAF9F5] border border-botanical-stone flex items-start gap-2.5">
-                  <span className="material-symbols-outlined text-sm text-botanical-sage mt-0.5">psychology</span>
-                  <div>
-                    <div className="text-xs font-serif font-bold text-botanical-forest">Kỹ năng Chuyên môn & Xử lý Vấn đề</div>
-                    <div className="text-[11px] text-botanical-forest/70 mt-0.5">Luyện phản xạ tình huống và giải quyết bài toán nghiệp vụ.</div>
-                  </div>
-                </div>
-                <div className="p-3 rounded-2xl bg-[#FAF9F5] border border-botanical-stone flex items-start gap-2.5">
-                  <span className="material-symbols-outlined text-sm text-botanical-sage mt-0.5">record_voice_over</span>
-                  <div>
-                    <div className="text-xs font-serif font-bold text-botanical-forest">Giao tiếp & Phỏng vấn Hành vi (STAR)</div>
-                    <div className="text-[11px] text-botanical-forest/70 mt-0.5">Tự tin trình bày kinh nghiệm theo mô hình Situation - Task - Action - Result.</div>
-                  </div>
-                </div>
-              </div>
-              <div className="pt-2">
-                <a 
-                  href="#/ai-interview"
-                  className="btn-botanical-secondary w-full !py-2.5 !text-xs !rounded-full flex items-center justify-center gap-2 cursor-pointer shadow-soft"
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  disabled={validCurrentPage <= 1}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 transition-all ${
+                    validCurrentPage <= 1
+                      ? 'text-slate-300 bg-slate-50 cursor-not-allowed border border-slate-100'
+                      : 'text-[#47369f] bg-purple-50/80 hover:bg-[#5b48bd] hover:text-white border border-purple-200 cursor-pointer shadow-2xs'
+                  }`}
+                  title="Trang trước"
                 >
-                  <span className="material-symbols-outlined text-sm">chat_bubble</span>
-                  Thực Hành Mock Phỏng Vấn Với AI (15p)
-                </a>
+                  <span className="material-symbols-outlined text-[16px]">chevron_left</span>
+                  <span className="hidden sm:inline">Trước</span>
+                </button>
+
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                    <button
+                      key={pageNum}
+                      type="button"
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`w-8 h-8 rounded-xl text-xs font-bold flex items-center justify-center transition-all cursor-pointer ${
+                        validCurrentPage === pageNum
+                          ? 'bg-gradient-to-r from-[#5b48bd] to-[#7c66dc] text-white shadow-sm font-extrabold scale-105'
+                          : 'text-slate-600 hover:text-[#5b48bd] hover:bg-purple-50 border border-transparent hover:border-purple-200'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  disabled={validCurrentPage >= totalPages}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 transition-all ${
+                    validCurrentPage >= totalPages
+                      ? 'text-slate-300 bg-slate-50 cursor-not-allowed border border-slate-100'
+                      : 'text-[#47369f] bg-purple-50/80 hover:bg-[#5b48bd] hover:text-white border border-purple-200 cursor-pointer shadow-2xs'
+                  }`}
+                  title="Trang tiếp"
+                >
+                  <span className="hidden sm:inline">Tiếp</span>
+                  <span className="material-symbols-outlined text-[16px]">chevron_right</span>
+                </button>
               </div>
             </div>
-          </div>
-        </aside>
-      </div>
+          )}
+        </div>
+      ))}
 
       {/* ========================================================= */}
-      {/* MODALS                                                    */}
+      {/* 5. MODALS (OFFER, INTERVIEW & 2-WAY CHAT)                 */}
       {/* ========================================================= */}
 
       {/* 1. Offer Detail & Sign Modal */}
       {activeModal === 'OFFER' && modalData && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in font-sans">
           <div className="relative w-full max-w-lg bg-white border border-purple-100 rounded-3xl p-6 sm:p-8 shadow-2xl text-[#1e1b4b]">
-            <button 
-              onClick={() => setActiveModal(null)} 
+            <button
+              onClick={() => setActiveModal(null)}
               className="absolute top-6 right-6 w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors cursor-pointer"
             >
               <span className="material-symbols-outlined text-lg">close</span>
             </button>
 
             <div className="flex items-center gap-3.5 mb-2">
-              <span className="w-12 h-12 rounded-2xl bg-[#10b981] text-white font-extrabold text-base flex items-center justify-center shadow-md">
+              <span className="w-12 h-12 rounded-2xl bg-emerald-600 text-white font-extrabold text-base flex items-center justify-center shadow-md">
                 {modalData.companyShort}
               </span>
               <div>
-                <h3 className="font-bold text-xl text-[#1e1b4b]">Thư Mời Nhận Việc (Official Offer Letter)</h3>
-                <p className="text-xs text-[#5b48bd] font-bold">{modalData.company} • {modalData.title}</p>
+                <h3 className="font-extrabold text-lg text-[#1e1b4b]">Thư Mời Nhận Việc (Official Offer)</h3>
+                <p className="text-xs text-[#5b48bd] font-bold">
+                  {modalData.company} • {modalData.title}
+                </p>
               </div>
             </div>
 
-            <div className="my-5 p-4 rounded-2xl bg-white border border-botanical-stone space-y-3 text-xs shadow-soft">
-              <div className="flex items-center justify-between pb-2 border-b border-botanical-stone">
-                <span className="text-botanical-forest/70">Mức lương cơ bản:</span>
-                <span className="text-botanical-terracotta font-serif font-bold text-base">{modalData.offerDetails?.baseSalary || modalData.salary || 'Thương lượng cạnh tranh'}</span>
+            <div className="my-5 p-4 rounded-2xl bg-[#f8f7ff] border border-purple-100 space-y-3 text-xs">
+              <div className="flex items-center justify-between pb-2 border-b border-purple-100">
+                <span className="text-slate-500">Mức lương cơ bản:</span>
+                <span className="text-emerald-700 font-extrabold text-sm">
+                  {modalData.offerDetails?.baseSalary || modalData.salary || 'Thỏa thuận theo năng lực'}
+                </span>
               </div>
-              <div className="flex items-center justify-between pb-2 border-b border-botanical-stone">
-                <span className="text-botanical-forest/70">Gói thưởng gia nhập (Sign-on):</span>
-                <span className="text-botanical-forest font-semibold">{modalData.offerDetails?.signOnBonus || 'Gói đãi ngộ đầy đủ theo quy chế công ty'}</span>
+              <div className="flex items-center justify-between pb-2 border-b border-purple-100">
+                <span className="text-slate-500">Gói thưởng gia nhập:</span>
+                <span className="text-[#1e1b4b] font-semibold">
+                  {modalData.offerDetails?.signOnBonus || 'Đầy đủ theo quy chế công ty'}
+                </span>
               </div>
-              <div className="flex items-center justify-between pb-2 border-b border-botanical-stone">
-                <span className="text-botanical-forest/70">Cổ phần ESOP / Thưởng:</span>
-                <span className="text-botanical-forest font-semibold">{modalData.offerDetails?.shares || 'Thưởng hiệu suất theo kết quả kinh doanh'}</span>
+              <div className="flex items-center justify-between pb-2 border-b border-purple-100">
+                <span className="text-slate-500">Thưởng hiệu suất:</span>
+                <span className="text-[#1e1b4b] font-semibold">
+                  {modalData.offerDetails?.shares || 'Đánh giá thưởng định kỳ 2 lần/năm'}
+                </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-botanical-forest/70">Hạn chót phản hồi:</span>
-                <span className="text-botanical-terracotta font-bold">{modalData.offerDetails?.deadline || 'Trong vòng 7 ngày làm việc kể từ ngày nhận thư'}</span>
+                <span className="text-slate-500">Thời hạn phản hồi:</span>
+                <span className="text-amber-700 font-bold">Trong vòng 7 ngày làm việc</span>
               </div>
             </div>
 
-            <p className="text-xs text-botanical-forest/80 italic mb-6 font-serif">
-              "{modalData.company || 'Doanh nghiệp'} rất vinh hạnh được chào đón bạn gia nhập đội ngũ nhằm đồng hành phát triển cùng chúng tôi."
+            <p className="text-xs text-slate-600 italic mb-6">
+              "{modalData.company} rất vinh hạnh được chào đón bạn gia nhập đội ngũ nhằm đồng hành phát triển cùng chúng tôi."
             </p>
 
             <div className="flex items-center justify-end gap-3 text-xs">
-              <button 
-                onClick={() => setActiveModal(null)} 
-                className="px-5 py-2.5 bg-slate-100 text-slate-700 text-xs font-bold rounded-full cursor-pointer hover:bg-slate-200"
+              <button
+                type="button"
+                onClick={() => setActiveModal(null)}
+                className="px-5 py-2.5 bg-slate-100 text-slate-700 text-xs font-bold rounded-2xl cursor-pointer hover:bg-slate-200"
               >
                 Đóng
               </button>
-              <button 
+              <button
+                type="button"
                 onClick={handleSignOffer}
                 disabled={offerSigned}
-                className="px-6 py-2.5 bg-[#10b981] hover:bg-[#059669] text-white text-xs font-extrabold rounded-full shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold rounded-2xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
                 <span className="material-symbols-outlined text-base">edit_document</span>
                 <span>{offerSigned ? 'Đã Ký Chấp Thuận' : 'Ký Số & Xác Nhận Nhận Việc'}</span>
@@ -967,8 +1071,8 @@ export default function CandidateApplicationsPage({ user }) {
       {activeModal === 'INVITATION' && modalData && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in font-sans">
           <div className="relative w-full max-w-lg bg-white border border-purple-100 rounded-3xl p-6 sm:p-8 shadow-2xl text-[#1e1b4b]">
-            <button 
-              onClick={() => setActiveModal(null)} 
+            <button
+              onClick={() => setActiveModal(null)}
               className="absolute top-6 right-6 w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors cursor-pointer"
             >
               <span className="material-symbols-outlined text-lg">close</span>
@@ -979,43 +1083,45 @@ export default function CandidateApplicationsPage({ user }) {
                 {modalData.companyShort}
               </span>
               <div>
-                <h3 className="font-serif font-bold text-xl text-botanical-forest">Thư Mời Phỏng Vấn Kỹ Thuật</h3>
-                <p className="text-xs text-botanical-terracotta font-medium">{modalData.company} • Vòng Phỏng Vấn</p>
+                <h3 className="font-extrabold text-lg text-[#1e1b4b]">Thư Mời Phỏng Vấn</h3>
+                <p className="text-xs text-[#5b48bd] font-bold">
+                  {modalData.company} • {modalData.title}
+                </p>
               </div>
             </div>
 
-            <div className="my-5 p-4 rounded-2xl bg-white border border-botanical-stone space-y-3 text-xs shadow-soft">
-              <div className="flex items-center justify-between pb-2 border-b border-botanical-stone">
-                <span className="text-botanical-forest/70">Thời gian:</span>
-                <span className="text-botanical-forest font-bold">14:00 - 15:00 (Sắp xếp theo email thông báo)</span>
+            <div className="my-5 p-4 rounded-2xl bg-[#f8f7ff] border border-purple-100 space-y-3 text-xs">
+              <div className="flex items-center justify-between pb-2 border-b border-purple-100">
+                <span className="text-slate-500">Thời gian dự kiến:</span>
+                <span className="text-[#1e1b4b] font-bold">14:00 - 15:00 (Sắp xếp theo email thông báo)</span>
               </div>
               <div className="flex items-center justify-between pb-2 border-b border-purple-100">
-                <span className="text-slate-500 font-semibold">Hình thức:</span>
-                <span className="text-[#10b981] font-bold">Google Meet Video Call</span>
+                <span className="text-slate-500">Hình thức phỏng vấn:</span>
+                <span className="text-emerald-600 font-bold">Google Meet Video Call</span>
               </div>
-              <div className="flex items-center justify-between pb-2 border-b border-botanical-stone">
-                <span className="text-botanical-forest/70">Ban phỏng vấn:</span>
-                <span className="text-botanical-forest">Hội đồng Tuyển Dụng & Trưởng Bộ Phận</span>
+              <div className="flex items-center justify-between pb-2 border-b border-purple-100">
+                <span className="text-slate-500">Hội đồng phỏng vấn:</span>
+                <span className="text-[#1e1b4b] font-medium">Ban Tuyển Dụng &amp; Trưởng Bộ Phận Kỹ Thuật</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-botanical-forest/70">Đường dẫn cuộc họp:</span>
-                <span className="text-botanical-terracotta font-mono font-medium">meet.google.com/hmt-interview</span>
+                <span className="text-slate-500">Đường dẫn cuộc họp:</span>
+                <span className="text-[#5b48bd] font-mono font-bold">meet.google.com/hmt-interview</span>
               </div>
             </div>
 
             <div className="flex items-center justify-end gap-3 text-xs">
-              <a 
+              <a
                 href={`#/ai-interview?jobId=${modalData.jobId || ''}`}
-                className="btn-botanical-secondary !text-xs !py-2.5 !px-5 flex items-center gap-1.5 cursor-pointer"
+                className="px-4 py-2.5 rounded-2xl bg-purple-50 text-[#5b48bd] border border-purple-200 font-bold hover:bg-purple-100 flex items-center gap-1.5 cursor-pointer"
               >
-                <span className="material-symbols-outlined text-base">smart_toy</span>
-                Luyện Thử Với AI
+                <span className="material-symbols-outlined text-base">psychology</span>
+                <span>Luyện Thử Với AI</span>
               </a>
-              <a 
-                href="https://meet.google.com" 
-                target="_blank" 
+              <a
+                href="https://meet.google.com"
+                target="_blank"
                 rel="noreferrer"
-                className="px-6 py-2.5 bg-[#5b48bd] hover:bg-[#4a39a8] text-white text-xs font-bold rounded-full shadow-md flex items-center gap-1.5 cursor-pointer"
+                className="px-6 py-2.5 bg-[#5b48bd] hover:bg-[#4a39a8] text-white text-xs font-bold rounded-2xl shadow-md flex items-center gap-1.5 cursor-pointer"
               >
                 <span className="material-symbols-outlined text-base">videocam</span>
                 <span>Vào Google Meet</span>
@@ -1025,66 +1131,19 @@ export default function CandidateApplicationsPage({ user }) {
         </div>
       )}
 
-      {/* 3. Direct Recruiter Chat Modal */}
-      {activeModal === 'CHAT' && modalData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-botanical-forest/40 backdrop-blur-sm animate-fade-in font-sans">
-          <div className="relative w-full max-w-lg bg-[#FAF9F5] border border-botanical-stone rounded-3xl p-6 sm:p-7 shadow-soft-xl flex flex-col h-[520px]">
-            <button 
-              onClick={() => setActiveModal(null)} 
-              className="absolute top-6 right-6 w-9 h-9 rounded-full bg-white/60 hover:bg-white border border-botanical-stone text-botanical-forest/60 hover:text-botanical-forest flex items-center justify-center transition-colors cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-lg">close</span>
-            </button>
 
-            {/* Header */}
-            <div className="flex items-center gap-3 pb-3 border-b border-botanical-stone">
-              <div className="w-10 h-10 rounded-full bg-botanical-forest text-white font-serif font-bold flex items-center justify-center text-sm shadow-soft">
-                {modalData.recruiterName?.slice(0, 1)}
-              </div>
-              <div>
-                <h3 className="font-serif font-bold text-sm text-botanical-forest flex items-center gap-1.5">
-                  {modalData.recruiterName}
-                  <span className="w-2 h-2 rounded-full bg-botanical-sage inline-block"></span>
-                </h3>
-                <p className="text-[11px] text-botanical-forest/70 font-sans">{modalData.company} • Trực tuyến</p>
-              </div>
-            </div>
 
-            {/* Chat Messages */}
-            <div className="flex-1 overflow-y-auto py-4 space-y-3 pr-1 text-xs font-sans">
-              {chatHistory.map((msg, i) => (
-                <div key={i} className={`flex ${msg.sender === 'me' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 shadow-soft ${
-                    msg.sender === 'me'
-                      ? 'bg-botanical-forest text-white rounded-br-none'
-                      : 'bg-white border border-botanical-stone text-botanical-forest rounded-bl-none'
-                  }`}>
-                    {msg.text}
-                  </div>
-                </div>
-              ))}
-            </div>
 
-            {/* Input Box */}
-            <form onSubmit={handleSendChat} className="pt-3 border-t border-botanical-stone flex items-center gap-2">
-              <input 
-                type="text"
-                value={chatMessageInput}
-                onChange={(e) => setChatMessageInput(e.target.value)}
-                placeholder="Nhập tin nhắn phản hồi..."
-                className="flex-1 bg-purple-50/40 border border-purple-100 rounded-full px-4 py-2.5 text-xs text-[#1e1b4b] placeholder:text-slate-400 focus:outline-none focus:border-[#5b48bd] transition-all font-sans"
-              />
-              <button 
-                type="submit"
-                className="p-2.5 rounded-full bg-[#5b48bd] hover:bg-[#4a39a8] text-white flex items-center justify-center cursor-pointer shrink-0 shadow-md"
-                title="Gửi tin nhắn"
-              >
-                <span className="material-symbols-outlined text-base">send</span>
-              </button>
-            </form>
-          </div>
-        </div>
+
+      {/* 5. Submitted CV Viewer & Download Modal */}
+      {selectedCvForModal && (
+        <CvViewModal
+          isOpen={!!selectedCvForModal}
+          onClose={() => setSelectedCvForModal(null)}
+          {...selectedCvForModal}
+        />
       )}
     </div>
   );
 }
+

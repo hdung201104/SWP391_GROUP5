@@ -126,7 +126,7 @@ public class FileStorageServiceImpl implements FileStorageService {
             return;
         }
 
-        // 1. Kiểm tra nếu là file trên Cloudinary CDN
+        // 1. Kiểm tra nếu là file trên Cloudinary CDN hoặc remote URL
         if (fileUrlOrName.startsWith("http://") || fileUrlOrName.startsWith("https://")) {
             if (cloudinary != null && fileStorageConfig.isCloudinaryEnabled()) {
                 try {
@@ -138,22 +138,22 @@ public class FileStorageServiceImpl implements FileStorageService {
                                 com.cloudinary.utils.ObjectUtils.asMap("resource_type", "auto")
                         );
                         log.info(">> [CloudStorage] Đã gửi lệnh xóa file lên Cloudinary CDN ({}) - Kết quả: {}", publicId, result);
-                        return;
                     }
                 } catch (Exception e) {
                     log.warn(">> [CloudStorage] Không thể xóa file trên Cloudinary CDN: {}", e.getMessage());
                 }
             }
+            return; // Remote URL handled, DO NOT fall through to local file system
         }
 
         // 2. Fallback xóa trên local disk
-        String localFileName = fileUrlOrName.replace("/uploads/", "");
         try {
+            String localFileName = fileUrlOrName.replace("/uploads/", "");
             Path filePath = loadFile(localFileName);
             Files.deleteIfExists(filePath);
             log.info("Deleted local file: {}", filePath.toAbsolutePath());
-        } catch (IOException e) {
-            log.warn("Could not delete local file: {}", localFileName, e);
+        } catch (Exception e) {
+            log.warn("Could not delete local file: {}", fileUrlOrName, e);
         }
     }
 

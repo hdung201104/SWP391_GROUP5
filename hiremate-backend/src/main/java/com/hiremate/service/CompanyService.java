@@ -9,4 +9,5 @@ public interface CompanyService {
     CompanyResponse updateMyCompany(CompanyUpdateRequest request, User recruiterUser);
     CompanyResponse uploadLogo(org.springframework.web.multipart.MultipartFile file, User recruiterUser);
     CompanyResponse getCompanyById(Long companyId);
+    java.util.List<CompanyResponse> getAllCompanies();
 }

@@ -1,5 +1,7 @@
+import { HIREMATE_LOGO_URL } from '../../constants/branding';
 import React, { useState } from 'react';
 import authApi from '../../api/authApi';
+import companyApi from '../../api/companyApi';
 import { useLivingTheme } from '../../context/LivingThemeContext';
 import { EDUCATION_LEVELS } from '../../utils/locationData';
 import VietnameseLocationPicker from '../../components/common/VietnameseLocationPicker';
@@ -34,6 +36,34 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
   const [companySize, setCompanySize] = useState('50_100');
   const [companyLocation, setCompanyLocation] = useState('');
   const [companyWebsite, setCompanyWebsite] = useState('');
+  const [taxCode, setTaxCode] = useState('');
+  const [legalRep, setLegalRep] = useState('');
+  const [licenseFileName, setLicenseFileName] = useState('');
+  const [licenseFileUrl, setLicenseFileUrl] = useState('');
+  const [isUploadingDoc, setIsUploadingDoc] = useState(false);
+
+  const handleLicenseDocChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setLicenseFileName(file.name);
+      setLicenseFileUrl(URL.createObjectURL(file));
+      try {
+        setIsUploadingDoc(true);
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await companyApi.uploadPublicLicenseDoc(formData);
+        if (res?.data?.url) {
+          setLicenseFileUrl(res.data.url);
+          if (res.data.fileName) setLicenseFileName(res.data.fileName);
+        }
+      } catch (err) {
+        console.warn('Lưu tạm file GPKD preview cục bộ:', err);
+      } finally {
+        setIsUploadingDoc(false);
+      }
+    }
+  };
+
 
   // Shared Auth State
   const [password, setPassword] = useState('');
@@ -96,6 +126,10 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
       }
       if (!recPhone.trim()) {
         setErrorMsg('Vui lòng nhập số điện thoại liên hệ của công ty.');
+        return;
+      }
+      if (!taxCode.trim()) {
+        setErrorMsg('Vui lòng nhập Mã số thuế doanh nghiệp (MST).');
         return;
       }
     }
@@ -192,6 +226,11 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
         website: companyWebsite,
         companySize: companySize,
         companyAddress: companyLocation,
+        taxCode: taxCode.trim(),
+        licenseNumber: taxCode.trim() + '-GPKD',
+        licenseDocName: licenseFileName || 'GPKD_' + companyName.trim().replace(/\s+/g, '_') + '.pdf',
+        licenseDocUrl: licenseFileUrl || '',
+        legalRepresentative: legalRep.trim() || recName.trim(),
       } : {
         email: candEmail.trim(),
         password,
@@ -270,8 +309,8 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
               onClick={() => { window.location.hash = '#/'; }}
               className="inline-flex items-center gap-3 group text-left cursor-pointer"
             >
-              <div className="w-11 h-11 rounded-2xl bg-white/10 backdrop-blur-md text-white border border-white/20 shadow-lg flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
-                <span className="material-symbols-outlined text-white text-2xl">psychology</span>
+              <div className="w-11 h-11 rounded-2xl bg-white/10 backdrop-blur-md text-white border border-white/20 shadow-lg flex items-center justify-center group-hover:scale-105 transition-transform duration-300 p-1 overflow-hidden shrink-0">
+                <img src={HIREMATE_LOGO_URL} alt="HireMate AI Logo" className="w-full h-full object-contain rounded-xl drop-shadow" />
               </div>
               <div className="flex items-baseline">
                 <span className="text-2xl font-bold tracking-tight text-white">HireMate</span>
@@ -671,6 +710,77 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
                         required
                         className="w-full pl-10 pr-3 py-2.5 bg-purple-50/40 border border-purple-100 focus:border-[#5b48bd] focus:bg-white focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] placeholder-slate-400 focus:outline-none transition-all font-sans"
                       />
+                    </div>
+                  </div>
+                </div>
+
+                {/* LEGAL & GPKD VERIFICATION SECTION */}
+                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-purple-50/80 to-indigo-50/60 border border-purple-200/80 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[#5b48bd] text-base">verified_user</span>
+                    <span className="text-xs font-bold text-[#1e1b4b] uppercase tracking-wider">Hồ sơ pháp lý &amp; Giấy phép kinh doanh (GPKD)</span>
+                    <span className="text-[10px] font-extrabold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-200 ml-auto">Bắt buộc</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block flex items-center justify-between">
+                        <span>Mã số thuế doanh nghiệp (MST)</span>
+                        <span className="text-rose-500">*</span>
+                      </label>
+                      <div className="relative flex items-center">
+                        <span className="material-symbols-outlined absolute left-3.5 text-[#5b48bd] text-base pointer-events-none">pin</span>
+                        <input
+                          type="text"
+                          value={taxCode}
+                          onChange={(e) => setTaxCode(e.target.value.replace(/\s+/g, ''))}
+                          placeholder="Ví dụ: 0303987654"
+                          required
+                          className="w-full pl-10 pr-3 py-2 bg-white border border-purple-200 focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-xs font-mono font-bold text-[#221d47] placeholder-slate-400 focus:outline-none transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
+                        Người đại diện theo pháp luật
+                      </label>
+                      <div className="relative flex items-center">
+                        <span className="material-symbols-outlined absolute left-3.5 text-[#5b48bd] text-base pointer-events-none">badge</span>
+                        <input
+                          type="text"
+                          value={legalRep}
+                          onChange={(e) => setLegalRep(e.target.value)}
+                          placeholder="Họ tên Giám đốc / Đại diện pháp luật"
+                          className="w-full pl-10 pr-3 py-2 bg-white border border-purple-200 focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-xs text-[#221d47] placeholder-slate-400 focus:outline-none transition-all"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* GPKD File Upload */}
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-[#221d47] block">
+                      Tệp đính kèm Giấy phép kinh doanh (Bản scan PDF / Ảnh công chứng)
+                    </label>
+                    <div className="relative flex items-center justify-between p-2.5 rounded-xl border border-dashed border-purple-300 bg-white hover:border-[#5b48bd] transition-colors">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="material-symbols-outlined text-purple-700 text-xl shrink-0">
+                          {licenseFileName ? 'picture_as_pdf' : 'upload_file'}
+                        </span>
+                        <span className="text-xs font-medium text-slate-700 truncate">
+                          {licenseFileName ? licenseFileName : 'Chọn file GPKD (.pdf, .png, .jpg) tối đa 10MB'}
+                        </span>
+                      </div>
+                      <label className="px-3 py-1 bg-[#5b48bd] hover:bg-[#4a39a8] text-white text-[11px] font-bold rounded-lg cursor-pointer transition-all shrink-0">
+                        {licenseFileName ? 'Đổi tệp' : 'Tải lên'}
+                        <input
+                          type="file"
+                          accept=".pdf,.png,.jpg,.jpeg"
+                          onChange={handleLicenseDocChange}
+                          className="hidden"
+                        />
+                      </label>
                     </div>
                   </div>
                 </div>

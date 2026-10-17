@@ -9,10 +9,15 @@ export const jobApi = {
   createJob: (jobData) => axiosClient.post('/jobs', jobData),
   updateJob: (id, jobData) => axiosClient.put(`/jobs/${id}`, jobData),
   closeJob: (id) => axiosClient.delete(`/jobs/${id}`),
+  deleteJob: (id) => axiosClient.delete(`/jobs/${id}`),
   getMyJobs: () => axiosClient.get('/jobs/recruiter/my'),
   getMyJobsPaged: (params) => axiosClient.get('/jobs/recruiter/my/paged', { params }),
+  getJobsByCompany: (companyId) => axiosClient.get(`/jobs/company/${companyId}`),
   updateJobStatus: (id, status) => axiosClient.patch(`/jobs/${id}/status?status=${status}`),
   cloneJob: (id) => axiosClient.post(`/jobs/${id}/clone`),
+  scanJd: (formData) => axiosClient.post('/jobs/scan-jd', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
 };
 
 export default jobApi;

@@ -78,4 +78,17 @@ public interface GeminiAiService {
             String candidateProfileInfo,
             List<com.hiremate.dto.ai.JobBriefForMatching> jobsToScore
     );
+
+    /**
+     * Bóc tách và phân tích bản mô tả công việc (JD) tự động bằng AI từ tài liệu Word/PDF/Text:
+     * Trích xuất: title, domain, employmentType, salaryMin, salaryMax, salaryText, location,
+     * vacanciesCount, deadlineDate, description, requirements, benefits, mandatorySkills, preferredSkills.
+     */
+    java.util.Map<String, Object> parseJobDescription(String jdText);
+
+    /**
+     * Bóc tách và phân tích bản mô tả công việc (JD) tự động từ ảnh chụp màn hình / ảnh chụp văn bản (Multimodal Vision OCR).
+     */
+    java.util.Map<String, Object> parseJobDescriptionImage(byte[] imageBytes, String mimeType);
 }
+

@@ -66,9 +66,12 @@ class ErrorBoundary extends React.Component {
 function AppContent() {
   const [user, setUser] = useState(() => {
     try {
-      const token = localStorage.getItem('token');
-      const stored = localStorage.getItem('user');
-      if (token && stored) return JSON.parse(stored);
+      const stored = localStorage.getItem('user') || localStorage.getItem('hiremate_user');
+      if (stored) return JSON.parse(stored);
+      const hrStored = localStorage.getItem('hiremate_hr_profile');
+      if (hrStored) {
+        return { ...JSON.parse(hrStored), role: 'RECRUITER' };
+      }
       return null;
     } catch {
       return null;
@@ -83,14 +86,48 @@ function AppContent() {
   const { variant, luminosity, theme } = useLivingTheme();
 
   useEffect(() => {
+    // 1. Intercept GitHub OAuth Callback if redirected to root URL
+    const searchParams = new URLSearchParams(window.location.search);
+    const code = searchParams.get('code');
+    if (code) {
+      if (window.opener && !window.opener.closed) {
+        try {
+          window.opener.postMessage({ type: 'GITHUB_OAUTH_CODE', code }, window.location.origin);
+          window.close();
+          return;
+        } catch (e) {
+          console.warn('Cannot postMessage to opener:', e);
+        }
+      }
+      // If direct navigation in same window (or popup couldn't reach opener), forward code to LoginPage
+      window.history.replaceState({}, document.title, window.location.pathname);
+      window.location.hash = `#/login?code=${code}`;
+    }
+
     const handleHashChange = () => {
       setCurrentRoute(getRoute());
     };
     window.addEventListener('hashchange', handleHashChange);
     window.addEventListener('popstate', handleHashChange);
+
+    // Cross-tab / popup login sync
+    const handleStorage = (e) => {
+      if (e.key === 'token' || e.key === 'user') {
+        try {
+          const stored = localStorage.getItem('user');
+          if (stored) {
+            setUser(JSON.parse(stored));
+            window.location.hash = '#/';
+          }
+        } catch (err) {}
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
     return () => {
       window.removeEventListener('hashchange', handleHashChange);
       window.removeEventListener('popstate', handleHashChange);
+      window.removeEventListener('storage', handleStorage);
     };
   }, []);
 
@@ -130,11 +167,9 @@ function AppContent() {
     localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
 
-    // Dynamic redirection based on role
+    // Redirection: Admin to admin-dashboard, Candidates and Recruiters to HomePage (#/)
     if (userData.role === 'ADMIN') {
       window.location.hash = '#/admin-dashboard';
-    } else if (userData.role === 'RECRUITER') {
-      window.location.hash = '#/recruiter-dashboard';
     } else {
       window.location.hash = '#/';
     }
@@ -235,15 +270,21 @@ function AppContent() {
       const candIdMatch = route.match(/candidateid=(\d+)/i);
       const candId = candIdMatch ? Number(candIdMatch[1]) : 1;
       const jobIdMatch = route.match(/jobid=(\d+)/i);
-      const jobId = jobIdMatch ? Number(jobIdMatch[1]) : 101;
+      const jobId = jobIdMatch ? Number(jobIdMatch[1]) : null;
+      const cvIdMatch = route.match(/cvid=(\d+)/i);
+      const cvId = cvIdMatch ? Number(cvIdMatch[1]) : null;
+      const appIdMatch = route.match(/appid=(\d+)/i) || route.match(/applicationid=(\d+)/i);
+      const appId = appIdMatch ? Number(appIdMatch[1]) : null;
       return (
         <ProtectedRoute user={user} requiredRole="RECRUITER">
           <CandidateEvaluationPage
             user={user}
             candidateId={candId}
             jobId={jobId}
+            cvId={cvId}
+            applicationId={appId}
             onBack={() => {
-              window.location.hash = `#/applicants-management?jobId=${jobId}`;
+              window.location.hash = jobId ? `#/applicants-management?jobId=${jobId}` : '#/recruiter-jobs';
             }}
           />
         </ProtectedRoute>
@@ -319,6 +360,7 @@ function AppContent() {
       );
     }
 
+
     if (route.includes('recruiter-dashboard')) {
       return (
         <ProtectedRoute user={user} requiredRole="RECRUITER">
@@ -369,10 +411,10 @@ function AppContent() {
                       currentRoute.toLowerCase().includes('admin') ||
                       currentRoute.toLowerCase().includes('quan-tri');
 
-  const hideGlobalLayout = isAuthPage || isEvaluationPage;
+  const hideGlobalLayout = isAuthPage;
 
   return (
-    <div className={`min-h-screen relative font-sans text-[#1e1b4b] bg-[#3b2b8e] p-2 sm:p-4 md:p-6 flex flex-col justify-between ${isEvaluationPage ? 'h-screen overflow-hidden' : ''}`}>
+    <div className="min-h-screen relative font-sans text-[#1e1b4b] bg-[#3b2b8e] p-2 sm:p-4 md:p-6 flex flex-col justify-between">
         
         {/* Ambient Radial Lights */}
         <BotanicalBackground />
@@ -392,9 +434,10 @@ function AppContent() {
             />
           )}
 
-          <main className={isEvaluationPage ? "h-screen overflow-hidden" : "flex-1 p-3 sm:p-6"}>
+          <main className="flex-1 p-3 sm:p-6">
             {renderContent()}
           </main>
+
 
           {!hideGlobalLayout && <Footer />}
         </div>

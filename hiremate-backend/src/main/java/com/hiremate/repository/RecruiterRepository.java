@@ -4,6 +4,7 @@ import com.hiremate.entity.Recruiter;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -18,6 +19,9 @@ public interface RecruiterRepository extends JpaRepository<Recruiter, Long> {
 
     /** Tìm Recruiter theo company */
     Optional<Recruiter> findByCompany_CompanyId(Long companyId);
+
+    /** Lấy danh sách tất cả Recruiter thuộc cùng một công ty */
+    List<Recruiter> findAllByCompany_CompanyId(Long companyId);
 
     /** Kiểm tra recruiter đã có profile chưa */
     boolean existsByRecruiterId(Long recruiterId);

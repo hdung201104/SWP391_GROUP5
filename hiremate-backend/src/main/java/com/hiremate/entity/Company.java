@@ -44,13 +44,31 @@ public class Company {
     @Column(name = "industry", length = 100)
     private String industry;
 
-    @Column(name = "founded_year")
-    private Integer foundedYear;
+    @Column(name = "tax_code", length = 50)
+    private String taxCode;
+
+    @Column(name = "license_number", length = 100)
+    private String licenseNumber;
+
+    @Column(name = "license_doc_url", columnDefinition = "TEXT")
+    private String licenseDocUrl;
+
+    @Column(name = "license_doc_name", length = 255)
+    private String licenseDocName;
+
+    @Column(name = "legal_representative", length = 150)
+    private String legalRepresentative;
+
+    @Column(name = "rejection_reason", columnDefinition = "TEXT")
+    private String rejectionReason;
+
+    @Column(name = "verified_at")
+    private LocalDateTime verifiedAt;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     @Builder.Default
-    private CompanyStatus status = CompanyStatus.ACTIVE;
+    private CompanyStatus status = CompanyStatus.PENDING;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

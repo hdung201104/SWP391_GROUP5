@@ -60,24 +60,39 @@ public class SkillServiceImpl implements SkillService {
         }
     }
 
+    private final java.util.concurrent.atomic.AtomicReference<List<SkillResponse>> cachedSkillsRef = new java.util.concurrent.atomic.AtomicReference<>(null);
+
     @Override
     public List<SkillResponse> getAllSkills(String category, String keyword) {
-        List<Skill> skills = skillRepository.findAll();
-        List<SkillResponse> result = new ArrayList<>();
+        List<SkillResponse> all = cachedSkillsRef.get();
+        if (all == null) {
+            List<Skill> skills = skillRepository.findAll();
+            all = skills.stream().map(this::mapToResponse).toList();
+            cachedSkillsRef.set(all);
+        }
 
-        for (Skill s : skills) {
-            if (category != null && !category.isBlank() && !s.getCategory().equalsIgnoreCase(category)) {
+        boolean hasCategory = category != null && !category.isBlank();
+        boolean hasKeyword = keyword != null && !keyword.isBlank();
+
+        if (!hasCategory && !hasKeyword) {
+            return all;
+        }
+
+        List<SkillResponse> result = new ArrayList<>();
+        String kw = hasKeyword ? keyword.toLowerCase() : null;
+
+        for (SkillResponse s : all) {
+            if (hasCategory && !s.getCategory().equalsIgnoreCase(category)) {
                 continue;
             }
-            if (keyword != null && !keyword.isBlank()) {
-                String kw = keyword.toLowerCase();
-                boolean matchName = s.getSkillName().toLowerCase().contains(kw);
+            if (hasKeyword) {
+                boolean matchName = s.getSkillName() != null && s.getSkillName().toLowerCase().contains(kw);
                 boolean matchAlias = s.getAliases() != null && s.getAliases().toLowerCase().contains(kw);
                 if (!matchName && !matchAlias) {
                     continue;
                 }
             }
-            result.add(mapToResponse(s));
+            result.add(s);
         }
 
         return result;
@@ -102,6 +117,7 @@ public class SkillServiceImpl implements SkillService {
                 .aliases(aliases)
                 .build();
         Skill saved = skillRepository.save(skill);
+        cachedSkillsRef.set(null); // Invalidate cache
         return mapToResponse(saved);
     }
 

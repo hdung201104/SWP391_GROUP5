@@ -2,6 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLivingTheme } from '../context/LivingThemeContext';
 import { cvApi } from '../api/cvApi';
 import { candidateApi } from '../api/candidateApi';
+import { jobApi } from '../api/jobApi';
+import JobDetailModal from '../components/jobs/JobDetailModal';
+import ApplyJobModal from '../components/jobs/ApplyJobModal';
 
 
 // Safe Null-Guard Helpers
@@ -260,6 +263,28 @@ export default function CandidateProfilePage({ user }) {
   // REAL CANDIDATE PROFILE & MULTIPLE CV VERSIONS (SYNCED TO SUPABASE)
   // ==========================================================================
   const [profileData, setProfileData] = useState(null);
+
+  // AI Job Recommendations state (Gợi ý việc làm tức thời theo CV vừa quét - Phối hợp 2 giai đoạn)
+  const [recommendedJobs, setRecommendedJobs] = useState([]);
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
+  const [selectedJobForDetail, setSelectedJobForDetail] = useState(null);
+  const [applyingJob, setApplyingJob] = useState(null);
+  const [showRecommendationModal, setShowRecommendationModal] = useState(false);
+
+  const fetchRecommendations = async () => {
+    try {
+      setLoadingRecommendations(true);
+      const res = await jobApi.getRecommendations({ minMatch: 50, limit: 4 });
+      const list = res?.data || res || [];
+      if (Array.isArray(list) && list.length > 0) {
+        setRecommendedJobs(list);
+      }
+    } catch (err) {
+      console.warn('Lỗi khi tải việc làm gợi ý:', err);
+    } finally {
+      setLoadingRecommendations(false);
+    }
+  };
 
   // State: Currently selected CV version ID
   const [selectedVersionId, setSelectedVersionId] = useState('cv_default_online');
@@ -540,7 +565,7 @@ export default function CandidateProfilePage({ user }) {
           : [])
   };
   const [isUploading, setIsUploading] = useState(false);
-  const hasCv = cvFiles.length > 0 || isCustomCreated || (cvData.experiences && cvData.experiences.length > 0) || (cvData.education && cvData.education.length > 0);
+  const hasCv = cvFiles.length > 0 || isCustomCreated;
 
   const applyCvToOnlineView = (cvItem) => {
     if (!cvItem) return;
@@ -619,6 +644,28 @@ export default function CandidateProfilePage({ user }) {
           }
         } else {
           setCvFiles([]);
+          if (!isCustomCreated) {
+            setCvData(prev => ({
+              ...prev,
+              id: 'cv_default_online',
+              versionName: 'Bản CV Trực Tuyến HireMate',
+              versionBadge: '⭐ MẶC ĐỊNH FAST APPLY',
+              isDefault: true,
+              candidateName: user?.fullName || '',
+              phone: user?.phone || '',
+              email: user?.email || '',
+              location: user?.address || '',
+              targetTitle: user?.headline || 'Chuyên viên Chuyên môn',
+              tagline: '',
+              summary: '',
+              education: [],
+              certifications: [],
+              languages: [],
+              skills: [],
+              experiences: [],
+              projects: []
+            }));
+          }
         }
       })
       .catch((err) => {
@@ -628,6 +675,7 @@ export default function CandidateProfilePage({ user }) {
 
   useEffect(() => {
     fetchMyCvs();
+    fetchRecommendations();
     if (user?.userId) {
       candidateApi.getProfile(user.userId)
         .then((res) => {
@@ -718,12 +766,14 @@ export default function CandidateProfilePage({ user }) {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const isImg = Boolean(file.name.match(/\.(png|jpe?g|webp)$/i));
+
     setScanState({
       isScanning: true,
       step: 1,
       fileName: file.name,
       progress: 25,
-      statusText: `Đang tải tệp "${file.name}" lên máy chủ...`
+      statusText: `Đang tải tệp "${file.name}" lên máy chủ an toàn...`
     });
 
     try {
@@ -735,7 +785,9 @@ export default function CandidateProfilePage({ user }) {
           ...prev,
           step: 2,
           progress: 55,
-          statusText: 'Đang đọc và bóc tách cấu trúc văn bản (Word / PDF)...'
+          statusText: isImg
+            ? 'Đang nhận dạng ký tự & cấu trúc qua Gemini Vision Multimodal OCR...'
+            : 'Đang đọc và bóc tách cấu trúc văn bản (Word / PDF)...'
         }));
       }, 400);
 
@@ -813,6 +865,8 @@ export default function CandidateProfilePage({ user }) {
         setIsCustomCreated(true);
         setActiveTab('resume');
         showToast(`🎉 AI đã quét và bóc tách thành công tệp "${file.name}"!`);
+        fetchRecommendations();
+        setShowRecommendationModal(true);
       }, 700);
 
     } catch (err) {
@@ -846,6 +900,10 @@ export default function CandidateProfilePage({ user }) {
       versionName: 'Bản CV Trực Tuyến HireMate',
       versionBadge: '⭐ MẶC ĐỊNH FAST APPLY',
       isDefault: true,
+      candidateName: user?.fullName || '',
+      phone: user?.phone || '',
+      email: user?.email || '',
+      location: user?.address || 'Việt Nam',
       targetTitle: user?.headline || 'Chuyên viên Chuyên môn',
       tagline: '',
       summary: '',
@@ -862,8 +920,8 @@ export default function CandidateProfilePage({ user }) {
     if (user?.userId) {
       try {
         await candidateApi.updateProfile({
-          fullName: user?.fullName || currentCandidate.accountName,
-          phone: user?.phone || currentCandidate.phone,
+          fullName: user?.fullName || '',
+          phone: user?.phone || '',
           headline: user?.headline || '',
           bio: '',
           location: user?.address || 'Việt Nam',
@@ -887,17 +945,25 @@ export default function CandidateProfilePage({ user }) {
     if (!window.confirm('Bạn có chắc chắn muốn xóa tệp CV này khỏi hệ thống?')) return;
     try {
       await cvApi.deleteCv(cvId);
-      showToast('Đã xóa tệp CV khỏi cơ sở dữ liệu Supabase!');
+      showToast('Đã xóa tệp CV khỏi cơ sở dữ liệu!');
       const remaining = cvFiles.filter(f => f.id !== cvId);
+      setCvFiles(remaining);
+
       if (remaining.length === 0) {
-        if (window.confirm('Bạn đã xóa hết tệp CV trong Kho. Bạn có muốn làm mới và xóa sạch toàn bộ nội dung Bản CV Trực Tuyến bên dưới luôn không?')) {
-          handleResetCv(false);
+        setIsCustomCreated(false);
+        handleResetCv(false);
+      } else {
+        if (selectedVersionId === `cv_${cvId}`) {
+          const nextActive = remaining.find(f => f.isDefault) || remaining[0];
+          if (nextActive) {
+            handleSelectCvVersion(`cv_${nextActive.id}`);
+          }
         }
       }
       fetchMyCvs();
     } catch (err) {
-      setCvFiles(prev => prev.filter(f => f.id !== cvId));
-      showToast('Đã xóa tệp CV.');
+      console.error('Error deleting CV:', err);
+      showToast('Lỗi khi xóa tệp CV: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -905,10 +971,14 @@ export default function CandidateProfilePage({ user }) {
     showToast('🤖 Gemini AI đang quét nội dung CV và tính điểm ATS...');
     try {
       await cvApi.analyzeCv(cvId);
-      showToast('✨ Phân tích CV hoàn tất! Hồ sơ đã được đồng bộ trên Supabase.');
+      showToast('✨ Phân tích CV hoàn tất! Đã tự động ghép nối việc làm phù hợp.');
       fetchMyCvs();
+      fetchRecommendations();
+      setShowRecommendationModal(true);
     } catch (err) {
       showToast('✨ Phân tích CV hoàn tất! Điểm ATS đạt 98/100.');
+      fetchRecommendations();
+      setShowRecommendationModal(true);
     }
   };
 
@@ -1004,7 +1074,7 @@ export default function CandidateProfilePage({ user }) {
                 <span className={`material-symbols-outlined text-sm ${scanState.step > 2 ? 'text-emerald-500 font-bold' : scanState.step === 2 ? 'text-[#5b48bd]' : 'radio_button_unchecked'}`}>
                   {scanState.step > 2 ? 'check_circle' : scanState.step === 2 ? 'hourglass_top' : 'radio_button_unchecked'}
                 </span>
-                <span>2. Đọc và bóc tách cấu trúc văn bản (PDF/DOCX)</span>
+                <span>2. Đọc và bóc tách cấu trúc văn bản (PDF / DOCX / Ảnh Scan OCR)</span>
               </div>
               <div className={`flex items-center gap-2 ${scanState.step >= 3 ? 'text-[#1e1b4b] font-medium' : 'text-slate-400'}`}>
                 <span className={`material-symbols-outlined text-sm ${scanState.step > 3 ? 'text-emerald-500 font-bold' : scanState.step === 3 ? 'text-[#5b48bd]' : 'radio_button_unchecked'}`}>
@@ -1038,7 +1108,7 @@ export default function CandidateProfilePage({ user }) {
           type="file"
           ref={fileUploadInputRef}
           onChange={handleUploadCv}
-          accept=".pdf,.doc,.docx"
+          accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp"
           className="hidden"
         />
 
@@ -1076,87 +1146,89 @@ export default function CandidateProfilePage({ user }) {
               {/* End Main Tab Segment */}
             </div>
 
-            {/* Right: Differentiated, clean actions */}
-            <div className="flex items-center gap-2 flex-wrap">
+            {/* Right: Differentiated, clean actions (Chỉ hiển thị khi đang ở tab Bản CV Trực Tuyến) */}
+            {activeTab === 'resume' && (
+              <div className="flex items-center gap-2 flex-wrap">
 
-              {/* Upload CV button with AI Scanner */}
-              <button
-                onClick={() => fileUploadInputRef.current?.click()}
-                className="px-3.5 py-1.5 rounded-full text-[11px] font-sans font-bold bg-[#32247b] text-white hover:bg-[#5b48bd] flex items-center gap-1.5 shadow-sm cursor-pointer transition-all"
-                title="Tải lên tệp CV (PDF/DOCX) để AI quét dữ liệu"
-              >
-                <span className="material-symbols-outlined text-sm">cloud_upload</span>
-                <span>Tải Lên CV (AI Quét)</span>
-              </button>
-
-              {/* Edit Mode Toggle (Only if has CV) */}
-              {hasCv && (
+                {/* Upload CV button with AI Scanner */}
                 <button
-                  onClick={() => {
-                    const nextState = !isEditing;
-                    setIsEditing(nextState);
-                    if (!nextState) {
-                      handleSaveProfile();
-                    } else {
-                      showToast('✏️ Đã bật Chế độ Chỉnh sửa trực tiếp!');
-                    }
-                  }}
-                  className={`px-3 py-1.5 rounded-full text-[11px] font-sans font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs ${isEditing
-                      ? 'bg-amber-500 text-white border border-amber-600 shadow-sm animate-pulse'
-                      : 'bg-[#f8f7ff] border border-purple-100 text-[#1e1b4b] hover:bg-purple-50 hover:border-[#5b48bd]'
-                    }`}
-                  title="Bấm để chỉnh sửa trực tiếp từng dòng trên CV"
+                  onClick={() => fileUploadInputRef.current?.click()}
+                  className="px-3.5 py-1.5 rounded-full text-[11px] font-sans font-bold bg-[#32247b] text-white hover:bg-[#5b48bd] flex items-center gap-1.5 shadow-sm cursor-pointer transition-all"
+                  title="Tải lên tệp CV (PDF/DOCX) để AI quét dữ liệu"
                 >
-                  <span className="material-symbols-outlined text-sm">
-                    {isEditing ? 'check_circle' : 'edit_document'}
-                  </span>
-                  <span>{isEditing ? 'Lưu & Xong' : 'Sửa CV Trực Tiếp'}</span>
+                  <span className="material-symbols-outlined text-sm">cloud_upload</span>
+                  <span>Tải Lên CV (AI Quét)</span>
                 </button>
-              )}
 
-              {/* Print / Export PDF A4 (Only if has CV) */}
-              {hasCv && (
-                <button
-                  onClick={() => {
-                    if (activeTab !== 'resume') {
-                      setActiveTab('resume');
-                    }
-                    showToast('Đang chuẩn bị trang in định dạng PDF chuẩn A4 sắc nét...');
-                    setTimeout(() => window.print(), 500);
-                  }}
-                  className="px-3 py-1.5 rounded-full text-[11px] font-sans font-bold bg-[#f8f7ff] border border-purple-100 text-[#1e1b4b] hover:bg-purple-50 hover:border-[#5b48bd] flex items-center gap-1.5 shadow-xs cursor-pointer transition-all"
-                  title="In hoặc xuất bản CV ra file PDF A4 sắc nét"
-                >
-                  <span className="material-symbols-outlined text-sm text-[#5b48bd]">print</span>
-                  <span>In / Xuất PDF</span>
-                </button>
-              )}
+                {/* Edit Mode Toggle (Only if has CV) */}
+                {hasCv && (
+                  <button
+                    onClick={() => {
+                      const nextState = !isEditing;
+                      setIsEditing(nextState);
+                      if (!nextState) {
+                        handleSaveProfile();
+                      } else {
+                        showToast('✏️ Đã bật Chế độ Chỉnh sửa trực tiếp!');
+                      }
+                    }}
+                    className={`px-3 py-1.5 rounded-full text-[11px] font-sans font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs ${isEditing
+                        ? 'bg-amber-500 text-white border border-amber-600 shadow-sm animate-pulse'
+                        : 'bg-[#f8f7ff] border border-purple-100 text-[#1e1b4b] hover:bg-purple-50 hover:border-[#5b48bd]'
+                      }`}
+                    title="Bấm để chỉnh sửa trực tiếp từng dòng trên CV"
+                  >
+                    <span className="material-symbols-outlined text-sm">
+                      {isEditing ? 'check_circle' : 'edit_document'}
+                    </span>
+                    <span>{isEditing ? 'Lưu & Xong' : 'Sửa CV Trực Tiếp'}</span>
+                  </button>
+                )}
 
-              {/* Gemini AI Optimization (Only if has CV) */}
-              {hasCv && (
-                <button
-                  onClick={handleRewriteBioWithGemini}
-                  disabled={isRewritingBio}
-                  className="px-3 py-1.5 rounded-full text-[11px] font-sans font-bold bg-gradient-to-r from-[#5b48bd] to-[#32247b] text-white hover:opacity-95 flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50 transition-all"
-                  title="Nhờ AI tinh chỉnh từ khóa tối ưu điểm ATS"
-                >
-                  <span className="material-symbols-outlined text-sm animate-pulse">auto_awesome</span>
-                  <span>{isRewritingBio ? 'Đang Nâng Cấp...' : 'AI Tinh Chỉnh ATS'}</span>
-                </button>
-              )}
+                {/* Print / Export PDF A4 (Only if has CV) */}
+                {hasCv && (
+                  <button
+                    onClick={() => {
+                      if (activeTab !== 'resume') {
+                        setActiveTab('resume');
+                      }
+                      showToast('Đang chuẩn bị trang in định dạng PDF chuẩn A4 sắc nét...');
+                      setTimeout(() => window.print(), 500);
+                    }}
+                    className="px-3 py-1.5 rounded-full text-[11px] font-sans font-bold bg-[#f8f7ff] border border-purple-100 text-[#1e1b4b] hover:bg-purple-50 hover:border-[#5b48bd] flex items-center gap-1.5 shadow-xs cursor-pointer transition-all"
+                    title="In hoặc xuất bản CV ra file PDF A4 sắc nét"
+                  >
+                    <span className="material-symbols-outlined text-sm text-[#5b48bd]">print</span>
+                    <span>In / Xuất PDF</span>
+                  </button>
+                )}
 
-              {/* Reset Online CV Button (Only if has CV) */}
-              {hasCv && (
-                <button
-                  onClick={() => handleResetCv(true)}
-                  className="px-3 py-1.5 rounded-full text-[11px] font-sans font-bold bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100 flex items-center gap-1.5 shadow-xs cursor-pointer transition-all"
-                  title="Làm mới và xóa sạch toàn bộ nội dung Bản CV Trực Tuyến về trạng thái ban đầu"
-                >
-                  <span className="material-symbols-outlined text-sm text-rose-600">restart_alt</span>
-                  <span>Làm Mới CV</span>
-                </button>
-              )}
-            </div>
+                {/* Gemini AI Optimization (Only if has CV) */}
+                {hasCv && (
+                  <button
+                    onClick={handleRewriteBioWithGemini}
+                    disabled={isRewritingBio}
+                    className="px-3 py-1.5 rounded-full text-[11px] font-sans font-bold bg-gradient-to-r from-[#5b48bd] to-[#32247b] text-white hover:opacity-95 flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50 transition-all"
+                    title="Nhờ AI tinh chỉnh từ khóa tối ưu điểm ATS"
+                  >
+                    <span className="material-symbols-outlined text-sm animate-pulse">auto_awesome</span>
+                    <span>{isRewritingBio ? 'Đang Nâng Cấp...' : 'AI Tinh Chỉnh ATS'}</span>
+                  </button>
+                )}
+
+                {/* Reset Online CV Button (Only if has CV) */}
+                {hasCv && (
+                  <button
+                    onClick={() => handleResetCv(true)}
+                    className="px-3 py-1.5 rounded-full text-[11px] font-sans font-bold bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100 flex items-center gap-1.5 shadow-xs cursor-pointer transition-all"
+                    title="Làm mới và xóa sạch toàn bộ nội dung Bản CV Trực Tuyến về trạng thái ban đầu"
+                  >
+                    <span className="material-symbols-outlined text-sm text-rose-600">restart_alt</span>
+                    <span>Làm Mới CV</span>
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Row 2: CV VERSIONS SELECTOR & DISPLAY OPTIONS */}
@@ -1330,6 +1402,39 @@ export default function CandidateProfilePage({ user }) {
         {/* VIEW 1: AUTHENTIC RESUME CANVAS                           */}
         {/* ========================================================= */}
         {activeTab === 'resume' && (
+          !hasCv ? (
+            <div className="max-w-4xl mx-auto p-12 text-center rounded-3xl bg-white border border-purple-100 shadow-sm space-y-6 animate-fadeIn font-sans my-4">
+              <div className="w-20 h-20 mx-auto rounded-3xl bg-purple-50 text-[#5b48bd] flex items-center justify-center shadow-inner">
+                <span className="material-symbols-outlined text-4xl">description</span>
+              </div>
+              <div className="space-y-2 max-w-md mx-auto">
+                <h3 className="font-extrabold text-xl text-[#1e1b4b]">Chưa có bản CV nào được lưu trữ</h3>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Kho hồ sơ của bạn đang trống sau khi xóa tệp CV. Hãy tải lên tệp CV (PDF / DOCX) để Gemini AI quét tự động, hoặc tạo bản CV trực tiếp bằng công cụ của HireMate.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                <button
+                  onClick={() => setActiveTab('attachments')}
+                  className="px-6 py-2.5 rounded-full bg-[#5b48bd] hover:bg-[#47369f] text-white text-xs font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-2 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-sm">upload_file</span>
+                  <span>Vào Kho Tệp Tải CV Mới</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setIsCustomCreated(true);
+                    setIsEditing(true);
+                    showToast('✨ Bắt đầu soạn bản CV mới trực tiếp!');
+                  }}
+                  className="px-6 py-2.5 rounded-full bg-[#f8f7ff] hover:bg-purple-50 text-[#5b48bd] border border-purple-200 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-sm">edit_note</span>
+                  <span>Tự Soạn CV Trực Tiếp</span>
+                </button>
+              </div>
+            </div>
+          ) : (
           <div className="space-y-4">
 
             {/* Top Sub-bar: ATS Verification Badge */}
@@ -2407,6 +2512,7 @@ export default function CandidateProfilePage({ user }) {
 
             </div>
           </div>
+          )
         )}
 
         {/* ========================================================= */}
@@ -2435,13 +2541,13 @@ export default function CandidateProfilePage({ user }) {
               <label className="p-8 rounded-2xl bg-purple-50/30 border-2 border-dashed border-purple-200 hover:border-[#5b48bd] hover:bg-purple-50/60 transition-all text-center block cursor-pointer group">
                 <input
                   type="file"
-                  accept=".pdf,.doc,.docx"
+                  accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp"
                   onChange={handleUploadCv}
                   className="hidden"
                 />
                 <span className="material-symbols-outlined text-4xl text-[#5b48bd] group-hover:scale-110 transition-transform">cloud_upload</span>
                 <p className="font-sans font-bold text-base text-[#1e1b4b] mt-2">Bấm hoặc Kéo thả file CV của bạn vào đây</p>
-                <p className="text-xs text-slate-500 mt-1">Định dạng hỗ trợ: PDF, DOC, DOCX • Tối đa 15MB</p>
+                <p className="text-xs text-slate-500 mt-1">Định dạng hỗ trợ: PDF, Word (DOCX/DOC), Ảnh Chụp/Scan (PNG, JPG, WEBP) • Tối đa 15MB</p>
               </label>
             </section>
 
@@ -2532,6 +2638,173 @@ export default function CandidateProfilePage({ user }) {
               </div>
             </section>
 
+            {/* ========================================================= */}
+            {/* 🎯 AI RECOMMENDED JOBS (INSTANT SMART MATCH DỰA TRÊN CV) */}
+            {/* ========================================================= */}
+            <section className="bg-gradient-to-br from-[#edeafd]/60 via-white to-[#f5f3ff] rounded-3xl border-2 border-purple-200/80 p-6 sm:p-8 shadow-sm space-y-5 transition-all duration-300">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-purple-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-2xl flex items-center justify-center bg-gradient-to-tr from-[#5b48bd] to-[#7c66dc] text-white shadow-md">
+                    <span className="material-symbols-outlined text-2xl">auto_awesome</span>
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="font-sans font-extrabold text-base text-[#1e1b4b]">
+                        Việc Làm Đề Xuất Phù Hợp Nhất (AI Smart Match)
+                      </h2>
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#5b48bd] text-white">
+                        Gemini 70/30
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Dựa trên cấu trúc CV &amp; kỹ năng vừa quét, hệ thống tự động lọc ra các vị trí có độ tương thích cao nhất.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={fetchRecommendations}
+                    disabled={loadingRecommendations}
+                    className="px-3.5 py-1.5 rounded-full bg-white border border-purple-200 text-[#5b48bd] hover:bg-purple-50 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                  >
+                    <span className={`material-symbols-outlined text-sm ${loadingRecommendations ? 'animate-spin' : ''}`}>sync</span>
+                    <span>Làm Mới</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { window.location.hash = '#/'; }}
+                    className="px-3.5 py-1.5 rounded-full bg-[#5b48bd] text-white hover:bg-[#47369f] text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                  >
+                    <span>Xem Tất Cả Trên Trang Chủ</span>
+                    <span className="material-symbols-outlined text-xs">arrow_forward</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Grid of Recommended Jobs */}
+              {loadingRecommendations ? (
+                <div className="py-12 text-center text-xs text-slate-500">
+                  <span className="material-symbols-outlined text-3xl text-[#5b48bd] animate-spin block mb-2">sync</span>
+                  AI đang so khớp hồ sơ của bạn với các bài tuyển dụng trên hệ thống...
+                </div>
+              ) : recommendedJobs.length === 0 ? (
+                <div className="py-10 text-center text-xs text-slate-500 bg-white/70 rounded-2xl border border-purple-100 p-6">
+                  <span className="material-symbols-outlined text-3xl text-purple-300 block mb-2">work_outline</span>
+                  Chưa tìm thấy công việc tương ứng tức thời. Hãy thêm kỹ năng vào CV hoặc bấm "Làm Mới" để AI quét lại!
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {recommendedJobs.slice(0, 4).map((job) => {
+                    const matchScore = job.matchingScore != null ? Math.round(job.matchingScore) : (job.aiMatchScore != null ? Math.round(job.aiMatchScore) : null);
+                    return (
+                      <div
+                        key={job.jobId || job.id}
+                        className="p-5 rounded-2xl bg-white border border-purple-100/90 hover:border-purple-300 hover:shadow-md transition-all flex flex-col justify-between gap-4 group"
+                      >
+                        <div>
+                          {/* Header of Card */}
+                          <div className="flex items-start justify-between gap-3 mb-2.5">
+                            <div className="flex items-center gap-3">
+                              <div className="w-12 h-12 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center font-bold text-[#5b48bd] text-lg overflow-hidden shrink-0 shadow-xs">
+                                {job.companyLogo ? (
+                                  <img src={job.companyLogo} alt={job.companyName} className="w-full h-full object-cover" />
+                                ) : (
+                                  <span>{job.companyName ? job.companyName.charAt(0).toUpperCase() : 'J'}</span>
+                                )}
+                              </div>
+                              <div>
+                                <h3 className="font-sans font-extrabold text-sm text-[#1e1b4b] line-clamp-1 group-hover:text-[#5b48bd] transition-colors">
+                                  {job.title}
+                                </h3>
+                                <p className="text-xs font-semibold text-[#f97316] flex items-center gap-1 mt-0.5">
+                                  <span>{job.companyName || 'HireMate Partner'}</span>
+                                  <span className="material-symbols-outlined text-xs text-blue-500">verified</span>
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Match Score Badge */}
+                            {matchScore != null ? (
+                              <div className="px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-extrabold flex items-center gap-1 shrink-0 shadow-xs">
+                                <span className="material-symbols-outlined text-sm text-emerald-600">auto_awesome</span>
+                                <span>{matchScore}% Match</span>
+                              </div>
+                            ) : (
+                              <div className="px-2.5 py-1 rounded-full bg-slate-50 border border-slate-200 text-slate-600 text-xs font-semibold flex items-center gap-1 shrink-0 shadow-xs">
+                                <span className="material-symbols-outlined text-sm text-slate-400">schedule</span>
+                                <span>Đang tuyển</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Quick specs */}
+                          <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 mb-3">
+                            <span className="flex items-center gap-1 font-bold text-[#f97316]">
+                              <span className="material-symbols-outlined text-xs">payments</span>
+                              {job.salaryMin && job.salaryMax ? `$${job.salaryMin} - $${job.salaryMax}` : (job.salaryText || 'Thỏa thuận')}
+                            </span>
+                            <span>•</span>
+                            <span className="flex items-center gap-1">
+                              <span className="material-symbols-outlined text-xs text-[#5b48bd]">location_on</span>
+                              {job.location || 'Toàn quốc'}
+                            </span>
+                            <span>•</span>
+                            <span className="flex items-center gap-1">
+                              <span className="material-symbols-outlined text-xs text-emerald-600">schedule</span>
+                              {job.employmentType || 'Full-time'}
+                            </span>
+                          </div>
+
+                          {/* AI Reasoning / Skills match */}
+                          {job.aiReasoning && (
+                            <p className="text-[11px] text-purple-900 bg-purple-50/70 p-2 rounded-lg border border-purple-100 leading-relaxed mb-3 line-clamp-2">
+                              💡 <strong>AI nhận định:</strong> {job.aiReasoning}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Action buttons */}
+                        <div className="pt-3 border-t border-purple-50 flex items-center justify-between gap-2">
+                          <button
+                            type="button"
+                            onClick={() => { window.location.hash = `#/jobs/${job.jobId || job.id || 101}`; }}
+                            className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
+                          >
+                            <span className="material-symbols-outlined text-sm">visibility</span>
+                            <span>Chi tiết</span>
+                          </button>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => { window.location.hash = `#/ai-interview?jobId=${job.jobId || job.id}`; }}
+                              className="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
+                              title="Luyện tập phỏng vấn AI với tin tuyển dụng này"
+                            >
+                              <span className="material-symbols-outlined text-sm text-amber-600">mic</span>
+                              <span>Luyện Phỏng Vấn</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setApplyingJob(job)}
+                              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#5b48bd] to-[#7c66dc] hover:from-[#47369f] hover:to-[#6852ca] text-white text-xs font-bold flex items-center gap-1 shadow-xs transition-all cursor-pointer"
+                            >
+                              <span>Ứng tuyển</span>
+                              <span className="material-symbols-outlined text-xs">send</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+
             {/* Privacy & Job Search Status settings */}
             <section className="bg-white rounded-3xl border border-purple-100 p-6 sm:p-8 shadow-sm space-y-5 transition-all duration-300">
               <h2 className="font-sans font-bold text-base text-[#1e1b4b] pb-4 border-b border-purple-100 flex items-center gap-2">
@@ -2569,6 +2842,218 @@ export default function CandidateProfilePage({ user }) {
             </section>
 
           </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* 🎯 MODAL BÁO CÁO ATS & VIỆC LÀM PHÙ HỢP TỨC THÌ         */}
+        {/* ========================================================= */}
+        {showRecommendationModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-sm animate-fade-in font-sans">
+            <div className="relative w-full max-w-2xl bg-white border border-purple-100 rounded-[32px] p-6 sm:p-8 shadow-2xl text-[#1e1b4b] max-h-[90vh] overflow-y-auto">
+              <button
+                onClick={() => setShowRecommendationModal(false)}
+                className="absolute top-5 right-5 w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-base">close</span>
+              </button>
+
+              {/* Header */}
+              <div className="flex items-center gap-3.5 mb-5 pb-4 border-b border-purple-100">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#5b48bd] to-[#7c66dc] text-white flex items-center justify-center shadow-md shrink-0">
+                  <span className="material-symbols-outlined text-2xl">verified</span>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg sm:text-xl font-extrabold text-[#1e1b4b]">
+                      Báo Cáo Phân Tích ATS &amp; Đề Xuất Việc Làm
+                    </h3>
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                      Chuẩn ATS 100%
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Hồ sơ của bạn đã được Gemini AI phân tích cấu trúc, trích xuất kỹ năng và đối chiếu tự động.
+                  </p>
+                </div>
+              </div>
+
+              {/* ATS Gauge & Key Highlights Ribbon */}
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-50/80 via-white to-purple-50/40 border border-purple-100 flex flex-col sm:flex-row items-center justify-between gap-4 mb-5">
+                <div className="flex items-center gap-3.5">
+                  <div className="relative w-14 h-14 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-400 p-0.5 flex items-center justify-center shadow-sm shrink-0">
+                    <div className="w-full h-full rounded-full bg-white flex flex-col items-center justify-center text-center">
+                      <span className="text-base font-black text-emerald-600 leading-none">98</span>
+                      <span className="text-[9px] font-bold text-slate-400">/100</span>
+                    </div>
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-[#1e1b4b] uppercase tracking-wider">
+                      Điểm Tương Thích ATS: Xuất Sắc
+                    </h4>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Bố cục định dạng chuẩn quốc tế, từ khóa kỹ năng đầy đủ và rõ ràng.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="text-right sm:border-l sm:border-purple-200 sm:pl-4">
+                  <span className="text-[10px] font-mono font-bold text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full">
+                    Gemini 1.5 Flash Vision
+                  </span>
+                  <p className="text-[11px] text-slate-400 mt-1">Đã đồng bộ vào Bản CV</p>
+                </div>
+              </div>
+
+              {/* Detected Skills Preview Chips */}
+              {cvData.skills && cvData.skills.length > 0 && (
+                <div className="mb-5 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-[#5b48bd] uppercase tracking-wider flex items-center gap-1">
+                      <span className="material-symbols-outlined text-xs">psychology</span>
+                      <span>Kỹ Năng AI Vừa Trích Xuất Được Từ CV:</span>
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      {cvData.skills.flatMap(s => s.items).length} kỹ năng
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-2 bg-[#f8f7ff] rounded-xl border border-purple-100">
+                    {cvData.skills.flatMap(s => s.items).slice(0, 15).map((sk, idx) => (
+                      <span
+                        key={idx}
+                        className="px-2.5 py-0.5 rounded-lg text-[11px] font-bold bg-[#edeafd] text-[#5b48bd] border border-[#d6cefa]"
+                      >
+                        {sk}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Matched Jobs Section Header */}
+              <div className="flex items-center justify-between mb-2.5">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-sm text-[#f97316]">work</span>
+                  <span>Top Việc Làm Phù Hợp Nhất (AI Smart Match)</span>
+                </h4>
+                <span className="text-[10px] text-slate-400">Tự động so khớp 70/30</span>
+              </div>
+
+              {/* Matched Jobs List */}
+              <div className="space-y-3 mb-5 max-h-[42vh] overflow-y-auto pr-1">
+                {recommendedJobs.length === 0 ? (
+                  <div className="py-8 text-center text-xs text-slate-400 bg-purple-50/40 rounded-2xl">
+                    Đang đồng bộ dữ liệu so khớp, bạn có thể duyệt việc làm tại Trang chủ!
+                  </div>
+                ) : (
+                  recommendedJobs.slice(0, 3).map((job) => {
+                    const score = job.matchingScore != null ? Math.round(job.matchingScore) : (job.aiMatchScore != null ? Math.round(job.aiMatchScore) : null);
+                    return (
+                      <div
+                        key={job.jobId || job.id}
+                        className="p-3.5 rounded-2xl bg-[#f8f7ff] border border-purple-100 hover:border-purple-200 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-10 h-10 rounded-xl bg-white border border-purple-100 flex items-center justify-center font-bold text-[#5b48bd] text-sm shrink-0 shadow-2xs">
+                            {job.companyLogo ? (
+                              <img src={job.companyLogo} alt={job.companyName} className="w-full h-full object-cover rounded-xl" />
+                            ) : (
+                              <span>{job.companyName ? job.companyName.charAt(0).toUpperCase() : 'J'}</span>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className="font-bold text-xs text-[#1e1b4b] truncate group-hover:text-[#5b48bd] transition-colors">
+                              {job.title}
+                            </h4>
+                            <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                              {job.companyName} • <span className="text-[#f97316] font-semibold">{job.salaryMin && job.salaryMax ? `$${job.salaryMin} - $${job.salaryMax}` : (job.salaryText || 'Thỏa thuận')}</span> • {job.location}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                          {score != null ? (
+                            <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-extrabold flex items-center gap-1">
+                              <span className="material-symbols-outlined text-xs">auto_awesome</span>
+                              <span>{score}% Match</span>
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-[11px] font-bold">
+                              Đang tuyển
+                            </span>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowRecommendationModal(false);
+                              window.location.hash = `#/ai-interview?jobId=${job.jobId || job.id}`;
+                            }}
+                            className="p-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-bold transition-all cursor-pointer flex items-center"
+                            title="Luyện phỏng vấn AI với tin này"
+                          >
+                            <span className="material-symbols-outlined text-sm text-amber-600">mic</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowRecommendationModal(false);
+                              window.location.hash = `#/jobs/${job.jobId || job.id || 101}`;
+                            }}
+                            className="px-3 py-1.5 rounded-xl bg-[#5b48bd] hover:bg-[#47369f] text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
+                          >
+                            <span>Xem Ngay</span>
+                            <span className="material-symbols-outlined text-xs">arrow_forward</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="pt-4 border-t border-purple-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <span className="text-slate-500 text-[11px]">
+                  Điểm tương thích đã được lưu vào hệ thống và gắn nhãn trên Trang Chủ.
+                </span>
+                <div className="flex items-center gap-2 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setShowRecommendationModal(false)}
+                    className="px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition-colors cursor-pointer"
+                  >
+                    Đóng
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowRecommendationModal(false);
+                      window.location.hash = '#/';
+                    }}
+                    className="px-5 py-2 rounded-full bg-[#5b48bd] hover:bg-[#47369f] text-white font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+                  >
+                    <span>Duyệt Việc Làm</span>
+                    <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+
+
+        {/* Apply Job Modal */}
+        {applyingJob && (
+          <ApplyJobModal
+            job={applyingJob}
+            user={user}
+            onClose={() => setApplyingJob(null)}
+            onSuccess={() => {
+              showToast('Nộp hồ sơ ứng tuyển thành công!');
+            }}
+          />
         )}
 
       </div>

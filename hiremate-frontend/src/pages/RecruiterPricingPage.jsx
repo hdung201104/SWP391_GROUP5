@@ -431,6 +431,7 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
     if (!createdOrder?.orderCode) return;
     setCheckingStatus(true);
     try {
+      // Kiểm tra đối soát thực tế từ cổng PayOS / Ngân hàng
       const res = await paymentApi.getOrderStatus(createdOrder.orderCode);
       const order = res.data?.data || res.data;
       if (order && order.status === 'APPROVED') {
@@ -442,41 +443,71 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
         return;
       }
 
-      const simRes = await paymentApi.simulateTransfer(createdOrder.orderCode);
-      const simOrder = simRes.data?.data || simRes.data;
-      if (simOrder && simOrder.status === 'APPROVED') {
-        setCreatedOrder(simOrder);
-        setPurchaseSuccess(true);
-        applyPlanBenefits();
-        fetchMySubscription();
-        fetchMyPendingOrders();
-      }
+      alert(`⏳ Hệ thống ngân hàng chưa ghi nhận tiền về cho đơn hàng #${createdOrder.orderCode}.\n\nNếu quý công ty vừa quét mã chuyển khoản, vui lòng đợi 10 - 30 giây để hệ thống tự động đối soát rồi kiểm tra lại nhé!`);
     } catch (err) {
-      alert('Không thể xác nhận: ' + (err.message || 'Vui lòng thử lại'));
+      alert('Không thể xác nhận: ' + (err.response?.data?.message || err.message || 'Vui lòng thử lại'));
     } finally {
       setCheckingStatus(false);
     }
-  };
-
-  const handleSimulatePayment = async () => {
-    await handleConfirmPaidNow();
   };
 
   const handleActivateSpecificOrder = async (orderCode) => {
     setCheckingStatus(true);
     try {
-      const res = await paymentApi.simulateTransfer(orderCode);
+      // Kiểm tra trạng thái thực tế từ PayOS, KHÔNG tự động duyệt nếu chưa thanh toán
+      const res = await paymentApi.getOrderStatus(orderCode);
       const order = res.data?.data || res.data;
       if (order && order.status === 'APPROVED') {
-        alert(`🎉 Đơn hàng doanh nghiệp #${orderCode} đã được kích hoạt thành công!`);
+        alert(`🎉 Chúc mừng! Đơn hàng doanh nghiệp #${orderCode} đã đối soát thành công và gói dịch vụ đã được kích hoạt!`);
         fetchMySubscription();
         fetchMyPendingOrders();
+      } else {
+        alert(`⏳ Đơn hàng #${orderCode} hiện vẫn đang chờ thanh toán.\n\nNếu quý công ty chưa chuyển khoản, vui lòng bấm "Xem Mã QR" để quét mã. Nếu đã chuyển, vui lòng đợi trong giây lát để ngân hàng xử lý nhé!`);
       }
     } catch (err) {
-      alert('Lỗi kích hoạt đơn hàng: ' + (err.message || 'Vui lòng thử lại'));
+      alert('Lỗi kiểm tra đơn hàng: ' + (err.response?.data?.message || err.message || 'Vui lòng thử lại'));
     } finally {
       setCheckingStatus(false);
     }
+  };
+
+  const handleCancelSpecificOrder = async (orderCode) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn hủy đơn hàng #${orderCode} không?`)) {
+      return;
+    }
+    setCheckingStatus(true);
+    try {
+      await paymentApi.cancelOrder(orderCode);
+      alert(`Đã hủy đơn hàng #${orderCode} thành công.`);
+      fetchMyPendingOrders();
+      if (createdOrder?.orderCode === orderCode) {
+        setCreatedOrder(null);
+      }
+    } catch (err) {
+      alert('Lỗi khi hủy đơn hàng: ' + (err.response?.data?.message || err.message || 'Vui lòng thử lại'));
+    } finally {
+      setCheckingStatus(false);
+    }
+  };
+
+  const handleOpenPendingOrderQr = (order) => {
+    if (!order) return;
+    try {
+      const allPlans = [...(RECRUITER_SUBSCRIPTION_PLANS || []), ...(dbPlans || [])];
+      const matchedPlan = allPlans.find(p => 
+        (p.id && order.planId && p.id === order.planId) ||
+        (p.planId && order.planId && p.planId === order.planId) ||
+        (p.name && order.planName && p.name.toLowerCase() === order.planName.toLowerCase()) ||
+        (p.planName && order.planName && p.planName.toLowerCase() === order.planName.toLowerCase())
+      );
+      if (matchedPlan) {
+        setSelectedPlanForPurchase(matchedPlan);
+      }
+    } catch (e) {
+      console.warn('Could not match plan details:', e);
+    }
+    setCreatedOrder(order);
+    setPurchaseSuccess(false);
   };
 
   const handleCheckOrderStatus = async () => {
@@ -619,14 +650,31 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
                     <span className="mx-2 text-slate-300">•</span>
                     <span className="font-black text-emerald-600">{formatVND(ord.amount)}</span>
                   </div>
-                  <button
-                    onClick={() => handleActivateSpecificOrder(ord.orderCode)}
-                    disabled={checkingStatus}
-                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer shrink-0"
-                  >
-                    <span className="material-symbols-outlined text-sm">bolt</span>
-                    <span>Xác Nhận Đã Chuyển Khoản - Kích Hoạt Ngay</span>
-                  </button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => handleOpenPendingOrderQr(ord)}
+                      className="px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-all border border-indigo-200 flex items-center gap-1 cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-sm">qr_code</span>
+                      <span>Xem Mã QR</span>
+                    </button>
+                    <button
+                      onClick={() => handleActivateSpecificOrder(ord.orderCode)}
+                      disabled={checkingStatus}
+                      className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-sm">sync</span>
+                      <span>Kiểm Tra Đã Chuyển Tiền</span>
+                    </button>
+                    <button
+                      onClick={() => handleCancelSpecificOrder(ord.orderCode)}
+                      disabled={checkingStatus}
+                      className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold transition-all border border-rose-200 flex items-center gap-1 cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-sm">close</span>
+                      <span>Hủy Đơn</span>
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -928,7 +976,7 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
       </div>
 
       {/* CHECKOUT / PURCHASE PREVIEW MODAL */}
-      {(selectedPlanForPurchase || selectedAddonForPurchase) && (
+      {(selectedPlanForPurchase || selectedAddonForPurchase || createdOrder) && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
           <div className="bg-white w-full max-w-xl rounded-[32px] p-6 sm:p-8 shadow-2xl border border-indigo-100 relative space-y-6 max-h-[90vh] overflow-y-auto">
             
@@ -937,6 +985,7 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
               onClick={() => {
                 setSelectedPlanForPurchase(null);
                 setSelectedAddonForPurchase(null);
+                setCreatedOrder(null);
               }}
               className="absolute top-6 right-6 w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 cursor-pointer"
             >
@@ -1083,7 +1132,7 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
                   </button>
                 </div>
               </>
-            ) : createdOrder && !purchaseSuccess && createdOrder.status === 'PENDING' ? (
+            ) : createdOrder && !purchaseSuccess ? (
               /* VIETQR PAYMENT SCREEN FOR RECRUITER */
               <div className="space-y-5 animate-fadeIn text-center">
                 <div className="space-y-1">
@@ -1181,6 +1230,24 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
                   </p>
 
                   <button
+                    onClick={handleCheckOrderStatus}
+                    disabled={checkingStatus}
+                    className="w-full py-3 rounded-2xl bg-[#32247b] hover:bg-[#4331a6] text-white text-xs font-bold uppercase tracking-wider cursor-pointer shadow-md flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                  >
+                    {checkingStatus ? (
+                      <>
+                        <span className="material-symbols-outlined text-sm animate-spin">sync</span>
+                        <span>Đang kiểm tra từ ngân hàng...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="material-symbols-outlined text-sm">check_circle</span>
+                        <span>Tôi Đã Chuyển Khoản - Kiểm Tra Ngay</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
                     onClick={() => {
                       setSelectedPlanForPurchase(null);
                       setSelectedAddonForPurchase(null);
@@ -1214,7 +1281,7 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
 
                 <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 text-left space-y-1 font-medium">
                   <p><strong>Mã giao dịch:</strong> {createdOrder?.orderCode || 'HM-PAY-SUCCESS'}</p>
-                  <p><strong>Gói dịch vụ:</strong> {selectedPlanForPurchase?.name || selectedAddonForPurchase?.name}</p>
+                  <p><strong>Gói dịch vụ:</strong> {selectedPlanForPurchase?.name || selectedAddonForPurchase?.name || createdOrder?.planName || 'Gói Dịch Vụ'}</p>
                   <p><strong>Số tiền:</strong> {formatVND(createdOrder?.amount || calculateFinalPrice())}</p>
                   <p><strong>Trạng thái:</strong> ĐÃ KÍCH HOẠT (ACTIVE)</p>
                 </div>

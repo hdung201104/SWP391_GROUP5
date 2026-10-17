@@ -713,6 +713,17 @@ export default function AiInterviewStudioPage({ user }) {
         setCurrentSessionId(sessionId);
       }
     } catch (err) {
+      const errMsg = err?.response?.data?.message || err?.message || '';
+      if (errMsg.includes('hạn ngạch') || errMsg.includes('miễn phí') || errMsg.includes('Career VIP') || errMsg.includes('lượt')) {
+        showToast('⚠️ ' + errMsg);
+        setIsGeneratingQuestions(false);
+        setTimeout(() => {
+          if (window.confirm(errMsg + '\n\nBạn có muốn chuyển đến trang Nâng Cấp Gói Dịch Vụ Career VIP ngay bây giờ không?')) {
+            window.location.href = '/candidate/pricing';
+          }
+        }, 400);
+        return;
+      }
       console.warn('Backend startSession failed, running in local fallback:', err);
     }
 

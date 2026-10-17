@@ -37,6 +37,8 @@ public class JobResponse {
     private Long applicantCount;
     private LocalDate deadlineDate;
     private List<String> skills;
+    private List<String> mandatorySkills;
+    private List<String> preferredSkills;
     private Float matchingScore;
     private String aiReasoning;
     private List<String> matchedSkills;

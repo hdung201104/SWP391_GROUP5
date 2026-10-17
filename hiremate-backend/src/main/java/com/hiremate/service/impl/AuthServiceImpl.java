@@ -24,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -45,10 +46,10 @@ public class AuthServiceImpl implements AuthService {
     private final com.hiremate.service.GoogleTokenVerifierService googleTokenVerifierService;
     private final com.hiremate.service.TokenBlacklistService tokenBlacklistService;
 
-    @org.springframework.beans.factory.annotation.Value("${github.oauth2.client-id:Ov23lin7fKu1DTd2VwAB}")
+    @org.springframework.beans.factory.annotation.Value("${github.oauth2.client-id:Ov23lin7fKu1DTd2VWAB}")
     private String githubClientId;
 
-    @org.springframework.beans.factory.annotation.Value("${github.oauth2.client-secret:5a845ff134b283d3eb40526625f82575f37bf034}")
+    @org.springframework.beans.factory.annotation.Value("${github.oauth2.client-secret:}")
     private String githubClientSecret;
 
     @Override
@@ -96,33 +97,64 @@ public class AuthServiceImpl implements AuthService {
 
         } else if (role == UserRole.RECRUITER) {
             companyName = request.getCompanyName() != null && !request.getCompanyName().isBlank()
-                    ? request.getCompanyName()
+                    ? request.getCompanyName().trim()
                     : request.getFullName() + "'s Company";
 
-            // 1. Tạo Company trước (recruiter_id tạm thời null để tránh circular FK constraint)
-            Company company = Company.builder()
-                    .recruiterId(null)
-                    .companyName(companyName)
-                    .website(request.getWebsite())
-                    .companySize(request.getCompanySize())
-                    .address(request.getCompanyAddress() != null ? request.getCompanyAddress() : request.getLocation())
-                    .status(CompanyStatus.ACTIVE)
-                    .build();
-            Company savedCompany = companyRepository.saveAndFlush(company);
-            companyId = savedCompany.getCompanyId();
+            // 1. Kiểm tra công ty đã tồn tại trong hệ thống chưa (dựa trên tên không phân biệt hoa thường)
+            Company company = companyRepository.findFirstByCompanyNameIgnoreCase(companyName).orElse(null);
+            boolean isNewCompany = false;
+            if (company == null) {
+                isNewCompany = true;
+                company = Company.builder()
+                        .recruiterId(null)
+                        .companyName(companyName)
+                        .website(request.getWebsite())
+                        .companySize(request.getCompanySize())
+                        .address(request.getCompanyAddress() != null ? request.getCompanyAddress() : request.getLocation())
+                        .taxCode(request.getTaxCode() != null && !request.getTaxCode().isBlank() ? request.getTaxCode().trim() : null)
+                        .licenseNumber(request.getLicenseNumber() != null && !request.getLicenseNumber().isBlank() ? request.getLicenseNumber().trim() : (request.getTaxCode() != null ? request.getTaxCode().trim() + "-GPKD" : null))
+                        .licenseDocUrl(request.getLicenseDocUrl())
+                        .licenseDocName(request.getLicenseDocName() != null ? request.getLicenseDocName() : (request.getLicenseDocUrl() != null ? "GPKD_" + companyName.replaceAll("\\s+", "_") + ".pdf" : null))
+                        .legalRepresentative(request.getLegalRepresentative() != null && !request.getLegalRepresentative().isBlank() ? request.getLegalRepresentative().trim() : request.getFullName())
+                        .status(CompanyStatus.PENDING)
+                        .build();
+                company = companyRepository.saveAndFlush(company);
+            }
+            companyId = company.getCompanyId();
 
-            // 2. Tạo Recruiter subclass record, liên kết với Company vừa tạo
+            // 2. Tạo Recruiter subclass record, liên kết với Company (dù là mới hay đã tồn tại)
             Recruiter recruiter = Recruiter.builder()
                     .recruiterId(savedUser.getUserId())  // Shared PK
                     .user(savedUser)
-                    .company(savedCompany)
+                    .company(company)
                     .position("HR Recruiter")
                     .build();
             Recruiter savedRecruiter = recruiterRepository.saveAndFlush(recruiter);
 
-            // 3. Cập nhật recruiter_id cho Company để hoàn tất liên kết 2 chiều
-            savedCompany.setRecruiterId(savedRecruiter.getRecruiterId());
-            companyRepository.save(savedCompany);
+            // 3. Nếu là công ty mới hoặc chưa có recruiter đại diện chính, gán recruiter này làm đại diện
+            if (isNewCompany || company.getRecruiterId() == null) {
+                company.setRecruiterId(savedRecruiter.getRecruiterId());
+                companyRepository.save(company);
+            } else {
+                // 4. Nếu gia nhập công ty đã tồn tại, tự động gửi thông báo hệ thống đến các HR cũ / đại diện công ty
+                try {
+                    List<Recruiter> existingRecruiters = recruiterRepository.findAllByCompany_CompanyId(company.getCompanyId());
+                    for (Recruiter existing : existingRecruiters) {
+                        if (!existing.getRecruiterId().equals(savedUser.getUserId())) {
+                            notificationService.createNotification(
+                                    existing.getRecruiterId(),
+                                    com.hiremate.enums.NotificationType.SYSTEM_ALERT,
+                                    "Thành viên HR mới tham gia tổ chức",
+                                    "Chuyên viên nhân sự " + savedUser.getFullName() + " (" + savedUser.getEmail() + ") vừa đăng ký tài khoản và gia nhập đội ngũ tuyển dụng của " + company.getCompanyName() + " trên HireMate AI.",
+                                    company.getCompanyId(),
+                                    "companies"
+                            );
+                        }
+                    }
+                } catch (Exception notifEx) {
+                    log.warn(">> [AuthService] Không thể gửi thông báo cho các HR cùng công ty: {}", notifEx.getMessage());
+                }
+            }
         }
 
         Map<String, Object> claims = new HashMap<>();
@@ -397,12 +429,9 @@ public class AuthServiceImpl implements AuthService {
             // TRƯỜNG HỢP 2 (Tài khoản CHƯA TỒN TẠI - Người dùng mới):
             // Trả về cờ isNewUser = true kèm thông tin đã xác thực từ Google để Frontend chuyển sang trang hoàn tất đăng ký
             log.info(">> [AuthService] Phát hiện tài khoản Google mới chưa có trong hệ thống: {}", email);
-            return AuthResponse.builder()
-                    .isNewUser(true)
-                    .email(email)
-                    .fullName(fullName)
-                    .avatarUrl(avatarUrl)
-                    .build();
+            return AuthResponse.of(
+                    null, null, null, email, fullName, null, null, avatarUrl, null, null, true, null, null, null, null, true
+            );
         }
     }
 
@@ -532,6 +561,11 @@ public class AuthServiceImpl implements AuthService {
                 tokenParams.put("client_id", githubClientId);
                 tokenParams.put("client_secret", githubClientSecret);
                 tokenParams.put("code", request.getCode().trim());
+                if (request.getRedirectUri() != null && !request.getRedirectUri().isBlank()) {
+                    tokenParams.put("redirect_uri", request.getRedirectUri().trim());
+                } else {
+                    tokenParams.put("redirect_uri", "http://localhost:3000");
+                }
 
                 org.springframework.http.HttpEntity<Map<String, String>> tokenEntity = new org.springframework.http.HttpEntity<>(tokenParams, headers);
                 org.springframework.http.ResponseEntity<Map<String, Object>> tokenResponse = restTemplate.exchange(
@@ -539,6 +573,14 @@ public class AuthServiceImpl implements AuthService {
                         org.springframework.http.HttpMethod.POST,
                         tokenEntity,
                         new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {});
+
+                if (tokenResponse.getBody() != null) {
+                    if (tokenResponse.getBody().get("error") != null) {
+                        log.error(">> [AuthService] GitHub OAuth exchange error: {} - {}", 
+                                tokenResponse.getBody().get("error"), 
+                                tokenResponse.getBody().get("error_description"));
+                    }
+                }
 
                 if (tokenResponse.getBody() != null && tokenResponse.getBody().get("access_token") != null) {
                     String accessToken = String.valueOf(tokenResponse.getBody().get("access_token"));
@@ -652,13 +694,9 @@ public class AuthServiceImpl implements AuthService {
         } else {
             // TRƯỜNG HỢP 2 (Người dùng mới): Trả về isNewUser = true để chuyển sang trang hoàn tất hồ sơ
             log.info(">> [AuthService] Phát hiện tài khoản GitHub mới chưa có trong hệ thống: {}", email);
-            return AuthResponse.builder()
-                    .isNewUser(true)
-                    .email(email)
-                    .fullName(fullName)
-                    .avatarUrl(avatarUrl)
-                    .githubUrl(githubUrl)
-                    .build();
+            return AuthResponse.of(
+                    null, null, null, email, fullName, null, null, avatarUrl, null, null, true, null, null, null, githubUrl, true
+            );
         }
     }
 
@@ -724,23 +762,23 @@ public class AuthServiceImpl implements AuthService {
     }
 
     private AuthResponse buildAuthResponse(User user, String token, String refreshToken, Long companyId, String companyName) {
-        return AuthResponse.builder()
-                .token(token)
-                .refreshToken(refreshToken)
-                .tokenType("Bearer")
-                .userId(user.getUserId())
-                .email(user.getEmail())
-                .fullName(user.getFullName())
-                .phone(user.getPhone())
-                .role(user.getRole())
-                .avatarUrl(user.getAvatarUrl())
-                .companyId(companyId)
-                .companyName(companyName)
-                .isEmailVerified(user.getIsEmailVerified() != null ? user.getIsEmailVerified() : true)
-                .dateOfBirth(user.getDateOfBirth())
-                .address(user.getAddress())
-                .bio(user.getBio())
-                .githubUrl(user.getGithubUrl())
-                .build();
+        return AuthResponse.of(
+                token,
+                refreshToken,
+                user.getUserId(),
+                user.getEmail(),
+                user.getFullName(),
+                user.getPhone(),
+                user.getRole(),
+                user.getAvatarUrl(),
+                companyId,
+                companyName,
+                user.getIsEmailVerified() != null ? user.getIsEmailVerified() : true,
+                user.getDateOfBirth(),
+                user.getAddress(),
+                user.getBio(),
+                user.getGithubUrl(),
+                false
+        );
     }
 }

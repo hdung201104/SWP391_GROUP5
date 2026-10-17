@@ -376,40 +376,24 @@ public class PaymentServiceImpl implements PaymentService {
     @Transactional
     public com.hiremate.dto.response.SubscriptionResponse getMyActiveSubscription(User user) {
         if (user == null) {
-            return com.hiremate.dto.response.SubscriptionResponse.builder()
-                    .active(false)
-                    .planName("Miễn phí (Free Tier)")
-                    .status("INACTIVE")
-                    .quotaLimit(0)
-                    .daysRemaining(0L)
-                    .build();
+            return com.hiremate.dto.response.SubscriptionResponse.inactive();
         }
 
         Subscription sub = subscriptionRepository.findFirstByUser_UserIdAndStatusOrderByCreatedAtDesc(user.getUserId(), SubscriptionStatus.ACTIVE)
                 .orElse(null);
 
         if (sub == null) {
-            return com.hiremate.dto.response.SubscriptionResponse.builder()
-                    .active(false)
-                    .planName("Miễn phí (Free Tier)")
-                    .status("INACTIVE")
-                    .quotaLimit(0)
-                    .daysRemaining(0L)
-                    .build();
+            return com.hiremate.dto.response.SubscriptionResponse.inactive();
         }
 
         // Kiểm tra hết hạn
         if (sub.getEndDate() != null && LocalDateTime.now().isAfter(sub.getEndDate())) {
             sub.setStatus(SubscriptionStatus.EXPIRED);
             subscriptionRepository.save(sub);
-            return com.hiremate.dto.response.SubscriptionResponse.builder()
-                    .active(false)
-                    .subscriptionId(sub.getSubscriptionId())
-                    .planName(sub.getPlan() != null ? sub.getPlan().getPlanName() : "Đã hết hạn")
-                    .status("EXPIRED")
-                    .quotaLimit(0)
-                    .daysRemaining(0L)
-                    .build();
+            return com.hiremate.dto.response.SubscriptionResponse.expired(
+                    sub.getSubscriptionId(),
+                    sub.getPlan() != null ? sub.getPlan().getPlanName() : "Đã hết hạn"
+            );
         }
 
         long daysRemaining = 0L;
@@ -419,19 +403,19 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         SubscriptionPlan plan = sub.getPlan();
-        return com.hiremate.dto.response.SubscriptionResponse.builder()
-                .active(true)
-                .subscriptionId(sub.getSubscriptionId())
-                .planId(plan != null ? plan.getPlanId() : null)
-                .planName(plan != null ? plan.getPlanName() : "Gói dịch vụ kích hoạt")
-                .planType(plan != null ? plan.getPlanType() : "COMBO")
-                .targetRole(plan != null ? plan.getTargetRole() : (user.getRole() != null ? user.getRole().name() : null))
-                .quotaLimit(plan != null ? plan.getQuotaLimit() : 0)
-                .startDate(sub.getStartDate())
-                .endDate(sub.getEndDate())
-                .status("ACTIVE")
-                .daysRemaining(daysRemaining)
-                .build();
+        return com.hiremate.dto.response.SubscriptionResponse.of(
+                sub.getSubscriptionId(),
+                plan != null ? plan.getPlanId() : null,
+                plan != null ? plan.getPlanName() : "Gói dịch vụ kích hoạt",
+                plan != null ? plan.getPlanType() : "COMBO",
+                plan != null ? plan.getTargetRole() : (user.getRole() != null ? user.getRole().name() : null),
+                plan != null ? plan.getQuotaLimit() : 0,
+                sub.getStartDate(),
+                sub.getEndDate(),
+                "ACTIVE",
+                daysRemaining,
+                true
+        );
     }
 
     @Override
@@ -617,30 +601,30 @@ public class PaymentServiceImpl implements PaymentService {
             }
         }
 
-        return PaymentOrderResponse.builder()
-                .orderId(order.getOrderId())
-                .orderCode(order.getOrderCode())
-                .userId(order.getUser() != null ? order.getUser().getUserId() : null)
-                .userName(order.getUser() != null ? order.getUser().getFullName() : "N/A")
-                .userEmail(order.getUser() != null ? order.getUser().getEmail() : "N/A")
-                .userRole(order.getUser() != null && order.getUser().getRole() != null ? order.getUser().getRole().name() : "USER")
-                .planId(order.getPlan() != null ? order.getPlan().getPlanId() : null)
-                .planName(order.getPlan() != null ? order.getPlan().getPlanName() : "Gói dịch vụ HireMate")
-                .amount(order.getAmount())
-                .originalAmount(originalAmount)
-                .discountAmount(order.getDiscountAmount() != null ? order.getDiscountAmount() : BigDecimal.ZERO)
-                .voucherCode(order.getVoucher() != null ? order.getVoucher().getCode() : null)
-                .status(order.getStatus())
-                .adminNote(order.getAdminNote())
-                .createdAt(order.getCreatedAt())
-                .approvedAt(order.getApprovedAt())
-                .bankName(bankName)
-                .bankAccount(bankAccount)
-                .accountHolder(accountHolder)
-                .transferContent(transferContent)
-                .qrCodeUrl(qrUrl)
-                .checkoutUrl(checkoutUrl)
-                .build();
+        PaymentOrderResponse response = new PaymentOrderResponse();
+        response.setOrderId(order.getOrderId());
+        response.setOrderCode(order.getOrderCode());
+        response.setUserId(order.getUser() != null ? order.getUser().getUserId() : null);
+        response.setUserName(order.getUser() != null ? order.getUser().getFullName() : "N/A");
+        response.setUserEmail(order.getUser() != null ? order.getUser().getEmail() : "N/A");
+        response.setUserRole(order.getUser() != null && order.getUser().getRole() != null ? order.getUser().getRole().name() : "USER");
+        response.setPlanId(order.getPlan() != null ? order.getPlan().getPlanId() : null);
+        response.setPlanName(order.getPlan() != null ? order.getPlan().getPlanName() : "Gói dịch vụ HireMate");
+        response.setAmount(order.getAmount());
+        response.setOriginalAmount(originalAmount);
+        response.setDiscountAmount(order.getDiscountAmount() != null ? order.getDiscountAmount() : BigDecimal.ZERO);
+        response.setVoucherCode(order.getVoucher() != null ? order.getVoucher().getCode() : null);
+        response.setStatus(order.getStatus());
+        response.setAdminNote(order.getAdminNote());
+        response.setCreatedAt(order.getCreatedAt());
+        response.setApprovedAt(order.getApprovedAt());
+        response.setBankName(bankName);
+        response.setBankAccount(bankAccount);
+        response.setAccountHolder(accountHolder);
+        response.setTransferContent(transferContent);
+        response.setQrCodeUrl(qrUrl);
+        response.setCheckoutUrl(checkoutUrl);
+        return response;
     }
 
     private String formatCurrency(BigDecimal amount) {
@@ -653,5 +637,31 @@ public class PaymentServiceImpl implements PaymentService {
         } catch (Exception e) {
             return amount.longValue() + " VND";
         }
+    }
+
+    @Override
+    @Transactional
+    public PaymentOrderResponse cancelOrder(User user, String orderCode) {
+        if (orderCode == null || orderCode.isBlank()) {
+            throw new ResourceNotFoundException("Mã đơn hàng không được để trống.");
+        }
+        String cleanCode = orderCode.trim();
+        PaymentOrder order = paymentOrderRepository.findByOrderCode(cleanCode)
+                .or(() -> paymentOrderRepository.findByOrderCode("HM" + cleanCode))
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng: " + orderCode));
+
+        if (order.getStatus() != PaymentOrderStatus.PENDING) {
+            throw new IllegalStateException("Chỉ có thể hủy đơn hàng đang ở trạng thái chờ thanh toán (PENDING).");
+        }
+        if (user != null && order.getUser() != null && !order.getUser().getUserId().equals(user.getUserId())) {
+            throw new IllegalArgumentException("Bạn không có quyền thao tác trên đơn hàng này.");
+        }
+
+        order.setStatus(PaymentOrderStatus.REJECTED);
+        order.setAdminNote("Người dùng chủ động hủy đơn hàng.");
+        paymentOrderRepository.save(order);
+        log.info(">> [PaymentService] Đơn hàng {} đã được người dùng hủy thành công.", order.getOrderCode());
+
+        return mapToResponse(order, null, null);
     }
 }

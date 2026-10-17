@@ -20,4 +20,7 @@ public class AdminUserResponse {
     private UserStatus status;
     private LocalDateTime joined;
     private Boolean isEmailVerified;
+    private String authProvider; // "GOOGLE" | "LOCAL"
+    private String avatarUrl;
+    private LocalDateTime lastActiveAt;
 }

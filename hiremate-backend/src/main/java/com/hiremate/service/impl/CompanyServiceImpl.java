@@ -14,6 +14,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -21,6 +27,7 @@ public class CompanyServiceImpl implements CompanyService {
 
     private final CompanyRepository companyRepository;
     private final RecruiterRepository recruiterRepository;
+    private final com.hiremate.repository.JobRepository jobRepository;
     private final com.hiremate.service.FileStorageService fileStorageService;
 
     @Override
@@ -74,6 +81,16 @@ public class CompanyServiceImpl implements CompanyService {
             if (request.getCompanySize() != null) company.setCompanySize(request.getCompanySize());
             if (request.getDescription() != null) company.setDescription(request.getDescription());
             if (request.getIndustry() != null) company.setIndustry(request.getIndustry());
+            if (request.getTaxCode() != null) company.setTaxCode(request.getTaxCode());
+            if (request.getLicenseNumber() != null) company.setLicenseNumber(request.getLicenseNumber());
+            if (request.getLicenseDocUrl() != null) company.setLicenseDocUrl(request.getLicenseDocUrl());
+            if (request.getLicenseDocName() != null) company.setLicenseDocName(request.getLicenseDocName());
+            if (request.getLegalRepresentative() != null) company.setLegalRepresentative(request.getLegalRepresentative());
+            if (request.getTaxCode() != null || request.getLicenseDocUrl() != null) {
+                if (company.getStatus() == null || company.getStatus() != CompanyStatus.VERIFIED) {
+                    company.setStatus(CompanyStatus.PENDING);
+                }
+            }
             company = companyRepository.save(company);
         }
 
@@ -119,6 +136,52 @@ public class CompanyServiceImpl implements CompanyService {
         return mapToResponse(company, null);
     }
 
+    @Override
+    public List<CompanyResponse> getAllCompanies() {
+        List<Company> companies = companyRepository.findAll();
+        if (companies.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<com.hiremate.entity.Job> publishedJobs = jobRepository.findByStatus(com.hiremate.enums.JobStatus.PUBLISHED);
+
+        Map<Long, List<com.hiremate.entity.Job>> companyJobsMap = publishedJobs.stream()
+                .filter(j -> j.getCompany() != null && j.getCompany().getCompanyId() != null)
+                .collect(Collectors.groupingBy(j -> j.getCompany().getCompanyId()));
+
+        return companies.stream()
+                .filter(c -> c.getStatus() == null || c.getStatus() == CompanyStatus.ACTIVE || c.getStatus() == CompanyStatus.VERIFIED)
+                .map(c -> {
+                    List<com.hiremate.entity.Job> cJobs = companyJobsMap.getOrDefault(c.getCompanyId(), Collections.emptyList());
+                    List<String> locations = cJobs.stream()
+                            .map(com.hiremate.entity.Job::getLocation)
+                            .filter(Objects::nonNull)
+                            .map(String::trim)
+                            .filter(s -> !s.isEmpty())
+                            .distinct()
+                            .collect(Collectors.toList());
+
+                    return CompanyResponse.builder()
+                            .companyId(c.getCompanyId())
+                            .recruiterId(c.getRecruiterId())
+                            .companyName(c.getCompanyName())
+                            .logoUrl(c.getLogoUrl())
+                            .website(c.getWebsite())
+                            .address(c.getAddress())
+                            .companySize(c.getCompanySize())
+                            .description(c.getDescription())
+                            .industry(c.getIndustry())
+                            .status(c.getStatus())
+                            .activeJobsCount(cJobs.size())
+                            .locations(locations)
+                            .createdAt(c.getCreatedAt())
+                            .build();
+                })
+                .sorted((a, b) -> Integer.compare(b.getActiveJobsCount() != null ? b.getActiveJobsCount() : 0,
+                                                  a.getActiveJobsCount() != null ? a.getActiveJobsCount() : 0))
+                .collect(Collectors.toList());
+    }
+
     private CompanyResponse mapToResponse(Company c, String recruiterName) {
         return CompanyResponse.builder()
                 .companyId(c.getCompanyId())
@@ -131,6 +194,13 @@ public class CompanyServiceImpl implements CompanyService {
                 .companySize(c.getCompanySize())
                 .description(c.getDescription())
                 .industry(c.getIndustry())
+                .taxCode(c.getTaxCode())
+                .licenseNumber(c.getLicenseNumber())
+                .licenseDocUrl(c.getLicenseDocUrl())
+                .licenseDocName(c.getLicenseDocName())
+                .legalRepresentative(c.getLegalRepresentative())
+                .rejectionReason(c.getRejectionReason())
+                .verifiedAt(c.getVerifiedAt())
                 .status(c.getStatus())
                 .createdAt(c.getCreatedAt())
                 .build();

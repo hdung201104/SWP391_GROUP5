@@ -58,6 +58,26 @@ public class CompanyController {
         return ResponseEntity.ok(ApiResponse.ok("Tải ảnh lên Cloudinary thành công", java.util.Map.of("url", uploadedUrl)));
     }
 
+    @PostMapping(value = "/my/license/upload", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('RECRUITER')")
+    public ResponseEntity<ApiResponse<java.util.Map<String, String>>> uploadBusinessLicense(
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+            @AuthenticationPrincipal User user
+    ) {
+        String uploadedUrl = fileStorageService.storeFile(file, "licenses");
+        String fileName = file.getOriginalFilename() != null ? file.getOriginalFilename() : "business_license.pdf";
+        return ResponseEntity.ok(ApiResponse.ok("Tải giấy phép kinh doanh lên hệ thống thành công", java.util.Map.of(
+                "url", uploadedUrl,
+                "fileName", fileName
+        )));
+    }
+
+    @GetMapping
+    public ResponseEntity<ApiResponse<java.util.List<CompanyResponse>>> getAllCompanies() {
+        java.util.List<CompanyResponse> response = companyService.getAllCompanies();
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<CompanyResponse>> getCompanyById(@PathVariable Long id) {
         CompanyResponse response = companyService.getCompanyById(id);

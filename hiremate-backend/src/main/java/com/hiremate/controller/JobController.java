@@ -85,6 +85,12 @@ public class JobController {
         return ResponseEntity.ok(ApiResponse.ok(job));
     }
 
+    @GetMapping("/company/{companyId}")
+    public ResponseEntity<ApiResponse<List<JobResponse>>> getJobsByCompanyId(@PathVariable Long companyId) {
+        List<JobResponse> jobs = jobService.getPublishedJobsByCompanyId(companyId);
+        return ResponseEntity.ok(ApiResponse.ok("Lấy danh sách việc làm theo công ty thành công", jobs));
+    }
+
     @PostMapping
     @PreAuthorize("hasRole('RECRUITER')")
     public ResponseEntity<ApiResponse<JobResponse>> createJob(
@@ -93,6 +99,16 @@ public class JobController {
     ) {
         JobResponse job = jobService.createJob(request, user);
         return ResponseEntity.ok(ApiResponse.ok("Job posted successfully", job));
+    }
+
+    @PostMapping(value = "/scan-jd", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('RECRUITER')")
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> scanJd(
+            @RequestParam(value = "file", required = false) org.springframework.web.multipart.MultipartFile file,
+            @RequestParam(value = "rawText", required = false) String rawText
+    ) {
+        java.util.Map<String, Object> parsed = jobService.parseJdFile(file, rawText);
+        return ResponseEntity.ok(ApiResponse.ok("Đã quét và bóc tách dữ liệu JD bằng AI thành công", parsed));
     }
 
     @PutMapping("/{id}")
@@ -107,13 +123,13 @@ public class JobController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('RECRUITER')")
-    public ResponseEntity<ApiResponse<Void>> closeJob(
+    @PreAuthorize("hasRole('RECRUITER') or hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> deleteJob(
             @PathVariable Long id,
             @AuthenticationPrincipal User user
     ) {
-        jobService.closeJob(id, user);
-        return ResponseEntity.ok(ApiResponse.ok("Job closed successfully", null));
+        jobService.deleteJob(id, user);
+        return ResponseEntity.ok(ApiResponse.ok("Xóa tin tuyển dụng thành công", null));
     }
 
     @GetMapping("/recruiter/my")

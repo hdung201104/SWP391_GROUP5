@@ -17,4 +17,10 @@ public class CompanyUpdateRequest {
     private String companySize;
     private String description;
     private String industry;
+    private String taxCode;
+    private String licenseNumber;
+    private String licenseDocUrl;
+    private String licenseDocName;
+    private String legalRepresentative;
 }
+

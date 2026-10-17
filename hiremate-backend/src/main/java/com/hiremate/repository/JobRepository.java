@@ -18,28 +18,55 @@ import java.util.List;
 public interface JobRepository extends JpaRepository<Job, Long> {
 
     /** Lấy tất cả jobs của một recruiter (qua Recruiter subclass FK) */
-    @Query("SELECT j FROM Job j LEFT JOIN FETCH j.company LEFT JOIN FETCH j.recruiter WHERE j.recruiter.recruiterId = :recruiterId")
+    @Query("SELECT j FROM Job j " +
+           "LEFT JOIN FETCH j.company " +
+           "LEFT JOIN FETCH j.recruiter r " +
+           "LEFT JOIN FETCH r.user " +
+           "WHERE j.recruiter.recruiterId = :recruiterId ORDER BY j.createdAt DESC")
     List<Job> findByRecruiter_RecruiterId(@Param("recruiterId") Long recruiterId);
 
-    /** Lấy jobs theo status (chỉ lấy tin đã được duyệt APPROVED) */
-    @Query("SELECT j FROM Job j WHERE j.status = :status AND " +
-           "(j.approvalStatus IS NULL OR j.approvalStatus = com.hiremate.enums.JobApprovalStatus.APPROVED)")
+    /** Lấy jobs theo status (chỉ lấy tin đã được duyệt APPROVED và chưa hết hạn) */
+    @Query("SELECT j FROM Job j " +
+           "LEFT JOIN FETCH j.company " +
+           "LEFT JOIN FETCH j.recruiter r " +
+           "LEFT JOIN FETCH r.user " +
+           "WHERE j.status = :status AND " +
+           "(j.approvalStatus IS NULL OR j.approvalStatus = com.hiremate.enums.JobApprovalStatus.APPROVED) AND " +
+           "(j.deadlineDate IS NULL OR j.deadlineDate >= CURRENT_DATE) " +
+           "ORDER BY j.createdAt DESC")
     List<Job> findByStatus(@Param("status") JobStatus status);
 
     /** Lấy jobs theo company */
     List<Job> findByCompany_CompanyId(Long companyId);
 
-    /**
-     * Tìm kiếm jobs PUBLISHED theo keyword và location.
-     * Sử dụng JPQL path traversal qua Recruiter subclass.
-     */
-    @Query("SELECT j FROM Job j WHERE j.status = com.hiremate.enums.JobStatus.PUBLISHED AND " +
+    /** Lấy published & approved jobs theo company (chưa hết hạn) */
+    @Query("SELECT j FROM Job j " +
+           "LEFT JOIN FETCH j.company " +
+           "LEFT JOIN FETCH j.recruiter r " +
+           "LEFT JOIN FETCH r.user " +
+           "WHERE j.company.companyId = :companyId AND j.status = com.hiremate.enums.JobStatus.PUBLISHED AND " +
            "(j.approvalStatus IS NULL OR j.approvalStatus = com.hiremate.enums.JobApprovalStatus.APPROVED) AND " +
+           "(j.deadlineDate IS NULL OR j.deadlineDate >= CURRENT_DATE) " +
+           "ORDER BY j.createdAt DESC")
+    List<Job> findPublishedByCompanyId(@Param("companyId") Long companyId);
+
+    /**
+     * Tìm kiếm jobs PUBLISHED theo keyword và location (chưa hết hạn).
+     * Sử dụng JPQL path traversal qua Recruiter subclass và JOIN FETCH tối ưu.
+     */
+    @Query("SELECT j FROM Job j " +
+           "LEFT JOIN FETCH j.company " +
+           "LEFT JOIN FETCH j.recruiter r " +
+           "LEFT JOIN FETCH r.user " +
+           "WHERE j.status = com.hiremate.enums.JobStatus.PUBLISHED AND " +
+           "(j.approvalStatus IS NULL OR j.approvalStatus = com.hiremate.enums.JobApprovalStatus.APPROVED) AND " +
+           "(j.deadlineDate IS NULL OR j.deadlineDate >= CURRENT_DATE) AND " +
            "(CAST(:keyword AS string) IS NULL OR LOWER(j.title) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
            "   OR LOWER(j.description) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
            "   OR (j.requirements IS NOT NULL AND LOWER(j.requirements) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))) " +
            "   OR (j.company IS NOT NULL AND LOWER(j.company.companyName) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))) AND " +
-           "(CAST(:location AS string) IS NULL OR LOWER(j.location) LIKE LOWER(CONCAT('%', CAST(:location AS string), '%')))")
+           "(CAST(:location AS string) IS NULL OR LOWER(j.location) LIKE LOWER(CONCAT('%', CAST(:location AS string), '%'))) " +
+           "ORDER BY j.createdAt DESC")
     List<Job> searchJobs(@Param("keyword") String keyword, @Param("location") String location);
 
     /** Tìm kiếm phân trang (Pageable) cho published jobs (chỉ lấy tin đã được duyệt APPROVED) */
@@ -112,4 +139,13 @@ public interface JobRepository extends JpaRepository<Job, Long> {
            "AND (j.deadlineDate IS NULL OR j.deadlineDate >= CURRENT_DATE) " +
            "ORDER BY j.createdAt DESC")
     List<Job> findRecentPublishedJobs(org.springframework.data.domain.Pageable pageable);
+
+    /** Tìm các tin đang PUBLISHED nhưng đã quá hạn deadline để tự động đóng vào kho lưu trữ */
+    @Query("SELECT j FROM Job j WHERE j.status = :status AND j.deadlineDate IS NOT NULL AND j.deadlineDate < :currentDate")
+    List<Job> findExpiredActiveJobs(@Param("currentDate") java.time.LocalDate currentDate, @Param("status") JobStatus status);
+
+    /** Đếm số tin tuyển dụng đang hoạt động (không tính tin đã đóng) của một nhà tuyển dụng để kiểm tra hạn ngạch gói */
+    @Query("SELECT COUNT(j) FROM Job j WHERE j.recruiter.recruiterId = :recruiterId AND j.status <> com.hiremate.enums.JobStatus.CLOSED")
+    long countActiveJobsByRecruiterId(@Param("recruiterId") Long recruiterId);
 }
+

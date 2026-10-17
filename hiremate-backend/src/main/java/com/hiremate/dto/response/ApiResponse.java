@@ -19,28 +19,28 @@ public class ApiResponse<T> {
     private LocalDateTime timestamp = LocalDateTime.now();
 
     public static <T> ApiResponse<T> ok(T data) {
-        return ApiResponse.<T>builder()
-                .success(true)
-                .message("Success")
-                .data(data)
-                .timestamp(LocalDateTime.now())
-                .build();
+        ApiResponse<T> res = new ApiResponse<>();
+        res.setSuccess(true);
+        res.setMessage("Success");
+        res.setData(data);
+        res.setTimestamp(LocalDateTime.now());
+        return res;
     }
 
     public static <T> ApiResponse<T> ok(String message, T data) {
-        return ApiResponse.<T>builder()
-                .success(true)
-                .message(message)
-                .data(data)
-                .timestamp(LocalDateTime.now())
-                .build();
+        ApiResponse<T> res = new ApiResponse<>();
+        res.setSuccess(true);
+        res.setMessage(message);
+        res.setData(data);
+        res.setTimestamp(LocalDateTime.now());
+        return res;
     }
 
     public static <T> ApiResponse<T> error(String message) {
-        return ApiResponse.<T>builder()
-                .success(false)
-                .message(message)
-                .timestamp(LocalDateTime.now())
-                .build();
+        ApiResponse<T> res = new ApiResponse<>();
+        res.setSuccess(false);
+        res.setMessage(message);
+        res.setTimestamp(LocalDateTime.now());
+        return res;
     }
 }

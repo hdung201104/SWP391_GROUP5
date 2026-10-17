@@ -28,4 +28,10 @@ public interface InterviewSessionRepository extends JpaRepository<InterviewSessi
 
     /** Lấy tất cả phiên phỏng vấn gắn với một job cụ thể */
     List<InterviewSession> findByJob_JobId(Long jobId);
+
+    /** Đếm tổng số phiên phỏng vấn của một candidate (kiểm tra hạn ngạch tài khoản miễn phí) */
+    long countByCandidate_CandidateId(Long candidateId);
+
+    /** Đếm số phiên phỏng vấn bắt đầu từ một thời điểm (kiểm tra hạn ngạch hàng ngày của gói dịch vụ) */
+    long countByCandidate_CandidateIdAndStartedAtAfter(Long candidateId, java.time.LocalDateTime startedAt);
 }

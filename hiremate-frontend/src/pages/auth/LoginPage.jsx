@@ -1,3 +1,4 @@
+import { HIREMATE_LOGO_URL } from '../../constants/branding';
 import React, { useState } from 'react';
 import { useGoogleLogin } from '@react-oauth/google';
 import { Mail, Lock, Eye, EyeOff, User, Building2, Shield, ArrowRight, ArrowLeft, X, UserPlus, AlertCircle, CheckCircle2, Sparkles } from 'lucide-react';
@@ -23,10 +24,6 @@ export default function LoginPage({ onNavigateRegister, onLoginSuccess }) {
   // Demo Video Modal State
   const [showVideoModal, setShowVideoModal] = useState(false);
 
-  // GitHub Modal State
-  const [showGitHubModal, setShowGitHubModal] = useState(false);
-  const [githubUserInput, setGithubUserInput] = useState('');
-  const [githubNameInput, setGithubNameInput] = useState('');
   // Forgot Password Modal State
   const [showForgotModal, setShowForgotModal] = useState(false);
   const [forgotStep, setForgotStep] = useState(1); // 1: Email, 2: OTP & New Password, 3: Success
@@ -149,14 +146,18 @@ export default function LoginPage({ onNavigateRegister, onLoginSuccess }) {
     }
   };
 
-  const GITHUB_CLIENT_ID = 'Ov23lin7fKu1DTd2VwAB';
+  const GITHUB_CLIENT_ID = import.meta.env.VITE_GITHUB_CLIENT_ID || 'Ov23lin7fKu1DTd2VWAB';
 
   const handleProcessGitHubCode = async (code) => {
     setIsLoading(true);
     setErrorMessage('');
     setSuccessMessage('');
     try {
-      const res = await authApi.githubLogin({ code, role });
+      const res = await authApi.githubLogin({ 
+        code, 
+        role, 
+        redirectUri: window.location.origin 
+      });
       const authData = (res?.data && (res.data.token || res.data.isNewUser !== undefined))
         ? res.data
         : (res?.token ? res : (res?.data || res));
@@ -179,10 +180,14 @@ export default function LoginPage({ onNavigateRegister, onLoginSuccess }) {
       }
 
       // CASE 1: Đã tồn tại -> Đăng nhập ngay
-      setSuccessMessage(`Đăng nhập GitHub thành công! Xin chào ${authData.fullName || authData.email}`);
+      const githubHandle = authData.githubUrl ? authData.githubUrl.replace('https://github.com/', '@') : '';
+      const displayMsg = githubHandle 
+        ? `Đăng nhập GitHub (${githubHandle}) thành công! Đã kết nối với hồ sơ ${authData.email}`
+        : `Đăng nhập GitHub thành công! Xin chào ${authData.fullName || authData.email}`;
+      setSuccessMessage(displayMsg);
       setTimeout(() => {
         if (onLoginSuccess) onLoginSuccess(authData);
-      }, 400);
+      }, 450);
     } catch (err) {
       console.error('GitHub login error:', err);
       const msg = err.response?.data?.message || err.message || 'Lỗi khi xác thực tài khoản GitHub.';
@@ -192,32 +197,37 @@ export default function LoginPage({ onNavigateRegister, onLoginSuccess }) {
     }
   };
 
-  // Trigger Official GitHub OAuth Popup / Window
-  const handleGitHubOAuthLogin = () => {
+  // Trigger Official GitHub OAuth with Account Selection Prompt
+  const handleGitHubLogin = () => {
     setErrorMessage('');
     setSuccessMessage('');
     const redirectUri = window.location.origin;
-    const githubUrl = `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&scope=read:user,user:email&redirect_uri=${encodeURIComponent(redirectUri)}`;
+    // prompt=select_account forces GitHub to show the account picker/switch screen
+    const githubUrl = `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&scope=read:user,user:email&redirect_uri=${encodeURIComponent(redirectUri)}&prompt=select_account`;
     
-    const popup = window.open(githubUrl, 'GitHubOAuth', 'width=580,height=680,left=300,top=100');
+    const popup = window.open(githubUrl, 'GitHubOAuth', 'width=580,height=700,left=300,top=100');
     if (!popup) {
       window.location.href = githubUrl;
     }
   };
 
   React.useEffect(() => {
-    // 1. Kiểm tra nếu URL hiện tại có code (redirect về từ GitHub)
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get('code');
+    // 1. Kiểm tra nếu URL hiện tại có code (redirect về từ GitHub qua search hoặc hash)
+    const searchParams = new URLSearchParams(window.location.search);
+    const hashQuery = window.location.hash.includes('?') ? window.location.hash.split('?')[1] : '';
+    const hashParams = new URLSearchParams(hashQuery);
+    const code = searchParams.get('code') || hashParams.get('code');
+
     if (code) {
-      if (window.opener) {
-        window.opener.postMessage({ type: 'GITHUB_OAUTH_CODE', code }, window.location.origin);
-        window.close();
-        return;
-      } else {
-        window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
-        handleProcessGitHubCode(code);
+      if (window.opener && !window.opener.closed) {
+        try {
+          window.opener.postMessage({ type: 'GITHUB_OAUTH_CODE', code }, window.location.origin);
+          window.close();
+          return;
+        } catch (e) {}
       }
+      window.history.replaceState({}, document.title, window.location.pathname + '#/login');
+      handleProcessGitHubCode(code);
     }
 
     // 2. Lắng nghe thông điệp postMessage từ cửa sổ popup
@@ -231,54 +241,7 @@ export default function LoginPage({ onNavigateRegister, onLoginSuccess }) {
     return () => window.removeEventListener('message', handleMessage);
   }, [role]);
 
-  // Real GitHub Account Submit Fallback
-  const handleCustomGitHubSubmit = async (e) => {
-    if (e) e.preventDefault();
-    const cleanUser = githubUserInput.trim();
-    if (!cleanUser) {
-      setErrorMessage('Vui lòng nhập GitHub username hoặc email của bạn');
-      return;
-    }
-    setIsLoading(true);
-    setShowGitHubModal(false);
-    setErrorMessage('');
-    try {
-      const isEmail = cleanUser.includes('@');
-      const email = isEmail ? cleanUser.toLowerCase() : `${cleanUser.toLowerCase()}@github.com`;
-      const fullName = githubNameInput.trim() || cleanUser;
-      const avatarUrl = isEmail 
-        ? `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(cleanUser)}`
-        : `https://github.com/${cleanUser}.png`;
 
-      const res = await authApi.githubLogin({
-        email: email,
-        fullName: fullName,
-        avatarUrl: avatarUrl,
-        role: role,
-      });
-      const authData = (res?.data && res.data.token) ? res.data : (res?.token ? res : (res?.data || res));
-      if (authData?.isNewUser) {
-        sessionStorage.setItem('hiremate_google_onboarding', JSON.stringify({
-          email: authData.email,
-          fullName: authData.fullName,
-          avatarUrl: authData.avatarUrl,
-          provider: 'GITHUB',
-          githubUrl: authData.githubUrl || (!isEmail ? `https://github.com/${cleanUser}` : undefined),
-          role: role,
-        }));
-        window.location.hash = '#/register-complete';
-        return;
-      }
-      setSuccessMessage(`Đăng nhập GitHub thành công! Xin chào ${authData.fullName || authData.email}`);
-      setTimeout(() => {
-        if (onLoginSuccess) onLoginSuccess(authData);
-      }, 400);
-    } catch (err) {
-      setErrorMessage(err.response?.data?.message || err.message || 'Đăng nhập GitHub không thành công.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   // Forgot Password: Send OTP to Real Email
   const handleForgotSendOtp = async (e) => {
@@ -502,8 +465,8 @@ export default function LoginPage({ onNavigateRegister, onLoginSuccess }) {
               onClick={() => { window.location.hash = '#/'; }}
               className="inline-flex items-center gap-3 group text-left cursor-pointer"
             >
-              <div className="w-11 h-11 rounded-2xl bg-white/10 backdrop-blur-md text-white border border-white/20 shadow-lg flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
-                <span className="material-symbols-outlined text-white text-2xl">psychology</span>
+              <div className="w-11 h-11 rounded-2xl bg-white/10 backdrop-blur-md text-white border border-white/20 shadow-lg flex items-center justify-center group-hover:scale-105 transition-transform duration-300 p-1 overflow-hidden shrink-0">
+                <img src={HIREMATE_LOGO_URL} alt="HireMate AI Logo" className="w-full h-full object-contain rounded-xl drop-shadow" />
               </div>
               <div className="flex items-baseline">
                 <span className="text-2xl font-bold tracking-tight text-white">HireMate</span>
@@ -636,7 +599,7 @@ export default function LoginPage({ onNavigateRegister, onLoginSuccess }) {
 
               <button
                 type="button"
-                onClick={handleGitHubOAuthLogin}
+                onClick={handleGitHubLogin}
                 className="py-2.5 px-4 rounded-full bg-white hover:bg-purple-50/50 border border-purple-100 shadow-sm hover:shadow-md text-[#221d47] text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer group"
               >
                 <svg className="w-4 h-4 fill-[#221d47] group-hover:scale-105 transition-transform" viewBox="0 0 24 24">
@@ -785,80 +748,7 @@ export default function LoginPage({ onNavigateRegister, onLoginSuccess }) {
 
 
 
-      {/* ============================================================
-          GITHUB AUTHENTICATION MODAL (REAL ACCOUNT SIGN-IN)
-      ============================================================ */}
-      {showGitHubModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-md bg-white border border-purple-100 rounded-[28px] p-6 shadow-2xl space-y-4 relative">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <svg className="w-5 h-5 fill-[#221d47]" viewBox="0 0 24 24">
-                  <path clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" fillRule="evenodd" />
-                </svg>
-                <span className="font-bold text-sm text-[#221d47]">Đăng nhập tài khoản GitHub</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowGitHubModal(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 border border-slate-200 flex items-center justify-center text-[#221d47] transition-colors cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
 
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Hệ thống sẽ đồng bộ tài khoản GitHub lập trình viên của bạn với cơ sở dữ liệu thật của HireMate AI:
-            </p>
-
-            <form onSubmit={handleCustomGitHubSubmit} className="space-y-3">
-              <div className="space-y-1">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
-                  GitHub Username hoặc Email
-                </label>
-                <input
-                  type="text"
-                  value={githubUserInput}
-                  onChange={(e) => setGithubUserInput(e.target.value)}
-                  placeholder="Ví dụ: hdung201104 hoặc user@domain.com"
-                  required
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-[#221d47] placeholder:text-slate-400 focus:outline-none focus:border-[#5b48bd] focus:bg-white transition-all font-medium"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
-                  Họ và tên của bạn
-                </label>
-                <input
-                  type="text"
-                  value={githubNameInput}
-                  onChange={(e) => setGithubNameInput(e.target.value)}
-                  placeholder="Họ và tên hiển thị"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-[#221d47] placeholder:text-slate-400 focus:outline-none focus:border-[#5b48bd] focus:bg-white transition-all font-medium"
-                />
-              </div>
-
-              <div className="pt-2 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowGitHubModal(false)}
-                  className="w-1/3 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-600 cursor-pointer"
-                >
-                  Đóng
-                </button>
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-2/3 py-2.5 rounded-xl bg-[#221d47] hover:bg-[#151230] text-white text-xs font-bold shadow-md cursor-pointer flex items-center justify-center gap-1.5"
-                >
-                  {isLoading ? 'Đang đồng bộ...' : 'Đăng Nhập Với GitHub'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* ============================================================
           FORGOT PASSWORD 3-STEP MODAL (REAL EMAIL FLOW)

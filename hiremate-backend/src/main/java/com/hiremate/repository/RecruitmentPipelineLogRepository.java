@@ -9,4 +9,5 @@ import java.util.List;
 @Repository
 public interface RecruitmentPipelineLogRepository extends JpaRepository<RecruitmentPipelineLog, Long> {
     List<RecruitmentPipelineLog> findByApplicationIdOrderByCreatedAtAsc(Long applicationId);
+    void deleteByApplicationIdIn(java.util.Collection<Long> applicationIds);
 }
