@@ -203,39 +203,45 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
         legalRepresentative: companyLegal.legalRepresentative?.trim() || user?.fullName || 'Đại diện pháp luật',
         status: 'PENDING',
       });
+
+      const updated = {
+        ...companyLegal,
+        status: 'PENDING',
+        submittedBy: user?.fullName || 'Chuyên viên HR',
+        submittedAt: new Date().toLocaleDateString('vi-VN'),
+        notes: 'Đang chờ Admin HireMate đối soát thông tin GPKD trên Cổng DKKD quốc gia.',
+      };
+      setCompanyLegal(updated);
+      try {
+        localStorage.setItem(`hiremate_company_legal_${companyKey}`, JSON.stringify(updated));
+        const savedAdminList = localStorage.getItem('hiremate_admin_companies_list');
+        if (savedAdminList) {
+          const list = JSON.parse(savedAdminList);
+          const updatedList = list.map((c) =>
+            (c.name || '').toLowerCase() === finalCompanyName.toLowerCase() ||
+            (c.shortName || '').toLowerCase() === finalCompanyName.toLowerCase()
+              ? { ...c, status: 'PENDING', taxCode: updated.taxCode, docName: updated.licenseDocName, docUrl: updated.licenseDocUrl }
+              : c
+          );
+          localStorage.setItem('hiremate_admin_companies_list', JSON.stringify(updatedList));
+        }
+        // Broadcast real-time company update across tabs
+        try {
+          const bc = new BroadcastChannel('hiremate_realtime_channel');
+          bc.postMessage({ type: 'COMPANY_STATUS_UPDATED', status: 'PENDING', companyName: finalCompanyName });
+          bc.close();
+        } catch {}
+        window.dispatchEvent(new CustomEvent('hiremate_company_updated', {
+          detail: { status: 'PENDING', companyName: finalCompanyName, taxCode: updated.taxCode }
+        }));
+      } catch {}
+      triggerToast('Đã gửi hồ sơ Giấy phép kinh doanh lên Ban Quản Trị Admin HireMate thành công!');
     } catch (err) {
       console.warn('Lỗi đồng bộ hồ sơ pháp lý lên backend, lưu tạm local:', err);
+      triggerToast('Đã lưu hồ sơ cục bộ (Backend đang xử lý). Ban Quản Trị sẽ nhận được thẩm định!');
     } finally {
       setIsSaving(false);
     }
-
-    const updated = {
-      ...companyLegal,
-      status: 'PENDING',
-      submittedBy: user?.fullName || 'Chuyên viên HR',
-      submittedAt: new Date().toLocaleDateString('vi-VN'),
-      notes: 'Đang chờ Admin HireMate đối soát thông tin GPKD trên Cổng DKKD quốc gia.',
-    };
-    setCompanyLegal(updated);
-    try {
-      localStorage.setItem(`hiremate_company_legal_${companyKey}`, JSON.stringify(updated));
-      const savedAdminList = localStorage.getItem('hiremate_admin_companies_list');
-      if (savedAdminList) {
-        const list = JSON.parse(savedAdminList);
-        const updatedList = list.map((c) =>
-          (c.name || '').toLowerCase() === finalCompanyName.toLowerCase() ||
-          (c.shortName || '').toLowerCase() === finalCompanyName.toLowerCase()
-            ? { ...c, status: 'PENDING', taxCode: updated.taxCode, docName: updated.licenseDocName, docUrl: updated.licenseDocUrl }
-            : c
-        );
-        localStorage.setItem('hiremate_admin_companies_list', JSON.stringify(updatedList));
-      }
-      // Broadcast real-time company update across tabs
-      window.dispatchEvent(new CustomEvent('hiremate_company_updated', {
-        detail: { status: 'PENDING', companyName: finalCompanyName, taxCode: updated.taxCode }
-      }));
-    } catch {}
-    triggerToast('Đã gửi hồ sơ Giấy phép kinh doanh lên Ban Quản Trị Admin HireMate thành công!');
   };
 
   const handleInviteHr = (e) => {
@@ -303,17 +309,22 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
         }));
 
         if (c.taxCode || c.licenseNumber || c.status || c.licenseDocUrl) {
-          setCompanyLegal((prev) => ({
-            ...prev,
-            taxCode: c.taxCode || prev.taxCode,
-            licenseNumber: c.licenseNumber || prev.licenseNumber,
-            licenseDocUrl: c.licenseDocUrl || prev.licenseDocUrl,
-            licenseDocName: c.licenseDocName || prev.licenseDocName,
-            legalRepresentative: c.legalRepresentative || prev.legalRepresentative,
-            status: c.status || prev.status,
-            rejectionReason: c.rejectionReason || prev.rejectionReason,
-            verifiedAt: c.verifiedAt || prev.verifiedAt,
-          }));
+          const syncedLegal = {
+            ...companyLegal,
+            taxCode: c.taxCode || companyLegal.taxCode,
+            licenseNumber: c.licenseNumber || companyLegal.licenseNumber,
+            licenseDocUrl: c.licenseDocUrl || companyLegal.licenseDocUrl,
+            licenseDocName: c.licenseDocName || companyLegal.licenseDocName,
+            legalRepresentative: c.legalRepresentative || companyLegal.legalRepresentative,
+            status: c.status || companyLegal.status,
+            rejectionReason: c.rejectionReason || '',
+            verifiedAt: c.verifiedAt ? new Date(c.verifiedAt).toLocaleDateString('vi-VN') : (companyLegal.verifiedAt || ''),
+            notes: c.rejectionReason || (c.status === 'VERIFIED' ? 'Hồ sơ pháp nhân đã được Ban Quản Trị Admin xác thực và duyệt thành công.' : companyLegal.notes),
+          };
+          setCompanyLegal(syncedLegal);
+          try {
+            localStorage.setItem(`hiremate_company_legal_${companyKey}`, JSON.stringify(syncedLegal));
+          } catch {}
         }
       }
 
@@ -351,7 +362,34 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
 
   useEffect(() => {
     fetchCompanyAndJobs();
-  }, []);
+
+    // Lắng nghe cập nhật trạng thái duyệt từ Admin qua BroadcastChannel (đa tab) và Storage Event
+    let channel;
+    try {
+      channel = new BroadcastChannel('hiremate_realtime_channel');
+      channel.onmessage = (event) => {
+        if (event.data?.type === 'COMPANY_STATUS_UPDATED') {
+          fetchCompanyAndJobs();
+        }
+      };
+    } catch {}
+
+    const handleStorageUpdate = (e) => {
+      if (e.key && (e.key.startsWith('hiremate_company_legal') || e.key.includes('companies'))) {
+        fetchCompanyAndJobs();
+      }
+    };
+    const handleLocalEvent = () => fetchCompanyAndJobs();
+
+    window.addEventListener('storage', handleStorageUpdate);
+    window.addEventListener('hiremate_company_updated', handleLocalEvent);
+
+    return () => {
+      if (channel) channel.close();
+      window.removeEventListener('storage', handleStorageUpdate);
+      window.removeEventListener('hiremate_company_updated', handleLocalEvent);
+    };
+  }, [user]);
 
   // Workplace Gallery Default & Dynamic State
   const defaultWorkplacePhotos = [

@@ -30,11 +30,21 @@ public class CompanyServiceImpl implements CompanyService {
     private final com.hiremate.repository.JobRepository jobRepository;
     private final com.hiremate.service.FileStorageService fileStorageService;
 
+    private Recruiter getOrCreateRecruiter(User recruiterUser) {
+        return recruiterRepository.findById(recruiterUser.getUserId()).orElseGet(() -> {
+            Recruiter newRecruiter = Recruiter.builder()
+                    .recruiterId(recruiterUser.getUserId())
+                    .user(recruiterUser)
+                    .position("HR Recruiter")
+                    .build();
+            return recruiterRepository.save(newRecruiter);
+        });
+    }
+
     @Override
     @Transactional
     public CompanyResponse getMyCompany(User recruiterUser) {
-        Recruiter recruiter = recruiterRepository.findById(recruiterUser.getUserId())
-                .orElseThrow(() -> new IllegalStateException("Recruiter profile not found for user: " + recruiterUser.getUserId()));
+        Recruiter recruiter = getOrCreateRecruiter(recruiterUser);
 
         Company company = recruiter.getCompany();
         if (company == null) {
@@ -63,8 +73,7 @@ public class CompanyServiceImpl implements CompanyService {
     @Override
     @Transactional
     public CompanyResponse updateMyCompany(CompanyUpdateRequest request, User recruiterUser) {
-        Recruiter recruiter = recruiterRepository.findById(recruiterUser.getUserId())
-                .orElseThrow(() -> new IllegalStateException("Recruiter profile not found for user: " + recruiterUser.getUserId()));
+        Recruiter recruiter = getOrCreateRecruiter(recruiterUser);
 
         Company company = recruiter.getCompany();
         if (company == null) {
@@ -133,8 +142,7 @@ public class CompanyServiceImpl implements CompanyService {
     @Override
     @Transactional
     public void saveLicenseDoc(User recruiterUser, String docUrl, String docName) {
-        Recruiter recruiter = recruiterRepository.findById(recruiterUser.getUserId()).orElse(null);
-        if (recruiter == null) return;
+        Recruiter recruiter = getOrCreateRecruiter(recruiterUser);
         Company company = recruiter.getCompany();
         if (company == null) {
             company = companyRepository.findByRecruiterId(recruiterUser.getUserId()).orElse(null);
@@ -157,8 +165,7 @@ public class CompanyServiceImpl implements CompanyService {
     @Override
     @Transactional
     public CompanyResponse uploadLogo(org.springframework.web.multipart.MultipartFile file, User recruiterUser) {
-        Recruiter recruiter = recruiterRepository.findById(recruiterUser.getUserId())
-                .orElseThrow(() -> new IllegalStateException("Recruiter profile not found for user: " + recruiterUser.getUserId()));
+        Recruiter recruiter = getOrCreateRecruiter(recruiterUser);
 
         Company company = recruiter.getCompany();
         if (company == null) {

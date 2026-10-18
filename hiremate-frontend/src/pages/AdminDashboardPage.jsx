@@ -770,7 +770,13 @@ export default function AdminDashboardPage({ user, onLogout }) {
   }, []);
 
   // Data states (Đồng bộ trực tiếp 100% từ Supabase PostgreSQL)
-  const [companies, setCompanies] = useState([]);
+  const [companies, setCompanies] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hiremate_admin_companies_list');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return INITIAL_COMPANIES;
+  });
   const [orders, setOrders] = useState([]);
   const [vouchers, setVouchers] = useState(() => getStoredVouchers());
   const [packagesList, setPackagesList] = useState(INITIAL_PACKAGES);
@@ -827,7 +833,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
       }
 
       if (companiesRes.status === 'fulfilled' && companiesRes.value?.data && Array.isArray(companiesRes.value.data) && companiesRes.value.data.length > 0) {
-        setCompanies(companiesRes.value.data.map((c) => ({
+        const mapped = companiesRes.value.data.map((c) => ({
           id: 'CMP-' + c.id,
           rawId: c.id,
           name: c.name,
@@ -847,7 +853,11 @@ export default function AdminDashboardPage({ user, onLogout }) {
           notes: c.notes || 'Hồ sơ doanh nghiệp thực tế từ Supabase PostgreSQL',
           logo: c.name?.slice(0, 3)?.toUpperCase() || 'CMP',
           logoBg: 'bg-[#5b48bd]',
-        })));
+        }));
+        setCompanies(mapped);
+        try {
+          localStorage.setItem('hiremate_admin_companies_list', JSON.stringify(mapped));
+        } catch {}
       }
 
       if (ordersRes.status === 'fulfilled') {
@@ -996,11 +1006,33 @@ export default function AdminDashboardPage({ user, onLogout }) {
     fetchSkillsList();
     fetchSystemSettings();
 
+    let channel;
+    try {
+      channel = new BroadcastChannel('hiremate_realtime_channel');
+      channel.onmessage = (event) => {
+        if (event.data?.type === 'COMPANY_STATUS_UPDATED') {
+          fetchRealData();
+        }
+      };
+    } catch {}
+
+    const handleStorage = (e) => {
+      if (e.key && (e.key.startsWith('hiremate_company_legal') || e.key.includes('companies'))) {
+        fetchRealData();
+      }
+    };
     const handleCompanyUpdate = () => {
       fetchRealData();
     };
+
+    window.addEventListener('storage', handleStorage);
     window.addEventListener('hiremate_company_updated', handleCompanyUpdate);
-    return () => window.removeEventListener('hiremate_company_updated', handleCompanyUpdate);
+
+    return () => {
+      if (channel) channel.close();
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('hiremate_company_updated', handleCompanyUpdate);
+    };
   }, []);
 
   // Interactive UI Modals & Popups
@@ -1521,6 +1553,12 @@ export default function AdminDashboardPage({ user, onLogout }) {
           } catch {}
         }
       }
+      // Broadcast across tabs via BroadcastChannel and CustomEvent
+      try {
+        const bc = new BroadcastChannel('hiremate_realtime_channel');
+        bc.postMessage({ type: 'COMPANY_STATUS_UPDATED', status: 'VERIFIED', companyId: rawId, companyName: compName });
+        bc.close();
+      } catch {}
       window.dispatchEvent(new CustomEvent('hiremate_company_updated', {
         detail: { status: 'VERIFIED', companyId: rawId, companyName: compName }
       }));
@@ -1562,6 +1600,11 @@ export default function AdminDashboardPage({ user, onLogout }) {
           } catch {}
         }
       }
+      try {
+        const bc = new BroadcastChannel('hiremate_realtime_channel');
+        bc.postMessage({ type: 'COMPANY_STATUS_UPDATED', status: 'REJECTED', companyId: rawId, companyName: compName, rejectionReason: rejectionNote });
+        bc.close();
+      } catch {}
       window.dispatchEvent(new CustomEvent('hiremate_company_updated', {
         detail: { status: 'REJECTED', companyId: rawId, companyName: compName, rejectionReason: rejectionNote }
       }));
@@ -3078,23 +3121,23 @@ export default function AdminDashboardPage({ user, onLogout }) {
                         <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-100 space-y-2.5">
                           <div className="flex items-center gap-2 text-emerald-700 font-bold text-xs">
                             <span className="material-symbols-outlined text-base">verified</span>
-                            <span>100% Doanh Nghiệp Đã Hợp Lệ</span>
+                            <span>{verifiedCompanies.length > 0 ? `${verifiedCompanies.length} Doanh Nghiệp Đã Được Phê Duyệt GPKD` : 'Hiện không có hồ sơ nào chờ duyệt'}</span>
                           </div>
                           <div className="space-y-1.5 text-[11px]">
-                            <div className="flex items-center justify-between p-2 rounded-xl bg-white border border-emerald-100">
-                              <div className="flex items-center gap-2">
-                                <span className="w-6 h-6 rounded bg-[#5b48bd] text-white text-[10px] font-bold flex items-center justify-center">FPT</span>
-                                <span className="font-bold text-slate-700">FPT Software</span>
+                            {verifiedCompanies.slice(0, 3).map((comp) => (
+                              <div key={comp.id} className="flex items-center justify-between p-2 rounded-xl bg-white border border-emerald-100">
+                                <div className="flex items-center gap-2">
+                                  <span className={`w-6 h-6 rounded ${comp.logoBg || 'bg-[#5b48bd]'} text-white text-[10px] font-bold flex items-center justify-center`}>
+                                    {comp.logo || comp.shortName?.slice(0, 3)?.toUpperCase() || 'DN'}
+                                  </span>
+                                  <span className="font-bold text-slate-700 truncate max-w-[140px]">{comp.shortName || comp.name}</span>
+                                </div>
+                                <span className="text-emerald-600 font-bold text-[10px]">Đã xác minh GPKD</span>
                               </div>
-                              <span className="text-emerald-600 font-bold text-[10px]">Đã xác minh GPKD</span>
-                            </div>
-                            <div className="flex items-center justify-between p-2 rounded-xl bg-white border border-emerald-100">
-                              <div className="flex items-center gap-2">
-                                <span className="w-6 h-6 rounded bg-[#10b981] text-white text-[10px] font-bold flex items-center justify-center">VNG</span>
-                                <span className="font-bold text-slate-700">VNG Corporation</span>
-                              </div>
-                              <span className="text-emerald-600 font-bold text-[10px]">Đã xác minh GPKD</span>
-                            </div>
+                            ))}
+                            {verifiedCompanies.length === 0 && (
+                              <p className="text-slate-400 text-center py-2">Tất cả hồ sơ pháp lý doanh nghiệp đã được xử lý.</p>
+                            )}
                           </div>
                         </div>
                       )}

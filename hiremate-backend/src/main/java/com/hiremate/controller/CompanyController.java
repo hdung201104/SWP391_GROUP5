@@ -79,7 +79,7 @@ public class CompanyController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/{id:[0-9]+}")
     public ResponseEntity<ApiResponse<CompanyResponse>> getCompanyById(@PathVariable Long id) {
         CompanyResponse response = companyService.getCompanyById(id);
         return ResponseEntity.ok(ApiResponse.ok(response));
