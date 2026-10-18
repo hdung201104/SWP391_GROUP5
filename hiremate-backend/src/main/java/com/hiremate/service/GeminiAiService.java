@@ -90,5 +90,19 @@ public interface GeminiAiService {
      * Bóc tách và phân tích bản mô tả công việc (JD) tự động từ ảnh chụp màn hình / ảnh chụp văn bản (Multimodal Vision OCR).
      */
     java.util.Map<String, Object> parseJobDescriptionImage(byte[] imageBytes, String mimeType);
+
+    /**
+     * Đối soát chuyên sâu bằng Gemini AI giữa Hồ sơ CV thực tế của Ứng viên và Bài tuyển dụng (JD).
+     * Phân tích rõ: Điểm tương thích, Năng lực phù hợp (kèm bằng chứng CV), Điểm yếu chưa phù hợp (lỗ hổng),
+     * Nhận định chuyên gia và Bộ câu hỏi phỏng vấn thực tế.
+     */
+    com.hiremate.dto.response.AiDetailedEvaluationReport evaluateCandidateCvAgainstJob(
+            String jobTitle,
+            String jobRequirements,
+            String jobDescription,
+            String candidateName,
+            String cvText,
+            String candidateProfileInfo
+    );
 }
 

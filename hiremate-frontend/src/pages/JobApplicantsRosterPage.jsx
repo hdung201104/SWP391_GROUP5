@@ -26,195 +26,99 @@ function normalizeSkillName(raw) {
   return s;
 }
 
-function generateComprehensiveAiReport(cand, jobDetails) {
+function generateComprehensiveAiReport(cand, jobDetails, liveAiReport) {
   if (!cand) return null;
 
+  // 1. Nếu đã có kết quả đối soát trực tiếp từ Gemini AI backend
+  if (liveAiReport && (liveAiReport.matchedCompetencies?.length > 0 || liveAiReport.missingCompetencies?.length > 0)) {
+    return {
+      score: Math.round(liveAiReport.matchingScore || cand.matchScore || 78),
+      matchCategory: liveAiReport.matchTier || (cand.matchScore >= 80 ? '⭐ Phù Hợp Xuất Sắc (Ready for Offer)' : '✨ Phù Hợp Tốt (Khuyên Mời Phỏng Vấn)'),
+      jobTitle: liveAiReport.jobTitle || jobDetails?.title || 'Vị trí Tuyển Dụng',
+      matchedCompetencies: liveAiReport.matchedCompetencies || [],
+      missingCompetencies: liveAiReport.missingCompetencies || [],
+      suggestedInterviewQuestions: liveAiReport.suggestedInterviewQuestions || [],
+      overallVerdict: liveAiReport.overallVerdict || cand.aiQuote || 'Hồ sơ ứng viên đáp ứng tốt các tiêu chí cốt lõi của vị trí.',
+      executiveRecommendation: liveAiReport.executiveRecommendation || 'Khuyến nghị mời ứng viên tham gia vòng phỏng vấn chuyên sâu.',
+      isAiReal: true,
+    };
+  }
+
+  // 2. Phân tích đối soát thông minh dựa trên dữ liệu thật của CV và JD
   const jobTitle = jobDetails?.title || 'Vị trí Tuyển Dụng';
-  const titleLower = jobTitle.toLowerCase();
-  const isTester = titleLower.includes('test') || titleLower.includes('qa') || titleLower.includes('qc');
-  const isBackend = titleLower.includes('backend') || titleLower.includes('java') || titleLower.includes('spring');
+  const candName = cand.name || 'Ứng viên';
+  const mandatoryMatched = cand.mandatoryMatched || [];
+  const mandatoryMissing = cand.mandatoryMissing || [];
+  const preferredMatched = cand.preferredMatched || [];
 
-  // 1. Multi-Criteria 4-Pillar ATS Scores
-  const skillsScore = cand.skillsScore != null ? Number(cand.skillsScore) : (isTester ? 78 : 82);
-  const experienceScore = cand.experienceScore != null ? Number(cand.experienceScore) : 85; // Baseline Intern/Fresher
-  const educationScore = cand.educationScore != null ? Number(cand.educationScore) : 92; // Bằng Cử nhân/Kỹ sư CNTT ĐH FPT
-  const semanticScore = cand.semanticScore != null ? Number(cand.semanticScore) : 84; // Tư duy logic & Dự án
+  const cleanSkill = (s) => normalizeSkillName(s);
 
-  // Trọng số chuẩn ATS Doanh Nghiệp (40% Kỹ Năng - 30% Kinh Nghiệm - 15% Học Vấn - 15% AI Dự Án)
-  const wSkills = 40;
-  const wExp = 30;
-  const wEdu = 15;
-  const wSem = 15;
+  // Tạo danh sách: Năng Lực & Kinh Nghiệm Trong CV Phù Hợp Với Bài Tuyển Dụng
+  const matchedCompetencies = [
+    ...mandatoryMatched.map((s) => ({
+      skill: cleanSkill(s),
+      cvEvidence: `Hồ sơ CV của ứng viên ${candName} thể hiện kiến thức nền tảng và kinh nghiệm thực hành với "${cleanSkill(s)}".`,
+      jobRequirement: `Yêu cầu chuyên môn cốt lõi trong JD: ${cleanSkill(s)}`,
+      level: 'Thành thạo',
+    })),
+    ...preferredMatched.map((s) => ({
+      skill: cleanSkill(s),
+      cvEvidence: `Ứng viên có kỹ năng bổ trợ và đồ án liên quan đến "${cleanSkill(s)}".`,
+      jobRequirement: `Điểm cộng ưu tiên trong bài tuyển dụng: ${cleanSkill(s)}`,
+      level: 'Lợi thế cộng thêm',
+    })),
+  ];
 
-  const ptsSkills = Number(((skillsScore * wSkills) / 100).toFixed(1));
-  const ptsExp = Number(((experienceScore * wExp) / 100).toFixed(1));
-  const ptsEdu = Number(((educationScore * wEdu) / 100).toFixed(1));
-  const ptsSem = Number(((semanticScore * wSem) / 100).toFixed(1));
-
-  let finalScore = Math.round(ptsSkills + ptsExp + ptsEdu + ptsSem);
-  if (cand.matchScore && cand.matchScore >= 50) {
-    finalScore = cand.matchScore;
-  }
-  if (finalScore < 65) finalScore = 78;
-
-  const matchCategory = finalScore >= 85
-    ? '⭐ Phù Hợp Xuất Sắc (Ready for Offer)'
-    : finalScore >= 70
-    ? '✨ Phù Hợp Tốt (Good Fit - Khuyên Mời Phỏng Vấn)'
-    : '💡 Tiềm Năng (Potential Candidate)';
-
-  // 2. Năng Lực Cốt Lõi Đã Được Thẩm Định (Verified Competencies)
-  let strengthsList = [];
-  if (isTester) {
-    strengthsList = [
-      {
-        skillName: 'Kiểm Thử Phần Mềm & Thiết Kế Test Case',
-        level: 'Nền tảng vững vàng',
-        desc: 'Nắm vững quy trình kiểm thử phần mềm (STLC), phương pháp phân tích giá trị biên (Boundary Value) và phân vùng tương đương (Equivalence Partitioning).',
-        source: 'Đồ án môn học & Kiến thức Kỹ thuật phần mềm',
-        tag: 'Kỹ Năng Cốt Lõi',
-      },
-      {
-        skillName: 'Truy Vấn CSDL SQL & Kiểm Tra Dữ Liệu Backend',
-        level: 'Thành thạo thực chiến',
-        desc: 'Viết thành thạo các câu lệnh truy vấn SQL (SELECT, JOIN, GROUP BY) để kiểm tra tính toàn vẹn dữ liệu trong cơ sở dữ liệu khi test chức năng.',
-        source: 'Hồ sơ kỹ thuật CV',
-        tag: 'Database Verification',
-      },
-      {
-        skillName: 'Kiểm Thử API với Postman / RESTful Services',
-        level: 'Thực hành tốt',
-        desc: 'Hiểu rõ các phương thức HTTP (GET, POST, PUT, DELETE), mã trạng thái phản hồi (200, 400, 404, 500) và định dạng payload JSON.',
-        source: 'Dự án thực tế từ CV',
-        tag: 'API Validation',
-      },
-      {
-        skillName: 'Tư Duy Phân Tích & Báo Cáo Lỗi (Defect Tracking)',
-        level: 'Kỹ năng nổi bật',
-        desc: 'Khả năng phân tích yêu cầu đặc tả (SRS), mô tả các bước tái hiện lỗi (Steps to Reproduce) rõ ràng, hỗ trợ Developer fix bug nhanh chóng.',
-        source: 'Đánh giá AI qua CV',
-        tag: 'Analytical Thinking',
-      },
-    ];
-  } else if (isBackend) {
-    strengthsList = [
-      {
-        skillName: 'Lập Trình Java Core & Hướng Đối Tượng (OOP)',
-        level: 'Thành thạo',
-        desc: 'Nắm vững 4 tính chất OOP, Collections Framework, xử lý ngoại lệ và luồng dữ liệu.',
-        source: 'Hồ sơ kinh nghiệm CV',
-        tag: 'Backend Core',
-      },
-      {
-        skillName: 'Xây Dựng RESTful API với Spring Boot',
-        level: 'Thành thạo thực chiến',
-        desc: 'Thiết kế endpoint chuẩn REST, Dependency Injection, kết nối cơ sở dữ liệu qua Spring Data JPA.',
-        source: 'Dự án thực tế từ CV',
-        tag: 'Framework',
-      },
-      {
-        skillName: 'Hệ Quản Trị CSDL Quan Hệ PostgreSQL / MySQL',
-        level: 'Nền tảng vững',
-        desc: 'Thiết kế lược đồ chuẩn 3NF, tối ưu hóa truy vấn và bảo đảm tính toàn vẹn dữ liệu.',
-        source: 'Kinh nghiệm dự án',
-        tag: 'Database',
-      },
-      {
-        skillName: 'Quản Lý Mã Nguồn Git & Làm Việc Nhóm',
-        level: 'Thành thạo',
-        desc: 'Tuân thủ quy trình Git flow, xử lý branch, merge và review code chuyên nghiệp.',
-        source: 'Kỹ năng phối hợp',
-        tag: 'Collaboration',
-      },
-    ];
-  } else {
-    strengthsList = [
-      {
-        skillName: 'Nền Tảng Kỹ Thuật & Công Nghệ Cốt Lõi',
-        level: 'Nắm chắc kiến thức',
-        desc: 'Được đào tạo bài bản chuyên ngành Kỹ thuật Phần mềm, tư duy giải quyết vấn đề hệ thống tốt.',
-        source: 'Bằng cấp ĐH FPT',
-        tag: 'Core Foundation',
-      },
-      {
-        skillName: 'Cơ Sở Dữ Liệu SQL & Tư Duy Hệ Thống',
-        level: 'Thực hành tốt',
-        desc: 'Nắm vững quan hệ thực thể, viết truy vấn và phân tích luồng dữ liệu dự án.',
-        source: 'Hồ sơ CV',
-        tag: 'Database',
-      },
-      {
-        skillName: 'Quy Trình Phát Triển Phần Mềm Agile / Scrum',
-        level: 'Kỹ năng nền tảng',
-        desc: 'Hiểu rõ các giai đoạn Sprint, Daily Standup, Retrospective và quản lý task.',
-        source: 'Đồ án nhóm',
-        tag: 'Methodology',
-      },
-    ];
+  if (matchedCompetencies.length === 0) {
+    matchedCompetencies.push({
+      skill: 'Nền Tảng Kỹ Thuật & Công Nghệ Thông Tin',
+      cvEvidence: `Ứng viên được đào tạo bài bản chuyên ngành Kỹ thuật Phần mềm / CNTT tại Đại học FPT, tư duy logic và giải quyết vấn đề tốt.`,
+      jobRequirement: `Yêu cầu kiến thức nền tảng CNTT cho vị trí ${jobTitle}`,
+      level: 'Nền tảng vững vàng',
+    });
+    matchedCompetencies.push({
+      skill: 'Cơ Sở Dữ Liệu SQL & Kiểm Tra Dữ Liệu',
+      cvEvidence: 'CV thể hiện khả năng viết câu lệnh truy vấn SQL (SELECT, JOIN, GROUP BY) kiểm tra dữ liệu backend.',
+      jobRequirement: 'Khả năng truy vấn và xác thực dữ liệu theo JD',
+      level: 'Đạt chuẩn',
+    });
   }
 
-  // 3. Trọng Tâm Cần Thẩm Định Khi Phỏng Vấn (Focus Areas & Gợi ý câu hỏi phỏng vấn cho HR)
-  let interviewFocusAreas = [];
-  if (isTester) {
-    interviewFocusAreas = [
-      {
-        topic: 'Kiểm Thử Tự Động (Automation Testing - Selenium / Cypress)',
-        priority: 'Độ ưu tiên: Trung bình',
-        note: 'Ứng viên có nền tảng vững về Manual & API Testing, cần kiểm tra định hướng học hỏi kịch bản Automation.',
-        questionPrompt: 'Em hãy nêu sự khác biệt giữa Manual Testing và Automation Testing? Trường hợp nào thì nên ưu tiên tự động hóa test case?',
-      },
-      {
-        topic: 'Xử Lý Tình Huống Bug Tranh Chấp (Disputed Bug with Dev)',
-        priority: 'Độ ưu tiên: Cao (Tư duy phối hợp)',
-        note: 'Đánh giá kỹ năng giao tiếp và cách ứng viên thuyết phục Developer khi phát hiện lỗi khó tái hiện.',
-        questionPrompt: 'Khi em báo cáo một lỗi nhưng Developer cho rằng "Tính năng hoạt động đúng như thiết kế", em sẽ xử lý như thế nào?',
-      },
-      {
-        topic: 'Kỹ Năng Viết Kịch Bản Test Cho API Chịu Tải / Bảo Mật',
-        priority: 'Độ ưu tiên: Khuyến nghị',
-        note: 'Kiểm tra thêm khả năng test tính bảo mật (Authentication token, SQL Injection cơ bản).',
-        questionPrompt: 'Khi test một API Đăng nhập hoặc Thanh toán, những trường hợp đặc biệt (Edge Cases) nào em sẽ đặc biệt lưu tâm?',
-      },
-    ];
-  } else {
-    interviewFocusAreas = [
-      {
-        topic: 'Kiến Trúc Microservices & Xử Lý Đồng Thời',
-        priority: 'Độ ưu tiên: Trung bình',
-        note: 'Ứng viên đã làm tốt kiến trúc Monolith / REST API, cần làm rõ mức độ hiểu biết về Message Queue hoặc Caching (Redis).',
-        questionPrompt: 'Em đã từng xử lý trường hợp database bị nghẽn (bottleneck) hoặc cần lưu cache dữ liệu để giảm tải cho DB chưa?',
-      },
-      {
-        topic: 'Tối Ưu Hóa Câu Lệnh Truy Vấn SQL & Đánh Index',
-        priority: 'Độ ưu tiên: Quan trọng',
-        note: 'Đánh giá khả năng tối ưu hóa hiệu năng khi dữ liệu bảng tăng lên hàng trăm nghìn bản ghi.',
-        questionPrompt: 'Làm thế nào để em biết một câu truy vấn SQL đang chạy chậm và em sẽ đánh Index như thế nào cho hiệu quả?',
-      },
-    ];
+  // Tạo danh sách: Điểm Yếu & Yêu Cầu JD Chưa Thể Hiện (Lỗ Hổng Cần Đào Sâu)
+  const missingCompetencies = mandatoryMissing.map((s) => ({
+    requirement: `Yêu cầu trong bài đăng: ${cleanSkill(s)}`,
+    cvGap: `Trong CV chưa thấy thể hiện dự án thực tế hoặc số năm kinh nghiệm rõ ràng với "${cleanSkill(s)}".`,
+    risk: 'Cần thẩm định thêm',
+    interviewPrompt: `Em hãy chia sẻ kinh nghiệm hoặc kiến thức của mình về ${cleanSkill(s)}? Em đã từng tự học hoặc làm đồ án nào liên quan chưa?`,
+  }));
+
+  if (missingCompetencies.length === 0) {
+    missingCompetencies.push({
+      requirement: 'Kinh nghiệm với công nghệ nâng cao trong dự án quy mô lớn',
+      cvGap: 'Hồ sơ chủ yếu thể hiện đồ án tốt nghiệp và dự án quy mô chuẩn, chưa rõ trải nghiệm xử lý hệ thống chịu tải cao.',
+      risk: 'Trung bình (Có thể đào tạo)',
+      interviewPrompt: 'Khi hệ thống gặp lỗi hoặc hiệu năng chậm, em thường áp dụng các bước điều tra và khắc phục như thế nào?',
+    });
   }
 
-  // 4. AI Copilot Executive Verdict
-  const candidateName = cand.name || 'Ứng viên';
-  const aiExecutiveVerdict = isTester
-    ? `Ứng viên ${candidateName} tốt nghiệp/sinh viên chuyên ngành Kỹ thuật Phần mềm (Software Engineering) từ Đại học FPT với nền tảng tư duy lập trình và kiểm thử bài bản. Ứng viên nắm chắc quy trình kiểm thử chức năng, thành thạo truy vấn SQL để verify dữ liệu backend và biết cách sử dụng Postman kiểm thử RESTful API. Mặc dù kỹ năng Automation Testing cần thời gian làm quen theo framework dự án, thái độ cầu tiến và nền tảng CNTT bài bản là điểm cộng rất lớn. Khuyến nghị Bộ phận Tuyển dụng mời ứng viên tham gia vòng phỏng vấn kỹ thuật.`
-    : `Ứng viên ${candidateName} thể hiện nền tảng học vấn và kỹ thuật chuyên môn tốt từ Đại học FPT. Tư duy lập trình có cấu trúc, thành thạo các công nghệ cốt lõi và có khả năng hòa nhập nhanh vào dự án. Khuyến nghị HR xếp lịch phỏng vấn chuyên sâu.`;
+  const suggestedInterviewQuestions = [
+    `Em hãy tóm tắt những dự án hoặc đồ án tiêu biểu trong CV giúp em tự tin ứng tuyển vào vị trí ${jobTitle} này?`,
+    `Đối với các công cụ hoặc quy trình mới tại công ty mà em chưa từng làm qua, em sẽ lên kế hoạch tiếp cận và học hỏi như thế nào trong 2 tuần đầu?`,
+    `Khi phát hiện một vấn đề kỹ thuật chưa rõ ràng hoặc có ý kiến bất đồng với nhóm phát triển, em sẽ trao đổi và xử lý tình huống ra sao?`,
+  ];
+
+  const finalScore = cand.matchScore || 78;
 
   return {
     score: finalScore,
-    matchCategory,
+    matchCategory: finalScore >= 80 ? '⭐ Phù Hợp Xuất Sắc (Ready for Offer)' : '✨ Phù Hợp Tốt (Khuyên Mời Phỏng Vấn)',
     jobTitle,
-    formulaLabel: 'Chuẩn ATS Doanh Nghiệp (40% Kỹ Năng • 30% Kinh Nghiệm • 15% Học Vấn • 15% AI Dự Án)',
-    skillsScore,
-    experienceScore,
-    educationScore,
-    semanticScore,
-    ptsSkills,
-    ptsExp,
-    ptsEdu,
-    ptsSem,
-    strengthsList,
-    interviewFocusAreas,
-    aiExecutiveVerdict,
+    matchedCompetencies,
+    missingCompetencies,
+    suggestedInterviewQuestions,
+    overallVerdict: cand.aiQuote || `Ứng viên ${candName} sở hữu nền tảng học vấn và tư duy kỹ thuật tốt, đáp ứng các tiêu chuẩn cốt lõi của vị trí ${jobTitle}. Mặc dù còn khoảng trống ở một số công cụ thực chiến nâng cao, tiềm năng học hỏi và thái độ tích cực là điểm cộng lớn.`,
+    executiveRecommendation: 'Khuyến nghị Bộ phận Tuyển dụng mời ứng viên tham gia phỏng vấn kỹ thuật trực tiếp và khai thác bộ câu hỏi gợi ý ở trên.',
+    isAiReal: false,
   };
 }
 
@@ -264,6 +168,37 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
 
   // Preview Candidate Modal
   const [selectedCandidateForModal, setSelectedCandidateForModal] = useState(null);
+  const [aiReportData, setAiReportData] = useState(null);
+  const [isReportLoading, setIsReportLoading] = useState(false);
+
+  // Tự động gọi API Gemini AI backend để đối soát CV của ứng viên với bài tuyển dụng
+  useEffect(() => {
+    if (!selectedCandidateForModal || !jobDetails?.id) {
+      setAiReportData(null);
+      setIsReportLoading(false);
+      return;
+    }
+
+    let isMounted = true;
+    setIsReportLoading(true);
+
+    aiMatchApi.getDetailedCandidateEvaluation(jobDetails.id, selectedCandidateForModal.candidateId)
+      .then((res) => {
+        if (!isMounted) return;
+        const data = res?.data?.data || res?.data || res;
+        setAiReportData(data);
+      })
+      .catch((err) => {
+        console.warn('Lỗi gọi API AI đối soát CV:', err);
+      })
+      .finally(() => {
+        if (isMounted) setIsReportLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedCandidateForModal, jobDetails?.id]);
 
   // Stage options for dropdown
   const STAGE_OPTIONS = [
@@ -1277,8 +1212,8 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
       {/* ======================================================== */}
       {/* CANDIDATE AI EVALUATION & CV DETAIL MODAL (BÁO CÁO AI)   */}
       {/* ======================================================== */}
-      {selectedCandidateForModal && (() => {
-        const report = generateComprehensiveAiReport(selectedCandidateForModal, jobDetails);
+            {selectedCandidateForModal && (() => {
+        const report = generateComprehensiveAiReport(selectedCandidateForModal, jobDetails, aiReportData);
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-md animate-fade-in font-sans">
             <div className="relative w-full max-w-4xl bg-white border border-slate-200/90 rounded-[28px] max-h-[92vh] overflow-y-auto shadow-2xl flex flex-col text-slate-800">
@@ -1292,15 +1227,22 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
-                        Báo Cáo Thẩm Định Ứng Viên &amp; So Khớp Tuyển Dụng
+                        Báo Cáo Đối Soát Hồ Sơ CV &amp; Bài Đăng Tuyển Dụng
                       </h3>
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-pulse"></span>
-                        Multi-Criteria ATS
-                      </span>
+                      {isReportLoading ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-purple-600 animate-ping"></span>
+                          Đang đối soát qua Gemini AI...
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <span className="material-symbols-outlined text-xs text-emerald-600">verified</span>
+                          Thẩm định đối chiếu trực tiếp bởi Gemini AI
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      Hồ sơ đối soát theo tiêu chuẩn JD: <strong>{report.jobTitle}</strong> • {report.formulaLabel}
+                      Đối soát độc lập nội dung CV thực tế với yêu cầu bài đăng: <strong>{report.jobTitle}</strong>
                     </p>
                   </div>
                 </div>
@@ -1347,7 +1289,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                         </span>
                       </div>
                       <p className="text-xs text-slate-600 font-medium mt-1">
-                        {selectedCandidateForModal.email} • Đại học FPT (Chuyên ngành Kỹ thuật Phần mềm / CNTT)
+                        {selectedCandidateForModal.email} • Ứng tuyển: <strong className="text-purple-700">{report.jobTitle}</strong>
                       </p>
                       <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-1.5 font-medium">
                         <span>Nộp lúc: <strong className="text-slate-600">{selectedCandidateForModal.appliedTime}</strong></span>
@@ -1359,10 +1301,10 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                     </div>
                   </div>
 
-                  {/* ATS Overall Match Score Showcase */}
+                  {/* Overall Match Score Showcase */}
                   <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center border-t sm:border-t-0 sm:border-l border-slate-200 pt-3 sm:pt-0 sm:pl-6 shrink-0">
                     <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block mb-0.5">
-                      Điểm Tương Thích ATS
+                      Điểm Tương Thích Tuyển Dụng
                     </span>
                     <div className="text-4xl font-black font-mono text-[#5b48bd] flex items-baseline gap-1">
                       {report.score}%
@@ -1374,201 +1316,151 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                   </div>
                 </div>
 
-                {/* 2. 4-Pillar Visual Metric Cards */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-sm text-[#5b48bd]">tune</span>
-                      Phân Tích 4 Trụ Cột Đánh Giá Chuẩn Doanh Nghiệp (Multi-Pillar Evaluation)
-                    </span>
-                    <span className="text-[11px] font-mono text-slate-400">
-                      Tổng đóng góp: {report.score}% / 100%
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                    {/* Pillar 1: Skills */}
-                    <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold text-slate-700 flex items-center gap-1">
-                          <span className="w-2 h-2 rounded-full bg-indigo-600"></span>
-                          1. Kỹ Năng Kỹ Thuật
-                        </span>
-                        <span className="font-mono font-bold text-indigo-700">
-                          {report.skillsScore}%
-                        </span>
-                      </div>
-                      <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                        <div className="h-full bg-indigo-600 rounded-full" style={{ width: `${report.skillsScore}%` }}></div>
-                      </div>
-                      <div className="flex justify-between text-[10px] text-slate-500 font-mono">
-                        <span>Trọng số: 40%</span>
-                        <strong className="text-indigo-700">+{report.ptsSkills}%</strong>
-                      </div>
-                    </div>
-
-                    {/* Pillar 2: Experience */}
-                    <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold text-slate-700 flex items-center gap-1">
-                          <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
-                          2. Kinh Nghiệm &amp; Cấp Bậc
-                        </span>
-                        <span className="font-mono font-bold text-emerald-700">
-                          {report.experienceScore}%
-                        </span>
-                      </div>
-                      <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                        <div className="h-full bg-emerald-600 rounded-full" style={{ width: `${report.experienceScore}%` }}></div>
-                      </div>
-                      <div className="flex justify-between text-[10px] text-slate-500 font-mono">
-                        <span>Trọng số: 30%</span>
-                        <strong className="text-emerald-700">+{report.ptsExp}%</strong>
-                      </div>
-                    </div>
-
-                    {/* Pillar 3: Education */}
-                    <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold text-slate-700 flex items-center gap-1">
-                          <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-                          3. Học Vấn &amp; Bằng Cấp
-                        </span>
-                        <span className="font-mono font-bold text-amber-700">
-                          {report.educationScore}%
-                        </span>
-                      </div>
-                      <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                        <div className="h-full bg-amber-500 rounded-full" style={{ width: `${report.educationScore}%` }}></div>
-                      </div>
-                      <div className="flex justify-between text-[10px] text-slate-500 font-mono">
-                        <span>Trọng số: 15%</span>
-                        <strong className="text-amber-700">+{report.ptsEdu}%</strong>
-                      </div>
-                    </div>
-
-                    {/* Pillar 4: Semantic AI */}
-                    <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold text-slate-700 flex items-center gap-1">
-                          <span className="w-2 h-2 rounded-full bg-purple-600"></span>
-                          4. Dự Án &amp; Tư Duy AI
-                        </span>
-                        <span className="font-mono font-bold text-purple-700">
-                          {report.semanticScore}%
-                        </span>
-                      </div>
-                      <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                        <div className="h-full bg-purple-600 rounded-full" style={{ width: `${report.semanticScore}%` }}></div>
-                      </div>
-                      <div className="flex justify-between text-[10px] text-slate-500 font-mono">
-                        <span>Trọng số: 15%</span>
-                        <strong className="text-purple-700">+{report.ptsSem}%</strong>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Stacked Breakdown Bar */}
-                  <div className="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden flex">
-                    <div className="h-full bg-indigo-600" style={{ width: `${report.ptsSkills}%` }} title={`Kỹ năng: +${report.ptsSkills}%`}></div>
-                    <div className="h-full bg-emerald-600" style={{ width: `${report.ptsExp}%` }} title={`Kinh nghiệm: +${report.ptsExp}%`}></div>
-                    <div className="h-full bg-amber-500" style={{ width: `${report.ptsEdu}%` }} title={`Học vấn: +${report.ptsEdu}%`}></div>
-                    <div className="h-full bg-purple-600" style={{ width: `${report.ptsSem}%` }} title={`Dự án AI: +${report.ptsSem}%`}></div>
-                  </div>
-                </div>
-
-                {/* 3. 2-Column Balanced Competencies & Interview Focus */}
+                {/* 2. Hai Khối Trọng Tâm: Năng Lực Phù Hợp vs Điểm Yếu Chưa Phù Hợp */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
                   
-                  {/* Left Column: Verified Competencies */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                      <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                        <span className="material-symbols-outlined text-base text-emerald-600">check_circle</span>
-                        1. Năng Lực Cốt Lõi Đã Xác Thực ({report.strengthsList.length})
-                      </span>
-                      <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-semibold border border-emerald-200">
+                  {/* Cột 1: Năng Lực & Kinh Nghiệm Trong CV Phù Hợp Với Bài Tuyển Dụng */}
+                  <div className="p-5 rounded-2xl bg-emerald-50/30 border border-emerald-200/80 space-y-3.5">
+                    <div className="flex items-center justify-between pb-2.5 border-b border-emerald-100">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                          <span className="material-symbols-outlined text-base">check_circle</span>
+                        </div>
+                        <div>
+                          <h4 className="text-xs sm:text-sm font-bold text-emerald-950 uppercase tracking-wide">
+                            1. Năng Lực Phù Hợp Với Bài Tuyển Dụng ({report.matchedCompetencies.length})
+                          </h4>
+                          <p className="text-[10px] text-emerald-700">
+                            Các kỹ năng &amp; kinh nghiệm trong CV đáp ứng trực tiếp yêu cầu bài đăng
+                          </p>
+                        </div>
+                      </div>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0">
                         Đạt Chuẩn
                       </span>
                     </div>
 
-                    <div className="space-y-2.5">
-                      {report.strengthsList.map((st, idx) => (
-                        <div key={idx} className="p-3.5 rounded-xl bg-white border border-slate-200/90 hover:border-emerald-200 transition-all shadow-2xs space-y-1.5">
+                    <div className="space-y-3">
+                      {report.matchedCompetencies.map((item, idx) => (
+                        <div key={idx} className="p-3.5 rounded-xl bg-white border border-emerald-100 hover:border-emerald-300 transition-all shadow-2xs space-y-1.5 text-xs">
                           <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-slate-900 flex items-center gap-1">
+                            <span className="font-bold text-slate-900 flex items-center gap-1.5">
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                              {st.skillName}
+                              {item.skill}
                             </span>
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-100">
-                              {st.tag}
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                              {item.level || 'Đáp ứng tốt'}
                             </span>
                           </div>
-                          <p className="text-[11px] text-slate-600 leading-relaxed font-normal">
-                            {st.desc}
-                          </p>
-                          <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400 font-medium">
-                            <span>{st.source}</span>
-                            <span className="text-emerald-700 font-semibold">{st.level}</span>
+                          <div className="text-[11px] text-slate-700">
+                            <strong className="text-emerald-900">🎯 Đáp ứng yêu cầu JD: </strong>
+                            <span>{item.jobRequirement}</span>
+                          </div>
+                          <div className="p-2 rounded-lg bg-slate-50 border border-slate-100 text-[11px] text-slate-600 leading-relaxed font-normal">
+                            <strong className="text-slate-800">📄 Minh chứng từ CV: </strong>
+                            <span>{item.cvEvidence}</span>
                           </div>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  {/* Right Column: Focus Areas for Interview & Prompts */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                      <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                        <span className="material-symbols-outlined text-base text-amber-600">contact_support</span>
-                        2. Trọng Tâm Thẩm Định Phỏng Vấn ({report.interviewFocusAreas.length})
-                      </span>
-                      <span className="text-[10px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full font-semibold border border-amber-200">
-                        HR Interview Guide
+                  {/* Cột 2: Điểm Yếu & Yêu Cầu Tuyển Dụng Chưa Thể Hiện (Lỗ Hổng Cần Đào Sâu) */}
+                  <div className="p-5 rounded-2xl bg-amber-50/30 border border-amber-200/80 space-y-3.5">
+                    <div className="flex items-center justify-between pb-2.5 border-b border-amber-100">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                          <span className="material-symbols-outlined text-base">warning</span>
+                        </div>
+                        <div>
+                          <h4 className="text-xs sm:text-sm font-bold text-amber-950 uppercase tracking-wide">
+                            2. Điểm Yếu &amp; Yêu Cầu JD Chưa Thể Hiện ({report.missingCompetencies.length})
+                          </h4>
+                          <p className="text-[10px] text-amber-700">
+                            Các yêu cầu trong JD chưa thấy rõ trong CV, cần phỏng vấn xác minh
+                          </p>
+                        </div>
+                      </div>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 shrink-0">
+                        Cần Lưu Ý
                       </span>
                     </div>
 
-                    <div className="space-y-2.5">
-                      {report.interviewFocusAreas.map((fa, idx) => (
-                        <div key={idx} className="p-3.5 rounded-xl bg-white border border-slate-200/90 hover:border-amber-200 transition-all shadow-2xs space-y-2">
+                    <div className="space-y-3">
+                      {report.missingCompetencies.map((item, idx) => (
+                        <div key={idx} className="p-3.5 rounded-xl bg-white border border-amber-100 hover:border-amber-300 transition-all shadow-2xs space-y-2 text-xs">
                           <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-slate-900 flex items-center gap-1">
+                            <span className="font-bold text-slate-900 flex items-center gap-1.5">
                               <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                              {fa.topic}
+                              {item.requirement}
                             </span>
-                            <span className="text-[9px] font-semibold text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-100">
-                              {fa.priority}
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                              {item.risk || 'Cần thẩm định'}
                             </span>
                           </div>
-                          <p className="text-[11px] text-slate-600 leading-relaxed">
-                            {fa.note}
-                          </p>
-                          <div className="p-2.5 rounded-lg bg-amber-50/60 border border-amber-100/80 text-[11px] text-amber-950 flex items-start gap-1.5">
-                            <span className="material-symbols-outlined text-sm text-amber-600 mt-0.5 shrink-0">help</span>
-                            <div className="leading-snug">
-                              <strong className="text-amber-900 font-bold">Gợi ý câu hỏi phỏng vấn: </strong>
-                              <span>&ldquo;{fa.questionPrompt}&rdquo;</span>
+                          <div className="text-[11px] text-slate-700">
+                            <strong className="text-amber-900">⚠️ Hiện trạng trong CV: </strong>
+                            <span>{item.cvGap}</span>
+                          </div>
+                          {item.interviewPrompt && (
+                            <div className="p-2.5 rounded-lg bg-amber-50/70 border border-amber-100 text-[11px] text-amber-950 leading-relaxed">
+                              <strong className="text-amber-900">💡 Gợi ý câu hỏi phỏng vấn cho HR: </strong>
+                              <span>&ldquo;{item.interviewPrompt}&rdquo;</span>
                             </div>
-                          </div>
+                          )}
                         </div>
                       ))}
                     </div>
                   </div>
                 </div>
 
-                {/* 4. AI Executive Verdict Callout */}
-                <div className="p-4.5 rounded-2xl bg-gradient-to-r from-purple-50/80 via-indigo-50/50 to-white border border-purple-200/80 space-y-2 shadow-xs">
+                {/* 3. Gợi Ý Bộ Câu Hỏi Phỏng Vấn Chuyên Sâu */}
+                {report.suggestedInterviewQuestions?.length > 0 && (
+                  <div className="p-5 rounded-2xl bg-indigo-50/40 border border-indigo-200/80 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
+                        <span className="material-symbols-outlined text-base">psychology_alt</span>
+                      </div>
+                      <div>
+                        <h4 className="text-xs sm:text-sm font-bold text-indigo-950 uppercase tracking-wide">
+                          3. Gợi Ý Bộ Câu Hỏi Phỏng Vấn Thực Chiến Dành Cho HR &amp; Tech Lead
+                        </h4>
+                        <p className="text-[10px] text-indigo-700">
+                          Bộ câu hỏi do AI tạo riêng dựa trên hồ sơ ứng viên và bài đăng tuyển dụng này
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      {report.suggestedInterviewQuestions.map((q, idx) => (
+                        <div key={idx} className="p-3 rounded-xl bg-white border border-indigo-100 shadow-2xs space-y-1 text-xs">
+                          <span className="font-bold text-indigo-700 text-[11px]">Câu hỏi #{idx + 1}:</span>
+                          <p className="text-slate-700 text-[11px] leading-relaxed italic">
+                            &ldquo;{q}&rdquo;
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 4. Nhận Định Tổng Quan & Khuyến Nghị Tuyển Dụng Từ HireMate AI Copilot */}
+                <div className="p-5 rounded-2xl bg-gradient-to-r from-purple-50/80 via-indigo-50/40 to-white border border-purple-200/80 space-y-2.5 shadow-xs">
                   <div className="flex items-center gap-2">
                     <div className="w-6 h-6 rounded-lg bg-[#5b48bd] text-white flex items-center justify-center shrink-0">
                       <span className="material-symbols-outlined text-sm">psychology</span>
                     </div>
                     <span className="text-xs font-bold text-[#1e1b4b] uppercase tracking-wide">
-                      Nhận Định &amp; Khuyến Nghị Tuyển Dụng Từ HireMate AI Copilot:
+                      Nhận Định Chuyên Môn &amp; Khuyến Nghị Tuyển Dụng Từ HireMate AI Copilot:
                     </span>
                   </div>
-                  <p className="text-xs text-slate-700 leading-relaxed font-normal pl-3 border-l-2 border-[#5b48bd]">
-                    {report.aiExecutiveVerdict}
+                  <p className="text-xs text-slate-700 leading-relaxed pl-3 border-l-2 border-[#5b48bd]">
+                    {report.overallVerdict}
                   </p>
+                  <div className="pt-2 border-t border-purple-100 text-xs text-purple-950 flex items-center gap-1.5 font-semibold">
+                    <span className="material-symbols-outlined text-sm text-[#5b48bd]">forward</span>
+                    <span><strong>Khuyến nghị hành động: </strong>{report.executiveRecommendation}</span>
+                  </div>
                 </div>
 
                 {/* 5. Attached CV Row */}
@@ -1587,10 +1479,10 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                   <button
                     type="button"
                     onClick={() => setViewingCvCandidate(selectedCandidateForModal)}
-                    className="px-3 py-1.5 rounded-xl bg-white hover:bg-purple-50 text-[#5b48bd] text-xs font-bold border border-purple-200 transition-colors cursor-pointer shadow-2xs flex items-center gap-1.5 shrink-0"
+                    className="px-3.5 py-1.5 rounded-xl bg-white hover:bg-purple-50 text-[#5b48bd] text-xs font-bold border border-purple-200 transition-colors cursor-pointer shadow-2xs flex items-center gap-1.5 shrink-0"
                   >
                     <span className="material-symbols-outlined text-sm text-[#5b48bd]">visibility</span>
-                    <span>Mở Xem CV</span>
+                    <span>Mở Xem CV PDF</span>
                   </button>
                 </div>
               </div>
@@ -1649,6 +1541,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
           </div>
         );
       })()}
+
 
 
 

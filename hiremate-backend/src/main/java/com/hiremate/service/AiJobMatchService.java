@@ -42,4 +42,9 @@ public interface AiJobMatchService {
      * Chuyển đổi Entity AiJobMatch sang DTO response kèm đầy đủ dữ liệu 4 trụ cột ATS
      */
     AiJobMatchResponse mapToResponse(com.hiremate.entity.AiJobMatch match);
+
+    /**
+     * Báo cáo đánh giá chuyên sâu độc lập giữa Hồ sơ CV của Ứng viên và Bài tuyển dụng (JD).
+     */
+    com.hiremate.dto.response.AiDetailedEvaluationReport getDetailedCandidateEvaluation(Long jobId, Long candidateId);
 }

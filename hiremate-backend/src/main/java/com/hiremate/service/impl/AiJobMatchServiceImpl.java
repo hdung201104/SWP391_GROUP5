@@ -842,4 +842,44 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
         java.util.regex.Matcher m = java.util.regex.Pattern.compile(regex, java.util.regex.Pattern.CASE_INSENSITIVE).matcher(text);
         return m.find();
     }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public com.hiremate.dto.response.AiDetailedEvaluationReport getDetailedCandidateEvaluation(Long jobId, Long candidateId) {
+        Job job = jobRepository.findById(jobId)
+                .orElseThrow(() -> new IllegalArgumentException("Job không tồn tại: " + jobId));
+
+        Candidate candidate = candidateRepository.findById(candidateId)
+                .orElseThrow(() -> new IllegalArgumentException("Ứng viên không tồn tại: " + candidateId));
+
+        Cv cv = cvRepository.findByCandidateIdAndIsDefaultTrue(candidateId)
+                .orElseGet(() -> {
+                    List<Cv> cvs = cvRepository.findByCandidateId(candidateId);
+                    return cvs.isEmpty() ? null : cvs.get(0);
+                });
+
+        String cvText = (cv != null && cv.getParsedText() != null) ? cv.getParsedText() : "";
+        String candProfileStr = (candidate.getEducationsJson() != null ? candidate.getEducationsJson() : "") + " "
+                + (candidate.getExperiencesJson() != null ? candidate.getExperiencesJson() : "") + " "
+                + (candidate.getProjectsJson() != null ? candidate.getProjectsJson() : "");
+
+        String candidateName = candidate.getUser() != null ? candidate.getUser().getFullName() : "Ứng viên #" + candidateId;
+        String candidateEmail = candidate.getUser() != null ? candidate.getUser().getEmail() : "";
+
+        com.hiremate.dto.response.AiDetailedEvaluationReport report = geminiAiService.evaluateCandidateCvAgainstJob(
+                job.getTitle(),
+                job.getRequirements(),
+                job.getDescription(),
+                candidateName,
+                cvText,
+                candProfileStr
+        );
+
+        report.setCandidateId(candidateId);
+        report.setCandidateEmail(candidateEmail);
+        report.setJobId(jobId);
+        report.setJobTitle(job.getTitle());
+
+        return report;
+    }
 }

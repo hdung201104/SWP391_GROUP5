@@ -68,4 +68,14 @@ public class AiJobMatchController {
         aiJobMatchService.recalculateMatchesForJobAsync(jobId, user);
         return ResponseEntity.ok(ApiResponse.ok("Đã kích hoạt tác vụ quét và tính toán điểm tương thích AI hàng loạt thành công"));
     }
+
+    @GetMapping("/job/{jobId}/candidate/{candidateId}/detailed-evaluation")
+    @PreAuthorize("hasAnyRole('RECRUITER', 'ADMIN')")
+    public ResponseEntity<ApiResponse<com.hiremate.dto.response.AiDetailedEvaluationReport>> getDetailedCandidateEvaluation(
+            @PathVariable Long jobId,
+            @PathVariable Long candidateId
+    ) {
+        com.hiremate.dto.response.AiDetailedEvaluationReport report = aiJobMatchService.getDetailedCandidateEvaluation(jobId, candidateId);
+        return ResponseEntity.ok(ApiResponse.ok("Đã đối soát chi tiết hồ sơ CV ứng viên với bài đăng tuyển dụng thành công", report));
+    }
 }
