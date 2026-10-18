@@ -35,12 +35,56 @@ function generateComprehensiveAiReport(cand, jobDetails, liveAiReport) {
 
   // 1. Nếu có live report từ Gemini AI với advantages và disadvantages
   if (liveAiReport && Array.isArray(liveAiReport.advantages) && liveAiReport.advantages.length > 0) {
+    let fullDisadvantages = [...(liveAiReport.disadvantages || [])];
+    const mandatoryMissing = cand.mandatoryMissing || [];
+    const preferredMissing = cand.preferredMissing || [];
+    const cleanSkill = (s) => normalizeSkillName(s);
+
+    mandatoryMissing.forEach((s) => {
+      const skillName = cleanSkill(s);
+      const exists = fullDisadvantages.some(d => 
+        (d.title && d.title.toLowerCase().includes(skillName.toLowerCase())) ||
+        (d.jobRequirement && d.jobRequirement.toLowerCase().includes(skillName.toLowerCase()))
+      );
+      if (!exists) {
+        fullDisadvantages.unshift({
+          category: 'Kỹ năng bắt buộc còn thiếu',
+          title: `Chưa Đáp Ứng Kỹ Năng Bắt Buộc: ${skillName}`,
+          jobRequirement: `Bảng tuyển dụng ${jobTitle} yêu cầu bắt buộc ứng viên thành thạo ${skillName} để trực tiếp phát triển sản phẩm.`,
+          cvShortfall: `Hồ sơ CV và danh mục kỹ năng của ứng viên chưa ghi nhận kinh nghiệm làm việc thực tế với ${skillName}.`,
+          severity: 'Bắt buộc / Cần phỏng vấn xác thực',
+        });
+      }
+    });
+
+    preferredMissing.forEach((s) => {
+      const skillName = cleanSkill(s);
+      const exists = fullDisadvantages.some(d => 
+        (d.title && d.title.toLowerCase().includes(skillName.toLowerCase())) ||
+        (d.jobRequirement && d.jobRequirement.toLowerCase().includes(skillName.toLowerCase()))
+      );
+      if (!exists) {
+        fullDisadvantages.push({
+          category: 'Kỹ năng ưu tiên chưa có',
+          title: `Chưa Có Kỹ Năng Ưu Tiên: ${skillName}`,
+          jobRequirement: `Nhà tuyển dụng ưu tiên ứng viên có kiến thức về ${skillName} để gia tăng hiệu suất dự án.`,
+          cvShortfall: `Chưa thấy thông tin hoặc dự án áp dụng ${skillName} trong hồ sơ CV.`,
+          severity: 'Điểm cộng (Có thể đào tạo 1-2 tuần)',
+        });
+      }
+    });
+
+    const isIntern = jobTitle.toLowerCase().includes('intern') || jobTitle.toLowerCase().includes('fresher') || jobTitle.toLowerCase().includes('thực tập');
+    if (isIntern) {
+      fullDisadvantages = fullDisadvantages.filter(d => !d.title || (!d.title.toLowerCase().includes('chịu tải') && !d.title.toLowerCase().includes('quy mô lớn') && !d.title.toLowerCase().includes('vận hành hệ thống')));
+    }
+
     return {
       score,
       matchCategory,
       jobTitle,
       advantages: liveAiReport.advantages,
-      disadvantages: liveAiReport.disadvantages || [],
+      disadvantages: fullDisadvantages,
       overallVerdict: liveAiReport.overallVerdict || cand.aiQuote || 'Hồ sơ ứng viên có các điểm mạnh nổi bật phù hợp với định hướng công việc.',
       executiveRecommendation: liveAiReport.executiveRecommendation || 'Khuyến nghị HR xem xét mời ứng viên tham gia vòng phỏng vấn chuyên sâu.',
       isAiReal: true,
@@ -52,6 +96,7 @@ function generateComprehensiveAiReport(cand, jobDetails, liveAiReport) {
   const mandatoryMatched = cand.mandatoryMatched || [];
   const mandatoryMissing = cand.mandatoryMissing || [];
   const preferredMatched = cand.preferredMatched || [];
+  const preferredMissing = cand.preferredMissing || [];
   const cleanSkill = (s) => normalizeSkillName(s);
 
   const advantages = [];
@@ -106,44 +151,59 @@ function generateComprehensiveAiReport(cand, jobDetails, liveAiReport) {
     assessment: 'Phù hợp tốt',
   });
 
-  // D. Kỹ năng còn thiếu
+  // D. Kỹ năng bắt buộc còn thiếu từ bài tuyển dụng
   mandatoryMissing.forEach((s) => {
     disadvantages.push({
-      category: 'Kỹ năng còn thiếu',
-      title: cleanSkill(s),
-      jobRequirement: `Mức yêu cầu của bài tuyển dụng: ${cleanSkill(s)}`,
-      cvShortfall: `Trong CV chưa thấy thể hiện kinh nghiệm thực tế hoặc dự án rõ ràng về "${cleanSkill(s)}".`,
-      severity: 'Cần lưu ý',
+      category: 'Kỹ năng bắt buộc còn thiếu',
+      title: `Chưa Đáp Ứng Kỹ Năng Bắt Buộc: ${cleanSkill(s)}`,
+      jobRequirement: `Bảng tuyển dụng ${jobTitle} yêu cầu bắt buộc ứng viên thành thạo ${cleanSkill(s)} để trực tiếp phát triển sản phẩm.`,
+      cvShortfall: `Hồ sơ CV và danh mục kỹ năng của ứng viên chưa ghi nhận kinh nghiệm làm việc thực tế với "${cleanSkill(s)}".`,
+      severity: 'Bắt buộc / Cần phỏng vấn xác thực',
     });
   });
 
-  if (disadvantages.length === 0) {
+  // E. Kỹ năng ưu tiên còn thiếu từ bài tuyển dụng
+  preferredMissing.forEach((s) => {
     disadvantages.push({
-      category: 'Kỹ năng còn thiếu',
-      title: 'Kiểm Thử Tự Động (Automation Testing - Selenium / Cypress)',
-      jobRequirement: 'Mức yêu cầu nhà tuyển dụng: Có kinh nghiệm viết kịch bản tự động hóa kiểm thử web/mobile',
-      cvShortfall: 'Trong CV chủ yếu tập trung vào Manual Testing và kiểm thử chức năng, chưa có dự án thực tế về Automation.',
-      severity: 'Có thể đào tạo (1-2 tuần)',
+      category: 'Kỹ năng ưu tiên chưa có',
+      title: `Chưa Có Kỹ Năng Ưu Tiên: ${cleanSkill(s)}`,
+      jobRequirement: `Nhà tuyển dụng ưu tiên ứng viên có kiến thức về ${cleanSkill(s)} để gia tăng hiệu suất dự án.`,
+      cvShortfall: `Chưa thấy thông tin hoặc dự án áp dụng "${cleanSkill(s)}" trong hồ sơ CV.`,
+      severity: 'Điểm cộng (Có thể đào tạo 1-2 tuần)',
+    });
+  });
+
+  // F. Phân tích kinh nghiệm theo đúng cấp bậc vị trí
+  const isInternOrFresher = jobTitle.toLowerCase().includes('intern') || jobTitle.toLowerCase().includes('fresher') || jobTitle.toLowerCase().includes('thực tập');
+  if (isInternOrFresher) {
+    disadvantages.push({
+      category: 'Kinh nghiệm thực chiến',
+      title: 'Kinh Nghiệm Triển Khai Dự Án Doanh Nghiệp Thực Tế',
+      jobRequirement: `Vị trí ${jobTitle} mong muốn ứng viên nhanh chóng thích nghi với môi trường làm việc chuyên nghiệp.`,
+      cvShortfall: 'Kinh nghiệm tích lũy chủ yếu đến từ các đồ án môn học hoặc bài tập lớn tại trường đại học, cần thêm thời gian cọ xát với quy trình vận hành dự án thực tế.',
+      severity: 'Có thể đào tạo (Onboarding 1-2 tuần)',
+    });
+  } else {
+    disadvantages.push({
+      category: 'Kinh nghiệm chưa đủ chuẩn',
+      title: 'Chưa Đạt Chuẩn Số Năm Kinh Nghiệm Cấp Bậc Vị Trí',
+      jobRequirement: `Bảng tuyển dụng yêu cầu số năm kinh nghiệm làm việc thực tế ở cấp độ tương ứng với vị trí ${jobTitle}.`,
+      cvShortfall: 'Số năm kinh nghiệm tích lũy thực tế trong CV còn thấp hơn chuẩn mong muốn của bài tuyển dụng.',
+      severity: 'Cần lưu ý / Cần Tech Lead kèm cặp',
     });
   }
 
-  // E. Kinh nghiệm chưa đủ
-  disadvantages.push({
-    category: 'Kinh nghiệm chưa đủ',
-    title: 'Kinh Nghiệm Triển Khai Hệ Thống Thực Tế Quy Mô Lớn',
-    jobRequirement: 'Mức yêu cầu nhà tuyển dụng: Trải nghiệm xử lý hệ thống nhiều người dùng và tải cao',
-    cvShortfall: 'Hồ sơ chủ yếu thể hiện đồ án tốt nghiệp và dự án quy mô chuẩn, chưa rõ trải nghiệm xử lý hệ thống chịu tải cao.',
-    severity: 'Cần lưu ý',
-  });
-
-  // F. Chứng chỉ & Bằng cấp chưa đạt điều kiện
-  disadvantages.push({
-    category: 'Chứng chỉ & Bằng cấp chưa đạt',
-    title: 'Chứng Chỉ Kiểm Thử Quốc Tế (ISTQB) / Bằng Ngoại Ngữ Chuẩn Hóa',
-    jobRequirement: 'Mức yêu cầu nhà tuyển dụng: Ưu tiên có chứng chỉ chuyên môn ISTQB hoặc chứng chỉ tiếng Anh TOEIC 600+ / IELTS 5.5+',
-    cvShortfall: 'Trong hồ sơ CV chưa ghi nhận chứng chỉ chuyên môn quốc tế hoặc kết quả điểm chứng chỉ tiếng Anh theo mức nhà tuyển dụng yêu cầu.',
-    severity: 'Chưa đạt điều kiện ưu tiên',
-  });
+  // G. Kiểm tra chứng chỉ chuyên môn nếu JD thực sự yêu cầu
+  const reqLower = (jobDetails?.requirements || '').toLowerCase();
+  if (reqLower.includes('istqb') || reqLower.includes('pmp') || reqLower.includes('chứng chỉ bắt buộc')) {
+    disadvantages.push({
+      category: 'Chứng chỉ chuyên môn',
+      title: 'Chứng Chỉ Chuyên Ngành Bắt Buộc Theo JD',
+      jobRequirement: 'Bài tuyển dụng yêu cầu chứng chỉ chuyên ngành cụ thể',
+      cvShortfall: 'Hồ sơ chưa thể hiện chứng chỉ theo đúng yêu cầu bài đăng.',
+      severity: 'Cần lưu ý',
+    });
+  }
 
   return {
     score,
@@ -151,7 +211,7 @@ function generateComprehensiveAiReport(cand, jobDetails, liveAiReport) {
     jobTitle,
     advantages,
     disadvantages,
-    overallVerdict: cand.aiQuote || `Ứng viên ${candName} sở hữu ưu điểm nổi trội về học vấn đại học chính quy và kỹ năng kỹ thuật cốt lõi, đáp ứng tốt các yêu cầu chính của vị trí ${jobTitle}. Điểm cần lưu ý là các chứng chỉ chuyên môn và kinh nghiệm thực chiến nâng cao còn thiếu, nhưng hoàn toàn có thể bồi dưỡng nhanh trong quá trình làm việc.`,
+    overallVerdict: cand.aiQuote || `Ứng viên ${candName} sở hữu ưu điểm nổi trội về học vấn đại học chính quy và kỹ năng kỹ thuật cốt lõi, đáp ứng tốt các yêu cầu chính của vị trí ${jobTitle}. Điểm cần lưu ý là các kỹ năng còn thiếu theo bảng tuyển dụng cần được bồi dưỡng thêm trong giai đoạn đầu nhận việc.`,
     executiveRecommendation: 'Khuyến nghị Bộ phận Tuyển dụng mời ứng viên tham gia vòng phỏng vấn chuyên sâu để đánh giá thái độ học hỏi và thẩm định các tiêu chí còn thiếu.',
     isAiReal: false,
   };
@@ -1079,68 +1139,38 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                     </div>
                   </div>
 
-                  {/* Col 2: Match Badge, Tech Stack Chips & Open AI Report Button (Flex-1 fills middle, nicely grouped) */}
-                  <div className="flex flex-col gap-2 min-w-0 xl:flex-1 xl:px-4">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <div
-                        className={`px-2.5 py-0.5 rounded-full flex items-center gap-1 border shrink-0 ${
-                          cand.matchScore >= 80
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200 shadow-xs'
-                            : cand.matchScore >= 65
-                            ? 'bg-purple-50 text-purple-700 border-purple-200 shadow-xs'
-                            : 'bg-amber-50 text-amber-700 border-amber-200'
-                        }`}
-                      >
-                        <span className="material-symbols-outlined text-[15px]">
-                          {cand.matchScore >= 80 ? 'verified' : cand.matchScore >= 65 ? 'insights' : 'warning'}
-                        </span>
-                        <span className="text-xs font-extrabold tracking-wide">
-                          {cand.matchScore}% AI Match
-                        </span>
-                      </div>
-
-                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
-                        {cand.matchCategory}
+                  {/* Col 2: Match Badge & Xem Báo Cáo AI Button (Gọn gàng, tinh tế, chỉ giữ phần trăm và nút báo cáo AI) */}
+                  <div className="flex items-center gap-2.5 min-w-0 xl:flex-1 xl:px-4 flex-wrap">
+                    <div
+                      className={`px-3 py-1 rounded-full flex items-center gap-1.5 border shrink-0 ${
+                        cand.matchScore >= 80
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 shadow-xs'
+                          : cand.matchScore >= 65
+                          ? 'bg-purple-50 text-purple-700 border-purple-200 shadow-xs'
+                          : 'bg-amber-50 text-amber-700 border-amber-200'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-[15px]">
+                        {cand.matchScore >= 80 ? 'verified' : cand.matchScore >= 65 ? 'insights' : 'warning'}
                       </span>
-
-                      {/* Button to open dedicated AI evaluation report modal - cleanly grouped with no ml-auto */}
-                      <button
-                        type="button"
-                        onClick={() => setSelectedCandidateForModal(cand)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-purple-50 hover:bg-purple-100 text-[#5b48bd] border border-purple-200 hover:border-purple-300 text-[11px] font-bold transition-all cursor-pointer shadow-2xs hover:scale-105 shrink-0"
-                        title="Xem báo cáo phân tích CV chi tiết do AI xử lý"
-                      >
-                        <span className="material-symbols-outlined text-[14px] text-purple-600">auto_awesome</span>
-                        <span>Xem Báo Cáo AI</span>
-                      </button>
+                      <span className="text-xs font-black tracking-wide">
+                        {cand.matchScore}% AI Match
+                      </span>
                     </div>
 
-                    {/* Tech Chips (Compact & clean preview) */}
-                    <div className="flex flex-wrap items-center gap-1.5 max-h-14 overflow-hidden">
-                      {cand.techChips.slice(0, 5).map((chip, idx) => (
-                        <span
-                          key={idx}
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${
-                            chip.highlight === true
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200 font-semibold'
-                              : chip.highlight === 'error'
-                              ? 'bg-rose-50 text-rose-700 border-rose-200'
-                              : 'bg-purple-50/70 text-purple-800 border-purple-200'
-                          }`}
-                        >
-                          {chip.name}
-                        </span>
-                      ))}
-                      {cand.techChips.length > 5 && (
-                        <button
-                          type="button"
-                          onClick={() => setSelectedCandidateForModal(cand)}
-                          className="text-[10px] text-purple-600 font-bold hover:underline cursor-pointer"
-                        >
-                          +{cand.techChips.length - 5} kỹ năng
-                        </button>
-                      )}
-                    </div>
+                    <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
+                      {cand.matchCategory}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCandidateForModal(cand)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-50 hover:bg-purple-100 text-[#5b48bd] border border-purple-200 hover:border-purple-300 text-xs font-bold transition-all cursor-pointer shadow-2xs hover:scale-105 shrink-0"
+                      title="Xem báo cáo phân tích CV chi tiết do AI xử lý"
+                    >
+                      <span className="material-symbols-outlined text-sm text-purple-600">auto_awesome</span>
+                      <span>Xem Báo Cáo AI</span>
+                    </button>
                   </div>
 
                   {/* Col 3: Actions & Status Management (Shrink-0, intrinsic width, perfectly aligned right, no overlapping) */}
@@ -1441,29 +1471,62 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                     </div>
 
                     <div className="space-y-3">
-                      {report.disadvantages?.map((item, idx) => (
-                        <div key={idx} className="p-3.5 rounded-xl bg-white border border-amber-100 hover:border-amber-300 transition-all shadow-2xs space-y-1.5 text-xs">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-50 text-amber-900 border border-amber-200 shrink-0">
-                              {item.category || 'Kỹ năng còn thiếu'}
-                            </span>
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-800 border border-rose-200 shrink-0">
-                              {item.severity || 'Cần lưu ý'}
-                            </span>
-                          </div>
-                          <div className="font-bold text-slate-900 text-xs pt-0.5">
-                            {item.title}
-                          </div>
-                          <div className="text-[11px] text-slate-700">
-                            <strong className="text-amber-950">📌 Yêu cầu bài tuyển dụng: </strong>
-                            <span>{item.jobRequirement}</span>
-                          </div>
-                          <div className="p-2 rounded-lg bg-amber-50/60 border border-amber-100 text-[11px] text-amber-950 leading-relaxed font-normal">
-                            <strong className="text-amber-900">⚠️ Hiện trạng trong CV: </strong>
-                            <span>{item.cvShortfall}</span>
-                          </div>
+                      {(!report.disadvantages || report.disadvantages.length === 0) ? (
+                        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-center space-y-1">
+                          <span className="material-symbols-outlined text-emerald-600 text-2xl">verified</span>
+                          <p className="text-xs font-bold text-emerald-900">Không có điểm yếu nghiêm trọng</p>
+                          <p className="text-[11px] text-emerald-700">Ứng viên đáp ứng trọn vẹn mọi yêu cầu cốt lõi của bài tuyển dụng!</p>
                         </div>
-                      ))}
+                      ) : (
+                        report.disadvantages.map((item, idx) => {
+                          const catLower = (item.category || '').toLowerCase();
+                          const isMandatory = catLower.includes('bắt buộc') || (item.severity || '').toLowerCase().includes('bắt buộc');
+                          const isExp = catLower.includes('kinh nghiệm');
+                          const isPref = catLower.includes('ưu tiên');
+                          const isCert = catLower.includes('chứng chỉ') || catLower.includes('bằng cấp') || catLower.includes('ngoại ngữ');
+
+                          const badgeStyle = isMandatory 
+                            ? 'bg-rose-100 text-rose-800 border-rose-300'
+                            : isPref
+                            ? 'bg-sky-100 text-sky-800 border-sky-300'
+                            : isExp
+                            ? 'bg-amber-100 text-amber-800 border-amber-300'
+                            : isCert
+                            ? 'bg-indigo-100 text-indigo-800 border-indigo-300'
+                            : 'bg-amber-50 text-amber-900 border-amber-200';
+
+                          const cardBorder = isMandatory 
+                            ? 'border-rose-200/90 bg-rose-50/25 hover:border-rose-300'
+                            : 'border-amber-200/70 bg-white hover:border-amber-300';
+
+                          return (
+                            <div key={idx} className={`p-3.5 rounded-xl border ${cardBorder} transition-all shadow-2xs space-y-1.5 text-xs`}>
+                              <div className="flex items-center justify-between gap-2">
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold border shrink-0 flex items-center gap-1 ${badgeStyle}`}>
+                                  <span className="material-symbols-outlined text-xs">
+                                    {isMandatory ? 'cancel' : isPref ? 'star_half' : isExp ? 'history_toggle_off' : isCert ? 'verified' : 'warning'}
+                                  </span>
+                                  {item.category || 'Kỹ năng còn thiếu'}
+                                </span>
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-800 border border-rose-200 shrink-0">
+                                  {item.severity || 'Cần lưu ý'}
+                                </span>
+                              </div>
+                              <div className="font-bold text-slate-900 text-xs pt-0.5">
+                                {item.title}
+                              </div>
+                              <div className="text-[11px] text-slate-700">
+                                <strong className="text-amber-950">📌 Yêu cầu bài tuyển dụng: </strong>
+                                <span>{item.jobRequirement}</span>
+                              </div>
+                              <div className="p-2 rounded-lg bg-amber-50/60 border border-amber-100 text-[11px] text-amber-950 leading-relaxed font-normal">
+                                <strong className="text-amber-900">⚠️ Hiện trạng trong CV: </strong>
+                                <span>{item.cvShortfall}</span>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
                     </div>
                   </div>
                 </div>

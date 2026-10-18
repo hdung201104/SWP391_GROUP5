@@ -2267,86 +2267,140 @@ export default function CandidateProfilePage({ user }) {
               {/* TEMPLATE B: HARVARD CLASSIC ATS 100% (1-COLUMN)          */}
               {/* ──────────────────────────────────────────────────────── */}
               {cvTemplate === 'harvard' && (
-                <div className={`p-8 sm:p-12 space-y-6 ${canvasTheme === 'paper-white' ? 'bg-white text-slate-850' : 'bg-[#FDFCF9] text-[#2D3A31]'}`}>
+                <div className={`p-8 sm:p-12 space-y-7 ${canvasTheme === 'paper-white' ? 'bg-white text-slate-900' : 'bg-[#FDFCF9] text-[#2D3A31]'}`}>
 
                   {/* Top Centered Header */}
                   <div className={`text-center space-y-1.5 pb-4 border-b-2 ${canvasTheme === 'paper-white' ? 'border-slate-800' : 'border-[#2D3A31]'}`}>
-                    <h1 className={`text-2xl sm:text-3xl font-serif font-black uppercase tracking-wider ${canvasTheme === 'paper-white' ? 'text-slate-950' : 'text-[#1A2520]'
-                      }`}>
+                    <h1 className={`text-2xl sm:text-3xl font-serif font-black uppercase tracking-wider ${canvasTheme === 'paper-white' ? 'text-slate-950' : 'text-[#1A2520]'}`}>
                       {currentCandidate.accountName}
                     </h1>
-                    <p className="text-sm font-semibold tracking-wide" style={{ color: livingTheme.primary }}>
+                    <p className="text-sm font-bold tracking-wide" style={{ color: livingTheme.primary }}>
                       {cvData.targetTitle}
                     </p>
-                    <div className={`text-xs flex flex-wrap items-center justify-center gap-3 pt-1 font-mono ${canvasTheme === 'paper-white' ? 'text-slate-700' : 'text-[#4A5B4D]'
-                      }`}>
-                      <span>{currentCandidate.phone}</span>
+                    <div className={`text-xs flex flex-wrap items-center justify-center gap-x-3 gap-y-1 pt-1.5 font-mono ${canvasTheme === 'paper-white' ? 'text-slate-700' : 'text-[#4A5B4D]'}`}>
+                      <span>📞 {currentCandidate.phone}</span>
                       <span>•</span>
-                      <span>{currentCandidate.email}</span>
+                      <span>✉️ {currentCandidate.email}</span>
                       <span>•</span>
-                      <span>{currentCandidate.location}</span>
-                      <span>•</span>
-                      <span>{currentCandidate.linkedin}</span>
+                      <span>📍 {currentCandidate.location}</span>
+                      {currentCandidate.dob && (
+                        <>
+                          <span>•</span>
+                          <span>🎂 {currentCandidate.dob}</span>
+                        </>
+                      )}
+                      {currentCandidate.linkedin && (
+                        <>
+                          <span>•</span>
+                          <span>🔗 {currentCandidate.linkedin}</span>
+                        </>
+                      )}
+                      {currentCandidate.portfolio && (
+                        <>
+                          <span>•</span>
+                          <span>🌐 {currentCandidate.portfolio}</span>
+                        </>
+                      )}
                     </div>
                   </div>
 
-                  {/* Harvard Section 1: Summary */}
+                  {/* Harvard Section 1: Professional Summary */}
                   <section className="space-y-2">
-                    <h2 className={`text-xs font-serif font-bold uppercase tracking-wider pb-0.5 border-b ${canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-400' : 'text-[#2D3A31] border-[#C5C0B6]'
-                      }`}>
+                    <h2 className={`text-xs font-serif font-bold uppercase tracking-wider pb-0.5 border-b ${canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-400' : 'text-[#2D3A31] border-[#C5C0B6]'}`}>
                       TÓM TẮT NĂNG LỰC (PROFESSIONAL SUMMARY)
                     </h2>
-                    <p className={`text-xs leading-relaxed ${canvasTheme === 'paper-white' ? 'text-slate-800 font-medium' : 'text-[#4A5B4D] font-medium'}`}>{cvData.summary}</p>
+                    <p className={`text-xs leading-relaxed text-justify ${canvasTheme === 'paper-white' ? 'text-slate-800 font-medium' : 'text-[#4A5B4D] font-medium'}`}>
+                      {cvData.summary}
+                    </p>
                   </section>
 
                   {/* Harvard Section 2: Education */}
                   <section className="space-y-3">
-                    <h2 className={`text-xs font-serif font-bold uppercase tracking-wider pb-0.5 border-b ${canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-400' : 'text-[#2D3A31] border-[#C5C0B6]'
-                      }`}>
-                      HỌC VẤN (EDUCATION)
+                    <h2 className={`text-xs font-serif font-bold uppercase tracking-wider pb-0.5 border-b ${canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-400' : 'text-[#2D3A31] border-[#C5C0B6]'}`}>
+                      HỌC VẤN CHÍNH QUY (EDUCATION)
                     </h2>
                     {safeArr(cvData.education).map((edu, eIdx) => (
-                      <div key={edu.id || eIdx} className="text-xs space-y-0.5">
+                      <div key={edu.id || eIdx} className="text-xs space-y-1">
                         <div className={`flex justify-between font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
-                          <span>{edu.school}</span>
+                          <span className="font-serif text-sm">{edu.school}</span>
                           <span className={`font-mono ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{edu.period}</span>
                         </div>
                         <div className={`flex justify-between italic ${canvasTheme === 'paper-white' ? 'text-slate-700' : 'text-[#4A5B4D]'}`}>
                           <span>{edu.degree}</span>
-                          <span className="font-semibold not-italic text-emerald-600 dark:text-emerald-400">{edu.grade}</span>
+                          <span className="font-semibold not-italic text-emerald-700">{edu.grade}</span>
                         </div>
-                        <p className={`text-[11px] pt-0.5 ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{edu.highlight}</p>
+                        {edu.highlight && (
+                          <p className={`text-[11px] pt-0.5 ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>
+                            {edu.highlight}
+                          </p>
+                        )}
                       </div>
                     ))}
                   </section>
 
-                  {/* Harvard Section 3: Experience */}
+                  {/* Harvard Section 3: Professional Experience */}
                   <section className="space-y-4">
-                    <h2 className={`text-xs font-serif font-bold uppercase tracking-wider pb-0.5 border-b ${canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-400' : 'text-[#2D3A31] border-[#C5C0B6]'
-                      }`}>
+                    <h2 className={`text-xs font-serif font-bold uppercase tracking-wider pb-0.5 border-b ${canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-400' : 'text-[#2D3A31] border-[#C5C0B6]'}`}>
                       KINH NGHIỆM LÀM VIỆC (PROFESSIONAL EXPERIENCE)
                     </h2>
                     {safeArr(cvData.experiences).map((exp, expIdx) => (
-                      <div key={exp.id || expIdx} className="text-xs space-y-1">
-                        <div className={`flex justify-between font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
-                          <span>{exp.company} — {exp.role}</span>
-                          <span className={`font-mono ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{exp.period}</span>
+                      <div key={exp.id || expIdx} className="text-xs space-y-1.5">
+                        <div className={`flex justify-between items-baseline font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
+                          <div>
+                            <span className="font-serif text-sm">{exp.role}</span>
+                            <span className="font-normal font-sans ml-2 text-slate-600">| {exp.company}</span>
+                          </div>
+                          <span className={`font-mono text-[11px] ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{exp.period}</span>
                         </div>
-                        <p className={`text-[11px] italic ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{exp.location}</p>
-                        <ul className={`list-disc list-outside pl-4 space-y-1 ${canvasTheme === 'paper-white' ? 'text-slate-800 font-medium' : 'text-[#4A5B4D] font-medium'}`}>
+                        {exp.location && (
+                          <p className={`text-[11px] italic ${canvasTheme === 'paper-white' ? 'text-slate-500' : 'text-[#667067]'}`}>{exp.location}</p>
+                        )}
+                        <ul className={`list-disc list-outside pl-4 space-y-1 text-xs ${canvasTheme === 'paper-white' ? 'text-slate-800 font-medium' : 'text-[#4A5B4D] font-medium'}`}>
                           {safeArr(exp.bullets).map((b, bIdx) => (
-                            <li key={bIdx}>{b}</li>
+                            <li key={bIdx} className={b.includes('Thành tích:') ? 'font-semibold text-slate-900' : ''}>
+                              {b}
+                            </li>
                           ))}
                         </ul>
+                        {safeArr(exp.tags).length > 0 && (
+                          <p className={`text-[11px] font-mono pt-0.5 ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>
+                            <strong>Công nghệ sử dụng:</strong> {safeArr(exp.tags).join(' • ')}
+                          </p>
+                        )}
                       </div>
                     ))}
                   </section>
 
-                  {/* Harvard Section 4: Skills & Certifications */}
+                  {/* Harvard Section 4: Key Projects (DỰ ÁN TRỌNG ĐIỂM) */}
+                  <section className="space-y-3.5">
+                    <h2 className={`text-xs font-serif font-bold uppercase tracking-wider pb-0.5 border-b ${canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-400' : 'text-[#2D3A31] border-[#C5C0B6]'}`}>
+                      DỰ ÁN KỸ THUẬT &amp; TRỌNG ĐIỂM (KEY PROJECTS)
+                    </h2>
+                    {safeArr(cvData.projects).map((p, pIdx) => (
+                      <div key={p.id || pIdx} className="text-xs space-y-1">
+                        <div className={`flex justify-between items-baseline font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
+                          <div>
+                            <span className="font-serif text-sm">{p.name}</span>
+                            {p.role && <span className="font-normal font-sans ml-2 text-slate-600">| {p.role}</span>}
+                          </div>
+                          <span className={`font-mono text-[11px] ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{p.period}</span>
+                        </div>
+                        <p className={`text-xs leading-relaxed ${canvasTheme === 'paper-white' ? 'text-slate-800' : 'text-[#4A5B4D]'}`}>
+                          {p.summary || p.description}
+                        </p>
+                        {safeArr(p.tags).length > 0 && (
+                          <p className={`text-[11px] font-mono ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>
+                            <strong>Công cụ &amp; Môi trường:</strong> {safeArr(p.tags).join(' • ')}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </section>
+
+                  {/* Harvard Section 5: Technical Skills */}
                   <section className="space-y-2.5">
-                    <h2 className={`text-xs font-serif font-bold uppercase tracking-wider pb-0.5 border-b ${canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-400' : 'text-[#2D3A31] border-[#C5C0B6]'
-                      }`}>
-                      KỸ NĂNG, CHỨNG CHỈ &amp; NGOẠI NGỮ (SKILLS &amp; CERTIFICATIONS)
+                    <h2 className={`text-xs font-serif font-bold uppercase tracking-wider pb-0.5 border-b ${canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-400' : 'text-[#2D3A31] border-[#C5C0B6]'}`}>
+                      KỸ NĂNG CHUYÊN MÔN (TECHNICAL SKILLS)
                     </h2>
                     <div className={`text-xs space-y-1.5 ${canvasTheme === 'paper-white' ? 'text-slate-800' : 'text-[#4A5B4D]'}`}>
                       {safeArr(cvData.skills).map((s, idx) => (
@@ -2354,13 +2408,31 @@ export default function CandidateProfilePage({ user }) {
                           <strong className={canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}>{s.category}:</strong> {safeArr(s.items).join(', ')}
                         </p>
                       ))}
-                      <p>
-                        <strong className={canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}>Chứng chỉ quốc tế:</strong> {safeArr(cvData.certifications).map(c => `${c.name} (${c.issuer})`).join('; ')}
-                      </p>
-                      <p>
-                        <strong className={canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}>Ngoại ngữ:</strong> {safeArr(cvData.languages).map(l => `${l.name} (${l.score})`).join('; ')}
-                      </p>
                     </div>
+                  </section>
+
+                  {/* Harvard Section 6: Certifications & Licenses */}
+                  <section className="space-y-2">
+                    <h2 className={`text-xs font-serif font-bold uppercase tracking-wider pb-0.5 border-b ${canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-400' : 'text-[#2D3A31] border-[#C5C0B6]'}`}>
+                      CHỨNG CHỈ QUỐC TẾ (CERTIFICATIONS &amp; LICENSES)
+                    </h2>
+                    <ul className={`list-disc list-outside pl-4 space-y-1 text-xs ${canvasTheme === 'paper-white' ? 'text-slate-800' : 'text-[#4A5B4D]'}`}>
+                      {safeArr(cvData.certifications).map((c, idx) => (
+                        <li key={c.id || idx}>
+                          <strong>{c.name}</strong> — {c.issuer} {c.year ? `(${c.year})` : ''} {c.code ? `• ID: ${c.code}` : ''}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+
+                  {/* Harvard Section 7: Languages */}
+                  <section className="space-y-2">
+                    <h2 className={`text-xs font-serif font-bold uppercase tracking-wider pb-0.5 border-b ${canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-400' : 'text-[#2D3A31] border-[#C5C0B6]'}`}>
+                      NGOẠI NGỮ THÀNH THẠO (LANGUAGES)
+                    </h2>
+                    <p className={`text-xs ${canvasTheme === 'paper-white' ? 'text-slate-800' : 'text-[#4A5B4D]'}`}>
+                      {safeArr(cvData.languages).map(l => `${l.name}${l.score && !l.name.includes(l.score) ? ` (${l.score})` : ''}`).join(' • ')}
+                    </p>
                   </section>
 
                 </div>
@@ -2374,19 +2446,27 @@ export default function CandidateProfilePage({ user }) {
 
                   {/* Modern Header Banner */}
                   <div className={`p-6 sm:p-8 rounded-3xl ${livingTheme.activeNavBg} text-white shadow-2xl flex flex-col sm:flex-row items-center sm:items-start justify-between gap-6 border ${livingTheme.border}`}>
-                    <div className="space-y-2 text-center sm:text-left">
-                      <span className="px-3 py-0.5 rounded-full text-[10px] font-mono font-bold bg-white/20 uppercase tracking-widest">
-                        {cvData.versionBadge || 'VERIFIED PROFESSIONAL'}
-                      </span>
+                    <div className="space-y-2 text-center sm:text-left flex-1">
+                      <div className="flex items-center justify-center sm:justify-start gap-2 flex-wrap">
+                        <span className="px-3 py-0.5 rounded-full text-[10px] font-mono font-bold bg-white/20 uppercase tracking-widest">
+                          {cvData.versionBadge || 'VERIFIED PROFESSIONAL'}
+                        </span>
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/80 text-white flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
+                          SẴN SÀNG NHẬN VIỆC
+                        </span>
+                      </div>
                       <h1 className="text-3xl sm:text-4xl font-headline font-black uppercase tracking-tight">
                         {currentCandidate.accountName}
                       </h1>
                       <p className="text-base sm:text-lg font-bold text-white/95">
                         {cvData.targetTitle}
                       </p>
-                      <p className="text-xs text-white/80 max-w-xl leading-relaxed pt-1">
-                        {cvData.tagline}
-                      </p>
+                      {cvData.tagline && (
+                        <p className="text-xs text-white/80 max-w-xl leading-relaxed pt-1">
+                          {cvData.tagline}
+                        </p>
+                      )}
                     </div>
 
                     <div className="relative group shrink-0">
@@ -2413,71 +2493,189 @@ export default function CandidateProfilePage({ user }) {
                     </div>
                   </div>
 
-                  {/* Contact Band */}
-                  <div className={`p-4 rounded-2xl border flex flex-wrap items-center justify-around gap-4 text-xs font-mono font-semibold ${canvasTheme === 'paper-white' ? 'bg-slate-100 border-slate-300 text-slate-800' : 'bg-[#F2F0EB] border-[#C5C0B6] text-[#2D3A31]'
-                    }`}>
-                    <span>📧 {currentCandidate.email}</span>
-                    <span>📞 {currentCandidate.phone}</span>
-                    <span>📍 {currentCandidate.location}</span>
-                    <span>🔗 {currentCandidate.linkedin}</span>
+                  {/* Full Contact Ribbon */}
+                  <div className={`p-3.5 rounded-2xl border flex flex-wrap items-center justify-around gap-3 text-xs font-mono font-semibold shadow-xs ${canvasTheme === 'paper-white' ? 'bg-slate-100 border-slate-300 text-slate-800' : 'bg-[#F2F0EB] border-[#C5C0B6] text-[#2D3A31]'}`}>
+                    <span className="flex items-center gap-1.5">📧 {currentCandidate.email}</span>
+                    <span className="flex items-center gap-1.5">📞 {currentCandidate.phone}</span>
+                    <span className="flex items-center gap-1.5">📍 {currentCandidate.location}</span>
+                    {currentCandidate.dob && (
+                      <span className="flex items-center gap-1.5">🎂 {currentCandidate.dob}</span>
+                    )}
+                    {currentCandidate.linkedin && (
+                      <span className="flex items-center gap-1.5">🔗 {currentCandidate.linkedin}</span>
+                    )}
+                    {currentCandidate.portfolio && (
+                      <span className="flex items-center gap-1.5">🌐 {currentCandidate.portfolio}</span>
+                    )}
                   </div>
 
-                  {/* 2-Column Content Grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-12 gap-7">
+                  {/* Section: TÓM TẮT NĂNG LỰC CỐT LÕI (EXECUTIVE SUMMARY) */}
+                  <section className="space-y-2.5">
+                    <h3 className={`text-xs font-headline font-black uppercase tracking-widest pb-1 border-b flex items-center gap-2 ${canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-300' : 'text-[#2D3A31] border-[#C5C0B6]'}`}>
+                      <span className="material-symbols-outlined text-base" style={{ color: livingTheme.primary }}>badge</span>
+                      <span>Tóm Tắt Năng Lực Cốt Lõi (Executive Summary)</span>
+                    </h3>
+                    <div className={`p-4 rounded-2xl text-xs sm:text-sm leading-relaxed border-l-4 shadow-xs font-medium ${canvasTheme === 'paper-white' ? 'bg-slate-50 border-slate-900 text-slate-800 border-t border-r border-b border-slate-200' : 'bg-[#F2F0EB] border-[#2D3A31] text-[#2D3A31] border-t border-r border-b border-[#C5C0B6]'}`}>
+                      {cvData.summary}
+                    </div>
+                  </section>
 
-                    {/* Left: Experience & Projects (8 Cols) */}
-                    <div className="md:col-span-8 space-y-7">
+                  {/* 2-Column Balanced Content Grid (7 cols left, 5 cols right) */}
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-7 items-start">
+
+                    {/* Cột Trái (7 Cols): KINH NGHIỆM THỰC CHIẾN + DỰ ÁN TRỌNG ĐIỂM */}
+                    <div className="md:col-span-7 space-y-7">
+                      
+                      {/* Kinh Nghiệm Làm Việc */}
                       <section className="space-y-4">
-                        <h3 className={`text-xs font-headline font-black uppercase tracking-widest pb-1 border-b ${canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-300' : 'text-[#2D3A31] border-[#C5C0B6]'
-                          }`}>
-                          KINH NGHIỆM THỰC CHIẾN (EXPERIENCE)
+                        <h3 className={`text-xs font-headline font-black uppercase tracking-widest pb-1 border-b flex items-center gap-2 ${canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-300' : 'text-[#2D3A31] border-[#C5C0B6]'}`}>
+                          <span className="material-symbols-outlined text-base" style={{ color: livingTheme.primary }}>history_edu</span>
+                          <span>Kinh Nghiệm Thực Chiến (Experience)</span>
                         </h3>
-                        {safeArr(cvData.experiences).map((exp, eIdx) => (
-                          <div key={exp.id || eIdx} className="space-y-1.5 text-xs sm:text-sm">
-                            <div className={`flex justify-between font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
-                              <span>{exp.role}</span>
-                              <span className={`font-mono text-xs ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{exp.period}</span>
+                        <div className="space-y-4">
+                          {safeArr(cvData.experiences).map((exp, eIdx) => (
+                            <div key={exp.id || eIdx} className={`p-4 rounded-2xl border shadow-xs space-y-2 ${canvasTheme === 'paper-white' ? 'bg-white border-slate-200' : 'bg-white/80 border-[#C5C0B6]'}`}>
+                              <div className="flex items-start justify-between gap-2 flex-wrap">
+                                <div>
+                                  <h4 className={`font-black text-sm ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
+                                    {exp.role}
+                                  </h4>
+                                  <p className="text-xs font-bold" style={{ color: livingTheme.primary }}>
+                                    {exp.company} {exp.location ? `• ${exp.location}` : ''}
+                                  </p>
+                                </div>
+                                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold ${canvasTheme === 'paper-white' ? 'bg-slate-100 text-slate-700 border border-slate-200' : 'bg-[#F2F0EB] text-[#2D3A31]'}`}>
+                                  {exp.period}
+                                </span>
+                              </div>
+                              <ul className={`list-disc list-outside pl-4 space-y-1 text-xs leading-relaxed ${canvasTheme === 'paper-white' ? 'text-slate-700' : 'text-[#4A5B4D]'}`}>
+                                {safeArr(exp.bullets).map((b, idx) => (
+                                  <li key={idx} className={b.includes('Thành tích:') ? 'font-bold text-amber-900 bg-amber-50 p-1 rounded border border-amber-100' : ''}>
+                                    {b}
+                                  </li>
+                                ))}
+                              </ul>
+                              {safeArr(exp.tags).length > 0 && (
+                                <div className="flex flex-wrap gap-1 pt-1 border-t border-slate-100">
+                                  {safeArr(exp.tags).map((t, idx) => (
+                                    <span key={idx} className={`px-2 py-0.5 rounded text-[10px] font-mono font-semibold ${canvasTheme === 'paper-white' ? 'bg-slate-100 text-slate-700 border border-slate-200' : livingTheme.tagBg}`}>
+                                      {t}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
                             </div>
-                            <p className="font-semibold text-xs" style={{ color: livingTheme.primary }}>{exp.company} — {exp.location}</p>
-                            <ul className={`list-disc list-outside pl-4 space-y-1 text-xs ${canvasTheme === 'paper-white' ? 'text-slate-800 font-medium' : 'text-[#4A5B4D] font-medium'}`}>
-                              {safeArr(exp.bullets).map((b, idx) => (
-                                <li key={idx}>{b}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </section>
 
+                      {/* Dự Án Trọng Điểm */}
                       <section className="space-y-4">
-                        <h3 className={`text-xs font-headline font-black uppercase tracking-widest pb-1 border-b ${canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-300' : 'text-[#2D3A31] border-[#C5C0B6]'
-                          }`}>
-                          DỰ ÁN TRỌNG ĐIỂM (KEY PROJECTS)
+                        <h3 className={`text-xs font-headline font-black uppercase tracking-widest pb-1 border-b flex items-center gap-2 ${canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-300' : 'text-[#2D3A31] border-[#C5C0B6]'}`}>
+                          <span className="material-symbols-outlined text-base" style={{ color: livingTheme.primary }}>rocket_launch</span>
+                          <span>Dự Án Trọng Điểm (Key Projects)</span>
                         </h3>
-                        {safeArr(cvData.projects).map((p, pIdx) => (
-                          <div key={p.id || pIdx} className={`p-3.5 rounded-2xl border space-y-1 text-xs ${canvasTheme === 'paper-white' ? 'bg-slate-50 border-slate-300' : 'bg-[#F2F0EB] border-[#C5C0B6]'
-                            }`}>
-                            <h4 className={`font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>{p.name}</h4>
-                            <p className={canvasTheme === 'paper-white' ? 'text-slate-700' : 'text-[#4A5B4D]'}>{p.summary}</p>
-                          </div>
-                        ))}
+                        <div className="space-y-3.5">
+                          {safeArr(cvData.projects).map((p, pIdx) => (
+                            <div key={p.id || pIdx} className={`p-4 rounded-2xl border shadow-xs space-y-2 ${canvasTheme === 'paper-white' ? 'bg-white border-slate-200' : 'bg-[#F2F0EB] border-[#C5C0B6]'}`}>
+                              <div className="flex items-start justify-between gap-2">
+                                <div>
+                                  <h4 className={`font-bold text-xs ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>{p.name}</h4>
+                                  {p.role && <p className="text-[11px] font-semibold" style={{ color: livingTheme.primary }}>{p.role}</p>}
+                                </div>
+                                <span className="text-[10px] font-mono text-slate-500 shrink-0">{p.period}</span>
+                              </div>
+                              <p className={`text-xs leading-relaxed ${canvasTheme === 'paper-white' ? 'text-slate-700' : 'text-[#4A5B4D]'}`}>{p.summary || p.description}</p>
+                              {safeArr(p.tags).length > 0 && (
+                                <div className="flex flex-wrap gap-1 pt-1 border-t border-slate-100">
+                                  {safeArr(p.tags).map((t, idx) => (
+                                    <span key={idx} className={`px-2 py-0.5 rounded text-[10px] font-mono ${canvasTheme === 'paper-white' ? 'bg-slate-100 text-slate-700 border border-slate-200' : livingTheme.tagBg}`}>
+                                      {t}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </section>
                     </div>
 
-                    {/* Right: Skills, Education, Certs (4 Cols) */}
-                    <div className="md:col-span-4 space-y-6">
+                    {/* Cột Phải (5 Cols): HỌC VẤN, CHỨNG CHỈ, NGOẠI NGỮ, KỸ NĂNG CHUYÊN SÂU */}
+                    <div className="md:col-span-5 space-y-6">
+
+                      {/* Học Vấn Chính Quy */}
                       <section className="space-y-3">
-                        <h3 className={`text-xs font-headline font-black uppercase tracking-widest pb-1 border-b ${canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-300' : 'text-[#2D3A31] border-[#C5C0B6]'
-                          }`}>
-                          KỸ NĂNG CHUYÊN SÂU
+                        <h3 className={`text-xs font-headline font-black uppercase tracking-widest pb-1 border-b flex items-center gap-2 ${canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-300' : 'text-[#2D3A31] border-[#C5C0B6]'}`}>
+                          <span className="material-symbols-outlined text-base" style={{ color: livingTheme.primary }}>school</span>
+                          <span>Học Vấn Chính Quy (Education)</span>
+                        </h3>
+                        <div className="space-y-3">
+                          {safeArr(cvData.education).map((e, idx) => (
+                            <div key={e.id || idx} className={`p-3 rounded-2xl border text-xs space-y-1 ${canvasTheme === 'paper-white' ? 'bg-slate-50 border-slate-200' : 'bg-white/80 border-[#C5C0B6]'}`}>
+                              <div className="flex justify-between items-start gap-1">
+                                <h4 className={`font-bold leading-snug ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>{e.school}</h4>
+                                <span className="text-[10px] font-mono text-slate-500 shrink-0">{e.period}</span>
+                              </div>
+                              <p className={`font-medium ${canvasTheme === 'paper-white' ? 'text-slate-700' : 'text-[#4A5B4D]'}`}>{e.degree}</p>
+                              <p className="text-emerald-700 font-bold font-mono text-[11px]">{e.grade}</p>
+                              {e.highlight && (
+                                <p className={`text-[11px] italic pt-0.5 leading-snug ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{e.highlight}</p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </section>
+
+                      {/* Chứng Chỉ Quốc Tế */}
+                      <section className="space-y-3">
+                        <h3 className={`text-xs font-headline font-black uppercase tracking-widest pb-1 border-b flex items-center gap-2 ${canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-300' : 'text-[#2D3A31] border-[#C5C0B6]'}`}>
+                          <span className="material-symbols-outlined text-base" style={{ color: livingTheme.primary }}>workspace_premium</span>
+                          <span>Chứng Chỉ Quốc Tế (Certifications)</span>
                         </h3>
                         <div className="space-y-2">
+                          {safeArr(cvData.certifications).map((c, idx) => (
+                            <div key={c.id || idx} className={`p-2.5 rounded-xl border text-xs space-y-0.5 ${canvasTheme === 'paper-white' ? 'bg-slate-50 border-slate-200' : 'bg-white/80 border-[#C5C0B6]'}`}>
+                              <h4 className={`font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>{c.name}</h4>
+                              <p className={`font-mono text-[11px] ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>
+                                {c.issuer} {c.year ? `• ${c.year}` : ''} {c.code ? `• ID: ${c.code}` : ''}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </section>
+
+                      {/* Ngoại Ngữ Thành Thạo */}
+                      <section className="space-y-3">
+                        <h3 className={`text-xs font-headline font-black uppercase tracking-widest pb-1 border-b flex items-center gap-2 ${canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-300' : 'text-[#2D3A31] border-[#C5C0B6]'}`}>
+                          <span className="material-symbols-outlined text-base" style={{ color: livingTheme.primary }}>translate</span>
+                          <span>Ngoại Ngữ Thành Thạo (Languages)</span>
+                        </h3>
+                        <div className="space-y-2 text-xs">
+                          {safeArr(cvData.languages).map((l, idx) => (
+                            <div key={idx} className={`p-2.5 rounded-xl border flex items-center justify-between ${canvasTheme === 'paper-white' ? 'bg-slate-50 border-slate-200' : 'bg-white/80 border-[#C5C0B6]'}`}>
+                              <span className={`font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>{l.name}</span>
+                              <span className="text-[11px] font-mono font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200">
+                                {l.score || l.level || 'Thành thạo'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </section>
+
+                      {/* Kỹ Năng Chuyên Sâu */}
+                      <section className="space-y-3">
+                        <h3 className={`text-xs font-headline font-black uppercase tracking-widest pb-1 border-b flex items-center gap-2 ${canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-300' : 'text-[#2D3A31] border-[#C5C0B6]'}`}>
+                          <span className="material-symbols-outlined text-base" style={{ color: livingTheme.primary }}>psychology</span>
+                          <span>Ma Trận Kỹ Năng Chuyên Sâu</span>
+                        </h3>
+                        <div className="space-y-2.5">
                           {safeArr(cvData.skills).map((sk, idx) => (
-                            <div key={idx} className="space-y-1 text-xs">
-                              <p className={`font-bold text-[11px] ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>{sk.category}</p>
+                            <div key={idx} className={`p-3 rounded-2xl border space-y-1.5 ${canvasTheme === 'paper-white' ? 'bg-slate-50 border-slate-200' : 'bg-white/80 border-[#C5C0B6]'}`}>
+                              <p className={`font-bold text-xs ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>{sk.category}</p>
                               <div className="flex flex-wrap gap-1">
                                 {safeArr(sk.items).map((it, iIdx) => (
-                                  <span key={iIdx} className={`px-2 py-0.5 rounded text-[10px] font-mono ${canvasTheme === 'paper-white' ? 'bg-slate-100 text-slate-800 border border-slate-300' : livingTheme.tagBg
-                                    }`}>
+                                  <span key={iIdx} className={`px-2 py-0.5 rounded text-[10px] font-mono font-semibold ${canvasTheme === 'paper-white' ? 'bg-white text-slate-800 border border-slate-300 shadow-2xs' : livingTheme.tagBg}`}>
                                     {it}
                                   </span>
                                 ))}
@@ -2487,34 +2685,12 @@ export default function CandidateProfilePage({ user }) {
                         </div>
                       </section>
 
-                      <section className="space-y-3">
-                        <h3 className={`text-xs font-headline font-black uppercase tracking-widest pb-1 border-b ${canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-300' : 'text-[#2D3A31] border-[#C5C0B6]'
-                          }`}>
-                          HỌC VẤN &amp; CHỨNG CHỈ
-                        </h3>
-                        {safeArr(cvData.education).map((e, idx) => (
-                          <div key={e.id || idx} className="text-xs space-y-0.5">
-                            <p className={`font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>{e.school}</p>
-                            <p className={canvasTheme === 'paper-white' ? 'text-slate-700' : 'text-[#4A5B4D]'}>{e.degree}</p>
-                            <p className="text-emerald-600 dark:text-emerald-400 font-bold font-mono text-[10px]">{e.grade}</p>
-                          </div>
-                        ))}
-                        <div className="pt-2 space-y-1.5">
-                          {safeArr(cvData.certifications).map((c, idx) => (
-                            <div key={c.id || idx} className={`text-[11px] border-l-2 pl-2 ${canvasTheme === 'paper-white' ? 'border-slate-400' : 'border-[#C5C0B6]'}`}>
-                              <p className={`font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>{c.name}</p>
-                              <p className={`font-mono text-[10px] ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{c.issuer} ({c.year})</p>
-                            </div>
-                          ))}
-                        </div>
-                      </section>
                     </div>
 
                   </div>
 
                 </div>
               )}
-
             </div>
           </div>
           )

@@ -35,6 +35,9 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @org.springframework.beans.factory.annotation.Autowired
+    private ApplicationRepository applicationRepository;
+
+    @org.springframework.beans.factory.annotation.Autowired
     @org.springframework.context.annotation.Lazy
     private com.hiremate.service.JobService jobService;
 
@@ -853,17 +856,84 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
         Candidate candidate = candidateRepository.findById(candidateId)
                 .orElseThrow(() -> new IllegalArgumentException("Ứng viên không tồn tại: " + candidateId));
 
-        Cv cv = cvRepository.findByCandidateIdAndIsDefaultTrue(candidateId)
-                .orElseGet(() -> {
-                    List<Cv> cvs = cvRepository.findByCandidateId(candidateId);
-                    return cvs.isEmpty() ? null : cvs.get(0);
-                });
+        // 1. Tìm đúng CV mà ứng viên đã nộp cho bài tuyển dụng này (nếu có application)
+        Cv cv = null;
+        try {
+            if (applicationRepository != null) {
+                Optional<Application> appOpt = applicationRepository.findByJob_JobIdAndCandidate_CandidateId(jobId, candidateId);
+                if (appOpt.isPresent() && appOpt.get().getCv() != null) {
+                    cv = appOpt.get().getCv();
+                }
+            }
+        } catch (Exception ignored) {}
+
+        if (cv == null) {
+            cv = cvRepository.findByCandidateIdAndIsDefaultTrue(candidateId)
+                    .orElseGet(() -> {
+                        List<Cv> cvs = cvRepository.findByCandidateId(candidateId);
+                        return cvs.isEmpty() ? null : cvs.get(0);
+                    });
+        }
+
+        // 2. Tính toán trước ma trận ATS để lấy danh sách kỹ năng khớp và thiếu
+        AiJobMatchResponse matchRes = null;
+        try {
+            matchRes = calculateAndSaveMatch(candidate, job, cv, false);
+        } catch (Exception ex) {
+            log.warn(">> [AiJobMatchService] Lỗi tính điểm trước khi lập báo cáo: {}", ex.getMessage());
+        }
+
+        // 3. Xây dựng ngữ cảnh hồ sơ toàn diện (Học vấn, Bằng cấp, Chứng chỉ, Ngoại ngữ, Kỹ năng)
+        StringBuilder profileBuilder = new StringBuilder();
+        if (candidate.getEducationsJson() != null && !candidate.getEducationsJson().isBlank()) {
+            profileBuilder.append(" [HỌC VẤN & BẰNG CẤP: ").append(candidate.getEducationsJson()).append("] ");
+        }
+        if (cv != null && cv.getParsedJson() != null && !cv.getParsedJson().isBlank()) {
+            profileBuilder.append(" [DỮ LIỆU CV TRÍCH XUẤT (Bằng cấp, Chứng chỉ, Ngoại ngữ): ").append(cv.getParsedJson()).append("] ");
+        }
+        if (candidate.getExperiencesJson() != null && !candidate.getExperiencesJson().isBlank()) {
+            profileBuilder.append(" [KINH NGHIỆM: ").append(candidate.getExperiencesJson()).append("] ");
+        }
+        if (candidate.getProjectsJson() != null && !candidate.getProjectsJson().isBlank()) {
+            profileBuilder.append(" [DỰ ÁN: ").append(candidate.getProjectsJson()).append("] ");
+        }
+        if (candidate.getBio() != null && !candidate.getBio().isBlank()) {
+            profileBuilder.append(" [GIỚI THIỆU: ").append(candidate.getBio()).append("] ");
+        }
+
+        // Bổ sung kỹ năng đã xác thực từ candidate_skills
+        try {
+            List<CandidateSkill> candSkills = candidateSkillRepository.findByProfileId(candidateId);
+            if (!candSkills.isEmpty()) {
+                profileBuilder.append(" [KỸ NĂNG XÁC THỰC: ");
+                for (CandidateSkill cs : candSkills) {
+                    Skill s = skillCache.computeIfAbsent(cs.getSkillId(), id -> skillRepository.findById(id).orElse(null));
+                    if (s != null && s.getSkillName() != null) {
+                        profileBuilder.append(s.getSkillName()).append(", ");
+                    }
+                }
+                profileBuilder.append("] ");
+            }
+        } catch (Exception ignored) {}
+
+        // Bổ sung kết quả so khớp kỹ năng từ engine ATS
+        if (matchRes != null) {
+            if (matchRes.getMatchedMandatorySkills() != null && !matchRes.getMatchedMandatorySkills().isEmpty()) {
+                profileBuilder.append(" [KỸ NĂNG BẮT BUỘC ĐÃ ĐẠP ỨNG: ").append(String.join(", ", matchRes.getMatchedMandatorySkills())).append("] ");
+            }
+            if (matchRes.getMissingMandatorySkills() != null && !matchRes.getMissingMandatorySkills().isEmpty()) {
+                profileBuilder.append(" [KỸ NĂNG BẮT BUỘC CÒN THIẾU: ").append(String.join(", ", matchRes.getMissingMandatorySkills())).append("] ");
+                profileBuilder.append(" [KỸ NĂNG CÒN THIẾU: ").append(String.join(", ", matchRes.getMissingMandatorySkills())).append("] ");
+            }
+            if (matchRes.getMatchedPreferredSkills() != null && !matchRes.getMatchedPreferredSkills().isEmpty()) {
+                profileBuilder.append(" [KỸ NĂNG ƯU TIÊN ĐẠT ĐƯỢC: ").append(String.join(", ", matchRes.getMatchedPreferredSkills())).append("] ");
+            }
+            if (matchRes.getMissingPreferredSkills() != null && !matchRes.getMissingPreferredSkills().isEmpty()) {
+                profileBuilder.append(" [KỸ NĂNG ƯU TIÊN CÒN THIẾU: ").append(String.join(", ", matchRes.getMissingPreferredSkills())).append("] ");
+            }
+        }
 
         String cvText = (cv != null && cv.getParsedText() != null) ? cv.getParsedText() : "";
-        String candProfileStr = (candidate.getEducationsJson() != null ? candidate.getEducationsJson() : "") + " "
-                + (candidate.getExperiencesJson() != null ? candidate.getExperiencesJson() : "") + " "
-                + (candidate.getProjectsJson() != null ? candidate.getProjectsJson() : "");
-
         String candidateName = candidate.getUser() != null ? candidate.getUser().getFullName() : "Ứng viên #" + candidateId;
         String candidateEmail = candidate.getUser() != null ? candidate.getUser().getEmail() : "";
 
@@ -873,23 +943,21 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
                 job.getDescription(),
                 candidateName,
                 cvText,
-                candProfileStr
+                profileBuilder.toString()
         );
 
-        // ĐỒNG BỘ 100% ĐIỂM SỐ GIỮA BẢNG DANH SÁCH VÀ MODAL BÁO CÁO
-        try {
-            AiJobMatchResponse matchRes = calculateAndSaveMatch(candidate, job, cv, false);
-            if (matchRes != null && matchRes.getMatchingScore() != null && matchRes.getMatchingScore() > 0) {
-                Float officialScore = matchRes.getMatchingScore();
-                report.setMatchingScore(officialScore);
-                report.setMatchTier(officialScore >= 85 ? "⭐ Phù Hợp Xuất Sắc"
-                        : officialScore >= 70 ? "✨ Phù Hợp Tốt (Khuyên Mời Phỏng Vấn)"
-                        : officialScore >= 50 ? "💡 Tiềm Năng (Có Thể Cân Nhắc)"
-                        : "⚠️ Trau Dồi Kỹ Năng");
-            }
-        } catch (Exception ex) {
-            log.warn(">> [AiJobMatchService] Lỗi đồng bộ điểm AiJobMatch trong getDetailedCandidateEvaluation: {}", ex.getMessage());
+        // Đồng bộ 100% điểm số chính xác từ ma trận ATS 4 trụ cột
+        if (matchRes != null && matchRes.getMatchingScore() != null && matchRes.getMatchingScore() > 0) {
+            Float officialScore = matchRes.getMatchingScore();
+            report.setMatchingScore(officialScore);
+            report.setMatchTier(officialScore >= 85 ? "⭐ Phù Hợp Xuất Sắc"
+                    : officialScore >= 70 ? "✨ Phù Hợp Tốt (Khuyên Mời Phỏng Vấn)"
+                    : officialScore >= 50 ? "💡 Tiềm Năng (Có Thể Cân Nhắc)"
+                    : "⚠️ Trau Dồi Kỹ Năng");
         }
+
+        // Bóc tách & Đồng bộ toàn diện danh sách tiêu chí còn thiếu từ bảng tuyển dụng vào báo cáo HR
+        enrichAndSynchronizeReportDisadvantages(report, job, candidate, cv, matchRes);
 
         report.setCandidateId(candidateId);
         report.setCandidateEmail(candidateEmail);
@@ -897,5 +965,123 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
         report.setJobTitle(job.getTitle());
 
         return report;
+    }
+
+    private void enrichAndSynchronizeReportDisadvantages(
+            com.hiremate.dto.response.AiDetailedEvaluationReport report,
+            Job job,
+            Candidate candidate,
+            Cv cv,
+            AiJobMatchResponse matchRes
+    ) {
+        if (report == null) return;
+        List<com.hiremate.dto.response.AiDetailedEvaluationReport.DisadvantageItem> disadvantages = report.getDisadvantages();
+        if (disadvantages == null) {
+            disadvantages = new ArrayList<>();
+            report.setDisadvantages(disadvantages);
+        }
+
+        List<String> missingMandatory = (matchRes != null && matchRes.getMissingMandatorySkills() != null) 
+                ? matchRes.getMissingMandatorySkills() : Collections.emptyList();
+        List<String> missingPreferred = (matchRes != null && matchRes.getMissingPreferredSkills() != null) 
+                ? matchRes.getMissingPreferredSkills() : Collections.emptyList();
+
+        String jobTitle = job.getTitle() != null ? job.getTitle() : "Vị trí tuyển dụng";
+        String titleLower = jobTitle.toLowerCase();
+        boolean isInternOrFresher = titleLower.contains("intern") || titleLower.contains("fresher") 
+                || titleLower.contains("thực tập") || titleLower.contains("mới tốt nghiệp");
+
+        // 1. Nếu vị trí là Intern/Fresher, loại bỏ các mục bất hợp lý như "Vận hành hệ thống tải lớn"
+        if (isInternOrFresher) {
+            disadvantages.removeIf(item -> item.getTitle() != null && (
+                    item.getTitle().toLowerCase().contains("chịu tải") 
+                    || item.getTitle().toLowerCase().contains("quy mô lớn")
+                    || item.getTitle().toLowerCase().contains("vận hành hệ thống")
+            ));
+        }
+
+        // 2. Bổ sung tất cả kỹ năng bắt buộc còn thiếu từ bảng tuyển dụng
+        List<com.hiremate.dto.response.AiDetailedEvaluationReport.DisadvantageItem> mandatorySkillItems = new ArrayList<>();
+        for (String sk : missingMandatory) {
+            String cleanSk = sk.trim();
+            if (cleanSk.isBlank()) continue;
+            boolean alreadyExists = disadvantages.stream().anyMatch(d -> 
+                    (d.getTitle() != null && d.getTitle().toLowerCase().contains(cleanSk.toLowerCase())) ||
+                    (d.getJobRequirement() != null && d.getJobRequirement().toLowerCase().contains(cleanSk.toLowerCase()))
+            );
+            if (!alreadyExists) {
+                mandatorySkillItems.add(com.hiremate.dto.response.AiDetailedEvaluationReport.DisadvantageItem.builder()
+                        .category("Kỹ năng bắt buộc còn thiếu")
+                        .title("Chưa Đáp Ứng Kỹ Năng Bắt Buộc: " + cleanSk)
+                        .jobRequirement("Bảng tuyển dụng " + jobTitle + " yêu cầu bắt buộc ứng viên thành thạo " + cleanSk + " để trực tiếp phát triển sản phẩm.")
+                        .cvShortfall("Hồ sơ CV và danh mục kỹ năng của ứng viên chưa ghi nhận kinh nghiệm làm việc thực tế với " + cleanSk + ".")
+                        .severity("Bắt buộc / Cần phỏng vấn xác thực")
+                        .build());
+            }
+        }
+        // Chèn các kỹ năng bắt buộc thiếu lên đầu danh sách
+        disadvantages.addAll(0, mandatorySkillItems);
+
+        // 3. Bổ sung tất cả kỹ năng ưu tiên còn thiếu từ bảng tuyển dụng
+        for (String sk : missingPreferred) {
+            String cleanSk = sk.trim();
+            if (cleanSk.isBlank()) continue;
+            boolean alreadyExists = disadvantages.stream().anyMatch(d -> 
+                    (d.getTitle() != null && d.getTitle().toLowerCase().contains(cleanSk.toLowerCase())) ||
+                    (d.getJobRequirement() != null && d.getJobRequirement().toLowerCase().contains(cleanSk.toLowerCase()))
+            );
+            if (!alreadyExists) {
+                disadvantages.add(com.hiremate.dto.response.AiDetailedEvaluationReport.DisadvantageItem.builder()
+                        .category("Kỹ năng ưu tiên chưa có")
+                        .title("Chưa Có Kỹ Năng Ưu Tiên: " + cleanSk)
+                        .jobRequirement("Nhà tuyển dụng ưu tiên ứng viên có kiến thức về " + cleanSk + " để gia tăng hiệu suất dự án.")
+                        .cvShortfall("Chưa thấy thông tin hoặc dự án áp dụng " + cleanSk + " trong hồ sơ CV.")
+                        .severity("Điểm cộng (Có thể đào tạo 1-2 tuần)")
+                        .build());
+            }
+        }
+
+        // 4. Đảm bảo có phân tích kinh nghiệm phù hợp với cấp bậc bài tuyển dụng
+        boolean hasExpItem = disadvantages.stream().anyMatch(d -> 
+                (d.getCategory() != null && d.getCategory().toLowerCase().contains("kinh nghiệm")) ||
+                (d.getTitle() != null && d.getTitle().toLowerCase().contains("kinh nghiệm"))
+        );
+        if (!hasExpItem) {
+            if (isInternOrFresher) {
+                disadvantages.add(com.hiremate.dto.response.AiDetailedEvaluationReport.DisadvantageItem.builder()
+                        .category("Kinh nghiệm thực chiến")
+                        .title("Kinh Nghiệm Triển Khai Dự Án Doanh Nghiệp Thực Tế")
+                        .jobRequirement("Vị trí " + jobTitle + " mong muốn ứng viên nhanh chóng thích nghi với môi trường làm việc chuyên nghiệp.")
+                        .cvShortfall("Kinh nghiệm tích lũy chủ yếu đến từ các đồ án môn học hoặc bài tập lớn tại trường đại học, cần thêm thời gian cọ xát với quy trình vận hành dự án thực tế.")
+                        .severity("Có thể đào tạo (Onboarding 1-2 tuần)")
+                        .build());
+            } else {
+                disadvantages.add(com.hiremate.dto.response.AiDetailedEvaluationReport.DisadvantageItem.builder()
+                        .category("Kinh nghiệm chưa đủ chuẩn")
+                        .title("Chưa Đạt Chuẩn Số Năm Kinh Nghiệm Cấp Bậc Vị Trí")
+                        .jobRequirement("Bảng tuyển dụng yêu cầu số năm kinh nghiệm làm việc thực tế ở cấp độ tương ứng với vị trí " + jobTitle + ".")
+                        .cvShortfall("Số năm kinh nghiệm tích lũy thực tế trong CV còn thấp hơn chuẩn mong muốn của bài tuyển dụng.")
+                        .severity("Cần lưu ý / Cần Tech Lead kèm cặp")
+                        .build());
+            }
+        }
+
+        // 5. Sắp xếp thứ tự ưu tiên: Bắt buộc thiếu -> Kinh nghiệm -> Bằng cấp/Chứng chỉ -> Ưu tiên thiếu -> Khác
+        disadvantages.sort((a, b) -> {
+            int scoreA = getDisadvantageSortPriority(a);
+            int scoreB = getDisadvantageSortPriority(b);
+            return Integer.compare(scoreA, scoreB);
+        });
+    }
+
+    private int getDisadvantageSortPriority(com.hiremate.dto.response.AiDetailedEvaluationReport.DisadvantageItem item) {
+        if (item == null) return 99;
+        String cat = item.getCategory() != null ? item.getCategory().toLowerCase() : "";
+        String sev = item.getSeverity() != null ? item.getSeverity().toLowerCase() : "";
+        if (cat.contains("bắt buộc") || sev.contains("bắt buộc")) return 1;
+        if (cat.contains("kinh nghiệm")) return 2;
+        if (cat.contains("chứng chỉ") || cat.contains("bằng cấp") || cat.contains("ngoại ngữ")) return 3;
+        if (cat.contains("ưu tiên")) return 4;
+        return 5;
     }
 }
