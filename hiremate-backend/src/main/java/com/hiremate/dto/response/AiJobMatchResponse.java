@@ -31,6 +31,11 @@ public class AiJobMatchResponse {
     private BigDecimal salaryMin;
     private BigDecimal salaryMax;
     private EmploymentType employmentType;
+    private Float skillsScore;
+    private Float experienceScore;
+    private Float educationScore;
+    private Float semanticScore;
+    private String matchingFormula;
 
     public static AiJobMatchResponseBuilder builder() {
         return new AiJobMatchResponseBuilder();
@@ -146,11 +151,43 @@ public class AiJobMatchResponse {
             return this;
         }
 
+        private Float skillsScore;
+        private Float experienceScore;
+        private Float educationScore;
+        private Float semanticScore;
+        private String matchingFormula;
+
+        public AiJobMatchResponseBuilder skillsScore(Float skillsScore) {
+            this.skillsScore = skillsScore;
+            return this;
+        }
+
+        public AiJobMatchResponseBuilder experienceScore(Float experienceScore) {
+            this.experienceScore = experienceScore;
+            return this;
+        }
+
+        public AiJobMatchResponseBuilder educationScore(Float educationScore) {
+            this.educationScore = educationScore;
+            return this;
+        }
+
+        public AiJobMatchResponseBuilder semanticScore(Float semanticScore) {
+            this.semanticScore = semanticScore;
+            return this;
+        }
+
+        public AiJobMatchResponseBuilder matchingFormula(String matchingFormula) {
+            this.matchingFormula = matchingFormula;
+            return this;
+        }
+
         public AiJobMatchResponse build() {
             return new AiJobMatchResponse(
                     matchId, candidateId, candidateName, jobId, jobTitle, cvId, matchingScore,
                     matchedMandatorySkills, missingMandatorySkills, matchedPreferredSkills, missingPreferredSkills,
-                    aiReasoning, status, companyName, location, salaryMin, salaryMax, employmentType
+                    aiReasoning, status, companyName, location, salaryMin, salaryMax, employmentType,
+                    skillsScore, experienceScore, educationScore, semanticScore, matchingFormula
             );
         }
     }

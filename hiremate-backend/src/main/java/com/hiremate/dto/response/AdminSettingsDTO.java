@@ -13,6 +13,25 @@ public class AdminSettingsDTO {
     @Builder.Default
     private Integer preferredWeight = 30;
 
+    // Chuẩn ATS Quốc Tế: Đa tiêu chí đánh giá (Multi-criteria Framework)
+    @Builder.Default
+    private Integer skillsWeight = 40; // 40% Kỹ năng chuyên môn
+
+    @Builder.Default
+    private Integer experienceWeight = 30; // 30% Kinh nghiệm làm việc
+
+    @Builder.Default
+    private Integer educationWeight = 15; // 15% Học vấn & Chứng chỉ
+
+    @Builder.Default
+    private Integer semanticWeight = 15; // 15% Dự án & Đánh giá ngữ nghĩa AI
+
+    @Builder.Default
+    private String matchingPreset = "ATS_STANDARD"; // "ATS_STANDARD" | "INTERN_FRESHER" | "SENIOR_LEAD" | "CUSTOM"
+
+    @Builder.Default
+    private Boolean adaptiveRoleWeighting = true; // Tự động thích ứng theo cấp bậc Job (Intern/Senior)
+
     @Builder.Default
     private Boolean autoPublishVerified = true;
 

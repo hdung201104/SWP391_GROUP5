@@ -37,4 +37,9 @@ public interface AiJobMatchService {
      * cho toàn bộ ứng viên đối với một Job, giúp xử lý quy mô lớn mà không làm nghẽn luồng HTTP.
      */
     java.util.concurrent.CompletableFuture<Integer> recalculateMatchesForJobAsync(Long jobId, User recruiterUser);
+
+    /**
+     * Chuyển đổi Entity AiJobMatch sang DTO response kèm đầy đủ dữ liệu 4 trụ cột ATS
+     */
+    AiJobMatchResponse mapToResponse(com.hiremate.entity.AiJobMatch match);
 }

@@ -623,27 +623,7 @@ public class AdminServiceImpl implements AdminService {
         return aiJobMatchRepository.findAll(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "matchingScore"))
                 .stream()
                 .limit(50)
-                .map(m -> {
-                    AiJobMatchResponse resp = new AiJobMatchResponse();
-                    resp.setMatchId(m.getMatchId());
-                    resp.setMatchingScore(m.getMatchingScore());
-                    resp.setStatus(m.getStatus());
-                    resp.setAiReasoning(m.getAiReasoning());
-                    if (m.getJob() != null) {
-                        resp.setJobId(m.getJob().getJobId());
-                        resp.setJobTitle(m.getJob().getTitle());
-                        if (m.getJob().getCompany() != null) {
-                            resp.setCompanyName(m.getJob().getCompany().getCompanyName());
-                        }
-                    }
-                    if (m.getCandidate() != null) {
-                        resp.setCandidateId(m.getCandidate().getCandidateId());
-                        if (m.getCandidate().getUser() != null) {
-                            resp.setCandidateName(m.getCandidate().getUser().getFullName());
-                        }
-                    }
-                    return resp;
-                })
+                .map(aiJobMatchService::mapToResponse)
                 .collect(Collectors.toList());
     }
 }

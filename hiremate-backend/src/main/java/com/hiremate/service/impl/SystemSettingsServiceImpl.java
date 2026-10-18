@@ -54,6 +54,12 @@ public class SystemSettingsServiceImpl implements SystemSettingsService {
         // Đảm bảo không bị null ở các trường cốt lõi
         if (newSettings.getMandatoryWeight() == null) newSettings.setMandatoryWeight(70);
         if (newSettings.getPreferredWeight() == null) newSettings.setPreferredWeight(100 - newSettings.getMandatoryWeight());
+        if (newSettings.getSkillsWeight() == null) newSettings.setSkillsWeight(40);
+        if (newSettings.getExperienceWeight() == null) newSettings.setExperienceWeight(30);
+        if (newSettings.getEducationWeight() == null) newSettings.setEducationWeight(15);
+        if (newSettings.getSemanticWeight() == null) newSettings.setSemanticWeight(15);
+        if (newSettings.getMatchingPreset() == null || newSettings.getMatchingPreset().isBlank()) newSettings.setMatchingPreset("ATS_STANDARD");
+        if (newSettings.getAdaptiveRoleWeighting() == null) newSettings.setAdaptiveRoleWeighting(true);
         if (newSettings.getInterviewMaxQuestions() == null) newSettings.setInterviewMaxQuestions(5);
         if (newSettings.getCandidateFreeInterviewsPerDay() == null) newSettings.setCandidateFreeInterviewsPerDay(3);
         if (newSettings.getRecruiterFreeJobPostsPerMonth() == null) newSettings.setRecruiterFreeJobPostsPerMonth(3);
