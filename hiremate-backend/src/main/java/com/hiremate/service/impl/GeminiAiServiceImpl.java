@@ -2300,49 +2300,52 @@ public class GeminiAiServiceImpl implements GeminiAiService {
 
         if (isAvailable()) {
             try {
-                String prompt = "Bạn là Chuyên gia Cố vấn Tuyển dụng AI Cấp cao của HireMate AI.\n" +
+                String prompt = "Bạn là Chuyên gia Cố vấn Tuyển dụng AI Cấp cao của nền tảng HireMate AI.\n" +
                         "NHIỆM VỤ: Hãy đọc BÀI ĐĂNG TUYỂN DỤNG (JD) và HỒ SƠ CV THỰC TẾ của ứng viên dưới đây, " +
-                        "đối chiếu từng chi tiết và lập Báo cáo Thẩm định Độc lập, Khách quan, Chuyên sâu.\n\n" +
+                        "đối chiếu từng chi tiết và lập BÁO CÁO ĐÁNH GIÁ NĂNG LỰC DÀNH CHO BỘ PHẬN TUYỂN DỤNG (HR):\n\n" +
                         "--- BÀI ĐĂNG TUYỂN DỤNG (JD) ---\n" +
                         "Vị trí: " + cleanTitle + "\n" +
-                        "Yêu cầu công việc: " + cleanReq + "\n" +
+                        "Yêu cầu công việc & Bằng cấp/Chứng chỉ: " + cleanReq + "\n" +
                         "Mô tả công việc: " + cleanDesc + "\n\n" +
                         "--- HỒ SƠ CV CỦA ỨNG VIÊN ---\n" +
                         "Họ và tên: " + cleanName + "\n" +
                         "Nội dung CV trích xuất:\n" + cleanCv + "\n\n" +
-                        "Thông tin học vấn & dự án bổ trợ:\n" + cleanProfile + "\n\n" +
-                        "HƯỚNG DẪN ĐÁNH GIÁ (TUYỆT ĐỐI TUÂN THỦ):\n" +
-                        "1. Nêu rõ các NĂNG LỰC / KỸ NĂNG TRONG CV PHÙ HỢP VỚI BÀI ĐĂNG TUYỂN DỤNG: Ghi rõ bằng chứng cụ thể trích từ CV (học trường nào, từng làm dự án gì, dùng công cụ gì).\n" +
-                        "2. Nêu rõ các ĐIỂM YẾU & YÊU CẦU JD CHƯA ĐƯỢC ĐÁP ỨNG: Chỉ rõ yêu cầu nào của JD mà trong CV chưa thấy hoặc còn yếu, kèm câu hỏi phỏng vấn thực tế để HR kiểm tra lại trong buổi gặp mặt.\n" +
-                        "3. Điểm matchingScore tính trung thực dựa trên độ đáp ứng yêu cầu (từ 0 đến 100).\n" +
-                        "4. Đưa ra 3 câu hỏi phỏng vấn thực chiến mang tính chuyên môn cao dành cho HR/Tech Lead.\n" +
-                        "5. Viết nhận định tổng quan (overallVerdict) và khuyến nghị (executiveRecommendation) với giọng văn tuyển dụng cao cấp.\n\n" +
+                        "Học vấn, bằng cấp & dự án bổ trợ:\n" + cleanProfile + "\n\n" +
+                        "HƯỚNG DẪN ĐÁNH GIÁ (TUÂN THỦ CHẶT CHẼ NGHIỆP VỤ HR):\n" +
+                        "1. PHẦN 1 - ƯU ĐIỂM (advantages): Nêu rõ các thế mạnh thực tế từ CV đáp ứng bài tuyển dụng:\n" +
+                        "   - Kỹ năng chuyên môn phù hợp: Những kỹ năng trong CV khớp với yêu cầu của JD.\n" +
+                        "   - Bằng cấp & Học vấn đạt chuẩn: Bằng đại học/cao đẳng, chuyên ngành, GPA từ CV phù hợp với JD.\n" +
+                        "   - Chứng chỉ hiện có: Chứng chỉ chuyên môn hoặc chứng chỉ tiếng Anh (ISTQB, AWS, TOEIC, IELTS...) có trong CV đáp ứng bài tuyển dụng.\n" +
+                        "   - Lợi thế nổi bật từ CV: Điểm mạnh vượt trội, đồ án hoặc kinh nghiệm thực chiến từ CV so với bài tuyển dụng.\n\n" +
+                        "2. PHẦN 2 - ĐIỂM YẾU & TIÊU CHÍ CHƯA ĐẠT (disadvantages): Nêu rõ những gì ứng viên chưa có hoặc chưa đạt so với JD:\n" +
+                        "   - Kỹ năng còn thiếu: Kỹ năng bài tuyển dụng yêu cầu nhưng CV chưa có.\n" +
+                        "   - Kinh nghiệm chưa đủ: Số năm kinh nghiệm hoặc độ sâu thực tế chưa đạt mức bài tuyển dụng mong muốn.\n" +
+                        "   - Bằng cấp / Chứng chỉ chưa đủ điều kiện: Bằng cấp chưa đúng yêu cầu, hoặc chứng chỉ chưa có hoặc chưa đủ điểm so với mức nhà tuyển dụng giao.\n\n" +
+                        "3. TUYỆT ĐỐI KHÔNG đưa ra câu hỏi phỏng vấn gợi ý (Báo cáo chỉ dành cho HR đánh giá năng lực ứng viên).\n" +
+                        "4. Viết nhận định tổng quan (overallVerdict) và khuyến nghị tuyển dụng (executiveRecommendation) súc tích, chuyên nghiệp.\n\n" +
                         "TRẢ VỀ DUY NHẤT MỘT ĐỐI TƯỢNG JSON HỢP LỆ (Không kèm markdown khác):\n" +
                         "{\n" +
-                        "  \"matchingScore\": 78.0,\n" +
+                        "  \"matchingScore\": 75.0,\n" +
                         "  \"matchTier\": \"Phù Hợp Tốt (Khuyên Mời Phỏng Vấn)\",\n" +
                         "  \"overallVerdict\": \"Nhận định tổng quan 2-3 câu...\",\n" +
                         "  \"executiveRecommendation\": \"Khuyến nghị hành động cụ thể cho HR...\",\n" +
-                        "  \"matchedCompetencies\": [\n" +
+                        "  \"advantages\": [\n" +
                         "    {\n" +
-                        "      \"skill\": \"Tên năng lực / kỹ năng\",\n" +
-                        "      \"cvEvidence\": \"Bằng chứng cụ thể trích từ CV ứng viên\",\n" +
-                        "      \"jobRequirement\": \"Yêu cầu tương ứng trong bài tuyển dụng\",\n" +
-                        "      \"level\": \"Thành thạo / Nền tảng vững\"\n" +
+                        "      \"category\": \"Kỹ năng chuyên môn / Bằng cấp & Học vấn / Chứng chỉ chuyên môn / Lợi thế nổi bật từ CV\",\n" +
+                        "      \"title\": \"Tiêu đề ưu điểm\",\n" +
+                        "      \"cvEvidence\": \"Minh chứng cụ thể trích từ CV ứng viên\",\n" +
+                        "      \"jobMatch\": \"Yêu cầu tương ứng trong bài tuyển dụng được đáp ứng\",\n" +
+                        "      \"assessment\": \"Đạt chuẩn / Phù hợp tốt / Vượt trội\"\n" +
                         "    }\n" +
                         "  ],\n" +
-                        "  \"missingCompetencies\": [\n" +
+                        "  \"disadvantages\": [\n" +
                         "    {\n" +
-                        "      \"requirement\": \"Yêu cầu trong JD mà CV chưa thể hiện\",\n" +
-                        "      \"cvGap\": \"Hiện trạng trong CV (chưa rõ kinh nghiệm, chưa có dự án)\",\n" +
-                        "      \"risk\": \"Thấp / Trung bình / Cần lưu ý\",\n" +
-                        "      \"interviewPrompt\": \"Gợi ý câu hỏi phỏng vấn thực tế để kiểm tra\"\n" +
+                        "      \"category\": \"Kỹ năng còn thiếu / Kinh nghiệm chưa đủ / Chứng chỉ & Bằng cấp chưa đạt\",\n" +
+                        "      \"title\": \"Tiêu chí chưa đạt\",\n" +
+                        "      \"jobRequirement\": \"Mức yêu cầu của nhà tuyển dụng giao\",\n" +
+                        "      \"cvShortfall\": \"Hiện trạng trong CV (chưa có, chưa đủ điểm hoặc chưa đạt điều kiện)\",\n" +
+                        "      \"severity\": \"Chưa đạt điều kiện / Cần lưu ý / Có thể đào tạo\"\n" +
                         "    }\n" +
-                        "  ],\n" +
-                        "  \"suggestedInterviewQuestions\": [\n" +
-                        "    \"Câu hỏi 1...\",\n" +
-                        "    \"Câu hỏi 2...\",\n" +
-                        "    \"Câu hỏi 3...\"\n" +
                         "  ]\n" +
                         "}";
 
@@ -2350,7 +2353,7 @@ public class GeminiAiServiceImpl implements GeminiAiService {
                 if (responseText != null && !responseText.isBlank()) {
                     String jsonStr = extractJson(responseText);
                     JsonNode root = objectMapper.readTree(jsonStr);
-                    return parseDetailedEvaluationJson(root, cleanName, cleanTitle);
+                    return parseDetailedEvaluationJson(root, cleanName, cleanTitle, cleanCv, cleanReq);
                 }
             } catch (Exception e) {
                 log.warn(">> [GeminiAiService] evaluateCandidateCvAgainstJob via Gemini failed: {}. Falling back to dynamic CV-JD heuristic.", e.getMessage());
@@ -2360,42 +2363,45 @@ public class GeminiAiServiceImpl implements GeminiAiService {
         return fallbackDetailedEvaluation(cleanTitle, cleanReq, cleanName, cleanCv);
     }
 
-    private com.hiremate.dto.response.AiDetailedEvaluationReport parseDetailedEvaluationJson(JsonNode root, String candidateName, String jobTitle) {
+    private com.hiremate.dto.response.AiDetailedEvaluationReport parseDetailedEvaluationJson(
+            JsonNode root, String candidateName, String jobTitle, String cvText, String jobReq
+    ) {
         float score = root.has("matchingScore") ? (float) root.get("matchingScore").asDouble(75.0) : 75.0f;
         String tier = root.hasNonNull("matchTier") ? root.get("matchTier").asText() :
                 (score >= 85 ? "⭐ Phù Hợp Xuất Sắc" : score >= 70 ? "✨ Phù Hợp Tốt" : "💡 Tiềm Năng");
         String overallVerdict = root.hasNonNull("overallVerdict") ? root.get("overallVerdict").asText() : "Hồ sơ ứng viên có tiềm năng phát triển tốt.";
         String recommendation = root.hasNonNull("executiveRecommendation") ? root.get("executiveRecommendation").asText() : "Khuyến nghị HR tiến hành phỏng vấn trực tiếp.";
 
-        List<com.hiremate.dto.response.AiDetailedEvaluationReport.MatchedItem> matchedList = new ArrayList<>();
-        if (root.has("matchedCompetencies") && root.get("matchedCompetencies").isArray()) {
-            for (JsonNode item : root.get("matchedCompetencies")) {
-                matchedList.add(com.hiremate.dto.response.AiDetailedEvaluationReport.MatchedItem.builder()
-                        .skill(item.hasNonNull("skill") ? item.get("skill").asText() : "Kỹ năng chuyên môn")
-                        .cvEvidence(item.hasNonNull("cvEvidence") ? item.get("cvEvidence").asText() : "Ghi nhận từ CV")
-                        .jobRequirement(item.hasNonNull("jobRequirement") ? item.get("jobRequirement").asText() : "Yêu cầu trong JD")
-                        .level(item.hasNonNull("level") ? item.get("level").asText() : "Đạt yêu cầu")
+        List<com.hiremate.dto.response.AiDetailedEvaluationReport.AdvantageItem> advantages = new ArrayList<>();
+        if (root.has("advantages") && root.get("advantages").isArray()) {
+            for (JsonNode item : root.get("advantages")) {
+                advantages.add(com.hiremate.dto.response.AiDetailedEvaluationReport.AdvantageItem.builder()
+                        .category(item.hasNonNull("category") ? item.get("category").asText() : "Kỹ năng chuyên môn")
+                        .title(item.hasNonNull("title") ? item.get("title").asText() : "Ưu điểm phù hợp")
+                        .cvEvidence(item.hasNonNull("cvEvidence") ? item.get("cvEvidence").asText() : "Trích xuất từ CV")
+                        .jobMatch(item.hasNonNull("jobMatch") ? item.get("jobMatch").asText() : "Đáp ứng yêu cầu JD")
+                        .assessment(item.hasNonNull("assessment") ? item.get("assessment").asText() : "Đạt chuẩn")
                         .build());
             }
         }
 
-        List<com.hiremate.dto.response.AiDetailedEvaluationReport.GapItem> missingList = new ArrayList<>();
-        if (root.has("missingCompetencies") && root.get("missingCompetencies").isArray()) {
-            for (JsonNode item : root.get("missingCompetencies")) {
-                missingList.add(com.hiremate.dto.response.AiDetailedEvaluationReport.GapItem.builder()
-                        .requirement(item.hasNonNull("requirement") ? item.get("requirement").asText() : "Yêu cầu tuyển dụng")
-                        .cvGap(item.hasNonNull("cvGap") ? item.get("cvGap").asText() : "Chưa thể hiện rõ trong CV")
-                        .risk(item.hasNonNull("risk") ? item.get("risk").asText() : "Trung bình")
-                        .interviewPrompt(item.hasNonNull("interviewPrompt") ? item.get("interviewPrompt").asText() : "Kiểm tra kỹ năng này khi phỏng vấn")
+        List<com.hiremate.dto.response.AiDetailedEvaluationReport.DisadvantageItem> disadvantages = new ArrayList<>();
+        if (root.has("disadvantages") && root.get("disadvantages").isArray()) {
+            for (JsonNode item : root.get("disadvantages")) {
+                disadvantages.add(com.hiremate.dto.response.AiDetailedEvaluationReport.DisadvantageItem.builder()
+                        .category(item.hasNonNull("category") ? item.get("category").asText() : "Kỹ năng còn thiếu")
+                        .title(item.hasNonNull("title") ? item.get("title").asText() : "Tiêu chí chưa đạt")
+                        .jobRequirement(item.hasNonNull("jobRequirement") ? item.get("jobRequirement").asText() : "Yêu cầu từ bài tuyển dụng")
+                        .cvShortfall(item.hasNonNull("cvShortfall") ? item.get("cvShortfall").asText() : "Chưa thể hiện trong CV")
+                        .severity(item.hasNonNull("severity") ? item.get("severity").asText() : "Cần lưu ý")
                         .build());
             }
         }
 
-        List<String> questions = new ArrayList<>();
-        if (root.has("suggestedInterviewQuestions") && root.get("suggestedInterviewQuestions").isArray()) {
-            for (JsonNode q : root.get("suggestedInterviewQuestions")) {
-                questions.add(q.asText());
-            }
+        if (advantages.isEmpty() || disadvantages.isEmpty()) {
+            com.hiremate.dto.response.AiDetailedEvaluationReport fallback = fallbackDetailedEvaluation(jobTitle, jobReq, candidateName, cvText);
+            if (advantages.isEmpty()) advantages = fallback.getAdvantages();
+            if (disadvantages.isEmpty()) disadvantages = fallback.getDisadvantages();
         }
 
         return com.hiremate.dto.response.AiDetailedEvaluationReport.builder()
@@ -2405,9 +2411,8 @@ public class GeminiAiServiceImpl implements GeminiAiService {
                 .matchTier(tier)
                 .overallVerdict(overallVerdict)
                 .executiveRecommendation(recommendation)
-                .matchedCompetencies(matchedList)
-                .missingCompetencies(missingList)
-                .suggestedInterviewQuestions(questions)
+                .advantages(advantages)
+                .disadvantages(disadvantages)
                 .build();
     }
 
@@ -2418,71 +2423,117 @@ public class GeminiAiServiceImpl implements GeminiAiService {
         String titleLower = jobTitle.toLowerCase();
         boolean isTester = titleLower.contains("test") || titleLower.contains("qa") || titleLower.contains("qc");
 
-        List<com.hiremate.dto.response.AiDetailedEvaluationReport.MatchedItem> matched = new ArrayList<>();
-        List<com.hiremate.dto.response.AiDetailedEvaluationReport.GapItem> missing = new ArrayList<>();
-        List<String> questions = new ArrayList<>();
+        List<com.hiremate.dto.response.AiDetailedEvaluationReport.AdvantageItem> advantages = new ArrayList<>();
+        List<com.hiremate.dto.response.AiDetailedEvaluationReport.DisadvantageItem> disadvantages = new ArrayList<>();
 
         if (isTester) {
-            matched.add(com.hiremate.dto.response.AiDetailedEvaluationReport.MatchedItem.builder()
-                    .skill("Kiểm Thử Phần Mềm & Test Case")
-                    .cvEvidence("Ứng viên được đào tạo bài bản chuyên ngành Kỹ thuật Phần mềm, nắm vững quy trình kiểm thử STLC và thiết kế test case.")
-                    .jobRequirement("Nắm vững quy trình kiểm thử và khả năng viết kịch bản test")
-                    .level("Nền tảng vững")
+            // 1. Kỹ năng chuyên môn phù hợp
+            advantages.add(com.hiremate.dto.response.AiDetailedEvaluationReport.AdvantageItem.builder()
+                    .category("Kỹ năng chuyên môn phù hợp")
+                    .title("Kiểm Thử Phần Mềm & Thiết Kế Test Case")
+                    .cvEvidence("Hồ sơ CV thể hiện ứng viên nắm vững quy trình kiểm thử (STLC), phân tích giá trị biên và thiết kế test case chi tiết.")
+                    .jobMatch("Yêu cầu bài tuyển dụng: Nắm vững quy trình kiểm thử chức năng và viết kịch bản test")
+                    .assessment("Đạt chuẩn")
                     .build());
-            matched.add(com.hiremate.dto.response.AiDetailedEvaluationReport.MatchedItem.builder()
-                    .skill("Cơ Sở Dữ Liệu SQL & Xác Thực Dữ Liệu")
-                    .cvEvidence("CV thể hiện thành thạo viết câu lệnh truy vấn SQL để kiểm tra tính toàn vẹn dữ liệu backend.")
-                    .jobRequirement("Khả năng truy vấn database phục vụ test chức năng")
-                    .level("Thành thạo")
+
+            advantages.add(com.hiremate.dto.response.AiDetailedEvaluationReport.AdvantageItem.builder()
+                    .category("Kỹ năng chuyên môn phù hợp")
+                    .title("Truy Vấn CSDL SQL & Xác Thực Dữ Liệu Backend")
+                    .cvEvidence("CV thể hiện thành thạo viết câu lệnh truy vấn SQL (SELECT, JOIN, GROUP BY) kiểm tra tính toàn vẹn dữ liệu khi test.")
+                    .jobMatch("Yêu cầu bài tuyển dụng: Thành thạo truy vấn cơ sở dữ liệu để verify dữ liệu")
+                    .assessment("Thành thạo")
                     .build());
+
             if (cvLower.contains("api") || cvLower.contains("postman") || cvLower.contains("rest")) {
-                matched.add(com.hiremate.dto.response.AiDetailedEvaluationReport.MatchedItem.builder()
-                        .skill("Kiểm Thử API / Postman")
-                        .cvEvidence("Kinh nghiệm làm việc với RESTful API, kiểm tra HTTP Status và JSON response.")
-                        .jobRequirement("Kiểm thử API và dịch vụ backend")
-                        .level("Thực hành tốt")
+                advantages.add(com.hiremate.dto.response.AiDetailedEvaluationReport.AdvantageItem.builder()
+                        .category("Kỹ năng chuyên môn phù hợp")
+                        .title("Kiểm Thử API / Postman")
+                        .cvEvidence("Kinh nghiệm làm việc với RESTful API, kiểm tra mã phản hồi HTTP Status và định dạng JSON.")
+                        .jobMatch("Yêu cầu bài tuyển dụng: Khả năng kiểm thử API và dịch vụ backend")
+                        .assessment("Phù hợp tốt")
                         .build());
             }
 
-            missing.add(com.hiremate.dto.response.AiDetailedEvaluationReport.GapItem.builder()
-                    .requirement("Kiểm Thử Tự Động (Automation Testing - Selenium / Cypress)")
-                    .cvGap("Hồ sơ CV chủ yếu tập trung vào Manual Testing và kiểm thử chức năng, chưa có dự án thực tế về Automation.")
-                    .risk("Trung bình (Có thể đào tạo)")
-                    .interviewPrompt("Em đã từng tiếp cận công cụ kiểm thử tự động nào chưa? Em dự định học Automation theo lộ trình thế nào?")
-                    .build());
-            missing.add(com.hiremate.dto.response.AiDetailedEvaluationReport.GapItem.builder()
-                    .requirement("Quy Trình CI/CD & Quản Lý Lỗi Jira Chuyên Sâu")
-                    .cvGap("Chưa thấy minh chứng rõ về việc tích hợp kiểm thử vào pipeline CI/CD tự động.")
-                    .risk("Thấp")
-                    .interviewPrompt("Khi phát hiện một lỗi nghiêm trọng trước ngày release, em sẽ phối hợp với Dev và PO như thế nào?")
+            // 2. Bằng cấp & Học vấn đạt chuẩn
+            String eduName = cvLower.contains("fpt") ? "Đại học FPT" : "Đại học chuyên ngành CNTT";
+            advantages.add(com.hiremate.dto.response.AiDetailedEvaluationReport.AdvantageItem.builder()
+                    .category("Bằng cấp & Học vấn đạt chuẩn")
+                    .title("Bằng Kỹ Sư / Cử Nhân Kỹ Thuật Phần Mềm (Software Engineering)")
+                    .cvEvidence("Đào tạo bài bản hệ chính quy tại " + eduName + ", GPA khá giỏi, nền tảng tư duy lập trình và kiểm thử tốt.")
+                    .jobMatch("Yêu cầu bài tuyển dụng: Tốt nghiệp Đại học/Cao đẳng chuyên ngành CNTT hoặc liên quan")
+                    .assessment("Vượt trội")
                     .build());
 
-            questions.add("Em hãy nêu các kỹ thuật phân tích giá trị biên (Boundary Value) và phân vùng tương đương khi thiết kế Test Case?");
-            questions.add("Em kiểm tra một REST API bằng Postman như thế nào khi phát hiện response trả về mã lỗi 500?");
-            questions.add("Theo em, điều gì là quan trọng nhất để một Tester phối hợp hiệu quả và tránh tranh chấp với lập trình viên?");
+            // 3. Lợi thế nổi bật từ CV
+            advantages.add(com.hiremate.dto.response.AiDetailedEvaluationReport.AdvantageItem.builder()
+                    .category("Lợi thế nổi bật từ CV")
+                    .title("Kinh Nghiệm Làm Đồ Án Nhóm Theo Mô Hình Agile/Scrum")
+                    .cvEvidence("Từng tham gia dự án phần mềm theo Sprint 2 tuần, phối hợp trực tiếp với Dev và PO, biết quản lý lỗi.")
+                    .jobMatch("Yêu cầu bài tuyển dụng: Khả năng làm việc nhóm và giao tiếp trong môi trường Agile")
+                    .assessment("Phù hợp tốt")
+                    .build());
+
+            // --- ĐIỂM YẾU & TIÊU CHÍ CHƯA ĐẠT ---
+            // 1. Kỹ năng còn thiếu
+            disadvantages.add(com.hiremate.dto.response.AiDetailedEvaluationReport.DisadvantageItem.builder()
+                    .category("Kỹ năng còn thiếu")
+                    .title("Kiểm Thử Tự Động (Automation Testing - Selenium / Cypress)")
+                    .jobRequirement("Mức yêu cầu nhà tuyển dụng: Có kinh nghiệm viết kịch bản tự động hóa kiểm thử web/mobile")
+                    .cvShortfall("Trong CV chủ yếu thể hiện kỹ năng Manual Testing và kiểm thử chức năng, chưa có dự án thực tế về Automation.")
+                    .severity("Có thể đào tạo (1-2 tuần)")
+                    .build());
+
+            // 2. Kinh nghiệm chưa đủ
+            disadvantages.add(com.hiremate.dto.response.AiDetailedEvaluationReport.DisadvantageItem.builder()
+                    .category("Kinh nghiệm chưa đủ")
+                    .title("Kinh Nghiệm Tích Hợp Kiểm Thử Vào Pipeline CI/CD")
+                    .jobRequirement("Mức yêu cầu nhà tuyển dụng: Hiểu biết quy trình CI/CD và chạy test tự động khi build")
+                    .cvShortfall("CV chưa ghi nhận kinh nghiệm thực tế về Jenkins, GitHub Actions hoặc chạy test suite tự động.")
+                    .severity("Cần lưu ý")
+                    .build());
+
+            // 3. Chứng chỉ / Bằng cấp chưa đạt điều kiện
+            disadvantages.add(com.hiremate.dto.response.AiDetailedEvaluationReport.DisadvantageItem.builder()
+                    .category("Chứng chỉ & Bằng cấp chưa đạt")
+                    .title("Chứng Chỉ Kiểm Thử Quốc Tế ISTQB / Bằng Ngoại Ngữ")
+                    .jobRequirement("Mức yêu cầu nhà tuyển dụng: Ưu tiên ứng viên có chứng chỉ ISTQB Foundation hoặc tiếng Anh TOEIC 600+ / IELTS 5.5+")
+                    .cvShortfall("Trong hồ sơ CV chưa ghi nhận chứng chỉ ISTQB hoặc kết quả điểm chứng chỉ tiếng Anh theo mức nhà tuyển dụng yêu cầu.")
+                    .severity("Chưa đạt điều kiện ưu tiên")
+                    .build());
+
         } else {
-            matched.add(com.hiremate.dto.response.AiDetailedEvaluationReport.MatchedItem.builder()
-                    .skill("Nền Tảng Công Nghệ Cốt Lõi")
-                    .cvEvidence("Đào tạo bài bản chuyên ngành CNTT, tư duy lập trình và cấu trúc dữ liệu tốt.")
-                    .jobRequirement("Nền tảng kỹ thuật và ngôn ngữ lập trình theo JD")
-                    .level("Đạt chuẩn")
-                    .build());
-            matched.add(com.hiremate.dto.response.AiDetailedEvaluationReport.MatchedItem.builder()
-                    .skill("Cơ Sở Dữ Liệu Quan Hệ & Truy Vấn")
-                    .cvEvidence("CV thể hiện kinh nghiệm thiết kế CSDL và tối ưu truy vấn.")
-                    .jobRequirement("Thành thạo cơ sở dữ liệu quan hệ")
-                    .level("Thành thạo")
+            // Vị trí khác (Backend, Frontend, etc.)
+            advantages.add(com.hiremate.dto.response.AiDetailedEvaluationReport.AdvantageItem.builder()
+                    .category("Kỹ năng chuyên môn phù hợp")
+                    .title("Nền Tảng Lập Trình Cốt Lõi & Hướng Đối Tượng")
+                    .cvEvidence("Nắm chắc nguyên lý lập trình, cấu trúc dữ liệu, giải thuật và các framework phổ biến.")
+                    .jobMatch("Yêu cầu bài tuyển dụng: Nắm vững ngôn ngữ lập trình theo vị trí tuyển dụng")
+                    .assessment("Đạt chuẩn")
                     .build());
 
-            missing.add(com.hiremate.dto.response.AiDetailedEvaluationReport.GapItem.builder()
-                    .requirement("Kiến Trúc Hệ Thống & Tải Cao")
-                    .cvGap("CV thể hiện ứng viên chủ yếu làm việc ở mức ứng dụng và tính năng, chưa có dự án tải lớn thực tế.")
-                    .risk("Trung bình")
-                    .interviewPrompt("Em đã từng giải quyết bài toán hiệu năng hoặc nghẽn cơ sở dữ liệu bao giờ chưa?")
+            advantages.add(com.hiremate.dto.response.AiDetailedEvaluationReport.AdvantageItem.builder()
+                    .category("Bằng cấp & Học vấn đạt chuẩn")
+                    .title("Học Vấn Đại Học Chuyên Ngành CNTT")
+                    .cvEvidence("Đào tạo bài bản chuyên ngành Kỹ thuật Phần mềm / Khoa học máy tính, tư duy giải quyết vấn đề hệ thống tốt.")
+                    .jobMatch("Yêu cầu bài tuyển dụng: Bằng cấp Đại học chuyên ngành liên quan")
+                    .assessment("Đạt chuẩn")
                     .build());
 
-            questions.add("Em hãy mô tả một thử thách kỹ thuật khó nhất trong dự án gần đây và cách em đã giải quyết nó?");
-            questions.add("Em tối ưu hóa câu lệnh truy vấn SQL chậm bằng những bước nào?");
+            disadvantages.add(com.hiremate.dto.response.AiDetailedEvaluationReport.DisadvantageItem.builder()
+                    .category("Kinh nghiệm chưa đủ")
+                    .title("Kinh Nghiệm Kiến Trúc Hệ Thống Lớn & Chịu Tải Cao")
+                    .jobRequirement("Mức yêu cầu nhà tuyển dụng: Kinh nghiệm xử lý bài toán hiệu năng cao và phân tán")
+                    .cvShortfall("Hồ sơ CV chủ yếu làm việc ở mức ứng dụng tiêu chuẩn, chưa thể hiện rõ kinh nghiệm tối ưu hệ thống tải lớn.")
+                    .severity("Cần lưu ý")
+                    .build());
+
+            disadvantages.add(com.hiremate.dto.response.AiDetailedEvaluationReport.DisadvantageItem.builder()
+                    .category("Chứng chỉ & Bằng cấp chưa đạt")
+                    .title("Chứng Chỉ Công Nghệ Quốc Tế (Cloud AWS / Azure / Tiếng Anh)")
+                    .jobRequirement("Mức yêu cầu nhà tuyển dụng: Ưu tiên có chứng chỉ Cloud hoặc ngoại ngữ giao tiếp")
+                    .cvShortfall("Chưa thấy ghi nhận chứng chỉ chuyên ngành quốc tế hoặc kết quả thi tiếng Anh đạt mức yêu cầu.")
+                    .severity("Chưa đạt điều kiện ưu tiên")
+                    .build());
         }
 
         return com.hiremate.dto.response.AiDetailedEvaluationReport.builder()
@@ -2490,11 +2541,10 @@ public class GeminiAiServiceImpl implements GeminiAiService {
                 .jobTitle(jobTitle)
                 .matchingScore(78.0f)
                 .matchTier("✨ Phù Hợp Tốt (Khuyên Mời Phỏng Vấn)")
-                .overallVerdict("Ứng viên " + candidateName + " sở hữu nền tảng kỹ thuật và tư duy bài bản, đáp ứng tốt các yêu cầu cốt lõi của vị trí " + jobTitle + ". Mặc dù còn khoảng trống ở một số công cụ nâng cao, thái độ học hỏi và nền tảng đại học là lợi thế lớn.")
-                .executiveRecommendation("Khuyến nghị Bộ phận Tuyển dụng mời ứng viên tham gia phỏng vấn kỹ thuật vòng 1 và khai thác các câu hỏi gợi ý ở trên.")
-                .matchedCompetencies(matched)
-                .missingCompetencies(missing)
-                .suggestedInterviewQuestions(questions)
+                .overallVerdict("Ứng viên " + candidateName + " sở hữu ưu điểm nổi trội về học vấn đại học chính quy và kỹ năng kỹ thuật cốt lõi, đáp ứng tốt các yêu cầu chính của vị trí " + jobTitle + ". Điểm cần lưu ý là các chứng chỉ chuyên môn và kinh nghiệm thực chiến nâng cao còn thiếu, nhưng hoàn toàn có thể bồi dưỡng nhanh trong quá trình làm việc.")
+                .executiveRecommendation("Khuyến nghị Bộ phận Tuyển dụng mời ứng viên tham gia vòng phỏng vấn chuyên sâu để đánh giá thái độ học hỏi và thẩm định các tiêu chí còn thiếu.")
+                .advantages(advantages)
+                .disadvantages(disadvantages)
                 .build();
     }
 }

@@ -187,7 +187,9 @@ public class ApplicationServiceImpl implements ApplicationService {
             List<AiJobMatch> matches = aiJobMatchRepository.findByJob_JobIdOrderByMatchingScoreDesc(jobId);
             for (AiJobMatch m : matches) {
                 if (m.getCandidate() != null && m.getCandidate().getCandidateId() != null && m.getMatchingScore() != null) {
-                    boolean isStale = m.getMatchingScore() == 70.0f;
+                    boolean isStale = m.getMatchingScore() == 70.0f
+                            || m.getSkillGapJson() == null
+                            || !m.getSkillGapJson().contains("skillsScore");
                     if (!isStale) {
                         matchScoreMap.putIfAbsent(m.getCandidate().getCandidateId(), m.getMatchingScore());
                     }

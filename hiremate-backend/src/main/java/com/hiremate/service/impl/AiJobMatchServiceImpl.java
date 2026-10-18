@@ -69,14 +69,15 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
             // Nếu ứng viên có CV mà bản ghi cũ chưa gắn CV, hoặc đổi sang CV khác: bắt buộc hủy cache tính lại
             boolean cvChanged = (cv != null && existing.get().getCv() == null)
                     || (cv != null && existing.get().getCv() != null && !cv.getCvId().equals(existing.get().getCv().getCvId()));
-            // Ngoài ra: nếu bản ghi cũ bị kẹt điểm 70.0% phẳng, bắt buộc tính lại điểm thực tế
+            // Nếu bản ghi cũ bị kẹt điểm 70.0% phẳng hoặc chưa có cấu trúc 4 trụ cột multi-pillar: bắt buộc tính lại
             boolean isStaleFlatScore = existing.get().getMatchingScore() == 70.0f;
+            boolean isMissingMultiPillar = existing.get().getSkillGapJson() == null || !existing.get().getSkillGapJson().contains("skillsScore");
 
-            if (!cvChanged && !isStaleFlatScore) {
+            if (!cvChanged && !isStaleFlatScore && !isMissingMultiPillar && !enableGemini) {
                 return mapToResponse(existing.get());
             }
-            log.info(">> [AiJobMatchService] Invalidate cache điểm cũ cho ứng viên {} và Job {} (cvChanged={}, isStaleFlat={})",
-                    candidate.getCandidateId(), job.getJobId(), cvChanged, isStaleFlatScore);
+            log.info(">> [AiJobMatchService] Invalidate cache điểm cũ cho ứng viên {} và Job {} (cvChanged={}, isStaleFlat={}, isMissingMultiPillar={})",
+                    candidate.getCandidateId(), job.getJobId(), cvChanged, isStaleFlatScore, isMissingMultiPillar);
         }
 
         // 1. Gather Candidate text/keywords from profile, skills, and CV
@@ -874,6 +875,21 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
                 cvText,
                 candProfileStr
         );
+
+        // ĐỒNG BỘ 100% ĐIỂM SỐ GIỮA BẢNG DANH SÁCH VÀ MODAL BÁO CÁO
+        try {
+            AiJobMatchResponse matchRes = calculateAndSaveMatch(candidate, job, cv, false);
+            if (matchRes != null && matchRes.getMatchingScore() != null && matchRes.getMatchingScore() > 0) {
+                Float officialScore = matchRes.getMatchingScore();
+                report.setMatchingScore(officialScore);
+                report.setMatchTier(officialScore >= 85 ? "⭐ Phù Hợp Xuất Sắc"
+                        : officialScore >= 70 ? "✨ Phù Hợp Tốt (Khuyên Mời Phỏng Vấn)"
+                        : officialScore >= 50 ? "💡 Tiềm Năng (Có Thể Cân Nhắc)"
+                        : "⚠️ Trau Dồi Kỹ Năng");
+            }
+        } catch (Exception ex) {
+            log.warn(">> [AiJobMatchService] Lỗi đồng bộ điểm AiJobMatch trong getDetailedCandidateEvaluation: {}", ex.getMessage());
+        }
 
         report.setCandidateId(candidateId);
         report.setCandidateEmail(candidateEmail);

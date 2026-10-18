@@ -18,34 +18,33 @@ public class AiDetailedEvaluationReport {
     private String overallVerdict;
     private String executiveRecommendation;
     
-    // Năng lực và kinh nghiệm trong CV phù hợp với yêu cầu tuyển dụng
-    private List<MatchedItem> matchedCompetencies;
+    // 1. Ưu điểm & Năng lực phù hợp (Kỹ năng, Bằng cấp, Chứng chỉ, Lợi thế từ CV so với JD)
+    private List<AdvantageItem> advantages;
     
-    // Điểm yếu & Yêu cầu của bài tuyển dụng mà CV chưa đáp ứng
-    private List<GapItem> missingCompetencies;
-    
-    // Gợi ý bộ câu hỏi phỏng vấn thực tế cho HR / Tech Lead
-    private List<String> suggestedInterviewQuestions;
+    // 2. Điểm yếu & Tiêu chí chưa đạt (Kỹ năng còn thiếu, Kinh nghiệm chưa đủ, Chứng chỉ/Bằng cấp chưa đạt chuẩn JD)
+    private List<DisadvantageItem> disadvantages;
 
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class MatchedItem {
-        private String skill;
-        private String cvEvidence;
-        private String jobRequirement;
-        private String level;
+    public static class AdvantageItem {
+        private String category;    // "Kỹ năng chuyên môn" | "Bằng cấp & Học vấn" | "Chứng chỉ chuyên môn" | "Lợi thế nổi bật từ CV"
+        private String title;       // Tiêu đề ưu điểm
+        private String cvEvidence;  // Minh chứng cụ thể trích từ CV
+        private String jobMatch;    // Yêu cầu tương ứng trong bài tuyển dụng được đáp ứng
+        private String assessment;  // Đánh giá: "Đạt chuẩn" | "Phù hợp tốt" | "Vượt trội"
     }
 
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class GapItem {
-        private String requirement;
-        private String cvGap;
-        private String risk;
-        private String interviewPrompt;
+    public static class DisadvantageItem {
+        private String category;       // "Kỹ năng còn thiếu" | "Kinh nghiệm chưa đủ" | "Chứng chỉ & Bằng cấp chưa đạt"
+        private String title;          // Tiêu đề điểm yếu / lỗ hổng
+        private String jobRequirement; // Mức yêu cầu của nhà tuyển dụng giao
+        private String cvShortfall;    // Hiện trạng trong CV (chưa có, chưa đủ điểm hoặc chưa đạt điều kiện)
+        private String severity;       // "Chưa đạt điều kiện" | "Cần lưu ý" | "Có thể đào tạo"
     }
 }
