@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 export default function JobFilterSidebar({ 
   user,
@@ -17,6 +17,9 @@ export default function JobFilterSidebar({
   const selectedTypes = filters.selectedTypes ?? [];
   const selectedLevels = filters.selectedLevels ?? [];
   const selectedSkills = filters.selectedSkills ?? [];
+
+  const [skillSearch, setSkillSearch] = useState('');
+  const [showAllSkills, setShowAllSkills] = useState(false);
 
   const salaryCounts = jobCounts.salaryCounts || {};
   const typeCounts = jobCounts.typeCounts || {};
@@ -280,29 +283,90 @@ export default function JobFilterSidebar({
         </div>
 
         {/* Filter Group 4: Required Skills */}
-        <div className="pt-4">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-[#1e1b4b] mb-3">Kỹ Năng &amp; Chuyên Môn</h3>
-          <div className="grid grid-cols-2 gap-2 text-xs font-normal">
-            {defaultSkillsList.slice(0, 10).map(skill => {
-              const isChecked = selectedSkills.includes(skill);
-              return (
-                <label 
-                  key={skill} 
-                  className={`flex items-center gap-1.5 cursor-pointer select-none ${
-                    isChecked ? 'text-[#5b48bd] font-bold' : 'text-slate-600 hover:text-[#1e1b4b]'
-                  }`}
-                >
-                  <input 
-                    checked={isChecked} 
-                    onChange={() => toggleSkill(skill)}
-                    className="rounded border-purple-200 text-[#5b48bd] focus:ring-[#5b48bd] h-3.5 w-3.5 cursor-pointer" 
-                    type="checkbox"
-                  />
-                  <span className="truncate">{skill}</span>
-                </label>
-              );
-            })}
+        <div className="pt-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-[#1e1b4b]">Kỹ Năng &amp; Chuyên Môn</h3>
+            <span className="text-[10px] font-mono font-bold text-[#5b48bd] bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100">
+              {defaultSkillsList.length} kỹ năng
+            </span>
           </div>
+
+          {/* Quick Skill Search Input */}
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Tìm kỹ năng lọc nhanh..."
+              value={skillSearch}
+              onChange={(e) => setSkillSearch(e.target.value)}
+              className="w-full bg-slate-50 border border-purple-100 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:border-[#5b48bd] focus:bg-white"
+            />
+            {skillSearch && (
+              <button
+                type="button"
+                onClick={() => setSkillSearch('')}
+                className="absolute right-2 top-1.5 text-slate-400 hover:text-slate-600 text-xs cursor-pointer"
+              >
+                ×
+              </button>
+            )}
+          </div>
+
+          {/* Skills Checkbox Grid */}
+          {(() => {
+            const filteredSkills = defaultSkillsList.filter((sk) =>
+              sk.toLowerCase().includes(skillSearch.toLowerCase())
+            );
+            const displayedSkills = skillSearch.trim() || showAllSkills
+              ? filteredSkills
+              : filteredSkills.slice(0, 10);
+
+            if (displayedSkills.length === 0) {
+              return (
+                <div className="text-[11px] text-slate-400 italic py-2 text-center">
+                  Không tìm thấy kỹ năng "{skillSearch}"
+                </div>
+              );
+            }
+
+            return (
+              <div className="space-y-2">
+                <div className={`grid grid-cols-2 gap-2 text-xs font-normal ${showAllSkills ? 'max-h-56 overflow-y-auto pr-1 scrollbar-thin' : ''}`}>
+                  {displayedSkills.map((skill) => {
+                    const isChecked = selectedSkills.includes(skill);
+                    return (
+                      <label 
+                        key={skill} 
+                        className={`flex items-center gap-1.5 cursor-pointer select-none ${
+                          isChecked ? 'text-[#5b48bd] font-bold' : 'text-slate-600 hover:text-[#1e1b4b]'
+                        }`}
+                      >
+                        <input 
+                          checked={isChecked} 
+                          onChange={() => toggleSkill(skill)}
+                          className="rounded border-purple-200 text-[#5b48bd] focus:ring-[#5b48bd] h-3.5 w-3.5 cursor-pointer" 
+                          type="checkbox"
+                        />
+                        <span className="truncate" title={skill}>{skill}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+
+                {!skillSearch.trim() && defaultSkillsList.length > 10 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllSkills(!showAllSkills)}
+                    className="text-[11px] font-bold text-[#5b48bd] hover:underline flex items-center gap-1 cursor-pointer pt-1"
+                  >
+                    <span>{showAllSkills ? 'Thu gọn' : `Xem thêm (${defaultSkillsList.length - 10} kỹ năng)`}</span>
+                    <span className="material-symbols-outlined text-xs">
+                      {showAllSkills ? 'expand_less' : 'expand_more'}
+                    </span>
+                  </button>
+                )}
+              </div>
+            );
+          })()}
         </div>
       </div>
     </aside>

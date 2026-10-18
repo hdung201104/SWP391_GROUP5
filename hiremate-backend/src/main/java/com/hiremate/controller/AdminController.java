@@ -1,5 +1,6 @@
 package com.hiremate.controller;
 
+import com.hiremate.dto.request.SkillCreateRequest;
 import com.hiremate.dto.response.*;
 import com.hiremate.entity.Job;
 import com.hiremate.entity.SubscriptionPlan;
@@ -7,13 +8,17 @@ import com.hiremate.enums.CompanyStatus;
 import com.hiremate.enums.JobApprovalStatus;
 import com.hiremate.enums.UserStatus;
 import com.hiremate.service.AdminService;
+import com.hiremate.service.SkillService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 @RestController
 @RequestMapping("/api/v1/admin")
@@ -22,6 +27,10 @@ import java.util.Map;
 public class AdminController {
 
     private final AdminService adminService;
+    private final SkillService skillService;
+
+    private static final AtomicReference<AdminSettingsDTO> systemSettingsRef = 
+            new AtomicReference<>(AdminSettingsDTO.builder().build());
 
     @GetMapping("/stats")
     public ResponseEntity<ApiResponse<AdminStatsResponse>> getStats() {
@@ -137,5 +146,47 @@ public class AdminController {
     public ResponseEntity<ApiResponse<com.hiremate.entity.Voucher>> toggleVoucher(@PathVariable Long voucherId) {
         com.hiremate.entity.Voucher toggled = adminService.toggleVoucher(voucherId);
         return ResponseEntity.ok(ApiResponse.ok("Cập nhật trạng thái voucher thành công", toggled));
+    }
+
+    // =========================================================================
+    // MASTER SKILLS MANAGEMENT (QUẢN TRỊ TỪ ĐIỂN KỸ NĂNG)
+    // =========================================================================
+
+    @GetMapping("/skills")
+    public ResponseEntity<ApiResponse<List<SkillResponse>>> getAdminSkills(
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String keyword
+    ) {
+        return ResponseEntity.ok(ApiResponse.ok(skillService.getAllSkills(category, keyword)));
+    }
+
+    @PostMapping("/skills")
+    public ResponseEntity<ApiResponse<SkillResponse>> createAdminSkill(@RequestBody @Valid SkillCreateRequest request) {
+        SkillResponse created = skillService.createSkill(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.ok("Thêm kỹ năng mới vào hệ thống thành công", created));
+    }
+
+    @DeleteMapping("/skills/{id}")
+    public ResponseEntity<ApiResponse<Void>> deleteAdminSkill(@PathVariable Long id) {
+        skillService.deleteSkill(id);
+        return ResponseEntity.ok(ApiResponse.ok("Xóa kỹ năng khỏi danh mục thành công", null));
+    }
+
+    // =========================================================================
+    // SYSTEM SETTINGS & PARAMETERS (CẤU HÌNH HỆ THỐNG & AI MATCHING)
+    // =========================================================================
+
+    @GetMapping("/settings")
+    public ResponseEntity<ApiResponse<AdminSettingsDTO>> getSystemSettings() {
+        return ResponseEntity.ok(ApiResponse.ok(systemSettingsRef.get()));
+    }
+
+    @PutMapping("/settings")
+    public ResponseEntity<ApiResponse<AdminSettingsDTO>> updateSystemSettings(@RequestBody AdminSettingsDTO newSettings) {
+        if (newSettings != null) {
+            systemSettingsRef.set(newSettings);
+        }
+        return ResponseEntity.ok(ApiResponse.ok("Lưu cấu hình hệ thống thành công", systemSettingsRef.get()));
     }
 }

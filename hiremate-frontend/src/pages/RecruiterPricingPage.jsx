@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { jobApi, paymentApi } from '../api';
+import VoucherSelector from '../components/common/VoucherSelector';
 
 
 const RECRUITER_SUBSCRIPTION_PLANS = [
@@ -167,6 +168,7 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
   const [selectedPlanForPurchase, setSelectedPlanForPurchase] = useState(null);
   const [selectedAddonForPurchase, setSelectedAddonForPurchase] = useState(null);
   const [promoCode, setPromoCode] = useState('');
+  const [appliedVoucher, setAppliedVoucher] = useState(null);
   const [appliedDiscount, setAppliedDiscount] = useState(0); // in percentage
   const [voucherDiscountAmount, setVoucherDiscountAmount] = useState(0);
   const [promoMessage, setPromoMessage] = useState('');
@@ -305,6 +307,7 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
     setSelectedPlanForPurchase(plan);
     setSelectedAddonForPurchase(null);
     setPromoCode('');
+    setAppliedVoucher(null);
     setAppliedDiscount(0);
     setVoucherDiscountAmount(0);
     setPromoMessage('');
@@ -316,6 +319,7 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
     setSelectedAddonForPurchase(addon);
     setSelectedPlanForPurchase(null);
     setPromoCode('');
+    setAppliedVoucher(null);
     setAppliedDiscount(0);
     setVoucherDiscountAmount(0);
     setPromoMessage('');
@@ -1029,54 +1033,50 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
                   <div className="flex justify-between items-center text-slate-600 pt-2 border-t border-indigo-100">
                     <span>Đơn giá niêm yết:</span>
                     <span className="font-bold">
-                      {selectedPlanForPurchase
-                        ? formatVND(billingCycle === 'YEARLY' ? selectedPlanForPurchase.yearlyPrice * 12 : selectedPlanForPurchase.monthlyPrice)
-                        : formatVND(selectedAddonForPurchase?.price || 0)}
+                      {formatVND(
+                        selectedPlanForPurchase
+                          ? (billingCycle === 'YEARLY' ? selectedPlanForPurchase.yearlyPrice * 12 : selectedPlanForPurchase.monthlyPrice)
+                          : (selectedAddonForPurchase?.price || 0)
+                      )}
                     </span>
                   </div>
                   {voucherDiscountAmount > 0 && (
-                    <div className="flex justify-between items-center text-emerald-700 font-bold">
-                      <span>Giảm giá Voucher ({appliedDiscount}%):</span>
-                      <span>-{formatVND(voucherDiscountAmount)}</span>
+                    <div className="flex justify-between items-center text-emerald-700 font-bold bg-emerald-50/80 px-2.5 py-1.5 rounded-xl border border-emerald-200">
+                      <span className="flex items-center gap-1 text-xs">
+                        <span className="material-symbols-outlined text-sm text-emerald-600">sell</span>
+                        <span>Ưu đãi Doanh nghiệp ({promoCode} - {appliedDiscount}%):</span>
+                      </span>
+                      <span className="font-mono">-{formatVND(voucherDiscountAmount)}</span>
                     </div>
                   )}
                 </div>
 
-                {/* Promo Code Input */}
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-700 block">
-                    Mã Giảm Giá / Ưu Đãi Doanh Nghiệp (PostgreSQL):
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={promoCode}
-                      onChange={(e) => setPromoCode(e.target.value)}
-                      placeholder="Nhập mã (VD: HIREMATE30, HIREMATE20)"
-                      className="flex-1 px-4 py-2.5 text-xs rounded-xl border border-slate-300 focus:border-[#32247b] focus:ring-1 focus:ring-[#32247b] uppercase font-mono font-bold"
-                    />
-                    <button
-                      onClick={handleApplyPromo}
-                      disabled={validatingVoucher}
-                      className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
-                    >
-                      {validatingVoucher ? (
-                        <span className="material-symbols-outlined text-xs animate-spin">progress_activity</span>
-                      ) : (
-                        <span className="material-symbols-outlined text-xs">local_activity</span>
-                      )}
-                      <span>Áp Dụng</span>
-                    </button>
-                  </div>
-                  {promoMessage && (
-                    <p className={`text-[11px] font-semibold flex items-center gap-1 ${voucherDiscountAmount > 0 || appliedDiscount > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                      <span className="material-symbols-outlined text-sm">
-                        {voucherDiscountAmount > 0 || appliedDiscount > 0 ? 'check_circle' : 'error'}
-                      </span>
-                      <span>{promoMessage}</span>
-                    </p>
-                  )}
-                </div>
+                {/* Voucher Selector Module */}
+                <VoucherSelector
+                  userRole="RECRUITER"
+                  currentPlanId={selectedPlanForPurchase?.id || selectedAddonForPurchase?.id}
+                  currentPlanName={selectedPlanForPurchase?.name || selectedAddonForPurchase?.name}
+                  basePrice={
+                    selectedPlanForPurchase
+                      ? (billingCycle === 'YEARLY' ? selectedPlanForPurchase.yearlyPrice * 12 : selectedPlanForPurchase.monthlyPrice)
+                      : (selectedAddonForPurchase?.price || 0)
+                  }
+                  appliedVoucher={appliedVoucher}
+                  onApplyVoucher={(voucher, discountAmount) => {
+                    setAppliedVoucher(voucher);
+                    setPromoCode(voucher.code);
+                    setAppliedDiscount(voucher.discountPercent || 0);
+                    setVoucherDiscountAmount(discountAmount);
+                    setPromoMessage(`Đã áp dụng mã "${voucher.code}" - Giảm ${voucher.discountPercent}% 🎉`);
+                  }}
+                  onRemoveVoucher={() => {
+                    setAppliedVoucher(null);
+                    setPromoCode('');
+                    setAppliedDiscount(0);
+                    setVoucherDiscountAmount(0);
+                    setPromoMessage('');
+                  }}
+                />
 
                 {/* Payment Method Selector */}
                 <div className="space-y-2">
@@ -1116,12 +1116,21 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
                   <button
                     onClick={handleConfirmPurchase}
                     disabled={isProcessingCheckout}
-                    className="px-6 py-3.5 rounded-2xl bg-[#10b981] hover:bg-[#059669] text-white text-xs font-bold uppercase tracking-wider cursor-pointer shadow-lg hover:scale-105 transition-all flex items-center gap-2"
+                    className={`px-6 py-3.5 rounded-2xl text-white text-xs font-bold uppercase tracking-wider cursor-pointer shadow-lg hover:scale-105 transition-all flex items-center gap-2 ${
+                      calculateFinalPrice() === 0
+                        ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700'
+                        : 'bg-[#10b981] hover:bg-[#059669]'
+                    }`}
                   >
                     {isProcessingCheckout ? (
                       <>
                         <span className="material-symbols-outlined animate-spin text-base">progress_activity</span>
                         <span>Đang Tạo Đơn Hàng...</span>
+                      </>
+                    ) : calculateFinalPrice() === 0 ? (
+                      <>
+                        <span className="material-symbols-outlined text-base">check_circle</span>
+                        <span>Kích Hoạt Gói 0 VNĐ Ngay</span>
                       </>
                     ) : (
                       <>

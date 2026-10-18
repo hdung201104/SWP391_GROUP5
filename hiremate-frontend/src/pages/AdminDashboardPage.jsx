@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { adminApi } from '../api';
+import { adminApi, skillApi } from '../api';
+import { getStoredVouchers, addStoredVoucher, toggleStoredVoucher } from '../utils/voucherStorage';
 
 /**
  * HireMate.AI - Enterprise Admin Dashboard Page (Mindskills UI Redesign)
@@ -624,7 +625,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
   // Data states (Đồng bộ trực tiếp 100% từ Supabase PostgreSQL)
   const [companies, setCompanies] = useState([]);
   const [orders, setOrders] = useState([]);
-  const [vouchers, setVouchers] = useState(INITIAL_VOUCHERS);
+  const [vouchers, setVouchers] = useState(() => getStoredVouchers());
   const [packagesList, setPackagesList] = useState(INITIAL_PACKAGES);
   const [usersList, setUsersList] = useState([]);
   const [jobsList, setJobsList] = useState([]);
@@ -800,6 +801,8 @@ export default function AdminDashboardPage({ user, onLogout }) {
 
   useEffect(() => {
     fetchRealData();
+    fetchSkillsList();
+    fetchSystemSettings();
   }, []);
 
   // Interactive UI Modals & Popups
@@ -815,6 +818,32 @@ export default function AdminDashboardPage({ user, onLogout }) {
   const [showCreateVoucherModal, setShowCreateVoucherModal] = useState(false);
   const [showEditPackageModal, setShowEditPackageModal] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
+
+  // Master Skills Management State (Đồng bộ 100% CSDL Supabase table `skills`)
+  const [skillsList, setSkillsList] = useState([]);
+  const [loadingSkills, setLoadingSkills] = useState(false);
+  const [newSkillName, setNewSkillName] = useState('');
+  const [newSkillCategory, setNewSkillCategory] = useState('BACKEND');
+  const [newSkillAliases, setNewSkillAliases] = useState('');
+  const [skillCategoryFilter, setSkillCategoryFilter] = useState('ALL');
+  const [skillSearchQuery, setSkillSearchQuery] = useState('');
+  const [isSubmittingSkill, setIsSubmittingSkill] = useState(false);
+  const [deletingSkillId, setDeletingSkillId] = useState(null);
+
+  // Extended System Settings state
+  const [interviewMaxQuestions, setInterviewMaxQuestions] = useState(5);
+  const [interviewResponseSeconds, setInterviewResponseSeconds] = useState(120);
+  const [interviewerPersona, setInterviewerPersona] = useState('TECH_LEAD');
+  const [aiModel, setAiModel] = useState('gemini-1.5-flash');
+  const [candidateFreeInterviewsPerDay, setCandidateFreeInterviewsPerDay] = useState(3);
+  const [recruiterFreeJobPostsPerMonth, setRecruiterFreeJobPostsPerMonth] = useState(3);
+  const [requireGpkdToPost, setRequireGpkdToPost] = useState(true);
+  const [moderateNewJobs, setModerateNewJobs] = useState(true);
+  const [vietqrBankName, setVietqrBankName] = useState('MBBank - Ngân hàng TMCP Quân Đội');
+  const [vietqrAccountNumber, setVietqrAccountNumber] = useState('0988123456');
+  const [vietqrAccountHolder, setVietqrAccountHolder] = useState('CONG TY CP HIREMATE AI');
+  const [autoEmailNotify, setAutoEmailNotify] = useState(true);
+  const [savingSettings, setSavingSettings] = useState(false);
 
   // System Settings State (Master Spec 70/30 & Comprehensive Control Hub)
   const [mandatoryWeight, setMandatoryWeight] = useState(70);
@@ -946,6 +975,8 @@ export default function AdminDashboardPage({ user, onLogout }) {
     usageLimit: 100,
     validTo: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
     targetRole: 'ALL',
+    applicableScope: 'ALL', // 'ALL' | 'SPECIFIC'
+    applicablePlanIds: [],
     description: '',
     isActive: true,
   });
@@ -1107,6 +1138,11 @@ export default function AdminDashboardPage({ user, onLogout }) {
     const maxVal = Number(newVoucherForm.maxDiscountAmount) || 100000;
     const usage = Number(newVoucherForm.usageLimit) || 100;
 
+    if (newVoucherForm.applicableScope === 'SPECIFIC' && (!newVoucherForm.applicablePlanIds || newVoucherForm.applicablePlanIds.length === 0)) {
+      triggerToast('Vui lòng chọn ít nhất 1 gói dịch vụ được áp dụng, hoặc chọn "Tất cả các gói"!', 'warning');
+      return;
+    }
+
     const validToDate = newVoucherForm.validTo 
       ? new Date(newVoucherForm.validTo + 'T23:59:59').toISOString() 
       : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
@@ -1122,21 +1158,59 @@ export default function AdminDashboardPage({ user, onLogout }) {
       isActive: newVoucherForm.isActive !== false,
     };
 
+    let selectedPlanNames = [];
+    if (newVoucherForm.applicableScope === 'ALL') {
+      selectedPlanNames = ['Tất cả các gói'];
+    } else {
+      selectedPlanNames = packagesList
+        .filter((p) => (newVoucherForm.applicablePlanIds || []).includes(p.id) || (newVoucherForm.applicablePlanIds || []).includes(p.rawId))
+        .map((p) => p.name);
+      if (selectedPlanNames.length === 0) {
+        selectedPlanNames = ['Các gói đã chọn'];
+      }
+    }
+
+    const roleLabel = newVoucherForm.targetRole === 'RECRUITER' 
+      ? 'Nhà tuyển dụng' 
+      : newVoucherForm.targetRole === 'CANDIDATE' 
+      ? 'Ứng viên' 
+      : 'Tất cả khách hàng';
+
+    const defaultDesc = newVoucherForm.applicableScope === 'ALL'
+      ? `Ưu đãi ${discountVal}% cho ${roleLabel} • Áp dụng tất cả các gói dịch vụ`
+      : `Ưu đãi ${discountVal}% cho ${roleLabel} • Áp dụng cho: ${selectedPlanNames.join(', ')}`;
+
+    const finalDescription = newVoucherForm.description?.trim() || defaultDesc;
+
     const newVoucherItem = {
       id: Date.now(),
       code: cleanCode,
       discount: `Giảm ${discountVal}%`,
-      description: newVoucherForm.description 
-        ? newVoucherForm.description 
-        : (maxVal > 0 ? `Giảm tối đa ${maxVal.toLocaleString('vi-VN')} đ` : 'Ưu đãi thành viên HireMate'),
+      discountPercent: discountVal,
+      maxDiscountAmount: maxVal,
+      minOrderAmount: Number(newVoucherForm.minOrderAmount) || 0,
+      description: finalDescription,
       targetRole: newVoucherForm.targetRole || 'ALL',
+      applicableScope: newVoucherForm.applicableScope || 'ALL',
+      applicablePlanIds: newVoucherForm.applicablePlanIds || [],
+      applicablePlans: selectedPlanNames,
       status: newVoucherForm.isActive !== false ? 'ACTIVE' : 'INACTIVE',
+      isActive: newVoucherForm.isActive !== false,
       usage: `0/${usage} lượt`,
+      usageLimit: usage,
+      usedCount: 0,
+      validTo: newVoucherForm.validTo || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
       percent: 0,
       badgeBg: newVoucherForm.isActive !== false ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-300',
     };
 
-    setVouchers((prev) => [newVoucherItem, ...prev]);
+    try {
+      addStoredVoucher(newVoucherItem);
+      setVouchers(getStoredVouchers());
+    } catch (e) {
+      setVouchers((prev) => [newVoucherItem, ...prev]);
+    }
+
     setShowCreateVoucherModal(false);
     setNewVoucherForm({ 
       code: '', 
@@ -1146,6 +1220,8 @@ export default function AdminDashboardPage({ user, onLogout }) {
       usageLimit: 100, 
       validTo: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), 
       targetRole: 'ALL', 
+      applicableScope: 'ALL',
+      applicablePlanIds: [],
       description: '', 
       isActive: true 
     });
@@ -1164,23 +1240,13 @@ export default function AdminDashboardPage({ user, onLogout }) {
       if (typeof id === 'number' || !isNaN(Number(id))) {
         await adminApi.toggleVoucher(Number(id));
       }
-      setVouchers((prev) =>
-        prev.map((v) =>
-          v.id === id
-            ? { ...v, status: v.status === 'ACTIVE' ? 'EXPIRED' : 'ACTIVE' }
-            : v
-        )
-      );
+      toggleStoredVoucher(id);
+      setVouchers(getStoredVouchers());
       triggerToast('Cập nhật trạng thái voucher thành công (Lưu Supabase)');
     } catch (err) {
       console.warn('Lỗi khi toggle voucher API, cập nhật cục bộ:', err);
-      setVouchers((prev) =>
-        prev.map((v) =>
-          v.id === id
-            ? { ...v, status: v.status === 'ACTIVE' ? 'EXPIRED' : 'ACTIVE' }
-            : v
-        )
-      );
+      toggleStoredVoucher(id);
+      setVouchers(getStoredVouchers());
       triggerToast('Đã chuyển đổi trạng thái voucher', 'info');
     }
   };
@@ -1321,6 +1387,162 @@ export default function AdminDashboardPage({ user, onLogout }) {
     triggerToast(`Đã ghi nhận hoàn tiền cho đơn mua ${orderId}`, 'info');
   };
 
+
+  // Fetch skills directly from Supabase via /api/v1/skills or /api/v1/admin/skills
+  const fetchSkillsList = async () => {
+    try {
+      setLoadingSkills(true);
+      const res = await adminApi.getSkills();
+      const raw = res?.data || res;
+      const list = Array.isArray(raw) ? raw : (Array.isArray(raw?.data) ? raw.data : []);
+      setSkillsList(list);
+    } catch (err) {
+      console.error('Lỗi khi tải danh sách kỹ năng qua adminApi, thử skillApi:', err);
+      try {
+        const fallbackRes = await skillApi.getAllSkills();
+        const fallbackRaw = fallbackRes?.data || fallbackRes;
+        const list = Array.isArray(fallbackRaw) ? fallbackRaw : (Array.isArray(fallbackRaw?.data) ? fallbackRaw.data : []);
+        setSkillsList(list);
+      } catch (e) {
+        console.error('Lỗi tải kỹ năng fallback:', e);
+      }
+    } finally {
+      setLoadingSkills(false);
+    }
+  };
+
+  // Fetch system settings from Backend
+  const fetchSystemSettings = async () => {
+    try {
+      const res = await adminApi.getSettings();
+      const s = res?.data || res;
+      if (s) {
+        if (s.mandatoryWeight != null) setMandatoryWeight(s.mandatoryWeight);
+        if (s.preferredWeight != null) setPreferredWeight(s.preferredWeight);
+        if (s.interviewMaxQuestions != null) setInterviewMaxQuestions(s.interviewMaxQuestions);
+        if (s.interviewResponseSeconds != null) setInterviewResponseSeconds(s.interviewResponseSeconds);
+        if (s.interviewerPersona) setInterviewerPersona(s.interviewerPersona);
+        if (s.aiModel) setAiModel(s.aiModel);
+        if (s.aiInterviewDifficulty) setAiInterviewDifficulty(s.aiInterviewDifficulty);
+        if (s.candidateFreeInterviewsPerDay != null) setCandidateFreeInterviewsPerDay(s.candidateFreeInterviewsPerDay);
+        if (s.recruiterFreeJobPostsPerMonth != null) setRecruiterFreeJobPostsPerMonth(s.recruiterFreeJobPostsPerMonth);
+        if (s.requireGpkdToPost != null) setRequireGpkdToPost(s.requireGpkdToPost);
+        if (s.moderateNewJobs != null) setModerateNewJobs(s.moderateNewJobs);
+        if (s.vietqrBankName) setVietqrBankName(s.vietqrBankName);
+        if (s.vietqrAccountNumber) setVietqrAccountNumber(s.vietqrAccountNumber);
+        if (s.vietqrAccountHolder) setVietqrAccountHolder(s.vietqrAccountHolder);
+        if (s.autoEmailNotify != null) setAutoEmailNotify(s.autoEmailNotify);
+      }
+    } catch (err) {
+      console.warn('Lấy cấu hình hệ thống từ Backend:', err);
+    }
+  };
+
+  // Create new skill with duplicate checking
+  const handleCreateSkill = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const name = newSkillName.trim();
+    if (!name) {
+      triggerToast('Vui lòng nhập tên kỹ năng', 'warning');
+      return;
+    }
+    // Case-insensitive duplicate check
+    const exists = skillsList.some(s => (s.skillName || '').toLowerCase() === name.toLowerCase());
+    if (exists) {
+      triggerToast(`Kỹ năng "${name}" đã tồn tại trong từ điển hệ thống`, 'warning');
+      return;
+    }
+
+    try {
+      setIsSubmittingSkill(true);
+      const payload = {
+        skillName: name,
+        category: newSkillCategory,
+        aliases: newSkillAliases.trim() || null,
+      };
+      await adminApi.createSkill(payload);
+      triggerToast(`Đã thêm kỹ năng "${name}" thành công vào Database Supabase!`);
+      setNewSkillName('');
+      setNewSkillAliases('');
+      await fetchSkillsList();
+    } catch (err) {
+      console.error('Lỗi khi thêm kỹ năng:', err);
+      const errMsg = err?.response?.data?.message || err?.message || 'Không thể thêm kỹ năng';
+      triggerToast(`Lỗi: ${errMsg}`, 'warning');
+    } finally {
+      setIsSubmittingSkill(false);
+    }
+  };
+
+  // Delete skill directly from Supabase
+  const handleDeleteSkill = async (skillId, skillName) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa kỹ năng "${skillName}" khỏi CSDL Supabase?`)) {
+      return;
+    }
+    try {
+      setDeletingSkillId(skillId);
+      await adminApi.deleteSkill(skillId);
+      setSkillsList(prev => prev.filter(s => s.skillId !== skillId));
+      triggerToast(`Đã xóa kỹ năng "${skillName}" khỏi danh mục Supabase`);
+    } catch (err) {
+      console.error('Lỗi khi xóa kỹ năng:', err);
+      const errMsg = err?.response?.data?.message || err?.message || 'Không thể xóa kỹ năng';
+      triggerToast(`Lỗi: ${errMsg}`, 'warning');
+    } finally {
+      setDeletingSkillId(null);
+    }
+  };
+
+  // Save all system configuration blocks to backend
+  const handleSaveSystemSettings = async () => {
+    try {
+      setSavingSettings(true);
+      const payload = {
+        mandatoryWeight,
+        preferredWeight,
+        interviewMaxQuestions,
+        interviewResponseSeconds,
+        interviewerPersona,
+        aiModel,
+        aiInterviewDifficulty,
+        candidateFreeInterviewsPerDay,
+        recruiterFreeJobPostsPerMonth,
+        requireGpkdToPost,
+        moderateNewJobs,
+        vietqrBankName,
+        vietqrAccountNumber,
+        vietqrAccountHolder,
+        autoEmailNotify,
+      };
+      await adminApi.updateSettings(payload);
+      triggerToast('Đã lưu & áp dụng toàn bộ cấu hình hệ thống và AI Matching thành công!');
+    } catch (err) {
+      console.error('Lỗi khi lưu cấu hình:', err);
+      triggerToast('Lỗi khi lưu cấu hình: ' + (err?.message || 'Thử lại'), 'warning');
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  // Reset settings to master spec default values
+  const handleResetSettingsToDefault = () => {
+    setMandatoryWeight(70);
+    setPreferredWeight(30);
+    setInterviewMaxQuestions(5);
+    setInterviewResponseSeconds(120);
+    setInterviewerPersona('TECH_LEAD');
+    setAiModel('gemini-1.5-flash');
+    setAiInterviewDifficulty('STANDARD');
+    setCandidateFreeInterviewsPerDay(3);
+    setRecruiterFreeJobPostsPerMonth(3);
+    setRequireGpkdToPost(true);
+    setModerateNewJobs(true);
+    setVietqrBankName('MBBank - Ngân hàng TMCP Quân Đội');
+    setVietqrAccountNumber('0988123456');
+    setVietqrAccountHolder('CONG TY CP HIREMATE AI');
+    setAutoEmailNotify(true);
+    triggerToast('Đã khôi phục các thông số cấu hình về mặc định Master Spec 70/30', 'info');
+  };
 
   const handleToggleUserLock = async (userId) => {
     try {
@@ -4356,15 +4578,28 @@ export default function AdminDashboardPage({ user, onLogout }) {
                               {v.discount}
                             </span>
                             <span
-                              className={`text-[11px] font-bold px-2 py-0.5 rounded-md border ${
+                              className={`text-[11px] font-bold px-2.5 py-0.5 rounded-md border flex items-center gap-1 ${
                                 v.targetRole === 'RECRUITER'
                                   ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
                                   : v.targetRole === 'CANDIDATE'
                                   ? 'bg-amber-50 text-amber-700 border-amber-200'
-                                  : 'bg-slate-100 text-slate-600 border-slate-200'
+                                  : 'bg-purple-50 text-purple-700 border-purple-200'
                               }`}
                             >
-                              {v.targetRole === 'RECRUITER' ? 'Chỉ Nhà tuyển dụng' : v.targetRole === 'CANDIDATE' ? 'Chỉ Ứng viên' : 'Mọi đối tượng'}
+                              <span className="material-symbols-outlined text-xs">
+                                {v.targetRole === 'RECRUITER' ? 'business_center' : v.targetRole === 'CANDIDATE' ? 'school' : 'groups'}
+                              </span>
+                              <span>{v.targetRole === 'RECRUITER' ? 'Chỉ Nhà tuyển dụng' : v.targetRole === 'CANDIDATE' ? 'Chỉ Ứng viên' : 'Cả Ứng viên & HR'}</span>
+                            </span>
+
+                            {/* Gói dịch vụ áp dụng */}
+                            <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-md border bg-slate-50 text-slate-700 border-slate-200 flex items-center gap-1">
+                              <span className="material-symbols-outlined text-xs text-indigo-600">inventory_2</span>
+                              <span>
+                                {v.applicableScope === 'SPECIFIC' && v.applicablePlans?.length > 0
+                                  ? `Gói: ${v.applicablePlans.join(', ')}`
+                                  : 'Áp dụng: Tất cả gói dịch vụ'}
+                              </span>
                             </span>
                           </div>
                           <p className="text-xs text-slate-600 font-medium">{v.description}</p>
@@ -4809,517 +5044,932 @@ export default function AdminDashboardPage({ user, onLogout }) {
         {/* ========================================================= */}
         {activeTab === 'settings' && (
           <div className="space-y-6 animate-fade-in font-sans">
-            {/* Header with Master Control Actions */}
-            <div className="p-5 sm:p-6 rounded-[28px] bg-white border border-purple-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-[#5b48bd] text-white flex items-center justify-center shadow-md">
-                  <span className="material-symbols-outlined text-2xl">settings</span>
+            {/* Top Bar Header with Master Actions */}
+            <div className="p-5 sm:p-6 rounded-[28px] bg-white border border-purple-100 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 shadow-sm">
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-[#5b48bd] text-white flex items-center justify-center shadow-md shrink-0">
+                  <span className="material-symbols-outlined text-2xl">tune</span>
                 </div>
                 <div>
-                  <h2 className="text-xl sm:text-2xl font-black text-[#1e1b4b] tracking-tight">
-                    Trung Tâm Cấu Hình Hệ Thống &amp; Thuật Toán HireMate.AI
-                  </h2>
-                  <p className="text-xs text-slate-500 font-medium">
-                    Quản lý trọng số so khớp AI Matching 70/30, AI Voice Mock Studio, quy tắc kiểm duyệt và cổng VietQR
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-xl sm:text-2xl font-black text-[#1e1b4b] tracking-tight">
+                      Trung Tâm Cấu Hình Hệ Thống &amp; Master Skills
+                    </h2>
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                      Supabase Live
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Quản lý trọng số so khớp AI Matching 70/30, Từ điển kỹ năng gốc (Master Skills), AI Mock Interview Studio, hạn mức miễn phí và cổng VietQR Napas 247.
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 self-end sm:self-auto">
+              <div className="flex items-center gap-2.5 w-full lg:w-auto justify-end">
                 <button
-                  onClick={() => {
-                    setMandatoryWeight(70);
-                    setPreferredWeight(30);
-                    setAutoPublishVerified(true);
-                    setAiInterviewDifficulty('STANDARD');
-                    setInterviewMaxMinutes(30);
-                    setTargetWpm(132);
-                    setVoiceAssistantAccent('NORTH_FEMALE');
-                    setQrTimeoutMinutes(15);
-                    setJobDisplayDuration(30);
-                    setMaintenanceMode(false);
-                    triggerToast('Đã khôi phục toàn bộ cấu hình về tham số mặc định chuẩn Master Spec!', 'info');
-                  }}
-                  className="px-4 py-2 rounded-full border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-bold transition-all cursor-pointer shadow-xs"
+                  type="button"
+                  onClick={handleResetSettingsToDefault}
+                  className="px-4 py-2.5 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-all shadow-xs"
+                >
+                  <span className="material-symbols-outlined text-base">restart_alt</span>
+                  <span>Khôi phục mặc định</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={savingSettings}
+                  onClick={handleSaveSystemSettings}
+                  className="px-5 py-2.5 rounded-full bg-[#5b48bd] hover:bg-[#4a39a7] text-white font-bold text-xs flex items-center gap-2 cursor-pointer transition-all shadow-md shadow-purple-200 disabled:opacity-60"
+                >
+                  {savingSettings ? (
+                    <>
+                      <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                      <span>Đang lưu...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined text-base">save</span>
+                      <span>Lưu &amp; Áp Dụng Toàn Hệ Thống</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* ========================================================= */}
+            {/* KHỐI 1: THUẬT TOÁN AI JOB MATCHING (70/30) & MÔ PHỎNG      */}
+            {/* ========================================================= */}
+            <div className="p-6 rounded-[28px] bg-white border border-purple-100 shadow-sm space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-purple-100 gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-700 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-xl">auto_graph</span>
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-[#1e1b4b]">
+                      Khối 1: Thuật Toán AI Job Matching (70/30) &amp; Bộ Mô Phỏng Trực Tiếp
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Khi bạn thay đổi tỷ lệ trọng số, điểm so khớp ứng viên thực tế sẽ lập tức được tính toán lại theo công thức toán học chuẩn xác.
+                    </p>
+                  </div>
+                </div>
+                <div className="px-3.5 py-1.5 rounded-xl bg-purple-50 text-[#5b48bd] font-mono font-bold text-xs border border-purple-100 self-start sm:self-auto">
+                  Công thức: Match = (Mandatory × {mandatoryWeight}%) + (Preferred × {preferredWeight}%)
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                {/* Left 6 cols: Weight Adjustment Sliders */}
+                <div className="lg:col-span-6 space-y-5">
+                  {/* Mandatory Weight Slider */}
+                  <div className="p-4 rounded-2xl bg-indigo-50/40 border border-indigo-100 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="text-xs font-bold text-indigo-950 block">Kỹ Năng Bắt Buộc (Mandatory Weight)</label>
+                        <span className="text-[11px] text-slate-500">Xét match trực tiếp (Java, Spring Boot, React, SQL...)</span>
+                      </div>
+                      <span className="text-sm font-black font-mono text-indigo-700 bg-white px-3 py-1 rounded-xl border border-indigo-200 shadow-2xs">
+                        {mandatoryWeight}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="50"
+                      max="90"
+                      step="5"
+                      value={mandatoryWeight}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        setMandatoryWeight(val);
+                        setPreferredWeight(100 - val);
+                      }}
+                      className="w-full accent-indigo-600 cursor-pointer h-2 bg-indigo-200 rounded-lg"
+                    />
+                    <div className="flex justify-between text-[10px] text-slate-400 font-medium">
+                      <span>50% (Tối thiểu)</span>
+                      <span className="text-indigo-600 font-bold">Mặc định: 70%</span>
+                      <span>90% (Khắt khe)</span>
+                    </div>
+                  </div>
+
+                  {/* Preferred Weight Slider */}
+                  <div className="p-4 rounded-2xl bg-emerald-50/40 border border-emerald-100 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="text-xs font-bold text-emerald-950 block">Kỹ Năng Ưu Tiên (Preferred Weight)</label>
+                        <span className="text-[11px] text-slate-500">Xét điểm cộng ưu tiên (Docker, Kafka, AWS, Tiếng Anh...)</span>
+                      </div>
+                      <span className="text-sm font-black font-mono text-emerald-700 bg-white px-3 py-1 rounded-xl border border-emerald-200 shadow-2xs">
+                        {preferredWeight}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="10"
+                      max="50"
+                      step="5"
+                      value={preferredWeight}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        setPreferredWeight(val);
+                        setMandatoryWeight(100 - val);
+                      }}
+                      className="w-full accent-emerald-600 cursor-pointer h-2 bg-emerald-200 rounded-lg"
+                    />
+                    <div className="flex justify-between text-[10px] text-slate-400 font-medium">
+                      <span>10% (Tối thiểu)</span>
+                      <span className="text-emerald-600 font-bold">Mặc định: 30%</span>
+                      <span>50% (Cân bằng)</span>
+                    </div>
+                  </div>
+
+                  {/* Cache & Cost optimization alert */}
+                  <div className="p-3.5 rounded-2xl bg-purple-50/60 border border-purple-100 flex items-start gap-3">
+                    <span className="material-symbols-outlined text-sm text-[#5b48bd] mt-0.5">bolt</span>
+                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                      <strong className="text-[#5b48bd]">Tối ưu hóa Chi Phí &amp; Bộ Nhớ Đệm:</strong> Kết quả khớp điểm được lưu trữ 1 lần duy nhất vào bảng <code className="bg-purple-100 px-1 py-0.5 rounded text-[#5b48bd] font-mono text-[10px]">ai_job_matches</code>. Thao tác tra cứu của Ứng viên &amp; Nhà tuyển dụng đọc trực tiếp từ cache CSDL (&lt;15ms) hoàn toàn không gọi lại Gemini API.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Right 6 cols: Live Simulator Lab */}
+                <div className="lg:col-span-6 bg-slate-50/70 p-5 rounded-2xl border border-slate-200/80 space-y-4">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                      <span className="text-xs font-black uppercase tracking-wider text-slate-700">Mô Phỏng Thực Nghiệm Trực Tiếp</span>
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded-full border border-slate-200">
+                      Vị trí: Senior Java Backend
+                    </span>
+                  </div>
+
+                  {/* Test Profile & Match calculation */}
+                  {(() => {
+                    const mandRatio = 3 / 3;
+                    const prefRatio = 1 / 3;
+                    const mandScore = mandRatio * mandatoryWeight;
+                    const prefScore = prefRatio * preferredWeight;
+                    const totalScore = Number((mandScore + prefScore).toFixed(1));
+
+                    return (
+                      <div className="space-y-4">
+                        <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-[#1e1b4b]">Ứng viên thử nghiệm: Trần Hoàng Nam</span>
+                            <span className="text-[10px] font-mono font-bold text-slate-400">CV-882</span>
+                          </div>
+                          <div className="space-y-1.5 text-xs text-slate-600">
+                            <div className="flex items-center justify-between">
+                              <span className="flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+                                Kỹ năng bắt buộc (3/3):
+                              </span>
+                              <span className="font-mono text-indigo-700 font-bold">Java ✓, Spring Boot ✓, PostgreSQL ✓</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                Kỹ năng ưu tiên (1/3):
+                              </span>
+                              <span className="font-mono text-emerald-700 font-bold">Docker ✓, Kafka ✗, AWS ✗</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Live Score Display */}
+                        <div className="bg-white p-4 rounded-xl border border-slate-200/80 flex items-center justify-between">
+                          <div>
+                            <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">Điểm Match Được Tính Tức Thời</span>
+                            <div className="text-3xl font-black font-mono text-[#5b48bd] mt-0.5">
+                              {totalScore}%
+                            </div>
+                          </div>
+                          <div className="text-right space-y-1">
+                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold inline-block ${
+                              totalScore >= 80 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                              totalScore >= 60 ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' :
+                              'bg-amber-50 text-amber-700 border border-amber-200'
+                            }`}>
+                              {totalScore >= 80 ? '⭐ Phù Hợp Xuất Sắc' : totalScore >= 60 ? '✨ Phù Hợp Tiêu Chuẩn' : 'Trau Dồi Thêm'}
+                            </span>
+                            <div className="text-[11px] font-mono text-slate-500">
+                              Bắt buộc: (3/3) × {mandatoryWeight}% = {mandScore.toFixed(1)}%<br />
+                              Ưu tiên: (1/3) × {preferredWeight}% = {prefScore.toFixed(1)}%
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Visual Progress bar */}
+                        <div className="space-y-1">
+                          <div className="w-full h-3 bg-slate-200 rounded-full overflow-hidden flex">
+                            <div
+                              className="h-full bg-indigo-600 transition-all duration-300"
+                              style={{ width: `${mandScore}%` }}
+                              title={`Mandatory: ${mandScore.toFixed(1)}%`}
+                            ></div>
+                            <div
+                              className="h-full bg-emerald-500 transition-all duration-300"
+                              style={{ width: `${prefScore}%` }}
+                              title={`Preferred: ${prefScore.toFixed(1)}%`}
+                            ></div>
+                          </div>
+                          <div className="flex justify-between text-[10px] text-slate-400 font-medium">
+                            <span className="text-indigo-600 font-bold">■ Bắt buộc: {mandScore.toFixed(1)}%</span>
+                            <span className="text-emerald-600 font-bold">■ Ưu tiên: {prefScore.toFixed(1)}%</span>
+                            <span className="font-bold text-slate-700">Tổng: {totalScore}%</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+            </div>
+
+            {/* ========================================================= */}
+            {/* KHỐI 2: MASTER SKILLS DICTIONARY (BẢNG SKILLS SUPABASE)   */}
+            {/* ========================================================= */}
+            <div className="p-6 rounded-[28px] bg-white border border-purple-100 shadow-sm space-y-6">
+              {/* Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-purple-100 gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-purple-50 text-[#5b48bd] flex items-center justify-center">
+                    <span className="material-symbols-outlined text-xl">psychology</span>
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-base font-bold text-[#1e1b4b]">
+                        Khối 2: Quản Trị Từ Điển Kỹ Năng &amp; Bộ Lọc Tuyển Dụng (Master Skills Dictionary)
+                      </h3>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-[#5b48bd]">
+                        {skillsList.length} Kỹ Năng Thực Tế
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      Nối trực tiếp 100% bảng <code className="text-[#5b48bd] font-mono">public.skills</code> trên Supabase. Kỹ năng thêm/xóa tại đây sẽ tự động hiển thị trên Bộ lọc Ứng viên &amp; Màn hình Đăng tin của HR.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={fetchSkillsList}
+                  disabled={loadingSkills}
+                  className="px-3.5 py-2 rounded-full bg-purple-50 hover:bg-purple-100 text-[#5b48bd] font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-all border border-purple-200 self-start sm:self-auto disabled:opacity-50"
+                  title="Tải lại từ CSDL Supabase"
+                >
+                  <span className={`material-symbols-outlined text-sm ${loadingSkills ? 'animate-spin' : ''}`}>sync</span>
+                  <span>{loadingSkills ? 'Đang đồng bộ...' : 'Đồng bộ Supabase'}</span>
+                </button>
+              </div>
+
+              {/* Sub-block A: Form Thêm Kỹ Năng Mới */}
+              <form onSubmit={handleCreateSkill} className="p-5 rounded-2xl bg-gradient-to-r from-purple-50/50 via-indigo-50/30 to-purple-50/50 border border-purple-100 space-y-4">
+                <div className="flex items-center gap-2 text-xs font-bold text-[#1e1b4b]">
+                  <span className="material-symbols-outlined text-base text-[#5b48bd]">add_circle</span>
+                  <span>Thêm Kỹ Năng Mới Vào Danh Mục Hệ Thống</span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 items-end">
+                  {/* Skill Name */}
+                  <div className="md:col-span-4 space-y-1">
+                    <label className="text-[11px] font-bold text-slate-700 block">
+                      Tên Kỹ Năng <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="VD: Java, Spring Boot, ReactJS, Docker..."
+                      value={newSkillName}
+                      onChange={(e) => setNewSkillName(e.target.value)}
+                      className="w-full bg-white border border-purple-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-[#5b48bd] focus:ring-1 focus:ring-[#5b48bd]"
+                    />
+                  </div>
+
+                  {/* Category */}
+                  <div className="md:col-span-3 space-y-1">
+                    <label className="text-[11px] font-bold text-slate-700 block">
+                      Nhóm Ngành (Category) <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      value={newSkillCategory}
+                      onChange={(e) => setNewSkillCategory(e.target.value)}
+                      className="w-full bg-white border border-purple-200 rounded-xl px-3 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-[#5b48bd] focus:ring-1 focus:ring-[#5b48bd] cursor-pointer"
+                    >
+                      <option value="BACKEND">BACKEND (Backend Development)</option>
+                      <option value="FRONTEND">FRONTEND (Frontend Development)</option>
+                      <option value="DATABASE">DATABASE (CSDL &amp; Data Warehouse)</option>
+                      <option value="DEVOPS_CLOUD">DEVOPS_CLOUD (DevOps &amp; Cloud)</option>
+                      <option value="MOBILE">MOBILE (Lập trình Di động)</option>
+                      <option value="AI_DATA">AI_DATA (Trí Tuệ Nhân Tạo &amp; ML)</option>
+                      <option value="BUSINESS_BA">BUSINESS_BA (Phân Tích Nghiệp Vụ)</option>
+                      <option value="SOFT_SKILL">SOFT_SKILL (Kỹ Năng Mềm &amp; HR)</option>
+                    </select>
+                  </div>
+
+                  {/* Aliases */}
+                  <div className="md:col-span-3 space-y-1">
+                    <label className="text-[11px] font-bold text-slate-700 block">
+                      Từ Đồng Nghĩa / Aliases <span className="text-slate-400 font-normal">(Tùy chọn)</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="VD: Java 17, Java 21, Core Java"
+                      value={newSkillAliases}
+                      onChange={(e) => setNewSkillAliases(e.target.value)}
+                      className="w-full bg-white border border-purple-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-[#5b48bd] focus:ring-1 focus:ring-[#5b48bd]"
+                    />
+                  </div>
+
+                  {/* Submit Button */}
+                  <div className="md:col-span-2">
+                    <button
+                      type="submit"
+                      disabled={isSubmittingSkill || !newSkillName.trim()}
+                      className="w-full px-4 py-2.5 rounded-xl bg-[#5b48bd] hover:bg-[#4a39a7] text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all shadow-md shadow-purple-200 disabled:opacity-50"
+                    >
+                      {isSubmittingSkill ? (
+                        <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                      ) : (
+                        <span className="material-symbols-outlined text-sm">add</span>
+                      )}
+                      <span>Thêm Kỹ Năng</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
+                  <span className="material-symbols-outlined text-xs text-emerald-600">verified</span>
+                  <span>Kiểm tra chống trùng lặp tên kỹ năng (Case-insensitive) tự động trước khi lưu vào Supabase.</span>
+                </div>
+              </form>
+
+              {/* Sub-block B: Danh Sách & Bộ Lọc Kỹ Năng Hiện Có */}
+              <div className="space-y-4">
+                {/* Search Bar & Category Tabs */}
+                <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+                  {/* Category Pills */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+                    {[
+                      { id: 'ALL', label: 'Tất cả' },
+                      { id: 'BACKEND', label: 'Backend' },
+                      { id: 'FRONTEND', label: 'Frontend' },
+                      { id: 'DATABASE', label: 'Database' },
+                      { id: 'DEVOPS_CLOUD', label: 'DevOps & Cloud' },
+                      { id: 'MOBILE', label: 'Mobile' },
+                      { id: 'AI_DATA', label: 'AI & Data' },
+                      { id: 'BUSINESS_BA', label: 'Business BA' },
+                      { id: 'SOFT_SKILL', label: 'Soft Skills' },
+                    ].map((cat) => {
+                      const isActive = skillCategoryFilter === cat.id;
+                      return (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          onClick={() => setSkillCategoryFilter(cat.id)}
+                          className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                            isActive
+                              ? 'bg-[#5b48bd] text-white shadow-xs'
+                              : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                          }`}
+                        >
+                          {cat.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Search Input */}
+                  <div className="relative min-w-[240px]">
+                    <span className="material-symbols-outlined absolute left-3 top-2.5 text-slate-400 text-sm">search</span>
+                    <input
+                      type="text"
+                      placeholder="Tìm nhanh kỹ năng..."
+                      value={skillSearchQuery}
+                      onChange={(e) => setSkillSearchQuery(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-full pl-9 pr-8 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-[#5b48bd] focus:bg-white"
+                    />
+                    {skillSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setSkillSearchQuery('')}
+                        className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 text-xs cursor-pointer"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Skills Badges Grid */}
+                {(() => {
+                  const filtered = skillsList.filter((sk) => {
+                    if (skillCategoryFilter !== 'ALL') {
+                      const c = (sk.category || '').toUpperCase();
+                      const f = skillCategoryFilter.toUpperCase();
+                      if (f === 'DEVOPS_CLOUD') {
+                        if (!c.includes('DEVOPS') && !c.includes('CLOUD')) return false;
+                      } else if (f === 'AI_DATA') {
+                        if (!c.includes('AI') && !c.includes('DATA')) return false;
+                      } else if (f === 'BUSINESS_BA') {
+                        if (!c.includes('BUSINESS') && !c.includes('BA')) return false;
+                      } else if (f === 'SOFT_SKILL') {
+                        if (!c.includes('SOFT')) return false;
+                      } else {
+                        if (!c.includes(f)) return false;
+                      }
+                    }
+                    if (skillSearchQuery.trim()) {
+                      const q = skillSearchQuery.toLowerCase();
+                      const inName = (sk.skillName || '').toLowerCase().includes(q);
+                      const inAliases = (sk.aliases || '').toLowerCase().includes(q);
+                      const inCat = (sk.category || '').toLowerCase().includes(q);
+                      if (!inName && !inAliases && !inCat) return false;
+                    }
+                    return true;
+                  });
+
+                  const getCatBadgeStyle = (category) => {
+                    const c = (category || '').toUpperCase();
+                    if (c.includes('BACKEND')) return 'bg-indigo-50 text-indigo-700 border-indigo-200';
+                    if (c.includes('FRONTEND')) return 'bg-sky-50 text-sky-700 border-sky-200';
+                    if (c.includes('DATABASE')) return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                    if (c.includes('DEVOPS') || c.includes('CLOUD')) return 'bg-amber-50 text-amber-700 border-amber-200';
+                    if (c.includes('MOBILE')) return 'bg-rose-50 text-rose-700 border-rose-200';
+                    if (c.includes('AI') || c.includes('DATA')) return 'bg-purple-50 text-purple-700 border-purple-200';
+                    if (c.includes('BUSINESS') || c.includes('BA')) return 'bg-blue-50 text-blue-700 border-blue-200';
+                    if (c.includes('SOFT')) return 'bg-teal-50 text-teal-700 border-teal-200';
+                    return 'bg-slate-100 text-slate-700 border-slate-200';
+                  };
+
+                  if (loadingSkills) {
+                    return (
+                      <div className="py-12 text-center text-slate-400 space-y-2">
+                        <span className="w-6 h-6 border-2 border-[#5b48bd] border-t-transparent rounded-full animate-spin inline-block"></span>
+                        <div className="text-xs">Đang tải danh mục kỹ năng từ Supabase...</div>
+                      </div>
+                    );
+                  }
+
+                  if (filtered.length === 0) {
+                    return (
+                      <div className="py-10 text-center text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-1">
+                        <span className="material-symbols-outlined text-3xl text-slate-300">search_off</span>
+                        <div className="text-xs font-semibold">Không tìm thấy kỹ năng nào phù hợp</div>
+                        <div className="text-[11px] text-slate-400">Thử tìm với từ khóa khác hoặc bấm nút "+ Thêm Kỹ Năng" bên trên.</div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium px-1">
+                        <span>Hiển thị <strong>{filtered.length}</strong> / {skillsList.length} kỹ năng thực tế</span>
+                        <span className="text-slate-400 italic">Bấm vào dấu × trên tag để xóa kỹ năng khỏi CSDL Supabase</span>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2 max-h-[360px] overflow-y-auto p-3 bg-slate-50/70 rounded-2xl border border-slate-200/80 scrollbar-thin">
+                        {filtered.map((sk) => {
+                          const badgeColor = getCatBadgeStyle(sk.category);
+                          const isDeleting = deletingSkillId === sk.skillId;
+                          return (
+                            <span
+                              key={sk.skillId}
+                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border shadow-2xs group transition-all hover:shadow-xs bg-white ${badgeColor}`}
+                              title={sk.aliases ? `Từ đồng nghĩa: ${sk.aliases}` : `Kỹ năng: ${sk.skillName}`}
+                            >
+                              <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70"></span>
+                              <span className="font-bold text-slate-800">{sk.skillName}</span>
+                              <span className="text-[9px] uppercase tracking-wider font-mono opacity-60">({sk.category || 'TECH'})</span>
+                              <button
+                                type="button"
+                                disabled={isDeleting}
+                                onClick={() => handleDeleteSkill(sk.skillId, sk.skillName)}
+                                className="w-4 h-4 rounded-full hover:bg-rose-500 hover:text-white text-slate-400 flex items-center justify-center transition-colors cursor-pointer text-xs ml-0.5"
+                                title={`Xóa "${sk.skillName}" khỏi Supabase`}
+                              >
+                                {isDeleting ? (
+                                  <span className="w-2.5 h-2.5 border border-rose-500 border-t-transparent rounded-full animate-spin"></span>
+                                ) : (
+                                  '×'
+                                )}
+                              </button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* ========================================================= */}
+            {/* KHỐI 3: CẤU HÌNH PHÒNG PHỎNG VẤN AI (MOCK INTERVIEW STUDIO) */}
+            {/* ========================================================= */}
+            <div className="p-6 rounded-[28px] bg-white border border-purple-100 shadow-sm space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-purple-100 gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-xl">record_voice_over</span>
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-[#1e1b4b]">
+                      Khối 3: Cấu Hình Phòng Phỏng Vấn AI (AI Mock Interview Studio)
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Điều chỉnh số lượng câu hỏi, thời gian trả lời, phong cách AI Interviewer và mô hình Gemini vận hành.
+                    </p>
+                  </div>
+                </div>
+                <div className="px-3.5 py-1.5 rounded-xl bg-amber-50 text-amber-800 font-mono font-bold text-xs border border-amber-200 self-start sm:self-auto">
+                  Chỉ số Delta: score_after - score_before (table: practice_progress_logs)
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Param 1: Max Questions */}
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-[#1e1b4b] block">Số Câu Hỏi Mỗi Phiên</label>
+                    <span className="text-xs font-black font-mono text-[#5b48bd]">{interviewMaxQuestions} câu</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[3, 5, 7].map((num) => (
+                      <button
+                        key={num}
+                        type="button"
+                        onClick={() => setInterviewMaxQuestions(num)}
+                        className={`py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          interviewMaxQuestions === num
+                            ? 'bg-[#5b48bd] text-white shadow-xs'
+                            : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                        }`}
+                      >
+                        {num} câu {num === 5 && '★'}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-slate-400">
+                    {interviewMaxQuestions === 3 ? 'Phỏng vấn nhanh (15 phút)' : interviewMaxQuestions === 5 ? 'Tiêu chuẩn Master Spec (Khuyên dùng)' : 'Đánh giá chuyên sâu (45 phút)'}
+                  </p>
+                </div>
+
+                {/* Param 2: Response Time Seconds */}
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-[#1e1b4b] block">Thời Gian Trả Lời Mỗi Câu</label>
+                    <span className="text-xs font-black font-mono text-[#5b48bd]">{interviewResponseSeconds}s</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[60, 120, 180].map((sec) => (
+                      <button
+                        key={sec}
+                        type="button"
+                        onClick={() => setInterviewResponseSeconds(sec)}
+                        className={`py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          interviewResponseSeconds === sec
+                            ? 'bg-[#5b48bd] text-white shadow-xs'
+                            : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                        }`}
+                      >
+                        {sec}s {sec === 120 && '★'}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-slate-400">
+                    {interviewResponseSeconds === 60 ? 'Tốc độ phản xạ cao' : interviewResponseSeconds === 120 ? 'Chuẩn mực tư duy & trình bày' : 'Phù hợp giải thích kiến trúc phức tạp'}
+                  </p>
+                </div>
+
+                {/* Param 3: AI Interviewer Persona */}
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-[#1e1b4b] block">Phong Cách AI Interviewer</label>
+                  </div>
+                  <select
+                    value={interviewerPersona}
+                    onChange={(e) => setInterviewerPersona(e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#5b48bd] cursor-pointer"
+                  >
+                    <option value="FRESHER_FRIENDLY">Fresher Friendly (Thân thiện, gợi mở)</option>
+                    <option value="STANDARD">Standard HR (Cân bằng kỹ thuật &amp; văn hóa)</option>
+                    <option value="TECH_LEAD">Strict Tech Lead (Khắt khe, truy vấn sâu)</option>
+                  </select>
+                  <p className="text-[10px] text-slate-400">
+                    {interviewerPersona === 'FRESHER_FRIENDLY' ? 'Động viên, đưa gợi ý khi ứng viên ấp úng' : interviewerPersona === 'STANDARD' ? 'Theo thang đo năng lực chuẩn quốc tế' : 'Đào sâu vào edge case và khả năng chịu tải'}
+                  </p>
+                </div>
+
+                {/* Param 4: AI Model */}
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-[#1e1b4b] block">Model AI Vận Hành</label>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {[
+                      { id: 'gemini-1.5-flash', label: '1.5 Flash ★' },
+                      { id: 'gemini-1.5-pro', label: '1.5 Pro' },
+                    ].map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => setAiModel(m.id)}
+                        className={`py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          aiModel === m.id
+                            ? 'bg-[#5b48bd] text-white shadow-xs'
+                            : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                        }`}
+                      >
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-slate-400">
+                    {aiModel === 'gemini-1.5-flash' ? 'Tốc độ phản hồi cực nhanh, tối ưu chi phí API' : 'Khả năng suy luận cao cấp và phân tích ngữ nghĩa sâu'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* ========================================================= */}
+            {/* KHỐI 4: HẠN MỨC GÓI MIỄN PHÍ & QUY TẮC KIỂM DUYỆT        */}
+            {/* ========================================================= */}
+            <div className="p-6 rounded-[28px] bg-white border border-purple-100 shadow-sm space-y-6">
+              <div className="flex items-center gap-3 pb-4 border-b border-purple-100">
+                <div className="w-10 h-10 rounded-2xl bg-teal-50 text-teal-700 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-xl">policy</span>
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[#1e1b4b]">
+                    Khối 4: Hạn Mức Gói Miễn Phí &amp; Quy Tắc Kiểm Duyệt (Quota &amp; Moderation Rules)
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Thiết lập chính sách hạn ngạch tài khoản Free và các điều kiện kiểm duyệt bài đăng tuyển dụng.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Left: Free Quota Limits */}
+                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-4">
+                  <div className="flex items-center gap-2 text-xs font-bold text-[#1e1b4b]">
+                    <span className="material-symbols-outlined text-sm text-teal-600">hourglass_top</span>
+                    <span>Hạn Ngạch Gói Miễn Phí (Default Free Quota)</span>
+                  </div>
+
+                  <div className="space-y-3.5">
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-semibold text-slate-700">Ứng viên: Lượt phỏng vấn AI Free / ngày</label>
+                        <span className="text-xs font-black font-mono text-teal-700">{candidateFreeInterviewsPerDay} lượt/ngày</span>
+                      </div>
+                      <input
+                        type="number"
+                        min="1"
+                        max="10"
+                        value={candidateFreeInterviewsPerDay}
+                        onChange={(e) => setCandidateFreeInterviewsPerDay(Math.max(1, Number(e.target.value)))}
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-[#5b48bd]"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-semibold text-slate-700">Nhà tuyển dụng: Số bài đăng tin Free / tuần</label>
+                        <span className="text-xs font-black font-mono text-teal-700">{recruiterFreeJobPostsPerMonth} bài/tuần</span>
+                      </div>
+                      <input
+                        type="number"
+                        min="1"
+                        max="10"
+                        value={recruiterFreeJobPostsPerMonth}
+                        onChange={(e) => setRecruiterFreeJobPostsPerMonth(Math.max(1, Number(e.target.value)))}
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-[#5b48bd]"
+                      />
+                    </div>
+                  </div>
+
+                  <p className="text-[11px] text-slate-500 italic">
+                    Khi người dùng dùng hết lượt Free, hệ thống sẽ tự động hiển thị modal nâng cấp gói dịch vụ trả phí (Subscription Plan).
+                  </p>
+                </div>
+
+                {/* Right: Moderation Switches */}
+                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-4">
+                  <div className="flex items-center gap-2 text-xs font-bold text-[#1e1b4b]">
+                    <span className="material-symbols-outlined text-sm text-teal-600">verified_user</span>
+                    <span>Quy Tắc Kiểm Duyệt Bài Đăng &amp; Doanh Nghiệp</span>
+                  </div>
+
+                  <div className="space-y-4">
+                    {/* Switch 1: Require GPKD */}
+                    <div className="flex items-start justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200">
+                      <div>
+                        <div className="text-xs font-bold text-slate-800">Bắt buộc xác thực Giấy phép kinh doanh (GPKD)</div>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          Nhà tuyển dụng phải được Admin duyệt GPKD thành công mới được đăng tin tuyển dụng.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setRequireGpkdToPost(!requireGpkdToPost)}
+                        className={`w-12 h-6 rounded-full transition-colors cursor-pointer p-0.5 shrink-0 ${
+                          requireGpkdToPost ? 'bg-[#5b48bd]' : 'bg-slate-300'
+                        }`}
+                      >
+                        <div
+                          className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                            requireGpkdToPost ? 'translate-x-6' : 'translate-x-0'
+                          }`}
+                        ></div>
+                      </button>
+                    </div>
+
+                    {/* Switch 2: Moderate new jobs */}
+                    <div className="flex items-start justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200">
+                      <div>
+                        <div className="text-xs font-bold text-slate-800">Kiểm duyệt tin tuyển dụng mới qua Admin</div>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          Mọi tin tuyển dụng mới tạo sẽ vào trạng thái PENDING chờ Admin phê duyệt trước khi công khai.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setModerateNewJobs(!moderateNewJobs)}
+                        className={`w-12 h-6 rounded-full transition-colors cursor-pointer p-0.5 shrink-0 ${
+                          moderateNewJobs ? 'bg-[#5b48bd]' : 'bg-slate-300'
+                        }`}
+                      >
+                        <div
+                          className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                            moderateNewJobs ? 'translate-x-6' : 'translate-x-0'
+                          }`}
+                        ></div>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ========================================================= */}
+            {/* KHỐI 5: CẤU HÌNH TÀI KHOẢN VIETQR & EMAIL SMTP             */}
+            {/* ========================================================= */}
+            <div className="p-6 rounded-[28px] bg-white border border-purple-100 shadow-sm space-y-6">
+              <div className="flex items-center gap-3 pb-4 border-b border-purple-100">
+                <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-700 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-xl">qr_code_2</span>
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[#1e1b4b]">
+                    Khối 5: Cấu Hình Tài Khoản Nhận Thanh Toán VietQR &amp; Email SMTP
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Cấu hình thông tin tài khoản ngân hàng thụ hưởng hiển thị khi khách hàng tạo mã QR thanh toán mua gói và thông báo Email.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Left: VietQR Account Details */}
+                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs font-bold text-[#1e1b4b]">
+                      <span className="material-symbols-outlined text-sm text-rose-600">account_balance</span>
+                      <span>Tài Khoản Nhận Thanh Toán (VietQR Napas 247)</span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700">
+                      MBBank Partner
+                    </span>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 block mb-1">Ngân Hàng Thụ Hưởng</label>
+                      <input
+                        type="text"
+                        value={vietqrBankName}
+                        onChange={(e) => setVietqrBankName(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-[#5b48bd]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 block mb-1">Số Tài Khoản</label>
+                      <input
+                        type="text"
+                        value={vietqrAccountNumber}
+                        onChange={(e) => setVietqrAccountNumber(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:border-[#5b48bd]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 block mb-1">Tên Chủ Tài Khoản (In hoa)</label>
+                      <input
+                        type="text"
+                        value={vietqrAccountHolder}
+                        onChange={(e) => setVietqrAccountHolder(e.target.value.toUpperCase())}
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:border-[#5b48bd]"
+                      />
+                    </div>
+                  </div>
+
+                  <p className="text-[11px] text-slate-500">
+                    Dữ liệu này được tự động đồng bộ sang màn hình tạo mã thanh toán VietQR khi HR hoặc Ứng viên mua gói dịch vụ.
+                  </p>
+                </div>
+
+                {/* Right: Email SMTP Configuration */}
+                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-4">
+                  <div className="flex items-center gap-2 text-xs font-bold text-[#1e1b4b]">
+                    <span className="material-symbols-outlined text-sm text-indigo-600">mail</span>
+                    <span>Hệ Thống Gửi Email Tự Động (SMTP Notification)</span>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="flex items-start justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200">
+                      <div>
+                        <div className="text-xs font-bold text-slate-800">Tự động gửi Email thông báo</div>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          Gửi email xác nhận tức thời cho khách hàng khi đơn hàng VietQR được duyệt hoặc tài khoản doanh nghiệp được xác thực.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setAutoEmailNotify(!autoEmailNotify)}
+                        className={`w-12 h-6 rounded-full transition-colors cursor-pointer p-0.5 shrink-0 ${
+                          autoEmailNotify ? 'bg-[#5b48bd]' : 'bg-slate-300'
+                        }`}
+                      >
+                        <div
+                          className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                            autoEmailNotify ? 'translate-x-6' : 'translate-x-0'
+                          }`}
+                        ></div>
+                      </button>
+                    </div>
+
+                    <div className="bg-white p-3.5 rounded-xl border border-slate-200 space-y-2 text-xs">
+                      <div className="flex items-center justify-between text-slate-600">
+                        <span>Trạng thái máy chủ SMTP:</span>
+                        <span className="font-bold text-emerald-600 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                          Đang hoạt động (Active)
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-slate-600">
+                        <span>Cổng kết nối (Port):</span>
+                        <span className="font-mono text-slate-700">Gmail TLS 587</span>
+                      </div>
+                      <div className="flex items-center justify-between text-slate-600">
+                        <span>Tài khoản phát tin:</span>
+                        <span className="font-mono text-slate-700">notifications@hiremate.ai</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Save & Apply Banner */}
+            <div className="p-5 rounded-[24px] bg-gradient-to-r from-purple-50 via-white to-purple-50 border border-purple-100 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <span className="material-symbols-outlined text-[#5b48bd] text-2xl">verified</span>
+                <div>
+                  <h4 className="text-xs font-bold text-[#1e1b4b]">Áp Dụng Thay Đổi Toàn Hệ Thống HireMate AI</h4>
+                  <p className="text-[11px] text-slate-500">Các thông số sẽ được lưu trữ an toàn trên máy chủ và cập nhật trực tiếp đến tất cả phân hệ.</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleResetSettingsToDefault}
+                  className="px-4 py-2 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 font-bold text-xs cursor-pointer transition-all"
                 >
                   Khôi phục mặc định
                 </button>
-
                 <button
-                  onClick={() => {
-                    try {
-                      localStorage.setItem('hiremate_settings', JSON.stringify({
-                        mandatoryWeight,
-                        preferredWeight,
-                        autoPublishVerified,
-                        aiInterviewDifficulty,
-                        interviewMaxMinutes,
-                        targetWpm,
-                        voiceAssistantAccent,
-                        qrTimeoutMinutes,
-                        jobDisplayDuration,
-                        maintenanceMode,
-                      }));
-                    } catch (e) {}
-                    triggerToast(`Đã lưu cấu hình thuật toán AI Matching (${mandatoryWeight}/${preferredWeight}) & Áp dụng thành công cho toàn bộ hệ thống!`);
-                  }}
-                  className="px-5 py-2 bg-[#5b48bd] hover:bg-[#4a39a8] text-white rounded-full text-xs font-bold cursor-pointer shadow-md transition-all flex items-center gap-1.5"
+                  type="button"
+                  disabled={savingSettings}
+                  onClick={handleSaveSystemSettings}
+                  className="px-6 py-2.5 rounded-full bg-[#5b48bd] hover:bg-[#4a39a7] text-white font-bold text-xs flex items-center gap-2 cursor-pointer transition-all shadow-md shadow-purple-200 disabled:opacity-60"
                 >
-                  <span className="material-symbols-outlined text-base">save</span>
-                  <span>Lưu &amp; Áp Dụng Toàn Hệ Thống</span>
+                  {savingSettings ? (
+                    <>
+                      <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                      <span>Đang lưu...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined text-sm">save</span>
+                      <span>Lưu &amp; Áp Dụng Cấu Hình</span>
+                    </>
+                  )}
                 </button>
-              </div>
-            </div>
-
-            {/* ========================================================= */}
-            {/* SECTION 1: AI MATCHING 70/30 & INTERACTIVE LIVE SIMULATOR  */}
-            {/* ========================================================= */}
-            <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-md space-y-5">
-              <div className="flex items-center justify-between border-b border-purple-100 pb-3 flex-wrap gap-2">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-purple-50 text-[#5b48bd] border border-purple-200 flex items-center justify-center font-bold">
-                    <span className="material-symbols-outlined text-lg">psychology</span>
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-[#1e1b4b]">
-                      Thuật Toán AI Job Matching (Chuẩn Master Spec 70/30) &amp; Bộ Mô Phỏng Trực Tiếp
-                    </h3>
-                    <p className="text-xs text-slate-500">
-                      Khi bạn thay đổi tỷ lệ trọng số, điểm matching của ứng viên thực tế sẽ lập tức được tính toán lại theo công thức bên dưới
-                    </p>
-                  </div>
-                </div>
-                <span className="px-3 py-1 rounded-full text-xs font-black bg-purple-100 text-[#5b48bd]">
-                  Công thức: Match = (Mandatory × {mandatoryWeight}%) + (Preferred × {preferredWeight}%)
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-                {/* Left 6 cols: Weight Adjustment Sliders */}
-                <div className="lg:col-span-6 space-y-4 flex flex-col justify-between">
-                  <div className="space-y-4">
-                    {/* Mandatory Weight Slider */}
-                    <div className="p-4 rounded-2xl bg-purple-50/60 border border-purple-200 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <label className="text-xs font-bold text-[#1e1b4b] block">
-                            Kỹ Năng Bắt Buộc (Mandatory Weight)
-                          </label>
-                          <span className="text-[11px] text-slate-500">
-                            Kỹ năng cốt lõi (Java, Spring Boot, React, SQL...)
-                          </span>
-                        </div>
-                        <span className="text-xl font-black text-[#5b48bd] font-mono bg-white px-3 py-1 rounded-xl border border-purple-200 shadow-2xs">
-                          {mandatoryWeight}%
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min="50"
-                        max="90"
-                        value={mandatoryWeight}
-                        onChange={(e) => {
-                          const val = Number(e.target.value);
-                          setMandatoryWeight(val);
-                          setPreferredWeight(100 - val);
-                        }}
-                        className="w-full accent-[#5b48bd] cursor-pointer h-2 bg-purple-200 rounded-lg"
-                      />
-                      <div className="flex justify-between text-[10px] text-slate-400 font-bold">
-                        <span>50% (Tối thiểu)</span>
-                        <span className="text-[#5b48bd]">Mặc định 70%</span>
-                        <span>90% (Khắt khe)</span>
-                      </div>
-                    </div>
-
-                    {/* Preferred Weight Slider */}
-                    <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-200 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <label className="text-xs font-bold text-[#1e1b4b] block">
-                            Kỹ Năng Ưu Tiên (Preferred Weight)
-                          </label>
-                          <span className="text-[11px] text-slate-500">
-                            Kỹ năng cộng điểm (Docker, Kafka, AWS, Tiếng Anh...)
-                          </span>
-                        </div>
-                        <span className="text-xl font-black text-emerald-700 font-mono bg-white px-3 py-1 rounded-xl border border-emerald-200 shadow-2xs">
-                          {preferredWeight}%
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min="10"
-                        max="50"
-                        value={preferredWeight}
-                        onChange={(e) => {
-                          const val = Number(e.target.value);
-                          setPreferredWeight(val);
-                          setMandatoryWeight(100 - val);
-                        }}
-                        className="w-full accent-[#10b981] cursor-pointer h-2 bg-emerald-200 rounded-lg"
-                      />
-                      <div className="flex justify-between text-[10px] text-slate-400 font-bold">
-                        <span>10% (Tối thiểu)</span>
-                        <span className="text-emerald-700">Mặc định 30%</span>
-                        <span>50% (Cân bằng)</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-600 space-y-1">
-                    <div className="font-bold text-[#1e1b4b] flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-sm text-[#5b48bd]">database</span>
-                      <span>Cơ chế lưu trữ &amp; Tối ưu hóa API Token:</span>
-                    </div>
-                    <p className="text-[11px] leading-relaxed">
-                      Kết quả so khớp được tính toán 1 lần duy nhất bằng Gemini 1.5 Flash và lưu vào bảng <code className="bg-purple-100 px-1 py-0.5 rounded text-[#5b48bd] font-mono font-bold">ai_job_matches</code>. Khi Nhà tuyển dụng lọc hồ sơ hoặc ứng viên tìm việc, hệ thống đọc trực tiếp từ cache CSDL (&lt;18ms) mà <strong>hoàn toàn không gọi lại Gemini API</strong>, tiết kiệm 100% chi phí.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Right 6 cols: LIVE SIMULATOR LAB */}
-                <div className="lg:col-span-6 bg-purple-50/30 p-5 rounded-2xl border border-purple-200 flex flex-col justify-between space-y-4">
-                  <div>
-                    <div className="flex items-center justify-between pb-2 border-b border-purple-200/60">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
-                        <span className="text-xs font-bold text-[#1e1b4b] uppercase tracking-wider">Mô Phỏng Thực Nghiệm Trực Tiếp</span>
-                      </div>
-                      <span className="text-[11px] font-bold text-[#5b48bd] bg-white px-2.5 py-0.5 rounded-full border border-purple-200">
-                        Job: Senior Java Backend
-                      </span>
-                    </div>
-
-                    {/* Candidate Profile in Test */}
-                    <div className="mt-3 bg-white p-3.5 rounded-xl border border-purple-100 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="font-bold text-xs text-[#1e1b4b]">Ứng viên thực nghiệm: Trần Hoàng Nam</div>
-                        <span className="text-[10px] font-bold text-slate-500">CV ID: #CV-882</span>
-                      </div>
-
-                      <div className="space-y-1.5 text-xs">
-                        <div className="flex items-center justify-between text-[11px]">
-                          <span className="text-slate-600">• Kỹ năng Bắt buộc khớp (2/3):</span>
-                          <span className="font-bold text-purple-700">Java ✅, Spring Boot ✅, PostgreSQL ❌</span>
-                        </div>
-                        <div className="flex items-center justify-between text-[11px]">
-                          <span className="text-slate-600">• Kỹ năng Ưu tiên khớp (1/3):</span>
-                          <span className="font-bold text-emerald-700">Docker ✅, Kafka ❌, AWS ❌</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Real-time calculated formula breakdown */}
-                    {(() => {
-                      const mandatoryPart = Math.round((2 / 3) * mandatoryWeight * 10) / 10;
-                      const preferredPart = Math.round((1 / 3) * preferredWeight * 10) / 10;
-                      const totalScore = Math.round((mandatoryPart + preferredPart) * 10) / 10;
-                      const tier = totalScore >= 85 ? { label: '⭐⭐⭐ Xuất sắc (Top 5%)', color: 'text-purple-700 bg-purple-100 border-purple-300' }
-                        : totalScore >= 70 ? { label: '⭐⭐ Phù hợp cao (Đạt phỏng vấn)', color: 'text-emerald-800 bg-emerald-100 border-emerald-300' }
-                        : totalScore >= 50 ? { label: '⭐ Tiềm năng (Phù hợp cơ bản)', color: 'text-amber-800 bg-amber-100 border-amber-300' }
-                        : { label: '⚠️ Cần bổ sung kỹ năng', color: 'text-rose-800 bg-rose-100 border-rose-300' };
-
-                      return (
-                        <div className="mt-4 p-4 rounded-xl bg-white border border-purple-200 space-y-3">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-slate-500 font-semibold">Điểm Match Được Tính Tức Thì:</span>
-                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${tier.color}`}>
-                              {tier.label}
-                            </span>
-                          </div>
-
-                          <div className="flex items-baseline justify-between">
-                            <div className="text-3xl font-black text-[#1e1b4b] font-mono">
-                              {totalScore}%
-                            </div>
-                            <div className="text-xs font-mono text-slate-500 text-right">
-                              <div>Bắt buộc: (2/3) × {mandatoryWeight}% = <strong>{mandatoryPart}%</strong></div>
-                              <div>Ưu tiên: (1/3) × {preferredWeight}% = <strong>{preferredPart}%</strong></div>
-                            </div>
-                          </div>
-
-                          {/* Progress bar */}
-                          <div className="w-full h-3 rounded-full bg-slate-100 overflow-hidden flex">
-                            <div className="bg-[#5b48bd] h-full transition-all duration-300" style={{ width: `${mandatoryPart}%` }} title="Phần điểm bắt buộc"></div>
-                            <div className="bg-[#10b981] h-full transition-all duration-300" style={{ width: `${preferredPart}%` }} title="Phần điểm ưu tiên"></div>
-                          </div>
-                        </div>
-                      );
-                    })()}
-                  </div>
-
-                  <div className="text-[11px] text-slate-500 text-center italic">
-                    💡 Kéo thanh trượt bên trái để xem điểm số thực nghiệm thay đổi trực tiếp ngay tại đây
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* ========================================================= */}
-            {/* SECTION 2: AI VOICE MOCK INTERVIEW STUDIO PARAMETERS      */}
-            {/* ========================================================= */}
-            <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-md space-y-5">
-              <div className="flex items-center justify-between border-b border-purple-100 pb-3 flex-wrap gap-2">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center font-bold">
-                    <span className="material-symbols-outlined text-lg">record_voice_over</span>
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-[#1e1b4b]">
-                      Cấu Hình AI Voice Mock Interview Studio (Gemini 1.5 Flash Voice)
-                    </h3>
-                    <p className="text-xs text-slate-500">
-                      Điều chỉnh thời lượng phỏng vấn, độ khó và các chỉ số đo lường cải thiện kỹ năng ứng viên
-                    </p>
-                  </div>
-                </div>
-                <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                  Chỉ số Delta: score_after - score_before
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Param 1: Thời lượng phỏng vấn tối đa */}
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-[#1e1b4b]">Thời Lượng Phiên PV</label>
-                    <span className="text-xs font-bold text-[#5b48bd]">{interviewMaxMinutes} phút</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500">Giới hạn thời gian tối đa mỗi lượt phỏng vấn thử</p>
-                  <div className="grid grid-cols-3 gap-1.5 pt-1">
-                    {[15, 30, 45].map((m) => (
-                      <button
-                        key={m}
-                        onClick={() => setInterviewMaxMinutes(m)}
-                        className={`py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                          interviewMaxMinutes === m
-                            ? 'bg-[#5b48bd] text-white shadow-xs'
-                            : 'bg-white text-slate-600 hover:bg-purple-50 border border-slate-200'
-                        }`}
-                      >
-                        {m}p
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Param 2: Độ khó của Người phỏng vấn AI */}
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-[#1e1b4b]">Độ Khó AI Interviewer</label>
-                    <span className="text-xs font-bold text-amber-700">
-                      {aiInterviewDifficulty === 'JUNIOR' ? 'Junior' : aiInterviewDifficulty === 'STANDARD' ? 'Tiêu Chuẩn' : 'Thách Thức'}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-500">Mức độ đào sâu câu hỏi kỹ thuật theo JD</p>
-                  <div className="grid grid-cols-3 gap-1.5 pt-1">
-                    {[
-                      { id: 'JUNIOR', label: 'Cơ bản' },
-                      { id: 'STANDARD', label: 'Chuẩn' },
-                      { id: 'SENIOR', label: 'Nâng cao' },
-                    ].map((d) => (
-                      <button
-                        key={d.id}
-                        onClick={() => setAiInterviewDifficulty(d.id)}
-                        className={`py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                          aiInterviewDifficulty === d.id
-                            ? 'bg-amber-600 text-white shadow-xs'
-                            : 'bg-white text-slate-600 hover:bg-amber-50 border border-slate-200'
-                        }`}
-                      >
-                        {d.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Param 3: Tốc độ phát âm mục tiêu (WPM) */}
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-[#1e1b4b]">Tốc Độ Nói Chuẩn (WPM)</label>
-                    <span className="text-xs font-bold text-emerald-700">{targetWpm} từ/phút</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500">Ngưỡng tối ưu trong phỏng vấn công nghệ (120-150)</p>
-                  <input
-                    type="range"
-                    min="110"
-                    max="160"
-                    value={targetWpm}
-                    onChange={(e) => setTargetWpm(Number(e.target.value))}
-                    className="w-full accent-[#10b981] cursor-pointer h-2 bg-slate-200 rounded-lg pt-1"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* ========================================================= */}
-            {/* SECTION 3: MODERATION RULES & AUTOMATIC VIETQR CONFIG     */}
-            {/* ========================================================= */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Left: Moderation Rules */}
-              <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-md space-y-4">
-                <div className="flex items-center gap-2.5 border-b border-purple-100 pb-3">
-                  <div className="w-8 h-8 rounded-xl bg-purple-50 text-[#5b48bd] border border-purple-200 flex items-center justify-center font-bold">
-                    <span className="material-symbols-outlined text-lg">fact_check</span>
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-[#1e1b4b]">Quy Tắc Kiểm Duyệt Tin Tuyển Dụng</h3>
-                    <p className="text-xs text-slate-500">Cấu hình tự động phê duyệt và bộ lọc nội dung</p>
-                  </div>
-                </div>
-
-                <div className="space-y-3 pt-1">
-                  {/* Auto publish toggle */}
-                  <div className="flex items-center justify-between p-3.5 rounded-2xl bg-purple-50/50 border border-purple-100">
-                    <div>
-                      <div className="text-xs font-bold text-[#1e1b4b]">Tự động xuất bản tin cho Doanh nghiệp đã duyệt GPKD</div>
-                      <div className="text-[11px] text-slate-500 mt-0.5">
-                        Các doanh nghiệp có huy hiệu VERIFIED đăng tin sẽ lên trang chủ ngay mà không cần chờ Admin
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setAutoPublishVerified(!autoPublishVerified)}
-                      className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer ${
-                        autoPublishVerified ? 'bg-[#5b48bd]' : 'bg-slate-300'
-                      }`}
-                    >
-                      <span className={`w-5 h-5 rounded-full bg-white absolute top-0.5 transition-transform ${
-                        autoPublishVerified ? 'left-6' : 'left-1'
-                      }`}></span>
-                    </button>
-                  </div>
-
-                  {/* Default job duration */}
-                  <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
-                    <div>
-                      <div className="text-xs font-bold text-[#1e1b4b]">Thời hạn hiển thị tin tuyển dụng mặc định</div>
-                      <div className="text-[11px] text-slate-500 mt-0.5">Sau thời gian này, tin chuyển sang trạng thái ĐÃ HẾT HẠN</div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      {[30, 45, 60].map((d) => (
-                        <button
-                          key={d}
-                          onClick={() => setJobDisplayDuration(d)}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-bold cursor-pointer transition-all ${
-                            jobDisplayDuration === d
-                              ? 'bg-[#5b48bd] text-white'
-                              : 'bg-white text-slate-600 border border-slate-200 hover:bg-purple-50'
-                          }`}
-                        >
-                          {d} ngày
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right: VietQR Auto Gateway Settings */}
-              <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-md space-y-4">
-                <div className="flex items-center gap-2.5 border-b border-purple-100 pb-3">
-                  <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center font-bold">
-                    <span className="material-symbols-outlined text-lg">qr_code_2</span>
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-[#1e1b4b]">Cấu Hình Cổng Thanh Toán VietQR Tự Động</h3>
-                    <p className="text-xs text-slate-500">Thông số tích hợp Napas247 &amp; MBBank API</p>
-                  </div>
-                </div>
-
-                <div className="space-y-3 pt-1 text-xs">
-                  <div className="p-3 rounded-2xl bg-blue-50/50 border border-blue-100 space-y-1">
-                    <div className="flex justify-between">
-                      <span className="text-slate-500 font-medium">Ngân hàng thụ hưởng:</span>
-                      <span className="font-bold text-[#1e1b4b]">MBBank (Ngân hàng TMCP Quân Đội)</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500 font-medium">Số tài khoản hệ thống:</span>
-                      <span className="font-mono font-bold text-[#5b48bd]">0988 123 456 789</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500 font-medium">Cú pháp chuyển khoản tự động:</span>
-                      <span className="font-mono font-bold text-emerald-700 bg-white px-2 py-0.5 rounded border border-blue-200">HM_[ORDER_CODE]</span>
-                    </div>
-                  </div>
-
-                  {/* QR expiration window */}
-                  <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
-                    <div>
-                      <div className="text-xs font-bold text-[#1e1b4b]">Thời gian hiệu lực mã QR</div>
-                      <div className="text-[11px] text-slate-500 mt-0.5">Tự động hủy đơn nếu khách không chuyển trong thời gian này</div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      {[10, 15, 30].map((t) => (
-                        <button
-                          key={t}
-                          onClick={() => setQrTimeoutMinutes(t)}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-bold cursor-pointer transition-all ${
-                            qrTimeoutMinutes === t
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-white text-slate-600 border border-slate-200 hover:bg-blue-50'
-                          }`}
-                        >
-                          {t} phút
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* ========================================================= */}
-            {/* SECTION 4: MAINTENANCE MODE & CACHE MANAGEMENT            */}
-            {/* ========================================================= */}
-            <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-md space-y-4">
-              <div className="flex items-center gap-2.5 border-b border-purple-100 pb-3">
-                <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center font-bold">
-                  <span className="material-symbols-outlined text-lg">build_circle</span>
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-[#1e1b4b]">Bảo Trì Hệ Thống &amp; Xóa Bộ Nhớ Đệm AI</h3>
-                  <p className="text-xs text-slate-500">Thao tác cấp cao dành riêng cho Quản trị viên</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-                <div className="p-4 rounded-2xl bg-rose-50/40 border border-rose-200 flex items-center justify-between gap-4">
-                  <div>
-                    <div className="text-xs font-bold text-rose-900">Chế độ bảo trì toàn sàn (Maintenance Mode)</div>
-                    <div className="text-[11px] text-slate-500 mt-0.5">
-                      Khi bật, chỉ Admin mới truy cập được hệ thống. Ứng viên và Doanh nghiệp sẽ thấy thông báo bảo trì.
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setMaintenanceMode(!maintenanceMode);
-                      triggerToast(maintenanceMode ? 'Đã tắt chế độ bảo trì, hệ thống hoạt động bình thường' : 'Đã kích hoạt chế độ bảo trì toàn sàn!', 'warning');
-                    }}
-                    className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer shrink-0 ${
-                      maintenanceMode ? 'bg-rose-600' : 'bg-slate-300'
-                    }`}
-                  >
-                    <span className={`w-5 h-5 rounded-full bg-white absolute top-0.5 transition-transform ${
-                      maintenanceMode ? 'left-6' : 'left-1'
-                    }`}></span>
-                  </button>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-purple-50/40 border border-purple-200 flex items-center justify-between gap-4">
-                  <div>
-                    <div className="text-xs font-bold text-[#1e1b4b]">Xóa bộ nhớ đệm bảng ai_job_matches</div>
-                    <div className="text-[11px] text-slate-500 mt-0.5">
-                      Xóa toàn bộ điểm match cũ để kích hoạt tính toán lại theo trọng số ({mandatoryWeight}/{preferredWeight})
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => triggerToast('Đã xóa cache ai_job_matches thành công. Hệ thống sẽ tính toán lại khi có lượt tra cứu mới!', 'info')}
-                    className="px-4 py-2 bg-purple-100 hover:bg-purple-200 text-[#5b48bd] text-xs font-bold rounded-full cursor-pointer transition-colors shrink-0 shadow-xs"
-                  >
-                    Xóa cache AI
-                  </button>
-                </div>
               </div>
             </div>
           </div>
@@ -6155,7 +6805,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
       {/* ========================================================= */}
       {showCreateVoucherModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in font-sans">
-          <div className="bg-white max-w-md w-full rounded-3xl shadow-2xl border border-purple-100 p-6 space-y-4 relative">
+          <div className="bg-white max-w-xl w-full rounded-3xl shadow-2xl border border-purple-100 p-6 space-y-4 relative max-h-[92vh] overflow-y-auto scrollbar-thin">
             <button
               onClick={() => setShowCreateVoucherModal(false)}
               className="absolute top-5 right-5 text-slate-400 hover:text-slate-600 cursor-pointer"
@@ -6163,31 +6813,37 @@ export default function AdminDashboardPage({ user, onLogout }) {
               <span className="material-symbols-outlined">close</span>
             </button>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 pb-2 border-b border-purple-100">
               <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
                 <span className="material-symbols-outlined text-2xl">sell</span>
               </div>
               <div>
                 <h3 className="text-lg font-bold text-[#1e1b4b]">Tạo Mã Khuyến Mãi Mới</h3>
-                <p className="text-xs text-slate-500">Phát hành voucher ưu đãi cho khách hàng HireMate</p>
+                <p className="text-xs text-slate-500">Phát hành voucher ưu đãi cho khách hàng HireMate AI</p>
               </div>
             </div>
 
-            <div className="space-y-3 text-xs">
+            <div className="space-y-4 text-xs">
+              {/* Mã Voucher */}
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Mã Voucher (In hoa, không dấu)</label>
+                <label className="font-bold text-slate-700 block mb-1">
+                  Mã Voucher (In hoa, không dấu) <span className="text-rose-500">*</span>
+                </label>
                 <input
                   type="text"
-                  placeholder="VD: HIREMATE50, VIPPRO2026"
+                  placeholder="VD: HIREMATE50, VIPPRO2026, SUMMERRECRUIT"
                   value={newVoucherForm.code}
                   onChange={(e) => setNewVoucherForm((prev) => ({ ...prev, code: e.target.value.toUpperCase().replace(/\s/g, '') }))}
                   className="w-full px-4 py-2 border border-purple-200 rounded-xl text-xs font-mono font-bold uppercase focus:outline-none focus:ring-2 focus:ring-[#5b48bd]/30"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              {/* Phần trăm & Giảm tối đa */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Phần trăm giảm (%)</label>
+                  <label className="font-bold text-slate-700 block mb-1">
+                    Phần trăm giảm (%) <span className="text-rose-500">*</span>
+                  </label>
                   <input
                     type="number"
                     min="1"
@@ -6219,9 +6875,12 @@ export default function AdminDashboardPage({ user, onLogout }) {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              {/* Hạn dùng & Đơn tối thiểu */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Hạn sử dụng (Ngày hết hạn)</label>
+                  <label className="font-bold text-slate-700 block mb-1">
+                    Hạn sử dụng (Ngày hết hạn) <span className="text-rose-500">*</span>
+                  </label>
                   <input
                     type="date"
                     value={newVoucherForm.validTo}
@@ -6247,7 +6906,8 @@ export default function AdminDashboardPage({ user, onLogout }) {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              {/* Lượt dùng & Trạng thái phát hành */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
                 <div>
                   <label className="font-bold text-slate-700 block mb-1">Số lượt sử dụng tối đa</label>
                   <input
@@ -6263,55 +6923,283 @@ export default function AdminDashboardPage({ user, onLogout }) {
                 </div>
 
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Đối tượng áp dụng</label>
-                  <select
-                    value={newVoucherForm.targetRole}
-                    onChange={(e) => setNewVoucherForm((prev) => ({ ...prev, targetRole: e.target.value }))}
-                    className="w-full px-3 py-2 border border-purple-200 rounded-xl text-xs font-bold bg-white focus:outline-none focus:ring-2 focus:ring-[#5b48bd]/30"
-                  >
-                    <option value="ALL">Tất cả khách hàng</option>
-                    <option value="RECRUITER">Chỉ Nhà tuyển dụng</option>
-                    <option value="CANDIDATE">Chỉ Ứng viên</option>
-                  </select>
+                  <label className="font-bold text-slate-700 block mb-1">Trạng thái phát hành</label>
+                  <div className="flex items-center gap-3 pt-1">
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="vActiveStatus"
+                        checked={newVoucherForm.isActive !== false}
+                        onChange={() => setNewVoucherForm((prev) => ({ ...prev, isActive: true }))}
+                        className="accent-emerald-600"
+                      />
+                      <span className="text-emerald-700 font-bold text-xs">Kích hoạt</span>
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="vActiveStatus"
+                        checked={newVoucherForm.isActive === false}
+                        onChange={() => setNewVoucherForm((prev) => ({ ...prev, isActive: false }))}
+                        className="accent-slate-500"
+                      />
+                      <span className="text-slate-500 font-bold text-xs">Tạm ẩn</span>
+                    </label>
+                  </div>
                 </div>
               </div>
 
+              {/* ------------------------------------------------------------- */}
+              {/* KHỐI 1: VAI TRÒ ĐƯỢC NHẬN VOUCHER (TARGET ROLE)               */}
+              {/* ------------------------------------------------------------- */}
+              <div className="p-4 rounded-2xl bg-purple-50/50 border border-purple-100 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-[#1e1b4b] text-xs flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-sm text-[#5b48bd]">badge</span>
+                    <span>1. Vai Trò Được Nhận Voucher (Đối tượng áp dụng):</span>
+                  </label>
+                  <span className="text-[10px] font-bold text-[#5b48bd] bg-white px-2 py-0.5 rounded-full border border-purple-200">
+                    Bắt buộc
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {[
+                    { id: 'ALL', label: 'Tất Cả Khách Hàng', icon: 'groups', sub: 'Cả Ứng viên & Nhà tuyển dụng' },
+                    { id: 'RECRUITER', label: 'Nhà Tuyển Dụng', icon: 'business_center', sub: 'Chỉ HR / Doanh nghiệp' },
+                    { id: 'CANDIDATE', label: 'Ứng Viên', icon: 'school', sub: 'Chỉ Ứng viên / Sinh viên' },
+                  ].map((role) => {
+                    const isSelected = newVoucherForm.targetRole === role.id;
+                    return (
+                      <button
+                        key={role.id}
+                        type="button"
+                        onClick={() => {
+                          setNewVoucherForm((prev) => ({
+                            ...prev,
+                            targetRole: role.id,
+                            applicablePlanIds: [],
+                          }));
+                        }}
+                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                          isSelected
+                            ? 'bg-white border-[#5b48bd] shadow-sm ring-2 ring-[#5b48bd]/20'
+                            : 'bg-white/60 border-slate-200 hover:bg-white hover:border-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className={`material-symbols-outlined text-lg ${isSelected ? 'text-[#5b48bd]' : 'text-slate-400'}`}>
+                            {role.icon}
+                          </span>
+                          {isSelected && (
+                            <span className="w-4 h-4 rounded-full bg-[#5b48bd] text-white flex items-center justify-center text-[10px] font-bold">
+                              ✓
+                            </span>
+                          )}
+                        </div>
+                        <div>
+                          <div className={`text-xs font-bold ${isSelected ? 'text-[#5b48bd]' : 'text-slate-800'}`}>
+                            {role.label}
+                          </div>
+                          <div className="text-[10px] text-slate-500 mt-0.5 leading-tight">
+                            {role.sub}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* ------------------------------------------------------------- */}
+              {/* KHỐI 2: PHẠM VI GÓI DỊCH VỤ ĐƯỢC ÁP DỤNG (APPLICABLE PLANS)     */}
+              {/* ------------------------------------------------------------- */}
+              <div className="p-4 rounded-2xl bg-indigo-50/40 border border-indigo-100 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <label className="font-bold text-[#1e1b4b] text-xs flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-sm text-indigo-600">inventory_2</span>
+                    <span>2. Phạm Vi Gói Dịch Vụ Áp Dụng:</span>
+                  </label>
+                  
+                  {/* Mode switcher */}
+                  <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-indigo-200">
+                    <button
+                      type="button"
+                      onClick={() => setNewVoucherForm((prev) => ({ ...prev, applicableScope: 'ALL', applicablePlanIds: [] }))}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                        newVoucherForm.applicableScope !== 'SPECIFIC'
+                          ? 'bg-[#5b48bd] text-white shadow-2xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <span>Tất cả các gói</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewVoucherForm((prev) => {
+                          const relevant = packagesList
+                            .filter((p) => prev.targetRole === 'ALL' || p.targetRole === prev.targetRole)
+                            .map((p) => p.id);
+                          return {
+                            ...prev,
+                            applicableScope: 'SPECIFIC',
+                            applicablePlanIds: prev.applicablePlanIds?.length > 0 ? prev.applicablePlanIds : relevant,
+                          };
+                        });
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                        newVoucherForm.applicableScope === 'SPECIFIC'
+                          ? 'bg-[#5b48bd] text-white shadow-2xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <span>Chọn gói cụ thể</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Specific Packages Checklist */}
+                {newVoucherForm.applicableScope === 'SPECIFIC' ? (
+                  <div className="space-y-2 pt-1 animate-fade-in">
+                    {(() => {
+                      const relevantPackages = packagesList.filter(
+                        (p) => newVoucherForm.targetRole === 'ALL' || p.targetRole === newVoucherForm.targetRole
+                      );
+
+                      const togglePlan = (planId) => {
+                        setNewVoucherForm((prev) => {
+                          const current = prev.applicablePlanIds || [];
+                          const next = current.includes(planId)
+                            ? current.filter((id) => id !== planId)
+                            : [...current, planId];
+                          return { ...prev, applicablePlanIds: next };
+                        });
+                      };
+
+                      const selectAll = () => {
+                        setNewVoucherForm((prev) => ({
+                          ...prev,
+                          applicablePlanIds: relevantPackages.map((p) => p.id),
+                        }));
+                      };
+
+                      const deselectAll = () => {
+                        setNewVoucherForm((prev) => ({
+                          ...prev,
+                          applicablePlanIds: [],
+                        }));
+                      };
+
+                      return (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-[11px] px-1 text-slate-500">
+                            <span>
+                              Đã chọn <strong className="text-indigo-700">{newVoucherForm.applicablePlanIds?.length || 0}</strong> / {relevantPackages.length} gói dịch vụ
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={selectAll}
+                                className="text-indigo-600 font-bold hover:underline cursor-pointer"
+                              >
+                                Chọn tất cả
+                              </button>
+                              <span>•</span>
+                              <button
+                                type="button"
+                                onClick={deselectAll}
+                                className="text-slate-500 hover:text-rose-600 font-bold hover:underline cursor-pointer"
+                              >
+                                Bỏ chọn
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 bg-white rounded-xl border border-indigo-100 scrollbar-thin">
+                            {relevantPackages.map((pkg) => {
+                              const isChecked = (newVoucherForm.applicablePlanIds || []).includes(pkg.id);
+                              return (
+                                <div
+                                  key={pkg.id}
+                                  onClick={() => togglePlan(pkg.id)}
+                                  className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 cursor-pointer transition-all select-none ${
+                                    isChecked
+                                      ? 'bg-indigo-50/60 border-indigo-300 ring-1 ring-indigo-300/50'
+                                      : 'bg-white border-slate-200 hover:bg-slate-50'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={() => {}}
+                                      className="rounded border-purple-200 text-[#5b48bd] focus:ring-[#5b48bd] h-3.5 w-3.5 cursor-pointer pointer-events-none"
+                                    />
+                                    <div className="min-w-0">
+                                      <div className="text-xs font-bold text-slate-800 truncate" title={pkg.name}>
+                                        {pkg.name}
+                                      </div>
+                                      <div className="text-[10px] text-slate-500 font-mono">
+                                        {pkg.priceText || (pkg.price > 0 ? `${pkg.price.toLocaleString('vi-VN')} đ` : 'Miễn phí')}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <span
+                                    className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0 ${
+                                      pkg.targetRole === 'RECRUITER'
+                                        ? 'bg-indigo-100 text-indigo-700'
+                                        : 'bg-amber-100 text-amber-700'
+                                    }`}
+                                  >
+                                    {pkg.targetRole === 'RECRUITER' ? 'HR' : 'CAND'}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {(newVoucherForm.applicablePlanIds || []).length === 0 && (
+                            <div className="p-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[11px] flex items-center gap-1.5">
+                              <span className="material-symbols-outlined text-xs">warning</span>
+                              <span>Vui lòng chọn ít nhất 1 gói hoặc bấm "Tất cả các gói" bên trên.</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                ) : (
+                  <div className="p-3 bg-white rounded-xl border border-indigo-100 text-[11px] text-slate-600 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-base text-emerald-600">check_circle</span>
+                    <span>
+                      Mã voucher này sẽ được áp dụng cho <strong>toàn bộ các gói dịch vụ</strong> dành cho{' '}
+                      <strong className="text-[#5b48bd]">
+                        {newVoucherForm.targetRole === 'RECRUITER'
+                          ? 'Nhà tuyển dụng'
+                          : newVoucherForm.targetRole === 'CANDIDATE'
+                          ? 'Ứng viên'
+                          : 'Cả Ứng viên & Nhà tuyển dụng'}
+                      </strong>.
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Mô tả / Điều kiện áp dụng */}
               <div>
                 <label className="font-bold text-slate-700 block mb-1">Mô tả / Điều kiện áp dụng</label>
                 <input
                   type="text"
-                  placeholder="VD: Áp dụng cho khách hàng nâng cấp gói tuyển dụng đầu tiên"
+                  placeholder="VD: Ưu đãi đặc biệt khi nâng cấp gói dịch vụ"
                   value={newVoucherForm.description || ''}
                   onChange={(e) => setNewVoucherForm((prev) => ({ ...prev, description: e.target.value }))}
                   className="w-full px-4 py-2 border border-purple-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#5b48bd]/30"
                 />
               </div>
-
-              <div className="flex items-center gap-4 pt-1">
-                <span className="font-bold text-slate-700 text-xs">Trạng thái phát hành:</span>
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="vActiveStatus"
-                    checked={newVoucherForm.isActive !== false}
-                    onChange={() => setNewVoucherForm((prev) => ({ ...prev, isActive: true }))}
-                    className="accent-emerald-600"
-                  />
-                  <span className="text-emerald-700 font-bold text-xs">Kích hoạt ngay (Active)</span>
-                </label>
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="vActiveStatus"
-                    checked={newVoucherForm.isActive === false}
-                    onChange={() => setNewVoucherForm((prev) => ({ ...prev, isActive: false }))}
-                    className="accent-slate-500"
-                  />
-                  <span className="text-slate-500 font-bold text-xs">Tạm ẩn (Inactive)</span>
-                </label>
-              </div>
             </div>
 
+            {/* Modal Actions */}
             <div className="pt-2 flex justify-end gap-2 border-t border-purple-100">
               <button
                 type="button"

@@ -30,6 +30,15 @@ export const adminApi = {
   getVouchers: () => axiosClient.get('/admin/vouchers'),
   createVoucher: (voucher) => axiosClient.post('/admin/vouchers', voucher),
   toggleVoucher: (voucherId) => axiosClient.put(`/admin/vouchers/${voucherId}/toggle`),
+
+  // Master Skills Management (Quản Trị Từ Điển Kỹ Năng)
+  getSkills: (params) => axiosClient.get('/admin/skills', { params }),
+  createSkill: (data) => axiosClient.post('/admin/skills', data),
+  deleteSkill: (id) => axiosClient.delete(`/admin/skills/${id}`),
+
+  // System Settings & AI Matching Configuration
+  getSettings: () => axiosClient.get('/admin/settings'),
+  updateSettings: (settings) => axiosClient.put('/admin/settings', settings),
 };
 
 export default adminApi;

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useLivingTheme } from '../context/LivingThemeContext';
-import { jobApi, applicationApi, companyApi } from '../api';
+import { jobApi, applicationApi, companyApi, skillApi } from '../api';
 import { parseSkillList } from '../utils/helpers';
 import { calculateJobDeadline } from '../utils/jobTimeUtils';
 
@@ -259,6 +259,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
   // Tag inputs & drag file state
   const [mandSkillTagInput, setMandSkillTagInput] = useState('');
   const [prefSkillTagInput, setPrefSkillTagInput] = useState('');
+  const [masterSkillsList, setMasterSkillsList] = useState([]);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
 
   // AI JD Scanner state (Quét file Word/PDF/Image hoặc dán text trực tiếp tự động điền form)
@@ -416,9 +417,26 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
     setCreateForm(prev => ({ ...prev, preferredSkillsInput: updated.join(', ') }));
   };
 
-  // Gợi ý kỹ năng động 1-click dựa trên tiêu đề công việc thực tế của HR (Frontend, Backend, QA, Mobile, AI...)
+  // Gợi ý kỹ năng động 1-click dựa trên tiêu đề công việc thực tế của HR và Master Skills từ Supabase
   const dynamicMandatorySuggestions = useMemo(() => {
     const t = (createForm.title || '').toLowerCase();
+    if (masterSkillsList.length > 0) {
+      let matched = [];
+      if (t.includes('frontend') || t.includes('front-end') || t.includes('react') || t.includes('vue') || t.includes('web')) {
+        matched = masterSkillsList.filter((s) => (s.category || '').toUpperCase().includes('FRONT') || ['react', 'vue', 'angular', 'next', 'html', 'css', 'javascript', 'typescript'].some((k) => (s.skillName || '').toLowerCase().includes(k)));
+      } else if (t.includes('qa') || t.includes('qc') || t.includes('tester') || t.includes('kiem thu')) {
+        matched = masterSkillsList.filter((s) => ['test', 'selenium', 'playwright', 'cypress', 'postman', 'automation'].some((k) => (s.skillName || '').toLowerCase().includes(k)));
+      } else if (t.includes('mobile') || t.includes('flutter') || t.includes('react native') || t.includes('ios') || t.includes('android')) {
+        matched = masterSkillsList.filter((s) => (s.category || '').toUpperCase().includes('MOBILE') || ['flutter', 'react native', 'ios', 'android', 'swift', 'kotlin'].some((k) => (s.skillName || '').toLowerCase().includes(k)));
+      } else if (t.includes('ai') || t.includes('data') || t.includes('machine learning')) {
+        matched = masterSkillsList.filter((s) => (s.category || '').toUpperCase().includes('AI') || (s.category || '').toUpperCase().includes('DATA') || ['python', 'pytorch', 'llm', 'ai', 'langchain'].some((k) => (s.skillName || '').toLowerCase().includes(k)));
+      } else {
+        matched = masterSkillsList.filter((s) => (s.category || '').toUpperCase().includes('BACK') || ['java', 'spring', 'sql', 'postgres', 'docker', 'api'].some((k) => (s.skillName || '').toLowerCase().includes(k)));
+      }
+      if (matched.length >= 3) {
+        return matched.slice(0, 8).map((s) => s.skillName);
+      }
+    }
     if (t.includes('frontend') || t.includes('front-end') || t.includes('react') || t.includes('vue') || t.includes('web')) {
       return ['React', 'TypeScript', 'JavaScript', 'HTML5 & CSS3', 'Tailwind CSS', 'Next.js', 'Redux', 'Vue.js'];
     }
@@ -435,10 +453,23 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
       return ['React', 'Node.js', 'TypeScript', 'PostgreSQL', 'Docker', 'RESTful API', 'Next.js'];
     }
     return ['Java 21', 'Spring Boot 3', 'PostgreSQL', 'RESTful API', 'Docker', 'Microservices', 'Node.js', 'React'];
-  }, [createForm.title]);
+  }, [createForm.title, masterSkillsList]);
 
   const dynamicPreferredSuggestions = useMemo(() => {
     const t = (createForm.title || '').toLowerCase();
+    if (masterSkillsList.length > 0) {
+      let matched = [];
+      if (t.includes('frontend') || t.includes('front-end') || t.includes('react') || t.includes('vue') || t.includes('web')) {
+        matched = masterSkillsList.filter((s) => ['graphql', 'vite', 'webpack', 'figma', 'jest', 'cypress', 'ci/cd', 'docker', 'responsive'].some((k) => (s.skillName || '').toLowerCase().includes(k)));
+      } else if (t.includes('ai') || t.includes('data')) {
+        matched = masterSkillsList.filter((s) => ['langchain', 'fastapi', 'docker', 'aws', 'gcp', 'rag', 'fine-tuning', 'hugging face'].some((k) => (s.skillName || '').toLowerCase().includes(k)));
+      } else {
+        matched = masterSkillsList.filter((s) => (s.category || '').toUpperCase().includes('DEVOPS') || ['kafka', 'redis', 'aws', 'kubernetes', 'ci/cd', 'graphql', 'next.js', 'jmeter'].some((k) => (s.skillName || '').toLowerCase().includes(k)));
+      }
+      if (matched.length >= 3) {
+        return matched.slice(0, 8).map((s) => s.skillName);
+      }
+    }
     if (t.includes('frontend') || t.includes('front-end') || t.includes('react') || t.includes('vue') || t.includes('web')) {
       return ['GraphQL', 'Vite', 'Webpack', 'Figma', 'Jest / Cypress', 'CI/CD', 'Docker', 'Responsive Design'];
     }
@@ -455,7 +486,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
       return ['Redis', 'AWS', 'Kubernetes', 'CI/CD', 'GraphQL', 'Microservices', 'NestJS'];
     }
     return ['Kafka', 'Redis Cluster', 'AWS', 'Kubernetes', 'CI/CD', 'GraphQL', 'Next.js', 'JMeter'];
-  }, [createForm.title]);
+  }, [createForm.title, masterSkillsList]);
 
   // Tự động quét file JD (PDF, Word DOCX/DOC, TXT, và Ảnh chụp màn hình OCR PNG/JPG/WEBP) bằng AI
   const handleJdFileUpload = async (e) => {
@@ -762,6 +793,13 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
 
   useEffect(() => {
     fetchMyJobs();
+    skillApi.getAllSkills()
+      .then((res) => {
+        const raw = res?.data || res;
+        const list = Array.isArray(raw) ? raw : (Array.isArray(raw?.data) ? raw.data : []);
+        setMasterSkillsList(list);
+      })
+      .catch((err) => console.error('Lỗi tải danh mục master skills cho HR:', err));
   }, []);
 
   useEffect(() => {
@@ -2806,7 +2844,8 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                         <div className="flex items-center gap-2">
                           <input
                             type="text"
-                            placeholder="Nhập kỹ năng bắt buộc và nhấn Enter..."
+                            list="master-skills-datalist"
+                            placeholder="Nhập kỹ năng bắt buộc (Gõ để tìm kiếm master skills)..."
                             value={mandSkillTagInput}
                             onChange={(e) => setMandSkillTagInput(e.target.value)}
                             onKeyDown={(e) => {
@@ -2817,6 +2856,13 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                             }}
                             className="flex-1 bg-white border border-slate-200 rounded-xl p-2.5 text-slate-800 text-xs font-sans focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600"
                           />
+                          <datalist id="master-skills-datalist">
+                            {masterSkillsList.map((s) => (
+                              <option key={s.skillId} value={s.skillName}>
+                                {s.category ? `(${s.category})` : ''}
+                              </option>
+                            ))}
+                          </datalist>
                           <button
                             type="button"
                             onClick={() => handleAddMandatorySkill()}
@@ -2882,7 +2928,8 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                         <div className="flex items-center gap-2">
                           <input
                             type="text"
-                            placeholder="Nhập kỹ năng ưu tiên và nhấn Enter..."
+                            list="master-skills-datalist"
+                            placeholder="Nhập kỹ năng ưu tiên (Gõ để tìm kiếm master skills)..."
                             value={prefSkillTagInput}
                             onChange={(e) => setPrefSkillTagInput(e.target.value)}
                             onKeyDown={(e) => {

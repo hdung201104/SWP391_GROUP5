@@ -2,8 +2,8 @@ import axiosClient from './axiosClient';
 
 export const paymentApi = {
   // Validate promo / voucher code against real database
-  validateVoucher: (code, amount) =>
-    axiosClient.post('/payment/validate-voucher', { code, amount }),
+  validateVoucher: (code, amount, extra = {}) =>
+    axiosClient.post('/payment/validate-voucher', { code, amount, ...extra }),
 
   // Create payment order (generates VietQR code & creates order in payment_orders table)
   createOrder: (orderData) =>

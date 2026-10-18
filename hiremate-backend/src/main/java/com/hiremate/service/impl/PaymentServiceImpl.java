@@ -46,6 +46,88 @@ public class PaymentServiceImpl implements PaymentService {
     private static final String DEFAULT_BANK_ACCOUNT = "0987654321";
     private static final String DEFAULT_ACCOUNT_HOLDER = "HIREMATE AI TECH";
 
+    @jakarta.annotation.PostConstruct
+    public void seedDefaultVouchers() {
+        java.util.List<Voucher> seedList = java.util.Arrays.asList(
+                Voucher.builder()
+                        .code("HIREMATE50")
+                        .discountPercent(50)
+                        .maxDiscountAmount(BigDecimal.valueOf(150000))
+                        .usageLimit(100)
+                        .usedCount(0)
+                        .validFrom(LocalDateTime.now())
+                        .validTo(LocalDateTime.now().plusDays(90))
+                        .isActive(true)
+                        .build(),
+                Voucher.builder()
+                        .code("CANDIDATE20")
+                        .discountPercent(20)
+                        .maxDiscountAmount(BigDecimal.valueOf(100000))
+                        .usageLimit(150)
+                        .usedCount(0)
+                        .validFrom(LocalDateTime.now())
+                        .validTo(LocalDateTime.now().plusDays(90))
+                        .isActive(true)
+                        .build(),
+                Voucher.builder()
+                        .code("FPTTALENT")
+                        .discountPercent(30)
+                        .maxDiscountAmount(BigDecimal.valueOf(200000))
+                        .usageLimit(200)
+                        .usedCount(0)
+                        .validFrom(LocalDateTime.now())
+                        .validTo(LocalDateTime.now().plusDays(90))
+                        .isActive(true)
+                        .build(),
+                Voucher.builder()
+                        .code("PROHR2026")
+                        .discountPercent(30)
+                        .maxDiscountAmount(BigDecimal.valueOf(300000))
+                        .usageLimit(100)
+                        .usedCount(0)
+                        .validFrom(LocalDateTime.now())
+                        .validTo(LocalDateTime.now().plusDays(90))
+                        .isActive(true)
+                        .build(),
+                Voucher.builder()
+                        .code("HRBOOST")
+                        .discountPercent(25)
+                        .maxDiscountAmount(BigDecimal.valueOf(250000))
+                        .usageLimit(100)
+                        .usedCount(0)
+                        .validFrom(LocalDateTime.now())
+                        .validTo(LocalDateTime.now().plusDays(90))
+                        .isActive(true)
+                        .build(),
+                Voucher.builder()
+                        .code("WELCOME2026")
+                        .discountPercent(20)
+                        .maxDiscountAmount(BigDecimal.valueOf(50000))
+                        .usageLimit(300)
+                        .usedCount(0)
+                        .validFrom(LocalDateTime.now())
+                        .validTo(LocalDateTime.now().plusDays(90))
+                        .isActive(true)
+                        .build(),
+                Voucher.builder()
+                        .code("SPRINGTECH")
+                        .discountPercent(15)
+                        .maxDiscountAmount(BigDecimal.valueOf(50000))
+                        .usageLimit(200)
+                        .usedCount(0)
+                        .validFrom(LocalDateTime.now())
+                        .validTo(LocalDateTime.now().plusDays(90))
+                        .isActive(true)
+                        .build()
+        );
+        for (Voucher seed : seedList) {
+            if (voucherRepository.findByCode(seed.getCode()).isEmpty()) {
+                voucherRepository.save(seed);
+                log.info(">> [PaymentService] Seeded voucher '{}' into Supabase PostgreSQL.", seed.getCode());
+            }
+        }
+    }
+
     @Override
     @Transactional(readOnly = true)
     public VoucherValidationResponse validateVoucher(ValidateVoucherRequest request) {
@@ -68,6 +150,25 @@ public class PaymentServiceImpl implements PaymentService {
                     .code(code)
                     .message("Mã giảm giá '" + code + "' không tồn tại trong hệ thống.")
                     .build();
+        }
+
+        // Kiểm tra vai trò áp dụng của mã giảm giá
+        if (request.getUserRole() != null && !request.getUserRole().isBlank()) {
+            String role = request.getUserRole().trim().toUpperCase();
+            if ("CANDIDATE".equals(role) && (code.startsWith("RECRUITER") || code.startsWith("PROHR") || code.startsWith("HRBOOST"))) {
+                return VoucherValidationResponse.builder()
+                        .valid(false)
+                        .code(code)
+                        .message("Mã ưu đãi '" + code + "' chỉ dành riêng cho tài khoản Nhà tuyển dụng.")
+                        .build();
+            }
+            if ("RECRUITER".equals(role) && (code.startsWith("CANDIDATE") || code.startsWith("FPTTALENT"))) {
+                return VoucherValidationResponse.builder()
+                        .valid(false)
+                        .code(code)
+                        .message("Mã ưu đãi '" + code + "' chỉ dành riêng cho tài khoản Ứng viên.")
+                        .build();
+            }
         }
 
         if (!Boolean.TRUE.equals(voucher.getIsActive())) {
