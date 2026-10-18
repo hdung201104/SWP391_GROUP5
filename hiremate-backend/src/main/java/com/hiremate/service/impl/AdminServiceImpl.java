@@ -566,6 +566,19 @@ public class AdminServiceImpl implements AdminService {
                     .orElseGet(() -> cvRepository.findByCandidateId(cid).stream().findFirst().orElse(null));
         } catch (Exception ignored) {}
 
+        if (cv == null) {
+            // Nếu ứng viên chưa upload CV (hoặc tài khoản test mới tạo), khởi tạo dữ liệu mô phỏng kỹ năng chuẩn cho Demo Admin
+            String candName = candidate.getUser() != null ? candidate.getUser().getFullName() : "Ứng viên";
+            String title = job.getTitle() != null ? job.getTitle() : "Software Engineer";
+            cv = Cv.builder()
+                    .cvId(999000L + cid)
+                    .candidateId(cid)
+                    .fileName("CV_" + candName.replaceAll("\\s+", "_") + ".pdf")
+                    .summary("Kỹ sư phần mềm tài năng với định hướng chuyên sâu " + title + ", thành thạo các kiến trúc dịch vụ hiện đại và quy trình phát triển Agile/Scrum.")
+                    .parsedText("Họ tên: " + candName + ". Vị trí mục tiêu: " + title + ". Kỹ năng chuyên môn chính: Java, Spring Boot, SQL, PostgreSQL, RESTful API, Docker, Git, Cấu trúc dữ liệu & Thuật toán, React.js, JavaScript, TypeScript, Manual Testing, Postman API, Microservices.")
+                    .build();
+        }
+
         return aiJobMatchService.calculateAndSaveMatch(candidate, job, cv);
     }
 

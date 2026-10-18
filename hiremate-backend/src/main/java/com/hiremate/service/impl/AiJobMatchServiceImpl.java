@@ -128,29 +128,9 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
                 }
             }
         } else {
-            // Tự động phân tách từ requirements (Bắt buộc)
-            if (job.getRequirements() != null && !job.getRequirements().isBlank()) {
-                String[] reqItems = job.getRequirements().split("[,\\n]+");
-                for (String item : reqItems) {
-                    String clean = item.replaceFirst("^[-*•\\d.]+\\s*", "").trim();
-                    if (!clean.isBlank() && clean.length() <= 35) {
-                        mandatorySkillNames.add(clean);
-                    }
-                }
-            }
-            // Tự động phân tách từ benefits (Ưu tiên)
-            if (job.getBenefits() != null && !job.getBenefits().isBlank()) {
-                String[] benItems = job.getBenefits().split("[,\\n]+");
-                for (String item : benItems) {
-                    String clean = item.replaceFirst("^[-*•\\d.]+\\s*", "").trim();
-                    String lower = clean.toLowerCase();
-                    if (!clean.isBlank() && clean.length() <= 35 && !lower.contains("lương") && !lower.contains("bảo hiểm") && !lower.contains("thưởng") && !lower.contains("phép")) {
-                        preferredSkillNames.add(clean);
-                    }
-                }
-            }
-            // Trích xuất bổ sung từ title và description dựa trên từ điển kỹ năng
-            String combinedJobText = (job.getTitle() + " " + (job.getDescription() != null ? job.getDescription() : "")).toLowerCase();
+            // TUYỆT ĐỐI KHÔNG bóc tách văn bản tự do hay benefits làm kỹ năng!
+            // Quét text của Job (title, requirements, description) đối chiếu với kho từ điển kỹ năng chuẩn (skillCache)
+            String combinedJobText = (job.getTitle() + " " + (job.getRequirements() != null ? job.getRequirements() : "") + " " + (job.getDescription() != null ? job.getDescription() : "")).toLowerCase();
             for (Skill s : skillCache.values()) {
                 if (s.getSkillName() != null && isSkillPresentInText(combinedJobText, s.getSkillName().toLowerCase())) {
                     if (!mandatorySkillNames.contains(s.getSkillName()) && !preferredSkillNames.contains(s.getSkillName())) {
@@ -162,11 +142,36 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
                     }
                 }
             }
+
+            // Nếu tin tuyển dụng sơ sài chưa gắn tag trong DB, suy luận danh mục kỹ năng chuẩn theo vị trí tuyển dụng (Domain Inference)
+            if (mandatorySkillNames.isEmpty()) {
+                String titleLower = (job.getTitle() != null ? job.getTitle() : "").toLowerCase();
+                if (titleLower.contains("backend") || titleLower.contains("java") || titleLower.contains("spring") || titleLower.contains("intern backend")) {
+                    mandatorySkillNames.addAll(List.of("Java", "Spring Boot", "SQL / Database", "RESTful API"));
+                    preferredSkillNames.addAll(List.of("Docker", "Git", "Cấu trúc dữ liệu"));
+                } else if (titleLower.contains("frontend") || titleLower.contains("react") || titleLower.contains("web")) {
+                    mandatorySkillNames.addAll(List.of("React.js", "JavaScript", "HTML5 / CSS3", "REST API"));
+                    preferredSkillNames.addAll(List.of("TypeScript", "TailwindCSS", "Git"));
+                } else if (titleLower.contains("test") || titleLower.contains("qa") || titleLower.contains("qc")) {
+                    mandatorySkillNames.addAll(List.of("Manual Testing", "Test Case Design", "SQL", "Postman API"));
+                    preferredSkillNames.addAll(List.of("Automation Testing", "Jira / Bug Report"));
+                } else if (titleLower.contains("mobile") || titleLower.contains("flutter") || titleLower.contains("android")) {
+                    mandatorySkillNames.addAll(List.of("Flutter / Dart", "Mobile UI", "REST API"));
+                    preferredSkillNames.addAll(List.of("Firebase", "State Management", "Git"));
+                } else if (titleLower.contains("ai") || titleLower.contains("data") || titleLower.contains("python")) {
+                    mandatorySkillNames.addAll(List.of("Python", "SQL", "Cấu trúc dữ liệu & Thuật toán", "Data Analysis"));
+                    preferredSkillNames.addAll(List.of("Machine Learning", "Docker", "Git"));
+                } else {
+                    mandatorySkillNames.addAll(List.of("Lập trình cốt lõi (Java / Python / JS)", "Cơ sở dữ liệu (SQL)", "RESTful API"));
+                    preferredSkillNames.addAll(List.of("Git & Version Control", "Docker cơ bản"));
+                }
+            }
         }
 
         if (mandatorySkillNames.isEmpty() && preferredSkillNames.isEmpty()) {
-            mandatorySkillNames.add("Kỹ năng chuyên môn cốt lõi");
-            mandatorySkillNames.add("Tư duy kỹ thuật");
+            mandatorySkillNames.add("Java");
+            mandatorySkillNames.add("SQL");
+            preferredSkillNames.add("Git");
         }
 
         // 3. Đánh giá đối soát kỹ năng
