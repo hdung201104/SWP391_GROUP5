@@ -16,9 +16,11 @@ export const aiMatchApi = {
   // Lấy danh sách việc làm gợi ý cá nhân hóa
   getRecommendations: (params) => axiosClient.get('/ai-matches/recommendations', { params }),
 
-  // Lấy báo cáo đối soát AI chuyên sâu giữa CV của ứng viên và bài đăng tuyển dụng (Gemini AI Evaluation)
-  getDetailedCandidateEvaluation: (jobId, candidateId) =>
-    axiosClient.get(`/ai-matches/job/${jobId}/candidate/${candidateId}/detailed-evaluation`),
+  // Lấy báo cáo đối soát AI chuyên sâu giữa CV của ứng viên và bài đăng tuyển dụng (Gemini AI Evaluation / Database Cache)
+  getDetailedCandidateEvaluation: (jobId, candidateId, forceRefresh = false) =>
+    axiosClient.get(`/ai-matches/job/${jobId}/candidate/${candidateId}/detailed-evaluation`, {
+      params: { forceRefresh },
+    }),
 };
 
 export default aiMatchApi;

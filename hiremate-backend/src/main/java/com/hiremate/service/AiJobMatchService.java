@@ -47,4 +47,10 @@ public interface AiJobMatchService {
      * Báo cáo đánh giá chuyên sâu độc lập giữa Hồ sơ CV của Ứng viên và Bài tuyển dụng (JD).
      */
     com.hiremate.dto.response.AiDetailedEvaluationReport getDetailedCandidateEvaluation(Long jobId, Long candidateId);
+
+    /**
+     * Báo cáo đánh giá chuyên sâu độc lập giữa Hồ sơ CV của Ứng viên và Bài tuyển dụng (JD).
+     * Hỗ trợ cờ forceRefresh: nếu false thì đọc từ Cache DB (0 token, tức thì); nếu true thì chạy lại AI và lưu mới.
+     */
+    com.hiremate.dto.response.AiDetailedEvaluationReport getDetailedCandidateEvaluation(Long jobId, Long candidateId, boolean forceRefresh);
 }

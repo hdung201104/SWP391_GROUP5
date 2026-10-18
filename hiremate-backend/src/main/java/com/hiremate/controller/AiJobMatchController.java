@@ -73,9 +73,10 @@ public class AiJobMatchController {
     @PreAuthorize("hasAnyRole('RECRUITER', 'ADMIN')")
     public ResponseEntity<ApiResponse<com.hiremate.dto.response.AiDetailedEvaluationReport>> getDetailedCandidateEvaluation(
             @PathVariable Long jobId,
-            @PathVariable Long candidateId
+            @PathVariable Long candidateId,
+            @RequestParam(name = "forceRefresh", defaultValue = "false") boolean forceRefresh
     ) {
-        com.hiremate.dto.response.AiDetailedEvaluationReport report = aiJobMatchService.getDetailedCandidateEvaluation(jobId, candidateId);
+        com.hiremate.dto.response.AiDetailedEvaluationReport report = aiJobMatchService.getDetailedCandidateEvaluation(jobId, candidateId, forceRefresh);
         return ResponseEntity.ok(ApiResponse.ok("Đã đối soát chi tiết hồ sơ CV ứng viên với bài đăng tuyển dụng thành công", report));
     }
 }

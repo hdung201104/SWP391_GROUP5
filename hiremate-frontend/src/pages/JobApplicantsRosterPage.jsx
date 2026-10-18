@@ -1317,10 +1317,46 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                           Đang đối soát qua Gemini AI...
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          <span className="material-symbols-outlined text-xs text-emerald-600">verified</span>
-                          Thẩm định đối chiếu trực tiếp bởi Gemini AI
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <span className="material-symbols-outlined text-xs text-emerald-600">verified</span>
+                            Thẩm định đối chiếu trực tiếp bởi Gemini AI
+                          </span>
+                          <button
+                            type="button"
+                            disabled={isReportLoading}
+                            onClick={() => {
+                              setIsReportLoading(true);
+                              aiMatchApi.getDetailedCandidateEvaluation(jobDetails.id, selectedCandidateForModal.candidateId, true)
+                                .then((res) => {
+                                  const data = res?.data?.data || res?.data || res;
+                                  setAiReportData(data);
+                                  if (data?.matchingScore != null) {
+                                    const freshScore = Math.round(data.matchingScore);
+                                    setCandidates((prev) =>
+                                      prev.map((c) =>
+                                        c.candidateId === selectedCandidateForModal.candidateId
+                                          ? { ...c, matchScore: freshScore, matchCategory: data.matchTier || '✨ Phù Hợp' }
+                                          : c
+                                      )
+                                    );
+                                    setSelectedCandidateForModal((prev) => (prev ? { ...prev, matchScore: freshScore } : null));
+                                  }
+                                  triggerToast('Đã đối soát lại trực tiếp với Gemini AI thành công!');
+                                })
+                                .catch((err) => {
+                                  console.warn('Lỗi gọi lại API AI:', err);
+                                  triggerToast('Không thể đối soát lại lúc này.');
+                                })
+                                .finally(() => setIsReportLoading(false));
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 hover:bg-purple-200 text-purple-800 border border-purple-300 transition-colors cursor-pointer"
+                            title="Kích hoạt Gemini AI phân tích lại toàn diện CV ứng viên này"
+                          >
+                            <span className={`material-symbols-outlined text-[13px] ${isReportLoading ? 'animate-spin' : ''}`}>sync</span>
+                            Chấm lại bằng AI
+                          </button>
+                        </div>
                       )}
                     </div>
                     <p className="text-xs text-slate-500 mt-0.5">
@@ -1340,7 +1376,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
               </div>
 
               {/* Modal Body */}
-              <div className="p-6 sm:p-8 lg:p-10 space-y-7">
+              <div className="p-6 sm:p-8 lg:p-10 space-y-6">
                 
                 {/* 1. Candidate Hero & ATS Score Gauge Card */}
                 <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-slate-50 via-purple-50/20 to-indigo-50/30 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-5 shadow-xs">
@@ -1395,6 +1431,119 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                     <span className="inline-flex items-center gap-1 mt-1 text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
                       {report.matchCategory}
                     </span>
+                  </div>
+                </div>
+
+                {/* 1.1. Ma Trận Đánh Giá Đa Tiêu Chí 4 Trụ Cột ATS */}
+                <div className="p-5 rounded-2xl bg-white border border-purple-200/80 shadow-xs space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
+                        <span className="material-symbols-outlined text-base">analytics</span>
+                      </div>
+                      <div>
+                        <h5 className="text-xs sm:text-sm font-bold text-slate-900 tracking-tight">
+                          Ma Trận 4 Trụ Cột Đánh Giá Chuẩn ATS Tuyển Dụng Quốc Tế
+                        </h5>
+                        <p className="text-[10px] text-slate-500">
+                          Đo lường đa chiều: Kỹ năng chuyên môn, Thâm niên, Bằng cấp &amp; Tiềm năng dự án
+                        </p>
+                      </div>
+                    </div>
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-purple-50 text-purple-800 border border-purple-200 shrink-0 self-start sm:self-auto">
+                      <span className="w-1.5 h-1.5 rounded-full bg-purple-600"></span>
+                      {selectedCandidateForModal.matchingFormula || 'Chuẩn ATS Doanh Nghiệp (40/30/15/15)'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    {/* Trụ 1 */}
+                    <div className="p-3.5 rounded-xl bg-purple-50/40 border border-purple-100/90">
+                      <div className="flex items-center justify-between text-xs mb-1.5">
+                        <span className="text-purple-900 font-semibold flex items-center gap-1">
+                          <span className="material-symbols-outlined text-[15px] text-purple-600">code</span>
+                          Kỹ Năng Cốt Lõi
+                        </span>
+                        <span className="font-mono font-bold text-purple-800 text-sm">
+                          {Math.round(selectedCandidateForModal.skillsScore || 0)}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-purple-200/50 h-2 rounded-full overflow-hidden">
+                        <div
+                          className="bg-purple-600 h-full rounded-full transition-all duration-500"
+                          style={{ width: `${Math.min(100, Math.round(selectedCandidateForModal.skillsScore || 0))}%` }}
+                        ></div>
+                      </div>
+                      <p className="text-[9.5px] text-purple-700/80 mt-1.5">
+                        Khớp {selectedCandidateForModal.mandatoryMatched?.length || 0} kỹ năng yêu cầu
+                      </p>
+                    </div>
+
+                    {/* Trụ 2 */}
+                    <div className="p-3.5 rounded-xl bg-indigo-50/40 border border-indigo-100/90">
+                      <div className="flex items-center justify-between text-xs mb-1.5">
+                        <span className="text-indigo-900 font-semibold flex items-center gap-1">
+                          <span className="material-symbols-outlined text-[15px] text-indigo-600">work_history</span>
+                          Kinh Nghiệm &amp; Cấp Bậc
+                        </span>
+                        <span className="font-mono font-bold text-indigo-800 text-sm">
+                          {Math.round(selectedCandidateForModal.experienceScore || 0)}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-indigo-200/50 h-2 rounded-full overflow-hidden">
+                        <div
+                          className="bg-indigo-600 h-full rounded-full transition-all duration-500"
+                          style={{ width: `${Math.min(100, Math.round(selectedCandidateForModal.experienceScore || 0))}%` }}
+                        ></div>
+                      </div>
+                      <p className="text-[9.5px] text-indigo-700/80 mt-1.5">
+                        Tương thích cấp bậc vị trí
+                      </p>
+                    </div>
+
+                    {/* Trụ 3 */}
+                    <div className="p-3.5 rounded-xl bg-emerald-50/40 border border-emerald-100/90">
+                      <div className="flex items-center justify-between text-xs mb-1.5">
+                        <span className="text-emerald-900 font-semibold flex items-center gap-1">
+                          <span className="material-symbols-outlined text-[15px] text-emerald-600">school</span>
+                          Học Vấn &amp; Bằng Cấp
+                        </span>
+                        <span className="font-mono font-bold text-emerald-800 text-sm">
+                          {Math.round(selectedCandidateForModal.educationScore || 0)}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-emerald-200/50 h-2 rounded-full overflow-hidden">
+                        <div
+                          className="bg-emerald-600 h-full rounded-full transition-all duration-500"
+                          style={{ width: `${Math.min(100, Math.round(selectedCandidateForModal.educationScore || 0))}%` }}
+                        ></div>
+                      </div>
+                      <p className="text-[9.5px] text-emerald-700/80 mt-1.5">
+                        Đào tạo ĐH / Cử nhân CNTT
+                      </p>
+                    </div>
+
+                    {/* Trụ 4 */}
+                    <div className="p-3.5 rounded-xl bg-amber-50/40 border border-amber-100/90">
+                      <div className="flex items-center justify-between text-xs mb-1.5">
+                        <span className="text-amber-900 font-semibold flex items-center gap-1">
+                          <span className="material-symbols-outlined text-[15px] text-amber-600">psychology</span>
+                          Đánh Giá AI &amp; Dự Án
+                        </span>
+                        <span className="font-mono font-bold text-amber-800 text-sm">
+                          {Math.round(selectedCandidateForModal.semanticScore || 0)}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-amber-200/50 h-2 rounded-full overflow-hidden">
+                        <div
+                          className="bg-amber-600 h-full rounded-full transition-all duration-500"
+                          style={{ width: `${Math.min(100, Math.round(selectedCandidateForModal.semanticScore || 0))}%` }}
+                        ></div>
+                      </div>
+                      <p className="text-[9.5px] text-amber-700/80 mt-1.5">
+                        Độ sâu dự án thực chiến
+                      </p>
+                    </div>
                   </div>
                 </div>
 

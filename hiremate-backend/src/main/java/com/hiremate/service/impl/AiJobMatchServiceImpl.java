@@ -321,19 +321,42 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
         gapMap.put("semanticWeight", wSem);
         gapMap.put("matchingFormula", formulaName);
 
+        String reasoning;
+        if (enableGemini) {
+            reasoning = geminiAiService.generateMatchReasoning(
+                    job.getTitle(),
+                    matchedMandatory,
+                    missingMandatory,
+                    finalMatchingScore
+            );
+        } else {
+            String matched = !matchedMandatory.isEmpty() ? String.join(", ", matchedMandatory) : "Kỹ năng cốt lõi";
+            String missing = !missingMandatory.isEmpty() ? String.join(", ", missingMandatory) : "Một số kỹ năng bổ trợ";
+            if (finalMatchingScore >= 80.0f) {
+                reasoning = "Ứng viên đạt " + String.format(Locale.US, "%.1f", finalMatchingScore) + "% độ tương thích vị trí " + job.getTitle() +
+                        ", làm chủ xuất sắc nhóm kỹ năng cốt lõi: " + matched + ". Đề xuất ưu tiên mời phỏng vấn kỹ thuật trực tiếp.";
+            } else if (finalMatchingScore >= 65.0f) {
+                reasoning = "Hồ sơ đạt độ tương thích tốt (" + String.format(Locale.US, "%.1f", finalMatchingScore) + "%), đáp ứng nền tảng về " + matched +
+                        ". Nên sắp xếp phỏng vấn để làm rõ thêm về " + missing + " trong bối cảnh thực tế của dự án.";
+            } else {
+                reasoning = "Độ tương thích đạt " + String.format(Locale.US, "%.1f", finalMatchingScore) + "% cho vị trí " + job.getTitle() +
+                        ". Hồ sơ hiện còn khoảng trống về " + missing + "; đề xuất kiểm tra thêm qua bài test kỹ thuật đầu vào.";
+            }
+        }
+
+        // Tự động tạo báo cáo đánh giá chi tiết chuẩn ATS lưu vào DB ngay khi ứng viên nộp hồ sơ
+        com.hiremate.dto.response.AiDetailedEvaluationReport defaultReport = buildDefaultEvaluationReport(
+                job, candidate, cv, matchedMandatory, missingMandatory, matchedPreferred, missingPreferred,
+                skillsScore, experienceScore, educationScore, semanticScore, finalMatchingScore, reasoning
+        );
+        gapMap.put("detailedReport", defaultReport);
+
         String gapJson;
         try {
             gapJson = objectMapper.writeValueAsString(gapMap);
         } catch (Exception e) {
             gapJson = "{}";
         }
-
-        String reasoning = geminiAiService.generateMatchReasoning(
-                job.getTitle(),
-                matchedMandatory,
-                missingMandatory,
-                finalMatchingScore
-        );
 
         // 6. Persist or update AiJobMatch
         AiJobMatch match = existing.orElse(AiJobMatch.builder()
@@ -847,14 +870,160 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
         return m.find();
     }
 
+    private com.hiremate.dto.response.AiDetailedEvaluationReport buildDefaultEvaluationReport(
+            Job job,
+            Candidate candidate,
+            Cv cv,
+            List<String> matchedMandatory,
+            List<String> missingMandatory,
+            List<String> matchedPreferred,
+            List<String> missingPreferred,
+            float skillsScore,
+            float experienceScore,
+            float educationScore,
+            float semanticScore,
+            float finalMatchingScore,
+            String reasoning
+    ) {
+        String candName = (candidate != null && candidate.getUser() != null)
+                ? candidate.getUser().getFullName() : "Ứng viên #" + (candidate != null ? candidate.getCandidateId() : 0);
+        String candEmail = (candidate != null && candidate.getUser() != null)
+                ? candidate.getUser().getEmail() : "";
+
+        String tier = finalMatchingScore >= 85 ? "⭐ Phù Hợp Xuất Sắc"
+                : finalMatchingScore >= 70 ? "✨ Phù Hợp Tốt (Khuyên Mời Phỏng Vấn)"
+                : finalMatchingScore >= 50 ? "💡 Tiềm Năng (Có Thể Cân Nhắc)"
+                : "⚠️ Trau Dồi Kỹ Năng";
+
+        List<com.hiremate.dto.response.AiDetailedEvaluationReport.AdvantageItem> advantages = new ArrayList<>();
+        List<com.hiremate.dto.response.AiDetailedEvaluationReport.DisadvantageItem> disadvantages = new ArrayList<>();
+
+        if (!matchedMandatory.isEmpty()) {
+            advantages.add(com.hiremate.dto.response.AiDetailedEvaluationReport.AdvantageItem.builder()
+                    .category("Kỹ năng chuyên môn cốt lõi")
+                    .title("Đáp ứng xuất sắc bộ kỹ năng bắt buộc của vị trí")
+                    .cvEvidence("Đã xác thực sở hữu: " + String.join(", ", matchedMandatory))
+                    .jobMatch("Trọng tâm yêu cầu kỹ thuật: " + (job != null ? job.getTitle() : ""))
+                    .assessment("Đạt chuẩn cao")
+                    .build());
+        }
+
+        if (!matchedPreferred.isEmpty()) {
+            advantages.add(com.hiremate.dto.response.AiDetailedEvaluationReport.AdvantageItem.builder()
+                    .category("Kỹ năng bổ trợ & Ưu tiên")
+                    .title("Sở hữu kỹ năng điểm cộng gia tăng lợi thế tuyển dụng")
+                    .cvEvidence("Kỹ năng ưu tiên đã có: " + String.join(", ", matchedPreferred))
+                    .jobMatch("Tiêu chí ưu tiên của nhà tuyển dụng")
+                    .assessment("Vượt trội")
+                    .build());
+        }
+
+        if (educationScore >= 80) {
+            advantages.add(com.hiremate.dto.response.AiDetailedEvaluationReport.AdvantageItem.builder()
+                    .category("Bằng cấp & Học vấn")
+                    .title("Nền tảng đào tạo chính quy chuyên ngành Công nghệ thông tin")
+                    .cvEvidence(candidate != null && candidate.getEducationsJson() != null && !candidate.getEducationsJson().isBlank()
+                            ? "Hồ sơ ghi nhận bằng cấp/chuyên ngành: " + candidate.getEducationsJson()
+                            : "Được đào tạo bài bản nền tảng kỹ thuật phần mềm")
+                    .jobMatch("Yêu cầu trình độ học vấn của doanh nghiệp")
+                    .assessment("Đạt chuẩn")
+                    .build());
+        }
+
+        if (experienceScore >= 75) {
+            advantages.add(com.hiremate.dto.response.AiDetailedEvaluationReport.AdvantageItem.builder()
+                    .category("Kinh nghiệm & Năng lực thực chiến")
+                    .title("Thời gian làm việc và tích lũy dự án phù hợp với cấp bậc tuyển dụng")
+                    .cvEvidence("Điểm kinh nghiệm ATS đạt " + Math.round(experienceScore) + "% so với mô tả công việc")
+                    .jobMatch("Cấp bậc tuyển dụng: " + (job != null ? job.getTitle() : ""))
+                    .assessment("Phù hợp tốt")
+                    .build());
+        }
+
+        if (!missingMandatory.isEmpty()) {
+            disadvantages.add(com.hiremate.dto.response.AiDetailedEvaluationReport.DisadvantageItem.builder()
+                    .category("Kỹ năng bắt buộc cần bổ sung")
+                    .title("Chưa thể hiện đủ một số công nghệ trọng tâm trong CV")
+                    .jobRequirement("Yêu cầu bắt buộc: " + String.join(", ", missingMandatory))
+                    .cvShortfall("Chưa tìm thấy từ khóa hoặc minh chứng dự án cụ thể về: " + String.join(", ", missingMandatory))
+                    .severity("Cần lưu ý kiểm tra vòng phỏng vấn")
+                    .build());
+        }
+
+        if (!missingPreferred.isEmpty()) {
+            disadvantages.add(com.hiremate.dto.response.AiDetailedEvaluationReport.DisadvantageItem.builder()
+                    .category("Kỹ năng ưu tiên chưa có")
+                    .title("Thiếu một số công cụ bổ trợ nâng cao")
+                    .jobRequirement("Tiêu chí khuyến khích: " + String.join(", ", missingPreferred))
+                    .cvShortfall("Chưa ghi nhận trong danh mục kỹ năng của CV")
+                    .severity("Có thể đào tạo nội bộ")
+                    .build());
+        }
+
+        String execRec = finalMatchingScore >= 80
+                ? "Ứng viên có độ tương thích cao. Đề xuất HR ưu tiên duyệt hồ sơ và gửi lời mời phỏng vấn kỹ thuật vòng 1."
+                : finalMatchingScore >= 65
+                ? "Hồ sơ đáp ứng nền tảng cốt lõi. Nên sắp xếp phỏng vấn sàng lọc để đánh giá thêm mức độ thích ứng công việc."
+                : "Ứng viên có khoảng cách nhất định với yêu cầu công việc. Cân nhắc xem xét các ứng viên khác hoặc bài kiểm tra năng lực đầu vào.";
+
+        return com.hiremate.dto.response.AiDetailedEvaluationReport.builder()
+                .candidateId(candidate != null ? candidate.getCandidateId() : null)
+                .candidateName(candName)
+                .candidateEmail(candEmail)
+                .jobId(job != null ? job.getJobId() : null)
+                .jobTitle(job != null ? job.getTitle() : "")
+                .matchingScore(finalMatchingScore)
+                .matchTier(tier)
+                .overallVerdict(reasoning)
+                .executiveRecommendation(execRec)
+                .advantages(advantages)
+                .disadvantages(disadvantages)
+                .build();
+    }
+
     @Override
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public com.hiremate.dto.response.AiDetailedEvaluationReport getDetailedCandidateEvaluation(Long jobId, Long candidateId) {
+        return getDetailedCandidateEvaluation(jobId, candidateId, false);
+    }
+
+    @Override
+    @Transactional
+    public com.hiremate.dto.response.AiDetailedEvaluationReport getDetailedCandidateEvaluation(Long jobId, Long candidateId, boolean forceRefresh) {
         Job job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new IllegalArgumentException("Job không tồn tại: " + jobId));
 
         Candidate candidate = candidateRepository.findById(candidateId)
                 .orElseThrow(() -> new IllegalArgumentException("Ứng viên không tồn tại: " + candidateId));
+
+        // 1. KIỂM TRA DATABASE CACHE NẾU KHÔNG BẬT CỜ CHẤM LẠI (forceRefresh == false)
+        if (!forceRefresh) {
+            Optional<AiJobMatch> matchOpt = aiJobMatchRepository.findByCandidate_CandidateIdAndJob_JobId(candidateId, jobId);
+            if (matchOpt.isPresent()) {
+                AiJobMatch m = matchOpt.get();
+                if (m.getSkillGapJson() != null && !m.getSkillGapJson().isBlank()) {
+                    try {
+                        JsonNode root = objectMapper.readTree(m.getSkillGapJson());
+                        if (root.has("detailedReport") && !root.get("detailedReport").isNull()) {
+                            com.hiremate.dto.response.AiDetailedEvaluationReport cachedReport = objectMapper.treeToValue(
+                                    root.get("detailedReport"), com.hiremate.dto.response.AiDetailedEvaluationReport.class
+                            );
+                            if (cachedReport != null && cachedReport.getMatchingScore() != null) {
+                                log.info(">> [AiJobMatchService] Trả về báo cáo AI từ DB CACHE cho candidateId={} jobId={} (0ms, 0 AI token)",
+                                        candidateId, jobId);
+                                return cachedReport;
+                            }
+                        }
+                    } catch (Exception ex) {
+                        log.warn(">> [AiJobMatchService] Lỗi giải mã detailedReport từ cache: {}", ex.getMessage());
+                    }
+                }
+            }
+        }
+
+        // 2. NẾU forceRefresh == true HOẶC CHƯA CÓ TRONG CACHE: CHẠY ĐỐI SOÁT AI
+        log.info(">> [AiJobMatchService] Bắt đầu đánh giá đối soát AI (forceRefresh={}) cho candidateId={} jobId={}",
+                forceRefresh, candidateId, jobId);
 
         // 1. Tìm đúng CV mà ứng viên đã nộp cho bài tuyển dụng này (nếu có application)
         Cv cv = null;
@@ -878,7 +1047,7 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
         // 2. Tính toán trước ma trận ATS để lấy danh sách kỹ năng khớp và thiếu
         AiJobMatchResponse matchRes = null;
         try {
-            matchRes = calculateAndSaveMatch(candidate, job, cv, false);
+            matchRes = calculateAndSaveMatch(candidate, job, cv, forceRefresh);
         } catch (Exception ex) {
             log.warn(">> [AiJobMatchService] Lỗi tính điểm trước khi lập báo cáo: {}", ex.getMessage());
         }
@@ -937,14 +1106,31 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
         String candidateName = candidate.getUser() != null ? candidate.getUser().getFullName() : "Ứng viên #" + candidateId;
         String candidateEmail = candidate.getUser() != null ? candidate.getUser().getEmail() : "";
 
-        com.hiremate.dto.response.AiDetailedEvaluationReport report = geminiAiService.evaluateCandidateCvAgainstJob(
-                job.getTitle(),
-                job.getRequirements(),
-                job.getDescription(),
-                candidateName,
-                cvText,
-                profileBuilder.toString()
-        );
+        com.hiremate.dto.response.AiDetailedEvaluationReport report;
+        if (forceRefresh || geminiAiService.isAvailable()) {
+            report = geminiAiService.evaluateCandidateCvAgainstJob(
+                    job.getTitle(),
+                    job.getRequirements(),
+                    job.getDescription(),
+                    candidateName,
+                    cvText,
+                    profileBuilder.toString()
+            );
+        } else {
+            report = buildDefaultEvaluationReport(
+                    job, candidate, cv,
+                    matchRes != null ? matchRes.getMatchedMandatorySkills() : Collections.emptyList(),
+                    matchRes != null ? matchRes.getMissingMandatorySkills() : Collections.emptyList(),
+                    matchRes != null ? matchRes.getMatchedPreferredSkills() : Collections.emptyList(),
+                    matchRes != null ? matchRes.getMissingPreferredSkills() : Collections.emptyList(),
+                    matchRes != null && matchRes.getSkillsScore() != null ? matchRes.getSkillsScore() : 80f,
+                    matchRes != null && matchRes.getExperienceScore() != null ? matchRes.getExperienceScore() : 80f,
+                    matchRes != null && matchRes.getEducationScore() != null ? matchRes.getEducationScore() : 90f,
+                    matchRes != null && matchRes.getSemanticScore() != null ? matchRes.getSemanticScore() : 80f,
+                    matchRes != null && matchRes.getMatchingScore() != null ? matchRes.getMatchingScore() : 80f,
+                    matchRes != null ? matchRes.getAiReasoning() : ""
+            );
+        }
 
         // Đồng bộ 100% điểm số chính xác từ ma trận ATS 4 trụ cột
         if (matchRes != null && matchRes.getMatchingScore() != null && matchRes.getMatchingScore() > 0) {
@@ -963,6 +1149,27 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
         report.setCandidateEmail(candidateEmail);
         report.setJobId(jobId);
         report.setJobTitle(job.getTitle());
+
+        // Lưu vào DATABASE CACHE (ai_job_matches.skill_gap_json) để lần sau đọc lại tức thì
+        try {
+            Optional<AiJobMatch> savedMatchOpt = aiJobMatchRepository.findByCandidate_CandidateIdAndJob_JobId(candidateId, jobId);
+            if (savedMatchOpt.isPresent()) {
+                AiJobMatch match = savedMatchOpt.get();
+                Map<String, Object> gapMap;
+                try {
+                    gapMap = objectMapper.readValue(match.getSkillGapJson(), new TypeReference<>() {});
+                } catch (Exception ex) {
+                    gapMap = new HashMap<>();
+                }
+                gapMap.put("detailedReport", report);
+                match.setSkillGapJson(objectMapper.writeValueAsString(gapMap));
+                aiJobMatchRepository.save(match);
+                log.info(">> [AiJobMatchService] Đã lưu báo cáo AI chi tiết vào Database Cache cho candidateId={} jobId={}",
+                        candidateId, jobId);
+            }
+        } catch (Exception ex) {
+            log.warn(">> [AiJobMatchService] Lỗi khi lưu cache detailedReport vào DB: {}", ex.getMessage());
+        }
 
         return report;
     }
