@@ -19,6 +19,9 @@ public class EmailServiceImpl implements EmailService {
     @Autowired(required = false)
     private JavaMailSender mailSender;
 
+    @Autowired(required = false)
+    private com.hiremate.service.SystemSettingsService systemSettingsService;
+
     @Value("${spring.mail.username:hiremate.ai.fpt@gmail.com}")
     private String fromEmail;
 
@@ -395,6 +398,14 @@ public class EmailServiceImpl implements EmailService {
     }
 
     private void sendHtmlEmail(String toEmail, String subject, String htmlContent) {
+        if (systemSettingsService != null && systemSettingsService.getSettings() != null) {
+            Boolean autoEmail = systemSettingsService.getSettings().getAutoEmailNotify();
+            if (Boolean.FALSE.equals(autoEmail)) {
+                log.info(">> [EmailService] Bỏ qua gửi email đến {} do cấu hình autoEmailNotify đang TẮT trong Quản Trị Hệ Thống.", toEmail);
+                return;
+            }
+        }
+
         if (mailSender == null) {
             log.warn(">> [EmailService] JavaMailSender bean chưa được khởi tạo. Không thể gửi email đến: {}", toEmail);
             return;

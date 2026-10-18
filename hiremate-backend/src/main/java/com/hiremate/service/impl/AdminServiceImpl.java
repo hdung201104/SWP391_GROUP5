@@ -30,7 +30,14 @@ public class AdminServiceImpl implements AdminService {
     private final SubscriptionPlanRepository subscriptionPlanRepository;
     private final SubscriptionRepository subscriptionRepository;
     private final VoucherRepository voucherRepository;
+    private final com.hiremate.repository.InterviewDetailRepository interviewDetailRepository;
+    private final com.hiremate.repository.PracticeProgressLogRepository practiceProgressLogRepository;
+    private final com.hiremate.repository.CandidateRepository candidateRepository;
+    private final com.hiremate.repository.CvRepository cvRepository;
+    private final com.hiremate.repository.AiJobMatchRepository aiJobMatchRepository;
+    private final com.hiremate.service.AiJobMatchService aiJobMatchService;
     private final com.hiremate.service.JobService jobService;
+    private final com.hiremate.service.NotificationService notificationService;
 
     @Override
     @Transactional(readOnly = true)
@@ -192,24 +199,88 @@ public class AdminServiceImpl implements AdminService {
     @Override
     @Transactional
     public AdminCompanyResponse updateCompanyStatus(Long companyId, CompanyStatus status) {
+        return updateCompanyStatus(companyId, status, null);
+    }
+
+    @Override
+    @Transactional
+    public AdminCompanyResponse updateCompanyStatus(Long companyId, CompanyStatus status, String notes) {
         Company company = companyRepository.findById(companyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy công ty với ID: " + companyId));
         company.setStatus(status);
         if (status == CompanyStatus.VERIFIED || status == CompanyStatus.ACTIVE) {
             company.setVerifiedAt(LocalDateTime.now());
+            company.setRejectionReason(null);
+            if (company.getRecruiterId() != null && notificationService != null) {
+                try {
+                    notificationService.createNotification(
+                            company.getRecruiterId(),
+                            NotificationType.SYSTEM_ALERT,
+                            "Hồ sơ Doanh nghiệp đã được xác minh thành công!",
+                            "Ban Quản Trị HireMate đã phê duyệt Giấy phép kinh doanh của " + company.getCompanyName() + ". Doanh nghiệp hiện đã được cấp quyền xuất bản tin tuyển dụng.",
+                            company.getCompanyId(),
+                            "companies"
+                    );
+                } catch (Exception e) {
+                    log.warn("Không thể gửi thông báo duyệt DN: {}", e.getMessage());
+                }
+            }
+        } else if (status == CompanyStatus.REJECTED || status == CompanyStatus.BANNED) {
+            company.setVerifiedAt(null);
+            if (notes != null && !notes.isBlank()) {
+                company.setRejectionReason(notes);
+            }
+            if (company.getRecruiterId() != null && notificationService != null) {
+                try {
+                    notificationService.createNotification(
+                            company.getRecruiterId(),
+                            NotificationType.SYSTEM_ALERT,
+                            "Hồ sơ Doanh nghiệp bị từ chối phê duyệt",
+                            "Ban Quản Trị đã từ chối hồ sơ pháp lý của " + company.getCompanyName() + ". Lý do: " + (notes != null ? notes : "Thông tin chưa khớp với Cổng DKKD quốc gia") + ". Vui lòng cập nhật lại hồ sơ.",
+                            company.getCompanyId(),
+                            "companies"
+                    );
+                } catch (Exception e) {
+                    log.warn("Không thể gửi thông báo từ chối DN: {}", e.getMessage());
+                }
+            }
         }
         companyRepository.save(company);
+
+        String recruiterName = null;
+        String recruiterEmail = null;
+        String recruiterPhone = null;
+        if (company.getRecruiterId() != null) {
+            User r = userRepository.findById(company.getRecruiterId()).orElse(null);
+            if (r != null) {
+                recruiterName = r.getFullName();
+                recruiterEmail = r.getEmail();
+                recruiterPhone = r.getPhone();
+            }
+        }
 
         AdminCompanyResponse resp = new AdminCompanyResponse();
         resp.setId(company.getCompanyId());
         resp.setName(company.getCompanyName());
         resp.setShortName(company.getCompanyName());
         resp.setTaxCode(company.getTaxCode());
+        resp.setRecruiterId(company.getRecruiterId());
+        resp.setRecruiterName(recruiterName != null ? recruiterName : "Chưa gắn recruiter");
+        resp.setRecruiterEmail(recruiterEmail != null ? recruiterEmail : "-");
+        resp.setRecruiterPhone(recruiterPhone != null ? recruiterPhone : "-");
+        resp.setIndustry(company.getIndustry() != null ? company.getIndustry() : "Công nghệ & Dịch vụ");
+        resp.setScale(company.getCompanySize() != null ? company.getCompanySize() : "50-100");
+        resp.setHeadquarters(company.getAddress() != null ? company.getAddress() : "-");
+        resp.setWebsite(company.getWebsite() != null ? company.getWebsite() : "-");
+        resp.setLogoUrl(company.getLogoUrl());
+        resp.setStatus(company.getStatus());
+        resp.setCreatedAt(company.getCreatedAt());
+        resp.setDocUrl(company.getLicenseDocUrl());
+        resp.setDocName(company.getLicenseDocName() != null ? company.getLicenseDocName() : "GPKD_Doanh_Nghiep.pdf");
         resp.setLicenseNumber(company.getLicenseNumber());
         resp.setLegalRepresentative(company.getLegalRepresentative());
         resp.setVerifiedAt(company.getVerifiedAt());
-        resp.setStatus(company.getStatus());
-        resp.setCreatedAt(company.getCreatedAt());
+        resp.setNotes(company.getRejectionReason());
         return resp;
     }
 
@@ -377,5 +448,154 @@ public class AdminServiceImpl implements AdminService {
         resp.setCreatedAt(order.getCreatedAt());
         resp.setApprovedAt(order.getApprovedAt());
         return resp;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<InterviewSummaryResponse> getAllInterviewSessions() {
+        return interviewSessionRepository.findAll(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "startedAt"))
+                .stream()
+                .map(this::mapToInterviewSummary)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public InterviewSummaryResponse getInterviewSessionDetail(Long sessionId) {
+        InterviewSession s = interviewSessionRepository.findById(sessionId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy phiên phỏng vấn #" + sessionId));
+        return mapToInterviewSummaryWithDetails(s);
+    }
+
+    private InterviewSummaryResponse mapToInterviewSummary(InterviewSession s) {
+        String candName = "Ứng viên";
+        String candEmail = "";
+        if (s.getCandidate() != null) {
+            if (s.getCandidate().getUser() != null) {
+                candName = s.getCandidate().getUser().getFullName() != null ? s.getCandidate().getUser().getFullName() : "Ứng viên #" + s.getCandidate().getCandidateId();
+                candEmail = s.getCandidate().getUser().getEmail() != null ? s.getCandidate().getUser().getEmail() : "";
+            } else {
+                candName = "Ứng viên #" + s.getCandidate().getCandidateId();
+            }
+        }
+        long qCount = interviewDetailRepository.countBySession_SessionId(s.getSessionId());
+
+        Float delta = null;
+        if (s.getSessionType() == com.hiremate.enums.InterviewSessionType.PRACTICE_RETRY && s.getParentSessionId() != null) {
+            try {
+                var past = interviewSessionRepository.findById(s.getParentSessionId());
+                if (past.isPresent() && past.get().getOverallScore() != null && s.getOverallScore() != null) {
+                    delta = Math.round((s.getOverallScore() - past.get().getOverallScore()) * 10f) / 10f;
+                }
+            } catch (Exception ignored) {}
+        }
+
+        return InterviewSummaryResponse.builder()
+                .sessionId(s.getSessionId())
+                .candidateId(s.getCandidate() != null ? s.getCandidate().getCandidateId() : null)
+                .candidateName(candName)
+                .candidateEmail(candEmail)
+                .questionCount((int) qCount)
+                .jobId(s.getJob() != null ? s.getJob().getJobId() : null)
+                .targetPosition(s.getTargetPosition())
+                .sessionType(s.getSessionType())
+                .overallScore(s.getOverallScore())
+                .overallFeedback(s.getOverallFeedback())
+                .weaknessSummary(s.getWeaknessSummary())
+                .recommendedTasks(s.getRecommendedTasks())
+                .improvementDelta(delta)
+                .startedAt(s.getStartedAt())
+                .completedAt(s.getCompletedAt())
+                .build();
+    }
+
+    private InterviewSummaryResponse mapToInterviewSummaryWithDetails(InterviewSession s) {
+        InterviewSummaryResponse resp = mapToInterviewSummary(s);
+        List<com.hiremate.entity.InterviewDetail> details = interviewDetailRepository.findBySession_SessionIdOrderByQuestionNumberAsc(s.getSessionId());
+        List<InterviewDetailResponse> detailResponses = details.stream()
+                .map(d -> InterviewDetailResponse.builder()
+                        .detailId(d.getDetailId())
+                        .questionNumber(d.getQuestionNumber())
+                        .questionText(d.getQuestionText())
+                        .candidateAnswerText(d.getCandidateAnswerText())
+                        .audioUrl(d.getAudioUrl())
+                        .aiEvaluationScore(d.getAiEvaluationScore())
+                        .aiFeedback(d.getAiFeedback())
+                        .aiSuggestedAnswer(d.getAiSuggestedAnswer())
+                        .confidenceLevel("HIGH")
+                        .requiresHumanReview(false)
+                        .build())
+                .collect(Collectors.toList());
+        resp.setDetails(detailResponses);
+        resp.setQuestionCount(detailResponses.size());
+        return resp;
+    }
+
+    @Override
+    @Transactional
+    public AiJobMatchResponse simulateAiMatch(Long jobId, Long candidateId) {
+        Job job = null;
+        if (jobId != null) {
+            job = jobRepository.findById(jobId).orElse(null);
+        }
+        if (job == null) {
+            job = jobRepository.findAll().stream()
+                    .filter(j -> j.getStatus() == com.hiremate.enums.JobStatus.PUBLISHED)
+                    .findFirst()
+                    .orElseGet(() -> jobRepository.findAll().stream().findFirst().orElse(null));
+        }
+        if (job == null) {
+            throw new IllegalArgumentException("Chưa có tin tuyển dụng nào trong hệ thống để so khớp.");
+        }
+
+        Candidate candidate = null;
+        if (candidateId != null) {
+            candidate = candidateRepository.findById(candidateId).orElse(null);
+        }
+        if (candidate == null) {
+            candidate = candidateRepository.findAll().stream().findFirst().orElse(null);
+        }
+        if (candidate == null) {
+            throw new IllegalArgumentException("Chưa có hồ sơ ứng viên nào trong hệ thống để so khớp.");
+        }
+
+        final Long cid = candidate.getCandidateId();
+        Cv cv = null;
+        try {
+            cv = cvRepository.findByCandidateIdAndIsDefaultTrue(cid)
+                    .orElseGet(() -> cvRepository.findByCandidateId(cid).stream().findFirst().orElse(null));
+        } catch (Exception ignored) {}
+
+        return aiJobMatchService.calculateAndSaveMatch(candidate, job, cv);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AiJobMatchResponse> getAllAiMatches() {
+        return aiJobMatchRepository.findAll(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "matchingScore"))
+                .stream()
+                .limit(50)
+                .map(m -> {
+                    AiJobMatchResponse resp = new AiJobMatchResponse();
+                    resp.setMatchId(m.getMatchId());
+                    resp.setMatchingScore(m.getMatchingScore());
+                    resp.setStatus(m.getStatus());
+                    resp.setAiReasoning(m.getAiReasoning());
+                    if (m.getJob() != null) {
+                        resp.setJobId(m.getJob().getJobId());
+                        resp.setJobTitle(m.getJob().getTitle());
+                        if (m.getJob().getCompany() != null) {
+                            resp.setCompanyName(m.getJob().getCompany().getCompanyName());
+                        }
+                    }
+                    if (m.getCandidate() != null) {
+                        resp.setCandidateId(m.getCandidate().getCandidateId());
+                        if (m.getCandidate().getUser() != null) {
+                            resp.setCandidateName(m.getCandidate().getUser().getFullName());
+                        }
+                    }
+                    return resp;
+                })
+                .collect(Collectors.toList());
     }
 }

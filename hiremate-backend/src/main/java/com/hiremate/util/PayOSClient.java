@@ -22,13 +22,13 @@ import java.util.*;
 @Slf4j
 public class PayOSClient {
 
-    @Value("${payos.client-id:}")
+    @Value("${payos.client-id:e2d0f50b-68aa-4cd9-b83f-72c4b3293db4}")
     private String clientId;
 
-    @Value("${payos.api-key:}")
+    @Value("${payos.api-key:425f9314-c0b3-4373-a332-7855f1d9e9d4}")
     private String apiKey;
 
-    @Value("${payos.checksum-key:}")
+    @Value("${payos.checksum-key:007567eb3a0cf7565f8c4dca7a780336db04c33ec2fc8e0b7d9312dbe5fa447e}")
     private String checksumKey;
 
     @Value("${payos.return-url:http://localhost:3000/#/payment/success}")
@@ -43,10 +43,22 @@ public class PayOSClient {
             .build();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    public String getEffectiveClientId() {
+        return clientId != null && !clientId.isBlank() ? clientId.trim() : "e2d0f50b-68aa-4cd9-b83f-72c4b3293db4";
+    }
+
+    public String getEffectiveApiKey() {
+        return apiKey != null && !apiKey.isBlank() ? apiKey.trim() : "425f9314-c0b3-4373-a332-7855f1d9e9d4";
+    }
+
+    public String getEffectiveChecksumKey() {
+        return checksumKey != null && !checksumKey.isBlank() ? checksumKey.trim() : "007567eb3a0cf7565f8c4dca7a780336db04c33ec2fc8e0b7d9312dbe5fa447e";
+    }
+
     public boolean isConfigured() {
-        return clientId != null && !clientId.isBlank()
-                && apiKey != null && !apiKey.isBlank()
-                && checksumKey != null && !checksumKey.isBlank();
+        return !getEffectiveClientId().isBlank()
+                && !getEffectiveApiKey().isBlank()
+                && !getEffectiveChecksumKey().isBlank();
     }
 
     @Data
@@ -95,7 +107,7 @@ public class PayOSClient {
                 dataToSign.append(entry.getKey()).append("=").append(entry.getValue());
             }
 
-            String signature = hmacSha256(dataToSign.toString(), checksumKey);
+            String signature = hmacSha256(dataToSign.toString(), getEffectiveChecksumKey());
 
             Map<String, Object> bodyMap = new HashMap<>(dataToSort);
             bodyMap.put("signature", signature);
@@ -112,8 +124,8 @@ public class PayOSClient {
                     .uri(URI.create(PAYOS_ENDPOINT))
                     .timeout(Duration.ofSeconds(15))
                     .header("Content-Type", "application/json")
-                    .header("x-client-id", clientId.trim())
-                    .header("x-api-key", apiKey.trim())
+                    .header("x-client-id", getEffectiveClientId())
+                    .header("x-api-key", getEffectiveApiKey())
                     .POST(HttpRequest.BodyPublishers.ofString(requestJson, StandardCharsets.UTF_8))
                     .build();
 
@@ -159,8 +171,8 @@ public class PayOSClient {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(PAYOS_ENDPOINT + "/" + orderCode))
                     .timeout(Duration.ofSeconds(10))
-                    .header("x-client-id", clientId.trim())
-                    .header("x-api-key", apiKey.trim())
+                    .header("x-client-id", getEffectiveClientId())
+                    .header("x-api-key", getEffectiveApiKey())
                     .GET()
                     .build();
 
@@ -191,7 +203,8 @@ public class PayOSClient {
      * Xác thực chữ ký webhook từ PayOS
      */
     public boolean verifyWebhookSignature(Map<String, Object> data, String signature) {
-        if (checksumKey == null || checksumKey.isBlank()) {
+        String effChecksum = getEffectiveChecksumKey();
+        if (effChecksum.isBlank()) {
             return true; // Nếu chưa cài checksum key trong dev thì bỏ qua kiểm tra nghiêm ngặt
         }
         if (signature == null || signature.isBlank()) {
@@ -206,7 +219,7 @@ public class PayOSClient {
                 }
                 dataToSign.append(entry.getKey()).append("=").append(entry.getValue());
             }
-            String computed = hmacSha256(dataToSign.toString(), checksumKey);
+            String computed = hmacSha256(dataToSign.toString(), effChecksum);
             return computed.equalsIgnoreCase(signature);
         } catch (Exception e) {
             log.error("Lỗi khi xác thực chữ ký PayOS webhook: {}", e.getMessage());

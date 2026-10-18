@@ -28,6 +28,58 @@ public class GeminiAiServiceImpl implements GeminiAiService {
     private final ObjectMapper objectMapper;
     private final com.hiremate.agent.AgentReflectionEngine agentReflectionEngine;
     private final com.hiremate.agent.AgentToolRegistry agentToolRegistry;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.hiremate.service.SystemSettingsService systemSettingsService;
+
+    private String getEffectiveModel() {
+        if (systemSettingsService != null && systemSettingsService.getSettings() != null) {
+            String m = systemSettingsService.getSettings().getAiModel();
+            if (m != null && !m.isBlank()) return m;
+        }
+        return geminiAiConfig.getModel();
+    }
+
+    private String resolvePersonaPrompt(String pos, String lvl) {
+        String persona = "TECH_LEAD";
+        String difficulty = "STANDARD";
+        if (systemSettingsService != null && systemSettingsService.getSettings() != null) {
+            if (systemSettingsService.getSettings().getInterviewerPersona() != null) {
+                persona = systemSettingsService.getSettings().getInterviewerPersona();
+            }
+            if (systemSettingsService.getSettings().getAiInterviewDifficulty() != null) {
+                difficulty = systemSettingsService.getSettings().getAiInterviewDifficulty();
+            }
+        }
+
+        String personaIntro;
+        if ("FRESHER_FRIENDLY".equalsIgnoreCase(persona)) {
+            personaIntro = "Bạn là Mai Anh - Senior HR & Talent Acquisition Manager với phong cách thân thiện, cởi mở, khuyến khích ứng viên thể hiện tối đa tiềm năng cho vị trí: " + pos + " (" + lvl + ").";
+        } else if ("TECH_LEAD".equalsIgnoreCase(persona)) {
+            personaIntro = "Bạn là Hoàng - Technical Lead cấp cao với 10 năm kinh nghiệm, khắt khe, đi sâu vào bài toán thực tế, tư duy hệ thống và trade-off công nghệ cho vị trí: " + pos + " (" + lvl + ").";
+        } else {
+            personaIntro = "Bạn là Chuyên gia Cố vấn Tuyển dụng & Đánh giá Năng lực Cấp cao, kết hợp hài hòa giữa chuyên môn kỹ thuật và kỹ năng mềm cho vị trí: " + pos + " (" + lvl + ").";
+        }
+
+        String diffDesc;
+        if ("EASY".equalsIgnoreCase(difficulty)) {
+            diffDesc = "ĐỘ KHÓ: CƠ BẢN & GỢI MỞ. Tập trung vào kiến thức nền tảng, tư duy giải quyết vấn đề phổ thông.";
+        } else if ("HARD".equalsIgnoreCase(difficulty)) {
+            diffDesc = "ĐỘ KHÓ: NÂNG CAO & KHẮT KHE. Xoáy sâu vào kiến trúc phân tán, edge-cases, concurrency, high-load và xử lý sự cố production.";
+        } else {
+            diffDesc = "ĐỘ KHÓ: TIÊU CHUẨN MASTER SPEC. Đảm bảo đánh giá toàn diện năng lực thực chiến theo đúng mô tả công việc.";
+        }
+
+        return personaIntro + "\n" + diffDesc;
+    }
+
+    private String resolveInterviewerName() {
+        if (systemSettingsService != null && systemSettingsService.getSettings() != null) {
+            String persona = systemSettingsService.getSettings().getInterviewerPersona();
+            if ("FRESHER_FRIENDLY".equalsIgnoreCase(persona)) return "Mai Anh (Senior HR)";
+            if ("TECH_LEAD".equalsIgnoreCase(persona)) return "Hoàng (Technical Lead)";
+        }
+        return "Chuyên gia Phỏng vấn AI";
+    }
 
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
@@ -572,7 +624,8 @@ public class GeminiAiServiceImpl implements GeminiAiService {
         }
 
         try {
-            String prompt = "Bạn là Hoàng - Technical Lead cấp cao với 10 năm kinh nghiệm, đang trực tiếp phỏng vấn ứng viên cho vị trí: " + pos + " (" + lvl + ").\n\n" +
+            String personaPrompt = resolvePersonaPrompt(pos, lvl);
+            String prompt = personaPrompt + "\n\n" +
                     "TÍNH CÁCH & PHONG CÁCH GIAO TIẾP:\n" +
                     "- Lịch thiệp, chuyên nghiệp, tự nhiên, mang tính gợi mở và đối thoại 2 chiều.\n" +
                     "- Xưng hô: \"Mình\" hoặc \"Tôi\", gọi ứng viên là \"Bạn\".\n" +
@@ -651,8 +704,9 @@ public class GeminiAiServiceImpl implements GeminiAiService {
         String pos = (targetPosition != null && !targetPosition.isBlank()) ? targetPosition : "Software Engineer";
         String skills = (candidateSkills != null && !candidateSkills.isBlank()) ? candidateSkills : "Kỹ năng chuyên môn theo hồ sơ ứng viên";
 
+        String interviewerName = resolveInterviewerName();
         if (previousDetails == null || previousDetails.isEmpty()) {
-            return "Chào bạn, mình là Hoàng - Technical Lead. Cảm ơn bạn đã tham gia buổi trao đổi hôm nay cho vị trí " + pos + ". Để bắt đầu một cách thoải mái nhất, bạn có thể chia sẻ đôi nét về bản thân và một dự án công nghệ tiêu biểu gần đây mà bạn cảm thấy tâm đắc nhất không?";
+            return "Chào bạn, mình là " + interviewerName + ". Cảm ơn bạn đã tham gia buổi trao đổi hôm nay cho vị trí " + pos + ". Để bắt đầu một cách thoải mái nhất, bạn có thể chia sẻ đôi nét về bản thân và một dự án công nghệ tiêu biểu gần đây mà bạn cảm thấy tâm đắc nhất không?";
         }
 
         if (!isAvailable()) {
@@ -666,13 +720,13 @@ public class GeminiAiServiceImpl implements GeminiAiService {
                 InterviewDetail d = previousDetails.get(i);
                 int qN = d.getQuestionNumber() != null ? d.getQuestionNumber() : (i + 1);
                 history.append("Lượt ").append(qN).append(":\n");
-                history.append("- Hoàng (Tech Lead): ").append(truncateText(d.getQuestionText(), 300)).append("\n");
+                history.append("- ").append(interviewerName).append(": ").append(truncateText(d.getQuestionText(), 300)).append("\n");
                 String ans = (d.getCandidateAnswerText() != null && !d.getCandidateAnswerText().isBlank())
                         ? d.getCandidateAnswerText().trim() : "(Ứng viên chưa phản hồi chi tiết)";
                 history.append("- Ứng viên: ").append(truncateText(ans, 800)).append("\n\n");
             }
 
-            String prompt = "Bạn là Hoàng - Technical Lead cấp cao với 10 năm kinh nghiệm, đang trực tiếp phỏng vấn ứng viên cho vị trí: " + pos + ".\n\n" +
+            String prompt = resolvePersonaPrompt(pos, "Chuyên viên") + "\n\n" +
                     "TÍNH CÁCH & PHONG CÁCH GIAO TIẾP:\n" +
                     "- Lịch thiệp, chuyên nghiệp, tự nhiên, mang tính gợi mở và đối thoại 2 chiều.\n" +
                     "- Xưng hô: \"Mình\" hoặc \"Tôi\", gọi ứng viên là \"Bạn\".\n" +
@@ -691,7 +745,7 @@ public class GeminiAiServiceImpl implements GeminiAiService {
                     "- Lịch sử đối thoại từ đầu buổi:\n" +
                     history.toString() + "\n" +
                     "HÃY ĐƯA RA LỜI THOẠI TIẾP THEO CỦA BẠN (TỰ NHIÊN, SÚC TÍCH).\n" +
-                    "Trả về DUY NHẤT một đối tượng JSON hợp lệ: {\"question\": \"[Lời thoại đối thoại tiếp theo của Hoàng, gồm 1 câu phản hồi tự nhiên và đúng 1 câu hỏi trọng tâm]\"}";
+                    "Trả về DUY NHẤT một đối tượng JSON hợp lệ: {\"question\": \"[Lời thoại đối thoại tiếp theo của " + interviewerName + ", gồm 1 câu phản hồi tự nhiên và đúng 1 câu hỏi trọng tâm]\"}";
 
             String responseText = callGeminiApi(prompt, 400);
             if (responseText != null && !responseText.isBlank()) {
@@ -766,7 +820,7 @@ public class GeminiAiServiceImpl implements GeminiAiService {
     private String callGeminiApiWithParts(List<Map<String, Object>> userParts, int maxTokens) {
         try {
             String baseUrl = geminiAiConfig.getBaseUrl();
-            String model = geminiAiConfig.getModel();
+            String model = getEffectiveModel();
             String apiKey = getNextAvailableApiKey();
 
             String endpoint = baseUrl + "/models/" + model + ":generateContent?key=" + apiKey;
@@ -831,7 +885,7 @@ public class GeminiAiServiceImpl implements GeminiAiService {
     private String callGeminiApiWithTools(String promptText, int maxTokens, boolean enableNativeToolCalling) {
         try {
             String baseUrl = geminiAiConfig.getBaseUrl();
-            String model = geminiAiConfig.getModel();
+            String model = getEffectiveModel();
             String apiKey = getNextAvailableApiKey();
 
             String endpoint = baseUrl + "/models/" + model + ":generateContent?key=" + apiKey;

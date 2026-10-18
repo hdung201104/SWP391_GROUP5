@@ -957,7 +957,7 @@ export default function CandidatePricingPage({ user, onNavigate }) {
       {/* CHECKOUT MODAL FOR CANDIDATES */}
       {(selectedPlanForPurchase || selectedAddonForPurchase || createdOrder) && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-white w-full max-w-xl rounded-[32px] p-6 sm:p-8 shadow-2xl border border-indigo-100 relative space-y-6 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white w-full max-w-2xl sm:max-w-3xl rounded-[32px] p-6 sm:p-8 shadow-2xl border border-indigo-100 relative space-y-6 max-h-[92vh] overflow-y-auto scrollbar-thin">
             
             <button
               onClick={() => {
@@ -1130,7 +1130,7 @@ export default function CandidatePricingPage({ user, onNavigate }) {
                 {/* Real VietQR Image */}
                 <div className="p-3 bg-gradient-to-b from-indigo-50 to-white rounded-3xl border border-indigo-100 inline-block shadow-md">
                   <img
-                    src={createdOrder.qrCodeUrl || `https://img.vietqr.io/image/mbbank-0987654321-compact2.png?amount=${createdOrder.amount}&addInfo=${createdOrder.orderCode}&accountName=HIREMATE%20AI`}
+                    src={createdOrder.qrCodeUrl || `https://img.vietqr.io/image/970422-VQRQAMWSJ4104-compact2.png?amount=${createdOrder.amount}&addInfo=${createdOrder.orderCode}&accountName=HOANG%20NGOC%20DUNG`}
                     alt="Mã QR Chuyển khoản"
                     className="w-56 h-56 mx-auto object-contain rounded-2xl bg-white shadow-inner"
                   />
@@ -1144,15 +1144,15 @@ export default function CandidatePricingPage({ user, onNavigate }) {
                 <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-left space-y-2.5 font-medium">
                   <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
                     <span className="text-slate-500">Ngân hàng:</span>
-                    <span className="font-bold text-slate-800">{createdOrder.bankName || 'MBBank'}</span>
+                    <span className="font-bold text-slate-800">{createdOrder.bankName || 'MBBank - Ngân hàng TMCP Quân Đội'}</span>
                   </div>
 
                   <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
                     <span className="text-slate-500">Số tài khoản:</span>
                     <div className="flex items-center gap-2">
-                      <span className="font-mono font-bold text-base text-[#32247b]">{createdOrder.bankAccount || '0987654321'}</span>
+                      <span className="font-mono font-bold text-base text-[#32247b]">{createdOrder.bankAccount || 'VQRQAMWSJ4104'}</span>
                       <button
-                        onClick={() => handleCopy(createdOrder.bankAccount || '0987654321', 'Số tài khoản')}
+                        onClick={() => handleCopy(createdOrder.bankAccount || 'VQRQAMWSJ4104', 'Số tài khoản')}
                         className="px-2 py-0.5 rounded-lg bg-indigo-100 hover:bg-indigo-200 text-[#32247b] text-[10px] font-bold cursor-pointer"
                       >
                         Sao chép
@@ -1162,7 +1162,7 @@ export default function CandidatePricingPage({ user, onNavigate }) {
 
                   <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
                     <span className="text-slate-500">Chủ tài khoản:</span>
-                    <span className="font-bold text-slate-800">{createdOrder.accountHolder || 'HIREMATE AI TECH'}</span>
+                    <span className="font-bold text-slate-800">{createdOrder.accountHolder || 'HOANG NGOC DUNG'}</span>
                   </div>
 
                   <div className="flex justify-between items-center py-1 border-b border-slate-200/60">

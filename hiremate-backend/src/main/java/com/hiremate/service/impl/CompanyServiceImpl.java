@@ -31,6 +31,7 @@ public class CompanyServiceImpl implements CompanyService {
     private final com.hiremate.service.FileStorageService fileStorageService;
 
     @Override
+    @Transactional
     public CompanyResponse getMyCompany(User recruiterUser) {
         Recruiter recruiter = recruiterRepository.findById(recruiterUser.getUserId())
                 .orElseThrow(() -> new IllegalStateException("Recruiter profile not found for user: " + recruiterUser.getUserId()));
@@ -38,8 +39,22 @@ public class CompanyServiceImpl implements CompanyService {
         Company company = recruiter.getCompany();
         if (company == null) {
             // Check by recruiter_id column fallback
-            company = companyRepository.findByRecruiterId(recruiterUser.getUserId())
-                    .orElseThrow(() -> new IllegalArgumentException("No company linked to this recruiter"));
+            company = companyRepository.findByRecruiterId(recruiterUser.getUserId()).orElse(null);
+        }
+
+        if (company == null) {
+            // Tự động khởi tạo hồ sơ doanh nghiệp mặc định nếu chưa có
+            company = Company.builder()
+                    .recruiterId(recruiter.getRecruiterId())
+                    .companyName(recruiterUser.getFullName() + "'s Company")
+                    .status(CompanyStatus.PENDING)
+                    .build();
+            company = companyRepository.save(company);
+            recruiter.setCompany(company);
+            recruiterRepository.save(recruiter);
+        } else if (recruiter.getCompany() == null) {
+            recruiter.setCompany(company);
+            recruiterRepository.save(recruiter);
         }
 
         return mapToResponse(company, recruiterUser.getFullName());
@@ -57,24 +72,34 @@ public class CompanyServiceImpl implements CompanyService {
                     .orElse(null);
         }
 
+        String finalName = request.getCompanyName();
+        if (finalName == null || finalName.isBlank()) {
+            finalName = company != null ? company.getCompanyName() : (recruiterUser.getFullName() + "'s Company");
+        }
+
         if (company == null) {
             // Create company if not already existing
             company = Company.builder()
                     .recruiterId(recruiter.getRecruiterId())
-                    .companyName(request.getCompanyName())
+                    .companyName(finalName)
                     .logoUrl(request.getLogoUrl())
                     .website(request.getWebsite())
                     .address(request.getAddress())
                     .companySize(request.getCompanySize())
                     .description(request.getDescription())
                     .industry(request.getIndustry())
-                    .status(CompanyStatus.ACTIVE)
+                    .taxCode(request.getTaxCode())
+                    .licenseNumber(request.getLicenseNumber())
+                    .licenseDocUrl(request.getLicenseDocUrl())
+                    .licenseDocName(request.getLicenseDocName())
+                    .legalRepresentative(request.getLegalRepresentative())
+                    .status(request.getStatus() != null ? request.getStatus() : CompanyStatus.PENDING)
                     .build();
             company = companyRepository.save(company);
             recruiter.setCompany(company);
             recruiterRepository.save(recruiter);
         } else {
-            company.setCompanyName(request.getCompanyName());
+            company.setCompanyName(finalName);
             if (request.getLogoUrl() != null) company.setLogoUrl(request.getLogoUrl());
             if (request.getWebsite() != null) company.setWebsite(request.getWebsite());
             if (request.getAddress() != null) company.setAddress(request.getAddress());
@@ -86,16 +111,47 @@ public class CompanyServiceImpl implements CompanyService {
             if (request.getLicenseDocUrl() != null) company.setLicenseDocUrl(request.getLicenseDocUrl());
             if (request.getLicenseDocName() != null) company.setLicenseDocName(request.getLicenseDocName());
             if (request.getLegalRepresentative() != null) company.setLegalRepresentative(request.getLegalRepresentative());
-            if (request.getTaxCode() != null || request.getLicenseDocUrl() != null) {
+            
+            if (request.getStatus() != null) {
+                company.setStatus(request.getStatus());
+            } else if (request.getTaxCode() != null || request.getLicenseDocUrl() != null) {
                 if (company.getStatus() == null || company.getStatus() != CompanyStatus.VERIFIED) {
                     company.setStatus(CompanyStatus.PENDING);
                 }
             }
             company = companyRepository.save(company);
+            if (recruiter.getCompany() == null) {
+                recruiter.setCompany(company);
+                recruiterRepository.save(recruiter);
+            }
         }
 
-        log.info("Company profile updated for recruiter: {}, companyId: {}", recruiterUser.getEmail(), company.getCompanyId());
+        log.info("Company profile updated for recruiter: {}, companyId: {}, status: {}", recruiterUser.getEmail(), company.getCompanyId(), company.getStatus());
         return mapToResponse(company, recruiterUser.getFullName());
+    }
+
+    @Override
+    @Transactional
+    public void saveLicenseDoc(User recruiterUser, String docUrl, String docName) {
+        Recruiter recruiter = recruiterRepository.findById(recruiterUser.getUserId()).orElse(null);
+        if (recruiter == null) return;
+        Company company = recruiter.getCompany();
+        if (company == null) {
+            company = companyRepository.findByRecruiterId(recruiterUser.getUserId()).orElse(null);
+        }
+        if (company != null) {
+            company.setLicenseDocUrl(docUrl);
+            company.setLicenseDocName(docName);
+            if (company.getStatus() != CompanyStatus.VERIFIED) {
+                company.setStatus(CompanyStatus.PENDING);
+            }
+            companyRepository.save(company);
+            if (recruiter.getCompany() == null) {
+                recruiter.setCompany(company);
+                recruiterRepository.save(recruiter);
+            }
+            log.info("Attached license doc directly to company ID {}: {}", company.getCompanyId(), docName);
+        }
     }
 
     @Override

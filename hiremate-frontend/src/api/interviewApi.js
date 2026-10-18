@@ -8,6 +8,7 @@ export const interviewApi = {
   getHistory: () => axiosClient.get('/ai-interviews/history'),
   generateQuestions: (params) => axiosClient.get('/ai-interviews/generate-questions', { params }),
   getNextAdaptiveQuestion: (sessionId) => axiosClient.get(`/ai-interviews/${sessionId}/next-question`),
+  getConfig: () => axiosClient.get('/ai-interviews/config'),
 };
 
 export default interviewApi;

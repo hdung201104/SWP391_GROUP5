@@ -10,7 +10,10 @@ export const adminApi = {
 
   // Companies Management
   getCompanies: () => axiosClient.get('/admin/companies'),
-  updateCompanyStatus: (companyId, status) => axiosClient.put(`/admin/companies/${companyId}/status`, { status }),
+  updateCompanyStatus: (companyId, status, extraData = {}) => {
+    const payload = typeof status === 'object' ? status : { status, ...(typeof extraData === 'string' ? { notes: extraData } : extraData) };
+    return axiosClient.put(`/admin/companies/${companyId}/status`, payload);
+  },
 
   // Orders Management (VietQR)
   getOrders: () => axiosClient.get('/admin/orders'),
@@ -39,6 +42,19 @@ export const adminApi = {
   // System Settings & AI Matching Configuration
   getSettings: () => axiosClient.get('/admin/settings'),
   updateSettings: (settings) => axiosClient.put('/admin/settings', settings),
+
+  // AI Interview Sessions Audit & Logs
+  getInterviews: () => axiosClient.get('/admin/interviews'),
+  getInterviewDetail: (sessionId) => axiosClient.get(`/admin/interviews/${sessionId}`),
+
+  // AI Matching Simulation & Audit (table: ai_job_matches)
+  simulateAiMatch: (data) => axiosClient.post('/admin/ai-matching/simulate', data),
+  getAiMatches: () => axiosClient.get('/admin/ai-matches'),
+
+  // Payment Gateway & Automated Settlement (PayOS & VietQR)
+  getPaymentGatewayStatus: () => axiosClient.get('/admin/payment-gateway/status'),
+  testPaymentGateway: () => axiosClient.post('/admin/payment-gateway/test-connection'),
+  simulateBalanceFluctuation: (orderCode) => axiosClient.post(`/payment/simulate-transfer/${orderCode}`),
 };
 
 export default adminApi;

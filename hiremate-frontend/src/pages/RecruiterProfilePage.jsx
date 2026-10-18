@@ -97,10 +97,10 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
       docChecksum: 'SHA256: 8f4c2e1b9a03d7e5f1a2b4c6e8',
       submittedBy: isVng ? 'Hoàng Yến TA Lead' : (user?.fullName || 'Quản Trị HR'),
       submittedAt: '15/03/2026',
-      status: 'VERIFIED', // 'VERIFIED' | 'PENDING' | 'REJECTED' | 'UNVERIFIED'
-      notes: 'Đã được Ban Quản Trị HireMate xác thực hồ sơ pháp nhân hợp lệ trên Cổng DKKD quốc gia.',
+      status: 'PENDING', // 'VERIFIED' | 'PENDING' | 'REJECTED' | 'UNVERIFIED'
+      notes: 'Đang chờ Ban Quản Trị HireMate xác thực hồ sơ pháp nhân trên Cổng DKKD quốc gia.',
       rejectionReason: '',
-      verifiedAt: '16/03/2026',
+      verifiedAt: '',
     };
   });
 
@@ -186,14 +186,21 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
       triggerToast('Vui lòng nhập Mã số thuế doanh nghiệp!');
       return;
     }
+    const finalCompanyName = companyInfo.name?.trim() || user?.companyName?.trim() || 'Doanh Nghiệp Tuyển Dụng';
     try {
       setIsSaving(true);
       await companyApi.updateMyCompany({
+        companyName: finalCompanyName,
+        website: companyInfo.website?.trim() || '',
+        address: companyInfo.headquarters?.trim() || '',
+        companySize: companyInfo.headcount || '50-100',
+        description: companyInfo.overviewText || companyInfo.tagline || '',
+        industry: companyInfo.industry || 'Công nghệ & Dịch vụ',
         taxCode: companyLegal.taxCode?.trim(),
         licenseNumber: companyLegal.licenseNumber?.trim(),
         licenseDocUrl: companyLegal.licenseDocUrl?.trim(),
-        licenseDocName: companyLegal.licenseDocName?.trim(),
-        legalRepresentative: companyLegal.legalRepresentative?.trim(),
+        licenseDocName: companyLegal.licenseDocName?.trim() || 'GPKD_Doanh_Nghiep.pdf',
+        legalRepresentative: companyLegal.legalRepresentative?.trim() || user?.fullName || 'Đại diện pháp luật',
         status: 'PENDING',
       });
     } catch (err) {
@@ -216,13 +223,17 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
       if (savedAdminList) {
         const list = JSON.parse(savedAdminList);
         const updatedList = list.map((c) =>
-          (c.name || '').toLowerCase() === (companyInfo.name || '').toLowerCase() ||
-          (c.shortName || '').toLowerCase() === (companyInfo.name || '').toLowerCase()
-            ? { ...c, status: 'PENDING', taxCode: updated.taxCode, docName: updated.licenseDocName }
+          (c.name || '').toLowerCase() === finalCompanyName.toLowerCase() ||
+          (c.shortName || '').toLowerCase() === finalCompanyName.toLowerCase()
+            ? { ...c, status: 'PENDING', taxCode: updated.taxCode, docName: updated.licenseDocName, docUrl: updated.licenseDocUrl }
             : c
         );
         localStorage.setItem('hiremate_admin_companies_list', JSON.stringify(updatedList));
       }
+      // Broadcast real-time company update across tabs
+      window.dispatchEvent(new CustomEvent('hiremate_company_updated', {
+        detail: { status: 'PENDING', companyName: finalCompanyName, taxCode: updated.taxCode }
+      }));
     } catch {}
     triggerToast('Đã gửi hồ sơ Giấy phép kinh doanh lên Ban Quản Trị Admin HireMate thành công!');
   };

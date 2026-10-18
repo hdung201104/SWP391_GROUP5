@@ -43,6 +43,8 @@ public class AiInterviewServiceImpl implements AiInterviewService {
     private final com.hiremate.repository.SkillRepository skillRepository;
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.hiremate.repository.SubscriptionRepository subscriptionRepository;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.hiremate.service.SystemSettingsService systemSettingsService;
 
     /**
      * Kiểm tra phân quyền và hạn ngạch lượt phỏng vấn AI thực tế của Ứng viên.
@@ -83,12 +85,17 @@ public class AiInterviewServiceImpl implements AiInterviewService {
                 }
             }
         } else {
-            // Tài khoản ứng viên miễn phí (Free Tier): Tối đa 3 phiên phỏng vấn thử nghiệm
+            // Tài khoản ứng viên miễn phí (Free Tier): Đọc hạn ngạch từ Cấu hình Hệ thống (mặc định 3 phiên)
+            int freeLimit = 3;
+            if (systemSettingsService != null && systemSettingsService.getSettings() != null) {
+                Integer limit = systemSettingsService.getSettings().getCandidateFreeInterviewsPerDay();
+                if (limit != null && limit > 0) freeLimit = limit;
+            }
             long totalSessions = sessionRepository.countByCandidate_CandidateId(user.getUserId());
-            if (totalSessions >= 3) {
+            if (totalSessions >= freeLimit) {
                 throw new IllegalArgumentException(String.format(
-                        "Tài khoản miễn phí đã sử dụng hết 3 lượt phỏng vấn AI dùng thử (Bạn đã hoàn thành %d phiên). Vui lòng nâng cấp gói Career VIP để mở khóa luyện phỏng vấn không giới hạn cùng trợ lý ảo AI.",
-                        totalSessions));
+                        "Tài khoản miễn phí đã sử dụng hết %d lượt phỏng vấn AI dùng thử (Bạn đã hoàn thành %d phiên). Vui lòng nâng cấp gói Career VIP để mở khóa luyện phỏng vấn không giới hạn cùng trợ lý ảo AI.",
+                        freeLimit, totalSessions));
             }
         }
     }
@@ -370,10 +377,25 @@ public class AiInterviewServiceImpl implements AiInterviewService {
             detailResponses.add(mapToDetailResponse(d));
         }
 
+        String candName = "Ứng viên";
+        String candEmail = "";
+        if (s.getCandidate() != null) {
+            if (s.getCandidate().getUser() != null) {
+                candName = s.getCandidate().getUser().getFullName() != null ? s.getCandidate().getUser().getFullName() : "Ứng viên #" + s.getCandidate().getCandidateId();
+                candEmail = s.getCandidate().getUser().getEmail() != null ? s.getCandidate().getUser().getEmail() : "";
+            } else {
+                candName = "Ứng viên #" + s.getCandidate().getCandidateId();
+            }
+        }
+        int qCount = detailResponses != null ? detailResponses.size() : 0;
+
         return InterviewSummaryResponse.builder()
                 .sessionId(s.getSessionId())
                 // Truy xuất qua Candidate subclass (Shared PK: candidateId = userId)
                 .candidateId(s.getCandidate() != null ? s.getCandidate().getCandidateId() : null)
+                .candidateName(candName)
+                .candidateEmail(candEmail)
+                .questionCount(qCount)
                 // Job nullable (phiên tự do không gắn job)
                 .jobId(s.getJob() != null ? s.getJob().getJobId() : null)
                 .targetPosition(s.getTargetPosition())

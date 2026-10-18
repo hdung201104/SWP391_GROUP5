@@ -58,6 +58,8 @@ public class JobServiceImpl implements JobService {
     private com.hiremate.repository.SubscriptionRepository subscriptionRepository;
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.hiremate.service.GeminiAiService geminiAiService;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.hiremate.service.SystemSettingsService systemSettingsService;
 
     private final java.util.Map<Long, String> skillNameCache = new java.util.concurrent.ConcurrentHashMap<>();
 
@@ -213,11 +215,16 @@ public class JobServiceImpl implements JobService {
                         activeJobs, quota, planName));
             }
         } else {
-            // Tài khoản miễn phí (Free Tier): Giới hạn 2 tin đăng
-            if (activeJobs >= 2) {
+            // Tài khoản miễn phí (Free Tier): Đọc hạn ngạch từ Cấu hình Hệ thống (Mặc định 3 tin)
+            int freeLimit = 3;
+            if (systemSettingsService != null && systemSettingsService.getSettings() != null) {
+                Integer limit = systemSettingsService.getSettings().getRecruiterFreeJobPostsPerMonth();
+                if (limit != null && limit > 0) freeLimit = limit;
+            }
+            if (activeJobs >= freeLimit) {
                 throw new IllegalArgumentException(String.format(
-                        "Tài khoản Nhà tuyển dụng miễn phí chỉ được đăng tối đa 2 tin tuyển dụng cùng lúc (Bạn hiện có %d tin đang hoạt động). Vui lòng nâng cấp gói dịch vụ để mở rộng hạn ngạch đăng tin.",
-                        activeJobs));
+                        "Tài khoản Nhà tuyển dụng miễn phí chỉ được đăng tối đa %d tin tuyển dụng cùng lúc (Bạn hiện có %d tin đang hoạt động). Vui lòng nâng cấp gói dịch vụ để mở rộng hạn ngạch đăng tin.",
+                        freeLimit, activeJobs));
             }
         }
     }
@@ -235,11 +242,30 @@ public class JobServiceImpl implements JobService {
                 .orElseThrow(() -> new IllegalStateException(
                         "Recruiter profile not found for user: " + user.getUserId()));
 
-        // Lấy company của recruiter qua Recruiter.company
+        // Lấy company của recruiter qua Recruiter.company hoặc fallback qua recruiter_id
         Company company = recruiter.getCompany();
+        if (company == null) {
+            company = companyRepository.findByRecruiterId(user.getUserId()).orElse(null);
+            if (company != null) {
+                recruiter.setCompany(company);
+                recruiterRepository.save(recruiter);
+            }
+        }
+
+        // Đọc cấu hình kiểm duyệt & yêu cầu GPKD từ SystemSettingsService
+        boolean requireGpkd = true;
+        boolean moderateJobs = true;
+        boolean autoPublishVerified = true;
+        if (systemSettingsService != null && systemSettingsService.getSettings() != null) {
+            com.hiremate.dto.response.AdminSettingsDTO settings = systemSettingsService.getSettings();
+            if (settings.getRequireGpkdToPost() != null) requireGpkd = settings.getRequireGpkdToPost();
+            if (settings.getModerateNewJobs() != null) moderateJobs = settings.getModerateNewJobs();
+            if (settings.getAutoPublishVerified() != null) autoPublishVerified = settings.getAutoPublishVerified();
+        }
 
         // 2. Kiểm tra xác thực Doanh nghiệp (Company Verification Guard)
-        if (user.getRole() != com.hiremate.enums.UserRole.ADMIN) {
+        boolean isCompanyVerified = company != null && (company.getStatus() == com.hiremate.enums.CompanyStatus.VERIFIED || company.getStatus() == com.hiremate.enums.CompanyStatus.ACTIVE);
+        if (user.getRole() != com.hiremate.enums.UserRole.ADMIN && requireGpkd) {
             if (company == null) {
                 throw new IllegalArgumentException(
                         "Bạn chưa thiết lập thông tin Doanh nghiệp. Vui lòng cập nhật hồ sơ công ty và tải lên Giấy phép kinh doanh trước khi đăng tin tuyển dụng.");
@@ -258,6 +284,15 @@ public class JobServiceImpl implements JobService {
             }
         }
 
+        // Quyết định trạng thái phê duyệt tin:
+        // - Nếu tắt kiểm duyệt (moderateJobs = false) -> Luôn APPROVED ngay lập tức.
+        // - Nếu bật kiểm duyệt, nhưng bật tự động xuất bản DN đã xác thực (autoPublishVerified = true) và công ty đã xác minh (VERIFIED/ACTIVE) -> APPROVED.
+        // - Ngược lại -> PENDING để Ban Quản Trị duyệt thủ công.
+        boolean isApproved = !moderateJobs;
+        if (moderateJobs && autoPublishVerified && isCompanyVerified) {
+            isApproved = true;
+        }
+
         Job job = Job.builder()
                 .recruiter(recruiter)
                 .company(company)
@@ -272,7 +307,7 @@ public class JobServiceImpl implements JobService {
                 .vacanciesCount(request.getVacanciesCount() != null ? request.getVacanciesCount() : 1)
                 .deadlineDate(request.getDeadlineDate())
                 .status(JobStatus.PUBLISHED)
-                .approvalStatus(JobApprovalStatus.PENDING)
+                .approvalStatus(isApproved ? JobApprovalStatus.APPROVED : JobApprovalStatus.PENDING)
                 .build();
 
         Job savedJob = jobRepository.save(job);

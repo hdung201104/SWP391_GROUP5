@@ -3,6 +3,7 @@ package com.hiremate.testng;
 import com.hiremate.dto.request.JobCreateRequest;
 import com.hiremate.dto.response.JobResponse;
 import com.hiremate.entity.*;
+import com.hiremate.enums.CompanyStatus;
 import com.hiremate.enums.EmploymentType;
 import com.hiremate.enums.JobStatus;
 import com.hiremate.enums.NotificationType;
@@ -94,6 +95,7 @@ public class JobServiceTestNGTest {
                 .companyId(10L)
                 .companyName("FPT Software")
                 .logoUrl("https://supabase.co/storage/fpt_logo.png")
+                .status(CompanyStatus.VERIFIED)
                 .build();
 
         sampleRecruiter = Recruiter.builder()

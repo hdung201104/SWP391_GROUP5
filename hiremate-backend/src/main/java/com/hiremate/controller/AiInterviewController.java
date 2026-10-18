@@ -23,14 +23,42 @@ public class AiInterviewController {
 
     private final AiInterviewService aiInterviewService;
     private final com.hiremate.service.GeminiAiService geminiAiService;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.hiremate.service.SystemSettingsService systemSettingsService;
+
+    @GetMapping("/config")
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> getInterviewConfig() {
+        int maxQ = 5;
+        int respSec = 120;
+        String persona = "TECH_LEAD";
+        String difficulty = "STANDARD";
+        if (systemSettingsService != null && systemSettingsService.getSettings() != null) {
+            var s = systemSettingsService.getSettings();
+            if (s.getInterviewMaxQuestions() != null) maxQ = s.getInterviewMaxQuestions();
+            if (s.getInterviewResponseSeconds() != null) respSec = s.getInterviewResponseSeconds();
+            if (s.getInterviewerPersona() != null) persona = s.getInterviewerPersona();
+            if (s.getAiInterviewDifficulty() != null) difficulty = s.getAiInterviewDifficulty();
+        }
+        return ResponseEntity.ok(ApiResponse.ok("Cấu hình phòng phỏng vấn AI", java.util.Map.of(
+                "interviewMaxQuestions", maxQ,
+                "interviewResponseSeconds", respSec,
+                "interviewerPersona", persona,
+                "aiInterviewDifficulty", difficulty
+        )));
+    }
 
     @GetMapping("/generate-questions")
     public ResponseEntity<ApiResponse<List<String>>> generateQuestions(
             @RequestParam(required = false, defaultValue = "Software Engineer") String targetPosition,
             @RequestParam(required = false, defaultValue = "Middle") String level,
-            @RequestParam(required = false, defaultValue = "5") int count
+            @RequestParam(required = false) Integer count
     ) {
-        List<String> questions = geminiAiService.generateInterviewQuestions(targetPosition, level, count);
+        int finalCount = (count != null && count > 0) ? count : 5;
+        if (count == null && systemSettingsService != null && systemSettingsService.getSettings() != null) {
+            Integer defCount = systemSettingsService.getSettings().getInterviewMaxQuestions();
+            if (defCount != null && defCount > 0) finalCount = defCount;
+        }
+        List<String> questions = geminiAiService.generateInterviewQuestions(targetPosition, level, finalCount);
         return ResponseEntity.ok(ApiResponse.ok("Generated interview questions", questions));
     }
 

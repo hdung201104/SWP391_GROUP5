@@ -31,6 +31,7 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
     private final CvRepository cvRepository;
     private final UserRepository userRepository;
     private final com.hiremate.service.GeminiAiService geminiAiService;
+    private final com.hiremate.service.SystemSettingsService systemSettingsService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -163,12 +164,9 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
             }
         }
 
-        if (mandatorySkillNames.isEmpty()) {
+        if (mandatorySkillNames.isEmpty() && preferredSkillNames.isEmpty()) {
             mandatorySkillNames.add("Kỹ năng chuyên môn cốt lõi");
             mandatorySkillNames.add("Tư duy kỹ thuật");
-        }
-        if (preferredSkillNames.isEmpty()) {
-            preferredSkillNames.add("Kinh nghiệm thực chiến");
         }
 
         // 3. Đánh giá đối soát kỹ năng
@@ -200,42 +198,38 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
             }
         }
 
-        // Đánh giá tương đồng chức danh & định hướng (Domain Affinity)
-        String jobTitleLower = job.getTitle().toLowerCase();
-        boolean hasTitleAffinity = false;
-        if (!candProfileStr.isBlank()) {
-            if (jobTitleLower.contains("tester") || jobTitleLower.contains("qc") || jobTitleLower.contains("qa")) {
-                hasTitleAffinity = candProfileStr.contains("test") || candProfileStr.contains("qa") || candProfileStr.contains("qc") || candProfileStr.contains("kiểm thử");
-            } else if (jobTitleLower.contains("backend") || jobTitleLower.contains("java") || jobTitleLower.contains("spring")) {
-                hasTitleAffinity = candProfileStr.contains("backend") || candProfileStr.contains("java") || candProfileStr.contains("spring") || candProfileStr.contains("golang") || candProfileStr.contains("node");
-            } else if (jobTitleLower.contains("frontend") || jobTitleLower.contains("react")) {
-                hasTitleAffinity = candProfileStr.contains("frontend") || candProfileStr.contains("react") || candProfileStr.contains("typescript") || candProfileStr.contains("javascript") || candProfileStr.contains("html");
-            } else if (jobTitleLower.contains("brse") || jobTitleLower.contains("bridge")) {
-                hasTitleAffinity = candProfileStr.contains("brse") || candProfileStr.contains("japanese") || candProfileStr.contains("tiếng nhật") || candProfileStr.contains("jlpt");
-            }
-        }
-
-        // 4. Tính toán điểm matching chuẩn xác, cá nhân hóa, không trùng lặp
+        // 4. Tính toán điểm matching chuẩn xác, tuân thủ đúng tỷ trọng và Guard chia cho 0
         float finalMatchingScore;
         if (candProfileStr.isBlank()) {
             finalMatchingScore = 0.0f;
         } else {
-            float scoreMandatory = mandatorySkillNames.isEmpty() ? 50.0f : ((float) matchedMandatory.size() / mandatorySkillNames.size()) * 100.0f;
-            float scorePreferred = preferredSkillNames.isEmpty() ? 50.0f : ((float) matchedPreferred.size() / preferredSkillNames.size()) * 100.0f;
+            float scoreMandatory = mandatorySkillNames.isEmpty() ? 0.0f : ((float) matchedMandatory.size() / mandatorySkillNames.size()) * 100.0f;
+            float scorePreferred = preferredSkillNames.isEmpty() ? 0.0f : ((float) matchedPreferred.size() / preferredSkillNames.size()) * 100.0f;
 
-            // 70% Bắt buộc + 30% Ưu tiên
-            float rawScore = (scoreMandatory * 0.70f) + (scorePreferred * 0.30f);
-
-            if (hasTitleAffinity) {
-                rawScore = Math.min(95.0f, rawScore + 8.0f);
-            } else if (scoreMandatory < 50.0f) {
-                rawScore = Math.max(25.0f, rawScore - 12.0f);
+            // Zero-division Guard & Trọng số động (Mặc định 70% Bắt buộc + 30% Ưu tiên)
+            float mandatoryRatio = 0.70f;
+            float preferredRatio = 0.30f;
+            if (preferredSkillNames.isEmpty()) {
+                mandatoryRatio = 1.0f;
+                preferredRatio = 0.0f;
+            } else if (mandatorySkillNames.isEmpty()) {
+                mandatoryRatio = 0.0f;
+                preferredRatio = 1.0f;
+            } else if (systemSettingsService != null && systemSettingsService.getSettings() != null) {
+                com.hiremate.dto.response.AdminSettingsDTO settings = systemSettingsService.getSettings();
+                if (settings.getMandatoryWeight() != null) {
+                    mandatoryRatio = settings.getMandatoryWeight() / 100.0f;
+                    preferredRatio = (100 - settings.getMandatoryWeight()) / 100.0f;
+                }
             }
 
-            // Biến thiên tự nhiên dựa trên ID ứng viên và công việc để điểm số chân thực, đa dạng
-            float naturalDelta = (float) (((candidate.getCandidateId() * 7 + job.getJobId() * 11) % 7) - 3);
-            rawScore = Math.max(25.0f, Math.min(95.0f, rawScore + naturalDelta));
-            finalMatchingScore = Math.round(rawScore * 10.0f) / 10.0f;
+            float rawScore = (scoreMandatory * mandatoryRatio) + (scorePreferred * preferredRatio);
+
+            if (scoreMandatory == 100.0f && (preferredSkillNames.isEmpty() || scorePreferred == 100.0f)) {
+                rawScore = 100.0f;
+            }
+
+            finalMatchingScore = Math.round(Math.min(100.0f, Math.max(0.0f, rawScore)) * 10.0f) / 10.0f;
         }
 
         // 5. Construct JSON Gap & Reasoning

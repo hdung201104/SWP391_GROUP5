@@ -35,6 +35,9 @@ public class InterviewSummaryResponse {
     private String recommendedTasks;
     /** Điểm cải thiện so với phiên gốc (chỉ có khi sessionType = PRACTICE_RETRY) */
     private Float improvementDelta;
+    private String candidateName;
+    private String candidateEmail;
+    private Integer questionCount;
     private List<InterviewDetailResponse> details;
     private LocalDateTime startedAt;
     private LocalDateTime completedAt;

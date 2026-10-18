@@ -206,7 +206,7 @@ const generateFallbackQuestions = (topicName, domainId, levelId = 'middle') => {
 
   // 1. LĨNH VỰC CÔNG NGHỆ THÔNG TIN & PHẦN MỀM
   if (domainId === 'it-software') {
-    if (tLower.contains ? tLower.contains('backend') || tLower.contains('java') : /backend|java|spring|api|microservice/i.test(tLower)) {
+    if (/backend|java|spring|api|microservice/i.test(tLower)) {
       return [
         `Hãy giới thiệu ngắn gọn về bản thân và kiến trúc backend phức tạp nhất bạn từng xây dựng liên quan đến: ${t}?`,
         `Khi hệ thống gặp tải đột biến dẫn đến nghẽn Connection Pool và tăng latency ở tầng CSDL, bạn sẽ chẩn đoán và xử lý tối ưu như thế nào?`,
@@ -372,6 +372,12 @@ export default function AiInterviewStudioPage({ user }) {
   const [selectedLevel, setSelectedLevel] = useState('middle');
   const [interviewGoal, setInterviewGoal] = useState('');
   const [numQuestions, setNumQuestions] = useState(5);
+  const [systemConfig, setSystemConfig] = useState({
+    interviewMaxQuestions: 5,
+    interviewResponseSeconds: 120,
+    interviewerPersona: 'TECH_LEAD',
+    aiInterviewDifficulty: 'STANDARD',
+  });
 
   // Live Interview State
   const [questions, setQuestions] = useState([]);
@@ -476,6 +482,16 @@ export default function AiInterviewStudioPage({ user }) {
 
   useEffect(() => {
     fetchRealHistory();
+    interviewApi.getConfig()
+      .then((res) => {
+        if (res?.data) {
+          setSystemConfig(res.data);
+          if (res.data.interviewMaxQuestions) {
+            setNumQuestions(res.data.interviewMaxQuestions);
+          }
+        }
+      })
+      .catch((err) => console.warn('Could not load interview config:', err));
   }, []);
 
   useEffect(() => {
@@ -1274,28 +1290,40 @@ export default function AiInterviewStudioPage({ user }) {
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-3 pt-1">
+            <div className="flex flex-wrap items-center gap-3 pt-1">
               {[
                 { count: 3, label: '3 Câu (Thử nghiệm nhanh ~10-15 phút)' },
                 { count: 5, label: '5 Câu (Chuẩn mực chuyên sâu ~20-30 phút)' },
-                { count: 8, label: '8 Câu (Phỏng vấn thực chiến ~45 phút)' },
+                { count: 7, label: '7 Câu (Phỏng vấn chuyên sâu ~35-45 phút)' },
               ].map((qOpt) => {
                 const isSelCount = numQuestions === qOpt.count;
+                const isDefault = (systemConfig?.interviewMaxQuestions || 5) === qOpt.count;
                 return (
                   <button
                     key={qOpt.count}
                     onClick={() => setNumQuestions(qOpt.count)}
-                    className={`px-5 py-3 rounded-2xl text-xs font-sans font-extrabold border transition-all cursor-pointer ${
+                    className={`px-5 py-3 rounded-2xl text-xs font-sans font-extrabold border transition-all cursor-pointer flex items-center gap-2 ${
                       isSelCount
                         ? 'bg-[#32247b] text-white border-[#32247b] shadow-md'
                         : 'bg-[#f8f7ff] border-purple-100 text-[#1e1b4b] hover:bg-purple-50 hover:border-[#5b48bd]'
                     }`}
                   >
-                    {qOpt.label}
+                    <span>{qOpt.label}</span>
+                    {isDefault && (
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] uppercase font-mono ${
+                        isSelCount ? 'bg-white/20 text-white' : 'bg-purple-100 text-[#5b48bd]'
+                      }`}>
+                        Mặc định HT
+                      </span>
+                    )}
                   </button>
                 );
               })}
             </div>
+            <p className="text-[11px] text-slate-500 pt-1 flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-sm text-[#5b48bd]">timer</span>
+              <span>Thời gian phản xạ mục tiêu được cấu hình: <strong>{systemConfig?.interviewResponseSeconds || 120} giây/câu</strong> (Độ khó: <strong>{systemConfig?.aiInterviewDifficulty || 'STANDARD'}</strong>).</span>
+            </p>
           </section>
 
           {/* 6. CHỌN GIỌNG ĐỌC PHỎNG VẤN AI (NATURAL NEURAL TTS) */}
@@ -1468,9 +1496,13 @@ export default function AiInterviewStudioPage({ user }) {
 
               {/* Timer & Action controls */}
               <div className="flex items-center gap-2.5 font-sans">
-                <div className="flex items-center gap-1.5 font-mono text-xs font-bold px-3.5 py-1.5 rounded-full bg-[#f8f7ff] border border-purple-100 text-[#1e1b4b] shadow-sm">
+                <div 
+                  className="flex items-center gap-1.5 font-mono text-xs font-bold px-3.5 py-1.5 rounded-full bg-[#f8f7ff] border border-purple-100 text-[#1e1b4b] shadow-sm"
+                  title={`Thời gian làm bài thực tế (Mục tiêu chuẩn: ${systemConfig?.interviewResponseSeconds || 120}s/câu)`}
+                >
                   <span className="material-symbols-outlined text-sm animate-pulse text-[#f97316]">timer</span>
                   <span>{fmt(timerSec)}</span>
+                  <span className="text-[10px] text-slate-400 font-mono hidden sm:inline">/{systemConfig?.interviewResponseSeconds || 120}s</span>
                 </div>
 
                 {/* Quick Switch Voice Type */}

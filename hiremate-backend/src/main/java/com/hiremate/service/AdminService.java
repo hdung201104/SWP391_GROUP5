@@ -17,6 +17,7 @@ public interface AdminService {
     
     List<AdminCompanyResponse> getAllCompanies();
     AdminCompanyResponse updateCompanyStatus(Long companyId, CompanyStatus status);
+    AdminCompanyResponse updateCompanyStatus(Long companyId, CompanyStatus status, String notes);
     
     List<PaymentOrderResponse> getAllOrders();
     PaymentOrderResponse approveOrder(Long orderId, String adminNote);
@@ -31,4 +32,10 @@ public interface AdminService {
     List<com.hiremate.entity.Voucher> getAllVouchers();
     com.hiremate.entity.Voucher toggleVoucher(Long voucherId);
     com.hiremate.entity.Voucher saveVoucher(com.hiremate.entity.Voucher voucher);
+
+    List<InterviewSummaryResponse> getAllInterviewSessions();
+    InterviewSummaryResponse getInterviewSessionDetail(Long sessionId);
+
+    AiJobMatchResponse simulateAiMatch(Long jobId, Long candidateId);
+    List<AiJobMatchResponse> getAllAiMatches();
 }

@@ -66,6 +66,7 @@ public class CompanyController {
     ) {
         String uploadedUrl = fileStorageService.storeFile(file, "licenses");
         String fileName = file.getOriginalFilename() != null ? file.getOriginalFilename() : "business_license.pdf";
+        companyService.saveLicenseDoc(user, uploadedUrl, fileName);
         return ResponseEntity.ok(ApiResponse.ok("Tải giấy phép kinh doanh lên hệ thống thành công", java.util.Map.of(
                 "url", uploadedUrl,
                 "fileName", fileName

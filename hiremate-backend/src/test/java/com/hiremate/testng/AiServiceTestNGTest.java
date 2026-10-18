@@ -98,6 +98,7 @@ public class AiServiceTestNGTest {
         cvRepository = mock(CvRepository.class);
         UserRepository userRepository = mock(UserRepository.class);
         CandidateSkillRepository candidateSkillRepository = mock(CandidateSkillRepository.class);
+        com.hiremate.service.SystemSettingsService systemSettingsService = mock(com.hiremate.service.SystemSettingsService.class);
 
         aiJobMatchService = new AiJobMatchServiceImpl(
                 aiJobMatchRepository,
@@ -108,7 +109,8 @@ public class AiServiceTestNGTest {
                 candidateSkillRepository,
                 cvRepository,
                 userRepository,
-                mockedGeminiAiService
+                mockedGeminiAiService,
+                systemSettingsService
         );
 
         geminiAiService = new GeminiAiServiceImpl(geminiAiConfig, objectMapper, reflectionEngine, toolRegistry);

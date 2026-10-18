@@ -8,7 +8,6 @@ import lombok.*;
 @AllArgsConstructor
 public class CompanyUpdateRequest {
 
-    @NotBlank(message = "Tên công ty không được để trống")
     private String companyName;
 
     private String logoUrl;
@@ -22,5 +21,6 @@ public class CompanyUpdateRequest {
     private String licenseDocUrl;
     private String licenseDocName;
     private String legalRepresentative;
+    private com.hiremate.enums.CompanyStatus status;
 }
 

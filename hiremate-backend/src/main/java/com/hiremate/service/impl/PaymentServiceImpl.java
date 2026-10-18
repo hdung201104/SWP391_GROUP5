@@ -41,10 +41,11 @@ public class PaymentServiceImpl implements PaymentService {
     private final UserRepository userRepository;
     private final com.hiremate.util.PayOSClient payOSClient;
     private final com.hiremate.service.NotificationService notificationService;
+    private final com.hiremate.service.SystemSettingsService systemSettingsService;
 
-    private static final String DEFAULT_BANK_NAME = "MBBank (Ngân hàng TMCP Quân Đội)";
-    private static final String DEFAULT_BANK_ACCOUNT = "0987654321";
-    private static final String DEFAULT_ACCOUNT_HOLDER = "HIREMATE AI TECH";
+    private static final String DEFAULT_BANK_NAME = "MBBank - Ngân hàng TMCP Quân Đội";
+    private static final String DEFAULT_BANK_ACCOUNT = "VQRQAMWSJ4104";
+    private static final String DEFAULT_ACCOUNT_HOLDER = "HOANG NGOC DUNG";
 
     @jakarta.annotation.PostConstruct
     public void seedDefaultVouchers() {
@@ -663,9 +664,13 @@ public class PaymentServiceImpl implements PaymentService {
 
         long amountLong = order.getAmount() != null ? order.getAmount().longValue() : 0L;
 
-        String bankName = DEFAULT_BANK_NAME;
-        String bankAccount = DEFAULT_BANK_ACCOUNT;
-        String accountHolder = DEFAULT_ACCOUNT_HOLDER;
+        com.hiremate.dto.response.AdminSettingsDTO settings = systemSettingsService != null ? systemSettingsService.getSettings() : null;
+        String bankName = (settings != null && settings.getVietqrBankName() != null && !settings.getVietqrBankName().isBlank())
+                ? settings.getVietqrBankName() : DEFAULT_BANK_NAME;
+        String bankAccount = (settings != null && settings.getVietqrAccountNumber() != null && !settings.getVietqrAccountNumber().isBlank())
+                ? settings.getVietqrAccountNumber() : DEFAULT_BANK_ACCOUNT;
+        String accountHolder = (settings != null && settings.getVietqrAccountHolder() != null && !settings.getVietqrAccountHolder().isBlank())
+                ? settings.getVietqrAccountHolder() : DEFAULT_ACCOUNT_HOLDER;
         String transferContent = order.getOrderCode();
         String qrUrl = null;
         String checkoutUrl = null;
@@ -692,13 +697,24 @@ public class PaymentServiceImpl implements PaymentService {
 
         if (qrUrl == null) {
             try {
-                String encAccount = java.net.URLEncoder.encode(DEFAULT_ACCOUNT_HOLDER, java.nio.charset.StandardCharsets.UTF_8);
-                qrUrl = "https://img.vietqr.io/image/mbbank-" + DEFAULT_BANK_ACCOUNT + "-compact2.png"
+                String encAccount = java.net.URLEncoder.encode(accountHolder, java.nio.charset.StandardCharsets.UTF_8);
+                String bankCode = "970422";
+                String lowerBank = bankName.toLowerCase();
+                if (lowerBank.contains("vietcombank") || lowerBank.contains("vcb")) bankCode = "vietcombank";
+                else if (lowerBank.contains("techcombank") || lowerBank.contains("tcb")) bankCode = "techcombank";
+                else if (lowerBank.contains("tpbank")) bankCode = "tpbank";
+                else if (lowerBank.contains("bidv")) bankCode = "bidv";
+                else if (lowerBank.contains("agribank")) bankCode = "agribank";
+                else if (lowerBank.contains("acb")) bankCode = "acb";
+                else if (lowerBank.contains("vpbank")) bankCode = "vpbank";
+                else if (lowerBank.contains("mbbank") || lowerBank.contains("quân đội") || lowerBank.contains("970422")) bankCode = "970422";
+
+                qrUrl = "https://img.vietqr.io/image/" + bankCode + "-" + bankAccount + "-compact2.png"
                         + "?amount=" + amountLong
                         + "&addInfo=" + order.getOrderCode()
                         + "&accountName=" + encAccount;
             } catch (Exception e) {
-                qrUrl = "https://img.vietqr.io/image/mbbank-" + DEFAULT_BANK_ACCOUNT + "-compact2.png?amount=" + amountLong;
+                qrUrl = "https://img.vietqr.io/image/mbbank-" + bankAccount + "-compact2.png?amount=" + amountLong;
             }
         }
 

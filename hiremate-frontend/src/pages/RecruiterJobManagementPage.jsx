@@ -176,7 +176,8 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
         const res = await companyApi.getMyCompany();
         const comp = res?.data || res;
         if (comp && comp.status) {
-          setCompanyStatus(comp.status);
+          const st = (comp.status === 'VERIFIED' || comp.status === 'ACTIVE') ? 'VERIFIED' : comp.status;
+          setCompanyStatus(st);
           return;
         }
       } catch (err) {}
@@ -185,11 +186,24 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          setCompanyStatus(parsed.status || 'PENDING');
+          const st = (parsed.status === 'VERIFIED' || parsed.status === 'ACTIVE') ? 'VERIFIED' : (parsed.status || 'PENDING');
+          setCompanyStatus(st);
         } catch {}
       }
     };
     fetchCompStatus();
+
+    const handleCompanyUpdate = (e) => {
+      if (e?.detail?.status) {
+        const st = (e.detail.status === 'VERIFIED' || e.detail.status === 'ACTIVE') ? 'VERIFIED' : e.detail.status;
+        setCompanyStatus(st);
+      } else {
+        fetchCompStatus();
+      }
+    };
+
+    window.addEventListener('hiremate_company_updated', handleCompanyUpdate);
+    return () => window.removeEventListener('hiremate_company_updated', handleCompanyUpdate);
   }, [user]);
 
   // Modals state

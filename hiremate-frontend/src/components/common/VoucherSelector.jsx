@@ -1,10 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { getVouchersForCheckout, getStoredVouchers } from '../../utils/voucherStorage';
 
 /**
- * VoucherSelector.jsx
- * Component chọn và áp dụng mã giảm giá / voucher chuyên nghiệp
- * Tự động phân quyền theo vai trò (CANDIDATE/RECRUITER) và kiểm tra tính hợp lệ với gói dịch vụ đang mua
+ * VoucherSelector.jsx - Enterprise High-End Coupon & Voucher Selection Component
+ * Redesigned with spacious, luxury e-commerce digital ticket aesthetics (Shopee/Grab/Stripe style)
+ * Features:
+ * - Ultra-modern search & apply bar with 1-click popular suggestion chips
+ * - VIP Perforated Digital Ticket card for applied voucher state
+ * - Spacious, non-cramped voucher discovery drawer with search & filter tabs
+ * - Automatic eligibility calculation & real-time VND savings preview
  */
 export default function VoucherSelector({
   userRole = 'CANDIDATE',
@@ -19,6 +23,9 @@ export default function VoucherSelector({
   const [manualCode, setManualCode] = useState('');
   const [manualError, setManualError] = useState('');
   const [availableVouchers, setAvailableVouchers] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilterTab, setActiveFilterTab] = useState('ALL'); // 'ALL' | 'ELIGIBLE' | 'BIG_DISCOUNT'
+  const [copiedCode, setCopiedCode] = useState('');
 
   const formatVND = (amount) => {
     if (!amount || amount === 0) return '0 VNĐ';
@@ -100,18 +107,18 @@ export default function VoucherSelector({
       const nameMatched = planNameStr && allowedNames.some((name) => name.includes(planNameStr) || planNameStr.includes(name));
 
       if (!idMatched && !nameMatched) {
-        setManualError(`Mã "${clean}" không áp dụng cho gói "${currentPlanName}". Chỉ áp dụng cho: ${(matched.applicablePlans || []).join(', ')}`);
+        setManualError(`Mã "${clean}" chỉ áp dụng cho: ${(matched.applicablePlans || []).join(', ')}`);
         return;
       }
     }
 
-    // Đơn hàng tối thiểu
-    if (matched.minOrderAmount && basePrice > 0 && basePrice < matched.minOrderAmount) {
-      setManualError(`Đơn hàng tối thiểu để áp dụng mã này là ${formatVND(matched.minOrderAmount)}.`);
+    // Kiểm tra đơn hàng tối thiểu
+    if (matched.minOrderAmount && basePrice < matched.minOrderAmount) {
+      setManualError(`Mã "${clean}" yêu cầu đơn hàng tối thiểu từ ${formatVND(matched.minOrderAmount)}.`);
       return;
     }
 
-    // Hợp lệ!
+    // Áp dụng thành công
     const discountVal = matched.discountPercent || 0;
     let discountAmount = 0;
     if (basePrice > 0) {
@@ -125,76 +132,147 @@ export default function VoucherSelector({
       onApplyVoucher(matched, discountAmount);
     }
     setManualError('');
+    setShowVoucherList(false);
   };
+
+  const handleCopyCode = (code, e) => {
+    e?.stopPropagation();
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(code);
+      setCopiedCode(code);
+      setTimeout(() => setCopiedCode(''), 2000);
+    }
+  };
+
+  // Lọc và tìm kiếm voucher trong danh sách
+  const filteredVouchers = useMemo(() => {
+    return availableVouchers.filter((v) => {
+      // Tìm kiếm theo code hoặc mô tả
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchCode = (v.code || '').toLowerCase().includes(q);
+        const matchDesc = (v.description || '').toLowerCase().includes(q);
+        if (!matchCode && !matchDesc) return false;
+      }
+
+      // Lọc theo tab
+      if (activeFilterTab === 'ELIGIBLE') {
+        return v.isPlanEligible;
+      }
+      if (activeFilterTab === 'BIG_DISCOUNT') {
+        return (v.discountPercent || 0) >= 30;
+      }
+      return true;
+    });
+  }, [availableVouchers, searchQuery, activeFilterTab]);
 
   const eligibleCount = availableVouchers.filter((v) => v.isPlanEligible).length;
 
   return (
     <div className="space-y-3 font-sans">
-      <div className="flex items-center justify-between">
-        <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-          <span className="material-symbols-outlined text-[#5b48bd] text-base">sell</span>
-          <span>Mã Giảm Giá &amp; Voucher Ưu Đãi:</span>
-        </label>
+      {/* 1. HEADER SECTION VỚI NÚT MỞ RỘNG / THU GỌN */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#5b48bd] to-[#3a2d7d] text-white flex items-center justify-center shadow-xs">
+            <span className="material-symbols-outlined text-lg">local_activity</span>
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h4 className="text-sm font-bold text-[#1e1b4b] tracking-tight">
+                Mã Giảm Giá &amp; Voucher Ưu Đãi
+              </h4>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-purple-100 text-[#5b48bd] border border-purple-200">
+                {availableVouchers.length} khả dụng
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500 font-medium">
+              Chọn voucher có sẵn hoặc nhập mã khuyến mãi để được trừ trực tiếp vào đơn hàng.
+            </p>
+          </div>
+        </div>
 
         {availableVouchers.length > 0 && (
           <button
             type="button"
             onClick={() => setShowVoucherList(!showVoucherList)}
-            className="text-[11px] font-bold text-[#5b48bd] hover:underline flex items-center gap-1 cursor-pointer bg-purple-50 hover:bg-purple-100/70 px-2.5 py-1 rounded-full border border-purple-200 transition-all"
+            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border shadow-2xs shrink-0 ${
+              showVoucherList
+                ? 'bg-purple-50 text-[#5b48bd] border-[#5b48bd]/40'
+                : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 hover:border-[#5b48bd]/30'
+            }`}
           >
-            <span className="material-symbols-outlined text-xs">local_activity</span>
-            <span>
-              {showVoucherList ? 'Thu gọn danh sách' : `Xem mã ưu đãi (${eligibleCount} khả dụng)`}
+            <span className="material-symbols-outlined text-sm text-[#5b48bd]">
+              {showVoucherList ? 'expand_less' : 'confirmation_number'}
             </span>
-            <span className="material-symbols-outlined text-xs">
-              {showVoucherList ? 'expand_less' : 'expand_more'}
-            </span>
+            <span>{showVoucherList ? 'Thu gọn' : `Kho voucher (${availableVouchers.length})`}</span>
           </button>
         )}
       </div>
 
-      {/* Thẻ voucher ĐÃ ĐƯỢC ÁP DỤNG */}
+      {/* 2. THẺ VOUCHER ĐÃ ÁP DỤNG THÀNH CÔNG (VIP PERFORATED TICKET CARD) */}
       {appliedVoucher ? (
-        <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-200 flex items-center justify-between shadow-2xs animate-fade-in">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
-              <span className="material-symbols-outlined text-xl">confirmation_number</span>
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-mono font-black text-emerald-800 text-sm tracking-wider">
-                  {appliedVoucher.code}
-                </span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-200/80 text-emerald-900 border border-emerald-300">
-                  Giảm {appliedVoucher.discountPercent}%
-                </span>
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50/80 border-2 border-dashed border-emerald-300 p-4 shadow-sm animate-fade-in">
+          {/* Lỗ khuyết vé 2 bên mép (Cutout Notches) */}
+          <div className="absolute -left-2.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-white border-r border-emerald-300 shadow-inner"></div>
+          <div className="absolute -right-2.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-white border-l border-emerald-300 shadow-inner"></div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-2">
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-emerald-200">
+                <span className="material-symbols-outlined text-2xl">check_circle</span>
               </div>
-              <p className="text-[11px] text-emerald-700 mt-0.5 line-clamp-1">
-                {appliedVoucher.description || 'Đã áp dụng thành công mã ưu đãi cho gói dịch vụ'}
-              </p>
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-mono font-black text-base text-emerald-950 tracking-wider bg-white/90 px-2.5 py-0.5 rounded-lg border border-emerald-300 shadow-2xs">
+                    {appliedVoucher.code}
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-emerald-600 text-white shadow-2xs">
+                    GIẢM {appliedVoucher.discountPercent}%
+                  </span>
+                  <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-100 text-emerald-900 border border-emerald-200">
+                    Đã áp dụng
+                  </span>
+                </div>
+                <p className="text-xs text-emerald-800 line-clamp-1 pt-0.5">
+                  {appliedVoucher.description || 'Đã áp dụng ưu đãi giảm giá vào tổng tiền thanh toán'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 self-end sm:self-center shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-emerald-200 w-full sm:w-auto justify-end">
+              <button
+                type="button"
+                onClick={() => setShowVoucherList(true)}
+                className="text-xs font-bold text-[#5b48bd] hover:bg-purple-100/70 px-3 py-1.5 rounded-xl border border-purple-200 transition-all cursor-pointer flex items-center gap-1 bg-white/80"
+              >
+                <span className="material-symbols-outlined text-xs">sync_alt</span>
+                <span>Đổi mã khác</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (onRemoveVoucher) onRemoveVoucher();
+                  setManualCode('');
+                  setManualError('');
+                }}
+                className="text-xs font-bold text-rose-600 hover:text-white hover:bg-rose-600 px-3 py-1.5 rounded-xl border border-rose-200 transition-all cursor-pointer flex items-center gap-1 bg-white/80"
+                title="Gỡ bỏ voucher này khỏi đơn hàng"
+              >
+                <span className="material-symbols-outlined text-xs">delete</span>
+                <span>Gỡ mã</span>
+              </button>
             </div>
           </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              if (onRemoveVoucher) onRemoveVoucher();
-              setManualCode('');
-              setManualError('');
-            }}
-            className="text-xs font-bold text-rose-600 hover:text-rose-800 hover:bg-rose-100/70 px-2.5 py-1.5 rounded-xl border border-rose-200 transition-all cursor-pointer flex items-center gap-1 shrink-0 ml-2"
-            title="Gỡ bỏ voucher này"
-          >
-            <span className="material-symbols-outlined text-xs">close</span>
-            <span>Gỡ mã</span>
-          </button>
         </div>
       ) : (
-        /* Ô NHẬP MÃ THỦ CÔNG */
-        <div className="space-y-1.5">
+        /* 3. Ô NHẬP MÃ VOUCHER THỦ CÔNG & CHIPS GỢI Ý */
+        <div className="space-y-2">
           <div className="flex gap-2">
             <div className="relative flex-1">
+              <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-lg pointer-events-none">
+                local_offer
+              </span>
               <input
                 type="text"
                 value={manualCode}
@@ -208,8 +286,8 @@ export default function VoucherSelector({
                     handleManualApply();
                   }
                 }}
-                placeholder="Nhập mã voucher (VD: HIREMATE50, CANDIDATE20)"
-                className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-300 focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 uppercase font-mono font-bold bg-white"
+                placeholder="Nhập mã voucher (VD: HIREMATE50, CANDIDATE20)..."
+                className="w-full pl-10 pr-9 py-2.5 text-xs sm:text-sm rounded-2xl border border-purple-200 focus:border-[#5b48bd] focus:ring-3 focus:ring-[#5b48bd]/15 uppercase font-mono font-bold bg-white text-[#1e1b4b] placeholder:text-slate-400 transition-all shadow-xs"
               />
               {manualCode && (
                 <button
@@ -218,7 +296,8 @@ export default function VoucherSelector({
                     setManualCode('');
                     setManualError('');
                   }}
-                  className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 text-xs cursor-pointer"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 text-xs flex items-center justify-center cursor-pointer transition-colors"
+                  title="Xóa mã đang nhập"
                 >
                   ×
                 </button>
@@ -228,134 +307,277 @@ export default function VoucherSelector({
             <button
               type="button"
               onClick={handleManualApply}
-              className="px-4 py-2.5 rounded-xl bg-[#5b48bd] hover:bg-[#4a39a7] text-white text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 shadow-2xs hover:shadow-sm"
+              className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-[#5b48bd] to-[#4338ca] hover:from-[#4a39a7] hover:to-[#3730a3] text-white text-xs sm:text-sm font-bold cursor-pointer transition-all flex items-center gap-1.5 shadow-md shadow-purple-200 hover:scale-[1.02] active:scale-[0.98] shrink-0"
             >
-              <span className="material-symbols-outlined text-sm">redeem</span>
+              <span className="material-symbols-outlined text-base">redeem</span>
               <span>Áp Dụng</span>
             </button>
           </div>
 
+          {/* Quick chips gợi ý voucher phổ biến */}
+          <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+            <span className="text-[11px] text-slate-500 font-medium">Gợi ý nhanh:</span>
+            {availableVouchers.slice(0, 3).map((v) => (
+              <button
+                key={v.code}
+                type="button"
+                onClick={() => {
+                  setManualCode(v.code);
+                  setManualError('');
+                }}
+                className="px-2.5 py-0.5 rounded-lg bg-purple-50 hover:bg-purple-100 text-[#5b48bd] text-[11px] font-mono font-bold border border-purple-200 transition-all cursor-pointer flex items-center gap-1"
+                title={`Bấm để điền mã ${v.code}`}
+              >
+                <span>{v.code}</span>
+                <span className="text-[10px] font-sans font-semibold text-purple-700">(-{v.discountPercent}%)</span>
+              </button>
+            ))}
+          </div>
+
           {manualError && (
-            <p className="text-[11px] font-semibold text-rose-600 flex items-center gap-1 animate-fade-in pt-0.5">
-              <span className="material-symbols-outlined text-xs">error</span>
+            <p className="text-xs font-bold text-rose-600 flex items-center gap-1.5 animate-fade-in pt-1 bg-rose-50 px-3 py-1.5 rounded-xl border border-rose-200">
+              <span className="material-symbols-outlined text-sm">error</span>
               <span>{manualError}</span>
             </p>
           )}
         </div>
       )}
 
-      {/* DANH SÁCH VOUCHER ĐƯỢC CHỌN (ACCORDION / DRAWER) */}
+      {/* 4. KHO VOUCHER KHẢ DỤNG (EXPANDABLE LUXURY TICKET DRAWER) */}
       {showVoucherList && (
-        <div className="p-3 rounded-2xl bg-slate-50 border border-purple-100 space-y-2.5 max-h-60 overflow-y-auto scrollbar-thin animate-fade-in">
-          <div className="flex items-center justify-between text-[11px] font-bold text-slate-600 px-1 border-b border-purple-100 pb-1.5">
-            <span>Mã voucher dành cho {userRole === 'RECRUITER' ? 'Nhà Tuyển Dụng' : 'Ứng Viên'}:</span>
-            <span className="text-[#5b48bd]">{availableVouchers.length} mã khả dụng</span>
-          </div>
+        <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-b from-purple-50/50 via-slate-50 to-purple-50/30 border border-purple-100 shadow-sm space-y-4 animate-fade-in">
+          {/* Thanh tìm kiếm & bộ lọc */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pb-2 border-b border-purple-100">
+            {/* Search Input */}
+            <div className="relative flex-1">
+              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
+                search
+              </span>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Tìm mã hoặc nội dung ưu đãi..."
+                className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-purple-200 bg-white focus:outline-none focus:border-[#5b48bd] font-medium"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+                >
+                  ×
+                </button>
+              )}
+            </div>
 
-          <div className="space-y-2">
-            {availableVouchers.map((voucher) => {
-              const isCurrentApplied = appliedVoucher && appliedVoucher.code === voucher.code;
-              const isEligible = voucher.isPlanEligible;
-
-              return (
-                <div
-                  key={voucher.id || voucher.code}
-                  className={`p-3 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 ${
-                    isCurrentApplied
-                      ? 'bg-emerald-50/80 border-emerald-300 ring-2 ring-emerald-400/20 shadow-2xs'
-                      : isEligible
-                      ? 'bg-white border-purple-200 hover:border-[#5b48bd] shadow-2xs'
-                      : 'bg-slate-100/70 border-slate-200 opacity-65'
+            {/* Filter Tabs */}
+            <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
+              {[
+                { id: 'ALL', label: `Tất cả (${availableVouchers.length})` },
+                { id: 'ELIGIBLE', label: `Hợp lệ (${eligibleCount})` },
+                { id: 'BIG_DISCOUNT', label: 'Giảm ≥ 30%' },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveFilterTab(tab.id)}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap transition-all cursor-pointer ${
+                    activeFilterTab === tab.id
+                      ? 'bg-[#5b48bd] text-white shadow-xs'
+                      : 'bg-white hover:bg-purple-100/60 text-slate-600 border border-slate-200'
                   }`}
                 >
-                  {/* Left: Code, Discount, Scope Info */}
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-mono font-black text-xs text-[#1e1b4b] bg-slate-100 px-2 py-0.5 rounded-md border border-slate-300">
-                        {voucher.code}
-                      </span>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#5b48bd] text-white">
-                        Giảm {voucher.discountPercent}%
-                      </span>
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Danh sách thẻ Voucher (Ticket Style Cards) */}
+          <div className="space-y-3 max-h-96 overflow-y-auto pr-1 scrollbar-thin">
+            {filteredVouchers.length === 0 ? (
+              <div className="text-center py-8 text-slate-400 space-y-1">
+                <span className="material-symbols-outlined text-3xl text-slate-300">search_off</span>
+                <p className="text-xs font-semibold">Không tìm thấy voucher phù hợp với bộ lọc hiện tại.</p>
+              </div>
+            ) : (
+              filteredVouchers.map((voucher) => {
+                const isCurrentApplied = appliedVoucher && appliedVoucher.code === voucher.code;
+                const isEligible = voucher.isPlanEligible;
+
+                return (
+                  <div
+                    key={voucher.id || voucher.code}
+                    className={`relative rounded-2xl border transition-all duration-200 overflow-hidden flex flex-col md:flex-row items-stretch shadow-2xs hover:shadow-md ${
+                      isCurrentApplied
+                        ? 'bg-emerald-50/90 border-emerald-400 ring-2 ring-emerald-400/20'
+                        : isEligible
+                        ? 'bg-white border-purple-200/80 hover:border-[#5b48bd]'
+                        : 'bg-slate-50/80 border-slate-200 opacity-60'
+                    }`}
+                  >
+                    {/* LEFT STUB: CUỐNG VÉ GIẢM GIÁ (TICKET STUB) */}
+                    <div
+                      className={`w-full md:w-32 shrink-0 p-3.5 flex md:flex-col items-center justify-between md:justify-center text-center relative ${
+                        isEligible
+                          ? 'bg-gradient-to-br from-[#5b48bd] via-[#4a39a7] to-[#32247b] text-white'
+                          : 'bg-slate-200 text-slate-600'
+                      }`}
+                    >
+                      <div className="space-y-0.5">
+                        <span className="text-[10px] font-mono tracking-widest uppercase opacity-80 block">
+                          GIẢM GIÁ
+                        </span>
+                        <div className="text-2xl sm:text-3xl font-black font-sans leading-none tracking-tight">
+                          {voucher.discountPercent}%
+                        </div>
+                      </div>
+
                       {voucher.maxDiscountAmount && (
-                        <span className="text-[10px] text-slate-500 font-medium">
-                          (Tối đa {formatVND(voucher.maxDiscountAmount)})
+                        <span className="text-[10px] font-medium opacity-90 block mt-1">
+                          Tối đa {formatVND(voucher.maxDiscountAmount).replace(' VNĐ', 'đ')}
                         </span>
                       )}
+
+                      {/* Rãnh cắt vé (Ticket notch on dividing line) */}
+                      <div className="hidden md:block absolute -right-2 top-0 w-4 h-4 rounded-full bg-slate-50 border-b border-purple-200"></div>
+                      <div className="hidden md:block absolute -right-2 bottom-0 w-4 h-4 rounded-full bg-slate-50 border-t border-purple-200"></div>
                     </div>
 
-                    <p className="text-[11px] text-slate-600 leading-tight">
-                      {voucher.description}
-                    </p>
+                    {/* RIGHT BODY: NỘI DUNG VOUCHER & NÚT ÁP DỤNG */}
+                    <div className="p-4 flex-1 flex flex-col justify-between gap-3 min-w-0">
+                      <div className="space-y-1.5">
+                        {/* Row 1: Code pill, copy button, role tag, eligibility tag */}
+                        <div className="flex items-center gap-2 flex-wrap justify-between">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-mono font-black text-xs sm:text-sm text-[#1e1b4b] bg-purple-50 px-2.5 py-1 rounded-lg border border-purple-200 tracking-wider">
+                              {voucher.code}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => handleCopyCode(voucher.code, e)}
+                              className="w-6 h-6 rounded-md bg-slate-100 hover:bg-purple-100 text-slate-500 hover:text-[#5b48bd] flex items-center justify-center text-xs transition-colors cursor-pointer"
+                              title="Sao chép mã voucher"
+                            >
+                              <span className="material-symbols-outlined text-xs">
+                                {copiedCode === voucher.code ? 'check' : 'content_copy'}
+                              </span>
+                            </button>
 
-                    <div className="flex items-center gap-2 text-[10px] text-slate-500 pt-0.5 flex-wrap">
-                      <span className="flex items-center gap-0.5 text-slate-600 font-medium">
-                        <span className="material-symbols-outlined text-[11px]">inventory_2</span>
-                        <span>
-                          {voucher.applicableScope === 'ALL'
-                            ? 'Mọi gói dịch vụ'
-                            : `Áp dụng: ${(voucher.applicablePlans || []).join(', ')}`}
-                        </span>
-                      </span>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">
+                              {voucher.targetRole === 'RECRUITER'
+                                ? 'Nhà Tuyển Dụng'
+                                : voucher.targetRole === 'CANDIDATE'
+                                ? 'Ứng Viên'
+                                : 'Mọi khách hàng'}
+                            </span>
+                          </div>
 
-                      {voucher.validTo && (
-                        <span className="text-slate-400">• HSD: {voucher.validTo}</span>
-                      )}
+                          {isEligible ? (
+                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 flex items-center gap-0.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                              <span>Hợp lệ với gói này</span>
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 flex items-center gap-0.5">
+                              <span className="material-symbols-outlined text-[11px]">block</span>
+                              <span>Không áp dụng</span>
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Row 2: Description */}
+                        <p className="text-xs text-slate-700 leading-relaxed font-medium">
+                          {voucher.description}
+                        </p>
+
+                        {/* Row 3: Metadata condition pills */}
+                        <div className="flex items-center gap-3 text-[11px] text-slate-500 pt-0.5 flex-wrap">
+                          <span className="flex items-center gap-1">
+                            <span className="material-symbols-outlined text-xs text-purple-600">inventory_2</span>
+                            <span className="line-clamp-1">
+                              {voucher.applicableScope === 'ALL'
+                                ? 'Áp dụng mọi gói dịch vụ'
+                                : `Gói: ${(voucher.applicablePlans || []).join(', ')}`}
+                            </span>
+                          </span>
+
+                          {voucher.validTo && (
+                            <span className="flex items-center gap-1 text-slate-400">
+                              <span className="material-symbols-outlined text-xs">calendar_today</span>
+                              <span>HSD: {voucher.validTo}</span>
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Lý do không áp dụng */}
+                        {!isEligible && voucher.ineligibilityReason && (
+                          <div className="text-[11px] font-bold text-amber-800 bg-amber-50/80 px-2.5 py-1 rounded-xl border border-amber-200/80 flex items-center gap-1.5 mt-1">
+                            <span className="material-symbols-outlined text-xs shrink-0">info</span>
+                            <span>{voucher.ineligibilityReason}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Row 4: Bottom Action & Savings preview */}
+                      <div className="flex items-center justify-between pt-2 border-t border-purple-100/80 flex-wrap gap-2">
+                        <div>
+                          {isEligible && voucher.estimatedDiscount > 0 ? (
+                            <div className="text-xs font-black text-emerald-700 flex items-center gap-1">
+                              <span>Ước tính tiết kiệm:</span>
+                              <span className="text-sm font-black bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded-lg">
+                                -{formatVND(voucher.estimatedDiscount)}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-[11px] text-slate-400 italic">
+                              Giảm {voucher.discountPercent}% giá trị đơn hàng
+                            </span>
+                          )}
+                        </div>
+
+                        <div>
+                          {isCurrentApplied ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (onRemoveVoucher) onRemoveVoucher();
+                              }}
+                              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-rose-600 text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm group"
+                              title="Bấm để gỡ bỏ voucher này"
+                            >
+                              <span className="group-hover:hidden flex items-center gap-1.5">
+                                <span className="material-symbols-outlined text-sm">check_circle</span>
+                                <span>Đang Áp Dụng</span>
+                              </span>
+                              <span className="hidden group-hover:flex items-center gap-1.5">
+                                <span className="material-symbols-outlined text-sm">close</span>
+                                <span>Gỡ Mã</span>
+                              </span>
+                            </button>
+                          ) : isEligible ? (
+                            <button
+                              type="button"
+                              onClick={() => handleApplySingleVoucher(voucher)}
+                              className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#5b48bd] to-[#4338ca] hover:from-[#4a39a7] hover:to-[#3730a3] text-white text-xs font-bold transition-all cursor-pointer shadow-sm hover:scale-[1.03] active:scale-[0.98] flex items-center gap-1.5"
+                            >
+                              <span className="material-symbols-outlined text-sm">add_task</span>
+                              <span>Áp Dụng Ngay</span>
+                            </button>
+                          ) : (
+                            <span className="px-3.5 py-1.5 rounded-xl bg-slate-200 text-slate-500 text-xs font-bold cursor-not-allowed inline-flex items-center gap-1">
+                              <span className="material-symbols-outlined text-xs">lock</span>
+                              <span>Không Khả Dụng</span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
-
-                    {/* Lý do không áp dụng nếu không hợp lệ */}
-                    {!isEligible && voucher.ineligibilityReason && (
-                      <p className="text-[10px] font-bold text-amber-700 flex items-center gap-1 pt-0.5">
-                        <span className="material-symbols-outlined text-xs">info</span>
-                        <span>{voucher.ineligibilityReason}</span>
-                      </p>
-                    )}
                   </div>
-
-                  {/* Right: Action Button & Discount preview */}
-                  <div className="flex sm:flex-col items-center sm:items-end justify-between shrink-0 gap-1.5 pt-1 sm:pt-0 border-t sm:border-t-0 border-slate-200">
-                    {isEligible && voucher.estimatedDiscount > 0 && (
-                      <span className="text-[11px] font-black text-emerald-700">
-                        Tiết kiệm: -{formatVND(voucher.estimatedDiscount)}
-                      </span>
-                    )}
-
-                    {isCurrentApplied ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (onRemoveVoucher) onRemoveVoucher();
-                        }}
-                        className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-rose-600 text-white text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1 group"
-                        title="Bấm để gỡ bỏ voucher này"
-                      >
-                        <span className="group-hover:hidden flex items-center gap-1">
-                          <span className="material-symbols-outlined text-xs">check</span>
-                          <span>Đang Áp Dụng</span>
-                        </span>
-                        <span className="hidden group-hover:flex items-center gap-1">
-                          <span className="material-symbols-outlined text-xs">close</span>
-                          <span>Gỡ Mã</span>
-                        </span>
-                      </button>
-                    ) : isEligible ? (
-                      <button
-                        type="button"
-                        onClick={() => handleApplySingleVoucher(voucher)}
-                        className="px-3 py-1.5 rounded-lg bg-[#5b48bd] hover:bg-[#4a39a7] text-white text-[11px] font-bold transition-all cursor-pointer shadow-2xs hover:scale-102 flex items-center gap-1"
-                      >
-                        <span className="material-symbols-outlined text-xs">add_task</span>
-                        <span>Áp Dụng Ngay</span>
-                      </button>
-                    ) : (
-                      <span className="px-2.5 py-1 rounded-lg bg-slate-200 text-slate-500 text-[10px] font-bold cursor-not-allowed">
-                        Không Khả Dụng
-                      </span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </div>
       )}
