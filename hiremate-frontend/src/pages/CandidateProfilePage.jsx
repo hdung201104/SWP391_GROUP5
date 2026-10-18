@@ -3,6 +3,7 @@ import { useLivingTheme } from '../context/LivingThemeContext';
 import { cvApi } from '../api/cvApi';
 import { candidateApi } from '../api/candidateApi';
 import { jobApi } from '../api/jobApi';
+import { extractBlob } from '../utils/excelExportUtils';
 import JobDetailModal from '../components/jobs/JobDetailModal';
 import ApplyJobModal from '../components/jobs/ApplyJobModal';
 
@@ -986,24 +987,26 @@ export default function CandidateProfilePage({ user }) {
     try {
       showToast(`Đang tải tệp ${file.name || 'CV'}...`);
       if (file.id) {
-        const response = await cvApi.downloadCv(file.id);
-        const blob = new Blob([response.data]);
-        if (blob.size === 0) {
-          showToast('Tệp không tồn tại hoặc rỗng trên hệ thống.', 'error');
-          return;
+        try {
+          const response = await cvApi.downloadCv(file.id);
+          const blob = extractBlob(response, 'application/pdf');
+          if (blob && blob.size > 0) {
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', file.name || 'CV.pdf');
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+            showToast(`Tải về tệp "${file.name || 'CV'}" thành công!`);
+            return;
+          }
+        } catch (apiErr) {
+          console.warn('API downloadCv error, falling back to direct URL:', apiErr);
         }
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', file.name || 'CV.pdf');
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url);
-        showToast(`Tải về tệp "${file.name || 'CV'}" thành công!`);
-        return;
       }
-      if (file.fileUrl) {
+      if (file.fileUrl && file.fileUrl.startsWith('http')) {
         const link = document.createElement('a');
         link.href = file.fileUrl;
         link.setAttribute('download', file.name || 'CV.pdf');
@@ -1012,7 +1015,9 @@ export default function CandidateProfilePage({ user }) {
         link.click();
         link.remove();
         showToast(`Tải về tệp "${file.name || 'CV'}" thành công!`);
+        return;
       }
+      showToast('Tệp không tồn tại hoặc rỗng trên hệ thống.', 'error');
     } catch (err) {
       console.error('Download CV failed:', err);
       if (file.fileUrl) {

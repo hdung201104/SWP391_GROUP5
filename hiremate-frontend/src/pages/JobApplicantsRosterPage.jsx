@@ -5,6 +5,219 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import { parseSkillList } from '../utils/helpers';
 import { createHrToCandidateMailto } from '../utils/emailUtils';
 import CvViewModal from '../components/common/CvViewModal';
+import { HIREMATE_LOGO_URL } from '../constants/branding';
+import { exportCandidatesToExcel } from '../utils/excelExportUtils';
+
+// Dynamic AI Diagnostic Generator for Candidate Evaluation
+function generateComprehensiveAiReport(cand, jobDetails) {
+  if (!cand) return null;
+
+  const score = cand.matchScore || 0;
+  const mandatoryMatched = cand.mandatoryMatched || [];
+  const mandatoryMissing = cand.mandatoryMissing || [];
+  const preferredMatched = cand.preferredMatched || [];
+  const jobTitle = jobDetails?.title || 'Vị trí Tuyển Dụng';
+
+  // 1. Skill Strengths Knowledge Base
+  const strengthDict = {
+    postgresql: {
+      title: 'Hệ Quản Trị CSDL Quan Hệ PostgreSQL',
+      desc: 'Nắm vững thiết kế lược đồ quan hệ chuẩn 3NF, phân tách dữ liệu, tối ưu hóa truy vấn phức tạp (Index B-Tree, GIN, Partial Index) và đảm bảo tính toàn vẹn dữ liệu ACID.',
+      source: 'Kinh nghiệm thực tế từ CV',
+      level: 'Thành thạo thực chiến',
+    },
+    mysql: {
+      title: 'Hệ Quản Trị CSDL MySQL / MariaDB',
+      desc: 'Thành thạo tối ưu hóa câu lệnh SQL, quản lý kết nối Connection Pool, đánh chỉ mục Index và phân tích Query Execution Plan.',
+      source: 'Kinh nghiệm dự án từ CV',
+      level: 'Thành thạo thực chiến',
+    },
+    brse: {
+      title: 'Kỹ Sư Cầu Nối Kỹ Thuật (BrSE)',
+      desc: 'Giao tiếp kỹ thuật song ngữ tốt, thành thạo phân tích tài liệu đặc tả (BRD/SRS), viết thiết kế cơ bản/chi tiết và điều phối dự án.',
+      source: 'Hồ sơ kinh nghiệm từ CV',
+      level: 'Kỹ năng chủ lực',
+    },
+    kafka: {
+      title: 'Apache Kafka & Kiến Trúc Event-Driven',
+      desc: 'Hiểu biết và ứng dụng Message Queue phân tán, thiết kế cơ chế Pub/Sub decoupling vi dịch vụ, xử lý luồng dữ liệu bất đồng bộ.',
+      source: 'Kỹ năng ghi nhận từ CV',
+      level: 'Lợi thế cộng thêm',
+    },
+    docker: {
+      title: 'Docker & Containerization',
+      desc: 'Nắm vững đóng gói ứng dụng với Dockerfile, quản lý multi-container với Docker Compose, hỗ trợ CI/CD.',
+      source: 'Kỹ năng ghi nhận từ CV',
+      level: 'Lợi thế cộng thêm',
+    },
+    java: {
+      title: 'Lập Trình Java Core & OOP',
+      desc: 'Nền tảng OOP vững chắc, hiểu biết về JVM Memory Model, Garbage Collection, Collections Framework.',
+      source: 'Nền tảng kỹ thuật từ CV',
+      level: 'Kỹ năng nền tảng',
+    },
+    'spring boot': {
+      title: 'Spring Boot & RESTful APIs',
+      desc: 'Thành thạo xây dựng backend service, Dependency Injection, Spring Data JPA và bảo mật API.',
+      source: 'Kinh nghiệm backend từ CV',
+      level: 'Chuyên môn backend',
+    },
+    react: {
+      title: 'Frontend Hiện Đại với React.js',
+      desc: 'Xây dựng UI component-based, React Hooks, quản lý state và tối ưu hóa hiệu năng render giao diện.',
+      source: 'Kinh nghiệm frontend từ CV',
+      level: 'Chuyên môn frontend',
+    },
+    git: {
+      title: 'Quản Lý Mã Nguồn Git',
+      desc: 'Thành thạo branching, merge, rebase, xử lý conflict và tuân thủ quy trình code review chuẩn.',
+      source: 'Kỹ năng làm việc nhóm từ CV',
+      level: 'Kỹ năng cơ bản',
+    },
+    test: {
+      title: 'Kiểm Thử Phần Mềm & Thiết Kế Test Case',
+      desc: 'Hiểu biết về quy trình kiểm thử, viết kịch bản kiểm thử (Test Cases), kiểm thử chức năng và báo cáo lỗi.',
+      source: 'Kỹ năng kiểm thử từ CV',
+      level: 'Kỹ năng kiểm thử',
+    },
+  };
+
+  const strengthsList = [];
+  mandatoryMatched.forEach((skill) => {
+    const key = skill.toLowerCase().trim();
+    const matchedKey = Object.keys(strengthDict).find(k => key.includes(k) || k.includes(key));
+    if (matchedKey) {
+      strengthsList.push({
+        skillName: skill,
+        ...strengthDict[matchedKey],
+        type: 'MANDATORY',
+      });
+    } else {
+      strengthsList.push({
+        skillName: skill,
+        title: `Kỹ Năng Cốt Lõi: ${skill}`,
+        desc: `Hồ sơ ứng viên đã chứng minh kinh nghiệm thực tiễn và năng lực làm việc trực tiếp với ${skill} qua các dự án ghi trong CV.`,
+        source: 'Xác thực từ kinh nghiệm trong CV',
+        level: 'Đạt chuẩn bắt buộc',
+        type: 'MANDATORY',
+      });
+    }
+  });
+
+  preferredMatched.forEach((skill) => {
+    const key = skill.toLowerCase().trim();
+    const matchedKey = Object.keys(strengthDict).find(k => key.includes(k) || k.includes(key));
+    if (matchedKey) {
+      strengthsList.push({
+        skillName: skill,
+        ...strengthDict[matchedKey],
+        type: 'PREFERRED',
+      });
+    } else {
+      strengthsList.push({
+        skillName: skill,
+        title: `Kỹ Năng Ưu Tiên: ${skill}`,
+        desc: `Ứng viên có kiến thức nền tảng và đã sử dụng ${skill}, là điểm cộng bổ sung giá trị cho công việc.`,
+        source: 'Kỹ năng ưu tiên từ CV',
+        level: 'Lợi thế cộng thêm',
+        type: 'PREFERRED',
+      });
+    }
+  });
+
+  // Dynamic Strengths Summary
+  let strengthsSummary = '';
+  if (strengthsList.length > 0) {
+    const skillNames = strengthsList.map(s => s.skillName).join(', ');
+    strengthsSummary = `Ứng viên thể hiện thế mạnh rõ nét ở các kỹ năng: ${skillNames}. Đây là nhóm năng lực cốt lõi có thể phát huy ngay cho dự án.`;
+  } else {
+    strengthsSummary = `Hồ sơ ứng viên hiện chưa thể hiện các kỹ năng hoặc kinh nghiệm phù hợp với yêu cầu bắt buộc của vị trí tuyển dụng này.`;
+  }
+
+  // 2. Skill Deficiencies & Gaps Knowledge Base
+  const gapDict = {
+    'java 21': {
+      title: 'Thiếu minh chứng thực chiến với Java 21 LTS',
+      risk: 'Trung bình',
+      impact: 'Java 21 có các tính năng mới như Virtual Threads, Record Patterns. Nếu dự án yêu cầu, ứng viên cần thời gian làm quen.',
+      upskillTime: '1 - 2 tuần',
+      recommendation: 'Kiểm tra kiến thức Java Core và khả năng tiếp thu công nghệ mới trong phỏng vấn.',
+    },
+    'spring boot 3': {
+      title: 'Chưa có kinh nghiệm với Spring Boot 3 / Jakarta EE',
+      risk: 'Trung bình',
+      impact: 'Spring Boot 3 yêu cầu Java 17+ và chuyển toàn bộ sang jakarta.* namespace. Ứng viên quen với Spring Boot 2 có thể cần thời gian thích nghi.',
+      upskillTime: '2 - 3 tuần',
+      recommendation: 'Cho làm bài test nhỏ về cấu hình SecurityFilterChain và Jakarta EE.',
+    },
+    'kafka': {
+      title: 'Chưa thể hiện kiến trúc Message Broker với Kafka',
+      risk: 'Thấp',
+      impact: 'Có thể cần hướng dẫn thêm về cơ chế Pub/Sub và xử lý dữ liệu bất đồng bộ.',
+      upskillTime: '1 - 2 tuần',
+      recommendation: 'Trao đổi về kiến trúc hệ thống và message queues khi phỏng vấn.',
+    },
+    'docker': {
+      title: 'Chưa rõ kinh nghiệm đóng gói Container Docker',
+      risk: 'Thấp',
+      impact: 'Có thể cần hỗ trợ thiết lập môi trường container local trong giai đoạn đầu.',
+      upskillTime: '3 - 5 ngày',
+      recommendation: 'Kiểm tra hiểu biết cơ bản về Dockerfile và docker-compose.',
+    },
+  };
+
+  const weaknessesList = [];
+  mandatoryMissing.forEach((skill) => {
+    const key = skill.toLowerCase().trim();
+    const matchedKey = Object.keys(gapDict).find(k => key.includes(k) || k.includes(key));
+    if (matchedKey) {
+      weaknessesList.push({
+        skillName: skill,
+        ...gapDict[matchedKey],
+      });
+    } else {
+      weaknessesList.push({
+        skillName: skill,
+        title: `Chưa có thông tin đối soát cho: "${skill}"`,
+        risk: 'Cần lưu ý',
+        impact: `Hồ sơ CV chưa thể hiện thời gian làm việc hoặc dự án thực tế liên quan đến "${skill}". Đây là yêu cầu bắt buộc thuộc 70% trọng số của JD.`,
+        upskillTime: '2 - 4 tuần đào tạo bổ sung',
+        recommendation: `HR nên kiểm tra kỹ năng này qua bài test đầu vào hoặc trao đổi trực tiếp khi phỏng vấn.`,
+      });
+    }
+  });
+
+  // Dynamic Weaknesses Summary
+  let weaknessesSummary = '';
+  if (weaknessesList.length > 0) {
+    const missingNames = weaknessesList.map(w => w.skillName).join(', ');
+    if (score >= 60) {
+      weaknessesSummary = `Hồ sơ còn khoảng trống ở kỹ năng: ${missingNames}. Đây là rủi ro có thể kiểm soát (Manageable Risk), có thể bù đắp qua đào tạo 1 - 3 tuần nếu ứng viên có thái độ tốt.`;
+    } else {
+      weaknessesSummary = `Hồ sơ thiếu hụt đáng kể các yêu cầu cốt lõi: ${missingNames}. Cần cân nhắc kỹ trước khi tuyển dụng do thời gian đào tạo bù đắp có thể kéo dài.`;
+    }
+  } else {
+    weaknessesSummary = `Ứng viên đáp ứng đầy đủ tất cả các yêu cầu kỹ năng bắt buộc của vị trí tuyển dụng này.`;
+  }
+
+  const totalMandatory = Math.max(1, mandatoryMatched.length + mandatoryMissing.length);
+  const mandatoryScore = Math.round((mandatoryMatched.length / totalMandatory) * 100);
+  const preferredScore = preferredMatched.length > 0 ? 100 : 0;
+
+  return {
+    score,
+    jobTitle,
+    strengthsList,
+    strengthsSummary,
+    weaknessesList,
+    weaknessesSummary,
+    mandatoryCount: mandatoryMatched.length,
+    mandatoryTotal: totalMandatory,
+    mandatoryScore,
+    preferredCount: preferredMatched.length,
+    preferredScore,
+  };
+}
 
 export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJobs }) {
   const { theme: livingTheme, luminosity } = useLivingTheme();
@@ -261,23 +474,27 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
     }
   };
 
-  // Export CSV
+  // Export Native Excel (.xlsx)
   const handleExportCsv = async () => {
     try {
       setIsExporting(true);
-      triggerToast('Đang chuẩn bị xuất file Excel danh sách ứng viên...');
-      const response = await applicationApi.exportJobApplicationsCsv(jobDetails.id);
-      const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `DS_Ung_Vien_${jobDetails.code}_${new Date().toISOString().slice(0, 10)}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      triggerToast('Đã tải xuống file Excel danh sách ứng viên thành công!');
+      triggerToast('Đang tạo tệp Excel danh sách ứng viên...');
+      
+      const listToExport = filteredCandidates.length > 0 ? filteredCandidates : candidates;
+      if (!listToExport || listToExport.length === 0) {
+        triggerToast('Chưa có ứng viên nào để xuất dữ liệu.');
+        return;
+      }
+
+      exportCandidatesToExcel({
+        candidates: listToExport,
+        jobDetails: jobDetails,
+      });
+
+      triggerToast('Đã tải xuống file Excel danh sách ứng viên thành công (.xlsx)!');
     } catch (err) {
-      triggerToast('Lỗi xuất file Excel: ' + (err.response?.data?.message || err.message));
+      console.error('Lỗi xuất file Excel:', err);
+      triggerToast('Lỗi xuất file Excel: ' + (err.message || 'Không thể tạo file'));
     } finally {
       setIsExporting(false);
     }
@@ -784,16 +1001,16 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
               paginatedCandidates.map((cand) => (
                 <div
                   key={cand.id}
-                  className={`p-5 rounded-2xl flex flex-col xl:flex-row xl:items-center justify-between gap-5 transition-all shadow-xs hover:shadow-md hover:border-purple-300 group border border-slate-200/90 bg-white ${
+                  className={`p-5 rounded-2xl flex flex-col xl:flex-row xl:items-center justify-between gap-4 transition-all shadow-xs hover:shadow-md hover:border-purple-300 group border border-slate-200/90 bg-white ${
                     cand.isLowerScore ? 'opacity-90' : ''
                   }`}
                 >
-                  {/* Col 1: Identity & Credentials */}
+                  {/* Col 1: Identity & Credentials (26% fixed width on XL) */}
                   <div 
                     onClick={() => {
                       window.location.hash = `#/candidate-evaluation?candidateId=${cand.candidateId}&jobId=${jobDetails.id}`;
                     }}
-                    className="flex items-start gap-3.5 min-w-0 xl:w-[32%] cursor-pointer"
+                    className="flex items-start gap-3.5 min-w-0 xl:w-[26%] shrink-0 cursor-pointer"
                     title="Nhấp để xem hồ sơ và CV chi tiết của ứng viên này"
                   >
                     <div className="relative shrink-0">
@@ -853,8 +1070,8 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                     </div>
                   </div>
 
-                  {/* Col 2: Match Badge, Tech Stack Chips & Open AI Report Button */}
-                  <div className="flex flex-col gap-2 min-w-0 xl:w-[38%]">
+                  {/* Col 2: Match Badge, Tech Stack Chips & Open AI Report Button (Flex-1 fills middle, nicely grouped) */}
+                  <div className="flex flex-col gap-2 min-w-0 xl:flex-1 xl:px-4">
                     <div className="flex items-center gap-2 flex-wrap">
                       <div
                         className={`px-2.5 py-0.5 rounded-full flex items-center gap-1 border shrink-0 ${
@@ -877,11 +1094,11 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                         {cand.matchCategory}
                       </span>
 
-                      {/* Button to open dedicated AI evaluation report modal */}
+                      {/* Button to open dedicated AI evaluation report modal - cleanly grouped with no ml-auto */}
                       <button
                         type="button"
                         onClick={() => setSelectedCandidateForModal(cand)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-purple-50 hover:bg-purple-100 text-[#5b48bd] border border-purple-200 hover:border-purple-300 text-[11px] font-bold transition-all cursor-pointer shadow-2xs hover:scale-105 ml-auto shrink-0"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-purple-50 hover:bg-purple-100 text-[#5b48bd] border border-purple-200 hover:border-purple-300 text-[11px] font-bold transition-all cursor-pointer shadow-2xs hover:scale-105 shrink-0"
                         title="Xem báo cáo phân tích CV chi tiết do AI xử lý"
                       >
                         <span className="material-symbols-outlined text-[14px] text-purple-600">auto_awesome</span>
@@ -917,8 +1134,8 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                     </div>
                   </div>
 
-                  {/* Col 3: Actions & Status Management (No wrapping chaos, beautifully aligned) */}
-                  <div className="flex items-center justify-between xl:justify-end gap-2 shrink-0 xl:w-[28%] flex-wrap sm:flex-nowrap">
+                  {/* Col 3: Actions & Status Management (Shrink-0, intrinsic width, perfectly aligned right, no overlapping) */}
+                  <div className="flex items-center justify-start xl:justify-end gap-2 shrink-0 flex-wrap sm:flex-nowrap">
                     {/* Direct Quick View CV Modal */}
                     <button
                       type="button"
@@ -1038,286 +1255,359 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
       {/* ======================================================== */}
       {/* CANDIDATE AI EVALUATION & CV DETAIL MODAL (BÁO CÁO AI)   */}
       {/* ======================================================== */}
-      {selectedCandidateForModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fade-in font-sans">
-          <div className="relative w-full max-w-3xl bg-white border border-slate-200/90 rounded-[28px] p-6 sm:p-8 max-h-[92vh] overflow-y-auto shadow-2xl space-y-6 text-slate-800">
-            {/* Close Button */}
-            <button
-              onClick={() => setSelectedCandidateForModal(null)}
-              className="absolute top-6 right-6 w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 flex items-center justify-center transition-colors cursor-pointer"
-              title="Đóng báo cáo"
-            >
-              <span className="material-symbols-outlined text-base">close</span>
-            </button>
-
-            {/* Modal Title Banner */}
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-600 text-white flex items-center justify-center shadow-md shrink-0">
-                <span className="material-symbols-outlined text-2xl">auto_awesome</span>
-              </div>
-              <div>
-                <h3 className="text-lg sm:text-xl font-bold text-slate-900">
-                  Báo Cáo Đánh Giá &amp; So Khớp CV (HireMate AI)
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Thuật toán độc quyền đối soát hồ sơ ứng viên với bản mô tả công việc (JD) chuẩn 70/30
-                </p>
-              </div>
-            </div>
-
-            {/* Candidate Identity Bar & Overall Score Gauge */}
-            <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3.5">
-                {selectedCandidateForModal.avatar ? (
-                  <img
-                    className="w-14 h-14 rounded-2xl object-cover ring-2 ring-purple-200 shadow-xs shrink-0"
-                    src={selectedCandidateForModal.avatar}
-                    alt={selectedCandidateForModal.name}
-                  />
-                ) : (
-                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-100 to-indigo-100 text-[#5b48bd] flex items-center justify-center font-bold text-xl border border-purple-200 shadow-xs shrink-0">
-                    {selectedCandidateForModal.initials}
-                  </div>
-                )}
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h4 className="text-base font-bold text-slate-900">
-                      {selectedCandidateForModal.name}
-                    </h4>
-                    {selectedCandidateForModal.rank && (
-                      <span className="px-2 py-0.2 rounded-full text-[10px] font-extrabold bg-amber-500 text-white shadow-2xs">
-                        #{selectedCandidateForModal.rank} Top
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-slate-500 font-medium mt-0.5">{selectedCandidateForModal.role}</p>
-                  <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-1">
-                    <span>Nộp lúc: <strong className="text-slate-600">{selectedCandidateForModal.appliedTime}</strong></span>
-                    <span>&bull;</span>
-                    <span className="text-emerald-700 font-semibold">{selectedCandidateForModal.statusLabel}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Big Score Box */}
-              <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center border-t sm:border-t-0 sm:border-l border-slate-200 pt-3 sm:pt-0 sm:pl-5 shrink-0">
-                <div className="flex items-center gap-2">
-                  <span className={`text-2xl sm:text-3xl font-extrabold ${
-                    selectedCandidateForModal.matchScore >= 80 ? 'text-emerald-600' : selectedCandidateForModal.matchScore >= 65 ? 'text-purple-600' : 'text-amber-600'
-                  }`}>
-                    {selectedCandidateForModal.matchScore}%
-                  </span>
-                  <span className="text-xs font-bold text-slate-400 uppercase">Match</span>
-                </div>
-                <span className={`text-xs font-bold px-3 py-1 rounded-full border mt-1 ${
-                  selectedCandidateForModal.matchScore >= 80
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                    : selectedCandidateForModal.matchScore >= 65
-                    ? 'bg-purple-50 text-purple-700 border-purple-200'
-                    : 'bg-amber-50 text-amber-700 border-amber-200'
-                }`}>
-                  {selectedCandidateForModal.matchCategory}
-                </span>
-              </div>
-            </div>
-
-            {/* 70/30 Weight Formula Banner */}
-            <div className="p-3.5 rounded-xl bg-purple-50/60 border border-purple-100 flex items-center justify-between gap-3 text-xs text-purple-900">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-purple-700 text-lg">balance</span>
-                <span><strong>Công thức chấm điểm:</strong> 70% Kỹ năng bắt buộc (Mandatory) + 30% Kỹ năng ưu tiên (Preferred)</span>
-              </div>
-              <span className="text-[11px] font-bold text-purple-700 shrink-0">Rule 3 Enforced</span>
-            </div>
-
-            {/* Skills Verification Matrix (70/30) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Mandatory Skills Box (70%) */}
-              <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5 uppercase tracking-wide">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                    <span>Kỹ Năng Bắt Buộc (70%)</span>
-                  </span>
-                  <span className="text-[11px] text-slate-500 font-medium">Yêu cầu cốt lõi</span>
-                </div>
-
-                {/* Matched Mandatory */}
-                <div className="space-y-1.5">
-                  <div className="text-[11px] font-semibold text-emerald-800 flex items-center gap-1">
-                    <span className="material-symbols-outlined text-[14px] text-emerald-600">check_circle</span>
-                    <span>Đã đáp ứng ({selectedCandidateForModal.mandatoryMatched?.length || 0}):</span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {selectedCandidateForModal.mandatoryMatched && selectedCandidateForModal.mandatoryMatched.length > 0 ? (
-                      selectedCandidateForModal.mandatoryMatched.map((s, idx) => (
-                        <span key={idx} className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          {s}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-[11px] text-slate-400 italic">Chưa đối soát kỹ năng khớp</span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Missing Mandatory */}
-                {selectedCandidateForModal.mandatoryMissing && selectedCandidateForModal.mandatoryMissing.length > 0 && (
-                  <div className="space-y-1.5 pt-2 border-t border-slate-100">
-                    <div className="text-[11px] font-semibold text-rose-800 flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[14px] text-rose-600">cancel</span>
-                      <span>Còn thiếu hoặc chưa rõ ({selectedCandidateForModal.mandatoryMissing.length}):</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {selectedCandidateForModal.mandatoryMissing.map((s, idx) => (
-                        <span key={idx} className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-rose-50 text-rose-700 border border-rose-200">
-                          {s}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Preferred Skills Box (30%) */}
-              <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5 uppercase tracking-wide">
-                    <span className="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
-                    <span>Kỹ Năng Ưu Tiên (30%)</span>
-                  </span>
-                  <span className="text-[11px] text-slate-500 font-medium">Điểm cộng thêm</span>
-                </div>
-
-                <div className="space-y-1.5">
-                  <div className="text-[11px] font-semibold text-purple-800 flex items-center gap-1">
-                    <span className="material-symbols-outlined text-[14px] text-purple-600">star</span>
-                    <span>Kỹ năng bổ trợ ghi nhận:</span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {selectedCandidateForModal.preferredMatched && selectedCandidateForModal.preferredMatched.length > 0 ? (
-                      selectedCandidateForModal.preferredMatched.map((s, idx) => (
-                        <span key={idx} className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-purple-50 text-purple-700 border border-purple-200">
-                          {s}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-[11px] text-slate-400 italic">Không có kỹ năng ưu tiên bổ sung</span>
-                    )}
-                  </div>
-                </div>
-
-                {/* All Tech Chips Fallback if matrix empty */}
-                {(!selectedCandidateForModal.mandatoryMatched || selectedCandidateForModal.mandatoryMatched.length === 0) && (
-                  <div className="space-y-1.5 pt-2 border-t border-slate-100">
-                    <div className="text-[11px] font-semibold text-slate-700">Tất cả kỹ năng bóc tách từ CV:</div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {selectedCandidateForModal.techChips?.map((chip, idx) => (
-                        <span key={idx} className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
-                          {chip.name}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* AI Copilot In-depth Evaluation (The complete reasoning from Gemini ATS) */}
-            <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-purple-50/90 via-indigo-50/50 to-white border border-purple-200 space-y-2.5 shadow-2xs">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-xs font-bold text-[#5b48bd] uppercase tracking-wider">
-                  <span className="material-symbols-outlined text-lg text-[#5b48bd]">psychology</span>
-                  <span>Đánh Giá Chuyên Sâu Từ AI Copilot (Gemini Engine)</span>
-                </div>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 text-[#5b48bd]">
-                  ATS Verified
-                </span>
-              </div>
-              <p className="text-xs sm:text-sm leading-relaxed text-slate-700 whitespace-pre-line font-medium">
-                {selectedCandidateForModal.aiQuote}
-              </p>
-              <div className="pt-2 border-t border-purple-100/80 flex items-center gap-2 text-xs text-purple-900 font-semibold">
-                <span className="material-symbols-outlined text-base text-purple-600">lightbulb</span>
-                <span>Khuyến nghị phỏng vấn: Tập trung đánh giá kinh nghiệm thực chiến và giải quyết vấn đề kỹ thuật.</span>
-              </div>
-            </div>
-
-            {/* Attached CV Preview Box */}
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
-                  <span className="material-symbols-outlined text-xl">picture_as_pdf</span>
-                </div>
-                <div className="min-w-0">
-                  <div className="text-xs font-bold text-slate-900 truncate">
-                    CV_{selectedCandidateForModal.name.replace(/\s+/g, '_')}.pdf
-                  </div>
-                  <div className="text-[11px] text-slate-500 font-mono">Bản CV gốc ứng viên đã nộp qua hệ thống</div>
-                </div>
-              </div>
+      {selectedCandidateForModal && (() => {
+        const report = generateComprehensiveAiReport(selectedCandidateForModal, jobDetails);
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-md animate-fade-in font-sans">
+            <div className="relative w-full max-w-4xl bg-white border border-slate-200/90 rounded-[28px] p-6 sm:p-8 max-h-[92vh] overflow-y-auto shadow-2xl space-y-6 text-slate-800">
+              {/* Close Button */}
               <button
-                type="button"
-                onClick={() => setViewingCvCandidate(selectedCandidateForModal)}
-                className="px-4 py-2 rounded-xl bg-white hover:bg-purple-50 text-purple-700 text-xs font-bold border border-purple-200 transition-colors cursor-pointer shadow-xs flex items-center gap-1.5 shrink-0"
-              >
-                <span className="material-symbols-outlined text-sm text-purple-600">visibility</span>
-                <span>Mở Xem CV</span>
-              </button>
-            </div>
-
-            {/* Modal Actions */}
-            <div className="pt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t border-slate-200">
-              <button
-                type="button"
                 onClick={() => setSelectedCandidateForModal(null)}
-                className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold border border-slate-200 cursor-pointer text-center"
+                className="absolute top-6 right-6 w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 flex items-center justify-center transition-colors cursor-pointer z-10"
+                title="Đóng báo cáo"
               >
-                Đóng Báo Cáo
+                <span className="material-symbols-outlined text-base">close</span>
               </button>
 
-              <div className="flex items-center gap-2.5 justify-end">
-                <a
-                  href={createHrToCandidateMailto({
-                    candidateEmail: selectedCandidateForModal.email || selectedCandidateForModal.role,
-                    candidateName: selectedCandidateForModal.name,
-                    jobTitle: jobDetails.title,
-                    companyName: user?.companyName || user?.company?.companyName || 'Công ty Tuyển dụng',
-                    hrName: user?.fullName || user?.name || 'Bộ phận Tuyển dụng',
-                    hrPosition: user?.position || 'Talent Acquisition Team',
-                  })}
-                  className="px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200 hover:border-emerald-300 transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                >
-                  <span className="material-symbols-outlined text-sm text-emerald-600">mail</span>
-                  <span>Gửi Email</span>
-                </a>
+              {/* Modal Title Banner with Official HireMate AI Logo */}
+              <div className="flex items-center gap-3.5 pr-10">
+                <div className="w-12 h-12 rounded-2xl bg-white p-2 border border-slate-200/90 shadow-xs flex items-center justify-center shrink-0 ring-1 ring-purple-100">
+                  <img
+                    src={HIREMATE_LOGO_URL}
+                    alt="HireMate AI"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
+                      Báo Cáo Đánh Giá &amp; So Khớp Hồ Sơ (HireMate AI)
+                    </h3>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200/80">
+                      <span className="w-1.5 h-1.5 rounded-full bg-purple-600 animate-pulse"></span>
+                      70/30 ATS Model
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Hệ thống đối soát năng lực ứng viên &amp; phân tích độ phù hợp kỹ năng theo tiêu chuẩn JD: {report.jobTitle}
+                  </p>
+                </div>
+              </div>
 
+              {/* Candidate Identity Bar & Overall Score Gauge */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3.5">
+                  {selectedCandidateForModal.avatar ? (
+                    <img
+                      className="w-14 h-14 rounded-2xl object-cover ring-2 ring-purple-200 shadow-xs shrink-0"
+                      src={selectedCandidateForModal.avatar}
+                      alt={selectedCandidateForModal.name}
+                    />
+                  ) : (
+                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-100 to-indigo-100 text-[#5b48bd] flex items-center justify-center font-bold text-xl border border-purple-200 shadow-xs shrink-0">
+                      {selectedCandidateForModal.initials}
+                    </div>
+                  )}
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-base font-bold text-slate-900">
+                        {selectedCandidateForModal.name}
+                      </h4>
+                      {selectedCandidateForModal.rank && (
+                        <span className="px-2 py-0.2 rounded-full text-[10px] font-extrabold bg-amber-500 text-white shadow-2xs">
+                          #{selectedCandidateForModal.rank} Top
+                        </span>
+                      )}
+                      <span className="material-symbols-outlined text-emerald-600 text-[16px]" title="Hồ sơ đã qua thẩm định ATS">
+                        verified
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 font-medium mt-0.5">{selectedCandidateForModal.role}</p>
+                    <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-1">
+                      <span>Nộp lúc: <strong className="text-slate-600">{selectedCandidateForModal.appliedTime}</strong></span>
+                      <span>&bull;</span>
+                      <span className="text-emerald-700 font-semibold">{selectedCandidateForModal.statusLabel}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Big Score Box */}
+                <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center border-t sm:border-t-0 sm:border-l border-slate-200 pt-3 sm:pt-0 sm:pl-5 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-3xl font-extrabold ${
+                      selectedCandidateForModal.matchScore >= 80 ? 'text-emerald-600' : selectedCandidateForModal.matchScore >= 65 ? 'text-purple-600' : 'text-amber-600'
+                    }`}>
+                      {selectedCandidateForModal.matchScore}%
+                    </span>
+                    <span className="text-xs font-bold text-slate-400 uppercase">Match Score</span>
+                  </div>
+                  <span className={`text-xs font-bold px-3 py-1 rounded-full border mt-1 ${
+                    selectedCandidateForModal.matchScore >= 80
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      : selectedCandidateForModal.matchScore >= 65
+                      ? 'bg-purple-50 text-purple-700 border-purple-200'
+                      : 'bg-amber-50 text-amber-700 border-amber-200'
+                  }`}>
+                    {selectedCandidateForModal.matchCategory}
+                  </span>
+                </div>
+              </div>
+
+              {/* 70/30 Weight Formula Banner */}
+              <div className="p-3.5 rounded-xl bg-purple-50/70 border border-purple-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-purple-900">
+                <div className="flex items-center gap-2.5">
+                  <span className="material-symbols-outlined text-purple-700 text-lg shrink-0">balance</span>
+                  <div>
+                    <strong>Công thức chấm điểm chuẩn:</strong> 70% Kỹ năng bắt buộc (Mandatory) + 30% Kỹ năng ưu tiên (Preferred)
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 shrink-0 text-[11px] font-semibold text-purple-800">
+                  <span>Bắt buộc: <strong>{report.mandatoryCount}/{report.mandatoryTotal}</strong> ({report.mandatoryScore}%)</span>
+                  <span>&bull;</span>
+                  <span>Ưu tiên: <strong>{report.preferredCount}</strong> kỹ năng</span>
+                </div>
+              </div>
+
+              {/* ======================================================== */}
+              {/* MỤC 1: ƯU ĐIỂM & NĂNG LỰC CỐT LÕI TỪ HỒ SƠ CV             */}
+              {/* ======================================================== */}
+              <div className="p-5 rounded-2xl bg-emerald-50/30 border border-emerald-200/80 space-y-4">
+                <div className="flex items-center justify-between border-b border-emerald-100 pb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                      <span className="material-symbols-outlined text-base">check_circle</span>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-emerald-950 uppercase tracking-wide">
+                        1. Ưu Điểm &amp; Năng Lực Thực Chiến Đã Thẩm Định Từ Hồ Sơ CV
+                      </h4>
+                      <p className="text-[11px] text-emerald-700">
+                        Các kỹ năng ứng viên đã có kinh nghiệm thực tế chứng minh qua CV và dự án trước đây
+                      </p>
+                    </div>
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0">
+                    {report.strengthsList.length} Thế mạnh ghi nhận
+                  </span>
+                </div>
+
+                {/* List of Verified Skills with Deep Analysis or Empty State */}
+                {report.strengthsList.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                    {report.strengthsList.map((st, idx) => (
+                      <div key={idx} className="p-3.5 rounded-xl bg-white border border-emerald-200/60 shadow-2xs space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="px-2.5 py-0.5 rounded-md text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            {st.skillName}
+                          </span>
+                          <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50/80 px-2 py-0.5 rounded-full border border-emerald-100">
+                            {st.level}
+                          </span>
+                        </div>
+                        <div className="text-xs font-bold text-slate-900">{st.title}</div>
+                        <p className="text-[11px] text-slate-600 leading-relaxed font-normal">
+                          {st.desc}
+                        </p>
+                        <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400">
+                          <span className="flex items-center gap-1 text-emerald-700 font-medium">
+                            <span className="material-symbols-outlined text-[13px]">verified_user</span>
+                            <span>{st.source}</span>
+                          </span>
+                          <span className="font-semibold text-slate-500">{st.type === 'MANDATORY' ? 'Bắt buộc (70%)' : 'Ưu tiên (30%)'}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-xl bg-white border border-emerald-200/60 flex items-center gap-3 text-slate-600 text-xs">
+                    <span className="material-symbols-outlined text-amber-500 text-xl shrink-0">info</span>
+                    <div>
+                      <p className="font-semibold text-slate-800">Chưa ghi nhận kỹ năng phù hợp trực tiếp trong CV</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">Hồ sơ ứng viên hiện chưa thể hiện rõ các từ khóa kỹ năng theo yêu cầu bắt buộc của tin tuyển dụng này.</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Strengths AI Executive Summary */}
+                <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200/80 text-xs text-emerald-950 flex items-start gap-2.5">
+                  <span className="material-symbols-outlined text-emerald-600 text-base shrink-0 mt-0.5">verified</span>
+                  <div className="leading-relaxed">
+                    <strong className="text-emerald-950 font-semibold">Nhận định thế mạnh từ AI Copilot: </strong>
+                    <span>{report.strengthsSummary}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* ======================================================== */}
+              {/* MỤC 2: PHÂN TÍCH LỖ HỔNG & ĐIỂM YẾU KÉM THEO JD          */}
+              {/* ======================================================== */}
+              <div className="p-5 rounded-2xl bg-rose-50/30 border border-rose-200/80 space-y-4">
+                <div className="flex items-center justify-between border-b border-rose-100 pb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
+                      <span className="material-symbols-outlined text-base">warning</span>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-rose-950 uppercase tracking-wide">
+                        2. Phân Tích Lỗ Hổng Kỹ Thuật &amp; Yêu Cầu Cần Bổ Sung
+                      </h4>
+                      <p className="text-[11px] text-rose-700">
+                        Chỉ rõ từng kỹ năng còn thiếu hoặc chưa rõ ràng trong hồ sơ, kèm mức độ rủi ro và khuyến nghị
+                      </p>
+                    </div>
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-200 shrink-0">
+                    {report.weaknessesList.length} Điểm cần lưu ý
+                  </span>
+                </div>
+
+                {/* List of Missing / Weak Skills with Risk Analysis or Empty State */}
+                {report.weaknessesList.length > 0 ? (
+                  <div className="space-y-3">
+                    {report.weaknessesList.map((wk, idx) => (
+                      <div key={idx} className="p-4 rounded-xl bg-white border border-rose-200/70 shadow-2xs space-y-2.5">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="px-2.5 py-0.5 rounded-md text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                              {wk.skillName} (Chưa rõ trong CV)
+                            </span>
+                            <span className="text-xs font-bold text-slate-800">{wk.title}</span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                              Rủi ro: {wk.risk}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                              Đào tạo: {wk.upskillTime}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="text-[11px] text-slate-600 leading-relaxed">
+                          <strong className="text-slate-800">Tác động kỹ thuật: </strong>
+                          {wk.impact}
+                        </div>
+
+                        <div className="p-2.5 rounded-lg bg-rose-50/60 border border-rose-100 text-[11px] text-rose-900 flex items-start gap-1.5 font-medium">
+                          <span className="material-symbols-outlined text-[14px] text-rose-600 shrink-0 mt-0.5">lightbulb</span>
+                          <span><strong>Khuyến nghị HR &amp; Phỏng Vấn: </strong>{wk.recommendation}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-xl bg-white border border-rose-200/60 flex items-center gap-3 text-slate-600 text-xs">
+                    <span className="material-symbols-outlined text-emerald-600 text-xl shrink-0">check_circle</span>
+                    <div>
+                      <p className="font-semibold text-slate-800">Không có lỗ hổng kỹ thuật bắt buộc</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">Ứng viên đáp ứng đầy đủ tất cả các yêu cầu kỹ năng bắt buộc trong JD.</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Project Impact Dynamic Summary */}
+                <div className="p-3.5 rounded-xl bg-rose-50/80 border border-rose-200 text-xs text-rose-950 flex items-start gap-2.5">
+                  <span className="material-symbols-outlined text-rose-600 text-base shrink-0 mt-0.5">info</span>
+                  <div className="leading-relaxed">
+                    <strong className="text-rose-950 font-semibold">Đánh giá rủi ro tổng thể: </strong>
+                    <span>{report.weaknessesSummary}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* ======================================================== */}
+              {/* ĐÁNH GIÁ CHUYÊN SÂU TỪ AI COPILOT (GEMINI ENGINE)        */}
+              {/* ======================================================== */}
+              {selectedCandidateForModal.aiQuote && (
+                <div className="p-4.5 rounded-2xl bg-gradient-to-r from-purple-50/70 via-indigo-50/40 to-blue-50/30 border border-purple-200/80 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-purple-600 text-lg">auto_awesome</span>
+                    <h4 className="text-xs font-bold text-purple-950 uppercase tracking-wide">
+                      Ghi Chú Đánh Giá Tuyển Dụng Từ AI Copilot
+                    </h4>
+                  </div>
+                  <p className="text-xs text-slate-700 leading-relaxed font-normal italic pl-4 border-l-2 border-purple-400">
+                    &ldquo;{selectedCandidateForModal.aiQuote}&rdquo;
+                  </p>
+                </div>
+              )}
+
+              {/* Attached CV Preview Box */}
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                    <span className="material-symbols-outlined text-xl">picture_as_pdf</span>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-slate-900 truncate">
+                      CV_{selectedCandidateForModal.name.replace(/\s+/g, '_')}.pdf
+                    </div>
+                    <div className="text-[11px] text-slate-500 font-mono">Bản CV gốc ứng viên đã nộp qua hệ thống HireMate</div>
+                  </div>
+                </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    window.location.hash = `#/candidate-evaluation?candidateId=${selectedCandidateForModal.candidateId}&jobId=${jobDetails.id}`;
-                  }}
-                  className="px-4 py-2.5 rounded-xl text-xs font-bold bg-white hover:bg-purple-50 text-purple-700 border border-purple-200 transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  onClick={() => setViewingCvCandidate(selectedCandidateForModal)}
+                  className="px-4 py-2 rounded-xl bg-white hover:bg-purple-50 text-purple-700 text-xs font-bold border border-purple-200 transition-colors cursor-pointer shadow-xs flex items-center gap-1.5 shrink-0"
                 >
-                  <span className="material-symbols-outlined text-sm">badge</span>
-                  <span>Xem Hồ Sơ &amp; Phỏng Vấn</span>
+                  <span className="material-symbols-outlined text-sm text-purple-600">visibility</span>
+                  <span>Mở Xem CV</span>
                 </button>
+              </div>
 
+              {/* Modal Actions */}
+              <div className="pt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t border-slate-200">
                 <button
                   type="button"
-                  onClick={() => {
-                    handleStageChange(selectedCandidateForModal.id, 'Duyệt Phỏng Vấn');
-                    setSelectedCandidateForModal(null);
-                  }}
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs shadow-md transition-all cursor-pointer"
+                  onClick={() => setSelectedCandidateForModal(null)}
+                  className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold border border-slate-200 cursor-pointer text-center"
                 >
-                  Mời Phỏng Vấn
+                  Đóng Báo Cáo
                 </button>
+
+                <div className="flex items-center gap-2.5 justify-end flex-wrap sm:flex-nowrap">
+                  <a
+                    href={createHrToCandidateMailto({
+                      candidateEmail: selectedCandidateForModal.email || selectedCandidateForModal.role,
+                      candidateName: selectedCandidateForModal.name,
+                      jobTitle: jobDetails.title,
+                      companyName: user?.companyName || user?.company?.companyName || 'Công ty Tuyển dụng',
+                      hrName: user?.fullName || user?.name || 'Bộ phận Tuyển dụng',
+                      hrPosition: user?.position || 'Talent Acquisition Team',
+                    })}
+                    className="px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200 hover:border-emerald-300 transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  >
+                    <span className="material-symbols-outlined text-sm text-emerald-600">mail</span>
+                    <span>Gửi Email</span>
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.location.hash = `#/candidate-evaluation?candidateId=${selectedCandidateForModal.candidateId}&jobId=${jobDetails.id}`;
+                    }}
+                    className="px-4 py-2.5 rounded-xl text-xs font-bold bg-white hover:bg-purple-50 text-purple-700 border border-purple-200 transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  >
+                    <span className="material-symbols-outlined text-sm">badge</span>
+                    <span>Xem Hồ Sơ &amp; Phỏng Vấn</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleStageChange(selectedCandidateForModal.id, 'Duyệt Phỏng Vấn');
+                      setSelectedCandidateForModal(null);
+                    }}
+                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs shadow-md transition-all cursor-pointer"
+                  >
+                    Mời Phỏng Vấn
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
 
 

@@ -5,6 +5,7 @@ import RecruiterJobManagementPage from './RecruiterJobManagementPage';
 import { jobApi, applicationApi, aiMatchApi, companyApi } from '../api';
 import { parseSkillList } from '../utils/helpers';
 import { calculateJobDeadline } from '../utils/jobTimeUtils';
+import { exportRecruiterReportToExcel } from '../utils/excelExportUtils';
 
 export default function RecruiterDashboardPage({ user, currentRoute }) {
   // Parse tab from currentRoute
@@ -243,26 +244,19 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
       }, 300);
     } else {
       try {
-        const headers = ['Mã Đơn', 'Tên Ứng Viên', 'Email', 'Vị Trí Tuyển Dụng', 'Điểm AI Match', 'Trạng Thái', 'Ngày Nộp'];
-        const rows = filteredReportApplications.map((a) => [
-          `APP-${a.applicationId}`,
-          `"${(a.candidateName || '').replace(/"/g, '""')}"`,
-          `"${a.candidateEmail || ''}"`,
-          `"${(a.jobTitle || '').replace(/"/g, '""')}"`,
-          `${a.matchingScore || 0}%`,
-          a.status,
-          a.createdAt ? new Date(a.createdAt).toLocaleDateString('vi-VN') : '',
-        ]);
-        const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', `Bao_Cao_Tuyen_Dung_${new Date().toISOString().split('T')[0]}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        setNotification('Đã xuất thành công tệp dữ liệu CSV báo cáo tuyển dụng!');
+        exportRecruiterReportToExcel({
+          applications: filteredReportApplications,
+          stats: {
+            totalApplicants: filteredReportApplications.length,
+            avgScore: filteredReportApplications.length > 0
+              ? Math.round(filteredReportApplications.reduce((sum, a) => sum + (a.matchingScore || 0), 0) / filteredReportApplications.length) + '%'
+              : '0%',
+            topGoldCount: filteredReportApplications.filter((a) => (a.matchingScore || 0) >= 85).length,
+            screenedPercent: '100%',
+          },
+          companyName: user?.companyName || user?.company?.companyName || 'Doanh Nghiệp',
+        });
+        setNotification('Đã xuất thành công tệp Excel (.xlsx) báo cáo tuyển dụng!');
       } catch (err) {
         setNotification('Lỗi khi xuất tệp: ' + err.message);
       }

@@ -3,6 +3,7 @@ import { useLivingTheme } from '../context/LivingThemeContext';
 import { jobApi, applicationApi, companyApi, skillApi } from '../api';
 import { parseSkillList } from '../utils/helpers';
 import { calculateJobDeadline } from '../utils/jobTimeUtils';
+import { exportJobsToExcel } from '../utils/excelExportUtils';
 
 // 6 Enterprise Job Description Templates for HR / Recruiters
 const SAMPLE_JDS = [
@@ -167,43 +168,112 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
     setCurrentPage(1);
   }, [selectedCategory, searchQuery]);
   const [notification, setNotification] = useState('');
-  const [companyStatus, setCompanyStatus] = useState('PENDING'); // 'PENDING' | 'VERIFIED' | 'REJECTED' | 'UNVERIFIED'
+
+  // Lấy trạng thái xác thực ban đầu đồng bộ từ cache để tránh race-condition khi mount
+  const getInitialCompanyStatus = () => {
+    try {
+      const companyKey = (user?.companyName || 'vng_corporation').toLowerCase().replace(/[^a-z0-9]/g, '_');
+      const saved = localStorage.getItem(`hiremate_company_legal_${companyKey}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.status === 'VERIFIED' || parsed.status === 'ACTIVE') return 'VERIFIED';
+        if (parsed.status) return parsed.status;
+      }
+      const adminList = localStorage.getItem('hiremate_admin_companies_list');
+      if (adminList) {
+        const list = JSON.parse(adminList);
+        const comp = list.find((c) =>
+          (c.name || '').toLowerCase() === (user?.companyName || 'vng corporation').toLowerCase() ||
+          (c.shortName || '').toLowerCase() === (user?.companyName || 'vng corporation').toLowerCase()
+        );
+        if (comp && (comp.status === 'VERIFIED' || comp.status === 'ACTIVE')) return 'VERIFIED';
+      }
+    } catch {}
+    return 'PENDING';
+  };
+
+  const [companyStatus, setCompanyStatus] = useState(getInitialCompanyStatus);
+  const companyStatusRef = useRef(companyStatus);
+  companyStatusRef.current = companyStatus;
   const [showUnverifiedWarningModal, setShowUnverifiedWarningModal] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
     const fetchCompStatus = async () => {
+      let resolvedStatus = null;
       try {
         const res = await companyApi.getMyCompany();
         const comp = res?.data || res;
         if (comp && comp.status) {
-          const st = (comp.status === 'VERIFIED' || comp.status === 'ACTIVE') ? 'VERIFIED' : comp.status;
-          setCompanyStatus(st);
-          return;
+          resolvedStatus = (comp.status === 'VERIFIED' || comp.status === 'ACTIVE') ? 'VERIFIED' : comp.status;
         }
-      } catch (err) {}
-      const companyKey = (user?.companyName || 'vng_corporation').toLowerCase().replace(/[^a-z0-9]/g, '_');
-      const saved = localStorage.getItem(`hiremate_company_legal_${companyKey}`);
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          const st = (parsed.status === 'VERIFIED' || parsed.status === 'ACTIVE') ? 'VERIFIED' : (parsed.status || 'PENDING');
-          setCompanyStatus(st);
-        } catch {}
+      } catch (err) {
+        console.warn('Lỗi lấy thông tin công ty từ backend:', err);
+      }
+
+      if (!resolvedStatus) {
+        const companyKey = (user?.companyName || 'vng_corporation').toLowerCase().replace(/[^a-z0-9]/g, '_');
+        const saved = localStorage.getItem(`hiremate_company_legal_${companyKey}`);
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            resolvedStatus = (parsed.status === 'VERIFIED' || parsed.status === 'ACTIVE') ? 'VERIFIED' : (parsed.status || 'PENDING');
+          } catch {}
+        }
+      }
+
+      if (isMounted && resolvedStatus) {
+        setCompanyStatus(resolvedStatus);
+        companyStatusRef.current = resolvedStatus;
+
+        // Nếu đã được VERIFIED/ACTIVE, tự động tắt warning modal và nếu có param action=new thì mở form tạo tin
+        if (resolvedStatus === 'VERIFIED' || resolvedStatus === 'ACTIVE' || user?.role === 'ADMIN') {
+          setShowUnverifiedWarningModal(false);
+          if (window.location.hash.includes('action=new')) {
+            setShowCreateModal(true);
+          }
+        }
       }
     };
     fetchCompStatus();
 
     const handleCompanyUpdate = (e) => {
-      if (e?.detail?.status) {
-        const st = (e.detail.status === 'VERIFIED' || e.detail.status === 'ACTIVE') ? 'VERIFIED' : e.detail.status;
-        setCompanyStatus(st);
+      const st = e?.detail?.status;
+      if (st) {
+        const cleanSt = (st === 'VERIFIED' || st === 'ACTIVE') ? 'VERIFIED' : st;
+        setCompanyStatus(cleanSt);
+        companyStatusRef.current = cleanSt;
+        if (cleanSt === 'VERIFIED' || cleanSt === 'ACTIVE') {
+          setShowUnverifiedWarningModal(false);
+        }
       } else {
         fetchCompStatus();
       }
     };
 
+    // Lắng nghe tín hiệu Real-time duyệt GPKD từ Admin qua BroadcastChannel (xuyên tab)
+    let bc;
+    try {
+      bc = new BroadcastChannel('hiremate_realtime_channel');
+      bc.onmessage = (msg) => {
+        if (msg?.data?.type === 'COMPANY_STATUS_UPDATED') {
+          const st = msg.data.status;
+          const cleanSt = (st === 'VERIFIED' || st === 'ACTIVE') ? 'VERIFIED' : st;
+          setCompanyStatus(cleanSt);
+          companyStatusRef.current = cleanSt;
+          if (cleanSt === 'VERIFIED' || cleanSt === 'ACTIVE') {
+            setShowUnverifiedWarningModal(false);
+          }
+        }
+      };
+    } catch {}
+
     window.addEventListener('hiremate_company_updated', handleCompanyUpdate);
-    return () => window.removeEventListener('hiremate_company_updated', handleCompanyUpdate);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('hiremate_company_updated', handleCompanyUpdate);
+      if (bc) bc.close();
+    };
   }, [user]);
 
   // Modals state
@@ -646,11 +716,46 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
   // Mở Studio Tạo Tin Tuyển Dụng Mới (Khởi tạo form sạch sẽ, sẵn sàng để tự gõ hoặc tải file AI điền)
   const handleOpenCreateModal = () => {
     // 🛡️ BẢO VỆ PHÁP LÝ: Doanh nghiệp phải được xác minh GPKD (VERIFIED/ACTIVE) mới được đăng bài
-    const isVerified = companyStatus === 'VERIFIED' || companyStatus === 'ACTIVE' || user?.role === 'ADMIN';
+    const currentSt = companyStatusRef.current || companyStatus;
+    let isVerified = currentSt === 'VERIFIED' || currentSt === 'ACTIVE' || user?.role === 'ADMIN';
+
+    if (!isVerified) {
+      // Kiểm tra thêm trong localStorage phòng trường hợp vừa được Admin duyệt
+      const companyKey = (user?.companyName || 'vng_corporation').toLowerCase().replace(/[^a-z0-9]/g, '_');
+      try {
+        const saved = localStorage.getItem(`hiremate_company_legal_${companyKey}`);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.status === 'VERIFIED' || parsed.status === 'ACTIVE') {
+            isVerified = true;
+            setCompanyStatus('VERIFIED');
+            companyStatusRef.current = 'VERIFIED';
+          }
+        }
+        if (!isVerified) {
+          const adminList = localStorage.getItem('hiremate_admin_companies_list');
+          if (adminList) {
+            const list = JSON.parse(adminList);
+            const comp = list.find((c) =>
+              (c.name || '').toLowerCase() === (user?.companyName || 'vng corporation').toLowerCase() ||
+              (c.shortName || '').toLowerCase() === (user?.companyName || 'vng corporation').toLowerCase()
+            );
+            if (comp && (comp.status === 'VERIFIED' || comp.status === 'ACTIVE')) {
+              isVerified = true;
+              setCompanyStatus('VERIFIED');
+              companyStatusRef.current = 'VERIFIED';
+            }
+          }
+        }
+      } catch {}
+    }
+
     if (!isVerified) {
       setShowUnverifiedWarningModal(true);
       return;
     }
+
+    setShowUnverifiedWarningModal(false);
     setCreateForm(getInitialCreateForm());
     setMandSkillTagInput('');
     setPrefSkillTagInput('');
@@ -825,7 +930,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
     handleCheckHash();
     window.addEventListener('hashchange', handleCheckHash);
     return () => window.removeEventListener('hashchange', handleCheckHash);
-  }, []);
+  }, [companyStatus, user]);
 
   // Filtered jobs calculation with Expiration & Deadline support
   const filteredJobs = useMemo(() => {
@@ -1870,7 +1975,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
       {/* ======================================================== */}
       {/* MODAL CẢNH BÁO: DOANH NGHIỆP CHƯA ĐƯỢC XÁC MINH GPKD      */}
       {/* ======================================================== */}
-      {showUnverifiedWarningModal && (
+      {showUnverifiedWarningModal && companyStatus !== 'VERIFIED' && companyStatus !== 'ACTIVE' && user?.role !== 'ADMIN' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans">
           <div className="relative w-full max-w-lg bg-white border border-slate-100 rounded-3xl shadow-2xl text-slate-800 overflow-hidden">
             
@@ -1911,7 +2016,12 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
 
                 <button
                   type="button"
-                  onClick={() => setShowUnverifiedWarningModal(false)}
+                  onClick={() => {
+                    setShowUnverifiedWarningModal(false);
+                    if (window.location.hash.includes('action=new')) {
+                      window.location.hash = '#/recruiter-jobs';
+                    }
+                  }}
                   className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-all cursor-pointer"
                   title="Đóng cửa sổ"
                 >
@@ -1969,14 +2079,24 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
               <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setShowUnverifiedWarningModal(false)}
+                  onClick={() => {
+                    setShowUnverifiedWarningModal(false);
+                    if (window.location.hash.includes('action=new')) {
+                      window.location.hash = '#/recruiter-jobs';
+                    }
+                  }}
                   className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 font-bold text-xs transition-all cursor-pointer"
                 >
                   Đã hiểu / Để sau
                 </button>
                 <a
                   href="#/recruiter/profile"
-                  onClick={() => setShowUnverifiedWarningModal(false)}
+                  onClick={() => {
+                    setShowUnverifiedWarningModal(false);
+                    if (window.location.hash.includes('action=new')) {
+                      window.location.hash = '#/recruiter-jobs';
+                    }
+                  }}
                   className="px-5 py-2.5 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 shadow-md shadow-orange-500/20 hover:shadow-lg transition-all flex items-center gap-1.5 cursor-pointer hover:scale-[1.02]"
                 >
                   <span className="material-symbols-outlined text-sm">badge</span>
@@ -3647,7 +3767,12 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
               <button
                 onClick={() => {
                   setShowExportModal(false);
-                  triggerToast('Đã tải xuống báo cáo tổng quan định dạng Excel (.xlsx)');
+                  try {
+                    exportJobsToExcel(jobsList, user?.companyName || user?.company?.companyName || 'Doanh Nghiệp');
+                    triggerToast('Đã tải xuống báo cáo tổng quan định dạng Excel (.xlsx)');
+                  } catch (e) {
+                    triggerToast('Lỗi khi xuất tệp Excel: ' + e.message);
+                  }
                 }}
                 className="w-full p-3.5 rounded-2xl bg-[#f8f7ff] hover:bg-white border border-purple-100 hover:border-[#5b48bd] flex items-center justify-between transition-all cursor-pointer text-xs"
               >
@@ -3661,7 +3786,10 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
               <button
                 onClick={() => {
                   setShowExportModal(false);
-                  triggerToast('Đã xuất báo cáo phân tích hiệu suất tuyển dụng PDF');
+                  triggerToast('Đang chuẩn bị bản in PDF báo cáo hiệu suất tuyển dụng...');
+                  setTimeout(() => {
+                    window.print();
+                  }, 300);
                 }}
                 className="w-full p-3.5 rounded-2xl bg-[#f8f7ff] hover:bg-white border border-purple-100 hover:border-[#5b48bd] flex items-center justify-between transition-all cursor-pointer text-xs"
               >

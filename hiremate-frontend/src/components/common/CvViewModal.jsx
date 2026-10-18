@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { cvApi } from '../../api/cvApi';
+import { extractBlob } from '../../utils/excelExportUtils';
 
 /**
  * CvViewModal.jsx
@@ -33,26 +34,35 @@ export default function CvViewModal({
       setErrorMsg('');
 
       try {
+        let loaded = false;
+
         // 1. Tải blob preview nếu có cvId
         if (cvId) {
           try {
             const previewRes = await cvApi.previewCv(cvId);
-            if (previewRes?.data && previewRes.data.size > 0) {
-              const url = window.URL.createObjectURL(new Blob([previewRes.data], { type: 'application/pdf' }));
+            const blob = extractBlob(previewRes, 'application/pdf');
+            if (blob && blob.size > 0) {
+              const url = window.URL.createObjectURL(blob);
               currentBlob = url;
               if (isMounted) setBlobUrl(url);
+              loaded = true;
             }
           } catch (prevErr) {
             console.warn('Lỗi tải preview blob, chuyển sang download blob:', prevErr);
+          }
+
+          if (!loaded) {
             try {
               const dlRes = await cvApi.downloadCv(cvId);
-              if (dlRes?.data && dlRes.data.size > 0) {
-                const url = window.URL.createObjectURL(new Blob([dlRes.data], { type: 'application/pdf' }));
+              const dlBlob = extractBlob(dlRes, 'application/pdf');
+              if (dlBlob && dlBlob.size > 0) {
+                const url = window.URL.createObjectURL(dlBlob);
                 currentBlob = url;
                 if (isMounted) setBlobUrl(url);
+                loaded = true;
               }
             } catch (dlErr) {
-              console.warn('Không thể tạo blob:', dlErr);
+              console.warn('Không thể tải download blob:', dlErr);
             }
           }
 
@@ -66,10 +76,17 @@ export default function CvViewModal({
           } catch (detErr) {
             console.warn('Không thể lấy chi tiết parsed CV:', detErr);
           }
-        } else if (cvUrl && cvUrl !== '#') {
-          if (isMounted) setBlobUrl(cvUrl);
+        }
+
+        // Fallback sang cvUrl nếu chưa tải được blob từ cvId
+        if (!loaded && cvUrl && cvUrl !== '#' && cvUrl.startsWith('http')) {
+          if (isMounted) {
+            setBlobUrl(cvUrl);
+            loaded = true;
+          }
         }
       } catch (err) {
+        console.error('loadCvData error:', err);
         if (isMounted) setErrorMsg('Không thể tải bản xem trước CV. Vui lòng tải về máy để xem.');
       } finally {
         if (isMounted) setLoading(false);
@@ -91,17 +108,23 @@ export default function CvViewModal({
     try {
       setDownloading(true);
       if (cvId) {
-        const response = await cvApi.downloadCv(cvId);
-        const blob = new Blob([response.data]);
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', fileName || 'CV_Ung_Vien.pdf');
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url);
-        return;
+        try {
+          const response = await cvApi.downloadCv(cvId);
+          const blob = extractBlob(response, 'application/pdf');
+          if (blob && blob.size > 0) {
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', fileName || 'CV_Ung_Vien.pdf');
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+            return;
+          }
+        } catch (apiErr) {
+          console.warn('downloadCv API error, falling back to direct link:', apiErr);
+        }
       }
 
       if (blobUrl) {
@@ -111,7 +134,21 @@ export default function CvViewModal({
         document.body.appendChild(link);
         link.click();
         link.remove();
+        return;
       }
+
+      if (cvUrl && cvUrl !== '#' && cvUrl.startsWith('http')) {
+        const link = document.createElement('a');
+        link.href = cvUrl;
+        link.setAttribute('download', fileName || 'CV_Ung_Vien.pdf');
+        link.setAttribute('target', '_blank');
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        return;
+      }
+
+      alert('Không tìm thấy tệp CV khả dụng để tải về.');
     } catch (e) {
       alert('Lỗi tải tệp: ' + (e.message || 'Kiểm tra đường truyền'));
     } finally {

@@ -4,6 +4,7 @@ import { cvApi } from '../api/cvApi';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import { parseSkillList } from '../utils/helpers';
 import { createHrToCandidateMailto } from '../utils/emailUtils';
+import { extractBlob } from '../utils/excelExportUtils';
 
 /**
  * CandidateEvaluationPage.jsx
@@ -211,18 +212,22 @@ export default function CandidateEvaluationPage({
 
           // Lấy file nhị phân PDF để preview
           const previewRes = await cvApi.previewCv(effectiveCvId).catch(() => null);
-          if (previewRes) {
-            const blob = previewRes instanceof Blob
-              ? previewRes
-              : (previewRes?.data instanceof Blob
-                  ? previewRes.data
-                  : new Blob([previewRes?.data || previewRes], { type: 'application/pdf' }));
-
-            if (blob.size > 0) {
-              createdBlobUrl = window.URL.createObjectURL(blob);
+          const blob = extractBlob(previewRes, 'application/pdf');
+          if (blob && blob.size > 0) {
+            createdBlobUrl = window.URL.createObjectURL(blob);
+            if (isMounted) {
+              setPdfBlobUrl(createdBlobUrl);
+              setCvViewMode('pdf'); // Tự động mở ngay file PDF gốc
+            }
+          } else {
+            // Fallback sang downloadCv
+            const dlRes = await cvApi.downloadCv(effectiveCvId).catch(() => null);
+            const dlBlob = extractBlob(dlRes, 'application/pdf');
+            if (dlBlob && dlBlob.size > 0) {
+              createdBlobUrl = window.URL.createObjectURL(dlBlob);
               if (isMounted) {
                 setPdfBlobUrl(createdBlobUrl);
-                setCvViewMode('pdf'); // Tự động mở ngay file PDF gốc
+                setCvViewMode('pdf');
               }
             }
           }
@@ -500,28 +505,50 @@ export default function CandidateEvaluationPage({
   const handleDownloadCv = async () => {
     try {
       if (cand.cvId) {
-        const res = await cvApi.downloadCv(cand.cvId);
-        const blob = res instanceof Blob ? res : (res?.data instanceof Blob ? res.data : new Blob([res?.data || res]));
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = cand.cvFileName;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-        triggerToast('Đang tải file CV về máy...');
-      } else if (pdfBlobUrl) {
+        try {
+          const res = await cvApi.downloadCv(cand.cvId);
+          const blob = extractBlob(res, 'application/pdf');
+          if (blob && blob.size > 0) {
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = cand.cvFileName || 'CV_Ung_Vien.pdf';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            triggerToast('Đang tải file CV về máy...');
+            return;
+          }
+        } catch (apiErr) {
+          console.warn('downloadCv API error, falling back to direct URL:', apiErr);
+        }
+      }
+      
+      if (pdfBlobUrl) {
         const a = document.createElement('a');
         a.href = pdfBlobUrl;
-        a.download = cand.cvFileName;
+        a.download = cand.cvFileName || 'CV_Ung_Vien.pdf';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         triggerToast('Đang tải file CV về máy...');
-      } else {
-        triggerToast('Không tìm thấy tệp để tải về.');
+        return;
       }
+
+      if (cand.cvUrl && cand.cvUrl !== '#' && cand.cvUrl.startsWith('http')) {
+        const a = document.createElement('a');
+        a.href = cand.cvUrl;
+        a.download = cand.cvFileName || 'CV_Ung_Vien.pdf';
+        a.target = '_blank';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        triggerToast('Đang tải file CV về máy...');
+        return;
+      }
+
+      triggerToast('Không tìm thấy tệp để tải về.');
     } catch (e) {
       console.warn('Lỗi tải file CV:', e);
       triggerToast('Lỗi khi tải file. Vui lòng thử lại sau.');

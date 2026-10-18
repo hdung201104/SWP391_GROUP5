@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { adminApi, skillApi } from '../api';
 import { getStoredVouchers, addStoredVoucher, toggleStoredVoucher } from '../utils/voucherStorage';
+import { exportAdminCompaniesToExcel, exportAdminUsersToExcel, exportJobsToExcel } from '../utils/excelExportUtils';
 
 /**
  * HireMate.AI - Enterprise Admin Dashboard Page (Mindskills UI Redesign)
@@ -1534,26 +1535,34 @@ export default function AdminDashboardPage({ user, onLogout }) {
       if (rawId) {
         await adminApi.updateCompanyStatus(rawId, 'VERIFIED');
       }
-      setCompanies((prev) =>
-        prev.map((c) => (c.id === companyId ? { ...c, status: 'VERIFIED', verifiedAt: new Date().toLocaleDateString('vi-VN') } : c))
-      );
+      setCompanies((prev) => {
+        const next = prev.map((c) => (c.id === companyId ? { ...c, status: 'VERIFIED', verifiedAt: new Date().toLocaleDateString('vi-VN') } : c));
+        try {
+          localStorage.setItem('hiremate_admin_companies_list', JSON.stringify(next));
+        } catch {}
+        return next;
+      });
       setSelectedCompanyIds((prev) => prev.filter((id) => id !== companyId));
 
-      const compName = comp?.name || comp?.shortName || '';
-      if (compName) {
-        const companyKey = compName.toLowerCase().replace(/[^a-z0-9]/g, '_');
-        const existingLegal = localStorage.getItem(`hiremate_company_legal_${companyKey}`);
-        if (existingLegal) {
-          try {
-            const parsed = JSON.parse(existingLegal);
-            parsed.status = 'VERIFIED';
-            parsed.verifiedAt = new Date().toLocaleDateString('vi-VN');
-            parsed.rejectionReason = '';
-            localStorage.setItem(`hiremate_company_legal_${companyKey}`, JSON.stringify(parsed));
-          } catch {}
-        }
-      }
+      const namesToSync = [comp?.name, comp?.shortName].filter(Boolean);
+      namesToSync.forEach((nameStr) => {
+        const companyKey = nameStr.toLowerCase().replace(/[^a-z0-9]/g, '_');
+        let parsed = {};
+        try {
+          const existing = localStorage.getItem(`hiremate_company_legal_${companyKey}`);
+          if (existing) parsed = JSON.parse(existing);
+        } catch {}
+        parsed.status = 'VERIFIED';
+        parsed.verifiedAt = new Date().toLocaleDateString('vi-VN');
+        parsed.rejectionReason = '';
+        parsed.notes = 'Hồ sơ pháp nhân đã được Ban Quản Trị Admin xác thực và duyệt thành công.';
+        try {
+          localStorage.setItem(`hiremate_company_legal_${companyKey}`, JSON.stringify(parsed));
+        } catch {}
+      });
+
       // Broadcast across tabs via BroadcastChannel and CustomEvent
+      const compName = comp?.name || comp?.shortName || '';
       try {
         const bc = new BroadcastChannel('hiremate_realtime_channel');
         bc.postMessage({ type: 'COMPANY_STATUS_UPDATED', status: 'VERIFIED', companyId: rawId, companyName: compName });
@@ -2075,7 +2084,23 @@ export default function AdminDashboardPage({ user, onLogout }) {
   };
 
   const handleExportPDF = () => {
-    triggerToast('Đang khởi tạo và xuất báo cáo tổng quan PDF...', 'info');
+    try {
+      if (activeTab === 'companies') {
+        exportAdminCompaniesToExcel(companies);
+        triggerToast('Đã xuất thành công tệp Excel danh sách doanh nghiệp (.xlsx)!', 'success');
+      } else if (activeTab === 'users') {
+        exportAdminUsersToExcel(usersList);
+        triggerToast('Đã xuất thành công tệp Excel danh sách tài khoản người dùng (.xlsx)!', 'success');
+      } else if (activeTab === 'jobs') {
+        exportJobsToExcel(jobsList, 'HireMate_Admin');
+        triggerToast('Đã xuất thành công tệp Excel danh sách tin tuyển dụng (.xlsx)!', 'success');
+      } else {
+        exportAdminCompaniesToExcel(companies);
+        triggerToast('Đã xuất thành công tệp Excel dữ liệu hệ thống (.xlsx)!', 'success');
+      }
+    } catch (e) {
+      triggerToast('Lỗi khi xuất tệp: ' + e.message, 'error');
+    }
   };
 
   const handleTabSelect = (tabId) => {
