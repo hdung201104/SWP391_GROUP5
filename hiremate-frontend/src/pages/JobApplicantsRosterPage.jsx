@@ -1298,7 +1298,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
         const report = generateComprehensiveAiReport(selectedCandidateForModal, jobDetails, aiReportData);
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-md animate-fade-in font-sans">
-            <div className="relative w-full max-w-4xl bg-white border border-slate-200/90 rounded-[28px] max-h-[92vh] overflow-y-auto shadow-2xl flex flex-col text-slate-800">
+            <div className="relative w-full max-w-[1280px] break-words bg-white border border-slate-200/90 rounded-[28px] max-h-[92vh] overflow-y-auto shadow-2xl flex flex-col text-slate-800">
               
               {/* Header Bar */}
               <div className="px-6 py-4.5 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white/95 backdrop-blur-sm z-20">
@@ -1340,7 +1340,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
               </div>
 
               {/* Modal Body */}
-              <div className="p-6 sm:p-8 space-y-6">
+              <div className="p-6 sm:p-8 lg:p-10 space-y-7">
                 
                 {/* 1. Candidate Hero & ATS Score Gauge Card */}
                 <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-slate-50 via-purple-50/20 to-indigo-50/30 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-5 shadow-xs">
@@ -1399,7 +1399,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                 </div>
 
                 {/* 2. Hai Khối Trọng Tâm: Ưu Điểm vs Điểm Yếu (Chuẩn Báo Cáo Đánh Giá Tuyển Dụng) */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
                   
                   {/* Cột 1: Ưu Điểm & Năng Lực Phù Hợp Với Bài Tuyển Dụng */}
                   <div className="p-5 rounded-2xl bg-emerald-50/40 border border-emerald-200/90 space-y-3.5">

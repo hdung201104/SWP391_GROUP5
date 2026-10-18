@@ -67,7 +67,7 @@ export default function CandidateEvaluationPage({
   });
 
   // Chế độ xem CV: 'pdf' (Xem file gốc PDF/Word) | 'parsed' (Dữ liệu trích xuất ATS)
-  const [cvViewMode, setCvViewMode] = useState('parsed');
+  const [cvViewMode, setCvViewMode] = useState('pdf');
   const [pdfBlobUrl, setPdfBlobUrl] = useState(null);
   const [isPdfLoading, setIsPdfLoading] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(100);
@@ -213,7 +213,7 @@ export default function CandidateEvaluationPage({
           // Lấy file nhị phân PDF để preview
           const previewRes = await cvApi.previewCv(effectiveCvId).catch(() => null);
           const blob = extractBlob(previewRes, 'application/pdf');
-          if (blob && blob.size > 0) {
+          if (blob && blob.size > 200) {
             createdBlobUrl = window.URL.createObjectURL(blob);
             if (isMounted) {
               setPdfBlobUrl(createdBlobUrl);
@@ -223,16 +223,20 @@ export default function CandidateEvaluationPage({
             // Fallback sang downloadCv
             const dlRes = await cvApi.downloadCv(effectiveCvId).catch(() => null);
             const dlBlob = extractBlob(dlRes, 'application/pdf');
-            if (dlBlob && dlBlob.size > 0) {
+            if (dlBlob && dlBlob.size > 200) {
               createdBlobUrl = window.URL.createObjectURL(dlBlob);
               if (isMounted) {
                 setPdfBlobUrl(createdBlobUrl);
                 setCvViewMode('pdf');
               }
+            } else if (isMounted) {
+              // Không có binary PDF, tự động mở dữ liệu trích xuất ATS
+              setCvViewMode('parsed');
             }
           }
         } catch (cvErr) {
           console.warn('Không thể tạo PDF Blob preview:', cvErr);
+          if (isMounted) setCvViewMode('parsed');
         } finally {
           if (isMounted) setIsPdfLoading(false);
         }
@@ -241,6 +245,8 @@ export default function CandidateEvaluationPage({
           setPdfBlobUrl(cvUrl);
           setCvViewMode('pdf');
         }
+      } else if (isMounted) {
+        setCvViewMode('parsed');
       }
 
       // 2.3 Phân tích dữ liệu trích xuất (Parsed JSON / Structured Profile)
@@ -1049,32 +1055,30 @@ export default function CandidateEvaluationPage({
           
           {/* Header công cụ trên đầu hồ sơ */}
           <div className="px-5 py-3.5 bg-gradient-to-r from-purple-50/60 via-slate-50/40 to-white border-b border-slate-200/80 flex items-center justify-between gap-3 shrink-0 flex-wrap">
-            {/* View Mode Toggle: PDF vs Parsed */}
-            <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-slate-100/80 border border-slate-200/60">
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => setCvViewMode('pdf')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all ${
                   cvViewMode === 'pdf'
-                    ? 'bg-white text-[#5b48bd] shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-[#5b48bd] text-white shadow-xs'
+                    : 'bg-white text-slate-700 hover:bg-purple-50/60 border border-slate-200'
                 }`}
               >
-                <span className="material-symbols-outlined text-base">picture_as_pdf</span>
-                <span>File PDF Gốc ${pdfBlobUrl ? '(Xem Trực Tiếp)' : '(Chưa đính kèm)'}</span>
+                <span className="material-symbols-outlined text-sm">picture_as_pdf</span>
+                <span>File CV Gốc {pdfBlobUrl ? '(PDF)' : ''}</span>
               </button>
-
               <button
                 type="button"
                 onClick={() => setCvViewMode('parsed')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all ${
                   cvViewMode === 'parsed'
-                    ? 'bg-white text-[#5b48bd] shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-[#5b48bd] text-white shadow-xs'
+                    : 'bg-white text-slate-700 hover:bg-purple-50/60 border border-slate-200'
                 }`}
               >
-                <span className="material-symbols-outlined text-base">receipt_long</span>
-                <span>Hồ Sơ CV Trực Tuyến (ATS Profile)</span>
+                <span className="material-symbols-outlined text-sm">analytics</span>
+                <span>Dữ Liệu Trích Xuất ATS</span>
               </button>
             </div>
 
@@ -1102,26 +1106,6 @@ export default function CandidateEvaluationPage({
                   <span className="hidden sm:inline">Mở Tab Mới</span>
                 </a>
               )}
-
-              {cvViewMode === 'parsed' && (
-                <div className="flex items-center gap-1 bg-slate-50 rounded-xl border border-slate-200 p-0.5">
-                  <button
-                    onClick={handleZoomOut}
-                    className="w-7 h-7 flex items-center justify-center text-slate-600 hover:bg-white rounded-lg cursor-pointer"
-                    title="Thu nhỏ"
-                  >
-                    <span className="material-symbols-outlined text-sm">remove</span>
-                  </button>
-                  <span className="text-[11px] font-mono font-bold px-1 text-slate-600">{zoomLevel}%</span>
-                  <button
-                    onClick={handleZoomIn}
-                    className="w-7 h-7 flex items-center justify-center text-slate-600 hover:bg-white rounded-lg cursor-pointer"
-                    title="Phóng to"
-                  >
-                    <span className="material-symbols-outlined text-sm">add</span>
-                  </button>
-                </div>
-              )}
             </div>
           </div>
 
@@ -1146,319 +1130,140 @@ export default function CandidateEvaluationPage({
                     className="w-full h-[720px] rounded-2xl border border-slate-200/90 shadow-xs bg-white"
                   />
                 ) : (
-                  <div className="p-12 text-center rounded-2xl bg-white border border-slate-200 space-y-4 my-auto">
-                    <div className="w-14 h-14 mx-auto rounded-2xl bg-purple-50 text-[#5b48bd] flex items-center justify-center">
-                      <span className="material-symbols-outlined text-3xl">description</span>
+                  /* THÔNG BÁO KHI CHƯA CÓ PDF BLOB */
+                  <div className="bg-white rounded-3xl p-10 text-center border border-purple-100 shadow-sm max-w-md mx-auto my-auto space-y-4">
+                    <div className="w-16 h-16 rounded-3xl bg-purple-50 text-[#5b48bd] border border-purple-200 flex items-center justify-center mx-auto">
+                      <span className="material-symbols-outlined text-3xl">picture_as_pdf</span>
                     </div>
                     <div>
-                      <h4 className="font-extrabold text-base text-[#1e1b4b]">
-                        Ứng viên đã nộp hồ sơ qua biểu mẫu tuyển dụng trực tuyến
-                      </h4>
-                      <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
-                        Toàn bộ học vấn, kỹ năng và kinh nghiệm của ứng viên đã được hệ thống trích xuất và lưu trữ đầy đủ.
+                      <h4 className="font-bold text-base text-[#1e1b4b]">{cand.cvFileName || 'Tài Liệu CV Ứng Viên'}</h4>
+                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                        Tệp PDF gốc đang được đồng bộ bảo mật từ Vault Storage. Bạn có thể bấm nút bên dưới để tải trực tiếp hoặc chuyển sang tab <strong>"Dữ Liệu Trích Xuất ATS"</strong> để xem đầy đủ hồ sơ.
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setCvViewMode('parsed')}
-                      className="px-5 py-2.5 rounded-xl bg-[#5b48bd] text-white text-xs font-bold cursor-pointer hover:bg-[#47369f] transition-all shadow-xs"
-                    >
-                      Xem Toàn Bộ Dữ Liệu Trích Xuất ATS
-                    </button>
+                    <div className="flex items-center justify-center gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={handleDownloadCv}
+                        className="px-5 py-2.5 rounded-2xl bg-[#5b48bd] hover:bg-[#47369f] text-white font-bold text-xs shadow-md cursor-pointer flex items-center gap-1.5"
+                      >
+                        <span className="material-symbols-outlined text-base">download</span>
+                        <span>Tải CV Về Máy</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCvViewMode('parsed')}
+                        className="px-4 py-2.5 rounded-2xl bg-purple-50 text-[#5b48bd] border border-purple-200 font-bold text-xs hover:bg-purple-100 cursor-pointer"
+                      >
+                        Xem Dữ Liệu ATS →
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
             ) : (
               /* ======================================================= */
-              /* TAB 2: HỒ SƠ CV TRỰC TUYẾN CHUẨN CỦA ỨNG VIÊN (KHỚP 100% ẢNH 2, 3, 4) */
+              /* TAB 2: HỒ SƠ DỮ LIỆU TRÍCH XUẤT ATS                     */
               /* ======================================================= */
-              <div
-                style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center' }}
-                className="w-full bg-white rounded-3xl border border-slate-200/90 p-6 sm:p-8 shadow-xs transition-transform duration-200 text-slate-800"
-              >
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
-                  
-                  {/* CỘT TRÁI (MD: 4/12 ~ 30%): AVATAR, THÔNG TIN LIÊN HỆ, HỌC VẤN CHÍNH QUY, CHỨNG CHỈ, NGOẠI NGỮ */}
-                  <div className="md:col-span-4 lg:col-span-4 space-y-6 md:border-r md:border-slate-200/80 md:pr-6">
-                    
-                    {/* Avatar & Hero Badge */}
-                    <div className="flex flex-col items-center text-center p-4 rounded-2xl bg-slate-50/70 border border-slate-200/60">
-                      <div className="relative mb-3">
-                        {cand.avatar ? (
-                          <img
-                            src={cand.avatar}
-                            alt={cand.name}
-                            className="w-28 h-28 rounded-2xl object-cover ring-4 ring-white shadow-md"
-                          />
-                        ) : (
-                          <div className="w-28 h-28 rounded-2xl bg-gradient-to-br from-[#221d47] to-[#5b48bd] text-white flex items-center justify-center font-bold text-3xl ring-4 ring-white shadow-md">
-                            {cand.name ? cand.name.slice(0, 2).toUpperCase() : 'UV'}
-                          </div>
-                        )}
-                        <span className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white" title="Trực tuyến" />
-                      </div>
-
-                      <h3 className="font-extrabold text-base text-slate-900 tracking-tight">
-                        {cand.name}
-                      </h3>
-                      <p className="text-[11px] font-bold text-[#5b48bd] uppercase tracking-wide mt-0.5">
-                        {cand.title}
-                      </p>
-                      <span className="mt-2.5 inline-flex items-center gap-1 px-3 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
-                        SẴN SÀNG NHẬN VIỆC
-                      </span>
-                    </div>
-
-                    {/* Section: THÔNG TIN LIÊN HỆ */}
-                    <div className="space-y-3">
-                      <h4 className="text-xs font-black uppercase tracking-wider pb-1.5 border-b border-slate-200 flex items-center gap-1.5 text-slate-900">
-                        <span className="material-symbols-outlined text-sm text-[#5b48bd]">contact_phone</span>
-                        <span>Thông Tin Liên Hệ</span>
-                      </h4>
-                      <div className="space-y-2.5 text-xs text-slate-700">
-                        <div className="flex items-start gap-2.5">
-                          <span className="material-symbols-outlined text-sm text-slate-400 mt-0.5 shrink-0">mail</span>
-                          <span className="break-all font-medium">{cand.email}</span>
-                        </div>
-                        <div className="flex items-center gap-2.5">
-                          <span className="material-symbols-outlined text-sm text-slate-400 shrink-0">call</span>
-                          <span className="font-medium">{cand.phone}</span>
-                        </div>
-                        <div className="flex items-start gap-2.5">
-                          <span className="material-symbols-outlined text-sm text-slate-400 mt-0.5 shrink-0">location_on</span>
-                          <span className="font-medium">{cand.location}</span>
-                        </div>
-                        {cand.dob && (
-                          <div className="flex items-center gap-2.5">
-                            <span className="material-symbols-outlined text-sm text-slate-400 shrink-0">cake</span>
-                            <span className="font-medium">{cand.dob}</span>
-                          </div>
-                        )}
-                        {cand.linkedin && (
-                          <div className="flex items-center gap-2.5 pt-1">
-                            <span className="material-symbols-outlined text-sm text-slate-400 shrink-0">link</span>
-                            <span className="font-medium truncate text-[#5b48bd] hover:underline">{cand.linkedin}</span>
-                          </div>
-                        )}
-                        {cand.portfolio && (
-                          <div className="flex items-center gap-2.5">
-                            <span className="material-symbols-outlined text-sm text-slate-400 shrink-0">language</span>
-                            <span className="font-medium truncate text-[#5b48bd] hover:underline">{cand.portfolio}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Section: HỌC VẤN CHÍNH QUY */}
-                    <div className="space-y-3">
-                      <h4 className="text-xs font-black uppercase tracking-wider pb-1.5 border-b border-slate-200 flex items-center gap-1.5 text-slate-900">
-                        <span className="material-symbols-outlined text-sm text-[#5b48bd]">school</span>
-                        <span>Học Vấn Chính Quy</span>
-                      </h4>
-                      <div className="space-y-3.5">
-                        {cand.educations?.map((edu, idx) => (
-                          <div key={idx} className="space-y-1 text-xs">
-                            <h5 className="font-bold text-slate-900 leading-snug">{edu.school}</h5>
-                            <p className="text-slate-700 font-medium">{edu.degree}</p>
-                            {edu.grade && (
-                              <p className="text-[11px] font-mono font-bold text-emerald-700">{edu.grade}</p>
-                            )}
-                            {edu.period && (
-                              <p className="text-[10px] font-mono text-slate-500">{edu.period}</p>
-                            )}
-                            {edu.highlight && (
-                              <p className="text-[11px] italic text-slate-600 pt-0.5 leading-snug">{edu.highlight}</p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Section: CHỨNG CHỈ QUỐC TẾ */}
-                    <div className="space-y-3">
-                      <h4 className="text-xs font-black uppercase tracking-wider pb-1.5 border-b border-slate-200 flex items-center gap-1.5 text-slate-900">
-                        <span className="material-symbols-outlined text-sm text-[#5b48bd]">workspace_premium</span>
-                        <span>Chứng Chỉ Quốc Tế</span>
-                      </h4>
-                      <div className="space-y-2">
-                        {cand.certifications?.length > 0 ? (
-                          cand.certifications.map((cert, idx) => (
-                            <div key={idx} className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-0.5">
-                              <h5 className="font-bold text-slate-900">{cert.name}</h5>
-                              <p className="text-[11px] text-slate-600">
-                                {cert.issuer} {cert.year ? `• ${cert.year}` : ''} {cert.code ? `• ${cert.code}` : ''}
-                              </p>
-                            </div>
-                          ))
-                        ) : (
-                          <p className="text-xs text-slate-400 italic">Chưa ghi nhận chứng chỉ</p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Section: NGOẠI NGỮ THÀNH THẠO */}
-                    <div className="space-y-3">
-                      <h4 className="text-xs font-black uppercase tracking-wider pb-1.5 border-b border-slate-200 flex items-center gap-1.5 text-slate-900">
-                        <span className="material-symbols-outlined text-sm text-[#5b48bd]">translate</span>
-                        <span>Ngoại Ngữ Thành Thạo</span>
-                      </h4>
-                      <div className="space-y-2 text-xs">
-                        {cand.languages?.map((lang, idx) => (
-                          <div key={idx} className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-200">
-                            <span className="font-bold text-slate-800">{lang.name}</span>
-                            <span className="text-[11px] font-mono font-bold text-[#5b48bd] bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200">
-                              {lang.score || lang.level || 'Thành thạo'}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 space-y-6 text-slate-800">
+                <div className="pb-4 border-b border-slate-200 flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-xl font-black text-[#1e1b4b]">{cand.name}</h3>
+                    <p className="text-xs text-slate-500 mt-1">{[cand.email, cand.phone, cand.location].filter(Boolean).join(' • ')}</p>
                   </div>
-
-                  {/* CỘT PHẢI (MD: 8/12 ~ 70%): HEADER, EXECUTIVE SUMMARY, WORK EXPERIENCE, KEY PROJECTS, SKILLS MATRIX */}
-                  <div className="md:col-span-8 lg:col-span-8 space-y-6">
-                    
-                    {/* Header Banner */}
-                    <div className="space-y-1.5 pb-4 border-b border-slate-200">
-                      <div className="flex items-center justify-between gap-3 flex-wrap">
-                        <h2 className="text-2xl sm:text-3xl font-black text-slate-900 uppercase tracking-tight">
-                          {cand.name}
-                        </h2>
-                        <span className="px-3 py-1 rounded-full text-[11px] font-black bg-amber-500 text-white shadow-2xs flex items-center gap-1">
-                          <span className="material-symbols-outlined text-xs">star</span>
-                          MẶC ĐỊNH FAST APPLY
-                        </span>
-                      </div>
-                      <p className="text-sm sm:text-base font-bold text-[#5b48bd] uppercase tracking-wide">
-                        {cand.title}
-                      </p>
-                    </div>
-
-                    {/* 1. Tóm Tắt Năng Lực Cốt Lõi (Executive Summary) */}
-                    <section className="space-y-2.5">
-                      <h4 className="text-xs font-black uppercase tracking-wider pb-1 border-b border-slate-200 flex items-center gap-2 text-slate-900">
-                        <span className="material-symbols-outlined text-base text-[#5b48bd]">badge</span>
-                        <span>Tóm Tắt Năng Lực Cốt Lõi (Executive Summary)</span>
-                      </h4>
-                      <div className="p-4 rounded-2xl bg-slate-50 border-l-4 border-slate-900 text-xs sm:text-sm text-slate-800 border border-slate-200 leading-relaxed font-medium">
-                        {cand.summary}
-                      </div>
-                    </section>
-
-                    {/* 2. Kinh Nghiệm Làm Việc (Work Experience) */}
-                    <section className="space-y-4">
-                      <h4 className="text-xs font-black uppercase tracking-wider pb-1 border-b border-slate-200 flex items-center gap-2 text-slate-900">
-                        <span className="material-symbols-outlined text-base text-[#5b48bd]">history_edu</span>
-                        <span>Kinh Nghiệm Làm Việc (Work Experience)</span>
-                      </h4>
-                      <div className="space-y-4">
-                        {cand.experiences?.map((exp, idx) => (
-                          <div key={idx} className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-2.5">
-                            <div className="flex items-start justify-between gap-2 flex-wrap">
-                              <div>
-                                <h5 className="font-black text-sm text-slate-900">
-                                  {exp.role || exp.position}
-                                </h5>
-                                <p className="text-xs text-[#5b48bd] font-bold">
-                                  {exp.company} {exp.location ? `• ${exp.location}` : ''}
-                                </p>
-                              </div>
-                              <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                                {exp.period}
-                              </span>
-                            </div>
-
-                            {Array.isArray(exp.bullets) && exp.bullets.length > 0 ? (
-                              <ul className="list-disc list-inside text-xs text-slate-700 space-y-1.5 leading-relaxed">
-                                {exp.bullets.map((b, bIdx) => (
-                                  <li key={bIdx} className={b.includes('Thành tích:') ? 'font-bold text-amber-900 bg-amber-50/60 p-1.5 rounded-lg border border-amber-100' : ''}>
-                                    {b}
-                                  </li>
-                                ))}
-                              </ul>
-                            ) : (
-                              <p className="text-xs text-slate-700 leading-relaxed font-normal">
-                                {exp.description}
-                              </p>
-                            )}
-
-                            {Array.isArray(exp.tags) && exp.tags.length > 0 && (
-                              <div className="flex flex-wrap gap-1.5 pt-1 border-t border-slate-100">
-                                {exp.tags.map((t, tIdx) => (
-                                  <span key={tIdx} className="px-2.5 py-0.5 rounded-md text-[10px] font-mono font-semibold bg-slate-50 text-slate-700 border border-slate-200">
-                                    {t}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </section>
-
-                    {/* 3. Dự Án Trọng Điểm (Key Projects) */}
-                    <section className="space-y-3">
-                      <h4 className="text-xs font-black uppercase tracking-wider pb-1 border-b border-slate-200 flex items-center gap-2 text-slate-900">
-                        <span className="material-symbols-outlined text-base text-[#5b48bd]">rocket_launch</span>
-                        <span>Dự Án Trọng Điểm (Key Projects)</span>
-                      </h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                        {cand.projects?.map((proj, idx) => (
-                          <div key={idx} className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-2 flex flex-col justify-between">
-                            <div className="space-y-1.5">
-                              <div className="flex items-start justify-between gap-1.5">
-                                <h5 className="font-bold text-xs text-slate-900 leading-snug">
-                                  {proj.name}
-                                </h5>
-                                <span className="text-[10px] font-mono text-slate-500 shrink-0">{proj.period}</span>
-                              </div>
-                              <p className="text-[11px] font-semibold text-[#5b48bd]">{proj.role}</p>
-                              <p className="text-xs text-slate-600 leading-relaxed">
-                                {proj.summary || proj.description}
-                              </p>
-                            </div>
-                            {Array.isArray(proj.tags) && proj.tags.length > 0 && (
-                              <div className="flex flex-wrap gap-1 pt-1 border-t border-slate-100">
-                                {proj.tags.map((t, tIdx) => (
-                                  <span key={tIdx} className="px-2.5 py-0.5 rounded text-[10px] font-mono bg-slate-50 text-slate-700 border border-slate-200">
-                                    {t}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </section>
-
-                    {/* 4. Ma Trận Năng Lực Chuyên Môn (Skills Matrix) */}
-                    <section className="space-y-3">
-                      <h4 className="text-xs font-black uppercase tracking-wider pb-1 border-b border-slate-200 flex items-center gap-2 text-slate-900">
-                        <span className="material-symbols-outlined text-base text-[#5b48bd]">psychology</span>
-                        <span>Ma Trận Năng Lực Chuyên Môn (Skills Matrix)</span>
-                      </h4>
-                      <div className="space-y-2.5">
-                        {cand.skillCategories?.map((cat, idx) => (
-                          <div key={idx} className="p-3 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-4">
-                            <span className="w-52 shrink-0 font-bold text-xs text-slate-900 flex items-center gap-1.5 pt-0.5">
-                              <span className="w-1.5 h-1.5 rounded-full bg-[#5b48bd] shrink-0" />
-                              <span>{cat.category}:</span>
-                            </span>
-                            <div className="flex-1 flex flex-wrap gap-1.5">
-                              {cat.items?.map((item, iIdx) => (
-                                <span key={iIdx} className="px-2.5 py-0.5 rounded-lg text-xs font-mono font-semibold bg-white text-slate-800 border border-slate-200 shadow-2xs">
-                                  {item}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </section>
-
-                  </div>
+                  {cand.matchScore != null && (
+                    <span className="px-3 py-1 rounded-full text-xs font-black bg-purple-50 text-[#5b48bd] border border-purple-200">
+                      {cand.matchScore}% Match
+                    </span>
+                  )}
                 </div>
+
+                {cand.summary && (
+                  <section>
+                    <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-[#5b48bd] mb-1.5">Giới thiệu</h4>
+                    <p className="text-xs leading-relaxed text-slate-700 bg-slate-50 p-4 rounded-2xl border border-slate-100">{cand.summary}</p>
+                  </section>
+                )}
+
+                {cand.skills?.length > 0 && (
+                  <section>
+                    <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-[#5b48bd] mb-2">Kỹ năng</h4>
+                    <div className="flex flex-wrap gap-1.5">
+                      {cand.skills.map((s, i) => (
+                        <span key={i} className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-purple-50 text-[#5b48bd] border border-purple-200">{s}</span>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {cand.experiences?.length > 0 && (
+                  <section className="space-y-3">
+                    <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-[#5b48bd]">Kinh nghiệm làm việc</h4>
+                    {cand.experiences.map((exp, i) => (
+                      <div key={i} className="pl-3 border-l-2 border-purple-200 space-y-1">
+                        <div className="flex items-start justify-between gap-3">
+                          <strong className="text-xs text-[#1e1b4b]">{exp.role || exp.title}</strong>
+                          <span className="text-[11px] text-slate-500 font-mono shrink-0">{exp.period || exp.duration}</span>
+                        </div>
+                        <div className="text-xs text-[#5b48bd] font-medium">{exp.company}</div>
+                        {Array.isArray(exp.bullets) ? (
+                          <ul className="list-disc pl-4 text-[11px] text-slate-600 space-y-0.5">
+                            {exp.bullets.map((b, bi) => <li key={bi}>{b}</li>)}
+                          </ul>
+                        ) : (exp.description || exp.summary) && (
+                          <p className="text-[11px] text-slate-600">{exp.description || exp.summary}</p>
+                        )}
+                      </div>
+                    ))}
+                  </section>
+                )}
+
+                {cand.projects?.length > 0 && (
+                  <section className="space-y-3">
+                    <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-[#5b48bd]">Dự án</h4>
+                    {cand.projects.map((p, i) => (
+                      <div key={i} className="pl-3 border-l-2 border-purple-200 space-y-0.5">
+                        <div className="flex items-start justify-between gap-3">
+                          <strong className="text-xs text-[#1e1b4b]">{p.name}</strong>
+                          <span className="text-[11px] text-slate-500 font-mono shrink-0">{p.period}</span>
+                        </div>
+                        {p.role && <div className="text-xs text-[#5b48bd]">{p.role}</div>}
+                        {(p.summary || p.description) && <p className="text-[11px] text-slate-600">{p.summary || p.description}</p>}
+                      </div>
+                    ))}
+                  </section>
+                )}
+
+                {cand.educations?.length > 0 && (
+                  <section className="space-y-2">
+                    <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-[#5b48bd]">Học vấn</h4>
+                    {cand.educations.map((e, i) => (
+                      <div key={i} className="flex items-start justify-between gap-3">
+                        <div>
+                          <strong className="text-xs text-[#1e1b4b]">{e.school || e.institution}</strong>
+                          <div className="text-[11px] text-slate-500">{e.degree || e.major}{e.grade ? ` • ${e.grade}` : ''}</div>
+                        </div>
+                        <span className="text-[11px] text-slate-500 font-mono shrink-0">{e.period || e.year}</span>
+                      </div>
+                    ))}
+                  </section>
+                )}
+
+                {cand.certifications?.length > 0 && (
+                  <section className="space-y-1">
+                    <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-[#5b48bd]">Chứng chỉ</h4>
+                    {cand.certifications.map((c, i) => (
+                      <div key={i} className="text-[11px] text-slate-700"><strong>{c.name}</strong>{c.issuer ? ` — ${c.issuer}` : ''}{c.year ? ` (${c.year})` : ''}</div>
+                    ))}
+                  </section>
+                )}
+
+                {cand.languages?.length > 0 && (
+                  <section className="space-y-1">
+                    <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-[#5b48bd]">Ngoại ngữ</h4>
+                    <div className="text-[11px] text-slate-700">{cand.languages.map((l) => l.name || l).join(' • ')}</div>
+                  </section>
+                )}
               </div>
             )}
           </div>

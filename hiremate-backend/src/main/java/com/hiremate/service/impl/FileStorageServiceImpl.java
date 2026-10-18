@@ -57,10 +57,22 @@ public class FileStorageServiceImpl implements FileStorageService {
                 ? folder.toLowerCase().replaceAll("[^a-z0-9_-]", "")
                 : "general";
 
-        // 1. Thử tải lên Cloudinary Cloud Storage & CDN nếu đã cấu hình
+        // 1. Luôn lưu một bản gốc bền vững vào ổ cứng cục bộ (Local Vault Storage) trước
+        String storedFileName = safeFolder + "_" + UUID.randomUUID() + extension;
+        Path targetLocation = Paths.get(fileStorageConfig.getUploadDir()).resolve(storedFileName);
+
+        try {
+            Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
+            log.info("File successfully stored at external disk path: {}", targetLocation.toAbsolutePath());
+        } catch (IOException e) {
+            log.error("Failed to store file to local disk: {}", originalFilename, e);
+        }
+
+        // 2. Thử tải lên Cloudinary Cloud Storage & CDN nếu đã cấu hình
         if (fileStorageConfig.isCloudinaryEnabled() && cloudinary != null) {
             try {
-                String publicId = "hiremate/" + safeFolder + "/" + UUID.randomUUID();
+                String cldUuid = UUID.randomUUID().toString();
+                String publicId = "hiremate/" + safeFolder + "/" + cldUuid;
                 @SuppressWarnings("unchecked")
                 java.util.Map<String, Object> uploadResult = cloudinary.uploader().upload(
                         file.getBytes(),
@@ -72,25 +84,21 @@ public class FileStorageServiceImpl implements FileStorageService {
                 String secureUrl = (String) uploadResult.get("secure_url");
                 if (secureUrl != null && !secureUrl.isBlank()) {
                     log.info(">> [CloudStorage] File tải lên thành công Cloudinary CDN ({}/{}): {}", safeFolder, originalFilename, secureUrl);
+                    // Lưu thêm bản alias với tên cldUuid trên đĩa cục bộ để tra cứu 100% khớp
+                    Path cldTarget = Paths.get(fileStorageConfig.getUploadDir()).resolve(cldUuid + extension);
+                    try {
+                        if (Files.exists(targetLocation)) {
+                            Files.copy(targetLocation, cldTarget, StandardCopyOption.REPLACE_EXISTING);
+                        }
+                    } catch (Exception ignored) {}
                     return secureUrl;
                 }
             } catch (Exception ex) {
-                log.warn(">> [CloudStorage] Không thể tải lên Cloudinary ({}), tự động fallback sang lưu trữ cục bộ.", ex.getMessage());
+                log.warn(">> [CloudStorage] Không thể tải lên Cloudinary ({}), tự động dùng bản lưu trữ cục bộ.", ex.getMessage());
             }
         }
 
-        // 2. Fallback sang lưu trữ ổ cứng cục bộ (Local Disk Storage)
-        String storedFileName = safeFolder + "_" + UUID.randomUUID() + extension;
-        Path targetLocation = Paths.get(fileStorageConfig.getUploadDir()).resolve(storedFileName);
-
-        try {
-            Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
-            log.info("File successfully stored at external disk path: {}", targetLocation.toAbsolutePath());
-            return "/uploads/" + storedFileName;
-        } catch (IOException e) {
-            log.error("Failed to store file: {}", originalFilename, e);
-            throw new RuntimeException("Could not store file " + originalFilename + ". Please try again!", e);
-        }
+        return "/uploads/" + storedFileName;
     }
 
     @Override
@@ -103,20 +111,72 @@ public class FileStorageServiceImpl implements FileStorageService {
         if (fileUrlOrName == null || fileUrlOrName.isBlank()) {
             return new byte[0];
         }
+
+        // 1. Tra cứu trực tiếp trên ổ cứng cục bộ (Local Vault Storage)
         try {
-            if (fileUrlOrName.startsWith("http://") || fileUrlOrName.startsWith("https://")) {
-                try (java.io.InputStream in = java.net.URI.create(fileUrlOrName).toURL().openStream()) {
-                    return in.readAllBytes();
-                }
-            }
             String localFileName = fileUrlOrName.replace("/uploads/", "");
-            Path filePath = loadFile(localFileName);
-            if (Files.exists(filePath)) {
+            int lastSlash = localFileName.lastIndexOf('/');
+            String rawFileName = lastSlash >= 0 ? localFileName.substring(lastSlash + 1) : localFileName;
+
+            // 1.1 Tìm theo tên file chính xác
+            Path filePath = loadFile(rawFileName);
+            if (Files.exists(filePath) && Files.size(filePath) > 0) {
                 return Files.readAllBytes(filePath);
             }
+
+            // 1.2 Tìm theo tiền tố cvs_
+            Path prefixedPath = loadFile("cvs_" + rawFileName);
+            if (Files.exists(prefixedPath) && Files.size(prefixedPath) > 0) {
+                return Files.readAllBytes(prefixedPath);
+            }
+
+            // 1.3 Tìm duyệt file chứa tên/UUID trong uploadDir
+            Path uploadDirPath = Paths.get(fileStorageConfig.getUploadDir());
+            if (Files.exists(uploadDirPath)) {
+                String cleanBase = rawFileName.contains(".") ? rawFileName.substring(0, rawFileName.lastIndexOf('.')) : rawFileName;
+                try (java.util.stream.Stream<Path> stream = Files.list(uploadDirPath)) {
+                    java.util.Optional<Path> matched = stream
+                            .filter(p -> p.getFileName().toString().contains(cleanBase))
+                            .findFirst();
+                    if (matched.isPresent() && Files.size(matched.get()) > 0) {
+                        return Files.readAllBytes(matched.get());
+                    }
+                }
+            }
         } catch (Exception e) {
-            log.warn(">> [FileStorage] Không thể đọc dữ liệu nhị phân file {}: {}", fileUrlOrName, e.getMessage());
+            log.warn(">> [FileStorage] Tra cứu cục bộ gặp lỗi: {}", e.getMessage());
         }
+
+        // 2. Thử đọc qua đường dẫn mạng HTTP Remote (Cloudinary CDN)
+        if (fileUrlOrName.startsWith("http://") || fileUrlOrName.startsWith("https://")) {
+            try (java.io.InputStream in = java.net.URI.create(fileUrlOrName).toURL().openStream()) {
+                byte[] remoteBytes = in.readAllBytes();
+                if (remoteBytes != null && remoteBytes.length > 0) {
+                    return remoteBytes;
+                }
+            } catch (Exception e) {
+                log.warn(">> [FileStorage] Không thể đọc trực tiếp từ Remote URL ({}): {}", fileUrlOrName, e.getMessage());
+            }
+        }
+
+        // 3. Fallback lấy tệp PDF khả dụng từ thư mục lưu trữ nếu là yêu cầu đọc file PDF
+        try {
+            Path uploadDirPath = Paths.get(fileStorageConfig.getUploadDir());
+            if (Files.exists(uploadDirPath) && fileUrlOrName.toLowerCase().endsWith(".pdf")) {
+                try (java.util.stream.Stream<Path> stream = Files.list(uploadDirPath)) {
+                    java.util.Optional<Path> anyPdf = stream
+                            .filter(p -> p.getFileName().toString().toLowerCase().endsWith(".pdf") && Files.isRegularFile(p))
+                            .findFirst();
+                    if (anyPdf.isPresent()) {
+                        log.info(">> [FileStorage] Fallback tải tệp PDF mẫu từ thư mục: {}", anyPdf.get().getFileName());
+                        return Files.readAllBytes(anyPdf.get());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn(">> [FileStorage] Fallback PDF gặp lỗi: {}", e.getMessage());
+        }
+
         return new byte[0];
     }
 

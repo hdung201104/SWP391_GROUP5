@@ -264,8 +264,10 @@ public class ApplicationServiceImpl implements ApplicationService {
 
         Job job = application.getJob();
 
-        // Kiểm tra quyền: recruiter.recruiterId = user.userId
-        if (!job.getRecruiter().getRecruiterId().equals(user.getUserId())) {
+        // Kiểm tra quyền: recruiter.recruiterId = user.userId hoặc ADMIN
+        boolean isOwner = job != null && job.getRecruiter() != null && job.getRecruiter().getRecruiterId().equals(user.getUserId());
+        boolean isAdmin = user != null && user.getRole() != null && user.getRole().name().contains("ADMIN");
+        if (!isOwner && !isAdmin) {
             throw new SecurityException("Unauthorized to modify this application.");
         }
 
