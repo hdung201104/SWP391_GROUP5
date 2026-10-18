@@ -21,6 +21,7 @@ public class NotificationServiceImpl implements NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final com.hiremate.repository.SubscriptionRepository subscriptionRepository;
+    private final com.hiremate.repository.UserRepository userRepository;
 
     @Override
     @Transactional
@@ -40,6 +41,20 @@ public class NotificationServiceImpl implements NotificationService {
             log.info(">> [Notification] Đã tạo thông báo cho user_id={}: {}", userId, title);
         } catch (Exception e) {
             log.error(">> [Notification] Lỗi khi tạo thông báo cho user_id={}: {}", userId, e.getMessage());
+        }
+    }
+
+    @Override
+    @Transactional
+    public void notifyAdmins(NotificationType type, String title, String body, Long refId, String refTable) {
+        try {
+            List<User> admins = userRepository.findByRole(com.hiremate.enums.UserRole.ADMIN);
+            for (User admin : admins) {
+                createNotification(admin.getUserId(), type, title, body, refId, refTable);
+            }
+            log.info(">> [Notification] Đã gửi thông báo cho {} Admin: {}", admins.size(), title);
+        } catch (Exception e) {
+            log.warn("Không thể gửi thông báo cho Admins: {}", e.getMessage());
         }
     }
 

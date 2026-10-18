@@ -11,6 +11,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEmail(String email);
     boolean existsByEmail(String email);
     java.util.List<User> findAllByOrderByCreatedAtDesc();
+    java.util.List<User> findByRole(com.hiremate.enums.UserRole role);
     long countByRole(com.hiremate.enums.UserRole role);
     long countByStatus(com.hiremate.enums.UserStatus status);
 }

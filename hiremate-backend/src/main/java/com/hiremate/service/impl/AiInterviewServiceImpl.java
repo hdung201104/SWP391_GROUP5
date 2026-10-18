@@ -314,6 +314,23 @@ public class AiInterviewServiceImpl implements AiInterviewService {
         // Cập nhật bộ nhớ dài hạn EMA (Exponential Moving Average) dựa trên 16 bảng CSDL sẵn có
         updateLongTermEmaWeakness(saved, user.getUserId());
 
+        // Gửi thông báo kết quả phỏng vấn AI cho ứng viên
+        if (notificationService != null) {
+            try {
+                int roundedScore = saved.getOverallScore() != null ? Math.round(saved.getOverallScore()) : 0;
+                notificationService.createNotification(
+                        user.getUserId(),
+                        com.hiremate.enums.NotificationType.INTERVIEW_RESULT,
+                        "Báo cáo phỏng vấn AI đã sẵn sàng!",
+                        "Bạn đã hoàn thành phiên phỏng vấn thử luyện tập với số điểm: " + roundedScore + "/100. Xem ngay đánh giá chi tiết và gợi ý cải thiện từ AI.",
+                        saved.getSessionId(),
+                        "interview_sessions"
+                );
+            } catch (Exception notifEx) {
+                log.warn("Không thể gửi thông báo hoàn thành phỏng vấn: {}", notifEx.getMessage());
+            }
+        }
+
         // Giải phóng bộ nhớ ngắn hạn của phiên phỏng vấn
         agentMemoryManager.evictMemory(sessionId);
 

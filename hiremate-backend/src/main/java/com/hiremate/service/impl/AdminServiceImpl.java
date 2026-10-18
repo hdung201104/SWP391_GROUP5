@@ -352,6 +352,23 @@ public class AdminServiceImpl implements AdminService {
             log.info("Tăng lượt dùng cho voucher: {}, tổng: {}", v.getCode(), v.getUsedCount());
         }
 
+        // Gửi thông báo đến người dùng
+        if (order.getUser() != null && notificationService != null) {
+            try {
+                String planTitle = plan != null ? plan.getPlanName() : "Gói dịch vụ";
+                notificationService.createNotification(
+                        order.getUser().getUserId(),
+                        NotificationType.SYSTEM_ALERT,
+                        "Đơn thanh toán đã được phê duyệt!",
+                        "Ban Quản Trị HireMate đã xác nhận thanh toán đơn #" + order.getOrderCode() + ". Gói \"" + planTitle + "\" đã được kích hoạt thành công!",
+                        order.getOrderId(),
+                        "payment_orders"
+                );
+            } catch (Exception notifEx) {
+                log.warn("Không thể gửi thông báo duyệt đơn hàng: {}", notifEx.getMessage());
+            }
+        }
+
         return mapToPaymentOrderResponse(order);
     }
 
@@ -366,6 +383,24 @@ public class AdminServiceImpl implements AdminService {
             order.setAdminNote(adminNote);
         }
         paymentOrderRepository.save(order);
+
+        // Gửi thông báo từ chối đến người dùng
+        if (order.getUser() != null && notificationService != null) {
+            try {
+                String planTitle = order.getPlan() != null ? order.getPlan().getPlanName() : "Gói dịch vụ";
+                String reason = (adminNote != null && !adminNote.isBlank()) ? adminNote : "Nội dung giao dịch chưa khớp hoặc không hợp lệ";
+                notificationService.createNotification(
+                        order.getUser().getUserId(),
+                        NotificationType.SYSTEM_ALERT,
+                        "Đơn thanh toán bị từ chối",
+                        "Đơn thanh toán #" + order.getOrderCode() + " cho gói \"" + planTitle + "\" đã bị từ chối. Lý do: " + reason + ". Vui lòng kiểm tra lại thông tin.",
+                        order.getOrderId(),
+                        "payment_orders"
+                );
+            } catch (Exception notifEx) {
+                log.warn("Không thể gửi thông báo từ chối đơn hàng: {}", notifEx.getMessage());
+            }
+        }
 
         return mapToPaymentOrderResponse(order);
     }

@@ -315,15 +315,37 @@ public class JobServiceImpl implements JobService {
         // Lưu kỹ năng chuẩn 70/30 (Mandatory & Preferred) theo ID hoặc theo tên
         saveJobSkills(savedJob.getJobId(), request);
 
-        // Gửi thông báo hệ thống cho nhà tuyển dụng
-        notificationService.createNotification(
-                user.getUserId(),
-                com.hiremate.enums.NotificationType.SYSTEM_ALERT,
-                "Đăng tin tuyển dụng thành công!",
-                "Tin tuyển dụng \"" + savedJob.getTitle() + "\" đã được đăng tải và sẵn sàng đón nhận hồ sơ ứng viên.",
-                savedJob.getJobId(),
-                "jobs"
-        );
+        // Gửi thông báo hệ thống cho nhà tuyển dụng & Admin
+        try {
+            if (savedJob.getApprovalStatus() == JobApprovalStatus.PENDING) {
+                notificationService.createNotification(
+                        user.getUserId(),
+                        com.hiremate.enums.NotificationType.SYSTEM_ALERT,
+                        "Tin tuyển dụng đang chờ phê duyệt",
+                        "Tin tuyển dụng \"" + savedJob.getTitle() + "\" đã được tạo thành công và đang chờ Ban Quản Trị kiểm duyệt trước khi xuất bản công khai.",
+                        savedJob.getJobId(),
+                        "jobs"
+                );
+                notificationService.notifyAdmins(
+                        com.hiremate.enums.NotificationType.SYSTEM_ALERT,
+                        "Tin tuyển dụng mới chờ kiểm duyệt",
+                        "Doanh nghiệp \"" + (company != null ? company.getCompanyName() : user.getFullName()) + "\" vừa tạo tin \"" + savedJob.getTitle() + "\" đang chờ phê duyệt.",
+                        savedJob.getJobId(),
+                        "jobs"
+                );
+            } else {
+                notificationService.createNotification(
+                        user.getUserId(),
+                        com.hiremate.enums.NotificationType.SYSTEM_ALERT,
+                        "Đăng tin tuyển dụng thành công!",
+                        "Tin tuyển dụng \"" + savedJob.getTitle() + "\" đã được xuất bản thành công và sẵn sàng đón nhận hồ sơ ứng viên.",
+                        savedJob.getJobId(),
+                        "jobs"
+                );
+            }
+        } catch (Exception notifEx) {
+            log.warn("Không thể gửi thông báo đăng tin: {}", notifEx.getMessage());
+        }
 
         return mapToResponse(savedJob);
     }

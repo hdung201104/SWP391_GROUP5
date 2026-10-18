@@ -29,6 +29,7 @@ public class CompanyServiceImpl implements CompanyService {
     private final RecruiterRepository recruiterRepository;
     private final com.hiremate.repository.JobRepository jobRepository;
     private final com.hiremate.service.FileStorageService fileStorageService;
+    private final com.hiremate.service.NotificationService notificationService;
 
     private Recruiter getOrCreateRecruiter(User recruiterUser) {
         return recruiterRepository.findById(recruiterUser.getUserId()).orElseGet(() -> {
@@ -135,6 +136,29 @@ public class CompanyServiceImpl implements CompanyService {
             }
         }
 
+        // Gửi thông báo cho Recruiter và Ban Quản Trị (Admin) nếu hồ sơ đang chờ duyệt
+        if (company.getStatus() == CompanyStatus.PENDING && notificationService != null) {
+            try {
+                notificationService.createNotification(
+                        recruiterUser.getUserId(),
+                        com.hiremate.enums.NotificationType.SYSTEM_ALERT,
+                        "Hồ sơ xác thực GPKD đã được tiếp nhận",
+                        "Hồ sơ Giấy phép kinh doanh của " + company.getCompanyName() + " đã được gửi đến Ban Quản Trị. Vui lòng đợi trong vòng 24h để được xét duyệt.",
+                        company.getCompanyId(),
+                        "companies"
+                );
+                notificationService.notifyAdmins(
+                        com.hiremate.enums.NotificationType.SYSTEM_ALERT,
+                        "Yêu cầu xét duyệt Giấy phép kinh doanh mới",
+                        "Doanh nghiệp \"" + company.getCompanyName() + "\" vừa cập nhật hồ sơ pháp lý & GPKD. Vui lòng kiểm tra và xét duyệt.",
+                        company.getCompanyId(),
+                        "companies"
+                );
+            } catch (Exception ex) {
+                log.warn("Lỗi gửi thông báo hồ sơ công ty: {}", ex.getMessage());
+            }
+        }
+
         log.info("Company profile updated for recruiter: {}, companyId: {}, status: {}", recruiterUser.getEmail(), company.getCompanyId(), company.getStatus());
         return mapToResponse(company, recruiterUser.getFullName());
     }
@@ -159,6 +183,28 @@ public class CompanyServiceImpl implements CompanyService {
                 recruiterRepository.save(recruiter);
             }
             log.info("Attached license doc directly to company ID {}: {}", company.getCompanyId(), docName);
+
+            if (notificationService != null) {
+                try {
+                    notificationService.createNotification(
+                            recruiterUser.getUserId(),
+                            com.hiremate.enums.NotificationType.SYSTEM_ALERT,
+                            "Đã tải lên Giấy phép kinh doanh thành công",
+                            "Tài liệu " + docName + " đã được lưu và gửi đến Ban Quản Trị để thẩm định tính pháp lý.",
+                            company.getCompanyId(),
+                            "companies"
+                    );
+                    notificationService.notifyAdmins(
+                            com.hiremate.enums.NotificationType.SYSTEM_ALERT,
+                            "Yêu cầu xét duyệt Giấy phép kinh doanh mới",
+                            "Doanh nghiệp \"" + company.getCompanyName() + "\" vừa tải lên Giấy phép kinh doanh (" + docName + ") chờ duyệt.",
+                            company.getCompanyId(),
+                            "companies"
+                    );
+                } catch (Exception ex) {
+                    log.warn("Lỗi gửi thông báo tải GPKD: {}", ex.getMessage());
+                }
+            }
         }
     }
 

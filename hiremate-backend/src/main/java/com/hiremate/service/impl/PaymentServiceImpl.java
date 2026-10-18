@@ -398,6 +398,18 @@ public class PaymentServiceImpl implements PaymentService {
             } catch (Exception notifEx) {
                 log.warn("Không thể gửi thông báo nâng cấp gói: {}", notifEx.getMessage());
             }
+        } else if (status == PaymentOrderStatus.PENDING && finalAmount.compareTo(BigDecimal.ZERO) > 0) {
+            try {
+                notificationService.notifyAdmins(
+                        com.hiremate.enums.NotificationType.SYSTEM_ALERT,
+                        "Đơn thanh toán mới chờ xác nhận",
+                        "Người dùng " + effectiveUser.getFullName() + " vừa tạo đơn thanh toán gói \"" + plan.getPlanName() + "\" (Mã GD: " + orderCode + ", " + String.format("%,d", finalAmount.longValue()) + "đ).",
+                        order.getOrderId(),
+                        "payment_orders"
+                );
+            } catch (Exception notifEx) {
+                log.warn("Không thể gửi thông báo đơn hàng mới cho admin: {}", notifEx.getMessage());
+            }
         }
 
         // 6. Tích hợp tạo mã PayOS thực tế nếu có cấu hình

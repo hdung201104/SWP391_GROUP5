@@ -190,26 +190,72 @@ export default function Header({
           let targetRoute = '#/';
           let category = 'RECRUITMENT';
 
-          if (n.type === 'INTERVIEW_RESULT' || n.type === 'INTERVIEW_FEEDBACK') {
-            icon = 'psychology';
-            color = 'primary';
-            targetRoute = '#/ai-interview';
-            category = 'AI_STUDIO';
-          } else if (n.type === 'APPLICATION_STATUS') {
-            icon = 'calendar_today';
-            color = 'secondary';
-            targetRoute = isRoleRecruiter ? '#/recruiter-jobs' : '#/applications';
-            category = 'RECRUITMENT';
-          } else if (n.type === 'AI_MATCH_DONE') {
-            icon = 'auto_awesome';
-            color = 'tertiary';
-            targetRoute = n.refId ? `#/jobs/${n.refId}` : '#/';
-            category = 'RECRUITMENT';
-          } else if (n.title && (n.title.includes('Nâng cấp') || n.title.includes('gói') || n.title.includes('VIP') || n.title.includes('Pro'))) {
-            icon = 'workspace_premium';
-            color = 'primary';
-            targetRoute = isRoleRecruiter ? '#/recruiter-pricing' : '#/candidate-pricing';
-            category = 'RECRUITMENT';
+          const isAdmin = user?.role === 'ADMIN';
+
+          if (isAdmin) {
+            if (n.refTable === 'companies' || (n.title && (n.title.includes('Doanh nghiệp') || n.title.includes('GPKD')))) {
+              icon = 'domain_verification';
+              color = 'primary';
+              targetRoute = '#/admin-dashboard?tab=companies';
+              category = 'RECRUITMENT';
+            } else if (n.refTable === 'jobs' || (n.title && n.title.includes('Tin tuyển dụng'))) {
+              icon = 'work';
+              color = 'secondary';
+              targetRoute = '#/admin-dashboard?tab=jobs';
+              category = 'RECRUITMENT';
+            } else if (n.refTable === 'payment_orders' || (n.title && (n.title.includes('thanh toán') || n.title.includes('đơn')))) {
+              icon = 'payments';
+              color = 'primary';
+              targetRoute = '#/admin-dashboard?tab=payments';
+              category = 'RECRUITMENT';
+            } else {
+              targetRoute = '#/admin-dashboard';
+            }
+          } else if (isRoleRecruiter) {
+            if (n.refTable === 'companies' || (n.title && (n.title.includes('Doanh nghiệp') || n.title.includes('GPKD')))) {
+              icon = 'verified_user';
+              color = 'primary';
+              targetRoute = '#/recruiter-profile';
+              category = 'RECRUITMENT';
+            } else if (n.refTable === 'jobs' || (n.title && n.title.includes('Tin tuyển dụng'))) {
+              icon = 'work';
+              color = 'secondary';
+              targetRoute = '#/recruiter-jobs';
+              category = 'RECRUITMENT';
+            } else if (n.refTable === 'payment_orders' || (n.title && (n.title.includes('thanh toán') || n.title.includes('gói') || n.title.includes('VIP')))) {
+              icon = 'workspace_premium';
+              color = 'primary';
+              targetRoute = '#/recruiter-pricing';
+              category = 'RECRUITMENT';
+            } else if (n.refTable === 'applications' || n.type === 'APPLICATION_STATUS') {
+              icon = 'group';
+              color = 'secondary';
+              targetRoute = '#/recruiter-jobs';
+              category = 'RECRUITMENT';
+            }
+          } else {
+            // CANDIDATE
+            if (n.type === 'INTERVIEW_RESULT' || n.type === 'INTERVIEW_FEEDBACK' || n.refTable === 'interview_sessions') {
+              icon = 'psychology';
+              color = 'primary';
+              targetRoute = '#/ai-interview';
+              category = 'AI_STUDIO';
+            } else if (n.type === 'APPLICATION_STATUS' || n.refTable === 'applications') {
+              icon = 'calendar_today';
+              color = 'secondary';
+              targetRoute = '#/applications';
+              category = 'RECRUITMENT';
+            } else if (n.type === 'AI_MATCH_DONE') {
+              icon = 'auto_awesome';
+              color = 'tertiary';
+              targetRoute = n.refId ? `#/jobs/${n.refId}` : '#/job-search';
+              category = 'RECRUITMENT';
+            } else if (n.refTable === 'payment_orders' || (n.title && (n.title.includes('Nâng cấp') || n.title.includes('gói') || n.title.includes('VIP') || n.title.includes('thanh toán')))) {
+              icon = 'workspace_premium';
+              color = 'primary';
+              targetRoute = '#/candidate-pricing';
+              category = 'RECRUITMENT';
+            }
           }
 
           // Format relative time
