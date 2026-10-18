@@ -528,16 +528,54 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
     }
   };
 
-  // Recalculate AI matching
+  // State track candidate đang được AI chấm lại chuyên sâu
+  const [evaluatingCandId, setEvaluatingCandId] = useState(null);
+
+  // Chấm lại chuyên sâu bằng AI cho một ứng viên cụ thể
+  const handleDeepEvaluateCandidate = async (cand) => {
+    if (!cand || !jobDetails?.id) return;
+    try {
+      setEvaluatingCandId(cand.candidateId);
+      triggerToast(`Đang yêu cầu AI đối soát chuyên sâu & chấm lại kỹ hơn cho ứng viên "${cand.name}"...`);
+      const res = await aiMatchApi.getDetailedCandidateEvaluation(jobDetails.id, cand.candidateId, true);
+      const data = res?.data?.data || res?.data || res;
+      if (data?.matchingScore != null) {
+        const freshScore = Math.round(data.matchingScore);
+        const freshTier = data.matchTier || (freshScore >= 80 ? '⭐ Phù Hợp Xuất Sắc' : freshScore >= 65 ? '✨ Phù Hợp Tốt' : '💡 Tiềm Năng');
+        setCandidates((prev) =>
+          prev.map((c) =>
+            c.candidateId === cand.candidateId
+              ? {
+                  ...c,
+                  matchScore: freshScore,
+                  matchCategory: freshTier,
+                  aiQuote: data.overallVerdict || c.aiQuote,
+                }
+              : c
+          )
+        );
+        triggerToast(`Đã hoàn tất chấm lại bằng AI cho ứng viên "${cand.name}": ${freshScore}% AI Match!`);
+      } else {
+        triggerToast(`Đã đối soát xong hồ sơ của ứng viên "${cand.name}".`);
+      }
+    } catch (err) {
+      console.error('Lỗi khi chấm lại bằng AI:', err);
+      triggerToast('Lỗi khi chấm lại bằng AI: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setEvaluatingCandId(null);
+    }
+  };
+
+  // Chấm lại toàn bộ danh sách CV của cả bài đăng tuyển dụng bằng AI
   const handleRecalculateAi = async () => {
     try {
       setIsRescanning(true);
-      triggerToast('Đang yêu cầu AI quét lại điểm Match toàn bộ ứng viên theo tiêu chí 70/30...');
+      triggerToast('Đang yêu cầu AI chấm lại toàn bộ danh sách CV của bài đăng tuyển dụng này...');
       await aiMatchApi.recalculateMatchesForJob(jobDetails.id);
       await loadJobAndApplicants();
-      triggerToast('Đã hoàn tất tính toán lại điểm AI Match và đồng bộ vào Supabase!');
+      triggerToast('Đã hoàn tất chấm lại toàn bộ danh sách CV bằng AI và đồng bộ vào hệ thống!');
     } catch (err) {
-      triggerToast('Lỗi khi quét lại AI: ' + (err.response?.data?.message || err.message));
+      triggerToast('Lỗi khi chấm lại AI toàn bộ: ' + (err.response?.data?.message || err.message));
     } finally {
       setIsRescanning(false);
     }
@@ -683,13 +721,13 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                 type="button"
                 onClick={handleRecalculateAi}
                 disabled={isRescanning}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-xs font-bold text-white shadow-sm hover:shadow transition-all cursor-pointer"
-                title="Yêu cầu AI quét lại điểm matching 70/30 cho toàn bộ ứng viên"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-xs font-extrabold text-white shadow-sm hover:shadow-md transition-all cursor-pointer"
+                title="Chấm lại toàn bộ danh sách CV của bài đăng tuyển dụng này bằng AI"
               >
                 <span className={`material-symbols-outlined text-[16px] ${isRescanning ? 'animate-spin' : ''}`}>
-                  auto_awesome
+                  {isRescanning ? 'sync' : 'auto_awesome'}
                 </span>
-                <span>{isRescanning ? 'Đang Quét AI...' : 'Quét Lại AI (70/30)'}</span>
+                <span>{isRescanning ? 'Đang Chấm Lại Toàn Bộ...' : 'Chấm Lại Toàn Bộ CV Bằng AI'}</span>
               </button>
 
               <button
@@ -1170,6 +1208,22 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                     >
                       <span className="material-symbols-outlined text-sm text-purple-600">auto_awesome</span>
                       <span>Xem Báo Cáo AI</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={evaluatingCandId === cand.candidateId}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeepEvaluateCandidate(cand);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 hover:border-indigo-300 text-xs font-bold transition-all cursor-pointer shadow-2xs hover:scale-105 shrink-0"
+                      title="Kích hoạt AI đối soát chuyên sâu & chấm lại kỹ hơn hồ sơ CV này"
+                    >
+                      <span className={`material-symbols-outlined text-sm text-indigo-600 ${evaluatingCandId === cand.candidateId ? 'animate-spin' : ''}`}>
+                        {evaluatingCandId === cand.candidateId ? 'sync' : 'psychology'}
+                      </span>
+                      <span>{evaluatingCandId === cand.candidateId ? 'Đang Chấm AI...' : 'AI Chấm Lại CV'}</span>
                     </button>
                   </div>
 

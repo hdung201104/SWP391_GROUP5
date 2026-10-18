@@ -27,6 +27,9 @@ public interface AiJobMatchRepository extends JpaRepository<AiJobMatch, Long> {
     /** Xóa tất cả matches liên quan đến một job */
     void deleteByJob_JobId(Long jobId);
 
+    /** Xóa match giữa một candidate cụ thể và job cụ thể khi tính lại */
+    void deleteByCandidate_CandidateIdAndJob_JobId(Long candidateId, Long jobId);
+
     /** Lấy danh sách việc làm gợi ý cho candidate: Job PUBLISHED, chưa hết hạn, matchingScore >= minScore */
     @org.springframework.data.jpa.repository.Query("SELECT m FROM AiJobMatch m " +
             "JOIN FETCH m.job j " +

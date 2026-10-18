@@ -664,7 +664,7 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
     }
 
     @Override
-    @org.springframework.scheduling.annotation.Async
+    @Transactional
     public java.util.concurrent.CompletableFuture<Integer> recalculateMatchesForJobAsync(Long jobId, User recruiterUser) {
         Job job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new IllegalArgumentException("Job not found: " + jobId));
@@ -673,23 +673,45 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
             throw new SecurityException("Unauthorized to run batch matching for this job");
         }
 
-        List<Candidate> allCandidates = candidateRepository.findAll();
         int count = 0;
-        log.info(">> [AiJobMatchService] Bắt đầu Batch Asynchronous Matching cho Job ID {} trên {} ứng viên",
-                jobId, allCandidates.size());
+        Set<Long> processedCandIds = new HashSet<>();
 
-        for (Candidate cand : allCandidates) {
-            try {
-                Cv defaultCv = cvRepository.findByCandidateIdAndIsDefaultTrue(cand.getCandidateId()).orElse(null);
-                calculateAndSaveMatch(cand, job, defaultCv);
-                count++;
-            } catch (Exception ex) {
-                log.warn(">> [AiJobMatchService] Lỗi khi tính match cho Candidate {}: {}", cand.getCandidateId(), ex.getMessage());
+        // 1. Ưu tiên tính lại cho toàn bộ ứng viên đã nộp đơn vào bài đăng này (theo đúng CV ứng tuyển)
+        List<Application> apps = applicationRepository != null ? applicationRepository.findByJob_JobId(jobId) : Collections.emptyList();
+        if (apps != null && !apps.isEmpty()) {
+            for (Application app : apps) {
+                if (app.getCandidate() != null) {
+                    try {
+                        Candidate cand = app.getCandidate();
+                        Cv appCv = app.getCv() != null ? app.getCv()
+                                : cvRepository.findByCandidateIdAndIsDefaultTrue(cand.getCandidateId()).orElse(null);
+                        aiJobMatchRepository.deleteByCandidate_CandidateIdAndJob_JobId(cand.getCandidateId(), jobId);
+                        calculateAndSaveMatch(cand, job, appCv, false);
+                        processedCandIds.add(cand.getCandidateId());
+                        count++;
+                    } catch (Exception ex) {
+                        log.warn(">> [AiJobMatchService] Lỗi khi tính lại match cho ứng viên đã nộp {}: {}", app.getCandidate().getCandidateId(), ex.getMessage());
+                    }
+                }
             }
         }
 
-        log.info(">> [AiJobMatchService] Hoàn tất Batch Matching cho Job ID {}. Đã tính điểm cho {}/{} ứng viên",
-                jobId, count, allCandidates.size());
+        // 2. Quét tiếp các ứng viên khác trong hệ thống để phục vụ tính năng tìm kiếm đề cử
+        List<Candidate> allCandidates = candidateRepository.findAll();
+        for (Candidate cand : allCandidates) {
+            if (!processedCandIds.contains(cand.getCandidateId())) {
+                try {
+                    Cv defaultCv = cvRepository.findByCandidateIdAndIsDefaultTrue(cand.getCandidateId()).orElse(null);
+                    calculateAndSaveMatch(cand, job, defaultCv, false);
+                    count++;
+                } catch (Exception ex) {
+                    log.warn(">> [AiJobMatchService] Lỗi khi tính match cho Candidate {}: {}", cand.getCandidateId(), ex.getMessage());
+                }
+            }
+        }
+
+        log.info(">> [AiJobMatchService] Hoàn tất chấm lại toàn bộ CV cho Job ID {}. Đã tính điểm cho {} ứng viên",
+                jobId, count);
         return java.util.concurrent.CompletableFuture.completedFuture(count);
     }
 
@@ -1107,7 +1129,7 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
         String candidateEmail = candidate.getUser() != null ? candidate.getUser().getEmail() : "";
 
         com.hiremate.dto.response.AiDetailedEvaluationReport report;
-        if (forceRefresh || geminiAiService.isAvailable()) {
+        if (forceRefresh && geminiAiService.isAvailable()) {
             report = geminiAiService.evaluateCandidateCvAgainstJob(
                     job.getTitle(),
                     job.getRequirements(),

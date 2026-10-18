@@ -25,6 +25,17 @@ const getBrandLogo = (companyName = '', logoUrl = null) => {
   return null;
 };
 
+// Chuẩn hoá trạng thái từ backend enum (APPLIED, SCREENING, SHORTLISTED, INTERVIEWING, OFFERED, HIRED, REJECTED)
+const normalizeApplicationStatus = (rawStatus) => {
+  if (!rawStatus) return 'APPLIED';
+  const s = String(rawStatus).toUpperCase().trim();
+  if (s === 'INTERVIEWING' || s === 'INTERVIEW') return 'INTERVIEW';
+  if (s === 'OFFERED' || s === 'OFFER' || s === 'HIRED') return 'OFFER';
+  if (s === 'SCREENING' || s === 'SHORTLISTED') return 'SCREENING';
+  if (s === 'REJECTED') return 'REJECTED';
+  return 'APPLIED';
+};
+
 export default function CandidateApplicationsPage({ user }) {
   const { theme: livingTheme } = useLivingTheme();
   const [applications, setApplications] = useState([]);
@@ -78,8 +89,8 @@ export default function CandidateApplicationsPage({ user }) {
     };
   }, []);
 
-  useEffect(() => {
-    setLoading(true);
+  const fetchMyApplications = (silent = false) => {
+    if (!silent) setLoading(true);
     applicationApi
       .getMyApplications()
       .then((res) => {
@@ -97,7 +108,8 @@ export default function CandidateApplicationsPage({ user }) {
                 .map((w) => w[0])
                 .join('')
                 .toUpperCase() || 'CORP';
-            const st = app.status || 'APPLIED';
+            const rawStatus = app.status || 'APPLIED';
+            const st = normalizeApplicationStatus(rawStatus);
             const step = st === 'OFFER' ? 4 : st === 'INTERVIEW' ? 3 : st === 'SCREENING' ? 2 : 1;
             const appliedDate = app.createdAt
               ? new Date(app.createdAt).toLocaleDateString('vi-VN')
@@ -134,8 +146,13 @@ export default function CandidateApplicationsPage({ user }) {
                   ? 'Đã Nhận Thư Mời Nhận Việc (Offer)'
                   : st === 'INTERVIEW'
                   ? 'Đã Vào Vòng Phỏng Vấn Tuyển Dụng'
-                  : 'Hồ sơ đang trong quá trình xét duyệt',
+                  : st === 'REJECTED'
+                  ? 'Hồ sơ chưa phù hợp trong đợt tuyển này'
+                  : st === 'SCREENING'
+                  ? 'Hồ sơ đang trong quá trình xét duyệt'
+                  : 'Hồ sơ đã nộp thành công qua hệ thống',
               status: st,
+              rawStatus: rawStatus,
               statusLabel:
                 st === 'OFFER'
                   ? 'Đã Nhận Offer'
@@ -158,13 +175,13 @@ export default function CandidateApplicationsPage({ user }) {
                 {
                   step: 3,
                   title: 'Phỏng Vấn',
-                  date: 'Đánh giá AI',
-                  status: step >= 3 ? (step === 3 ? 'active' : 'completed') : 'pending',
+                  date: step >= 3 ? 'Mời phỏng vấn' : 'Đánh giá AI',
+                  status: step > 3 ? 'completed' : step === 3 ? 'active' : 'pending',
                 },
                 {
                   step: 4,
                   title: 'Nhận Offer',
-                  date: 'Kết quả',
+                  date: step === 4 ? 'Đã có Offer' : 'Kết quả',
                   status: step === 4 ? 'completed' : 'pending',
                 },
               ],
@@ -188,9 +205,33 @@ export default function CandidateApplicationsPage({ user }) {
         setApplications([]);
       })
       .finally(() => {
-        setLoading(false);
+        if (!silent) setLoading(false);
       });
+  };
+
+  useEffect(() => {
+    fetchMyApplications(false);
+
+    // Đồng bộ tức thì khi nhận được thông báo trạng thái hoặc khi quay lại tab trình duyệt
+    const handleSync = () => {
+      fetchMyApplications(true);
+    };
+
+    window.addEventListener('hiremate-notification-sync', handleSync);
+    window.addEventListener('focus', handleSync);
+
+    // Tự động kiểm tra cập nhật mỗi 5 giây
+    const interval = setInterval(() => {
+      fetchMyApplications(true);
+    }, 5000);
+
+    return () => {
+      window.removeEventListener('hiremate-notification-sync', handleSync);
+      window.removeEventListener('focus', handleSync);
+      clearInterval(interval);
+    };
   }, []);
+
 
   const showToast = (msg) => {
     setToastMessage(msg);

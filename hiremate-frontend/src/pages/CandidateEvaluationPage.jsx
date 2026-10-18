@@ -5,6 +5,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import { parseSkillList } from '../utils/helpers';
 import { createHrToCandidateMailto } from '../utils/emailUtils';
 import { extractBlob } from '../utils/excelExportUtils';
+import OnlineCvRenderer from '../components/common/OnlineCvRenderer';
 
 /**
  * CandidateEvaluationPage.jsx
@@ -107,6 +108,39 @@ export default function CandidateEvaluationPage({
   const [newNoteTag, setNewNoteTag] = useState('Ưu tiên cao');
   const [rejectionReason, setRejectionReason] = useState('Khác định hướng tech stack');
   const [aiRejectionEmail, setAiRejectionEmail] = useState('');
+
+  // AI Re-Score State & Handler
+  const [isReScoring, setIsReScoring] = useState(false);
+  const handleReScoreCandidate = async () => {
+    const targetJobId = cand.jobId || parsedJobId;
+    if (!cand.id || !targetJobId) {
+      triggerToast('Thiếu thông tin vị trí tuyển dụng để chấm lại.');
+      return;
+    }
+    try {
+      setIsReScoring(true);
+      triggerToast(`Đang yêu cầu AI đối soát chuyên sâu & chấm lại kỹ hơn cho hồ sơ ${cand.name}...`);
+      const res = await aiMatchApi.getDetailedCandidateEvaluation(targetJobId, cand.id, true);
+      const data = res?.data?.data || res?.data || res;
+      if (data?.matchingScore != null) {
+        const freshScore = Math.round(data.matchingScore);
+        setCand((prev) => ({
+          ...prev,
+          matchScore: freshScore,
+          aiFitAssessment: data.matchTier || prev.aiFitAssessment,
+          aiReasoning: data.overallVerdict || prev.aiReasoning,
+        }));
+        triggerToast(`Đã hoàn tất chấm lại bằng AI cho ứng viên ${cand.name}: ${freshScore}% AI Match!`);
+      } else {
+        triggerToast('Đã đối soát xong hồ sơ CV.');
+      }
+    } catch (err) {
+      console.error('Lỗi khi chấm lại bằng AI:', err);
+      triggerToast('Lỗi khi chấm lại bằng AI: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setIsReScoring(false);
+    }
+  };
 
   // 2. Fetch dữ liệu đa nguồn (API + Thread Cache fallback an toàn)
   useEffect(() => {
@@ -450,10 +484,35 @@ export default function CandidateEvaluationPage({
           ? 'TIỀM NĂNG • CẦN PHỎNG VẤN ĐÁNH GIÁ'
           : 'CÂN NHẮC • CHƯA ĐẠT CHUẨN';
 
+      let initialTpl = 'executive';
+      if (appData?.coverLetter) {
+        const match = appData.coverLetter.match(/\[CV_TEMPLATE:([a-zA-Z0-9_-]+)\]/i);
+        if (match && match[1]) {
+          initialTpl = match[1].toLowerCase();
+        } else if (/harvard/i.test(appData.coverLetter)) {
+          initialTpl = 'harvard';
+        } else if (/modern|hiện đại/i.test(appData.coverLetter)) {
+          initialTpl = 'modern';
+        } else if (/executive|2 cột/i.test(appData.coverLetter)) {
+          initialTpl = 'executive';
+        }
+      }
+
+      // Kiểm tra thêm từ cache đã nộp nếu đơn vừa nộp xong
+      try {
+        const storedJobTpl = localStorage.getItem(`candidate_applied_template_${parsedJobId || ''}`);
+        const storedCandTpl = localStorage.getItem(`candidate_applied_template_candidate_${parsedCandId || ''}`);
+        const latestTpl = localStorage.getItem('candidate_latest_applied_template');
+        if (storedJobTpl) initialTpl = storedJobTpl;
+        else if (storedCandTpl) initialTpl = storedCandTpl;
+        else if (latestTpl && (!appData?.coverLetter || !appData.coverLetter.includes('CV_TEMPLATE'))) initialTpl = latestTpl;
+      } catch (ignored) {}
+
       if (isMounted) {
         setCand({
           id: parsedCandId,
           applicationId: effectiveAppId,
+          initialTemplate: initialTpl,
           name: candidateName,
           title: parsedJson?.headline || profileData?.headline || `${jobTitle} • KỸ SƯ PHẦN MỀM • FULL-STACK DEVELOPER`,
           roleSummary: `${jobTitle.toUpperCase()} • ĐÃ NỘP HỒ SƠ`,
@@ -880,6 +939,18 @@ export default function CandidateEvaluationPage({
                 <span className="text-[10px] text-emerald-600 font-bold block mt-0.5">
                   ATS Standard Score
                 </span>
+                <button
+                  type="button"
+                  disabled={isReScoring}
+                  onClick={handleReScoreCandidate}
+                  className="mt-1.5 px-2.5 py-0.5 rounded-lg bg-purple-50 hover:bg-purple-100 text-[#5b48bd] border border-purple-200 text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer transition-all shadow-2xs"
+                  title="Kích hoạt AI đối soát chuyên sâu & chấm lại kỹ hơn hồ sơ CV này"
+                >
+                  <span className={`material-symbols-outlined text-[12px] ${isReScoring ? 'animate-spin' : ''}`}>
+                    {isReScoring ? 'sync' : 'psychology'}
+                  </span>
+                  <span>{isReScoring ? 'Đang chấm...' : 'AI Chấm Lại CV'}</span>
+                </button>
               </div>
             </div>
 
@@ -1077,8 +1148,8 @@ export default function CandidateEvaluationPage({
                     : 'bg-white text-slate-700 hover:bg-purple-50/60 border border-slate-200'
                 }`}
               >
-                <span className="material-symbols-outlined text-sm">analytics</span>
-                <span>Dữ Liệu Trích Xuất ATS</span>
+                <span className="material-symbols-outlined text-sm">web</span>
+                <span>CV Online</span>
               </button>
             </div>
 
@@ -1138,7 +1209,7 @@ export default function CandidateEvaluationPage({
                     <div>
                       <h4 className="font-bold text-base text-[#1e1b4b]">{cand.cvFileName || 'Tài Liệu CV Ứng Viên'}</h4>
                       <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                        Tệp PDF gốc đang được đồng bộ bảo mật từ Vault Storage. Bạn có thể bấm nút bên dưới để tải trực tiếp hoặc chuyển sang tab <strong>"Dữ Liệu Trích Xuất ATS"</strong> để xem đầy đủ hồ sơ.
+                        Tệp PDF gốc đang được đồng bộ bảo mật từ Vault Storage. Bạn có thể bấm nút bên dưới để tải trực tiếp hoặc chuyển sang tab <strong>"CV Online"</strong> để xem đầy đủ hồ sơ trực tuyến.
                       </p>
                     </div>
                     <div className="flex items-center justify-center gap-3 pt-2">
@@ -1155,7 +1226,7 @@ export default function CandidateEvaluationPage({
                         onClick={() => setCvViewMode('parsed')}
                         className="px-4 py-2.5 rounded-2xl bg-purple-50 text-[#5b48bd] border border-purple-200 font-bold text-xs hover:bg-purple-100 cursor-pointer"
                       >
-                        Xem Dữ Liệu ATS →
+                        Xem CV Online →
                       </button>
                     </div>
                   </div>
@@ -1163,108 +1234,14 @@ export default function CandidateEvaluationPage({
               </div>
             ) : (
               /* ======================================================= */
-              /* TAB 2: HỒ SƠ DỮ LIỆU TRÍCH XUẤT ATS                     */
+              /* TAB 2: HỒ SƠ CV ONLINE (THEO ĐÚNG MẪU ỨNG VIÊN ĐÃ NỘP)    */
               /* ======================================================= */
-              <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 space-y-6 text-slate-800">
-                <div className="pb-4 border-b border-slate-200 flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="text-xl font-black text-[#1e1b4b]">{cand.name}</h3>
-                    <p className="text-xs text-slate-500 mt-1">{[cand.email, cand.phone, cand.location].filter(Boolean).join(' • ')}</p>
-                  </div>
-                  {cand.matchScore != null && (
-                    <span className="px-3 py-1 rounded-full text-xs font-black bg-purple-50 text-[#5b48bd] border border-purple-200">
-                      {cand.matchScore}% Match
-                    </span>
-                  )}
-                </div>
-
-                {cand.summary && (
-                  <section>
-                    <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-[#5b48bd] mb-1.5">Giới thiệu</h4>
-                    <p className="text-xs leading-relaxed text-slate-700 bg-slate-50 p-4 rounded-2xl border border-slate-100">{cand.summary}</p>
-                  </section>
-                )}
-
-                {cand.skills?.length > 0 && (
-                  <section>
-                    <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-[#5b48bd] mb-2">Kỹ năng</h4>
-                    <div className="flex flex-wrap gap-1.5">
-                      {cand.skills.map((s, i) => (
-                        <span key={i} className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-purple-50 text-[#5b48bd] border border-purple-200">{s}</span>
-                      ))}
-                    </div>
-                  </section>
-                )}
-
-                {cand.experiences?.length > 0 && (
-                  <section className="space-y-3">
-                    <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-[#5b48bd]">Kinh nghiệm làm việc</h4>
-                    {cand.experiences.map((exp, i) => (
-                      <div key={i} className="pl-3 border-l-2 border-purple-200 space-y-1">
-                        <div className="flex items-start justify-between gap-3">
-                          <strong className="text-xs text-[#1e1b4b]">{exp.role || exp.title}</strong>
-                          <span className="text-[11px] text-slate-500 font-mono shrink-0">{exp.period || exp.duration}</span>
-                        </div>
-                        <div className="text-xs text-[#5b48bd] font-medium">{exp.company}</div>
-                        {Array.isArray(exp.bullets) ? (
-                          <ul className="list-disc pl-4 text-[11px] text-slate-600 space-y-0.5">
-                            {exp.bullets.map((b, bi) => <li key={bi}>{b}</li>)}
-                          </ul>
-                        ) : (exp.description || exp.summary) && (
-                          <p className="text-[11px] text-slate-600">{exp.description || exp.summary}</p>
-                        )}
-                      </div>
-                    ))}
-                  </section>
-                )}
-
-                {cand.projects?.length > 0 && (
-                  <section className="space-y-3">
-                    <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-[#5b48bd]">Dự án</h4>
-                    {cand.projects.map((p, i) => (
-                      <div key={i} className="pl-3 border-l-2 border-purple-200 space-y-0.5">
-                        <div className="flex items-start justify-between gap-3">
-                          <strong className="text-xs text-[#1e1b4b]">{p.name}</strong>
-                          <span className="text-[11px] text-slate-500 font-mono shrink-0">{p.period}</span>
-                        </div>
-                        {p.role && <div className="text-xs text-[#5b48bd]">{p.role}</div>}
-                        {(p.summary || p.description) && <p className="text-[11px] text-slate-600">{p.summary || p.description}</p>}
-                      </div>
-                    ))}
-                  </section>
-                )}
-
-                {cand.educations?.length > 0 && (
-                  <section className="space-y-2">
-                    <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-[#5b48bd]">Học vấn</h4>
-                    {cand.educations.map((e, i) => (
-                      <div key={i} className="flex items-start justify-between gap-3">
-                        <div>
-                          <strong className="text-xs text-[#1e1b4b]">{e.school || e.institution}</strong>
-                          <div className="text-[11px] text-slate-500">{e.degree || e.major}{e.grade ? ` • ${e.grade}` : ''}</div>
-                        </div>
-                        <span className="text-[11px] text-slate-500 font-mono shrink-0">{e.period || e.year}</span>
-                      </div>
-                    ))}
-                  </section>
-                )}
-
-                {cand.certifications?.length > 0 && (
-                  <section className="space-y-1">
-                    <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-[#5b48bd]">Chứng chỉ</h4>
-                    {cand.certifications.map((c, i) => (
-                      <div key={i} className="text-[11px] text-slate-700"><strong>{c.name}</strong>{c.issuer ? ` — ${c.issuer}` : ''}{c.year ? ` (${c.year})` : ''}</div>
-                    ))}
-                  </section>
-                )}
-
-                {cand.languages?.length > 0 && (
-                  <section className="space-y-1">
-                    <h4 className="text-[11px] font-extrabold uppercase tracking-wider text-[#5b48bd]">Ngoại ngữ</h4>
-                    <div className="text-[11px] text-slate-700">{cand.languages.map((l) => l.name || l).join(' • ')}</div>
-                  </section>
-                )}
-              </div>
+              <OnlineCvRenderer
+                candidate={cand}
+                matchScore={cand.matchScore}
+                initialTemplate={cand.initialTemplate || 'executive'}
+                showSelector={false}
+              />
             )}
           </div>
         </div>
