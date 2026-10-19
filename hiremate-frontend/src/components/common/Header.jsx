@@ -19,6 +19,8 @@ export default function Header({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [avatarError, setAvatarError] = useState(false);
   const [savedJobsCount, setSavedJobsCount] = useState(() => getSavedJobs().length);
+  const notificationRef = useRef(null);
+  const wasNotificationOpenRef = useRef(false);
 
 
   useEffect(() => {
@@ -352,12 +354,30 @@ export default function Header({
     }
   };
 
-  // Automatically mark all as read whenever the notification popup is opened
+  // Mark all as read only when closing/exiting the notification popup ("khi thoát ra")
   useEffect(() => {
-    if (showNotificationPopup && unreadCount > 0) {
-      markAllAsRead();
+    if (wasNotificationOpenRef.current && !showNotificationPopup) {
+      if (unreadCount > 0) {
+        markAllAsRead();
+      }
     }
+    wasNotificationOpenRef.current = showNotificationPopup;
   }, [showNotificationPopup, unreadCount]);
+
+  // Click outside listener to close notification popup
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+        setShowNotificationPopup(false);
+      }
+    };
+    if (showNotificationPopup) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showNotificationPopup]);
 
   const markAsRead = async (id) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
@@ -802,15 +822,9 @@ export default function Header({
 
           {/* Notifications Center Bell */}
           {user && (
-            <div className="relative">
+            <div className="relative" ref={notificationRef}>
               <button
-                onClick={() => {
-                  const nextState = !showNotificationPopup;
-                  setShowNotificationPopup(nextState);
-                  if (nextState && unreadCount > 0) {
-                    markAllAsRead();
-                  }
-                }}
+                onClick={() => setShowNotificationPopup(prev => !prev)}
                 className="relative p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all duration-300 cursor-pointer flex items-center justify-center border border-white/20"
                 title="Trung tâm thông báo hệ thống & Tin nhắn"
                 type="button"

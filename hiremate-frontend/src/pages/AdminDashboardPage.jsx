@@ -17,6 +17,11 @@ import { exportAdminCompaniesToExcel, exportAdminUsersToExcel, exportJobsToExcel
  * 8. System Settings (Cấu hình AI Matching 70/30 & Hệ thống)
  */
 
+const formatVND = (amount) => {
+  if (amount == null || isNaN(amount)) return '0 VNĐ';
+  return Math.round(Number(amount)).toLocaleString('vi-VN') + ' VNĐ';
+};
+
 const INITIAL_COMPANIES = [
   {
     id: 'CMP-101',
@@ -2359,34 +2364,34 @@ export default function AdminDashboardPage({ user, onLogout }) {
                       timeFilter === '30d' ? 'bg-[#5b48bd] text-white shadow-sm' : 'hover:text-[#5b48bd]'
                     }`}
                   >
-                    30 ngày
+                    1 tháng
                   </button>
                   <button
-                    onClick={() => setTimeFilter('6m')}
+                    onClick={() => setTimeFilter('1q')}
                     className={`px-3.5 py-1.5 rounded-full transition-all cursor-pointer ${
-                      timeFilter === '6m' ? 'bg-[#5b48bd] text-white shadow-sm' : 'hover:text-[#5b48bd]'
+                      timeFilter === '1q' ? 'bg-[#5b48bd] text-white shadow-sm' : 'hover:text-[#5b48bd]'
                     }`}
                   >
-                    6 tháng
+                    1 quý
+                  </button>
+                  <button
+                    onClick={() => setTimeFilter('1y')}
+                    className={`px-3.5 py-1.5 rounded-full transition-all cursor-pointer ${
+                      timeFilter === '1y' ? 'bg-[#5b48bd] text-white shadow-sm' : 'hover:text-[#5b48bd]'
+                    }`}
+                  >
+                    1 năm
                   </button>
                 </div>
 
                 <button
                   onClick={fetchRealData}
                   disabled={loadingRealData}
-                  className="px-4 py-2 rounded-full border border-purple-200 bg-white hover:bg-purple-50 text-[#5b48bd] text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-all"
+                  className="px-4 py-2 rounded-full border border-purple-200 bg-white hover:bg-purple-50 text-[#5b48bd] text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-all whitespace-nowrap"
                   title="Đồng bộ lại toàn bộ dữ liệu thực tế từ Supabase PostgreSQL"
                 >
                   <span className={`material-symbols-outlined text-base ${loadingRealData ? 'animate-spin' : ''}`}>sync</span>
                   <span>{loadingRealData ? 'Đang đồng bộ...' : 'Đồng bộ Supabase'}</span>
-                </button>
-
-                <button
-                  onClick={() => setShowFilterModal(true)}
-                  className="px-4 py-2 rounded-full border border-purple-200 bg-white hover:bg-purple-50 text-[#5b48bd] text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-all"
-                >
-                  <span className="material-symbols-outlined text-base">tune</span>
-                  <span>Lọc chỉ số</span>
                 </button>
               </div>
             </div>
@@ -2570,7 +2575,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
                           Biểu Đồ Miền Doanh Thu & Dòng Tiền Nền Tảng
                         </h3>
                         <span className="px-2.5 py-0.5 bg-purple-50 text-[#5b48bd] border border-purple-100 rounded-full text-xs font-bold">
-                          {timeFilter === '7d' ? '7 Ngày Gần Nhất' : timeFilter === '30d' ? '30 Ngày (4 Tuần)' : '6 Tháng Đầu Năm'}
+                          {timeFilter === '7d' ? '7 Ngày Gần Nhất' : timeFilter === '30d' ? '1 Tháng Gần Nhất' : timeFilter === '1q' ? '1 Quý (3 Tháng)' : '1 Năm (12 Tháng)'}
                         </span>
                       </div>
                       <p className="text-xs text-slate-500 mt-1">
@@ -2697,16 +2702,19 @@ export default function AdminDashboardPage({ user, onLogout }) {
                           <text fill="#64748B" fontSize="12" fontWeight="600" textAnchor="middle" x="570" y="214">Tuần 5</text>
                           <text fill="#5b48bd" fontSize="12" fontWeight="800" textAnchor="middle" x="690" y="214">Hiện tại</text>
                         </>
+                      ) : timeFilter === '1q' ? (
+                        <>
+                          <text fill="#64748B" fontSize="12" fontWeight="600" textAnchor="middle" x="90" y="214">Tháng 1</text>
+                          <text fill="#64748B" fontSize="12" fontWeight="600" textAnchor="middle" x="290" y="214">Tháng 2</text>
+                          <text fill="#64748B" fontSize="12" fontWeight="600" textAnchor="middle" x="490" y="214">Tháng 3</text>
+                          <text fill="#5b48bd" fontSize="12" fontWeight="800" textAnchor="middle" x="690" y="214">Tổng Quý</text>
+                        </>
                       ) : (
                         <>
-                          <text fill="#64748B" fontSize="12" fontWeight="600" textAnchor="middle" x="90" y="214">T1 (5,9)</text>
-                          <text fill="#f97316" fontSize="10" fontWeight="600" textAnchor="middle" x="90" y="228">Promo -30%</text>
-                          <text fill="#64748B" fontSize="12" fontWeight="600" textAnchor="middle" x="210" y="214">T2 (12,85)</text>
-                          <text fill="#64748B" fontSize="12" fontWeight="600" textAnchor="middle" x="330" y="214">T3 (22,6)</text>
-                          <text fill="#64748B" fontSize="12" fontWeight="600" textAnchor="middle" x="450" y="214">T4 (36,2)</text>
-                          <text fill="#64748B" fontSize="12" fontWeight="600" textAnchor="middle" x="570" y="214">T5 (52,5)</text>
-                          <text fill="#5b48bd" fontSize="12" fontWeight="800" textAnchor="middle" x="690" y="214">T6 (74,7)</text>
-                          <text fill="#10b981" fontSize="10" fontWeight="600" textAnchor="middle" x="690" y="228">Đỉnh tăng trưởng</text>
+                          <text fill="#64748B" fontSize="12" fontWeight="600" textAnchor="middle" x="90" y="214">Quý 1</text>
+                          <text fill="#64748B" fontSize="12" fontWeight="600" textAnchor="middle" x="290" y="214">Quý 2</text>
+                          <text fill="#64748B" fontSize="12" fontWeight="600" textAnchor="middle" x="490" y="214">Quý 3</text>
+                          <text fill="#5b48bd" fontSize="12" fontWeight="800" textAnchor="middle" x="690" y="214">Quý 4</text>
                         </>
                       )}
                     </svg>
