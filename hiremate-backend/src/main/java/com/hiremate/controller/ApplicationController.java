@@ -61,6 +61,13 @@ public class ApplicationController {
         return ResponseEntity.ok(ApiResponse.ok(apps));
     }
 
+    @GetMapping("/recruiter/my")
+    @PreAuthorize("hasRole('RECRUITER')")
+    public ResponseEntity<ApiResponse<List<ApplicationResponse>>> getMyRecruiterApplications(@AuthenticationPrincipal User user) {
+        List<ApplicationResponse> apps = applicationService.getRecruiterApplications(user);
+        return ResponseEntity.ok(ApiResponse.ok("Lấy danh sách tất cả hồ sơ ứng tuyển thành công", apps));
+    }
+
     @PutMapping("/batch-status")
     @PreAuthorize("hasRole('RECRUITER')")
     public ResponseEntity<ApiResponse<List<ApplicationResponse>>> batchUpdateStatus(

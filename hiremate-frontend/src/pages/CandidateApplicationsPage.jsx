@@ -175,7 +175,7 @@ export default function CandidateApplicationsPage({ user }) {
                 {
                   step: 3,
                   title: 'Phỏng Vấn',
-                  date: step >= 3 ? 'Mời phỏng vấn' : 'Đánh giá AI',
+                  date: step > 3 ? 'Đã phỏng vấn' : step === 3 ? 'Mời phỏng vấn HR' : 'Phỏng vấn với HR',
                   status: step > 3 ? 'completed' : step === 3 ? 'active' : 'pending',
                 },
                 {
@@ -220,10 +220,10 @@ export default function CandidateApplicationsPage({ user }) {
     window.addEventListener('hiremate-notification-sync', handleSync);
     window.addEventListener('focus', handleSync);
 
-    // Tự động kiểm tra cập nhật mỗi 5 giây
+    // Tự động kiểm tra cập nhật mỗi 60 giây (đồng bộ theo chu kỳ nền, tránh nghẽn pool kết nối)
     const interval = setInterval(() => {
       fetchMyApplications(true);
-    }, 5000);
+    }, 60000);
 
     return () => {
       window.removeEventListener('hiremate-notification-sync', handleSync);

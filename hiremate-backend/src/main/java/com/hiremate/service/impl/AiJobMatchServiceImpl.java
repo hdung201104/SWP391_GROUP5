@@ -437,19 +437,6 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
         // Nếu đã có kết quả tính toán trước đó, đọc và trả về tức thì (0ms compute, không chặn request)
         List<AiJobMatch> cachedMatches = aiJobMatchRepository.findRecommendations(candidateId, effectiveMinScore);
 
-        // Tự động kiểm tra phát hiện cache cũ phẳng 70.0% hoặc CV không khớp
-        boolean hasStaleOrCvMismatch = !cachedMatches.isEmpty() && cachedMatches.stream().anyMatch(m ->
-                (m.getMatchingScore() != null && m.getMatchingScore() == 70.0f)
-                || (defaultCv != null && m.getCv() == null)
-                || (defaultCv != null && m.getCv() != null && !defaultCv.getCvId().equals(m.getCv().getCvId()))
-        );
-
-        if (hasStaleOrCvMismatch) {
-            log.info(">> [AiJobMatchService] Phát hiện cache gợi ý cũ cần làm mới (hasStaleOrCvMismatch) cho ứng viên {}, xóa cache để tính toán cá nhân hóa...", candidateId);
-            aiJobMatchRepository.deleteByCandidate_CandidateId(candidateId);
-            cachedMatches = Collections.emptyList();
-        }
-
         if (!cachedMatches.isEmpty()) {
             List<Job> matchedJobs = cachedMatches.stream()
                     .map(AiJobMatch::getJob)
@@ -496,14 +483,14 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
         List<Job> candidateJobs;
         if (hasSkills || hasHeadline) {
             candidateJobs = jobRepository.findCandidatePreFilteredJobs(
-                    skillIds, hasSkills, headline, hasHeadline, org.springframework.data.domain.PageRequest.of(0, 20)
+                    skillIds, hasSkills, headline, hasHeadline, org.springframework.data.domain.PageRequest.of(0, effectiveLimit)
             );
         } else {
             candidateJobs = Collections.emptyList();
         }
 
         if (candidateJobs.size() < 5) {
-            List<Job> recentJobs = jobRepository.findRecentPublishedJobs(org.springframework.data.domain.PageRequest.of(0, 20));
+            List<Job> recentJobs = jobRepository.findRecentPublishedJobs(org.springframework.data.domain.PageRequest.of(0, effectiveLimit));
             Set<Long> existingIds = new HashSet<>();
             for (Job j : candidateJobs) existingIds.add(j.getJobId());
 
@@ -511,7 +498,7 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
             for (Job rj : recentJobs) {
                 if (existingIds.add(rj.getJobId())) {
                     merged.add(rj);
-                    if (merged.size() >= 20) break;
+                    if (merged.size() >= effectiveLimit) break;
                 }
             }
             candidateJobs = merged;
@@ -769,9 +756,13 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
         if (matchingFormula == null) matchingFormula = "Chuẩn ATS Doanh Nghiệp (40% Kỹ năng - 30% Kinh nghiệm - 15% Học vấn - 15% AI)";
 
         String candName = "Ứng viên";
-        if (m.getCandidate() != null && m.getCandidate().getCandidateId() != null) {
-            Optional<User> uOpt = userRepository.findById(m.getCandidate().getCandidateId());
-            if (uOpt.isPresent()) candName = uOpt.get().getFullName();
+        if (m.getCandidate() != null) {
+            if (m.getCandidate().getUser() != null && m.getCandidate().getUser().getFullName() != null) {
+                candName = m.getCandidate().getUser().getFullName();
+            } else if (m.getCandidate().getCandidateId() != null) {
+                Optional<User> uOpt = userRepository.findById(m.getCandidate().getCandidateId());
+                if (uOpt.isPresent()) candName = uOpt.get().getFullName();
+            }
         }
 
         String companyName = (m.getJob() != null && m.getJob().getCompany() != null)
@@ -1039,6 +1030,47 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
                     } catch (Exception ex) {
                         log.warn(">> [AiJobMatchService] Lỗi giải mã detailedReport từ cache: {}", ex.getMessage());
                     }
+                }
+
+                // NẾU BẢN GHI ĐÃ CÓ ĐIỂM NHƯNG CHƯA ĐÓNG GÓI detailedReport:
+                // Sinh báo cáo tức thì từ dữ liệu đã có sẵn trong bản ghi mà KHÔNG quét lại DB hay gọi AI
+                if (m.getMatchingScore() != null) {
+                    AiJobMatchResponse matchRes = mapToResponse(m);
+                    Cv cv = m.getCv();
+                    com.hiremate.dto.response.AiDetailedEvaluationReport fastReport = buildDefaultEvaluationReport(
+                            job, candidate, cv,
+                            matchRes.getMatchedMandatorySkills() != null ? matchRes.getMatchedMandatorySkills() : Collections.emptyList(),
+                            matchRes.getMissingMandatorySkills() != null ? matchRes.getMissingMandatorySkills() : Collections.emptyList(),
+                            matchRes.getMatchedPreferredSkills() != null ? matchRes.getMatchedPreferredSkills() : Collections.emptyList(),
+                            matchRes.getMissingPreferredSkills() != null ? matchRes.getMissingPreferredSkills() : Collections.emptyList(),
+                            matchRes.getSkillsScore() != null ? matchRes.getSkillsScore() : 80f,
+                            matchRes.getExperienceScore() != null ? matchRes.getExperienceScore() : 80f,
+                            matchRes.getEducationScore() != null ? matchRes.getEducationScore() : 90f,
+                            matchRes.getSemanticScore() != null ? matchRes.getSemanticScore() : 80f,
+                            m.getMatchingScore(),
+                            m.getAiReasoning() != null ? m.getAiReasoning() : ""
+                    );
+                    enrichAndSynchronizeReportDisadvantages(fastReport, job, candidate, cv, matchRes);
+                    fastReport.setCandidateId(candidateId);
+                    fastReport.setCandidateEmail(candidate.getUser() != null ? candidate.getUser().getEmail() : "");
+                    fastReport.setJobId(jobId);
+                    fastReport.setJobTitle(job.getTitle());
+
+                    // Cập nhật lại vào cache DB để các lần truy cập tiếp theo đạt 0ms
+                    try {
+                        Map<String, Object> gapMap;
+                        try {
+                            gapMap = objectMapper.readValue(m.getSkillGapJson(), new TypeReference<>() {});
+                        } catch (Exception e) {
+                            gapMap = new HashMap<>();
+                        }
+                        gapMap.put("detailedReport", fastReport);
+                        m.setSkillGapJson(objectMapper.writeValueAsString(gapMap));
+                        aiJobMatchRepository.save(m);
+                    } catch (Exception ignored) {}
+
+                    log.info(">> [AiJobMatchService] Trả về báo cáo AI nhanh từ bản ghi có sẵn cho candidateId={} jobId={}", candidateId, jobId);
+                    return fastReport;
                 }
             }
         }

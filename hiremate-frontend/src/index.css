@@ -700,40 +700,130 @@
 }
 
 @media print {
+  @page {
+    size: A4 portrait;
+    margin: 6mm 8mm;
+  }
 
+  /* Force exact color reproduction and disable unnecessary browser headers */
+  *,
+  *::before,
+  *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide headers, navigation, footers, toasts, modals, toolbars, buttons */
   header,
   nav,
   footer,
+  aside:not(.cv-print-aside),
   .no-print,
-  button {
+  button,
+  input,
+  label,
+  .fixed,
+  [role="dialog"],
+  [role="alert"],
+  .toast,
+  .modal-overlay,
+  .animate-pulse,
+  .animate-spin,
+  .animate-bounce {
     display: none !important;
   }
 
   body,
   html {
     background: #ffffff !important;
-    color: #111827 !important;
+    color: #0f172a !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
   }
 
-  .cv-document-sheet {
-    background: #ffffff !important;
-    color: #111827 !important;
-    border: none !important;
-    box-shadow: none !important;
+  /* Ensure page wrappers don't constrain width or add outside margins */
+  .max-w-6xl {
+    max-width: 100% !important;
+    width: 100% !important;
     padding: 0 !important;
     margin: 0 !important;
+  }
+
+  /* Master CV Container */
+  .cv-document-sheet {
+    background: #ffffff !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0 auto !important;
     max-width: 100% !important;
+    width: 100% !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    display: block !important;
   }
 
-  .cv-document-sheet * {
-    color: #111827 !important;
-    border-color: #e5e7eb !important;
-    background-color: transparent !important;
+  /* Executive 2-column print layout fix:
+     Ensure the 2 columns NEVER stack vertically in print preview */
+  .cv-document-sheet .grid.md\:grid-cols-12,
+  .cv-document-sheet .cv-executive-grid {
+    display: flex !important;
+    flex-direction: row !important;
+    width: 100% !important;
   }
 
-  .cv-document-sheet h1,
+  .cv-document-sheet aside.md\:col-span-4,
+  .cv-document-sheet .cv-print-aside {
+    display: block !important;
+    width: 34% !important;
+    max-width: 34% !important;
+    flex: 0 0 34% !important;
+    padding: 16px 14px !important;
+    box-sizing: border-box !important;
+    border-right: 1.5px solid #e2e8f0 !important;
+  }
+
+  .cv-document-sheet main.md\:col-span-8,
+  .cv-document-sheet .cv-print-main {
+    display: block !important;
+    width: 66% !important;
+    max-width: 66% !important;
+    flex: 0 0 66% !important;
+    padding: 16px 18px !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Prevent awkward page cuts inside individual CV sections and cards */
+  .cv-document-sheet section,
+  .cv-document-sheet .cv-section,
+  .cv-document-sheet aside > div,
+  .cv-document-sheet main > section,
+  .cv-document-sheet .break-inside-avoid {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Proportional typography for crisp A4 PDF export */
+  .cv-document-sheet h1 {
+    font-size: 22px !important;
+    line-height: 1.25 !important;
+    color: #0f172a !important;
+  }
+
   .cv-document-sheet h2,
   .cv-document-sheet h3 {
-    color: #0f172a !important;
+    font-size: 13px !important;
+    line-height: 1.35 !important;
+    color: #1e1b4b !important;
+  }
+
+  .cv-document-sheet p,
+  .cv-document-sheet span,
+  .cv-document-sheet div {
+    font-size: 11px !important;
+    line-height: 1.45 !important;
   }
 }
