@@ -54,7 +54,9 @@ public class AdminSettingsDTO {
     private String interviewerPersona = "TECH_LEAD";
 
     @Builder.Default
-    private String aiModel = "gemini-1.5-flash";
+    private String aiModel = "gemini-3-flash-preview";
+
+    private String customGeminiApiKey;
 
     @Builder.Default
     private Integer candidateFreeInterviewsPerDay = 3;
