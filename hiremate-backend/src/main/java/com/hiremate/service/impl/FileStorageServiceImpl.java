@@ -159,16 +159,13 @@ public class FileStorageServiceImpl implements FileStorageService {
             }
         }
 
-        // 3. Fallback lấy tệp PDF khả dụng từ thư mục lưu trữ nếu là yêu cầu đọc file PDF hoặc khi không tìm thấy file
+        // 3. Fallback lấy tệp PDF khả dụng từ thư mục lưu trữ nếu là yêu cầu đọc file PDF
         try {
             Path uploadDirPath = Paths.get(fileStorageConfig.getUploadDir());
-            if (Files.exists(uploadDirPath)) {
+            if (Files.exists(uploadDirPath) && fileUrlOrName.toLowerCase().endsWith(".pdf")) {
                 try (java.util.stream.Stream<Path> stream = Files.list(uploadDirPath)) {
                     java.util.Optional<Path> anyPdf = stream
-                            .filter(p -> p.getFileName().toString().toLowerCase().endsWith(".pdf")
-                                    && Files.isRegularFile(p)
-                                    && !p.getFileName().toString().contains("fa2379c3")
-                                    && !p.getFileName().toString().contains("5e597ebe"))
+                            .filter(p -> p.getFileName().toString().toLowerCase().endsWith(".pdf") && Files.isRegularFile(p))
                             .findFirst();
                     if (anyPdf.isPresent()) {
                         log.info(">> [FileStorage] Fallback tải tệp PDF mẫu từ thư mục: {}", anyPdf.get().getFileName());

@@ -34,9 +34,6 @@ public class ApplicationServiceImpl implements ApplicationService {
     private final com.hiremate.service.NotificationService notificationService;
     private final com.hiremate.service.AiJobMatchService aiJobMatchService;
     private final com.hiremate.service.EmailService emailService;
-    private final Map<Long, CachedApplications> candidateAppsCache = new java.util.concurrent.ConcurrentHashMap<>();
-
-    private record CachedApplications(List<ApplicationResponse> data, long timestamp) {}
 
     @Override
     @Transactional
@@ -113,24 +110,14 @@ public class ApplicationServiceImpl implements ApplicationService {
             );
         }
 
-        candidateAppsCache.remove(user.getUserId());
         return mapToResponse(savedApp);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<ApplicationResponse> getCandidateApplications(Long candidateId) {
-        if (candidateId == null) {
-            return Collections.emptyList();
-        }
-        CachedApplications cached = candidateAppsCache.get(candidateId);
-        if (cached != null && (System.currentTimeMillis() - cached.timestamp() < 10000)) {
-            return cached.data();
-        }
-
         List<Application> apps = applicationRepository.findByCandidate_CandidateId(candidateId);
         if (apps == null || apps.isEmpty()) {
-            candidateAppsCache.put(candidateId, new CachedApplications(Collections.emptyList(), System.currentTimeMillis()));
             return Collections.emptyList();
         }
 
@@ -145,16 +132,11 @@ public class ApplicationServiceImpl implements ApplicationService {
             }
         } catch (Exception ignored) {}
 
-        // Pre-fetch candidate default CV once to avoid N redundant queries
-        Cv defaultCv = cvRepository.findByCandidateIdAndIsDefaultTrue(candidateId)
-                .orElseGet(() -> cvRepository.findByCandidateId(candidateId).stream().findFirst().orElse(null));
-
         List<ApplicationResponse> list = new ArrayList<>(apps.size());
         for (Application app : apps) {
             Float score = (app.getJob() != null) ? matchScoreMap.get(app.getJob().getJobId()) : null;
-            list.add(mapToResponse(app, score, defaultCv));
+            list.add(mapToResponse(app, score));
         }
-        candidateAppsCache.put(candidateId, new CachedApplications(list, System.currentTimeMillis()));
         return list;
     }
 
@@ -341,7 +323,6 @@ public class ApplicationServiceImpl implements ApplicationService {
             }
         }
 
-        candidateAppsCache.clear();
         return mapToResponse(updated);
     }
 
@@ -417,26 +398,14 @@ public class ApplicationServiceImpl implements ApplicationService {
      * Truy xuất toàn bộ thông tin qua object navigation (không dùng raw Long FKs).
      */
     private ApplicationResponse mapToResponse(Application app) {
-        return mapToResponse(app, null, null);
+        return mapToResponse(app, null);
     }
 
     private ApplicationResponse mapToResponse(Application app, Float overrideScore) {
-        return mapToResponse(app, overrideScore, null);
-    }
-
-    private ApplicationResponse mapToResponse(Application app, Float overrideScore, Cv fallbackCv) {
         Job job = app.getJob();
         Candidate candidate = app.getCandidate();
         User candidateUser = candidate != null ? candidate.getUser() : null;
         Cv cv = app.getCv();
-        if (cv == null) {
-            cv = fallbackCv;
-        }
-        if (cv == null && candidate != null && fallbackCv == null) {
-            cv = cvRepository.findByCandidateIdAndIsDefaultTrue(candidate.getCandidateId())
-                    .orElseGet(() -> cvRepository.findByCandidateId(candidate.getCandidateId())
-                            .stream().findFirst().orElse(null));
-        }
 
         String jobTitle = job != null ? job.getTitle() : "Unknown Job";
         Company company = job != null ? job.getCompany() : null;
@@ -522,7 +491,6 @@ public class ApplicationServiceImpl implements ApplicationService {
         }
 
         log.info(">> [ApplicationService] Ứng viên {} đã rút đơn ứng tuyển ID {}", candidate.getUserId(), applicationId);
-        candidateAppsCache.remove(candidate.getUserId());
         return mapToResponse(updated);
     }
 

@@ -8,7 +8,7 @@
   "interviewMaxQuestions" : 5,
   "interviewResponseSeconds" : 120,
   "interviewerPersona" : "TECH_LEAD",
-  "aiModel" : "gemini-3-flash-preview",
+  "aiModel" : "gemini-1.5-flash",
   "candidateFreeInterviewsPerDay" : 3,
   "recruiterFreeJobPostsPerMonth" : 3,
   "vietqrBankName" : "MBBank - Ngân hàng TMCP Quân Đội",

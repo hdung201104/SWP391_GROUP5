@@ -14,9 +14,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -219,42 +218,11 @@ public class CvServiceImpl implements CvService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public List<CvResponse> getCandidateCvs(Long candidateId) {
-        if (candidateId == null) {
-            return Collections.emptyList();
-        }
         List<Cv> cvList = cvRepository.findByCandidateId(candidateId);
-        if (cvList == null || cvList.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        // Pre-fetch candidate profile data 1 lần duy nhất cho toàn bộ danh sách CV
-        var cand = candidateRepository.findByCandidateId(candidateId).orElse(null);
-        var candUser = userRepository.findById(candidateId).orElse(null);
-
-        List<String> profileSkills = new ArrayList<>();
-        var candSkills = candidateSkillRepository.findByProfileId(candidateId);
-        if (!candSkills.isEmpty()) {
-            List<Long> skillIds = candSkills.stream()
-                    .map(com.hiremate.entity.CandidateSkill::getSkillId)
-                    .filter(Objects::nonNull)
-                    .distinct()
-                    .toList();
-            List<com.hiremate.entity.Skill> skills = skillRepository.findAllById(skillIds);
-            for (com.hiremate.entity.Skill sk : skills) {
-                if (sk.getSkillName() != null && !sk.getSkillName().isBlank()) {
-                    String skn = sk.getSkillName().trim();
-                    if (!skn.contains("[") && !skn.contains("]") && skn.length() <= 35 && !profileSkills.contains(skn)) {
-                        profileSkills.add(skn);
-                    }
-                }
-            }
-        }
-
-        List<CvResponse> responses = new ArrayList<>(cvList.size());
+        List<CvResponse> responses = new ArrayList<>();
         for (Cv cv : cvList) {
-            responses.add(mapToResponse(cv, cand, candUser, profileSkills));
+            responses.add(mapToResponse(cv));
         }
         return responses;
     }
@@ -438,28 +406,6 @@ public class CvServiceImpl implements CvService {
             allDetectedSkills = analysis.getTopSkills();
         }
         if (allDetectedSkills != null) {
-            Map<String, com.hiremate.entity.Skill> skillByNameMap = new HashMap<>();
-            try {
-                for (com.hiremate.entity.Skill s : skillRepository.findAll()) {
-                    if (s.getSkillName() != null) {
-                        skillByNameMap.put(s.getSkillName().toLowerCase().trim(), s);
-                    }
-                }
-            } catch (Exception ex) {
-                log.warn(">> [CvService] Pre-fetch skills warning: {}", ex.getMessage());
-            }
-
-            Set<Long> existingCandSkillIds = new HashSet<>();
-            try {
-                for (com.hiremate.entity.CandidateSkill cs : candidateSkillRepository.findByProfileId(candidate.getUserId())) {
-                    if (cs.getSkillId() != null) {
-                        existingCandSkillIds.add(cs.getSkillId());
-                    }
-                }
-            } catch (Exception ex) {
-                log.warn(">> [CvService] Pre-fetch candidate skills warning: {}", ex.getMessage());
-            }
-
             for (String rawSkill : allDetectedSkills) {
                 if (rawSkill == null || rawSkill.isBlank()) continue;
                 String[] subSkills = rawSkill.split("[,;•|\\t]");
@@ -479,23 +425,19 @@ public class CvServiceImpl implements CvService {
                         continue;
                     }
                     try {
-                        com.hiremate.entity.Skill skill = skillByNameMap.get(lower);
-                        if (skill == null) {
-                            skill = skillRepository.save(com.hiremate.entity.Skill.builder()
-                                    .skillName(trimmedSkill)
-                                    .category("Technical")
-                                    .build());
-                            skillByNameMap.put(lower, skill);
-                        }
+                        com.hiremate.entity.Skill skill = skillRepository.findBySkillNameIgnoreCase(trimmedSkill)
+                                .orElseGet(() -> skillRepository.save(com.hiremate.entity.Skill.builder()
+                                        .skillName(trimmedSkill)
+                                        .category("Technical")
+                                        .build()));
 
-                        if (!existingCandSkillIds.contains(skill.getSkillId())) {
+                        if (candidateSkillRepository.findByProfileIdAndSkillId(candidate.getUserId(), skill.getSkillId()).isEmpty()) {
                             candidateSkillRepository.save(com.hiremate.entity.CandidateSkill.builder()
                                     .profileId(candidate.getUserId())
                                     .skillId(skill.getSkillId())
                                     .proficiencyLevel(com.hiremate.enums.SkillProficiency.INTERMEDIATE)
                                     .aiDetected(true)
                                     .build());
-                            existingCandSkillIds.add(skill.getSkillId());
                         }
                     } catch (Exception skillEx) {
                         log.warn(">> [CvService] Bỏ qua kỹ năng '{}' do lỗi: {}", trimmedSkill, skillEx.getMessage());
@@ -515,29 +457,27 @@ public class CvServiceImpl implements CvService {
         Cv updated = cvRepository.save(cv);
         log.info(">> [CvService] CV ID {} analyzed successfully via Gemini ATS Engine", cvId);
 
-        // 7. Tự động tính toán & lưu cache ma trận khớp nối việc làm AI (Rule 3) chạy async ngầm
-        CompletableFuture.runAsync(() -> {
-            try {
-                if (aiJobMatchService != null) {
-                    List<com.hiremate.dto.response.JobResponse> matches = aiJobMatchService.reMatchJobs(candidate);
-                    long highMatchesCount = matches.stream()
-                            .filter(j -> j.getMatchingScore() != null && j.getMatchingScore() >= 70.0f)
-                            .count();
-                    if (notificationService != null && highMatchesCount > 0) {
-                        notificationService.createNotification(
-                                candidate.getUserId(),
-                                com.hiremate.enums.NotificationType.AI_MATCH_DONE,
-                                "🎯 Đã tìm thấy " + highMatchesCount + " việc làm phù hợp với CV mới của bạn!",
-                                "Hệ thống HireMate AI đã tự động so khớp hồ sơ của bạn và tìm thấy " + highMatchesCount + " việc làm có độ tương thích cao (>70%). Hãy khám phá ngay!",
-                                null,
-                                "jobs"
-                        );
-                    }
+        // 7. Tự động tính toán & lưu cache ma trận khớp nối việc làm AI (Rule 3) và gửi thông báo cho ứng viên
+        try {
+            if (aiJobMatchService != null) {
+                List<com.hiremate.dto.response.JobResponse> matches = aiJobMatchService.reMatchJobs(candidate);
+                long highMatchesCount = matches.stream()
+                        .filter(j -> j.getMatchingScore() != null && j.getMatchingScore() >= 70.0f)
+                        .count();
+                if (notificationService != null && highMatchesCount > 0) {
+                    notificationService.createNotification(
+                            candidate.getUserId(),
+                            com.hiremate.enums.NotificationType.AI_MATCH_DONE,
+                            "🎯 Đã tìm thấy " + highMatchesCount + " việc làm phù hợp với CV mới của bạn!",
+                            "Hệ thống HireMate AI đã tự động so khớp hồ sơ của bạn và tìm thấy " + highMatchesCount + " việc làm có độ tương thích cao (>70%). Hãy khám phá ngay!",
+                            null,
+                            "jobs"
+                    );
                 }
-            } catch (Exception matchEx) {
-                log.warn(">> [CvService] Tự động tính toán gợi ý việc làm sau khi phân tích CV gặp lỗi nhỏ: {}", matchEx.getMessage());
             }
-        });
+        } catch (Exception matchEx) {
+            log.warn(">> [CvService] Tự động tính toán gợi ý việc làm sau khi phân tích CV gặp lỗi nhỏ: {}", matchEx.getMessage());
+        }
 
         return mapToResponse(updated);
     }
@@ -626,10 +566,6 @@ public class CvServiceImpl implements CvService {
     }
 
     private CvResponse mapToResponse(Cv cv) {
-        return mapToResponse(cv, null, null, null);
-    }
-
-    private CvResponse mapToResponse(Cv cv, com.hiremate.entity.Candidate prefetchedCand, User prefetchedUser, List<String> prefetchedSkills) {
         String headline = null;
         Integer experienceYears = null;
         String educationsJson = null;
@@ -642,8 +578,9 @@ public class CvServiceImpl implements CvService {
         List<String> detectedSkills = new ArrayList<>();
 
         if (cv.getCandidateId() != null) {
-            var cand = prefetchedCand != null ? prefetchedCand : candidateRepository.findByCandidateId(cv.getCandidateId()).orElse(null);
-            if (cand != null) {
+            var candOpt = candidateRepository.findByCandidateId(cv.getCandidateId());
+            if (candOpt.isPresent()) {
+                var cand = candOpt.get();
                 headline = cand.getHeadline();
                 experienceYears = cand.getExperienceYears();
                 educationsJson = cand.getEducationsJson();
@@ -651,7 +588,7 @@ public class CvServiceImpl implements CvService {
                 projectsJson = cand.getProjectsJson();
                 address = cand.getLocation();
             }
-            User candUser = prefetchedUser != null ? prefetchedUser : userRepository.findById(cv.getCandidateId()).orElse(null);
+            User candUser = userRepository.findById(cv.getCandidateId()).orElse(null);
             if (candUser != null) {
                 if (fullName == null) fullName = candUser.getFullName();
                 if (phone == null) phone = candUser.getPhone();
@@ -675,25 +612,17 @@ public class CvServiceImpl implements CvService {
                     detectedSkills.add(s.trim());
                 }
             }
-        } else if (prefetchedSkills != null && !prefetchedSkills.isEmpty()) {
-            detectedSkills.addAll(prefetchedSkills);
-        } else if (cv.getCandidateId() != null) {
+        } else {
             var candSkills = candidateSkillRepository.findByProfileId(cv.getCandidateId());
-            if (!candSkills.isEmpty()) {
-                List<Long> skillIds = candSkills.stream()
-                        .map(com.hiremate.entity.CandidateSkill::getSkillId)
-                        .filter(Objects::nonNull)
-                        .distinct()
-                        .toList();
-                List<com.hiremate.entity.Skill> skills = skillRepository.findAllById(skillIds);
-                for (com.hiremate.entity.Skill sk : skills) {
+            for (var cs : candSkills) {
+                skillRepository.findById(cs.getSkillId()).ifPresent(sk -> {
                     if (sk.getSkillName() != null && !sk.getSkillName().isBlank()) {
                         String skn = sk.getSkillName().trim();
                         if (!skn.contains("[") && !skn.contains("]") && skn.length() <= 35 && !detectedSkills.contains(skn)) {
                             detectedSkills.add(skn);
                         }
                     }
-                }
+                });
             }
         }
         if (parsedData == null) {
