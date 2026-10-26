@@ -37,7 +37,7 @@ public class AgentReflectionEngine {
             String initialFeedback
     ) {
         List<String> toolsInvoked = new ArrayList<>();
-        float draftScore = initialScore != null ? initialScore : 70.0f;
+        float draftScore = initialScore != null ? initialScore : 40.0f;
         String cleanAnswer = (answer != null) ? answer.trim() : "";
 
         // Giai đoạn 1: Initial Thought
@@ -128,18 +128,25 @@ public class AgentReflectionEngine {
             }
         }
 
-        // 2.3 Phân loại câu trả lời: Concise Technical (Súc tích chuyên môn) vs Vague/Empty (Sơ sài)
+        // 2.3 Phân loại câu trả lời: Súc tích chuyên môn vs Sáo rỗng / Lạc đề / Sơ sài
         boolean isConciseTechnical = (cleanAnswer.length() < 45 && techKeywordCount >= 2);
         boolean isVagueOrTrivial = (cleanAnswer.length() < 35 && techKeywordCount == 0);
+        boolean isLackingTechSubstance = (techKeywordCount == 0);
 
         if (isConciseTechnical && !isInjection) {
             critique.append("NHẬN DIỆN CÂU TRẢ LỜI SÚC TÍCH CHUẨN XÁC: Ứng viên trả lời cô đọng nhưng trúng trọng tâm kỹ thuật (")
                     .append(String.join(", ", detectedTechTerms))
-                    .append("). Bảo toàn điểm đánh giá kỹ thuật cao cấp, không phạt độ dài. ");
-            calibratedScore = Math.max(calibratedScore, 75.0f);
+                    .append("). ");
+            calibratedScore = Math.max(calibratedScore, 70.0f);
         } else if (isVagueOrTrivial && !isInjection) {
-            critique.append("CẢNH BÁO THIẾU DỮ LIỆU CHUYÊN MÔN (OVER-SCORING): Câu trả lời quá ngắn và không chứa thuật ngữ hay giải pháp kỹ thuật nào. ");
-            calibratedScore = Math.min(calibratedScore, 40.0f);
+            critique.append("CẢNH BÁO THIẾU DỮ LIỆU CHUYÊN MÔN: Câu trả lời quá ngắn và không chứa thuật ngữ hay giải pháp kỹ thuật nào. ");
+            calibratedScore = Math.min(calibratedScore, 18.0f);
+        } else if (isLackingTechSubstance && !isInjection) {
+            critique.append("CẢNH BÁO LẠC ĐỀ / SÁO RỖNG: Câu trả lời diễn giải nhưng hoàn toàn thiếu vắng thuật ngữ, công cụ và nguyên lý kỹ thuật của vị trí chuyên môn. Phạt nặng điểm số. ");
+            calibratedScore = Math.min(calibratedScore, 30.0f);
+        } else if (techKeywordCount == 1 && !isInjection) {
+            critique.append("CẢNH BÁO KIẾN THỨC NÔNG: Mới chỉ nêu được 1 từ khóa kỹ thuật đơn lẻ, chưa đi vào chiều sâu nguyên lý hay giải pháp kiến trúc. ");
+            calibratedScore = Math.min(calibratedScore, 50.0f);
         }
 
         // 2.4 Kiểm định phương pháp STAR & Phòng chống Nhồi nhét từ khóa sáo rỗng (Anti-Keyword Stuffing)

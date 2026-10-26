@@ -6,6 +6,7 @@ import { jobApi } from '../api/jobApi';
 import { extractBlob } from '../utils/excelExportUtils';
 import JobDetailModal from '../components/jobs/JobDetailModal';
 import ApplyJobModal from '../components/jobs/ApplyJobModal';
+import CvViewModal from '../components/common/CvViewModal';
 
 
 // Safe Null-Guard Helpers
@@ -271,6 +272,8 @@ export default function CandidateProfilePage({ user }) {
   const [selectedJobForDetail, setSelectedJobForDetail] = useState(null);
   const [applyingJob, setApplyingJob] = useState(null);
   const [showRecommendationModal, setShowRecommendationModal] = useState(false);
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [viewingCvFile, setViewingCvFile] = useState(null);
 
   const fetchRecommendations = async () => {
     try {
@@ -985,12 +988,12 @@ export default function CandidateProfilePage({ user }) {
 
   const handleDownloadCv = async (file) => {
     try {
-      showToast(`Đang tải tệp ${file.name || 'CV'}...`);
+      showToast(`Đang chuẩn bị tệp "${file.name || 'CV'}"...`);
       if (file.id) {
         try {
           const response = await cvApi.downloadCv(file.id);
           const blob = extractBlob(response, 'application/pdf');
-          if (blob && blob.size > 0) {
+          if (blob && blob.size > 200) {
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
@@ -999,22 +1002,25 @@ export default function CandidateProfilePage({ user }) {
             link.click();
             link.remove();
             window.URL.revokeObjectURL(url);
-            showToast(`Tải về tệp "${file.name || 'CV'}" thành công!`);
+            showToast(`Đã tải về tệp "${file.name || 'CV'}" thành công!`);
             return;
           }
         } catch (apiErr) {
           console.warn('API downloadCv error, falling back to direct URL:', apiErr);
         }
       }
-      if (file.fileUrl && file.fileUrl.startsWith('http')) {
+      if (file.fileUrl) {
+        const fullUrl = file.fileUrl.startsWith('http')
+          ? file.fileUrl
+          : `${window.location.origin}${file.fileUrl.startsWith('/') ? '' : '/'}${file.fileUrl}`;
         const link = document.createElement('a');
-        link.href = file.fileUrl;
+        link.href = fullUrl;
         link.setAttribute('download', file.name || 'CV.pdf');
         link.setAttribute('target', '_blank');
         document.body.appendChild(link);
         link.click();
         link.remove();
-        showToast(`Tải về tệp "${file.name || 'CV'}" thành công!`);
+        showToast(`Đã mở / tải tệp "${file.name || 'CV'}"!`);
         return;
       }
       showToast('Tệp không tồn tại hoặc rỗng trên hệ thống.', 'error');
@@ -1099,7 +1105,7 @@ export default function CandidateProfilePage({ user }) {
       )}
 
       {toastMessage && (
-        <div className="fixed top-20 right-6 z-50 p-4 rounded-2xl bg-white/95 border border-botanical-stone text-botanical-forest text-xs font-semibold shadow-soft-xl flex items-center gap-2.5 backdrop-blur-xl animate-fadeIn">
+        <div className="no-print fixed top-20 right-6 z-50 p-4 rounded-2xl bg-white/95 border border-botanical-stone text-botanical-forest text-xs font-semibold shadow-soft-xl flex items-center gap-2.5 backdrop-blur-xl animate-fadeIn">
           <span className="material-symbols-outlined text-base text-botanical-sage">verified</span>
           <span>{toastMessage}</span>
         </div>
@@ -1193,17 +1199,11 @@ export default function CandidateProfilePage({ user }) {
                 {/* Print / Export PDF A4 (Only if has CV) */}
                 {hasCv && (
                   <button
-                    onClick={() => {
-                      if (activeTab !== 'resume') {
-                        setActiveTab('resume');
-                      }
-                      showToast('Đang chuẩn bị trang in định dạng PDF chuẩn A4 sắc nét...');
-                      setTimeout(() => window.print(), 500);
-                    }}
-                    className="px-3 py-1.5 rounded-full text-[11px] font-sans font-bold bg-[#f8f7ff] border border-purple-100 text-[#1e1b4b] hover:bg-purple-50 hover:border-[#5b48bd] flex items-center gap-1.5 shadow-xs cursor-pointer transition-all"
-                    title="In hoặc xuất bản CV ra file PDF A4 sắc nét"
+                    onClick={() => setShowPrintModal(true)}
+                    className="px-3.5 py-1.5 rounded-full text-[11px] font-sans font-bold bg-[#32247b] text-white hover:bg-[#5b48bd] flex items-center gap-1.5 shadow-sm cursor-pointer transition-all"
+                    title="Tùy chọn in hoặc xuất bản CV ra file PDF A4 sắc nét"
                   >
-                    <span className="material-symbols-outlined text-sm text-[#5b48bd]">print</span>
+                    <span className="material-symbols-outlined text-sm">print</span>
                     <span>In / Xuất PDF</span>
                   </button>
                 )}
@@ -1482,10 +1482,10 @@ export default function CandidateProfilePage({ user }) {
               {/* TEMPLATE A: EXECUTIVE 2 CỘT (2-COLUMN BALANCED)          */}
               {/* ──────────────────────────────────────────────────────── */}
               {cvTemplate === 'executive' && (
-                <div className="grid grid-cols-1 md:grid-cols-12 min-h-full">
+                <div className="grid grid-cols-1 md:grid-cols-12 min-h-full cv-executive-grid">
 
                   {/* LEFT COLUMN: SIDEBAR (34% / 4 COLS) */}
-                  <aside className={`md:col-span-4 p-6 sm:p-7 space-y-6 ${canvasTheme === 'paper-white'
+                  <aside className={`md:col-span-4 p-6 sm:p-7 space-y-6 cv-print-aside ${canvasTheme === 'paper-white'
                       ? 'bg-[#f8fafc] border-r border-slate-200 text-slate-800'
                       : 'bg-[#FAF9F5] border-r border-botanical-stone text-botanical-forest'
                     }`}>
@@ -1786,7 +1786,7 @@ export default function CandidateProfilePage({ user }) {
                   </aside>
 
                   {/* RIGHT COLUMN: MAIN CONTENT (66% / 8 COLS) */}
-                  <main className={`md:col-span-8 p-6 sm:p-9 space-y-7 ${canvasTheme === 'paper-white' ? 'bg-white' : 'bg-[#FCFBF8]'}`}>
+                  <main className={`md:col-span-8 p-6 sm:p-9 space-y-7 cv-print-main ${canvasTheme === 'paper-white' ? 'bg-white' : 'bg-[#FCFBF8]'}`}>
 
                     {/* 1. Header Banner & Title */}
                     <div className="space-y-2">
@@ -2822,7 +2822,7 @@ export default function CandidateProfilePage({ user }) {
             {/* ========================================================= */}
             {/* 🎯 AI RECOMMENDED JOBS (INSTANT SMART MATCH DỰA TRÊN CV) */}
             {/* ========================================================= */}
-            <section className="bg-gradient-to-br from-[#edeafd]/60 via-white to-[#f5f3ff] rounded-3xl border-2 border-purple-200/80 p-6 sm:p-8 shadow-sm space-y-5 transition-all duration-300">
+            <section className="no-print bg-gradient-to-br from-[#edeafd]/60 via-white to-[#f5f3ff] rounded-3xl border-2 border-purple-200/80 p-6 sm:p-8 shadow-sm space-y-5 transition-all duration-300">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-purple-100">
                 <div className="flex items-center gap-3">
                   <div className="w-11 h-11 rounded-2xl flex items-center justify-center bg-gradient-to-tr from-[#5b48bd] to-[#7c66dc] text-white shadow-md">
@@ -3234,6 +3234,227 @@ export default function CandidateProfilePage({ user }) {
             onSuccess={() => {
               showToast('Nộp hồ sơ ứng tuyển thành công!');
             }}
+          />
+        )}
+
+        {/* ========================================================= */}
+        {/* MODAL: TÙY CHỌN LOẠI CV ĐỂ IN & XUẤT BẢN PDF             */}
+        {/* ========================================================= */}
+        {showPrintModal && (
+          <div className="no-print fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+            <div className="w-full max-w-2xl bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-purple-100 space-y-6 animate-scaleUp font-sans max-h-[90vh] overflow-y-auto">
+              
+              {/* Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-purple-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#32247b] to-[#5b48bd] text-white flex items-center justify-center shadow-md">
+                    <span className="material-symbols-outlined text-xl">print</span>
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-lg text-[#1e1b4b]">Tùy Chọn In &amp; Xuất Bản CV</h3>
+                    <p className="text-xs text-slate-500">Lựa chọn nguồn CV và mẫu bố cục xuất file PDF chuẩn A4</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPrintModal(false)}
+                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-sm">close</span>
+                </button>
+              </div>
+
+              {/* Option 1: In / Xuất Bản CV Trực Tuyến */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-[#f8f7ff] border border-purple-100 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[#5b48bd] text-lg">description</span>
+                    <strong className="text-sm text-[#1e1b4b]">1. Xuất Bản CV Điện Tử HireMate (Định Dạng A4)</strong>
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-[#5b48bd]">
+                    Khuyên Dùng
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500">
+                  Xuất bản CV trực tiếp từ dữ liệu hồ sơ hiện tại với các mẫu bố cục A4 sắc nét, đã căn chuẩn lề và tự động chia 2 cột chuyên nghiệp:
+                </p>
+
+                {/* CV Version Selector */}
+                {currentCandidate.cvVersions.length > 1 && (
+                  <div className="space-y-1.5 pt-1">
+                    <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1">
+                      <span className="material-symbols-outlined text-sm text-[#5b48bd]">folder_special</span>
+                      <span>Chọn Phiên Bản Hồ Sơ:</span>
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {currentCandidate.cvVersions.map((ver) => (
+                        <button
+                          key={ver.id}
+                          type="button"
+                          onClick={() => handleSelectCvVersion(ver.id)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                            selectedVersionId === ver.id
+                              ? 'bg-[#32247b] text-white shadow-xs font-bold'
+                              : 'bg-white text-slate-700 border border-purple-200 hover:bg-purple-50'
+                          }`}
+                        >
+                          <span>{ver.versionName}</span>
+                          {selectedVersionId === ver.id && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Template Selection */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                  {[
+                    { id: 'executive', name: '2 Cột Cân Đối', desc: 'Bố cục Executive 2 cột chuẩn doanh nghiệp', icon: 'view_column' },
+                    { id: 'harvard', name: 'Harvard ATS', desc: 'Định dạng 1 cột tối giản quét ATS 100%', icon: 'school' },
+                    { id: 'modern', name: 'Hiện Đại (Modern)', desc: 'Banner công nghệ trẻ trung, nổi bật', icon: 'palette' }
+                  ].map((tpl) => (
+                    <button
+                      key={tpl.id}
+                      type="button"
+                      onClick={() => setCvTemplate(tpl.id)}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                        cvTemplate === tpl.id
+                          ? 'bg-[#32247b] text-white border-[#32247b] shadow-md'
+                          : 'bg-white text-slate-700 border-purple-100 hover:border-purple-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="material-symbols-outlined text-lg">{tpl.icon}</span>
+                        {cvTemplate === tpl.id && (
+                          <span className="material-symbols-outlined text-sm text-emerald-400 font-bold">check_circle</span>
+                        )}
+                      </div>
+                      <div className="font-bold text-xs">{tpl.name}</div>
+                      <div className={`text-[10px] mt-0.5 ${cvTemplate === tpl.id ? 'text-white/80' : 'text-slate-400'}`}>
+                        {tpl.desc}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Print Action for Online CV */}
+                <div className="pt-2 flex items-center justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPrintModal(false);
+                      if (activeTab !== 'resume') {
+                        setActiveTab('resume');
+                      }
+                      setCanvasTheme('paper-white');
+                      setTimeout(() => {
+                        window.print();
+                      }, 400);
+                    }}
+                    className="px-5 py-2.5 rounded-full bg-[#32247b] hover:bg-[#5b48bd] text-white text-xs font-bold transition-all shadow-md flex items-center gap-2 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-base">print</span>
+                    <span>In / Lưu Thành File PDF Chuẩn A4</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Option 2: Tệp CV Gốc Đã Tải Lên (Kho Tệp) */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-emerald-600 text-lg">folder_shared</span>
+                    <strong className="text-sm text-[#1e1b4b]">2. Tệp CV Gốc Đã Tải Lên ({cvFiles.length} tệp)</strong>
+                  </div>
+                  <span className="text-[11px] text-slate-500 font-medium">Giữ nguyên 100% tệp gốc</span>
+                </div>
+                <p className="text-xs text-slate-500">
+                  Nếu bạn muốn tải về file PDF/DOCX nguyên bản bạn đã tải lên hệ thống trước đó để mở bằng Word hoặc Adobe Acrobat:
+                </p>
+
+                {cvFiles.length === 0 ? (
+                  <div className="p-4 rounded-xl bg-slate-50 text-center text-xs text-slate-400 italic">
+                    Chưa có tệp CV gốc nào được tải lên trong Kho Tệp.
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {cvFiles.map((file, idx) => (
+                      <div
+                        key={file.id || idx}
+                        className="p-3 rounded-xl bg-slate-50 hover:bg-purple-50/50 border border-slate-200 hover:border-purple-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 transition-all text-xs"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className="material-symbols-outlined text-rose-500 text-lg shrink-0">picture_as_pdf</span>
+                          <div className="min-w-0">
+                            <div className="font-bold text-[#1e1b4b] truncate">{file.name || 'CV_Ung_Vien.pdf'}</div>
+                            <div className="text-[10px] text-slate-400 flex items-center gap-2">
+                              <span>{file.size ? `${(file.size / 1024).toFixed(0)} KB` : 'Tệp PDF'}</span>
+                              {file.isDefault && (
+                                <span className="font-bold text-emerald-600">• Mặc định Fast Apply</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowPrintModal(false);
+                              setViewingCvFile(file);
+                            }}
+                            className="px-3 py-1.5 rounded-lg bg-purple-50 hover:bg-purple-100 text-[#5b48bd] text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                            title="Mở xem trước trực tiếp và in tệp gốc"
+                          >
+                            <span className="material-symbols-outlined text-sm">visibility</span>
+                            <span>Xem &amp; In</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadCv(file)}
+                            className="px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                            title="Tải tệp gốc về máy"
+                          >
+                            <span className="material-symbols-outlined text-sm">download</span>
+                            <span>Tải Về</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="pt-2 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowPrintModal(false)}
+                  className="px-5 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
+                >
+                  Đóng Hộp Thoại
+                </button>
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* MODAL: XEM TRỰC TIẾP TỆP CV GỐC (CVVIEWMODAL)             */}
+        {/* ========================================================= */}
+        {viewingCvFile && (
+          <CvViewModal
+            isOpen={Boolean(viewingCvFile)}
+            onClose={() => setViewingCvFile(null)}
+            cvId={viewingCvFile.id}
+            cvUrl={viewingCvFile.fileUrl}
+            fileName={viewingCvFile.name || 'CV_Ung_Vien.pdf'}
+            candidateName={currentCandidate.accountName}
+            atsScore={viewingCvFile.atsScore}
           />
         )}
 

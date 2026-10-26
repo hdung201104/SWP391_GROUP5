@@ -13,9 +13,13 @@ public interface AiInterviewService {
     InterviewSummaryResponse startSession(String targetPosition, Long jobId, InterviewSessionType sessionType, Long parentSessionId, User candidate);
     InterviewDetailResponse submitAnswer(Long sessionId, InterviewAnswerRequest request, User candidate);
     InterviewSummaryResponse completeSession(Long sessionId, User candidate);
+    InterviewSummaryResponse completeSession(Long sessionId, java.util.Map<String, Object> telemetry, User candidate);
     InterviewSummaryResponse getSessionSummary(Long sessionId, User candidate);
     List<InterviewSummaryResponse> getCandidateHistory(Long candidateId);
     List<PracticeProgressResponse> getProgressLogs(Long candidateId);
     String getNextAdaptiveQuestion(Long sessionId, User candidate);
+    byte[] synthesizeSpeech(String text);
+
+    byte[] synthesizeSpeech(String text, String voice);
 }
 

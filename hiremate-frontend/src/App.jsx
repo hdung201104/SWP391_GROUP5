@@ -376,8 +376,16 @@ function AppContent() {
       return <JobDetailPage user={user} jobId={jobId} />;
     }
 
-    // Public: Home Page
-    if (route === '#/' || route === '' || route === '#') {
+    // Public: Home Page & Job Search / Discovery
+    if (
+      route === '#/' ||
+      route === '' ||
+      route === '#' ||
+      route.includes('job-search') ||
+      route === '#/jobs' ||
+      route === '#/jobs/' ||
+      route.includes('tim-viec')
+    ) {
       return <HomePage user={user} />;
     }
 

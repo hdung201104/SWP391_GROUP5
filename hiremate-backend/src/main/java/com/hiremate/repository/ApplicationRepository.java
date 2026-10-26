@@ -24,6 +24,8 @@ public interface ApplicationRepository extends JpaRepository<Application, Long> 
     @Query("SELECT a FROM Application a " +
            "LEFT JOIN FETCH a.job j " +
            "LEFT JOIN FETCH j.company " +
+           "LEFT JOIN FETCH j.recruiter r " +
+           "LEFT JOIN FETCH r.user " +
            "LEFT JOIN FETCH a.candidate c " +
            "LEFT JOIN FETCH c.user " +
            "LEFT JOIN FETCH a.cv " +
@@ -34,16 +36,32 @@ public interface ApplicationRepository extends JpaRepository<Application, Long> 
     @Query("SELECT a FROM Application a " +
            "LEFT JOIN FETCH a.job j " +
            "LEFT JOIN FETCH j.company " +
+           "LEFT JOIN FETCH j.recruiter r " +
+           "LEFT JOIN FETCH r.user " +
            "LEFT JOIN FETCH a.candidate c " +
            "LEFT JOIN FETCH c.user " +
            "LEFT JOIN FETCH a.cv " +
            "WHERE a.job.jobId = :jobId ORDER BY a.createdAt DESC")
     List<Application> findByJob_JobId(@Param("jobId") Long jobId);
 
+    /** Lấy tất cả đơn ứng tuyển của tất cả các bài đăng của nhà tuyển dụng (Dành cho Dashboard báo cáo thống kê, 1 câu query duy nhất) */
+    @Query("SELECT a FROM Application a " +
+           "LEFT JOIN FETCH a.job j " +
+           "LEFT JOIN FETCH j.company " +
+           "LEFT JOIN FETCH j.recruiter r " +
+           "LEFT JOIN FETCH r.user " +
+           "LEFT JOIN FETCH a.candidate c " +
+           "LEFT JOIN FETCH c.user " +
+           "LEFT JOIN FETCH a.cv " +
+           "WHERE j.recruiter.recruiterId = :recruiterId ORDER BY a.createdAt DESC")
+    List<Application> findByRecruiterId(@Param("recruiterId") Long recruiterId);
+
     /** Lọc đơn ứng tuyển theo job và status */
     @Query("SELECT a FROM Application a " +
            "LEFT JOIN FETCH a.job j " +
            "LEFT JOIN FETCH j.company " +
+           "LEFT JOIN FETCH j.recruiter r " +
+           "LEFT JOIN FETCH r.user " +
            "LEFT JOIN FETCH a.candidate c " +
            "LEFT JOIN FETCH c.user " +
            "LEFT JOIN FETCH a.cv " +

@@ -1079,7 +1079,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
   const [interviewMaxQuestions, setInterviewMaxQuestions] = useState(5);
   const [interviewResponseSeconds, setInterviewResponseSeconds] = useState(120);
   const [interviewerPersona, setInterviewerPersona] = useState('TECH_LEAD');
-  const [aiModel, setAiModel] = useState('gemini-1.5-flash');
+  const [aiModel, setAiModel] = useState('gemini-3-flash-preview');
   const [candidateFreeInterviewsPerDay, setCandidateFreeInterviewsPerDay] = useState(3);
   const [recruiterFreeJobPostsPerMonth, setRecruiterFreeJobPostsPerMonth] = useState(3);
   const [requireGpkdToPost, setRequireGpkdToPost] = useState(true);
@@ -1905,7 +1905,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
     setInterviewMaxQuestions(5);
     setInterviewResponseSeconds(120);
     setInterviewerPersona('TECH_LEAD');
-    setAiModel('gemini-1.5-flash');
+    setAiModel('gemini-3-flash-preview');
     setAiInterviewDifficulty('STANDARD');
     setCandidateFreeInterviewsPerDay(3);
     setRecruiterFreeJobPostsPerMonth(3);
@@ -6950,8 +6950,8 @@ export default function AdminDashboardPage({ user, onLogout }) {
                       </div>
                       <div className="grid grid-cols-2 gap-1.5 pt-0.5">
                         {[
-                          { id: 'gemini-1.5-flash', label: '1.5 Flash ★' },
-                          { id: 'gemini-1.5-pro', label: '1.5 Pro' },
+                          { id: 'gemini-3-flash-preview', label: '3.0 Flash ★' },
+                          { id: 'gemini-3.1-pro-preview', label: '3.1 Pro' },
                         ].map((m) => (
                           <button
                             key={m.id}
@@ -6968,7 +6968,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
                         ))}
                       </div>
                       <p className="text-[10px] text-slate-400 truncate">
-                        {aiModel === 'gemini-1.5-flash' ? 'Tối ưu độ trễ & chi phí API' : 'Suy luận logic phân tán chuyên sâu'}
+                        {aiModel === 'gemini-3-flash-preview' ? 'Siêu tốc <600ms & Tối ưu quota' : 'Suy luận logic sâu nhất'}
                       </p>
                     </div>
                   </div>

@@ -48,12 +48,8 @@ public class AdminServiceImpl implements AdminService {
         long adminCount = userRepository.countByRole(UserRole.ADMIN);
 
         long totalCompanies = companyRepository.count();
-        long activeCompanies = companyRepository.findAll().stream()
-                .filter(c -> c.getStatus() == CompanyStatus.ACTIVE || c.getStatus() == CompanyStatus.VERIFIED)
-                .count();
-        long pendingCompanies = companyRepository.findAll().stream()
-                .filter(c -> c.getStatus() == CompanyStatus.PENDING)
-                .count();
+        long activeCompanies = companyRepository.countByStatusIn(List.of(CompanyStatus.ACTIVE, CompanyStatus.VERIFIED));
+        long pendingCompanies = companyRepository.countByStatus(CompanyStatus.PENDING);
 
         long totalJobs = jobRepository.count();
         long publishedJobs = jobRepository.countByApprovalStatus(JobApprovalStatus.APPROVED);

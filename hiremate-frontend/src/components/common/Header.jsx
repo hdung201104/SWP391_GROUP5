@@ -250,7 +250,7 @@ export default function Header({
             } else if (n.type === 'AI_MATCH_DONE') {
               icon = 'auto_awesome';
               color = 'tertiary';
-              targetRoute = n.refId ? `#/jobs/${n.refId}` : '#/job-search';
+              targetRoute = n.refId ? `#/jobs/${n.refId}` : '#/';
               category = 'RECRUITMENT';
             } else if (n.refTable === 'payment_orders' || (n.title && (n.title.includes('Nâng cấp') || n.title.includes('gói') || n.title.includes('VIP') || n.title.includes('thanh toán')))) {
               icon = 'workspace_premium';
