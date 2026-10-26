@@ -11,6 +11,4 @@ public interface CompanyRepository extends JpaRepository<Company, Long> {
     Optional<Company> findByRecruiterId(Long recruiterId);
     Optional<Company> findFirstByCompanyNameIgnoreCase(String companyName);
     java.util.List<Company> findAllByOrderByCreatedAtDesc();
-    long countByStatus(com.hiremate.enums.CompanyStatus status);
-    long countByStatusIn(java.util.Collection<com.hiremate.enums.CompanyStatus> statuses);
 }

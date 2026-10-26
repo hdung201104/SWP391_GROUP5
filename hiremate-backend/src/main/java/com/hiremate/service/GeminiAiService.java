@@ -31,10 +31,6 @@ public interface GeminiAiService {
      */
     AiSessionSummary summarizeInterviewSession(String targetPosition, List<InterviewDetail> details);
 
-    default AiSessionSummary summarizeInterviewSession(String targetPosition, List<InterviewDetail> details, java.util.Map<String, Object> telemetry) {
-        return summarizeInterviewSession(targetPosition, details);
-    }
-
     /**
      * Bóc tách và phân tích CV chuyên sâu theo yêu cầu (On-Demand).
      */
@@ -63,41 +59,6 @@ public interface GeminiAiService {
 
     default String generateAdaptiveFollowUpQuestion(String targetPosition, List<InterviewDetail> previousDetails, int nextQuestionNumber) {
         return generateAdaptiveFollowUpQuestion(targetPosition, "Kỹ năng chuyên môn theo vị trí", previousDetails, nextQuestionNumber);
-    }
-
-    default String processVoiceInterviewTurn(String targetPosition, String userSpeech, List<String> conversationHistory) {
-        return processVoiceInterviewTurn(targetPosition, userSpeech, conversationHistory, null, null, null);
-    }
-
-    default String processVoiceInterviewTurn(String targetPosition, String userSpeech, List<String> conversationHistory, String focusNotes) {
-        return processVoiceInterviewTurn(targetPosition, userSpeech, conversationHistory, focusNotes, null, null);
-    }
-
-    default String processVoiceInterviewTurn(String targetPosition, String userSpeech, List<String> conversationHistory, String focusNotes, String cvSnippet, String jobSnippet) {
-        return processVoiceInterviewTurn(targetPosition, userSpeech, conversationHistory, focusNotes, cvSnippet, jobSnippet, null, null);
-    }
-
-    String processVoiceInterviewTurn(String targetPosition, String userSpeech, List<String> conversationHistory, String focusNotes, String cvSnippet, String jobSnippet, String persona, String difficulty);
-
-    /** Phân tích ngữ nghĩa: ứng viên đã nói xong ý trả lời chưa (true) hay còn đang dở và sẽ nói tiếp (false). */
-    default boolean isCandidateTurnComplete(String question, String answerSoFar) {
-        return true;
-    }
-
-    /**
-     * Huấn luyện cách trả lời: phân tích câu hỏi hiện tại và trả về hướng dẫn ngắn gọn
-     * (ý chính cần nói, cấu trúc STAR/PREP, ví dụ mở đầu, lỗi cần tránh) mà KHÔNG đọc đáp án hoàn chỉnh.
-     * Trả về Map gồm: questionType, approach, keyPoints (List), sampleOpening, avoid (List), timeTip.
-     */
-    default java.util.Map<String, Object> generateAnswerCoaching(String targetPosition, String question, String cvSnippet, String level) {
-        return java.util.Map.of(
-                "questionType", "Câu hỏi phỏng vấn",
-                "approach", "Trả lời theo cấu trúc: Bối cảnh -> Việc bạn trực tiếp làm -> Kết quả có con số.",
-                "keyPoints", List.of("Nêu rõ vai trò cá nhân của bạn", "Đưa 1 ví dụ thật từ dự án", "Kết thúc bằng kết quả đo được"),
-                "sampleOpening", "Trong dự án gần nhất của mình, tình huống này xảy ra khi...",
-                "avoid", List.of("Trả lời chung chung, sách vở", "Nói 'chúng em' mà không nêu phần việc của mình"),
-                "timeTip", "Nên nói khoảng 45 đến 90 giây."
-        );
     }
 
     /**

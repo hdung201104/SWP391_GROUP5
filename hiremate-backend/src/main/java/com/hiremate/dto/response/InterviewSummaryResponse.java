@@ -39,13 +39,6 @@ public class InterviewSummaryResponse {
     private String candidateEmail;
     private Integer questionCount;
     private List<InterviewDetailResponse> details;
-    private Float domainKnowledgeScore;
-    private Float problemSolvingScore;
-    private Float starStructureScore;
-    private Float communicationScore;
-    private Float deliveryToneScore;
-    private String deliveryFeedback;
-    private java.util.Map<String, Object> telemetryReport;
     private LocalDateTime startedAt;
     private LocalDateTime completedAt;
 }

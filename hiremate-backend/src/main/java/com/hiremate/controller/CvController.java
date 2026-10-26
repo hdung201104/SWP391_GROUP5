@@ -26,17 +26,14 @@ public class CvController {
     @GetMapping("/{id}/preview")
     public ResponseEntity<byte[]> previewCv(@PathVariable Long id) {
         CvResponse cv = cvService.getCvById(id);
-        byte[] bytes = fileStorageService.loadFileAsBytes(cv != null ? cv.getFileUrl() : null);
-        if (bytes == null || bytes.length == 0) {
-            bytes = fileStorageService.loadFileAsBytes("fallback.pdf");
-        }
+        byte[] bytes = fileStorageService.loadFileAsBytes(cv.getFileUrl());
         if (bytes == null || bytes.length == 0) {
             return ResponseEntity.notFound().build();
         }
-        String fn = (cv != null && cv.getFileName() != null) ? cv.getFileName() : "cv.pdf";
-        if (cv != null && cv.getFileUrl() != null && cv.getFileUrl().toLowerCase().endsWith(".docx") && !fn.toLowerCase().endsWith(".docx")) {
+        String fn = cv.getFileName() != null ? cv.getFileName() : "cv.pdf";
+        if (cv.getFileUrl() != null && cv.getFileUrl().toLowerCase().endsWith(".docx") && !fn.toLowerCase().endsWith(".docx")) {
             fn = fn + ".docx";
-        } else if (cv != null && cv.getFileUrl() != null && cv.getFileUrl().toLowerCase().endsWith(".pdf") && !fn.toLowerCase().endsWith(".pdf")) {
+        } else if (cv.getFileUrl() != null && cv.getFileUrl().toLowerCase().endsWith(".pdf") && !fn.toLowerCase().endsWith(".pdf")) {
             fn = fn + ".pdf";
         }
         String contentType = "application/pdf";
@@ -57,10 +54,7 @@ public class CvController {
     @GetMapping("/{id}/download")
     public ResponseEntity<byte[]> downloadCv(@PathVariable Long id) {
         CvResponse cv = cvService.getCvById(id);
-        byte[] bytes = fileStorageService.loadFileAsBytes(cv != null ? cv.getFileUrl() : null);
-        if (bytes == null || bytes.length == 0) {
-            bytes = fileStorageService.loadFileAsBytes("fallback.pdf");
-        }
+        byte[] bytes = fileStorageService.loadFileAsBytes(cv.getFileUrl());
         if (bytes == null || bytes.length == 0) {
             return ResponseEntity.notFound().build();
         }
@@ -97,14 +91,14 @@ public class CvController {
         return ResponseEntity.ok(ApiResponse.ok("CV uploaded successfully", response));
     }
 
-    @GetMapping({"", "/my"})
+    @GetMapping
     @PreAuthorize("hasRole('CANDIDATE')")
     public ResponseEntity<ApiResponse<List<CvResponse>>> getMyCvs(@AuthenticationPrincipal User user) {
         List<CvResponse> cvs = cvService.getCandidateCvs(user.getUserId());
         return ResponseEntity.ok(ApiResponse.ok(cvs));
     }
 
-    @GetMapping("/{id:[0-9]+}")
+    @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<CvResponse>> getCvById(@PathVariable Long id) {
         CvResponse cv = cvService.getCvById(id);
         return ResponseEntity.ok(ApiResponse.ok(cv));
