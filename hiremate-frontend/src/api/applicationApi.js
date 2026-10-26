@@ -3,6 +3,7 @@ import axiosClient from './axiosClient';
 export const applicationApi = {
   applyJob: (data) => axiosClient.post('/applications', data),
   getMyApplications: () => axiosClient.get('/applications/my'),
+  getMyRecruiterApplications: () => axiosClient.get('/applications/recruiter/my'),
   getJobApplications: (jobId, status) => axiosClient.get(`/applications/job/${jobId}`, {
     params: status ? { status } : {},
   }),

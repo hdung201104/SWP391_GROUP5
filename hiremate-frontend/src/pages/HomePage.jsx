@@ -536,10 +536,15 @@ export default function HomePage({ user }) {
         return false;
       });
     }
-    // Đối với Ứng viên: Mục Gợi ý AI chỉ lấy các công việc ĐÃ ĐƯỢC CHẤM ĐIỂM (aiMatchScore != null && aiMatchScore > 0),
-    // loại bỏ hoàn toàn các việc làm chưa được chấm điểm khỏi danh sách gợi ý.
+    // Đối với Ứng viên: Mục Gợi ý AI ưu tiên các công việc ĐÃ ĐƯỢC CHẤM ĐIỂM (aiMatchScore != null && aiMatchScore > 0).
+    // Nếu ứng viên chưa có việc làm nào được chấm điểm (hoặc đang tải gợi ý), hiển thị toàn bộ việc làm đang mở tuyển
+    // để không bị trống giao diện (0 việc làm) và các bộ lọc sidebar không bị về 0.
     if (isCandidate && activeTab === 'jobs') {
-      return allJobs.filter(j => j.aiMatchScore != null && j.aiMatchScore > 0);
+      const scoredJobs = allJobs.filter(j => j.aiMatchScore != null && j.aiMatchScore > 0);
+      if (scoredJobs.length > 0) {
+        return scoredJobs;
+      }
+      return allJobs;
     }
     return allJobs;
   }, [allJobs, activeCompanyShowcase, isCandidate, activeTab]);
@@ -1441,7 +1446,7 @@ export default function HomePage({ user }) {
                         </>
                       ) : isCandidate ? (
                         <>
-                          Top <span className="text-[#5b48bd] font-extrabold">{sortedJobs.length} việc làm</span> xếp hạng phù hợp nhất với CV
+                          Top <span className="text-[#5b48bd] font-extrabold">{sortedJobs.length} việc làm</span> {allJobs.some(j => j.aiMatchScore != null && j.aiMatchScore > 0) ? 'xếp hạng phù hợp nhất với CV' : 'đang mở tuyển'}
                         </>
                       ) : (
                         <>

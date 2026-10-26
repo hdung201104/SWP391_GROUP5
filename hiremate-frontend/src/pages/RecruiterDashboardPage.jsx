@@ -70,9 +70,10 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
   const fetchDashboardData = async () => {
     try {
       setIsLoadingJobs(true);
-      const [jobsRes, compRes] = await Promise.allSettled([
+      const [jobsRes, compRes, allAppsRes] = await Promise.allSettled([
         jobApi.getMyJobs(),
         companyApi.getMyCompany(),
+        applicationApi.getMyRecruiterApplications(),
       ]);
 
       if (compRes.status === 'fulfilled' && compRes.value?.data) {
@@ -87,47 +88,37 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
         });
       }
 
+      const allBackendApps = (allAppsRes.status === 'fulfilled' && Array.isArray(allAppsRes.value?.data))
+        ? allAppsRes.value.data : [];
+
       if (jobsRes.status === 'fulfilled' && Array.isArray(jobsRes.value?.data)) {
         const rawJobs = jobsRes.value.data;
-        const allAppsCollected = [];
-        const mappedJobs = await Promise.all(
-          rawJobs.map(async (j) => {
-            let applicantCount = j.vacanciesCount || 0;
-            let avgScore = 0;
-            let interviewCount = 0;
-            let offerCount = 0;
-            try {
-              const appsRes = await applicationApi.getJobApplications(j.jobId);
-              const apps = appsRes?.data || [];
-              if (Array.isArray(apps)) {
-                applicantCount = apps.length;
-                interviewCount = apps.filter((a) => a.status === 'INTERVIEWING').length;
-                offerCount = apps.filter((a) => a.status === 'OFFERED').length;
-                const totalScore = apps.reduce((sum, a) => sum + (a.matchingScore || 0), 0);
-                avgScore = applicantCount > 0 ? Math.round(totalScore / applicantCount) : 0;
+        const allAppsCollected = allBackendApps.map((app) => ({
+          applicationId: app.applicationId,
+          candidateId: app.candidateId,
+          candidateName: app.candidateName || 'Ứng viên',
+          candidateEmail: app.candidateEmail || '',
+          jobId: app.jobId,
+          jobTitle: app.jobTitle || 'Vị trí Tuyển Dụng',
+          matchingScore: app.matchingScore || 0,
+          status: app.status || 'APPLIED',
+          createdAt: app.createdAt || new Date().toISOString(),
+          cvUrl: app.cvUrl || '#',
+        }));
 
-                apps.forEach((app) => {
-                  allAppsCollected.push({
-                    applicationId: app.applicationId,
-                    candidateId: app.candidateId,
-                    candidateName: app.candidateName || 'Ứng viên',
-                    candidateEmail: app.candidateEmail || '',
-                    jobId: j.jobId,
-                    jobTitle: j.title || 'Vị trí Tuyển Dụng',
-                    matchingScore: app.matchingScore || 0,
-                    status: app.status || 'APPLIED',
-                    createdAt: app.createdAt || new Date().toISOString(),
-                    cvUrl: app.cvUrl || '#',
-                  });
-                });
-              }
-            } catch (ignored) { }
+        const mappedJobs = rawJobs.map((j) => {
+          const apps = allBackendApps.filter((a) => a.jobId === j.jobId);
+          const applicantCount = apps.length;
+          const interviewCount = apps.filter((a) => a.status === 'INTERVIEWING').length;
+          const offerCount = apps.filter((a) => a.status === 'OFFERED').length;
+          const totalScore = apps.reduce((sum, a) => sum + (a.matchingScore || 0), 0);
+          const avgScore = applicantCount > 0 ? Math.round(totalScore / applicantCount) : 0;
 
-            return {
-              jobId: j.jobId,
-              title: j.title || 'Vị trí Tuyển Dụng',
-              department: j.company?.industry || j.companyName || 'Engineering',
-              location: j.location || 'Việt Nam',
+          return {
+            jobId: j.jobId,
+            title: j.title || 'Vị trí Tuyển Dụng',
+            department: j.company?.industry || j.companyName || 'Engineering',
+            location: j.location || 'Việt Nam',
               salaryText: j.salaryMin && j.salaryMax ? `$${j.salaryMin} - $${j.salaryMax}/tháng` : 'Thỏa thuận',
               status: j.status || 'PUBLISHED',
               targetHires: j.vacanciesCount || 2,
@@ -146,8 +137,7 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                 ? j.preferredSkills
                 : parseSkillList(j.benefits, ['Đãi ngộ tốt']),
             };
-          })
-        );
+          });
         setJobs(mappedJobs);
         setAllCompanyApplications(allAppsCollected);
         if (mappedJobs.length > 0 && !selectedJobId) {

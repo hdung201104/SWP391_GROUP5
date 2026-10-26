@@ -18,11 +18,37 @@ public interface AiJobMatchRepository extends JpaRepository<AiJobMatch, Long> {
     /** Tìm match cụ thể theo candidate và job (dùng để check cache) */
     Optional<AiJobMatch> findByCandidate_CandidateIdAndJob_JobId(Long candidateId, Long jobId);
 
-    /** Lấy tất cả matches của một job, sắp xếp điểm cao nhất trước */
-    List<AiJobMatch> findByJob_JobIdOrderByMatchingScoreDesc(Long jobId);
+    /** Lấy tất cả matches của một job, sắp xếp điểm cao nhất trước (JOIN FETCH để diệt N+1 queries) */
+    @org.springframework.data.jpa.repository.Query("SELECT m FROM AiJobMatch m " +
+            "JOIN FETCH m.job j " +
+            "LEFT JOIN FETCH j.company " +
+            "JOIN FETCH m.candidate c " +
+            "LEFT JOIN FETCH c.user u " +
+            "LEFT JOIN FETCH m.cv " +
+            "WHERE j.jobId = :jobId " +
+            "ORDER BY m.matchingScore DESC")
+    List<AiJobMatch> findByJob_JobIdOrderByMatchingScoreDesc(@org.springframework.data.repository.query.Param("jobId") Long jobId);
+
+    /** Lấy tất cả matches của nhiều jobs (phục vụ dashboard báo cáo hàng loạt) */
+    @org.springframework.data.jpa.repository.Query("SELECT m FROM AiJobMatch m " +
+            "JOIN FETCH m.job j " +
+            "LEFT JOIN FETCH j.company " +
+            "JOIN FETCH m.candidate c " +
+            "LEFT JOIN FETCH c.user u " +
+            "LEFT JOIN FETCH m.cv " +
+            "WHERE j.jobId IN :jobIds")
+    List<AiJobMatch> findByJob_JobIdIn(@org.springframework.data.repository.query.Param("jobIds") java.util.Collection<Long> jobIds);
 
     /** Lấy tất cả matches của một candidate, sắp xếp điểm cao nhất trước */
-    List<AiJobMatch> findByCandidate_CandidateIdOrderByMatchingScoreDesc(Long candidateId);
+    @org.springframework.data.jpa.repository.Query("SELECT m FROM AiJobMatch m " +
+            "JOIN FETCH m.job j " +
+            "LEFT JOIN FETCH j.company " +
+            "JOIN FETCH m.candidate c " +
+            "LEFT JOIN FETCH c.user u " +
+            "LEFT JOIN FETCH m.cv " +
+            "WHERE c.candidateId = :candidateId " +
+            "ORDER BY m.matchingScore DESC")
+    List<AiJobMatch> findByCandidate_CandidateIdOrderByMatchingScoreDesc(@org.springframework.data.repository.query.Param("candidateId") Long candidateId);
 
     /** Xóa tất cả matches liên quan đến một job */
     void deleteByJob_JobId(Long jobId);

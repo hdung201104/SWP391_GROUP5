@@ -16,8 +16,14 @@ import java.util.List;
 @Repository
 public interface InterviewSessionRepository extends JpaRepository<InterviewSession, Long> {
 
-    /** Lấy tất cả phiên phỏng vấn của một candidate, mới nhất trước */
-    List<InterviewSession> findByCandidate_CandidateIdOrderByStartedAtDesc(Long candidateId);
+    /** Lấy tất cả phiên phỏng vấn của một candidate, mới nhất trước kèm JOIN FETCH tối ưu hóa */
+    @Query("SELECT s FROM InterviewSession s " +
+           "LEFT JOIN FETCH s.candidate c " +
+           "LEFT JOIN FETCH c.user " +
+           "LEFT JOIN FETCH s.job j " +
+           "LEFT JOIN FETCH j.company " +
+           "WHERE s.candidate.candidateId = :candidateId ORDER BY s.startedAt DESC")
+    List<InterviewSession> findByCandidate_CandidateIdOrderByStartedAtDesc(@Param("candidateId") Long candidateId);
 
     /** Lấy các phiên phỏng vấn MOCK gốc (không phải retry) */
     @Query("SELECT s FROM InterviewSession s WHERE s.candidate.candidateId = :candidateId AND s.parentSessionId IS NULL ORDER BY s.startedAt DESC")

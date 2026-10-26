@@ -2,7 +2,6 @@ package com.hiremate.controller;
 
 import com.hiremate.dto.request.SkillCreateRequest;
 import com.hiremate.dto.response.*;
-import com.hiremate.entity.Job;
 import com.hiremate.entity.SubscriptionPlan;
 import com.hiremate.enums.CompanyStatus;
 import com.hiremate.enums.JobApprovalStatus;
@@ -19,7 +18,6 @@ import org.springframework.web.bind.annotation.*;
 import lombok.extern.slf4j.Slf4j;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
 
 @RestController
 @RequestMapping("/api/v1/admin")
