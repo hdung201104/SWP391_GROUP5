@@ -51,7 +51,7 @@ public class ApplicationController {
     }
 
     @GetMapping("/job/{jobId}")
-    @PreAuthorize("hasRole('RECRUITER')")
+    @PreAuthorize("hasAnyRole('RECRUITER', 'ADMIN')")
     public ResponseEntity<ApiResponse<List<ApplicationResponse>>> getJobApplications(
             @PathVariable Long jobId,
             @RequestParam(required = false) com.hiremate.enums.ApplicationStatus status,

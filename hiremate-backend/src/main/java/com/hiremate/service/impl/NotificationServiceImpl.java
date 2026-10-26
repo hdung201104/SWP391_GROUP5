@@ -61,15 +61,17 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     @Transactional
     public List<NotificationResponse> getUserNotifications(User user) {
+        List<Notification> notifications = notificationRepository.findByUserIdOrderByCreatedAtDesc(user.getUserId());
+
         // Tự động đồng bộ thông báo nâng cấp nếu người dùng đã có gói active nhưng chưa được nhận thông báo
         try {
-            subscriptionRepository.findFirstByUser_UserIdAndStatusOrderByCreatedAtDesc(user.getUserId(), com.hiremate.enums.SubscriptionStatus.ACTIVE)
-                    .ifPresent(sub -> {
-                        com.hiremate.entity.SubscriptionPlan plan = sub.getPlan();
-                        if (plan != null && plan.getPrice() != null && plan.getPrice().compareTo(java.math.BigDecimal.ZERO) > 0) {
-                            boolean hasSubNotif = notificationRepository.findByUserIdOrderByCreatedAtDesc(user.getUserId()).stream()
-                                    .anyMatch(n -> n.getTitle() != null && n.getTitle().contains("Nâng cấp"));
-                            if (!hasSubNotif) {
+            boolean hasSubNotif = notifications.stream()
+                    .anyMatch(n -> n.getTitle() != null && n.getTitle().contains("Nâng cấp"));
+            if (!hasSubNotif) {
+                subscriptionRepository.findFirstByUser_UserIdAndStatusOrderByCreatedAtDesc(user.getUserId(), com.hiremate.enums.SubscriptionStatus.ACTIVE)
+                        .ifPresent(sub -> {
+                            com.hiremate.entity.SubscriptionPlan plan = sub.getPlan();
+                            if (plan != null && plan.getPrice() != null && plan.getPrice().compareTo(java.math.BigDecimal.ZERO) > 0) {
                                 createNotification(
                                         user.getUserId(),
                                         NotificationType.SYSTEM_ALERT,
@@ -79,13 +81,12 @@ public class NotificationServiceImpl implements NotificationService {
                                         "subscriptions"
                                 );
                             }
-                        }
-                    });
+                        });
+            }
         } catch (Exception e) {
             log.warn("Không thể đồng bộ thông báo gói active: {}", e.getMessage());
         }
 
-        List<Notification> notifications = notificationRepository.findByUserIdOrderByCreatedAtDesc(user.getUserId());
         return notifications.stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());

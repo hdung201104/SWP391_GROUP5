@@ -443,8 +443,8 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
           stage: stage,
           statusLabel: statusLabel,
           isLowerScore: score < 60,
-          cvId: app.cvId,
-          cvUrl: app.cvUrl || '#',
+          cvId: app.cvId || match?.cvId || null,
+          cvUrl: app.cvUrl || match?.cvUrl || '#',
         };
       });
 
@@ -1581,8 +1581,8 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                     <div className="p-3.5 rounded-xl bg-amber-50/40 border border-amber-100/90">
                       <div className="flex items-center justify-between text-xs mb-1.5">
                         <span className="text-amber-900 font-semibold flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[15px] text-amber-600">psychology</span>
-                          Đánh Giá AI &amp; Dự Án
+                          <span className="material-symbols-outlined text-[15px] text-amber-600">developer_mode</span>
+                          Dự Án &amp; Công Nghệ Thực Chiến
                         </span>
                         <span className="font-mono font-bold text-amber-800 text-sm">
                           {Math.round(selectedCandidateForModal.semanticScore || 0)}%
@@ -1595,7 +1595,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                         ></div>
                       </div>
                       <p className="text-[9.5px] text-amber-700/80 mt-1.5">
-                        Độ sâu dự án thực chiến
+                        Độ phức tạp &amp; quy mô dự án thực tế
                       </p>
                     </div>
                   </div>
@@ -1841,6 +1841,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
           onClose={() => setViewingCvCandidate(null)}
           cvId={viewingCvCandidate.cvId}
           cvUrl={viewingCvCandidate.cvUrl}
+          candidateId={viewingCvCandidate.candidateId}
           fileName={`CV_${viewingCvCandidate.name?.replace(/\s+/g, '_')}.pdf`}
           candidateName={viewingCvCandidate.name}
           atsScore={viewingCvCandidate.matchScore}

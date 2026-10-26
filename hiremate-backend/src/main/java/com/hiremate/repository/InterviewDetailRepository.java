@@ -17,6 +17,9 @@ public interface InterviewDetailRepository extends JpaRepository<InterviewDetail
     /** Lấy toàn bộ câu hỏi/đáp án của một phiên phỏng vấn, theo thứ tự số câu */
     List<InterviewDetail> findBySession_SessionIdOrderByQuestionNumberAsc(Long sessionId);
 
+    /** Lấy toàn bộ chi tiết câu hỏi của một danh sách các phiên phỏng vấn (Batch fetch loại bỏ hoàn toàn N+1 queries) */
+    List<InterviewDetail> findBySession_SessionIdInOrderByQuestionNumberAsc(java.util.Collection<Long> sessionIds);
+
     /** Đếm số câu hỏi đã có trong một phiên phỏng vấn */
     long countBySession_SessionId(Long sessionId);
 }

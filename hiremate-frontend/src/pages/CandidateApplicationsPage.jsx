@@ -38,8 +38,22 @@ const normalizeApplicationStatus = (rawStatus) => {
 
 export default function CandidateApplicationsPage({ user }) {
   const { theme: livingTheme } = useLivingTheme();
-  const [applications, setApplications] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [applications, setApplications] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem('hiremate_cached_applications');
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [loading, setLoading] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem('hiremate_cached_applications');
+      return !cached;
+    } catch {
+      return true;
+    }
+  });
   const [activeFilter, setActiveFilter] = useState(() => {
     const hash = window.location.hash || '';
     if (hash.includes('tab=saved')) return 'SAVED';
@@ -196,13 +210,18 @@ export default function CandidateApplicationsPage({ user }) {
             };
           });
           setApplications(mapped);
+          try {
+            sessionStorage.setItem('hiremate_cached_applications', JSON.stringify(mapped));
+          } catch {}
         } else {
           setApplications([]);
+          try {
+            sessionStorage.setItem('hiremate_cached_applications', JSON.stringify([]));
+          } catch {}
         }
       })
       .catch((err) => {
         console.warn('Could not load applications from backend:', err);
-        setApplications([]);
       })
       .finally(() => {
         if (!silent) setLoading(false);
@@ -210,11 +229,25 @@ export default function CandidateApplicationsPage({ user }) {
   };
 
   useEffect(() => {
-    fetchMyApplications(false);
+    // If cached applications exist, fetch silently in background to avoid blocking spinner
+    const hasCached = (() => {
+      try {
+        return !!sessionStorage.getItem('hiremate_cached_applications');
+      } catch {
+        return false;
+      }
+    })();
 
-    // Đồng bộ tức thì khi nhận được thông báo trạng thái hoặc khi quay lại tab trình duyệt
+    fetchMyApplications(hasCached);
+
+    // Throttled sync: Đồng bộ khi nhận thông báo trạng thái hoặc quay lại tab (tối đa 1 lần / 15s)
+    let lastFocusSync = Date.now();
     const handleSync = () => {
-      fetchMyApplications(true);
+      const now = Date.now();
+      if (now - lastFocusSync > 15000) {
+        lastFocusSync = now;
+        fetchMyApplications(true);
+      }
     };
 
     window.addEventListener('hiremate-notification-sync', handleSync);
