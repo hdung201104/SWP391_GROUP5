@@ -166,6 +166,7 @@ export default function CandidateEvaluationPage({
       let jobData = null;
       let appData = null;
       let cvData = null;
+      let candMatch = null;
 
       // 2.1 Gọi song song các API backend
       try {
@@ -189,6 +190,13 @@ export default function CandidateEvaluationPage({
         jobData = jRes?.data || jRes;
         const appsList = Array.isArray(appsRes?.data) ? appsRes.data : (Array.isArray(appsRes) ? appsRes : []);
         const matchesList = Array.isArray(matchesRes?.data) ? matchesRes.data : (Array.isArray(matchesRes) ? matchesRes : []);
+
+        // Tìm candidate match từ AI Job Matches
+        if (matchesList.length > 0) {
+          candMatch = matchesList.find(
+            (m) => parsedCandId && Number(m.candidateId) === Number(parsedCandId)
+          ) || null;
+        }
 
         // Tìm application
         if (appsList.length > 0) {
@@ -466,14 +474,24 @@ export default function CandidateEvaluationPage({
         ];
       }
 
-      // 4 Trụ cột ATS
-      const skillsScore = parsedJson?.skillsScore || Math.min(Math.round(matchScore * 1.02), 98);
-      const experienceScore = parsedJson?.experienceScore || Math.max(Math.round(matchScore * 0.95), 75);
-      const educationScore = parsedJson?.educationScore || Math.min(Math.round(matchScore * 1.08), 100);
-      const semanticScore = parsedJson?.semanticScore || Math.max(Math.round(matchScore * 0.98), 82);
+      // 4 Trụ cột ATS từ kết quả AI Match thực tế
+      const skillsScore = candMatch?.skillsScore != null ? Number(candMatch.skillsScore) : (parsedJson?.skillsScore || Math.min(Math.round(matchScore * 1.02), 98));
+      const experienceScore = candMatch?.experienceScore != null ? Number(candMatch.experienceScore) : (parsedJson?.experienceScore || Math.max(Math.round(matchScore * 0.95), 75));
+      const educationScore = candMatch?.educationScore != null ? Number(candMatch.educationScore) : (parsedJson?.educationScore || Math.min(Math.round(matchScore * 1.08), 100));
+      const semanticScore = candMatch?.semanticScore != null ? Number(candMatch.semanticScore) : (parsedJson?.semanticScore || Math.max(Math.round(matchScore * 0.98), 82));
 
-      const mandatorySkills = cleanSkills.slice(0, Math.ceil(cleanSkills.length * 0.6));
-      const preferredSkills = cleanSkills.slice(Math.ceil(cleanSkills.length * 0.6));
+      const mandatorySkills = candMatch?.matchedMandatorySkills 
+        ? parseSkillList(candMatch.matchedMandatorySkills, [])
+        : cleanSkills.slice(0, Math.ceil(cleanSkills.length * 0.6));
+      const missingMandatorySkills = candMatch?.missingMandatorySkills
+        ? parseSkillList(candMatch.missingMandatorySkills, [])
+        : [];
+      const preferredSkills = candMatch?.matchedPreferredSkills
+        ? parseSkillList(candMatch.matchedPreferredSkills, [])
+        : cleanSkills.slice(Math.ceil(cleanSkills.length * 0.6));
+      const missingPreferredSkills = candMatch?.missingPreferredSkills
+        ? parseSkillList(candMatch.missingPreferredSkills, [])
+        : [];
 
       const assessmentLabel =
         matchScore >= 85
@@ -543,10 +561,10 @@ export default function CandidateEvaluationPage({
           cvUrl: cvUrl || cvData?.fileUrl || '#',
           cvFileName: cvData?.fileName || `CV_${candidateName.replace(/\s+/g, '_')}.pdf`,
           matchedMandatorySkills: mandatorySkills,
-          missingMandatorySkills: [],
+          missingMandatorySkills: missingMandatorySkills,
           matchedPreferredSkills: preferredSkills,
-          missingPreferredSkills: [],
-          aiReasoning: `Ứng viên đạt ${matchScore}% theo ma trận ATS đa chiều: Kỹ năng chuyên môn ${skillsScore}%, Kinh nghiệm thực chiến ${experienceScore}%, Học vấn & bằng cấp ${educationScore}%, Đánh giá ngữ nghĩa AI ${semanticScore}%.`,
+          missingPreferredSkills: missingPreferredSkills,
+          aiReasoning: candMatch?.aiReasoning || `Ứng viên đạt ${matchScore}% theo ma trận ATS đa chiều: Kỹ năng chuyên môn ${skillsScore}%, Kinh nghiệm thực chiến ${experienceScore}%, Học vấn & bằng cấp ${educationScore}%, Dự án & công nghệ thực chiến ${semanticScore}%.`,
           skills: cleanSkills,
           skillCategories,
           experiences,
@@ -1008,7 +1026,7 @@ export default function CandidateEvaluationPage({
                 <div className="flex justify-between text-xs font-bold mb-1">
                   <span className="text-slate-700 flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-purple-500" />
-                    Dự Án &amp; Đánh Giá AI (15% trọng số)
+                    Dự Án &amp; Công Nghệ Thực Chiến (15% trọng số)
                   </span>
                   <span className="text-purple-700">{cand.semanticScore || 82}%</span>
                 </div>
@@ -1025,7 +1043,7 @@ export default function CandidateEvaluationPage({
             <div className="space-y-3 pt-2">
               <div>
                 <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
-                  Kỹ năng cốt lõi đáp ứng JD
+                  Kỹ năng cốt lõi đáp ứng JD ({cand.matchedMandatorySkills.length + cand.matchedPreferredSkills.length})
                 </span>
                 <div className="flex flex-wrap gap-1.5">
                   {cand.matchedMandatorySkills.concat(cand.matchedPreferredSkills).map((s, idx) => (
@@ -1039,6 +1057,26 @@ export default function CandidateEvaluationPage({
                   ))}
                 </div>
               </div>
+
+              {/* Missing mandatory skills */}
+              {cand.missingMandatorySkills && cand.missingMandatorySkills.length > 0 && (
+                <div>
+                  <span className="text-[11px] font-bold text-amber-700 uppercase tracking-wider block mb-2">
+                    Kỹ năng JD yêu cầu nhưng CV còn thiếu ({cand.missingMandatorySkills.length})
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {cand.missingMandatorySkills.map((s, idx) => (
+                      <span
+                        key={idx}
+                        className="px-2.5 py-1 rounded-xl text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1"
+                      >
+                        <span className="material-symbols-outlined text-[13px] text-amber-600">warning</span>
+                        <span>{s}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Assessment Summary */}
               <div className="p-3.5 rounded-2xl bg-purple-50/70 border border-purple-100 text-xs space-y-1">

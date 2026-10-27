@@ -14,7 +14,6 @@
     }
   ],
   "settings": {
-    "java.jdt.ls.java.home": "C:\\Program Files\\Eclipse Adoptium\\jdk-21.0.12.101-hotspot",
     "java.import.maven.enabled": true,
     "java.configuration.updateBuildConfiguration": "automatic",
     "java.compiler.compliance": "21",
@@ -22,12 +21,9 @@
     "java.compile.target": "21",
     "java.compiler.annotationProcessing.enabled": true,
     "java.jdt.ls.lombokSupport.enabled": true,
-    "java.jdt.ls.vmargs": "--add-modules=ALL-SYSTEM -XX:+UseParallelGC -XX:GCTimeRatio=4 -XX:AdaptiveSizePolicyWeight=90 -Dsun.zip.disableMemoryMapping=true -Xmx2G -Xms100m -javaagent:\"C:/Users/hdung/.m2/repository/org/projectlombok/lombok/1.18.36/lombok-1.18.36.jar\" -Xbootclasspath/a:\"C:/Users/hdung/.m2/repository/org/projectlombok/lombok/1.18.36/lombok-1.18.36.jar\"",
+    "java.jdt.ls.vmargs": "--add-modules=ALL-SYSTEM -XX:+UseParallelGC -XX:GCTimeRatio=4 -XX:AdaptiveSizePolicyWeight=90 -Dsun.zip.disableMemoryMapping=true -Xmx2G -Xms100m",
     "java.errors.incompleteClasspath.severity": "ignore",
     "java.autobuild.enabled": false,
-    "maven.executable.preferMavenWrapper": true,
-    "terminal.integrated.env.windows": {
-      "JAVA_HOME": "C:\\Program Files\\Eclipse Adoptium\\jdk-21.0.12.101-hotspot"
-    }
+    "maven.executable.preferMavenWrapper": true
   }
 }

@@ -2,7 +2,6 @@ package com.hiremate.controller;
 
 import com.hiremate.dto.request.SkillCreateRequest;
 import com.hiremate.dto.response.*;
-import com.hiremate.entity.Job;
 import com.hiremate.entity.SubscriptionPlan;
 import com.hiremate.enums.CompanyStatus;
 import com.hiremate.enums.JobApprovalStatus;
@@ -19,7 +18,6 @@ import org.springframework.web.bind.annotation.*;
 import lombok.extern.slf4j.Slf4j;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
 
 @RestController
 @RequestMapping("/api/v1/admin")
@@ -289,5 +287,13 @@ public class AdminController {
         res.put("liveVerified", liveSuccess);
         res.put("message", "Kết nối Cổng thanh toán PayOS & Tài khoản " + settings.getVietqrBankName() + " (" + payosAccount + " - " + payosHolder + ") hoạt động xuất sắc (" + pingMs + "ms)! Đã xác thực cổng Napas 24/7 sẵn sàng tự động bắt biến động số dư.");
         return ResponseEntity.ok(ApiResponse.ok("Kiểm tra kết nối thành công", res));
+    }
+
+    @PostMapping("/skills/ai-generate-industry")
+    public ResponseEntity<ApiResponse<com.hiremate.dto.response.AiIndustrySkillGenerateResponse>> generateSkillsForIndustry(
+            @RequestBody @Valid com.hiremate.dto.request.AiIndustrySkillGenerateRequest request
+    ) {
+        com.hiremate.dto.response.AiIndustrySkillGenerateResponse response = skillService.generateSkillsForIndustry(request);
+        return ResponseEntity.ok(ApiResponse.ok("Khởi tạo bộ kỹ năng theo ngành thành công", response));
     }
 }

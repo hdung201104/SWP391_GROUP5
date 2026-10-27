@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Slf4j
@@ -44,13 +45,261 @@ public class AiInterviewServiceImpl implements AiInterviewService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.hiremate.repository.SubscriptionRepository subscriptionRepository;
     @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.hiremate.repository.SubscriptionPlanRepository subscriptionPlanRepository;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.hiremate.service.SystemSettingsService systemSettingsService;
 
+    @org.springframework.beans.factory.annotation.Value("${elevenlabs.api-key:}")
+    private String elevenlabsApiKey;
+    @org.springframework.beans.factory.annotation.Value("${elevenlabs.voice-female:Xb7hH8MSUJpSbSDYk0k2}")
+    private String elevenlabsVoiceFemale;
+    @org.springframework.beans.factory.annotation.Value("${elevenlabs.voice-male:JBFqnCBsd6RMkjVDRZzb}")
+    private String elevenlabsVoiceMale;
+    @org.springframework.beans.factory.annotation.Value("${elevenlabs.model-id:eleven_turbo_v2_5}")
+    private String elevenlabsModelId;
+
     /**
-     * Kiểm tra phân quyền và hạn ngạch lượt phỏng vấn AI thực tế của Ứng viên.
+     * Xác định số câu hỏi tối đa cho buổi phỏng vấn dựa trên gói dịch vụ Supabase.
+     * - Free Candidate (price = 0, quota = 2): 3 câu/buổi.
+     * - Practice Plus (price = 49.000đ, quota = 10): 5 câu/buổi.
+     * - Practice Pro (price = 149.000đ, quota = 30): 7 câu/buổi.
+     * - Career Ace (price >= 249.000đ, quota = 999): 8 câu/buổi.
+     */
+    private String extractPermFromDescription(String desc, String key) {
+        if (desc == null || !desc.contains("[PERMS:")) return null;
+        try {
+            int start = desc.indexOf("[PERMS:") + 7;
+            int end = desc.indexOf("]", start);
+            if (end > start) {
+                String permsStr = desc.substring(start, end);
+                for (String part : permsStr.split(";")) {
+                    String[] kv = part.split("=");
+                    if (kv.length == 2 && kv[0].trim().equalsIgnoreCase(key)) {
+                        return kv[1].trim();
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        return null;
+    }
+
+    private int calculateMaxQuestions(com.hiremate.entity.SubscriptionPlan plan) {
+        if (plan == null) return 3;
+        String customQ = extractPermFromDescription(plan.getDescription(), "maxQ");
+        if (customQ != null) {
+            try {
+                int parsed = Integer.parseInt(customQ);
+                if (parsed > 0) return parsed;
+            } catch (Exception ignored) {}
+        }
+
+        String name = plan.getPlanName() != null ? plan.getPlanName().toLowerCase() : "";
+        int quota = plan.getQuotaLimit() != null ? plan.getQuotaLimit() : 2;
+        java.math.BigDecimal price = plan.getPrice() != null ? plan.getPrice() : java.math.BigDecimal.ZERO;
+
+        if (name.contains("free") || price.compareTo(java.math.BigDecimal.ZERO) == 0 || quota <= 2) {
+            return 3;
+        } else if (name.contains("plus") || price.compareTo(new java.math.BigDecimal("49000")) == 0 || quota <= 10) {
+            return 5;
+        } else if (name.contains("pro") || price.compareTo(new java.math.BigDecimal("149000")) == 0 || quota <= 30) {
+            return 7;
+        } else if (name.contains("ace") || quota >= 999 || price.compareTo(new java.math.BigDecimal("200000")) >= 0) {
+            return 8;
+        }
+        return (quota <= 3) ? 3 : (quota <= 10) ? 5 : (quota <= 30) ? 7 : 8;
+    }
+
+    /**
+     * Xác định thời lượng tối đa cho phiên phỏng vấn (giây) theo gói Supabase.
+     * - 3 câu: 300 giây (5 phút).
+     * - 5 câu: 600 giây (10 phút).
+     * - 7 câu: 900 giây (15 phút).
+     * - 8 câu: 1200 giây (20 phút).
+     */
+    private int calculateMaxDurationSeconds(com.hiremate.entity.SubscriptionPlan plan) {
+        if (plan != null) {
+            String customDur = extractPermFromDescription(plan.getDescription(), "maxDur");
+            if (customDur != null) {
+                try {
+                    int parsed = Integer.parseInt(customDur);
+                    if (parsed > 0) return parsed;
+                } catch (Exception ignored) {}
+            }
+        }
+        int maxQ = calculateMaxQuestions(plan);
+        if (maxQ <= 3) return 300;
+        if (maxQ <= 5) return 600;
+        if (maxQ <= 7) return 900;
+        return 1200;
+    }
+
+    /**
+     * Tìm kiếm gói đang kích hoạt (ACTIVE, còn hạn) của Candidate từ bảng `subscriptions` JOIN `subscription_plans` trên Supabase.
+     * Nếu không có, tự động lấy hoặc khởi tạo gói mặc định "Free Candidate" (price = 0, quota = 2).
+     */
+    public com.hiremate.entity.SubscriptionPlan resolveActiveOrFreePlan(User candidate) {
+        if (candidate != null && subscriptionRepository != null) {
+            List<com.hiremate.entity.Subscription> activeSubs = subscriptionRepository.findActiveCandidateSubscriptions(
+                    candidate.getUserId(), com.hiremate.enums.SubscriptionStatus.ACTIVE, LocalDateTime.now());
+            if (!activeSubs.isEmpty() && activeSubs.get(0).getPlan() != null) {
+                return activeSubs.get(0).getPlan();
+            }
+        }
+
+        // Truy vấn gói mặc định Free Candidate từ bảng `subscription_plans` trên Supabase
+        if (subscriptionPlanRepository != null) {
+            Optional<com.hiremate.entity.SubscriptionPlan> freePlanOpt =
+                    subscriptionPlanRepository.findFirstByPlanNameIgnoreCaseAndIsActiveTrue("Free Candidate");
+            if (freePlanOpt.isPresent()) {
+                return freePlanOpt.get();
+            }
+
+            Optional<com.hiremate.entity.SubscriptionPlan> zeroPriceOpt =
+                    subscriptionPlanRepository.findFirstByTargetRoleAndPriceAndIsActiveTrue("CANDIDATE", java.math.BigDecimal.ZERO);
+            if (zeroPriceOpt.isPresent()) {
+                return zeroPriceOpt.get();
+            }
+
+            // Nếu bảng subscription_plans chưa có bản ghi, tự động lưu gói mặc định Free Candidate vào Supabase
+            try {
+                com.hiremate.entity.SubscriptionPlan newFree = com.hiremate.entity.SubscriptionPlan.builder()
+                        .planName("Free Candidate")
+                        .targetRole("CANDIDATE")
+                        .planType("INTERVIEW_PRACTICE")
+                        .price(java.math.BigDecimal.ZERO)
+                        .durationDays(365)
+                        .quotaLimit(2)
+                        .description("Gói mặc định miễn phí trên Supabase (2 lượt/ngày, 3 câu/buổi, 5 phút/buổi)")
+                        .isActive(true)
+                        .build();
+                return subscriptionPlanRepository.save(newFree);
+            } catch (Exception e) {
+                log.warn(">> Không thể tự động tạo gói Free Candidate: {}", e.getMessage());
+            }
+        }
+
+        return com.hiremate.entity.SubscriptionPlan.builder()
+                .planName("Free Candidate")
+                .targetRole("CANDIDATE")
+                .planType("INTERVIEW_PRACTICE")
+                .price(java.math.BigDecimal.ZERO)
+                .durationDays(365)
+                .quotaLimit(2)
+                .isActive(true)
+                .build();
+    }
+
+    @Override
+    public com.hiremate.dto.response.InterviewQuotaStatusResponse getCandidateQuotaStatus(User candidate) {
+        if (candidate == null) {
+            return com.hiremate.dto.response.InterviewQuotaStatusResponse.builder()
+                    .planName("Free Candidate")
+                    .price(java.math.BigDecimal.ZERO)
+                    .quotaLimit(2)
+                    .usedToday(0L)
+                    .remainingToday(2L)
+                    .maxQuestions(3)
+                    .maxDurationSeconds(300)
+                    .isQuotaExceeded(false)
+                    .isPaidPlan(false)
+                    .allowedPersonas("HR_MANAGER")
+                    .allowedVoices("vi-native")
+                    .coachHintsPerSession(1)
+                    .unlockFullStar(false)
+                    .unlockRoadmapStages(false)
+                    .build();
+        }
+
+        com.hiremate.entity.SubscriptionPlan plan = resolveActiveOrFreePlan(candidate);
+        String planName = (plan != null && plan.getPlanName() != null) ? plan.getPlanName() : "Free Candidate";
+        java.math.BigDecimal price = (plan != null && plan.getPrice() != null) ? plan.getPrice() : java.math.BigDecimal.ZERO;
+        boolean isPaid = price.compareTo(java.math.BigDecimal.ZERO) > 0;
+        String desc = plan != null ? plan.getDescription() : null;
+
+        int quotaLimit;
+        if (plan != null && plan.getQuotaLimit() != null && plan.getQuotaLimit() > 0) {
+            quotaLimit = plan.getQuotaLimit();
+        } else {
+            quotaLimit = isPaid ? 10 : 2;
+        }
+
+        int maxQuestions = calculateMaxQuestions(plan);
+        int maxDurationSeconds = calculateMaxDurationSeconds(plan);
+
+        // Trích xuất hoặc suy luận phân quyền tính năng phòng phỏng vấn
+        String allowedPersonas = extractPermFromDescription(desc, "personas");
+        if (allowedPersonas == null) {
+            allowedPersonas = maxQuestions <= 3 ? "HR_MANAGER" : maxQuestions <= 5 ? "HR_MANAGER,TECH_LEAD" : "HR_MANAGER,TECH_LEAD,STRICT_DIRECTOR";
+        }
+
+        String allowedVoices = extractPermFromDescription(desc, "voices");
+        if (allowedVoices == null) {
+            allowedVoices = maxQuestions <= 3 ? "vi-native" : maxQuestions <= 5 ? "vi-native,eleven-alice" : "vi-native,eleven-alice,eleven-george";
+        }
+
+        Integer coachHints = null;
+        String customHints = extractPermFromDescription(desc, "coachHints");
+        if (customHints != null) {
+            try { coachHints = Integer.parseInt(customHints); } catch (Exception ignored) {}
+        }
+        if (coachHints == null) {
+            coachHints = maxQuestions <= 3 ? 1 : maxQuestions <= 5 ? 3 : 999;
+        }
+
+        Boolean unlockFullStar = null;
+        String customStar = extractPermFromDescription(desc, "fullStar");
+        if (customStar != null) {
+            unlockFullStar = Boolean.parseBoolean(customStar);
+        } else {
+            unlockFullStar = maxQuestions > 3;
+        }
+
+        Boolean unlockRoadmap = null;
+        String customRoadmap = extractPermFromDescription(desc, "roadmap");
+        if (customRoadmap != null) {
+            unlockRoadmap = Boolean.parseBoolean(customRoadmap);
+        } else {
+            unlockRoadmap = maxQuestions > 3;
+        }
+
+        LocalDateTime startOfDay = java.time.LocalDate.now().atStartOfDay();
+        long usedToday = sessionRepository.countByCandidate_CandidateIdAndStartedAtAfter(candidate.getUserId(), startOfDay);
+        long remainingToday = quotaLimit >= 999 ? 999 : Math.max(0, quotaLimit - usedToday);
+        boolean isQuotaExceeded = (candidate.getRole() != com.hiremate.enums.UserRole.ADMIN) && (quotaLimit < 999) && (usedToday >= quotaLimit);
+
+        String endDateStr = null;
+        if (subscriptionRepository != null) {
+            List<com.hiremate.entity.Subscription> activeSubs = subscriptionRepository.findActiveCandidateSubscriptions(
+                    candidate.getUserId(), com.hiremate.enums.SubscriptionStatus.ACTIVE, LocalDateTime.now());
+            if (!activeSubs.isEmpty() && activeSubs.get(0).getEndDate() != null) {
+                endDateStr = activeSubs.get(0).getEndDate().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+            }
+        }
+
+        return com.hiremate.dto.response.InterviewQuotaStatusResponse.builder()
+                .planId(plan != null ? plan.getPlanId() : null)
+                .planName(planName)
+                .price(price)
+                .quotaLimit(quotaLimit)
+                .usedToday(usedToday)
+                .remainingToday(remainingToday)
+                .maxQuestions(maxQuestions)
+                .maxDurationSeconds(maxDurationSeconds)
+                .isQuotaExceeded(isQuotaExceeded)
+                .isPaidPlan(isPaid)
+                .subscriptionEndDate(endDateStr)
+                .allowedPersonas(allowedPersonas)
+                .allowedVoices(allowedVoices)
+                .coachHintsPerSession(coachHints)
+                .unlockFullStar(unlockFullStar)
+                .unlockRoadmapStages(unlockRoadmap)
+                .build();
+    }
+
+    /**
+     * Kiểm tra phân quyền và hạn ngạch lượt phỏng vấn AI thực tế của Ứng viên theo dữ liệu thật trên Supabase:
      * - Admin: Không giới hạn.
-     * - Ứng viên VIP (đã mua gói ACTIVE): Luyện tập theo hạn ngạch ngày của gói (hoặc không giới hạn nếu quota = 999).
-     * - Ứng viên miễn phí (Free Tier): Tối đa 3 lượt phỏng vấn thử nghiệm AI trên toàn hệ thống.
+     * - Nếu số phiên phỏng vấn hôm nay >= quota_limit của gói: Chặn tạo phiên mới và gợi ý nâng cấp.
      */
     private void checkCandidateInterviewQuota(User user) {
         if (user == null) return;
@@ -58,47 +307,14 @@ public class AiInterviewServiceImpl implements AiInterviewService {
             return; // Admin có quyền tối cao
         }
 
-        com.hiremate.entity.Subscription activeSub = null;
-        if (subscriptionRepository != null) {
-            activeSub = subscriptionRepository.findFirstByUser_UserIdAndStatusOrderByCreatedAtDesc(
-                    user.getUserId(), com.hiremate.enums.SubscriptionStatus.ACTIVE).orElse(null);
-        }
-
-        // Tự động kiểm tra hết hạn gói nếu có
-        if (activeSub != null && activeSub.getEndDate() != null && activeSub.getEndDate().isBefore(LocalDateTime.now())) {
-            activeSub.setStatus(com.hiremate.enums.SubscriptionStatus.EXPIRED);
-            subscriptionRepository.save(activeSub);
-            activeSub = null;
-        }
-
-        if (activeSub != null) {
-            int dailyQuota = (activeSub.getPlan() != null && activeSub.getPlan().getQuotaLimit() != null)
-                    ? activeSub.getPlan().getQuotaLimit() : 10;
-            if (dailyQuota < 999) {
-                LocalDateTime startOfDay = java.time.LocalDate.now().atStartOfDay();
-                long todayCount = sessionRepository.countByCandidate_CandidateIdAndStartedAtAfter(user.getUserId(), startOfDay);
-                if (todayCount >= dailyQuota) {
-                    String planName = activeSub.getPlan() != null ? activeSub.getPlan().getPlanName() : "gói dịch vụ hiện tại";
-                    throw new IllegalArgumentException(String.format(
-                            "Bạn đã sử dụng hết hạn ngạch (%d/%d phiên) hôm nay của gói \"%s\". Vui lòng quay lại vào ngày mai hoặc nâng cấp gói không giới hạn.",
-                            todayCount, dailyQuota, planName));
-                }
-            }
-        } else {
-            // Tài khoản ứng viên miễn phí (Free Tier): Đọc hạn ngạch từ Cấu hình Hệ thống (mặc định 3 phiên)
-            int freeLimit = 3;
-            if (systemSettingsService != null && systemSettingsService.getSettings() != null) {
-                Integer limit = systemSettingsService.getSettings().getCandidateFreeInterviewsPerDay();
-                if (limit != null && limit > 0) freeLimit = limit;
-            }
-            long totalSessions = sessionRepository.countByCandidate_CandidateId(user.getUserId());
-            if (totalSessions >= freeLimit) {
-                throw new IllegalArgumentException(String.format(
-                        "Tài khoản miễn phí đã sử dụng hết %d lượt phỏng vấn AI dùng thử (Bạn đã hoàn thành %d phiên). Vui lòng nâng cấp gói Career VIP để mở khóa luyện phỏng vấn không giới hạn cùng trợ lý ảo AI.",
-                        freeLimit, totalSessions));
-            }
+        com.hiremate.dto.response.InterviewQuotaStatusResponse quota = getCandidateQuotaStatus(user);
+        if (Boolean.TRUE.equals(quota.getIsQuotaExceeded())) {
+            throw new IllegalArgumentException(String.format(
+                    "Bạn đã sử dụng hết hạn ngạch hôm nay (%d/%d phiên) của gói \"%s\". Vui lòng quay lại vào ngày mai hoặc nâng cấp gói dịch vụ để tiếp tục luyện tập.",
+                    quota.getUsedToday(), quota.getQuotaLimit(), quota.getPlanName()));
         }
     }
+
 
     @Override
     @Transactional
@@ -184,7 +400,11 @@ public class AiInterviewServiceImpl implements AiInterviewService {
             deliveryScore = computeVerifiedDeliveryScore(
                     answerText,
                     request.getWordsPerMinute(),
-                    request.getClarityScore()
+                    request.getClarityScore(),
+                    request.getPitchHz(),
+                    request.getEyeContactPercent(),
+                    request.getFacialEmotion(),
+                    request.getFillerCount()
             );
 
             evaluation = geminiAiService.evaluateInterviewAnswer(
@@ -194,14 +414,34 @@ public class AiInterviewServiceImpl implements AiInterviewService {
             );
         }
 
-        float contentScore = evaluation.getContentScore() != null ? evaluation.getContentScore() : (evaluation.getScore() != null ? evaluation.getScore() : 75f);
-        float aiEvaluationScore = (request.getWordsPerMinute() != null || request.getClarityScore() != null || evaluation.getDeliveryScore() != null)
-                ? (Math.round((contentScore * 0.60f + deliveryScore * 0.40f) * 10f) / 10f)
+        float contentScore = evaluation.getContentScore() != null ? evaluation.getContentScore() : (evaluation.getScore() != null ? evaluation.getScore() : 30f);
+        float aiEvaluationScore = (request.getWordsPerMinute() != null || request.getClarityScore() != null || evaluation.getDeliveryScore() != null || request.getEyeContactPercent() != null)
+                ? (Math.round((contentScore * 0.70f + deliveryScore * 0.30f) * 10f) / 10f)
                 : (evaluation.getScore() != null ? evaluation.getScore() : contentScore);
 
-        // Kết hợp phản hồi ngữ điệu vào aiFeedback nếu có
+        // Kết hợp telemetry âm thanh & camera vào aiFeedback nếu có
+        StringBuilder telemetryNote = new StringBuilder();
+        if (request.getPitchHz() != null && request.getPitchHz() > 0) {
+            String pitchDesc = request.getPitchHz() < 165 ? "Trầm ấm, đĩnh đạc" : request.getPitchHz() <= 230 ? "Tự tin, chuẩn mực" : "Hơi căng thẳng, tông cao";
+            telemetryNote.append(String.format("Tông giọng: %.0f Hz (%s)", request.getPitchHz(), pitchDesc));
+        }
+        if (request.getEyeContactPercent() != null && request.getEyeContactPercent() > 0) {
+            if (telemetryNote.length() > 0) telemetryNote.append(" • ");
+            telemetryNote.append(String.format("Giao tiếp mắt: %.0f%%", request.getEyeContactPercent()));
+        }
+        if (request.getFacialEmotion() != null && !request.getFacialEmotion().isBlank()) {
+            if (telemetryNote.length() > 0) telemetryNote.append(" • ");
+            telemetryNote.append("Biểu cảm: ").append(request.getFacialEmotion());
+        }
+        if (request.getFillerCount() != null && request.getFillerCount() > 0) {
+            if (telemetryNote.length() > 0) telemetryNote.append(" • ");
+            telemetryNote.append("Từ đệm: ").append(request.getFillerCount()).append(" lần");
+        }
+
         String finalFeedback = evaluation.getFeedback();
-        if (evaluation.getIntonationFeedback() != null && !evaluation.getIntonationFeedback().isBlank()) {
+        if (telemetryNote.length() > 0) {
+            finalFeedback = finalFeedback + "\n\n[Phong thái & Telemetry]: " + telemetryNote;
+        } else if (evaluation.getIntonationFeedback() != null && !evaluation.getIntonationFeedback().isBlank()) {
             finalFeedback = finalFeedback + "\n\n[Phong thái & Ngữ điệu - " + (evaluation.getTone() != null ? evaluation.getTone() : "Đánh giá âm thanh") + "]: " + evaluation.getIntonationFeedback();
         }
 
@@ -233,12 +473,43 @@ public class AiInterviewServiceImpl implements AiInterviewService {
         res.setRequiresHumanReview(evaluation.getRequiresHumanReview());
         res.setTone(evaluation.getTone());
         res.setIntonationFeedback(evaluation.getIntonationFeedback());
+
+        // Kiểm tra điều kiện hoàn thành buổi phỏng vấn theo số câu của gói Supabase
+        com.hiremate.dto.response.InterviewQuotaStatusResponse quota = getCandidateQuotaStatus(user);
+        int maxQ = (quota.getMaxQuestions() != null && quota.getMaxQuestions() > 0) ? quota.getMaxQuestions() : 3;
+        long totalAnsweredInSession = detailRepository.countBySession_SessionId(sessionId);
+
+        if (totalAnsweredInSession >= maxQ) {
+            res.setIsFinalQuestion(true);
+            try {
+                InterviewSummaryResponse compSummary = completeSession(sessionId, user);
+                res.setIsSessionCompleted(true);
+                res.setOverallScore(compSummary.getOverallScore());
+                res.setOverallFeedback(compSummary.getOverallFeedback());
+                log.info(">> [AiInterviewService] Đã tự động kết thúc phiên #{} sau khi hoàn tất đủ {} câu theo gói \"{}\"",
+                        sessionId, maxQ, quota.getPlanName());
+            } catch (Exception e) {
+                log.warn(">> [AiInterviewService] Tự động completeSession câu cuối gặp lỗi: {}", e.getMessage());
+                res.setIsSessionCompleted(true);
+            }
+        } else {
+            res.setIsFinalQuestion(false);
+            res.setIsSessionCompleted(false);
+        }
+
         return res;
     }
+
 
     @Override
     @Transactional
     public InterviewSummaryResponse completeSession(Long sessionId, User user) {
+        return completeSession(sessionId, null, user);
+    }
+
+    @Override
+    @Transactional
+    public InterviewSummaryResponse completeSession(Long sessionId, Map<String, Object> telemetry, User user) {
         InterviewSession session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new IllegalArgumentException("Session not found: " + sessionId));
 
@@ -250,26 +521,30 @@ public class AiInterviewServiceImpl implements AiInterviewService {
         // Lấy tất cả chi tiết câu hỏi của phiên này (đã sắp xếp theo questionNumber)
         List<InterviewDetail> details = detailRepository.findBySession_SessionIdOrderByQuestionNumberAsc(sessionId);
 
-        // Tính điểm tổng kết dựa trên aiEvaluationScore của từng câu
-        float totalScore = 0f;
-        if (!details.isEmpty()) {
+        // Đánh giá tổng quan toàn phiên từ Gemini AI Agent (kèm Telemetry giọng nói, ánh mắt, khuôn mặt)
+        com.hiremate.dto.ai.AiSessionSummary summary = geminiAiService.summarizeInterviewSession(
+                session.getTargetPosition(),
+                details,
+                telemetry
+        );
+
+        // Sử dụng điểm số hiệu chuẩn đa chiều từ Gemini AI nếu có
+        if (summary != null && summary.getOverallCalibratedScore() != null && summary.getOverallCalibratedScore() > 0) {
+            session.setOverallScore(summary.getOverallCalibratedScore());
+        } else if (!details.isEmpty()) {
+            float totalScore = 0f;
             for (InterviewDetail d : details) {
-                totalScore += (d.getAiEvaluationScore() != null ? d.getAiEvaluationScore() : 70f);
+                totalScore += (d.getAiEvaluationScore() != null ? d.getAiEvaluationScore() : 25f);
             }
             session.setOverallScore(Math.round((totalScore / details.size()) * 10f) / 10f);
         } else {
             session.setOverallScore(0.0f);
         }
 
-        // Đánh giá tổng quan toàn phiên từ Gemini AI Agent
-        com.hiremate.dto.ai.AiSessionSummary summary = geminiAiService.summarizeInterviewSession(
-                session.getTargetPosition(),
-                details
-        );
-        session.setOverallFeedback(summary.getOverallFeedback());
-        session.setWeaknessSummary(summary.getWeaknessSummary());
+        session.setOverallFeedback(summary != null ? summary.getOverallFeedback() : "Phiên phỏng vấn hoàn tất.");
+        session.setWeaknessSummary(summary != null ? summary.getWeaknessSummary() : "");
         try {
-            session.setRecommendedTasks(objectMapper.writeValueAsString(summary.getRecommendedTasks()));
+            session.setRecommendedTasks(objectMapper.writeValueAsString(summary != null ? summary.getRecommendedTasks() : List.of()));
         } catch (Exception e) {
             session.setRecommendedTasks("[\"Review System Design Distributed Caching\", \"Practice behavioral STAR answers for 2 minutes\"]");
         }
@@ -317,10 +592,11 @@ public class AiInterviewServiceImpl implements AiInterviewService {
         // Giải phóng bộ nhớ ngắn hạn của phiên phỏng vấn
         agentMemoryManager.evictMemory(sessionId);
 
-        return mapToSummary(saved, details, improvementDelta);
+        return mapToSummary(saved, details, improvementDelta, summary, telemetry);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public InterviewSummaryResponse getSessionSummary(Long sessionId, User user) {
         InterviewSession session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new IllegalArgumentException("Session not found: " + sessionId));
@@ -347,15 +623,27 @@ public class AiInterviewServiceImpl implements AiInterviewService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<InterviewSummaryResponse> getCandidateHistory(Long candidateId) {
-        // Dùng method mới truy vấn qua Candidate subclass relationship
+        if (candidateId == null) {
+            return java.util.Collections.emptyList();
+        }
+        // Dùng method mới truy vấn qua Candidate subclass relationship kèm JOIN FETCH
         List<InterviewSession> sessions =
                 sessionRepository.findByCandidate_CandidateIdOrderByStartedAtDesc(candidateId);
+        if (sessions == null || sessions.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
 
-        List<InterviewSummaryResponse> responses = new ArrayList<>();
+        // BATCH PRE-FETCH ALL DETAILS TRONG ĐÚNG 1 CÂU QUERY DUY NHẤT (Loại bỏ 14+ queries tuần tự)
+        List<Long> sessionIds = sessions.stream().map(InterviewSession::getSessionId).toList();
+        List<InterviewDetail> allDetails = detailRepository.findBySession_SessionIdInOrderByQuestionNumberAsc(sessionIds);
+        Map<Long, List<InterviewDetail>> detailsBySession = allDetails.stream()
+                .collect(java.util.stream.Collectors.groupingBy(d -> d.getSession().getSessionId()));
+
+        List<InterviewSummaryResponse> responses = new ArrayList<>(sessions.size());
         for (InterviewSession s : sessions) {
-            List<InterviewDetail> details =
-                    detailRepository.findBySession_SessionIdOrderByQuestionNumberAsc(s.getSessionId());
+            List<InterviewDetail> details = detailsBySession.getOrDefault(s.getSessionId(), java.util.Collections.emptyList());
             responses.add(mapToSummary(s, details, null));
         }
         return responses;
@@ -371,6 +659,23 @@ public class AiInterviewServiceImpl implements AiInterviewService {
             InterviewSession s,
             List<InterviewDetail> details,
             Float delta) {
+        return mapToSummary(s, details, delta, null, null);
+    }
+
+    private InterviewSummaryResponse mapToSummary(
+            InterviewSession s,
+            List<InterviewDetail> details,
+            Float delta,
+            com.hiremate.dto.ai.AiSessionSummary summary) {
+        return mapToSummary(s, details, delta, summary, null);
+    }
+
+    private InterviewSummaryResponse mapToSummary(
+            InterviewSession s,
+            List<InterviewDetail> details,
+            Float delta,
+            com.hiremate.dto.ai.AiSessionSummary summary,
+            Map<String, Object> telemetry) {
 
         List<InterviewDetailResponse> detailResponses = new ArrayList<>();
         for (InterviewDetail d : details) {
@@ -389,6 +694,38 @@ public class AiInterviewServiceImpl implements AiInterviewService {
         }
         int qCount = detailResponses != null ? detailResponses.size() : 0;
 
+        Float domainScore = summary != null ? summary.getDomainKnowledgeScore() : null;
+        Float problemScore = summary != null ? summary.getProblemSolvingScore() : null;
+        Float starScore = summary != null ? summary.getStarStructureScore() : null;
+        Float commScore = summary != null ? summary.getCommunicationScore() : null;
+        Float deliveryScore = summary != null ? summary.getDeliveryToneScore() : commScore;
+        String deliveryFeedback = summary != null ? summary.getDeliveryFeedback() : null;
+
+        // Nếu summary chưa có (khi getSessionSummary sau đó), suy ra từ overallScore hoặc điểm các câu
+        if (domainScore == null && s.getOverallScore() != null && s.getOverallScore() > 0) {
+            float base = s.getOverallScore();
+            domainScore = Math.min(100f, Math.max(0f, base));
+            problemScore = Math.min(100f, Math.max(0f, base));
+            starScore = Math.min(100f, Math.max(0f, base));
+            commScore = Math.min(100f, Math.max(0f, base));
+            deliveryScore = Math.min(100f, Math.max(0f, base));
+        }
+
+
+        // Lấy thông số gói dịch vụ Supabase của ứng viên
+        String planName = "Free Candidate";
+
+        int maxQ = 3;
+        int maxDur = 300;
+        if (s.getCandidate() != null && s.getCandidate().getUser() != null) {
+            com.hiremate.entity.SubscriptionPlan p = resolveActiveOrFreePlan(s.getCandidate().getUser());
+            if (p != null) {
+                planName = p.getPlanName() != null ? p.getPlanName() : "Free Candidate";
+                maxQ = calculateMaxQuestions(p);
+                maxDur = calculateMaxDurationSeconds(p);
+            }
+        }
+
         return InterviewSummaryResponse.builder()
                 .sessionId(s.getSessionId())
                 // Truy xuất qua Candidate subclass (Shared PK: candidateId = userId)
@@ -406,9 +743,20 @@ public class AiInterviewServiceImpl implements AiInterviewService {
                 .recommendedTasks(s.getRecommendedTasks())
                 .improvementDelta(delta)
                 .details(detailResponses)
+                .domainKnowledgeScore(domainScore)
+                .problemSolvingScore(problemScore)
+                .starStructureScore(starScore)
+                .communicationScore(commScore)
+                .deliveryToneScore(deliveryScore)
+                .deliveryFeedback(deliveryFeedback)
+                .telemetryReport(telemetry)
+                .planName(planName)
+                .maxQuestions(maxQ)
+                .maxDurationSeconds(maxDur)
                 .startedAt(s.getStartedAt())
                 .completedAt(s.getCompletedAt())
                 .build();
+
     }
 
     /**
@@ -555,7 +903,15 @@ public class AiInterviewServiceImpl implements AiInterviewService {
      * Đối chiếu thông số WPM và Clarity do Client gửi lên với độ dài văn bản thực tế, tỷ lệ từ đệm (filler words)
      * và giới hạn sinh học phát âm của con người để chống gian lận qua Postman/API.
      */
-    private float computeVerifiedDeliveryScore(String answerText, Float clientWpm, Float clientClarity) {
+    private float computeVerifiedDeliveryScore(
+            String answerText,
+            Float clientWpm,
+            Float clientClarity,
+            Float pitchHz,
+            Float eyeContactPercent,
+            String facialEmotion,
+            Integer fillerCountClient
+    ) {
         if (answerText == null || answerText.isBlank()) {
             return 50.0f;
         }
@@ -580,13 +936,16 @@ public class AiInterviewServiceImpl implements AiInterviewService {
             }
         }
         String lower = answerText.toLowerCase();
-        String[] multiWordFillers = {"kiểu như", "thì là mà"};
+        String[] multiWordFillers = {"kiểu như", "thì là mà", "dạng như", "nói chung là", "đại loại là"};
         for (String f : multiWordFillers) {
             int idx = 0;
             while ((idx = lower.indexOf(f, idx)) != -1) {
                 fillerCount++;
                 idx += f.length();
             }
+        }
+        if (fillerCountClient != null && fillerCountClient > fillerCount) {
+            fillerCount = fillerCountClient;
         }
 
         float fillerPenalty = Math.min(25.0f, fillerCount * 3.0f);
@@ -612,6 +971,234 @@ public class AiInterviewServiceImpl implements AiInterviewService {
             paceScore = Math.max(50f, 100f - (rawWpm - 160f) * 0.7f);
         }
 
-        return Math.round((paceScore * 0.5f + verifiedClarity * 0.5f) * 10f) / 10f;
+        // 5. Thẩm định Telemetry Tông giọng & Ánh mắt giao tiếp
+        float postureBonus = 0f;
+        if (eyeContactPercent != null && eyeContactPercent >= 75f) {
+            postureBonus += 4.0f; // Duy trì giao tiếp mắt xuất sắc
+        } else if (eyeContactPercent != null && eyeContactPercent < 45f) {
+            postureBonus -= 4.0f; // Thiếu tự tin, thường xuyên nhìn đi chỗ khác
+        }
+
+        if (pitchHz != null && pitchHz >= 85f && pitchHz <= 230f) {
+            postureBonus += 3.0f; // Tông giọng trầm ấm, vững vàng
+        } else if (pitchHz != null && pitchHz > 255f) {
+            postureBonus -= 3.0f; // Tông giọng căng thẳng, run rẩy
+        }
+
+        if (facialEmotion != null && (facialEmotion.contains("Tự tin") || facialEmotion.contains("Thân thiện") || facialEmotion.contains("Mỉm cười"))) {
+            postureBonus += 3.0f;
+        }
+
+        float totalDelivery = (paceScore * 0.45f + verifiedClarity * 0.45f) + postureBonus;
+        return Math.max(40.0f, Math.min(100.0f, Math.round(totalDelivery * 10f) / 10f));
+    }
+
+    @Override
+    public byte[] synthesizeSpeech(String text, String voice) {
+        if (text == null || text.isBlank()) return new byte[0];
+
+        // Chuẩn hóa văn bản sạch sẽ (giữ nguyên vẹn thuật ngữ công nghệ tiếng Anh và từ ngữ tiếng Việt)
+        String normalized = com.hiremate.util.SpeechPhoneticNormalizer.normalize(text);
+        if (normalized.isBlank()) return new byte[0];
+
+        boolean isEn = com.hiremate.util.SpeechPhoneticNormalizer.isMostlyEnglish(normalized);
+        String vLower = voice != null ? voice.toLowerCase() : "female";
+
+        // 1. Nếu văn bản là tiếng Anh HOẶC người dùng chỉ định giọng ElevenLabs Quốc Tế
+        boolean requestEleven = isEn || vLower.contains("eleven") || vLower.contains("alice") || vLower.contains("george") || vLower.contains("male");
+        if (requestEleven && elevenlabsApiKey != null && !elevenlabsApiKey.isBlank()) {
+            byte[] elevenAudio = synthesizeWithElevenLabs(normalized, voice, isEn);
+            if (elevenAudio != null && elevenAudio.length > 0) {
+                return elevenAudio;
+            }
+        }
+
+        // 2. MẶC ĐỊNH CHO TIẾNG VIỆT BẢN XỨ (100% chuẩn giọng đọc Việt Nam, không ngọng, không lơ lớ):
+        // Dùng động cơ Native Vietnamese Audio Stream với tl=vi
+        byte[] nativeAudio = synthesizeSpeech(normalized);
+        if (nativeAudio != null && nativeAudio.length > 0) {
+            return nativeAudio;
+        }
+
+        // 3. Dự phòng cuối cùng: ElevenLabs Turbo v2.5 nếu các kênh khác gặp sự cố
+        if (elevenlabsApiKey != null && !elevenlabsApiKey.isBlank()) {
+            byte[] fallbackEleven = synthesizeWithElevenLabs(normalized, voice, isEn);
+            if (fallbackEleven != null && fallbackEleven.length > 0) {
+                return fallbackEleven;
+            }
+        }
+
+        return new byte[0];
+    }
+
+    private byte[] synthesizeWithElevenLabs(String text, String voice, boolean isEnglish) {
+        try {
+            String clean = text.trim();
+            if (clean.isEmpty()) return new byte[0];
+            if (clean.length() > 2000) clean = clean.substring(0, 2000);
+
+            boolean male = voice != null && (voice.toLowerCase().contains("male") || voice.toLowerCase().contains("george") || voice.toLowerCase().contains("nam"));
+            String voiceId = male ? elevenlabsVoiceMale : elevenlabsVoiceFemale;
+            if (voiceId == null || voiceId.isBlank()) {
+                voiceId = male ? "JBFqnCBsd6RMkjVDRZzb" : "Xb7hH8MSUJpSbSDYk0k2";
+            }
+
+            String cacheKey = "eleven|" + voiceId + "|" + (isEnglish ? "en" : "vi") + "|" + clean;
+            byte[] cached = ttsMemoryCache.get(cacheKey);
+            if (cached != null && cached.length > 0) {
+                return cached;
+            }
+
+            // eleven_turbo_v2_5 và eleven_flash_v2_5 hỗ trợ chính thức language_code 'vi'
+            String model = !isEnglish ? "eleven_turbo_v2_5" : ((elevenlabsModelId != null && !elevenlabsModelId.isBlank()) ? elevenlabsModelId : "eleven_turbo_v2_5");
+
+            java.util.Map<String, Object> body = new java.util.HashMap<>();
+            body.put("text", clean);
+            body.put("model_id", model);
+            if (model.contains("turbo") || model.contains("flash")) {
+                body.put("language_code", isEnglish ? "en" : "vi");
+            }
+            body.put("voice_settings", java.util.Map.of(
+                    "stability", 0.5,
+                    "similarity_boost", 0.8,
+                    "style", 0.0,
+                    "use_speaker_boost", true
+            ));
+
+            java.net.http.HttpRequest req = java.net.http.HttpRequest.newBuilder()
+                    .uri(java.net.URI.create("https://api.elevenlabs.io/v1/text-to-speech/" + voiceId + "?output_format=mp3_44100_128"))
+                    .header("Content-Type", "application/json")
+                    .header("xi-api-key", elevenlabsApiKey.trim())
+                    .timeout(java.time.Duration.ofSeconds(12))
+                    .POST(java.net.http.HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body)))
+                    .build();
+
+            java.net.http.HttpResponse<byte[]> resp = java.net.http.HttpClient.newHttpClient()
+                    .send(req, java.net.http.HttpResponse.BodyHandlers.ofByteArray());
+
+            if (resp.statusCode() == 200 && resp.body() != null && resp.body().length > 0) {
+                log.info(">> [ElevenLabs] Tổng hợp giọng nói Generative AI (voiceId={}, lang={}) - {} bytes", voiceId, isEnglish ? "en" : "vi", resp.body().length);
+                if (ttsMemoryCache.size() > 500) ttsMemoryCache.clear();
+                ttsMemoryCache.put(cacheKey, resp.body());
+                return resp.body();
+            } else {
+                log.warn(">> [ElevenLabs] HTTP {}: {}", resp.statusCode(), resp.body() != null ? new String(resp.body(), java.nio.charset.StandardCharsets.UTF_8) : "");
+            }
+        } catch (Exception e) {
+            log.warn(">> [ElevenLabs] Lỗi tổng hợp giọng nói: {}", e.getMessage());
+        }
+        return new byte[0];
+    }
+
+    private final java.util.concurrent.ConcurrentHashMap<String, byte[]> ttsMemoryCache = new java.util.concurrent.ConcurrentHashMap<>();
+
+    @Override
+    public byte[] synthesizeSpeech(String text) {
+        if (text == null || text.isBlank()) {
+            return new byte[0];
+        }
+        try {
+            // Chuẩn hóa phát âm và phiên âm ngữ âm cho TTS tiếng Việt (xử lý triệt để lỗi nuốt từ / đọc sai thuật ngữ tiếng Anh)
+            String clean = com.hiremate.util.SpeechPhoneticNormalizer.normalizeForVietnameseTts(text);
+            if (clean.isEmpty()) return new byte[0];
+
+            String cacheKey = clean.trim();
+            byte[] cached = ttsMemoryCache.get(cacheKey);
+            if (cached != null && cached.length > 0) {
+                return cached;
+            }
+
+            // Tối ưu gom câu tự nhiên để tránh đứt đoạn, khoảng lặng chết (dead air)
+            List<String> chunks = splitTextForTts(clean, 180);
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder()
+                    .connectTimeout(java.time.Duration.ofSeconds(6))
+                    .build();
+
+            for (String chunk : chunks) {
+                if (chunk.isBlank()) continue;
+
+                // Tự động nhận diện ngôn ngữ của câu: Tiếng Anh (en) hay Tiếng Việt (vi)
+                boolean isEn = com.hiremate.util.SpeechPhoneticNormalizer.isMostlyEnglish(chunk);
+                String langCode = isEn ? "en" : "vi";
+
+                String encoded = java.net.URLEncoder.encode(chunk, java.nio.charset.StandardCharsets.UTF_8);
+                String url = "https://translate.google.com/translate_tts?ie=UTF-8&tl=" + langCode + "&client=tw-ob&q=" + encoded;
+
+                java.net.http.HttpRequest req = java.net.http.HttpRequest.newBuilder()
+                        .uri(java.net.URI.create(url))
+                        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                        .timeout(java.time.Duration.ofSeconds(6))
+                        .GET()
+                        .build();
+
+                java.net.http.HttpResponse<byte[]> resp = client.send(req, java.net.http.HttpResponse.BodyHandlers.ofByteArray());
+                if (resp.statusCode() == 200 && resp.body() != null && resp.body().length > 0) {
+                    out.write(resp.body());
+                }
+            }
+
+            byte[] audioBytes = out.toByteArray();
+            if (audioBytes.length > 0) {
+                if (ttsMemoryCache.size() > 500) ttsMemoryCache.clear();
+                ttsMemoryCache.put(cacheKey, audioBytes);
+            }
+            return audioBytes;
+        } catch (Exception e) {
+            log.error(">> [AiInterviewService] Lỗi tổng hợp giọng nói qua TTS Engine: {}", e.getMessage());
+            return new byte[0];
+        }
+    }
+
+    /**
+     * Thuật toán phân đoạn văn bản thông minh (Intelligent Audio Chunker):
+     * Ưu tiên giữ nguyên trọn vẹn từng câu, tự động gộp các câu ngắn đứng gần nhau
+     * để luồng âm thanh phát ra liên tục, loại bỏ hoàn toàn hiện tượng ngắt nghỉ giật cục.
+     */
+    private List<String> splitTextForTts(String text, int maxChunkLen) {
+        List<String> result = new ArrayList<>();
+        // Tách câu theo dấu kết thúc câu (. ! ? hoặc xuống dòng)
+        String[] sentences = text.split("(?<=[.!?\\n])\\s+");
+        StringBuilder currentChunk = new StringBuilder();
+
+        for (String sentence : sentences) {
+            String s = sentence.trim();
+            if (s.isEmpty()) continue;
+
+            // Nếu câu vượt quá giới hạn tối đa của Google TTS, tách theo mệnh đề
+            if (s.length() > maxChunkLen) {
+                if (currentChunk.length() > 0) {
+                    result.add(currentChunk.toString().trim());
+                    currentChunk = new StringBuilder();
+                }
+                String[] clauses = s.split("(?<=[,;:])\\s+");
+                for (String clause : clauses) {
+                    String cl = clause.trim();
+                    if (cl.isEmpty()) continue;
+                    if (currentChunk.length() + cl.length() + 1 <= maxChunkLen) {
+                        if (currentChunk.length() > 0) currentChunk.append(" ");
+                        currentChunk.append(cl);
+                    } else {
+                        if (currentChunk.length() > 0) result.add(currentChunk.toString().trim());
+                        currentChunk = new StringBuilder(cl);
+                    }
+                }
+            } else {
+                // Gom các câu ngắn lại với nhau để âm điệu liền mạch
+                if (currentChunk.length() + s.length() + 1 <= maxChunkLen) {
+                    if (currentChunk.length() > 0) currentChunk.append(" ");
+                    currentChunk.append(s);
+                } else {
+                    if (currentChunk.length() > 0) {
+                        result.add(currentChunk.toString().trim());
+                    }
+                    currentChunk = new StringBuilder(s);
+                }
+            }
+        }
+        if (currentChunk.length() > 0) {
+            result.add(currentChunk.toString().trim());
+        }
+        return result;
     }
 }

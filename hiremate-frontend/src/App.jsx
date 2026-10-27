@@ -15,6 +15,7 @@ import JobApplicantsRosterPage from './pages/JobApplicantsRosterPage';
 import RecruiterDashboardPage from './pages/RecruiterDashboardPage';
 import CandidateEvaluationPage from './pages/CandidateEvaluationPage';
 import AiInterviewStudioPage from './pages/AiInterviewStudioPage';
+import AiInterviewReportPage from './pages/AiInterviewReportPage';
 import AccountSettingsPage from './pages/AccountSettingsPage';
 import CareerInsightsPage from './pages/CareerInsightsPage';
 import RecruiterPricingPage from './pages/RecruiterPricingPage';
@@ -213,6 +214,14 @@ function AppContent() {
       );
     }
 
+    if (route.includes('ai-interview-report') || route.includes('interview-report') || route.includes('bao-cao-phong-van')) {
+      return (
+        <ProtectedRoute user={user} requiredRole="CANDIDATE">
+          <AiInterviewReportPage user={user} onBack={() => { window.location.hash = '#/ai-interview'; }} />
+        </ProtectedRoute>
+      );
+    }
+
     if (route.includes('ai-interview') || route.includes('luyen-phong-van') || route.includes('mock-interview')) {
       return (
         <ProtectedRoute user={user} requiredRole="CANDIDATE">
@@ -376,8 +385,16 @@ function AppContent() {
       return <JobDetailPage user={user} jobId={jobId} />;
     }
 
-    // Public: Home Page
-    if (route === '#/' || route === '' || route === '#') {
+    // Public: Home Page & Job Search / Discovery
+    if (
+      route === '#/' ||
+      route === '' ||
+      route === '#' ||
+      route.includes('job-search') ||
+      route === '#/jobs' ||
+      route === '#/jobs/' ||
+      route.includes('tim-viec')
+    ) {
       return <HomePage user={user} />;
     }
 

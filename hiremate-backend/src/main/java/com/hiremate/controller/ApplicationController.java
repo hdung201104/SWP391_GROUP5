@@ -51,7 +51,7 @@ public class ApplicationController {
     }
 
     @GetMapping("/job/{jobId}")
-    @PreAuthorize("hasRole('RECRUITER')")
+    @PreAuthorize("hasAnyRole('RECRUITER', 'ADMIN')")
     public ResponseEntity<ApiResponse<List<ApplicationResponse>>> getJobApplications(
             @PathVariable Long jobId,
             @RequestParam(required = false) com.hiremate.enums.ApplicationStatus status,
@@ -59,6 +59,13 @@ public class ApplicationController {
     ) {
         List<ApplicationResponse> apps = applicationService.getJobApplications(jobId, status, user);
         return ResponseEntity.ok(ApiResponse.ok(apps));
+    }
+
+    @GetMapping("/recruiter/my")
+    @PreAuthorize("hasRole('RECRUITER')")
+    public ResponseEntity<ApiResponse<List<ApplicationResponse>>> getMyRecruiterApplications(@AuthenticationPrincipal User user) {
+        List<ApplicationResponse> apps = applicationService.getRecruiterApplications(user);
+        return ResponseEntity.ok(ApiResponse.ok("Lấy danh sách tất cả hồ sơ ứng tuyển thành công", apps));
     }
 
     @PutMapping("/batch-status")

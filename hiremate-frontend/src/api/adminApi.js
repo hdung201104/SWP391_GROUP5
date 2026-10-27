@@ -38,6 +38,7 @@ export const adminApi = {
   getSkills: (params) => axiosClient.get('/admin/skills', { params }),
   createSkill: (data) => axiosClient.post('/admin/skills', data),
   deleteSkill: (id) => axiosClient.delete(`/admin/skills/${id}`),
+  generateSkillsForIndustry: (data) => axiosClient.post('/admin/skills/ai-generate-industry', data),
 
   // System Settings & AI Matching Configuration
   getSettings: () => axiosClient.get('/admin/settings'),

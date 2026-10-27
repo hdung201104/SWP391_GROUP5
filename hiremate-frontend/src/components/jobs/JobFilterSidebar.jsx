@@ -86,9 +86,57 @@ export default function JobFilterSidebar({
     }
   };
 
-  const defaultSkillsList = availableSkills.length > 0 
-    ? availableSkills 
-    : ['Java', 'Spring Boot', 'React', 'Node.js', 'PostgreSQL', 'Python', 'AWS', 'Docker', 'TypeScript', 'Golang'];
+  const CATEGORY_LABELS = {
+    'ALL': 'Tất Cả Ngành',
+    'IT_SOFTWARE': 'IT & Phần Mềm',
+    'MARKETING_SALES': 'Marketing & Sales',
+    'FINANCE_ACCOUNTING': 'Tài Chính & Kế Toán',
+    'DESIGN_CREATIVE': 'Thiết Kế & Sáng Tạo',
+    'HR_ADMIN': 'Nhân Sự & Tuyển Dụng',
+    'BUSINESS_MANAGEMENT': 'Quản Trị & Kinh Doanh',
+    'ENGINEERING_MANUFACTURING': 'Kỹ Thuật & Xây Dựng',
+    'CUSTOMER_SERVICE': 'Chăm Sóc Khách Hàng',
+    'EDUCATION_TRAINING': 'Giáo Dục & Đào Tạo',
+    'HEALTHCARE_PHARMA': 'Y Tế & Dược Phẩm',
+    'SOFT_SKILLS': 'Kỹ Năng Mềm',
+    'GENERAL': 'Chuyên Môn Chung'
+  };
+
+  const [selectedCategory, setSelectedCategory] = useState('ALL');
+
+  const normalizedSkills = React.useMemo(() => {
+    if (!availableSkills || availableSkills.length === 0) {
+      return [
+        { name: 'Java', category: 'IT_SOFTWARE' },
+        { name: 'Spring Boot', category: 'IT_SOFTWARE' },
+        { name: 'React', category: 'IT_SOFTWARE' },
+        { name: 'Node.js', category: 'IT_SOFTWARE' },
+        { name: 'PostgreSQL', category: 'IT_SOFTWARE' },
+        { name: 'Digital Marketing', category: 'MARKETING_SALES' },
+        { name: 'SEO & Content', category: 'MARKETING_SALES' },
+        { name: 'Kế toán Thuế', category: 'FINANCE_ACCOUNTING' },
+        { name: 'Figma UI/UX', category: 'DESIGN_CREATIVE' },
+        { name: 'Giao tiếp & Đàm phán', category: 'SOFT_SKILLS' },
+      ];
+    }
+    return availableSkills.map(s => {
+      if (typeof s === 'string') {
+        return { name: s, category: 'GENERAL' };
+      }
+      return {
+        name: s.name || s.skillName || '',
+        category: (s.category || 'GENERAL').toUpperCase()
+      };
+    }).filter(s => s.name);
+  }, [availableSkills]);
+
+  const availableCategories = React.useMemo(() => {
+    const cats = new Set(['ALL']);
+    normalizedSkills.forEach(s => {
+      if (s.category) cats.add(s.category);
+    });
+    return Array.from(cats);
+  }, [normalizedSkills]);
 
   return (
     <aside className="space-y-5">
@@ -282,23 +330,27 @@ export default function JobFilterSidebar({
           </div>
         </div>
 
-        {/* Filter Group 4: Required Skills */}
-        <div className="pt-4 space-y-3">
+        {/* Filter Group 4: Required Skills - NÂNG CẤP BỘ LỌC ĐA NGÀNH NGHỀ & TÌM KIẾM NHANH */}
+        <div className="pt-4 space-y-3.5">
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-[#1e1b4b]">Kỹ Năng &amp; Chuyên Môn</h3>
+            <div className="flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-[#5b48bd] text-sm">psychology</span>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[#1e1b4b]">Kỹ Năng &amp; Chuyên Môn</h3>
+            </div>
             <span className="text-[10px] font-mono font-bold text-[#5b48bd] bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100">
-              {defaultSkillsList.length} kỹ năng
+              {normalizedSkills.length} kỹ năng
             </span>
           </div>
 
           {/* Quick Skill Search Input */}
           <div className="relative">
+            <span className="material-symbols-outlined absolute left-2.5 top-2 text-slate-400 text-sm">search</span>
             <input
               type="text"
-              placeholder="Tìm kỹ năng lọc nhanh..."
+              placeholder="Tìm nhanh kỹ năng bất kỳ..."
               value={skillSearch}
               onChange={(e) => setSkillSearch(e.target.value)}
-              className="w-full bg-slate-50 border border-purple-100 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:border-[#5b48bd] focus:bg-white"
+              className="w-full bg-slate-50 border border-purple-100 rounded-xl pl-8 pr-7 py-1.5 text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:border-[#5b48bd] focus:bg-white transition-colors"
             />
             {skillSearch && (
               <button
@@ -311,54 +363,126 @@ export default function JobFilterSidebar({
             )}
           </div>
 
+          {/* Category Filter Pills (Ngành nghề) */}
+          <div className="space-y-1">
+            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Nhóm ngành:</span>
+            <div className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none">
+              {availableCategories.map((cat) => {
+                const isCatActive = selectedCategory === cat;
+                const label = CATEGORY_LABELS[cat] || cat;
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`px-2.5 py-1 rounded-full text-[10px] font-semibold transition-all whitespace-nowrap cursor-pointer ${
+                      isCatActive
+                        ? 'bg-[#5b48bd] text-white shadow-2xs'
+                        : 'bg-purple-50/70 text-[#5b48bd] hover:bg-purple-100 border border-purple-100'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Selected Skills Chips with Clear Button */}
+          {selectedSkills.length > 0 && (
+            <div className="p-2 rounded-xl bg-purple-50/50 border border-purple-100 space-y-1.5">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-bold text-[#5b48bd]">Đang lọc ({selectedSkills.length}):</span>
+                <button
+                  type="button"
+                  onClick={() => onFilterChange && onFilterChange({ ...filters, selectedSkills: [] })}
+                  className="text-[10px] text-rose-500 hover:underline cursor-pointer"
+                >
+                  Xóa tất cả
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {selectedSkills.map(sk => (
+                  <span
+                    key={sk}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-[#5b48bd] text-white shadow-2xs"
+                  >
+                    <span>{sk}</span>
+                    <button
+                      type="button"
+                      onClick={() => toggleSkill(sk)}
+                      className="hover:text-rose-200 cursor-pointer text-xs"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Skills Checkbox Grid */}
           {(() => {
-            const filteredSkills = defaultSkillsList.filter((sk) =>
-              sk.toLowerCase().includes(skillSearch.toLowerCase())
-            );
+            let filteredSkills = normalizedSkills;
+            
+            // Lọc theo nhóm ngành nếu không phải ALL
+            if (selectedCategory !== 'ALL') {
+              filteredSkills = filteredSkills.filter(s => s.category === selectedCategory);
+            }
+
+            // Lọc theo từ khóa tìm kiếm
+            if (skillSearch.trim()) {
+              const kw = skillSearch.toLowerCase().trim();
+              filteredSkills = filteredSkills.filter(s => s.name.toLowerCase().includes(kw));
+            }
+
             const displayedSkills = skillSearch.trim() || showAllSkills
               ? filteredSkills
-              : filteredSkills.slice(0, 10);
+              : filteredSkills.slice(0, 12);
 
             if (displayedSkills.length === 0) {
               return (
-                <div className="text-[11px] text-slate-400 italic py-2 text-center">
-                  Không tìm thấy kỹ năng "{skillSearch}"
+                <div className="text-[11px] text-slate-400 italic py-3 text-center bg-slate-50 rounded-xl border border-slate-100">
+                  {skillSearch.trim()
+                    ? `Không tìm thấy kỹ năng "${skillSearch}"`
+                    : `Chưa có kỹ năng trong nhóm "${CATEGORY_LABELS[selectedCategory] || selectedCategory}"`}
                 </div>
               );
             }
 
             return (
               <div className="space-y-2">
-                <div className={`grid grid-cols-2 gap-2 text-xs font-normal ${showAllSkills ? 'max-h-56 overflow-y-auto pr-1 scrollbar-thin' : ''}`}>
-                  {displayedSkills.map((skill) => {
-                    const isChecked = selectedSkills.includes(skill);
+                <div className={`grid grid-cols-2 gap-1.5 text-xs font-normal ${showAllSkills ? 'max-h-56 overflow-y-auto pr-1 scrollbar-thin' : ''}`}>
+                  {displayedSkills.map((skillItem) => {
+                    const skillName = skillItem.name;
+                    const isChecked = selectedSkills.includes(skillName);
                     return (
                       <label 
-                        key={skill} 
-                        className={`flex items-center gap-1.5 cursor-pointer select-none ${
-                          isChecked ? 'text-[#5b48bd] font-bold' : 'text-slate-600 hover:text-[#1e1b4b]'
+                        key={skillName} 
+                        className={`flex items-center gap-1.5 p-1 rounded-lg cursor-pointer select-none transition-colors ${
+                          isChecked ? 'bg-purple-50 text-[#5b48bd] font-bold' : 'text-slate-600 hover:bg-slate-50 hover:text-[#1e1b4b]'
                         }`}
+                        title={`${skillName} (${CATEGORY_LABELS[skillItem.category] || skillItem.category})`}
                       >
                         <input 
                           checked={isChecked} 
-                          onChange={() => toggleSkill(skill)}
-                          className="rounded border-purple-200 text-[#5b48bd] focus:ring-[#5b48bd] h-3.5 w-3.5 cursor-pointer" 
+                          onChange={() => toggleSkill(skillName)}
+                          className="rounded border-purple-200 text-[#5b48bd] focus:ring-[#5b48bd] h-3.5 w-3.5 cursor-pointer shrink-0" 
                           type="checkbox"
                         />
-                        <span className="truncate" title={skill}>{skill}</span>
+                        <span className="truncate text-[11px]">{skillName}</span>
                       </label>
                     );
                   })}
                 </div>
 
-                {!skillSearch.trim() && defaultSkillsList.length > 10 && (
+                {!skillSearch.trim() && filteredSkills.length > 12 && (
                   <button
                     type="button"
                     onClick={() => setShowAllSkills(!showAllSkills)}
                     className="text-[11px] font-bold text-[#5b48bd] hover:underline flex items-center gap-1 cursor-pointer pt-1"
                   >
-                    <span>{showAllSkills ? 'Thu gọn' : `Xem thêm (${defaultSkillsList.length - 10} kỹ năng)`}</span>
+                    <span>{showAllSkills ? 'Thu gọn' : `Xem thêm (+${filteredSkills.length - 12} kỹ năng)`}</span>
                     <span className="material-symbols-outlined text-xs">
                       {showAllSkills ? 'expand_less' : 'expand_more'}
                     </span>

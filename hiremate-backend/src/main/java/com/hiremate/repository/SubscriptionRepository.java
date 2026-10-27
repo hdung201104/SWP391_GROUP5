@@ -14,4 +14,17 @@ public interface SubscriptionRepository extends JpaRepository<Subscription, Long
     List<Subscription> findByUser_UserIdAndStatus(Long userId, SubscriptionStatus status);
     List<Subscription> findAllByOrderByCreatedAtDesc();
     long countByStatus(SubscriptionStatus status);
+
+    @org.springframework.data.jpa.repository.Query("SELECT s FROM Subscription s JOIN FETCH s.plan p " +
+           "WHERE s.user.userId = :userId " +
+           "AND s.status = :status " +
+           "AND s.endDate > :now " +
+           "AND p.targetRole = 'CANDIDATE' " +
+           "ORDER BY s.createdAt DESC")
+    List<Subscription> findActiveCandidateSubscriptions(
+            @org.springframework.data.repository.query.Param("userId") Long userId,
+            @org.springframework.data.repository.query.Param("status") SubscriptionStatus status,
+            @org.springframework.data.repository.query.Param("now") java.time.LocalDateTime now
+    );
 }
+

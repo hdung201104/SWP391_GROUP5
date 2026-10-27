@@ -34,4 +34,13 @@ public class InterviewDetailResponse {
     private String tone;
     /** Nhận xét chi tiết về ngữ điệu, nhịp điệu, tốc độ nói và khoảng ngập ngừng */
     private String intonationFeedback;
+    /** Cờ báo buổi phỏng vấn đã hoàn thành (khi trả lời xong câu cuối) */
+    private Boolean isSessionCompleted;
+    /** Cờ báo đây là câu hỏi cuối cùng của gói */
+    private Boolean isFinalQuestion;
+    /** Điểm tổng kết toàn buổi nếu đã hoàn thành */
+    private Float overallScore;
+    /** Nhận xét tổng kết toàn buổi nếu đã hoàn thành */
+    private String overallFeedback;
 }
+

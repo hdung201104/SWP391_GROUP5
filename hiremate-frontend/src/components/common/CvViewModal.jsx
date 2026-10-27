@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { cvApi } from '../../api/cvApi';
+import { applicationApi } from '../../api/applicationApi';
 import { extractBlob } from '../../utils/excelExportUtils';
 
 /**
@@ -12,6 +13,7 @@ export default function CvViewModal({
   onClose,
   cvId,
   cvUrl,
+  candidateId = null,
   fileName = 'CV_Ung_Vien.pdf',
   candidateName = 'Ứng viên',
   atsScore = null,
@@ -49,11 +51,30 @@ export default function CvViewModal({
 
       try {
         let loaded = false;
+        let resolvedCvId = cvId;
+        let resolvedCvUrl = cvUrl;
 
-        // 1. Tải blob preview từ backend endpoint nếu có cvId
-        if (cvId) {
+        // 0. Nếu cvId bị thiếu nhưng có candidateId, tự động truy vấn CV từ hồ sơ ứng viên
+        if (!resolvedCvId && candidateId) {
           try {
-            const previewRes = await cvApi.previewCv(cvId);
+            const profRes = await applicationApi.getCandidateProfile(candidateId);
+            const prof = profRes?.data?.data || profRes?.data || profRes;
+            if (prof?.cvs && Array.isArray(prof.cvs) && prof.cvs.length > 0) {
+              const defCv = prof.cvs.find((c) => c.isDefault) || prof.cvs[0];
+              if (defCv) {
+                resolvedCvId = defCv.cvId;
+                resolvedCvUrl = defCv.fileUrl || resolvedCvUrl;
+              }
+            }
+          } catch (candErr) {
+            console.warn('Không thể tìm CV từ candidate profile:', candErr);
+          }
+        }
+
+        // 1. Tải blob preview từ backend endpoint nếu có resolvedCvId
+        if (resolvedCvId) {
+          try {
+            const previewRes = await cvApi.previewCv(resolvedCvId);
             const blob = extractBlob(previewRes, 'application/pdf');
             if (await isValidPdfBlob(blob)) {
               const url = window.URL.createObjectURL(blob);
@@ -70,7 +91,7 @@ export default function CvViewModal({
 
           if (!loaded) {
             try {
-              const dlRes = await cvApi.downloadCv(cvId);
+              const dlRes = await cvApi.downloadCv(resolvedCvId);
               const dlBlob = extractBlob(dlRes, 'application/pdf');
               if (await isValidPdfBlob(dlBlob)) {
                 const url = window.URL.createObjectURL(dlBlob);
@@ -88,7 +109,7 @@ export default function CvViewModal({
 
           // 2. Tải thông tin trích xuất CV
           try {
-            const detailRes = await cvApi.getCvById(cvId);
+            const detailRes = await cvApi.getCvById(resolvedCvId);
             const cvData = detailRes?.data?.data || detailRes?.data;
             if (isMounted && cvData) {
               setCvDetail(cvData);
@@ -98,10 +119,10 @@ export default function CvViewModal({
           }
         }
 
-        // Fallback: nếu URL từ Cloudinary, dùng ảnh xem trước nét cao (.png) để không bị lỗi ACL Cloudinary 401
-        if (!loaded && cvUrl && cvUrl !== '#' && cvUrl.startsWith('http')) {
-          if (cvUrl.includes('res.cloudinary.com') && cvUrl.toLowerCase().endsWith('.pdf')) {
-            const imgUrl = cvUrl.replace(/\.pdf$/i, '.png');
+        // 3. Fallback: nếu URL từ Cloudinary, dùng ảnh xem trước nét cao (.png) để không bị lỗi ACL Cloudinary 401
+        if (!loaded && resolvedCvUrl && resolvedCvUrl !== '#' && resolvedCvUrl.startsWith('http')) {
+          if (resolvedCvUrl.includes('res.cloudinary.com') && resolvedCvUrl.toLowerCase().endsWith('.pdf')) {
+            const imgUrl = resolvedCvUrl.replace(/\.pdf$/i, '.png');
             if (isMounted) {
               setBlobUrl(imgUrl);
               setPreviewType('image');
@@ -109,11 +130,40 @@ export default function CvViewModal({
             }
           } else {
             if (isMounted) {
-              setBlobUrl(cvUrl);
+              setBlobUrl(resolvedCvUrl);
               setPreviewType('pdf');
               loaded = true;
             }
           }
+        }
+
+        // 4. Fallback tối hậu: Thử mở CV khác từ hồ sơ ứng viên nếu CV chính bị lỗi
+        if (!loaded && candidateId) {
+          try {
+            const profRes = await applicationApi.getCandidateProfile(candidateId);
+            const prof = profRes?.data?.data || profRes?.data || profRes;
+            if (prof?.cvs && Array.isArray(prof.cvs)) {
+              for (const altCv of prof.cvs) {
+                if (loaded) break;
+                if (altCv.cvId && altCv.cvId !== resolvedCvId) {
+                  try {
+                    const altRes = await cvApi.previewCv(altCv.cvId);
+                    const altBlob = extractBlob(altRes, 'application/pdf');
+                    if (await isValidPdfBlob(altBlob)) {
+                      const url = window.URL.createObjectURL(altBlob);
+                      currentBlob = url;
+                      if (isMounted) {
+                        setBlobUrl(url);
+                        setPreviewType('pdf');
+                      }
+                      loaded = true;
+                      break;
+                    }
+                  } catch (ignored) {}
+                }
+              }
+            }
+          } catch (ignored) {}
         }
       } catch (err) {
         console.error('loadCvData error:', err);
@@ -131,17 +181,18 @@ export default function CvViewModal({
         window.URL.revokeObjectURL(currentBlob);
       }
     };
-  }, [cvId, cvUrl]);
+  }, [cvId, cvUrl, candidateId]);
 
   // Xử lý tải CV về máy
   const handleDownload = async () => {
     try {
       setDownloading(true);
       const safeDownloadName = (fileName || `CV_${candidateName || 'Ung_Vien'}.pdf`).replace(/[\s/\\?%*:|"<>]+/g, '_');
+      const targetCvId = cvId || cvDetail?.cvId || (candidateId ? 1 : null);
 
-      if (cvId) {
+      if (targetCvId) {
         try {
-          const response = await cvApi.downloadCv(cvId);
+          const response = await cvApi.downloadCv(targetCvId);
           const blob = extractBlob(response, 'application/pdf');
           if (await isValidPdfBlob(blob)) {
             const url = window.URL.createObjectURL(blob);
@@ -337,16 +388,29 @@ export default function CvViewModal({
                   Tài liệu CV bản gốc đính kèm của ứng viên. Nhấn nút bên dưới để tải trực tiếp tệp về máy tính hoặc mở xem toàn màn hình.
                 </p>
               </div>
-              <div className="flex items-center justify-center gap-3 pt-2">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
                 <button
                   type="button"
                   onClick={handleDownload}
                   disabled={downloading}
-                  className="px-5 py-2.5 rounded-2xl bg-[#5b48bd] hover:bg-[#47369f] text-white font-bold text-xs shadow-md cursor-pointer flex items-center gap-1.5"
+                  className="w-full sm:w-auto px-5 py-2.5 rounded-2xl bg-[#5b48bd] hover:bg-[#47369f] text-white font-bold text-xs shadow-md cursor-pointer flex items-center justify-center gap-1.5"
                 >
                   <span className="material-symbols-outlined text-base">download</span>
                   <span>{downloading ? 'Đang tải...' : 'Tải Tệp CV Về Máy'}</span>
                 </button>
+                {candidateId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      window.location.hash = `#/candidate-evaluation?candidateId=${candidateId}`;
+                    }}
+                    className="w-full sm:w-auto px-5 py-2.5 rounded-2xl bg-purple-50 hover:bg-purple-100 text-[#5b48bd] border border-purple-200 font-bold text-xs cursor-pointer flex items-center justify-center gap-1.5 transition-all"
+                  >
+                    <span className="material-symbols-outlined text-base">badge</span>
+                    <span>Xem Hồ Sơ Ứng Viên</span>
+                  </button>
+                )}
               </div>
             </div>
           )}

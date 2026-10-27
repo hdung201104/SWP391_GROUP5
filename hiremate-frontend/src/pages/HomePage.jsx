@@ -63,7 +63,7 @@ export default function HomePage({ user }) {
 
   // UI & Display options for jobs
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
-  const [sortOption, setSortOption] = useState('Mới đăng gần đây');
+  const [sortOption, setSortOption] = useState(() => (user?.role === 'CANDIDATE' || user?.role === 'ROLE_CANDIDATE') ? 'Điểm AI Match cao nhất (≥90%)' : 'Mới đăng gần đây');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 6;
 
@@ -162,21 +162,34 @@ export default function HomePage({ user }) {
         setAllJobs([]);
       }
 
-      // Collect available skill names from DB and jobs
-      const skillNameSet = new Set();
+      // Collect available skill objects with category from DB and jobs
+      const skillMap = new Map();
       if (Array.isArray(dbSkills)) {
         dbSkills.forEach(s => {
-          if (s.skillName) skillNameSet.add(s.skillName);
+          if (s.skillName) {
+            skillMap.set(s.skillName.toLowerCase(), {
+              name: s.skillName,
+              category: s.category || 'GENERAL',
+              aliases: s.aliases
+            });
+          }
         });
       }
       if (Array.isArray(approvedJobsOnly)) {
         approvedJobsOnly.forEach(j => {
           if (Array.isArray(j.skills)) {
-            j.skills.forEach(sk => skillNameSet.add(sk));
+            j.skills.forEach(sk => {
+              if (sk && !skillMap.has(sk.toLowerCase())) {
+                skillMap.set(sk.toLowerCase(), {
+                  name: sk,
+                  category: 'GENERAL'
+                });
+              }
+            });
           }
         });
       }
-      setAvailableSkills(Array.from(skillNameSet));
+      setAvailableSkills(Array.from(skillMap.values()));
       setLoading(false);
 
       // Background AI recommendations matching
@@ -536,8 +549,18 @@ export default function HomePage({ user }) {
         return false;
       });
     }
+    // Đối với Ứng viên: Mục Gợi ý AI ưu tiên các công việc ĐÃ ĐƯỢC CHẤM ĐIỂM (aiMatchScore != null && aiMatchScore > 0).
+    // Nếu ứng viên chưa có việc làm nào được chấm điểm (hoặc đang tải gợi ý), hiển thị toàn bộ việc làm đang mở tuyển
+    // để không bị trống giao diện (0 việc làm) và các bộ lọc sidebar không bị về 0.
+    if (isCandidate && activeTab === 'jobs') {
+      const scoredJobs = allJobs.filter(j => j.aiMatchScore != null && j.aiMatchScore > 0);
+      if (scoredJobs.length > 0) {
+        return scoredJobs;
+      }
+      return allJobs;
+    }
     return allJobs;
-  }, [allJobs, activeCompanyShowcase]);
+  }, [allJobs, activeCompanyShowcase, isCandidate, activeTab]);
 
   // Unique branches for the selected company showcase
   const activeCompanyBranches = useMemo(() => {
@@ -700,8 +723,9 @@ export default function HomePage({ user }) {
   }, [sourceJobsPool, activeCompanyShowcase, companyBranchFilter, searchTitle, selectedLocation, selectedSalary, sidebarFilters]);
 
   const sortedJobs = useMemo(() => {
-    const list = [...filteredJobs];
-    if (sortOption === 'Điểm AI Match cao nhất (≥90%)') {
+    let list = [...filteredJobs];
+    // Sắp xếp ưu tiên: Nếu là Ứng viên xem Gợi ý AI thì mặc định xếp theo Điểm AI Match cao nhất giảm dần
+    if (sortOption === 'Điểm AI Match cao nhất (≥90%)' || (isCandidate && !activeCompanyShowcase && sortOption === 'Mới đăng gần đây')) {
       list.sort((a, b) => {
         const scoreA = a.aiMatchScore != null ? a.aiMatchScore : -1;
         const scoreB = b.aiMatchScore != null ? b.aiMatchScore : -1;
@@ -721,8 +745,14 @@ export default function HomePage({ user }) {
     } else if (sortOption === 'Doanh nghiệp tuyển gấp') {
       list.sort((a, b) => (b.vacanciesCount || 1) - (a.vacanciesCount || 1));
     }
+
+    // Nếu là Ứng viên xem Gợi ý AI: Giới hạn chuẩn đúng TOP 10 công việc xếp hạng cao nhất
+    if (isCandidate && !activeCompanyShowcase) {
+      list = list.slice(0, 10);
+    }
+
     return list;
-  }, [filteredJobs, sortOption]);
+  }, [filteredJobs, sortOption, isCandidate, activeCompanyShowcase]);
 
   const totalPages = Math.max(1, Math.ceil(sortedJobs.length / pageSize));
   const paginatedJobs = useMemo(() => {
@@ -1005,13 +1035,13 @@ export default function HomePage({ user }) {
                 <span className="material-symbols-outlined text-base sm:text-lg">work</span>
                 <span>
                   {isCandidate
-                    ? 'Việc Làm & Gợi Ý AI'
+                    ? 'Top 10 Việc Làm Gợi Ý AI'
                     : 'Khám Phá Việc Làm'}
                 </span>
                 <span className={`px-2 py-0.5 rounded-full text-[11px] font-black ${
                   activeTab === 'jobs' ? 'bg-white/20 text-white' : 'bg-purple-100 text-[#5b48bd]'
                 }`}>
-                  {allJobs.length}
+                  {sourceJobsPool.length > 10 ? 'Top 10' : sourceJobsPool.length}
                 </span>
               </button>
             </div>
@@ -1427,6 +1457,10 @@ export default function HomePage({ user }) {
                         <>
                           Vị trí tuyển dụng của <span className="text-[#5b48bd] font-black">{activeCompanyShowcase.companyName}</span> ({sortedJobs.length} vị trí)
                         </>
+                      ) : isCandidate ? (
+                        <>
+                          Top <span className="text-[#5b48bd] font-extrabold">{sortedJobs.length} việc làm</span> {allJobs.some(j => j.aiMatchScore != null && j.aiMatchScore > 0) ? 'xếp hạng phù hợp nhất với CV' : 'đang mở tuyển'}
+                        </>
                       ) : (
                         <>
                           Tìm thấy <span className="text-[#5b48bd] font-extrabold">{sortedJobs.length} việc làm</span> phù hợp
@@ -1529,21 +1563,38 @@ export default function HomePage({ user }) {
               {/* Empty state */}
               {sortedJobs.length === 0 && !loading && (
                 <div className="bg-white rounded-3xl p-12 text-center border border-purple-100 shadow-sm space-y-4">
-                  <span className="material-symbols-outlined text-5xl text-purple-300">search_off</span>
+                  <span className="material-symbols-outlined text-5xl text-purple-300">
+                    {isCandidate ? 'psychology' : 'search_off'}
+                  </span>
                   <h3 className="text-lg font-bold text-[#1e1b4b]">
                     {activeCompanyShowcase 
                       ? `Không có tin tuyển dụng nào của ${activeCompanyShowcase.companyName} phù hợp với bộ lọc này` 
+                      : isCandidate
+                      ? 'Chưa có công việc nào được chấm điểm AI phù hợp với CV của bạn'
                       : 'Không tìm thấy việc làm phù hợp'}
                   </h3>
                   <p className="text-sm text-slate-500 max-w-md mx-auto">
-                    Hãy thử điều chỉnh mức lương, giảm ngưỡng AI Match hoặc bấm "Xóa bộ lọc" để xem toàn bộ vị trí.
+                    {isCandidate
+                      ? 'Hãy tải lên CV hoặc bấm "Làm mới gợi ý AI" để hệ thống tự động đối soát kỹ năng và xếp hạng Top 10 việc làm phù hợp nhất cho bạn!'
+                      : 'Hãy thử điều chỉnh mức lương, giảm ngưỡng AI Match hoặc bấm "Xóa bộ lọc" để xem toàn bộ vị trí.'}
                   </p>
-                  <button
-                    onClick={handleResetFilters}
-                    className="px-6 py-2.5 bg-[#5b48bd] text-white font-bold text-xs rounded-full shadow-md hover:bg-[#4a39a8] transition-all cursor-pointer"
-                  >
-                    Xóa tất cả bộ lọc
-                  </button>
+                  {isCandidate ? (
+                    <button
+                      onClick={handleReMatch}
+                      disabled={isRematching}
+                      className="px-6 py-2.5 bg-[#5b48bd] text-white font-bold text-xs rounded-full shadow-md hover:bg-[#4a39a8] transition-all cursor-pointer inline-flex items-center gap-2"
+                    >
+                      <span className={`material-symbols-outlined text-base ${isRematching ? 'animate-spin' : ''}`}>auto_awesome</span>
+                      <span>{isRematching ? 'Đang chấm điểm AI...' : 'Chấm Điểm & Gợi Ý AI Ngay'}</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleResetFilters}
+                      className="px-6 py-2.5 bg-[#5b48bd] text-white font-bold text-xs rounded-full shadow-md hover:bg-[#4a39a8] transition-all cursor-pointer"
+                    >
+                      Xóa tất cả bộ lọc
+                    </button>
+                  )}
                 </div>
               )}
 
