@@ -45,6 +45,8 @@ public class AiInterviewServiceImpl implements AiInterviewService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.hiremate.repository.SubscriptionRepository subscriptionRepository;
     @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.hiremate.repository.SubscriptionPlanRepository subscriptionPlanRepository;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.hiremate.service.SystemSettingsService systemSettingsService;
 
     @org.springframework.beans.factory.annotation.Value("${elevenlabs.api-key:}")
@@ -57,10 +59,247 @@ public class AiInterviewServiceImpl implements AiInterviewService {
     private String elevenlabsModelId;
 
     /**
-     * Kiểm tra phân quyền và hạn ngạch lượt phỏng vấn AI thực tế của Ứng viên.
+     * Xác định số câu hỏi tối đa cho buổi phỏng vấn dựa trên gói dịch vụ Supabase.
+     * - Free Candidate (price = 0, quota = 2): 3 câu/buổi.
+     * - Practice Plus (price = 49.000đ, quota = 10): 5 câu/buổi.
+     * - Practice Pro (price = 149.000đ, quota = 30): 7 câu/buổi.
+     * - Career Ace (price >= 249.000đ, quota = 999): 8 câu/buổi.
+     */
+    private String extractPermFromDescription(String desc, String key) {
+        if (desc == null || !desc.contains("[PERMS:")) return null;
+        try {
+            int start = desc.indexOf("[PERMS:") + 7;
+            int end = desc.indexOf("]", start);
+            if (end > start) {
+                String permsStr = desc.substring(start, end);
+                for (String part : permsStr.split(";")) {
+                    String[] kv = part.split("=");
+                    if (kv.length == 2 && kv[0].trim().equalsIgnoreCase(key)) {
+                        return kv[1].trim();
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        return null;
+    }
+
+    private int calculateMaxQuestions(com.hiremate.entity.SubscriptionPlan plan) {
+        if (plan == null) return 3;
+        String customQ = extractPermFromDescription(plan.getDescription(), "maxQ");
+        if (customQ != null) {
+            try {
+                int parsed = Integer.parseInt(customQ);
+                if (parsed > 0) return parsed;
+            } catch (Exception ignored) {}
+        }
+
+        String name = plan.getPlanName() != null ? plan.getPlanName().toLowerCase() : "";
+        int quota = plan.getQuotaLimit() != null ? plan.getQuotaLimit() : 2;
+        java.math.BigDecimal price = plan.getPrice() != null ? plan.getPrice() : java.math.BigDecimal.ZERO;
+
+        if (name.contains("free") || price.compareTo(java.math.BigDecimal.ZERO) == 0 || quota <= 2) {
+            return 3;
+        } else if (name.contains("plus") || price.compareTo(new java.math.BigDecimal("49000")) == 0 || quota <= 10) {
+            return 5;
+        } else if (name.contains("pro") || price.compareTo(new java.math.BigDecimal("149000")) == 0 || quota <= 30) {
+            return 7;
+        } else if (name.contains("ace") || quota >= 999 || price.compareTo(new java.math.BigDecimal("200000")) >= 0) {
+            return 8;
+        }
+        return (quota <= 3) ? 3 : (quota <= 10) ? 5 : (quota <= 30) ? 7 : 8;
+    }
+
+    /**
+     * Xác định thời lượng tối đa cho phiên phỏng vấn (giây) theo gói Supabase.
+     * - 3 câu: 300 giây (5 phút).
+     * - 5 câu: 600 giây (10 phút).
+     * - 7 câu: 900 giây (15 phút).
+     * - 8 câu: 1200 giây (20 phút).
+     */
+    private int calculateMaxDurationSeconds(com.hiremate.entity.SubscriptionPlan plan) {
+        if (plan != null) {
+            String customDur = extractPermFromDescription(plan.getDescription(), "maxDur");
+            if (customDur != null) {
+                try {
+                    int parsed = Integer.parseInt(customDur);
+                    if (parsed > 0) return parsed;
+                } catch (Exception ignored) {}
+            }
+        }
+        int maxQ = calculateMaxQuestions(plan);
+        if (maxQ <= 3) return 300;
+        if (maxQ <= 5) return 600;
+        if (maxQ <= 7) return 900;
+        return 1200;
+    }
+
+    /**
+     * Tìm kiếm gói đang kích hoạt (ACTIVE, còn hạn) của Candidate từ bảng `subscriptions` JOIN `subscription_plans` trên Supabase.
+     * Nếu không có, tự động lấy hoặc khởi tạo gói mặc định "Free Candidate" (price = 0, quota = 2).
+     */
+    public com.hiremate.entity.SubscriptionPlan resolveActiveOrFreePlan(User candidate) {
+        if (candidate != null && subscriptionRepository != null) {
+            List<com.hiremate.entity.Subscription> activeSubs = subscriptionRepository.findActiveCandidateSubscriptions(
+                    candidate.getUserId(), com.hiremate.enums.SubscriptionStatus.ACTIVE, LocalDateTime.now());
+            if (!activeSubs.isEmpty() && activeSubs.get(0).getPlan() != null) {
+                return activeSubs.get(0).getPlan();
+            }
+        }
+
+        // Truy vấn gói mặc định Free Candidate từ bảng `subscription_plans` trên Supabase
+        if (subscriptionPlanRepository != null) {
+            Optional<com.hiremate.entity.SubscriptionPlan> freePlanOpt =
+                    subscriptionPlanRepository.findFirstByPlanNameIgnoreCaseAndIsActiveTrue("Free Candidate");
+            if (freePlanOpt.isPresent()) {
+                return freePlanOpt.get();
+            }
+
+            Optional<com.hiremate.entity.SubscriptionPlan> zeroPriceOpt =
+                    subscriptionPlanRepository.findFirstByTargetRoleAndPriceAndIsActiveTrue("CANDIDATE", java.math.BigDecimal.ZERO);
+            if (zeroPriceOpt.isPresent()) {
+                return zeroPriceOpt.get();
+            }
+
+            // Nếu bảng subscription_plans chưa có bản ghi, tự động lưu gói mặc định Free Candidate vào Supabase
+            try {
+                com.hiremate.entity.SubscriptionPlan newFree = com.hiremate.entity.SubscriptionPlan.builder()
+                        .planName("Free Candidate")
+                        .targetRole("CANDIDATE")
+                        .planType("INTERVIEW_PRACTICE")
+                        .price(java.math.BigDecimal.ZERO)
+                        .durationDays(365)
+                        .quotaLimit(2)
+                        .description("Gói mặc định miễn phí trên Supabase (2 lượt/ngày, 3 câu/buổi, 5 phút/buổi)")
+                        .isActive(true)
+                        .build();
+                return subscriptionPlanRepository.save(newFree);
+            } catch (Exception e) {
+                log.warn(">> Không thể tự động tạo gói Free Candidate: {}", e.getMessage());
+            }
+        }
+
+        return com.hiremate.entity.SubscriptionPlan.builder()
+                .planName("Free Candidate")
+                .targetRole("CANDIDATE")
+                .planType("INTERVIEW_PRACTICE")
+                .price(java.math.BigDecimal.ZERO)
+                .durationDays(365)
+                .quotaLimit(2)
+                .isActive(true)
+                .build();
+    }
+
+    @Override
+    public com.hiremate.dto.response.InterviewQuotaStatusResponse getCandidateQuotaStatus(User candidate) {
+        if (candidate == null) {
+            return com.hiremate.dto.response.InterviewQuotaStatusResponse.builder()
+                    .planName("Free Candidate")
+                    .price(java.math.BigDecimal.ZERO)
+                    .quotaLimit(2)
+                    .usedToday(0L)
+                    .remainingToday(2L)
+                    .maxQuestions(3)
+                    .maxDurationSeconds(300)
+                    .isQuotaExceeded(false)
+                    .isPaidPlan(false)
+                    .allowedPersonas("HR_MANAGER")
+                    .allowedVoices("vi-native")
+                    .coachHintsPerSession(1)
+                    .unlockFullStar(false)
+                    .unlockRoadmapStages(false)
+                    .build();
+        }
+
+        com.hiremate.entity.SubscriptionPlan plan = resolveActiveOrFreePlan(candidate);
+        String planName = (plan != null && plan.getPlanName() != null) ? plan.getPlanName() : "Free Candidate";
+        java.math.BigDecimal price = (plan != null && plan.getPrice() != null) ? plan.getPrice() : java.math.BigDecimal.ZERO;
+        boolean isPaid = price.compareTo(java.math.BigDecimal.ZERO) > 0;
+        String desc = plan != null ? plan.getDescription() : null;
+
+        int quotaLimit;
+        if (plan != null && plan.getQuotaLimit() != null && plan.getQuotaLimit() > 0) {
+            quotaLimit = plan.getQuotaLimit();
+        } else {
+            quotaLimit = isPaid ? 10 : 2;
+        }
+
+        int maxQuestions = calculateMaxQuestions(plan);
+        int maxDurationSeconds = calculateMaxDurationSeconds(plan);
+
+        // Trích xuất hoặc suy luận phân quyền tính năng phòng phỏng vấn
+        String allowedPersonas = extractPermFromDescription(desc, "personas");
+        if (allowedPersonas == null) {
+            allowedPersonas = maxQuestions <= 3 ? "HR_MANAGER" : maxQuestions <= 5 ? "HR_MANAGER,TECH_LEAD" : "HR_MANAGER,TECH_LEAD,STRICT_DIRECTOR";
+        }
+
+        String allowedVoices = extractPermFromDescription(desc, "voices");
+        if (allowedVoices == null) {
+            allowedVoices = maxQuestions <= 3 ? "vi-native" : maxQuestions <= 5 ? "vi-native,eleven-alice" : "vi-native,eleven-alice,eleven-george";
+        }
+
+        Integer coachHints = null;
+        String customHints = extractPermFromDescription(desc, "coachHints");
+        if (customHints != null) {
+            try { coachHints = Integer.parseInt(customHints); } catch (Exception ignored) {}
+        }
+        if (coachHints == null) {
+            coachHints = maxQuestions <= 3 ? 1 : maxQuestions <= 5 ? 3 : 999;
+        }
+
+        Boolean unlockFullStar = null;
+        String customStar = extractPermFromDescription(desc, "fullStar");
+        if (customStar != null) {
+            unlockFullStar = Boolean.parseBoolean(customStar);
+        } else {
+            unlockFullStar = maxQuestions > 3;
+        }
+
+        Boolean unlockRoadmap = null;
+        String customRoadmap = extractPermFromDescription(desc, "roadmap");
+        if (customRoadmap != null) {
+            unlockRoadmap = Boolean.parseBoolean(customRoadmap);
+        } else {
+            unlockRoadmap = maxQuestions > 3;
+        }
+
+        LocalDateTime startOfDay = java.time.LocalDate.now().atStartOfDay();
+        long usedToday = sessionRepository.countByCandidate_CandidateIdAndStartedAtAfter(candidate.getUserId(), startOfDay);
+        long remainingToday = quotaLimit >= 999 ? 999 : Math.max(0, quotaLimit - usedToday);
+        boolean isQuotaExceeded = (candidate.getRole() != com.hiremate.enums.UserRole.ADMIN) && (quotaLimit < 999) && (usedToday >= quotaLimit);
+
+        String endDateStr = null;
+        if (subscriptionRepository != null) {
+            List<com.hiremate.entity.Subscription> activeSubs = subscriptionRepository.findActiveCandidateSubscriptions(
+                    candidate.getUserId(), com.hiremate.enums.SubscriptionStatus.ACTIVE, LocalDateTime.now());
+            if (!activeSubs.isEmpty() && activeSubs.get(0).getEndDate() != null) {
+                endDateStr = activeSubs.get(0).getEndDate().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+            }
+        }
+
+        return com.hiremate.dto.response.InterviewQuotaStatusResponse.builder()
+                .planId(plan != null ? plan.getPlanId() : null)
+                .planName(planName)
+                .price(price)
+                .quotaLimit(quotaLimit)
+                .usedToday(usedToday)
+                .remainingToday(remainingToday)
+                .maxQuestions(maxQuestions)
+                .maxDurationSeconds(maxDurationSeconds)
+                .isQuotaExceeded(isQuotaExceeded)
+                .isPaidPlan(isPaid)
+                .subscriptionEndDate(endDateStr)
+                .allowedPersonas(allowedPersonas)
+                .allowedVoices(allowedVoices)
+                .coachHintsPerSession(coachHints)
+                .unlockFullStar(unlockFullStar)
+                .unlockRoadmapStages(unlockRoadmap)
+                .build();
+    }
+
+    /**
+     * Kiểm tra phân quyền và hạn ngạch lượt phỏng vấn AI thực tế của Ứng viên theo dữ liệu thật trên Supabase:
      * - Admin: Không giới hạn.
-     * - Ứng viên VIP (đã mua gói ACTIVE): Luyện tập theo hạn ngạch ngày của gói (hoặc không giới hạn nếu quota = 999).
-     * - Ứng viên miễn phí (Free Tier): Tối đa 3 lượt phỏng vấn thử nghiệm AI trên toàn hệ thống.
+     * - Nếu số phiên phỏng vấn hôm nay >= quota_limit của gói: Chặn tạo phiên mới và gợi ý nâng cấp.
      */
     private void checkCandidateInterviewQuota(User user) {
         if (user == null) return;
@@ -68,48 +307,14 @@ public class AiInterviewServiceImpl implements AiInterviewService {
             return; // Admin có quyền tối cao
         }
 
-        com.hiremate.entity.Subscription activeSub = null;
-        if (subscriptionRepository != null) {
-            activeSub = subscriptionRepository.findFirstByUser_UserIdAndStatusOrderByCreatedAtDesc(
-                    user.getUserId(), com.hiremate.enums.SubscriptionStatus.ACTIVE).orElse(null);
-        }
-
-        // Tự động kiểm tra hết hạn gói nếu có
-        if (activeSub != null && activeSub.getEndDate() != null && activeSub.getEndDate().isBefore(LocalDateTime.now())) {
-            activeSub.setStatus(com.hiremate.enums.SubscriptionStatus.EXPIRED);
-            subscriptionRepository.save(activeSub);
-            activeSub = null;
-        }
-
-        if (activeSub != null) {
-            int dailyQuota = (activeSub.getPlan() != null && activeSub.getPlan().getQuotaLimit() != null)
-                    ? activeSub.getPlan().getQuotaLimit() : 10;
-            if (dailyQuota < 999) {
-                LocalDateTime startOfDay = java.time.LocalDate.now().atStartOfDay();
-                long todayCount = sessionRepository.countByCandidate_CandidateIdAndStartedAtAfter(user.getUserId(), startOfDay);
-                if (todayCount >= dailyQuota) {
-                    String planName = activeSub.getPlan() != null ? activeSub.getPlan().getPlanName() : "gói dịch vụ hiện tại";
-                    throw new IllegalArgumentException(String.format(
-                            "Bạn đã sử dụng hết hạn ngạch (%d/%d phiên) hôm nay của gói \"%s\". Vui lòng quay lại vào ngày mai hoặc nâng cấp gói không giới hạn.",
-                            todayCount, dailyQuota, planName));
-                }
-            }
-        } else {
-            // Tài khoản ứng viên miễn phí (Free Tier): Cho phép tối đa 15 phiên phỏng vấn mỗi ngày để luyện tập thoải mái
-            int freeLimit = 15;
-            if (systemSettingsService != null && systemSettingsService.getSettings() != null) {
-                Integer limit = systemSettingsService.getSettings().getCandidateFreeInterviewsPerDay();
-                if (limit != null && limit > 0) freeLimit = limit;
-            }
-            LocalDateTime startOfDay = java.time.LocalDate.now().atStartOfDay();
-            long todaySessions = sessionRepository.countByCandidate_CandidateIdAndStartedAtAfter(user.getUserId(), startOfDay);
-            if (todaySessions >= freeLimit) {
-                throw new IllegalArgumentException(String.format(
-                        "Hôm nay bạn đã thực hiện %d/%d phiên phỏng vấn AI miễn phí. Vui lòng quay lại vào ngày mai hoặc nâng cấp gói Career VIP để luyện tập không giới hạn.",
-                        todaySessions, freeLimit));
-            }
+        com.hiremate.dto.response.InterviewQuotaStatusResponse quota = getCandidateQuotaStatus(user);
+        if (Boolean.TRUE.equals(quota.getIsQuotaExceeded())) {
+            throw new IllegalArgumentException(String.format(
+                    "Bạn đã sử dụng hết hạn ngạch hôm nay (%d/%d phiên) của gói \"%s\". Vui lòng quay lại vào ngày mai hoặc nâng cấp gói dịch vụ để tiếp tục luyện tập.",
+                    quota.getUsedToday(), quota.getQuotaLimit(), quota.getPlanName()));
         }
     }
+
 
     @Override
     @Transactional
@@ -268,8 +473,33 @@ public class AiInterviewServiceImpl implements AiInterviewService {
         res.setRequiresHumanReview(evaluation.getRequiresHumanReview());
         res.setTone(evaluation.getTone());
         res.setIntonationFeedback(evaluation.getIntonationFeedback());
+
+        // Kiểm tra điều kiện hoàn thành buổi phỏng vấn theo số câu của gói Supabase
+        com.hiremate.dto.response.InterviewQuotaStatusResponse quota = getCandidateQuotaStatus(user);
+        int maxQ = (quota.getMaxQuestions() != null && quota.getMaxQuestions() > 0) ? quota.getMaxQuestions() : 3;
+        long totalAnsweredInSession = detailRepository.countBySession_SessionId(sessionId);
+
+        if (totalAnsweredInSession >= maxQ) {
+            res.setIsFinalQuestion(true);
+            try {
+                InterviewSummaryResponse compSummary = completeSession(sessionId, user);
+                res.setIsSessionCompleted(true);
+                res.setOverallScore(compSummary.getOverallScore());
+                res.setOverallFeedback(compSummary.getOverallFeedback());
+                log.info(">> [AiInterviewService] Đã tự động kết thúc phiên #{} sau khi hoàn tất đủ {} câu theo gói \"{}\"",
+                        sessionId, maxQ, quota.getPlanName());
+            } catch (Exception e) {
+                log.warn(">> [AiInterviewService] Tự động completeSession câu cuối gặp lỗi: {}", e.getMessage());
+                res.setIsSessionCompleted(true);
+            }
+        } else {
+            res.setIsFinalQuestion(false);
+            res.setIsSessionCompleted(false);
+        }
+
         return res;
     }
+
 
     @Override
     @Transactional
@@ -481,6 +711,21 @@ public class AiInterviewServiceImpl implements AiInterviewService {
             deliveryScore = Math.min(100f, Math.max(0f, base));
         }
 
+
+        // Lấy thông số gói dịch vụ Supabase của ứng viên
+        String planName = "Free Candidate";
+
+        int maxQ = 3;
+        int maxDur = 300;
+        if (s.getCandidate() != null && s.getCandidate().getUser() != null) {
+            com.hiremate.entity.SubscriptionPlan p = resolveActiveOrFreePlan(s.getCandidate().getUser());
+            if (p != null) {
+                planName = p.getPlanName() != null ? p.getPlanName() : "Free Candidate";
+                maxQ = calculateMaxQuestions(p);
+                maxDur = calculateMaxDurationSeconds(p);
+            }
+        }
+
         return InterviewSummaryResponse.builder()
                 .sessionId(s.getSessionId())
                 // Truy xuất qua Candidate subclass (Shared PK: candidateId = userId)
@@ -505,9 +750,13 @@ public class AiInterviewServiceImpl implements AiInterviewService {
                 .deliveryToneScore(deliveryScore)
                 .deliveryFeedback(deliveryFeedback)
                 .telemetryReport(telemetry)
+                .planName(planName)
+                .maxQuestions(maxQ)
+                .maxDurationSeconds(maxDur)
                 .startedAt(s.getStartedAt())
                 .completedAt(s.getCompletedAt())
                 .build();
+
     }
 
     /**

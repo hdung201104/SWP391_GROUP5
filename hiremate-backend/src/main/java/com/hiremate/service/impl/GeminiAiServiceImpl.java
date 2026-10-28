@@ -182,11 +182,15 @@ public class GeminiAiServiceImpl implements GeminiAiService {
                         "Câu hỏi phỏng vấn: " + cleanQuestion + "\n" +
                         "Câu trả lời của ứng viên:\n" +
                         "<candidate_untrusted_input>\n" + cleanAnswer + "\n</candidate_untrusted_input>\n\n" +
-                        "YÊU CẦU ĐẦU RA (JSON HỢP LỆ, TIẾNG VIỆT TỰ NHIÊN):\n" +
+                        "YÊU CẦU ĐẦU RA (JSON HỢP LỆ, TIẾNG VIỆT TỰ NHIÊN, CHI TIẾT & SÂU SẮC):\n" +
                         "- 'score': Điểm số chính xác (float 0.0 - 100.0) dựa trên barem khắt khe ở trên.\n" +
-                        "- 'feedback': 3-4 câu thẳng thắn, bới móc chi tiết: (a) nếu có ý đúng thì ghi nhận ngắn gọn, (b) BỚI MÓC CHÍNH XÁC ĐIỂM YẾU, LỖI SAI HOẶC THIẾU SÓT LỚN NHẤT trong câu trả lời, (c) Lời khuyên chấn chỉnh trực tiếp. KHÔNG dùng lời khen nịnh sáo rỗng.\n" +
-                        "- 'suggestedAnswer': 1 câu trả lời mẫu chuẩn STAR hoàn hảo để ứng viên học hỏi, có dẫn chứng số liệu thực tế.\n" +
-                        "Trả về DUY NHẤT một JSON hợp lệ: {\"score\": 35.0, \"feedback\": \"...\", \"suggestedAnswer\": \"...\"}";
+                        "- 'feedback': BẮT BUỘC viết nhận xét chi tiết, đầy đủ (tối thiểu 80 - 150 từ), gồm 3 luận điểm rõ ràng: (1) Ý đã trả lời được bước đầu, (2) Bóc tách chính xác các lỗ hổng chuyên môn còn thiếu (nêu rõ thiếu những công nghệ, thiếu vai trò hay bài toán kỹ thuật nào), (3) Chỉ dẫn cụ thể cách nâng cấp câu trả lời để đạt điểm 10. TUYỆT ĐỐI KHÔNG VIẾT 1 CÂU CHUNG CHUNG NGẮN NGỦN.\n" +
+                        "- 'suggestedAnswer': TUYỆT ĐỐI CẤM định nghĩa lý thuyết suông như 'Áp dụng mô hình STAR: Situation...'. BẠN BẮT BUỘC PHẢI ĐÓNG VAI ỨNG VIÊN XUẤT SẮC TRẢ LỜI TRỰC TIẾP BẰNG NGÔI 'Tôi' đúng vào câu hỏi này, phân rã mạch lạc thành 4 phần:\n" +
+                        "  [S] Bối cảnh: Giới thiệu bản thân và bối cảnh dự án/bài toán thực tế.\n" +
+                        "  [T] Nhiệm vụ: Vai trò đảm nhận và yêu cầu kỹ thuật then chốt.\n" +
+                        "  [A] Hành động & Công nghệ: Nêu đích danh các công nghệ, framework, kiến trúc và giải pháp xử lý cụ thể.\n" +
+                        "  [R] Kết quả & Số liệu: Minh chứng bằng các con số định lượng cụ thể (%, độ trễ ms, throughput, uptime, số lượng người dùng/thiết bị).\n" +
+                        "Trả về DUY NHẤT một JSON hợp lệ: {\"score\": 35.0, \"feedback\": \"...\", \"suggestedAnswer\": \"[S] Bối cảnh: ... [T] Nhiệm vụ: ... [A] Hành động & Công nghệ: ... [R] Kết quả: ...\"}";
 
                 String responseText = callGeminiApiWithTools(prompt, 900, true);
                 if (responseText != null && !responseText.isBlank()) {
@@ -963,6 +967,22 @@ public class GeminiAiServiceImpl implements GeminiAiService {
             String clientPersona,
             String clientDifficulty
     ) {
+        return processVoiceInterviewTurn(targetPosition, userSpeech, conversationHistory, focusNotes, cvSnippet, jobSnippet, clientPersona, clientDifficulty, 5, "Practice Plus");
+    }
+
+    @Override
+    public String processVoiceInterviewTurn(
+            String targetPosition,
+            String userSpeech,
+            List<String> conversationHistory,
+            String focusNotes,
+            String cvSnippet,
+            String jobSnippet,
+            String clientPersona,
+            String clientDifficulty,
+            Integer maxQuestions,
+            String planName
+    ) {
         String pos = (targetPosition != null && !targetPosition.isBlank()) ? targetPosition.trim() : "Chuyên viên Công nghệ";
         String speech = (userSpeech != null && !userSpeech.isBlank()) ? userSpeech.trim() : "Dạ em đã sẵn sàng cho buổi phỏng vấn.";
 
@@ -1135,24 +1155,69 @@ public class GeminiAiServiceImpl implements GeminiAiService {
             systemInstruction.append("TRỌNG TÂM CẦN XOÁY SÂU:\n\"").append(focusNotes.trim()).append("\"\n\n");
         }
 
-        // Xác định giai đoạn buổi phỏng vấn dựa trên số lượt ứng viên đã trả lời
+        // Xác định giai đoạn buổi phỏng vấn thích ứng linh hoạt theo số câu tối đa của gói dịch vụ Supabase
         int candidateTurns = 0;
         if (conversationHistory != null) {
             for (String h : conversationHistory) {
                 if (h != null && (h.startsWith("Ứng viên:") || h.startsWith("Bạn:") || h.startsWith("Candidate:"))) candidateTurns++;
             }
         }
+
+        int totalQ = (maxQuestions != null && maxQuestions > 0) ? maxQuestions : 5;
+        String planTag = (planName != null && !planName.isBlank()) ? planName : "Gói Tiêu Chuẩn";
+
         String stageGuide;
-        if (candidateTurns <= 1) {
-            stageGuide = "GIAI ĐOẠN 1 - MỞ ĐẦU: Chào hỏi ngắn, tạo không khí thoải mái, mời ứng viên giới thiệu bản thân hoặc dự án tiêu biểu liên quan đến CV/JD. Câu hỏi dễ, mở.";
-        } else if (candidateTurns <= 4) {
-            stageGuide = "GIAI ĐOẠN 2 - KHAI THÁC KINH NGHIỆM: Đào sâu vào dự án/kỹ năng ứng viên vừa nhắc (vai trò thật của họ, quyết định kỹ thuật, kết quả cụ thể).";
-        } else if (candidateTurns <= 7) {
-            stageGuide = "GIAI ĐOẠN 3 - THỬ THÁCH: Đưa tình huống giả định thực tế bám theo JD, kiểm tra trade-off, xử lý sự cố, làm việc nhóm. Độ khó đúng mức %s.";
+        if (totalQ <= 3) {
+            // Gói Free (3 câu): 1 Khởi động CV, 1 Chuyên môn sâu, 1 Tình huống STAR chốt phiên
+            if (candidateTurns == 0) {
+                stageGuide = String.format("GIAI ĐOẠN 1/3 (GÓI %s - KHỞI ĐỘNG): Chào hỏi ngắn gọn, lịch sự. Mời ứng viên giới thiệu ngắn về bản thân và dự án nổi bật nhất liên quan tới vị trí %s hoặc CV.", planTag, pos);
+            } else if (candidateTurns == 1) {
+                stageGuide = String.format("GIAI ĐOẠN 2/3 (GÓI %s - CHUYÊN MÔN KỸ THUẬT CỐT LÕI): Lắng nghe ý ứng viên vừa nói, phản hồi 1 câu tự nhiên rồi hỏi sâu vào kỹ năng chuyên môn cốt lõi, công nghệ hoặc giải quyết bài toán kỹ thuật trọng tâm theo JD/CV.", planTag);
+            } else {
+                stageGuide = String.format("GIAI ĐOẠN 3/3 (GÓI %s - CÂU HỎI CUỐI CÙNG & TÌNH HUỐNG STAR): Đây là câu hỏi CUỐI CÙNG của buổi phỏng vấn. Đặt 1 câu hỏi tình huống thực tế (giải quyết xung đột kỹ thuật, xử lý sự cố gấp hoặc bài học kinh nghiệm). Nhắc nhẹ để ứng viên trả lời chốt phiên xuất sắc.", planTag);
+            }
+        } else if (totalQ <= 5) {
+            // Gói Plus (5 câu): 5 chặng chuẩn
+            if (candidateTurns == 0) {
+                stageGuide = "GIAI ĐOẠN 1/5 - KHỞI ĐỘNG: Chào hỏi cởi mở, mời ứng viên giới thiệu bản thân hoặc dự án tiêu biểu liên quan đến CV/JD.";
+            } else if (candidateTurns == 1) {
+                stageGuide = "GIAI ĐOẠN 2/5 - KỸ THUẬT & CÔNG NGHỆ: Đào sâu vào công nghệ, framework và vai trò thực tế trong dự án.";
+            } else if (candidateTurns == 2) {
+                stageGuide = String.format("GIAI ĐOẠN 3/5 - GIẢI QUYẾT BÀI TOÁN & TỐI ƯU: Đưa ra câu hỏi về tối ưu hiệu năng, xử lý lỗi production hoặc các đánh đổi kỹ thuật (Trade-offs). Độ khó %s.", difficulty);
+            } else if (candidateTurns == 3) {
+                stageGuide = "GIAI ĐOẠN 4/5 - TÌNH HUỐNG HÀNH VI (STAR): Kiểm tra kỹ năng làm việc nhóm, áp lực deadline hoặc giải quyết mâu thuẫn quan điểm kỹ thuật.";
+            } else {
+                stageGuide = "GIAI ĐOẠN 5/5 - CÂU HỎI KẾT THÚC: Cảm ơn sự chia sẻ của ứng viên, hỏi về mục tiêu phát triển và mời ứng viên đặt 1 câu hỏi ngược lại cho công ty/vị trí.";
+            }
+        } else if (totalQ <= 7) {
+            // Gói Pro (7 câu): Phỏng vấn chuyên sâu 7 chặng
+            if (candidateTurns == 0) {
+                stageGuide = "GIAI ĐOẠN 1/7 - KHỞI ĐỘNG & ĐIỂM NHẤN NĂNG LỰC: Chào hỏi, mời chia sẻ bức tranh tổng thể về chuyên môn và dự án tâm đắc nhất.";
+            } else if (candidateTurns <= 2) {
+                stageGuide = "GIAI ĐOẠN 2/7 - KIẾN TRÚC & QUY TRÌNH HỆ THỐNG: Đào sâu vào thiết kế hệ thống, kiến trúc dữ liệu và các quyết định kỹ thuật then chốt.";
+            } else if (candidateTurns <= 4) {
+                stageGuide = String.format("GIAI ĐOẠN 3/7 - XỬ LÝ SỰ CỐ & PHẢN BIỆN CHUYÊN MÔN: Chất vấn sâu về các điểm nghẽn (bottlenecks), sự cố production khó và phản biện giả định của ứng viên. Độ khó %s.", difficulty);
+            } else if (candidateTurns <= 5) {
+                stageGuide = "GIAI ĐOẠN 4/7 - HÀNH VI STAR & QUẢN TRỊ RỦI RO: Tình huống xung đột giải pháp giữa các team, quản lý kỳ vọng của stakeholder.";
+            } else {
+                stageGuide = "GIAI ĐOẠN 5/7 - TỔNG KẾT & ĐÁNH GIÁ TẦM NHÌN: Câu hỏi về xu hướng công nghệ tương lai và mời ứng viên đặt câu hỏi chiến lược cho người phỏng vấn.";
+            }
         } else {
-            stageGuide = "GIAI ĐOẠN 4 - KẾT THÚC: Nếu đã đủ thông tin, hãy cảm ơn, nói buổi phỏng vấn sắp kết thúc và mời ứng viên đặt 1 câu hỏi ngược lại về công ty/vị trí. KHÔNG mở thêm chủ đề mới nặng.";
+            // Gói Ace (8 câu): Marathon Tech Lead / System Architect
+            if (candidateTurns == 0) {
+                stageGuide = "GIAI ĐOẠN 1/8 - KHỞI ĐỘNG & ĐỊNH HƯỚNG TẦM NHÌN.";
+            } else if (candidateTurns <= 3) {
+                stageGuide = "GIAI ĐOẠN 2/8 - SYSTEM ARCHITECTURE & HIGH AVAILABILITY.";
+            } else if (candidateTurns <= 5) {
+                stageGuide = "GIAI ĐOẠN 3/8 - STRESS-TEST, INCIDENT POST-MORTEM & TECHNICAL TRADE-OFFS.";
+            } else if (candidateTurns <= 6) {
+                stageGuide = "GIAI ĐOẠN 4/8 - LEADERSHIP, MENTORSHIP & DRIVING ENGINEERING CULTURE.";
+            } else {
+                stageGuide = "GIAI ĐOẠN 5/8 - FINAL WRAP-UP & EXECUTIVE STRATEGY Q&A.";
+            }
         }
-        stageGuide = stageGuide.contains("%s") ? String.format(stageGuide, difficulty) : stageGuide;
+
+        systemInstruction.append(String.format("THÔNG TIN PHÂN HẠNG GÓI DỊCH VỤ: %s | Câu hỏi thứ %d trên tổng số %d câu tối đa của phiên.\n\n", planTag, (candidateTurns + 1), totalQ));
 
         systemInstruction.append("""
                 BẠN LÀ NGƯỜI PHỎNG VẤN THẬT, ĐANG NÓI CHUYỆN TRỰC TIẾP BẰNG GIỌNG NÓI. HÃY TUÂN THỦ:
@@ -3752,6 +3817,289 @@ public class GeminiAiServiceImpl implements GeminiAiService {
                 .advantages(advantages)
                 .disadvantages(disadvantages)
                 .build();
+    }
+
+    @Override
+    public com.hiremate.dto.response.AiJdSkillExtractResponse extractSkillsFromJdWithAi(String title, String description, String industry) {
+        String cleanTitle = (title != null) ? title.trim() : "Vị trí tuyển dụng";
+        String cleanDesc = (description != null) ? truncateText(description.trim(), 3000) : "";
+        String cleanInd = (industry != null && !industry.isBlank()) ? industry.trim() : "Tự động phát hiện";
+
+        if (!isAvailable()) {
+            return fallbackExtractSkillsFromJd(cleanTitle, cleanDesc, cleanInd);
+        }
+
+        try {
+            String prompt = "Bạn là Chuyên gia Cao cấp về Phân loại Năng lực Nhân sự & Định danh Từ điển Kỹ năng (Taxonomy Architect) của HireMate AI.\n" +
+                    "Nhiệm vụ của bạn là đọc kỹ Tiêu đề và Bản mô tả công việc (JD) thuộc BẤT KỲ NGÀNH NGHỀ NÀO (IT, Marketing, Bán hàng, Kế toán, Kiểm toán, Tài chính, Nhân sự, Thiết kế, Cơ khí, Xây dựng, Y tế, Dịch vụ...).\n" +
+                    "Bóc tách toàn diện và chuẩn hóa các kỹ năng chuyên môn cốt lõi của công việc.\n\n" +
+                    "THÔNG TIN BÀI ĐĂNG TUYỂN DỤNG:\n" +
+                    "- Tiêu đề: " + cleanTitle + "\n" +
+                    "- Ngành nghề dự kiến: " + cleanInd + "\n" +
+                    "- Mô tả chi tiết JD:\n" + cleanDesc + "\n\n" +
+                    "QUY TẮC CHUẨN HÓA BẮT BUỘC:\n" +
+                    "1. CHUẨN HÓA TÊN GỌI (Canonical Form): Không dùng từ viết tắt dân dã hay lỗi chính tả (ví dụ: 'react' -> 'ReactJS', 'chạy fb ads' -> 'Facebook Ads', 'seo' -> 'SEO Optimization', 'pts' -> 'Adobe Photoshop', 'bctc' -> 'Phân tích Báo cáo Tài chính', 'bán hàng' -> 'Kỹ năng Bán hàng B2B/B2C', 'tiếng anh' -> 'Tiếng Anh (Giao tiếp)'). Tên kỹ năng viết hoa chuẩn mực quốc tế hoặc danh pháp chuyên môn.\n" +
+                    "2. PHÂN LOẠI NHÓM NGÀNH (category): BẮT BUỘC chọn đúng 1 trong các mã nhóm ngành sau:\n" +
+                    "   - 'IT_SOFTWARE': Lập trình, Phần mềm, DevOps, Hệ thống, Dữ liệu, Trí tuệ nhân tạo\n" +
+                    "   - 'MARKETING_SALES': Tiếp thị, Digital Marketing, Bán hàng, Quảng cáo, SEO, Content\n" +
+                    "   - 'FINANCE_ACCOUNTING': Kế toán, Kiểm toán, Thuế, Tài chính, Ngân hàng\n" +
+                    "   - 'DESIGN_CREATIVE': Thiết kế đồ họa, UI/UX, Video Editor, 3D, Nghệ thuật\n" +
+                    "   - 'HR_ADMIN': Quản trị nhân sự, Tuyển dụng, C&B, Hành chính, Văn phòng\n" +
+                    "   - 'BUSINESS_MANAGEMENT': Quản trị kinh doanh, Quản lý dự án, BA, Vận hành\n" +
+                    "   - 'ENGINEERING_MANUFACTURING': Cơ khí, Điện tử, Xây dựng, Sản xuất, Chuỗi cung ứng\n" +
+                    "   - 'CUSTOMER_SERVICE': Chăm sóc khách hàng, Telesales, Hỗ trợ kỹ thuật\n" +
+                    "   - 'EDUCATION_TRAINING': Giáo dục, Đào tạo, Biên phiên dịch\n" +
+                    "   - 'HEALTHCARE_PHARMA': Y tế, Dược phẩm, Chăm sóc sức khỏe\n" +
+                    "   - 'SOFT_SKILLS': Kỹ năng mềm, Giao tiếp, Làm việc nhóm, Đàm phán, Tư duy phản biện\n" +
+                    "3. PHÂN LOẠI TRỌNG YẾU:\n" +
+                    "   - 'mandatorySkills': 4 - 8 kỹ năng bắt buộc phải có để làm được việc.\n" +
+                    "   - 'preferredSkills': 2 - 4 kỹ năng ưu tiên hoặc điểm cộng mở rộng.\n" +
+                    "4. 'aliases': Liệt kê 2-4 từ đồng nghĩa, từ viết tắt phổ biến phân tách bằng dấu phẩy.\n\n" +
+                    "YÊU CẦU ĐẦU RA: Trả về DUY NHẤT một JSON hợp lệ (không kèm markdown ngoài JSON):\n" +
+                    "{\n" +
+                    "  \"detectedIndustry\": \"...\",\n" +
+                    "  \"summary\": \"Tóm tắt 1 câu ngắn gọn về yêu cầu trọng tâm của công việc\",\n" +
+                    "  \"mandatorySkills\": [\n" +
+                    "    {\"skillName\": \"...\", \"category\": \"...\", \"aliases\": \"...\"}\n" +
+                    "  ],\n" +
+                    "  \"preferredSkills\": [\n" +
+                    "    {\"skillName\": \"...\", \"category\": \"...\", \"aliases\": \"...\"}\n" +
+                    "  ]\n" +
+                    "}";
+
+            String responseText = callGeminiApi(prompt, 900);
+            if (responseText != null && !responseText.isBlank()) {
+                String jsonStr = extractJson(responseText);
+                JsonNode root = objectMapper.readTree(jsonStr);
+
+                String detectedInd = root.path("detectedIndustry").asText(cleanInd);
+                String summary = root.path("summary").asText("Bóc tách kỹ năng tự động bằng Gemini AI");
+
+                List<com.hiremate.dto.response.SkillItemDTO> mandatory = new ArrayList<>();
+                if (root.path("mandatorySkills").isArray()) {
+                    for (JsonNode node : root.path("mandatorySkills")) {
+                        String name = node.path("skillName").asText("");
+                        if (!name.isBlank()) {
+                            mandatory.add(com.hiremate.dto.response.SkillItemDTO.builder()
+                                    .skillName(name.trim())
+                                    .category(node.path("category").asText("IT_SOFTWARE"))
+                                    .aliases(node.path("aliases").asText(""))
+                                    .build());
+                        }
+                    }
+                }
+
+                List<com.hiremate.dto.response.SkillItemDTO> preferred = new ArrayList<>();
+                if (root.path("preferredSkills").isArray()) {
+                    for (JsonNode node : root.path("preferredSkills")) {
+                        String name = node.path("skillName").asText("");
+                        if (!name.isBlank()) {
+                            preferred.add(com.hiremate.dto.response.SkillItemDTO.builder()
+                                    .skillName(name.trim())
+                                    .category(node.path("category").asText("IT_SOFTWARE"))
+                                    .aliases(node.path("aliases").asText(""))
+                                    .build());
+                        }
+                    }
+                }
+
+                if (!mandatory.isEmpty() || !preferred.isEmpty()) {
+                    return com.hiremate.dto.response.AiJdSkillExtractResponse.builder()
+                            .detectedIndustry(detectedInd)
+                            .summary(summary)
+                            .mandatorySkills(mandatory)
+                            .preferredSkills(preferred)
+                            .build();
+                }
+            }
+        } catch (Exception e) {
+            log.warn(">> [GeminiAiService] extractSkillsFromJdWithAi failed ({}). Using heuristic fallback.", e.getMessage());
+        }
+
+        return fallbackExtractSkillsFromJd(cleanTitle, cleanDesc, cleanInd);
+    }
+
+    @Override
+    public List<com.hiremate.dto.response.SkillItemDTO> generateSkillsForIndustryWithAi(String industryName) {
+        String cleanInd = (industryName != null && !industryName.isBlank()) ? industryName.trim() : "Công nghệ thông tin";
+
+        if (!isAvailable()) {
+            return fallbackGenerateSkillsForIndustry(cleanInd);
+        }
+
+        try {
+            String prompt = "Bạn là Chuyên gia Thiết kế Từ điển Kỹ năng Chuyên ngành Toàn cầu (Global Skills Taxonomy Architect).\n" +
+                    "Hãy thiết kế từ điển gồm 10 ĐẾN 15 KỸ NĂNG CHUYÊN MÔN CỐT LÕI VÀ HIỆN ĐẠI NHẤT cho ngành nghề: \"" + cleanInd + "\".\n\n" +
+                    "QUY TẮC CHUẨN HÓA BẮT BUỘC:\n" +
+                    "1. CHUẨN HÓA TÊN GỌI: Tên kỹ năng chuẩn hóa chuyên nghiệp, không dài dòng, không viết hoa cẩu thả, phản ánh đúng công cụ/nghiệp vụ đặc thù (VD: 'Digital Marketing', 'Google Ads', 'Phân tích Báo cáo Tài chính', 'AutoCAD', 'Figma / UI-UX').\n" +
+                    "2. GÁN NHÃN 'category' CHUẨN từ các nhóm: IT_SOFTWARE, MARKETING_SALES, FINANCE_ACCOUNTING, DESIGN_CREATIVE, HR_ADMIN, BUSINESS_MANAGEMENT, ENGINEERING_MANUFACTURING, CUSTOMER_SERVICE, EDUCATION_TRAINING, HEALTHCARE_PHARMA, SOFT_SKILLS.\n" +
+                    "3. CUNG CẤP 'aliases': 2 - 4 từ khóa đồng nghĩa, viết tắt phổ biến (phân tách bởi dấu phẩy).\n\n" +
+                    "YÊU CẦU ĐẦU RA: Trả về DUY NHẤT một JSON Array hợp lệ gồm 10-15 phần tử:\n" +
+                    "[\n" +
+                    "  {\"skillName\": \"...\", \"category\": \"...\", \"aliases\": \"...\"},\n" +
+                    "  ...\n" +
+                    "]";
+
+            String responseText = callGeminiApi(prompt, 900);
+            if (responseText != null && !responseText.isBlank()) {
+                String jsonStr = extractJson(responseText);
+                JsonNode root = objectMapper.readTree(jsonStr);
+                if (root.isArray() && !root.isEmpty()) {
+                    List<com.hiremate.dto.response.SkillItemDTO> list = new ArrayList<>();
+                    for (JsonNode node : root) {
+                        String name = node.path("skillName").asText("");
+                        if (!name.isBlank()) {
+                            list.add(com.hiremate.dto.response.SkillItemDTO.builder()
+                                    .skillName(name.trim())
+                                    .category(node.path("category").asText("IT_SOFTWARE"))
+                                    .aliases(node.path("aliases").asText(""))
+                                    .build());
+                        }
+                    }
+                    if (!list.isEmpty()) {
+                        return list;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn(">> [GeminiAiService] generateSkillsForIndustryWithAi failed ({}). Using heuristic fallback.", e.getMessage());
+        }
+
+        return fallbackGenerateSkillsForIndustry(cleanInd);
+    }
+
+    private com.hiremate.dto.response.AiJdSkillExtractResponse fallbackExtractSkillsFromJd(String title, String desc, String industry) {
+        String tLower = title.toLowerCase();
+        String dLower = desc.toLowerCase();
+        List<com.hiremate.dto.response.SkillItemDTO> mandatory = new ArrayList<>();
+        List<com.hiremate.dto.response.SkillItemDTO> preferred = new ArrayList<>();
+        String cat = "IT_SOFTWARE";
+
+        if (tLower.contains("market") || tLower.contains("seo") || tLower.contains("ads") || tLower.contains("truyền thông") || tLower.contains("sales") || tLower.contains("kinh doanh")) {
+            cat = "MARKETING_SALES";
+            mandatory.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Digital Marketing").category(cat).aliases("Marketing Online, Tiếp thị số").build());
+            mandatory.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Facebook Ads").category(cat).aliases("Chạy ads FB, Meta Ads").build());
+            mandatory.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Google Ads").category(cat).aliases("Google AdWords, SEM").build());
+            mandatory.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("SEO Optimization").category(cat).aliases("Tối ưu hóa tìm kiếm, Onpage SEO").build());
+            preferred.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Content Marketing").category(cat).aliases("Viết bài quảng cáo, Sáng tạo nội dung").build());
+            preferred.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Google Analytics").category(cat).aliases("GA4, Đo lường website").build());
+        } else if (tLower.contains("kế toán") || tLower.contains("kiểm toán") || tLower.contains("thuế") || tLower.contains("tài chính") || tLower.contains("ngân hàng")) {
+            cat = "FINANCE_ACCOUNTING";
+            mandatory.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Kế toán Thuế").category(cat).aliases("Khai báo thuế, Quyết toán thuế").build());
+            mandatory.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Phân tích Báo cáo Tài chính").category(cat).aliases("BCTC, Đọc báo cáo tài chính").build());
+            mandatory.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Phần mềm MISA / FAST").category(cat).aliases("MISA SME, FAST Accounting").build());
+            mandatory.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Quản trị Dòng tiền").category(cat).aliases("Cashflow Management").build());
+            preferred.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Chuẩn mực Kế toán VAS / IFRS").category(cat).aliases("VAS, IFRS standards").build());
+            preferred.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Excel Nâng cao (VBA / Pivot)").category(cat).aliases("Advanced Excel, Hàm tài chính").build());
+        } else if (tLower.contains("thiết kế") || tLower.contains("design") || tLower.contains("ui") || tLower.contains("ux") || tLower.contains("đồ họa") || tLower.contains("video")) {
+            cat = "DESIGN_CREATIVE";
+            mandatory.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Figma / UI-UX").category(cat).aliases("Figma, UI Design, Wireframing").build());
+            mandatory.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Adobe Photoshop").category(cat).aliases("PTS, Photoshop CC").build());
+            mandatory.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Adobe Illustrator").category(cat).aliases("AI, Illustrator Vector").build());
+            preferred.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("After Effects / Premiere").category(cat).aliases("Edit video, Motion Graphic").build());
+            preferred.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Tư duy Thị giác & Bố cục").category(cat).aliases("Visual Hierarchy, Typography").build());
+        } else if (tLower.contains("nhân sự") || tLower.contains("hr") || tLower.contains("tuyển dụng") || tLower.contains("hành chính")) {
+            cat = "HR_ADMIN";
+            mandatory.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Tuyển dụng & Thu hút Nhân tài").category(cat).aliases("Headhunter, Talent Acquisition").build());
+            mandatory.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Chính sách Lương thưởng C&B").category(cat).aliases("Compensation & Benefits, BHXH").build());
+            mandatory.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Luật Lao động Việt Nam").category(cat).aliases("Hợp đồng lao động, Pháp lý nhân sự").build());
+            preferred.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Đào tạo & Phát triển (L&D)").category(cat).aliases("Onboarding, Training").build());
+            preferred.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Gắn kết Văn hóa Doanh nghiệp").category(cat).aliases("Employee Engagement").build());
+        } else {
+            cat = "IT_SOFTWARE";
+            if (tLower.contains("java") || dLower.contains("java") || dLower.contains("spring")) {
+                mandatory.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Java").category(cat).aliases("Java Core, JDK, Java 17").build());
+                mandatory.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Spring Boot").category(cat).aliases("Spring Framework, Spring Security").build());
+                mandatory.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("PostgreSQL").category(cat).aliases("Postgres, SQL, Database").build());
+            } else if (tLower.contains("react") || tLower.contains("frontend") || dLower.contains("react")) {
+                mandatory.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("ReactJS").category(cat).aliases("React, React.js, Next.js").build());
+                mandatory.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("TypeScript").category(cat).aliases("TS, Javascript").build());
+                mandatory.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("TailwindCSS").category(cat).aliases("Tailwind, CSS3").build());
+            } else {
+                mandatory.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Python").category(cat).aliases("Python 3, FastAPI, Django").build());
+                mandatory.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("RESTful API").category(cat).aliases("REST API, Web API").build());
+                mandatory.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Docker").category(cat).aliases("Container, Dockerfile").build());
+            }
+            preferred.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Git").category(cat).aliases("GitHub, GitLab").build());
+            preferred.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("CI/CD").category(cat).aliases("GitHub Actions, DevOps").build());
+        }
+
+        return com.hiremate.dto.response.AiJdSkillExtractResponse.builder()
+                .detectedIndustry(industry != null && !industry.isBlank() ? industry : "Công nghệ & Dịch vụ")
+                .summary("Bóc tách kỹ năng tự động dựa trên phân tích từ vựng JD")
+                .mandatorySkills(mandatory)
+                .preferredSkills(preferred)
+                .build();
+    }
+
+    private List<com.hiremate.dto.response.SkillItemDTO> fallbackGenerateSkillsForIndustry(String industryName) {
+        String ind = industryName.toLowerCase();
+        List<com.hiremate.dto.response.SkillItemDTO> list = new ArrayList<>();
+
+        if (ind.contains("market") || ind.contains("tiếp thị") || ind.contains("quảng cáo") || ind.contains("sales") || ind.contains("bán hàng")) {
+            String cat = "MARKETING_SALES";
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Digital Marketing Strategy").category(cat).aliases("Chiến lược tiếp thị số").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Facebook Ads Optimization").category(cat).aliases("Chạy quảng cáo Meta, FB Ads").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Google Ads (Search & Display)").category(cat).aliases("Google AdWords, Quảng cáo tìm kiếm").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("SEO & Content Strategy").category(cat).aliases("Tối ưu công cụ tìm kiếm, Bài viết chuẩn SEO").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("TikTok Ads & Video Short").category(cat).aliases("Quảng cáo TikTok, Short Video").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Kỹ năng Đàm phán & Chốt Deal B2B").category(cat).aliases("Closing Deal, B2B Sales Negotiation").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Quản trị Phễu Bán Hàng (CRM)").category(cat).aliases("HubSpot, Salesforce, Sales Funnel").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Email Marketing Automation").category(cat).aliases("Mailchimp, Tự động hóa tiếp thị qua mail").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Phân tích Chỉ số ROAS / CAC / LTV").category(cat).aliases("Chỉ số đo lường hiệu quả quảng cáo").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Nghiên cứu Thị trường & Đối thủ").category(cat).aliases("Market Research, Competitor Analysis").build());
+        } else if (ind.contains("kế toán") || ind.contains("kiểm toán") || ind.contains("tài chính") || ind.contains("thuế") || ind.contains("ngân hàng")) {
+            String cat = "FINANCE_ACCOUNTING";
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Kế toán Thuế Doanh nghiệp").category(cat).aliases("Quyết toán thuế, TNDN, TNCN, GTGT").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Lập Báo cáo Tài chính Tổng hợp").category(cat).aliases("BCTC, Bảng cân đối kế toán").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Kiểm toán Nội bộ & Kiểm soát Rủi ro").category(cat).aliases("Internal Audit, Risk Management").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Phần mềm Kế toán MISA SME").category(cat).aliases("MISA, Kế toán hóa đơn").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Mô hình Hóa Tài chính (Financial Modeling)").category(cat).aliases("Dự phóng tài chính, Valuation").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Quản trị Dòng tiền & Vốn lưu động").category(cat).aliases("Working Capital, Cash Flow").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Chuẩn mực Kế toán Quốc tế IFRS").category(cat).aliases("IFRS standards, Báo cáo chuẩn quốc tế").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Thẩm định Dự án Đầu tư (NPV, IRR)").category(cat).aliases("Project Evaluation, Đánh giá dự án").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Quy trình Hải quan & Thuế Nhập khẩu").category(cat).aliases("Thuế xuất nhập khẩu, Khai báo tờ khai").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Kế toán Quản trị & Định giá Thành phẩm").category(cat).aliases("Cost Accounting, Giá thành sản phẩm").build());
+        } else if (ind.contains("nhân sự") || ind.contains("hr") || ind.contains("hành chính") || ind.contains("tuyển dụng")) {
+            String cat = "HR_ADMIN";
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Tuyển dụng & Săn đầu người (Headhunting)").category(cat).aliases("Sourcing, Interviewing, Talent Acquisition").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Chính sách Tiền lương & Đãi ngộ (C&B)").category(cat).aliases("Tính lương, Thưởng KPI, BHYT, BHXH").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Pháp lý Lao động & Xử lý Tranh chấp").category(cat).aliases("Luật lao động 2019, Hợp đồng thử việc").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Thiết kế Khung Năng lực & KPIs/OKRs").category(cat).aliases("Đánh giá nhân sự, Performance Management").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Đào tạo & Phát triển Nhân sự (L&D)").category(cat).aliases("Training Framework, Lộ trình thăng tiến").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Gắn kết Đội ngũ & Truyền thông Nội bộ").category(cat).aliases("Employee Engagement, Team Building").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Quản trị Hành chính & Văn phòng Phẩm").category(cat).aliases("Office Management, Mua sắm nội bộ").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Quy trình Onboarding Nhân viên Mới").category(cat).aliases("Hòa nhập văn hóa, Tiếp nhận nhân sự").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Phần mềm Nhân sự HRM / Base.vn").category(cat).aliases("HRM, Chấm công, Base Inside").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Xây dựng Thương hiệu Nhà tuyển dụng (EB)").category(cat).aliases("Employer Branding, Ngày hội việc làm").build());
+        } else if (ind.contains("thiết kế") || ind.contains("design") || ind.contains("đồ họa") || ind.contains("ui") || ind.contains("ux")) {
+            String cat = "DESIGN_CREATIVE";
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Thiết kế Giao diện Figma (UI Design)").category(cat).aliases("Figma Design, Auto Layout, Component").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Nghiên cứu Trải nghiệm Người dùng (UX Research)").category(cat).aliases("User Journey, Wireframe, Usability Testing").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Adobe Photoshop").category(cat).aliases("PTS, Chỉnh sửa ảnh, Banner quảng cáo").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Adobe Illustrator").category(cat).aliases("AI, Vẽ Vector, Logo, Bộ nhận diện").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Dựng Video Adobe Premiere Pro").category(cat).aliases("Edit video, Biên tập âm thanh hình ảnh").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Hiệu ứng Đồ họa After Effects").category(cat).aliases("Motion Graphic, Animation, Visual Effects").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Xây dựng Design System & Tokens").category(cat).aliases("Design System, Atomic Design").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Mô hình Hóa 3D (Blender / Maya)").category(cat).aliases("3D Rendering, Animation 3D").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Thiết kế Bao bì & Ấn phẩm In ấn").category(cat).aliases("Packaging Design, Mockup in ấn").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Typography & Phối màu Chuyên nghiệp").category(cat).aliases("Color Theory, Font chữ thị giác").build());
+        } else {
+            // Mặc định hoặc CNTT / Trí tuệ nhân tạo
+            String cat = "IT_SOFTWARE";
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Java Spring Boot").category(cat).aliases("Java Core, Spring Data, Microservices").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("ReactJS & Next.js").category(cat).aliases("React, TypeScript, Redux Toolkit").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Python AI & Machine Learning").category(cat).aliases("Python 3, PyTorch, TensorFlow, LLM").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("PostgreSQL & Tối ưu Index").category(cat).aliases("Postgres, Database Tuning, Query Plan").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Docker & Kubernetes Containerization").category(cat).aliases("K8s, Pods, Docker Compose").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Điện toán Đám mây AWS / Google Cloud").category(cat).aliases("Amazon Web Services, GCP, Cloud Server").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("CI/CD Pipeline Automation").category(cat).aliases("GitHub Actions, GitLab CI, Jenkins").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Bảo mật Ứng dụng & API Security").category(cat).aliases("OWASP, OAuth2, JWT, Penetration Testing").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Kiến trúc Hệ thống Microservices").category(cat).aliases("Distributed Architecture, Message Queue, Kafka").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Kiểm thử Tự động Automation Testing").category(cat).aliases("Selenium, Cypress, JUnit, TestNG").build());
+        }
+
+        return list;
     }
 }
 

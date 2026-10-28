@@ -21,5 +21,8 @@ public interface AiInterviewService {
     byte[] synthesizeSpeech(String text);
 
     byte[] synthesizeSpeech(String text, String voice);
+
+    com.hiremate.dto.response.InterviewQuotaStatusResponse getCandidateQuotaStatus(User candidate);
 }
+
 

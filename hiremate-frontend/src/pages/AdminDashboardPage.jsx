@@ -388,6 +388,407 @@ const CANDIDATE_FEATURE_OPTIONS = [
   'Gợi ý lộ trình bù đắp kỹ năng thiếu hụt (Skill Gap Recommendation)',
 ];
 
+const PERSONA_OPTIONS = [
+  { id: 'HR_MANAGER', label: 'HR Manager', desc: 'Chuyên viên Nhân sự - Đánh giá văn hóa, kỹ năng mềm, tác phong', icon: 'badge' },
+  { id: 'TECH_LEAD', label: 'Tech Lead', desc: 'Trưởng nhóm Kỹ thuật - Hỏi sâu chuyên môn, kiến trúc hệ thống, code', icon: 'terminal' },
+  { id: 'STRICT_DIRECTOR', label: 'Giám Đốc Khó Tính', desc: 'Lãnh đạo cấp cao - Thử thách tư duy chiến lược, chịu áp lực, phản biện', icon: 'psychology' },
+];
+
+const VOICE_OPTIONS = [
+  { id: 'vi-native', label: 'Trợ lý AI Tiếng Việt', desc: 'Giọng đọc chuẩn Việt Nam, tốc độ tự nhiên', icon: 'mic' },
+  { id: 'eleven-alice', label: 'Nữ Alice Studio', desc: 'Giọng nữ truyền cảm, phong thái chuyên nghiệp', icon: 'record_voice_over' },
+  { id: 'eleven-george', label: 'Nam George Studio', desc: 'Giọng nam trầm ấm, phong thái phỏng vấn sâu', icon: 'graphic_eq' },
+];
+
+function RolePermissionMatrixConfig({ form, setForm, isCand }) {
+  const perms = form.permissions || (isCand ? {
+    maxQuestions: 5,
+    maxDurationMinutes: 10,
+    allowedPersonas: ['HR_MANAGER', 'TECH_LEAD'],
+    allowedVoices: ['vi-native', 'eleven-alice'],
+    coachHints: 3,
+    unlockFullStar: true,
+    unlockRoadmap: true,
+  } : {
+    jobPostingQuota: form.quotaLimit || 10,
+    aiMatching: true,
+    unlockDirectContact: true,
+    featuredJobBadge: false,
+    exportReport: true,
+    autoEmail: false,
+  });
+
+  const updatePerm = (key, value) => {
+    setForm((prev) => ({
+      ...prev,
+      permissions: {
+        ...(prev.permissions || perms),
+        [key]: value,
+      },
+    }));
+  };
+
+  const toggleArrayPerm = (key, item) => {
+    const current = perms[key] || [];
+    let updated;
+    if (current.includes(item)) {
+      if (current.length <= 1) return; // Luôn giữ tối thiểu 1 lựa chọn
+      updated = current.filter((x) => x !== item);
+    } else {
+      updated = [...current, item];
+    }
+    updatePerm(key, updated);
+  };
+
+  if (isCand) {
+    return (
+      <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-50/70 via-orange-50/40 to-white border-2 border-amber-200/80 shadow-xs space-y-4">
+        <div className="flex items-center justify-between pb-2 border-b border-amber-200/60">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-amber-700 text-lg">admin_panel_settings</span>
+            <span className="font-black text-amber-950 text-xs uppercase tracking-wide">
+              Ma Trận Phân Quyền AI Mock Interview &amp; Studio (B2C)
+            </span>
+          </div>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+            Tự động kích hoạt vào Phòng Phỏng vấn &amp; Báo cáo
+          </span>
+        </div>
+
+        {/* 1. Số câu hỏi & Thời lượng */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="font-bold text-slate-700 block mb-1">
+              Số câu hỏi tối đa / phiên phỏng vấn:
+            </label>
+            <div className="flex flex-wrap gap-1.5">
+              {[3, 5, 7, 8, 10].map((q) => {
+                const isSelected = (perms.maxQuestions || 3) === q;
+                return (
+                  <button
+                    key={q}
+                    type="button"
+                    onClick={() => updatePerm('maxQuestions', q)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                      isSelected
+                        ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                        : 'bg-white text-slate-700 border-amber-200 hover:bg-amber-50'
+                    }`}
+                  >
+                    {q} câu {q === 3 ? '(Free)' : q === 5 ? '(Chuẩn)' : q >= 8 ? '(VIP)' : ''}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <label className="font-bold text-slate-700 block mb-1">
+              Thời lượng tối đa / phiên (Phút):
+            </label>
+            <div className="flex flex-wrap gap-1.5">
+              {[5, 10, 15, 20, 30].map((m) => {
+                const isSelected = (perms.maxDurationMinutes || 5) === m;
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => updatePerm('maxDurationMinutes', m)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                      isSelected
+                        ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                        : 'bg-white text-slate-700 border-amber-200 hover:bg-amber-50'
+                    }`}
+                  >
+                    {m} phút {m === 5 ? '(Free)' : m === 15 ? '(Plus)' : m >= 20 ? '(Pro)' : ''}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* 2. Personas được phép */}
+        <div>
+          <label className="font-bold text-slate-700 block mb-1.5 flex items-center justify-between">
+            <span>Hội đồng Phỏng vấn AI được cấp quyền mở khóa:</span>
+            <span className="text-[10px] text-amber-700 font-semibold">
+              Đã mở khóa {(perms.allowedPersonas || []).length}/3 người
+            </span>
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {PERSONA_OPTIONS.map((persona) => {
+              const isChecked = (perms.allowedPersonas || ['HR_MANAGER']).includes(persona.id);
+              return (
+                <div
+                  key={persona.id}
+                  onClick={() => toggleArrayPerm('allowedPersonas', persona.id)}
+                  className={`p-2.5 rounded-xl border text-xs cursor-pointer transition-all flex items-start gap-2 ${
+                    isChecked
+                      ? 'bg-white border-amber-500 shadow-xs text-slate-900 ring-1 ring-amber-400'
+                      : 'bg-white/50 border-slate-200 text-slate-400 opacity-60 hover:opacity-100'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    readOnly
+                    className="mt-0.5 accent-amber-600"
+                  />
+                  <div>
+                    <div className="font-bold flex items-center gap-1 text-slate-900">
+                      <span className="material-symbols-outlined text-sm text-amber-600">{persona.icon}</span>
+                      <span>{persona.label}</span>
+                    </div>
+                    <div className="text-[10px] text-slate-500 leading-tight mt-0.5">{persona.desc}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 3. Giọng đọc AI Studio được phép */}
+        <div>
+          <label className="font-bold text-slate-700 block mb-1.5 flex items-center justify-between">
+            <span>Giọng đọc AI Voice được mở khóa:</span>
+            <span className="text-[10px] text-amber-700 font-semibold">
+              Đã mở khóa {(perms.allowedVoices || []).length}/3 giọng
+            </span>
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {VOICE_OPTIONS.map((voice) => {
+              const isChecked = (perms.allowedVoices || ['vi-native']).includes(voice.id);
+              return (
+                <div
+                  key={voice.id}
+                  onClick={() => toggleArrayPerm('allowedVoices', voice.id)}
+                  className={`p-2.5 rounded-xl border text-xs cursor-pointer transition-all flex items-start gap-2 ${
+                    isChecked
+                      ? 'bg-white border-amber-500 shadow-xs text-slate-900 ring-1 ring-amber-400'
+                      : 'bg-white/50 border-slate-200 text-slate-400 opacity-60 hover:opacity-100'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    readOnly
+                    className="mt-0.5 accent-amber-600"
+                  />
+                  <div>
+                    <div className="font-bold flex items-center gap-1 text-slate-900">
+                      <span className="material-symbols-outlined text-sm text-amber-600">{voice.icon}</span>
+                      <span>{voice.label}</span>
+                    </div>
+                    <div className="text-[10px] text-slate-500 leading-tight mt-0.5">{voice.desc}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 4. Coach STAR & Mở khóa Báo cáo */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+          {/* Lượt gợi ý Coach */}
+          <div className="p-3 bg-white rounded-xl border border-amber-200 flex flex-col justify-between">
+            <span className="font-bold text-slate-700 block mb-1">Gợi ý Coach STAR / phiên:</span>
+            <div className="flex gap-1">
+              {[1, 3, 999].map((cnt) => {
+                const isSelected = (perms.coachHints ?? 1) === cnt;
+                return (
+                  <button
+                    key={cnt}
+                    type="button"
+                    onClick={() => updatePerm('coachHints', cnt)}
+                    className={`flex-1 py-1 text-[11px] font-bold rounded-lg border transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                        : 'bg-amber-50 text-slate-700 border-amber-200 hover:bg-amber-100'
+                    }`}
+                  >
+                    {cnt === 999 ? '∞ Vô hạn' : `${cnt} lượt`}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Toggle Full STAR 10/10 */}
+          <div
+            onClick={() => updatePerm('unlockFullStar', !perms.unlockFullStar)}
+            className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
+              perms.unlockFullStar
+                ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950 shadow-xs'
+                : 'bg-white border-slate-200 text-slate-500'
+            }`}
+          >
+            <div>
+              <div className="font-black flex items-center gap-1 text-emerald-900">
+                <span className="material-symbols-outlined text-sm text-emerald-600">stars</span>
+                <span>Full Barem STAR Điểm 10</span>
+              </div>
+              <div className="text-[10px] text-slate-500 leading-tight mt-0.5">
+                {perms.unlockFullStar ? 'Mở khóa 100% tất cả các câu' : 'Khóa: Chỉ xem mẫu câu 1'}
+              </div>
+            </div>
+            <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.unlockFullStar ? 'bg-emerald-600' : 'bg-slate-300'}`}>
+              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.unlockFullStar ? 'translate-x-5' : 'translate-x-0'}`} />
+            </div>
+          </div>
+
+          {/* Toggle Trọn bộ Lộ trình 3 giai đoạn */}
+          <div
+            onClick={() => updatePerm('unlockRoadmap', !perms.unlockRoadmap)}
+            className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
+              perms.unlockRoadmap
+                ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950 shadow-xs'
+                : 'bg-white border-slate-200 text-slate-500'
+            }`}
+          >
+            <div>
+              <div className="font-black flex items-center gap-1 text-emerald-900">
+                <span className="material-symbols-outlined text-sm text-emerald-600">route</span>
+                <span>Lộ trình Trọn vẹn 3 GĐ</span>
+              </div>
+              <div className="text-[10px] text-slate-500 leading-tight mt-0.5">
+                {perms.unlockRoadmap ? 'Đầy đủ Ngắn - Trung - Dài hạn' : 'Khóa: Chỉ xem Giai đoạn 1'}
+              </div>
+            </div>
+            <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.unlockRoadmap ? 'bg-emerald-600' : 'bg-slate-300'}`}>
+              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.unlockRoadmap ? 'translate-x-5' : 'translate-x-0'}`} />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // RECRUITER PERMISSIONS MATRIX
+  return (
+    <div className="p-4 rounded-2xl bg-gradient-to-br from-purple-50/70 via-indigo-50/40 to-white border-2 border-purple-200/80 shadow-xs space-y-4">
+      <div className="flex items-center justify-between pb-2 border-b border-purple-200/60">
+        <div className="flex items-center gap-2">
+          <span className="material-symbols-outlined text-[#5b48bd] text-lg">admin_panel_settings</span>
+          <span className="font-black text-[#1e1b4b] text-xs uppercase tracking-wide">
+            Ma Trận Phân Quyền Tuyển Dụng &amp; AI Matching (B2B)
+          </span>
+        </div>
+        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-[#5b48bd]">
+          Áp dụng trực tiếp vào Hệ thống Quản trị Nhà Tuyển Dụng
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* Toggle AI Matching 70/30 */}
+        <div
+          onClick={() => updatePerm('aiMatching', !perms.aiMatching)}
+          className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
+            perms.aiMatching
+              ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300'
+              : 'bg-white/60 border-slate-200 text-slate-400'
+          }`}
+        >
+          <div>
+            <div className="font-bold flex items-center gap-1">
+              <span className="material-symbols-outlined text-sm text-[#5b48bd]">psychology</span>
+              <span>AI Matching 70/30 Tự Động</span>
+            </div>
+            <div className="text-[10px] text-slate-500 mt-0.5">70% Kỹ năng bắt buộc + 30% Kỹ năng ưu tiên</div>
+          </div>
+          <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.aiMatching ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
+            <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.aiMatching ? 'translate-x-5' : 'translate-x-0'}`} />
+          </div>
+        </div>
+
+        {/* Toggle Mở khóa xem CV & thông tin liên hệ không che */}
+        <div
+          onClick={() => updatePerm('unlockDirectContact', !perms.unlockDirectContact)}
+          className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
+            perms.unlockDirectContact
+              ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300'
+              : 'bg-white/60 border-slate-200 text-slate-400'
+          }`}
+        >
+          <div>
+            <div className="font-bold flex items-center gap-1">
+              <span className="material-symbols-outlined text-sm text-[#5b48bd]">visibility</span>
+              <span>Xem CV Gốc &amp; Liên Hệ Trực Tiếp</span>
+            </div>
+            <div className="text-[10px] text-slate-500 mt-0.5">Không che số điện thoại, email, link portfolio</div>
+          </div>
+          <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.unlockDirectContact ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
+            <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.unlockDirectContact ? 'translate-x-5' : 'translate-x-0'}`} />
+          </div>
+        </div>
+
+        {/* Toggle Huy hiệu Verified & Đẩy Top Tin */}
+        <div
+          onClick={() => updatePerm('featuredJobBadge', !perms.featuredJobBadge)}
+          className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
+            perms.featuredJobBadge
+              ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300'
+              : 'bg-white/60 border-slate-200 text-slate-400'
+          }`}
+        >
+          <div>
+            <div className="font-bold flex items-center gap-1">
+              <span className="material-symbols-outlined text-sm text-[#5b48bd]">verified</span>
+              <span>Huy Hiệu Verified &amp; Đẩy Top Tin 24/7</span>
+            </div>
+            <div className="text-[10px] text-slate-500 mt-0.5">Gắn tích xanh doanh nghiệp, ưu tiên số 1 tìm kiếm</div>
+          </div>
+          <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.featuredJobBadge ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
+            <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.featuredJobBadge ? 'translate-x-5' : 'translate-x-0'}`} />
+          </div>
+        </div>
+
+        {/* Toggle Xuất Báo Cáo Analytics */}
+        <div
+          onClick={() => updatePerm('exportReport', !perms.exportReport)}
+          className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
+            perms.exportReport
+              ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300'
+              : 'bg-white/60 border-slate-200 text-slate-400'
+          }`}
+        >
+          <div>
+            <div className="font-bold flex items-center gap-1">
+              <span className="material-symbols-outlined text-sm text-[#5b48bd]">analytics</span>
+              <span>Báo Cáo Talent Analytics PDF/Excel</span>
+            </div>
+            <div className="text-[10px] text-slate-500 mt-0.5">Phân tích nguồn ứng viên, chuyển đổi phễu tuyển dụng</div>
+          </div>
+          <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.exportReport ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
+            <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.exportReport ? 'translate-x-5' : 'translate-x-0'}`} />
+          </div>
+        </div>
+
+        {/* Toggle Gửi Email Tự Động Hàng Loạt */}
+        <div
+          onClick={() => updatePerm('autoEmail', !perms.autoEmail)}
+          className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between sm:col-span-2 ${
+            perms.autoEmail
+              ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300'
+              : 'bg-white/60 border-slate-200 text-slate-400'
+          }`}
+        >
+          <div>
+            <div className="font-bold flex items-center gap-1">
+              <span className="material-symbols-outlined text-sm text-[#5b48bd]">forward_to_inbox</span>
+              <span>Gửi Email Mời Phỏng Vấn &amp; Thông Báo Tự Động Hàng Loạt</span>
+            </div>
+            <div className="text-[10px] text-slate-500 mt-0.5">Tích hợp mẫu thư động gửi theo từng trạng thái pipeline tuyển dụng</div>
+          </div>
+          <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.autoEmail ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
+            <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.autoEmail ? 'translate-x-5' : 'translate-x-0'}`} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const INITIAL_USERS = [
   { id: 1001, name: 'Nguyễn Minh Anh', email: 'minhanh.hr@fptsoftware.com', role: 'RECRUITER', company: 'FPT Software', status: 'ACTIVE', authProvider: 'LOCAL', isOnline: true, joined: '12/01/2026' },
   { id: 1002, name: 'Trần Hoàng Nam (Google OAuth)', email: 'nam.tran@gmail.com', role: 'CANDIDATE', company: '-', status: 'ACTIVE', authProvider: 'GOOGLE', isOnline: true, joined: '15/02/2026' },
@@ -496,6 +897,101 @@ const INITIAL_JOBS = [
   },
 ];
 
+/**
+ * Helper: Mã hóa cấu hình phân quyền người dùng thành chuỗi tag [PERMS:...] để lưu vào cột description trên Supabase
+ */
+export const serializePermissionsToDescription = (perms, features = []) => {
+  if (!perms) return (features || []).join(';');
+  const pairs = [
+    `maxQ=${perms.maxQuestions || 3}`,
+    `maxDur=${(perms.maxDurationMinutes || 5) * 60}`,
+    `personas=${(perms.allowedPersonas || ['HR_MANAGER']).join(',')}`,
+    `voices=${(perms.allowedVoices || ['vi-native']).join(',')}`,
+    `coachHints=${perms.coachHints ?? 1}`,
+    `fullStar=${Boolean(perms.unlockFullStar)}`,
+    `roadmap=${Boolean(perms.unlockRoadmap)}`,
+    `jobQuota=${perms.jobPostingQuota || 3}`,
+    `aiMatch=${Boolean(perms.aiMatching)}`,
+    `directCv=${Boolean(perms.unlockDirectContact)}`,
+    `verifiedBadge=${Boolean(perms.featuredJobBadge)}`,
+    `analytics=${Boolean(perms.exportReport)}`,
+    `bulkEmail=${Boolean(perms.autoEmail)}`
+  ];
+  const tag = `[PERMS:${pairs.join(';')}]`;
+  const cleanFeatures = (features || []).filter((f) => !f.startsWith('[PERMS:'));
+  return `${tag} ${cleanFeatures.join(';')}`.trim();
+};
+
+/**
+ * Helper: Trích xuất phân quyền chi tiết từ cột description trên Supabase (hoặc suy luận fallback theo hạng mức)
+ */
+export const parsePermissionsFromDescription = (desc = '', targetRole = 'CANDIDATE', quotaLimit = 2, planName = '') => {
+  const isCand = String(targetRole || '').toUpperCase() === 'CANDIDATE';
+  const name = String(planName || '').toLowerCase();
+  const isFree = name.includes('free') || quotaLimit <= 2;
+  const isPlus = name.includes('plus') || quotaLimit <= 10;
+  const isPro = name.includes('pro') || name.includes('ace') || quotaLimit >= 30;
+
+  const defaultPerms = isCand ? {
+    maxQuestions: isFree ? 3 : isPlus ? 5 : isPro ? 7 : 8,
+    maxDurationMinutes: isFree ? 5 : isPlus ? 10 : isPro ? 15 : 20,
+    allowedPersonas: isFree ? ['HR_MANAGER'] : isPlus ? ['HR_MANAGER', 'TECH_LEAD'] : ['HR_MANAGER', 'TECH_LEAD', 'STRICT_DIRECTOR'],
+    allowedVoices: isFree ? ['vi-native'] : isPlus ? ['vi-native', 'eleven-alice'] : ['vi-native', 'eleven-alice', 'eleven-george'],
+    coachHints: isFree ? 1 : isPlus ? 3 : 999,
+    unlockFullStar: !isFree,
+    unlockRoadmap: !isFree,
+    atsCvAnalysis: true,
+  } : {
+    jobPostingQuota: quotaLimit || 3,
+    aiMatching: true,
+    unlockDirectContact: !isFree,
+    featuredJobBadge: isPro,
+    exportReport: !isFree,
+    autoEmail: isPro,
+  };
+
+  if (!desc || !desc.includes('[PERMS:')) {
+    return defaultPerms;
+  }
+
+  try {
+    const start = desc.indexOf('[PERMS:') + 7;
+    const end = desc.indexOf(']', start);
+    if (end > start) {
+      const permsStr = desc.substring(start, end);
+      const dict = {};
+      permsStr.split(';').forEach((p) => {
+        const [k, v] = p.split('=');
+        if (k && v !== undefined) dict[k.trim()] = v.trim();
+      });
+
+      if (isCand) {
+        return {
+          maxQuestions: dict.maxQ ? parseInt(dict.maxQ, 10) : defaultPerms.maxQuestions,
+          maxDurationMinutes: dict.maxDur ? Math.round(parseInt(dict.maxDur, 10) / 60) : defaultPerms.maxDurationMinutes,
+          allowedPersonas: dict.personas ? dict.personas.split(',').map((s) => s.trim()).filter(Boolean) : defaultPerms.allowedPersonas,
+          allowedVoices: dict.voices ? dict.voices.split(',').map((s) => s.trim()).filter(Boolean) : defaultPerms.allowedVoices,
+          coachHints: dict.coachHints !== undefined ? parseInt(dict.coachHints, 10) : defaultPerms.coachHints,
+          unlockFullStar: dict.fullStar !== undefined ? dict.fullStar === 'true' : defaultPerms.unlockFullStar,
+          unlockRoadmap: dict.roadmap !== undefined ? dict.roadmap === 'true' : defaultPerms.unlockRoadmap,
+          atsCvAnalysis: true,
+        };
+      } else {
+        return {
+          jobPostingQuota: dict.jobQuota ? parseInt(dict.jobQuota, 10) : defaultPerms.jobPostingQuota,
+          aiMatching: dict.aiMatch !== undefined ? dict.aiMatch === 'true' : defaultPerms.aiMatching,
+          unlockDirectContact: dict.directCv !== undefined ? dict.directCv === 'true' : defaultPerms.unlockDirectContact,
+          featuredJobBadge: dict.verifiedBadge !== undefined ? dict.verifiedBadge === 'true' : defaultPerms.featuredJobBadge,
+          exportReport: dict.analytics !== undefined ? dict.analytics === 'true' : defaultPerms.exportReport,
+          autoEmail: dict.bulkEmail !== undefined ? dict.bulkEmail === 'true' : defaultPerms.autoEmail,
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('Error parsing perms:', err);
+  }
+  return defaultPerms;
+};
 
 /**
  * Reusable Executive Pagination Bar for HireMate Admin & Recruiter Dashboards
@@ -891,21 +1387,23 @@ export default function AdminDashboardPage({ user, onLogout }) {
       if (plansRes.status === 'fulfilled' && plansRes.value?.data && Array.isArray(plansRes.value.data) && plansRes.value.data.length > 0) {
         setPackagesList(plansRes.value.data.map((p) => {
           const isCand = String(p.targetRole || '').toUpperCase() === 'CANDIDATE';
+          const perms = parsePermissionsFromDescription(p.description, p.targetRole, p.quotaLimit, p.planName);
           let feats = [];
           if (p.description) {
-            feats = p.description.split(';').map((s) => s.trim()).filter(Boolean);
+            const cleanDesc = p.description.replace(/\[PERMS:[^\]]+\]/g, '').trim();
+            feats = cleanDesc.split(';').map((s) => s.trim()).filter(Boolean);
           }
           if (feats.length <= 1) {
             if (isCand) {
               feats = [
-                p.description || 'Luyện phỏng vấn AI thông minh',
+                'Luyện phỏng vấn AI thông minh',
                 `Hạn ngạch: ${p.quotaLimit || 2} lượt phỏng vấn AI/ngày`,
                 'Chấm điểm & tối ưu hóa CV chuẩn ATS',
                 'Báo cáo tiến bộ kỹ năng Delta sau phỏng vấn'
               ];
             } else {
               feats = [
-                p.description || 'Đăng tin tuyển dụng và tìm kiếm nhân tài',
+                'Đăng tin tuyển dụng và tìm kiếm nhân tài',
                 `Hạn ngạch: ${p.quotaLimit || 3} tin tuyển dụng active`,
                 'Thuật toán AI Matching 70/30 tự động',
                 'Quản lý ứng viên qua Kanban Pipeline đa tầng'
@@ -928,6 +1426,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
             status: p.isActive ? 'ACTIVE' : 'INACTIVE',
             color: isCand ? '#f59e0b' : '#5b48bd',
             features: feats,
+            permissions: perms,
           };
         }));
       }
@@ -1066,6 +1565,9 @@ export default function AdminDashboardPage({ user, onLogout }) {
   const [isSubmittingSkill, setIsSubmittingSkill] = useState(false);
   const [deletingSkillId, setDeletingSkillId] = useState(null);
   const [settingsSubTab, setSettingsSubTab] = useState('all');
+  const [aiIndustryInput, setAiIndustryInput] = useState('');
+  const [isGeneratingIndustrySkills, setIsGeneratingIndustrySkills] = useState(false);
+  const [lastAiGeneratedIndustryResult, setLastAiGeneratedIndustryResult] = useState(null);
 
   // AI Interview Sessions Audit State (table: interview_sessions & practice_progress_logs)
   const [interviewsList, setInterviewsList] = useState(INITIAL_INTERVIEWS);
@@ -1251,6 +1753,14 @@ export default function AdminDashboardPage({ user, onLogout }) {
       'Lọc ứng viên Top 5% xuất sắc nhất',
       'Mở khóa xem CV & thông tin liên hệ đầy đủ',
     ],
+    permissions: {
+      jobPostingQuota: 10,
+      aiMatching: true,
+      unlockDirectContact: true,
+      featuredJobBadge: false,
+      exportReport: true,
+      autoEmail: false,
+    },
   });
   const [editPackageForm, setEditPackageForm] = useState(null);
 
@@ -1288,7 +1798,25 @@ export default function AdminDashboardPage({ user, onLogout }) {
       : (isCand 
           ? [`Hạn ngạch: ${quota} lượt phỏng vấn AI/ngày`, 'Chấm điểm CV chuẩn ATS', 'Luyện phỏng vấn AI Voice Mock Studio'] 
           : [`Hạn ngạch: ${quota} tin tuyển dụng active`, 'Thuật toán AI Matching 70/30 tự động', 'Lọc ứng viên Top 5% xuất sắc nhất']);
-    const desc = selectedFeats.join(';');
+    
+    const perms = newPackageForm.permissions || (isCand ? {
+      maxQuestions: 5,
+      maxDurationMinutes: 10,
+      allowedPersonas: ['HR_MANAGER', 'TECH_LEAD'],
+      allowedVoices: ['vi-native', 'eleven-alice'],
+      coachHints: 3,
+      unlockFullStar: true,
+      unlockRoadmap: true,
+      atsCvAnalysis: true,
+    } : {
+      jobPostingQuota: quota,
+      aiMatching: true,
+      unlockDirectContact: true,
+      featuredJobBadge: false,
+      exportReport: true,
+      autoEmail: false,
+    });
+    const desc = serializePermissionsToDescription(perms, selectedFeats);
 
     const newPkg = {
       id: 'pkg-' + Date.now(),
@@ -1306,6 +1834,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
       status: 'ACTIVE',
       color: isCand ? '#f59e0b' : '#5b48bd',
       features: selectedFeats,
+      permissions: perms,
     };
 
     setPackagesList((prev) => [newPkg, ...prev]);
@@ -1317,12 +1846,21 @@ export default function AdminDashboardPage({ user, onLogout }) {
       price: 499000,
       durationDays: 30,
       quotaLimit: 10,
+      description: '',
       features: [
         'Đăng tin tuyển dụng theo hạn ngạch',
         'Thuật toán AI Matching 70/30 tự động',
         'Lọc ứng viên Top 5% xuất sắc nhất',
         'Mở khóa xem CV & thông tin liên hệ đầy đủ',
       ],
+      permissions: {
+        jobPostingQuota: 10,
+        aiMatching: true,
+        unlockDirectContact: true,
+        featuredJobBadge: false,
+        exportReport: true,
+        autoEmail: false,
+      },
     });
     triggerToast(`Đã tạo thành công gói dịch vụ ${cleanName}!`);
 
@@ -1357,7 +1895,9 @@ export default function AdminDashboardPage({ user, onLogout }) {
       : (isCand 
           ? [`Hạn ngạch: ${quota} lượt phỏng vấn AI/ngày`, 'Chấm điểm CV chuẩn ATS']
           : [`Hạn ngạch: ${quota} tin tuyển dụng active`, 'Thuật toán AI Matching 70/30 tự động']);
-    const desc = selectedFeats.join(';');
+
+    const perms = editPackageForm.permissions || parsePermissionsFromDescription('', editPackageForm.targetRole, quota, cleanName);
+    const desc = serializePermissionsToDescription(perms, selectedFeats);
 
     setPackagesList((prev) =>
       prev.map((p) =>
@@ -1373,6 +1913,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
               durationDays: duration,
               quotaLimit: quota,
               features: selectedFeats,
+              permissions: perms,
               status: editPackageForm.status,
             }
           : p
@@ -1827,6 +2368,35 @@ export default function AdminDashboardPage({ user, onLogout }) {
       triggerToast(`Lỗi: ${errMsg}`, 'warning');
     } finally {
       setIsSubmittingSkill(false);
+    }
+  };
+
+  // Luồng 3: AI Khởi Tạo Bộ Kỹ Năng Theo Ngành Nghề 1-Click
+  const handleAiGenerateIndustrySkills = async (customIndustryName) => {
+    const industryToGen = (typeof customIndustryName === 'string' ? customIndustryName : aiIndustryInput).trim();
+    if (!industryToGen) {
+      triggerToast('Vui lòng nhập hoặc chọn tên ngành nghề để AI sinh bộ kỹ năng!', 'warning');
+      return;
+    }
+
+    try {
+      setIsGeneratingIndustrySkills(true);
+      triggerToast(`🤖 AI Gemini đang thiết kế & nạp 10 - 15 kỹ năng chuẩn ngành "${industryToGen}" vào Supabase...`);
+
+      const res = await adminApi.generateSkillsForIndustry({ industryName: industryToGen });
+      const data = res?.data || res;
+
+      if (data) {
+        setLastAiGeneratedIndustryResult(data);
+        await fetchSkillsList();
+        triggerToast(`🎉 AI đã sinh & lưu thành công ${data.totalGenerated || 0} kỹ năng ngành "${industryToGen}" vào Supabase!`);
+      }
+    } catch (err) {
+      console.error('Lỗi khi AI sinh bộ kỹ năng theo ngành:', err);
+      const errMsg = err?.response?.data?.message || err?.message || 'Không thể sinh kỹ năng theo ngành';
+      triggerToast(`Lỗi: ${errMsg}`, 'warning');
+    } finally {
+      setIsGeneratingIndustrySkills(false);
     }
   };
 
@@ -4969,6 +5539,69 @@ export default function AdminDashboardPage({ user, onLogout }) {
                           </div>
                         </div>
 
+                        {/* Dynamic System Entitlements Badges */}
+                        {(() => {
+                          const p = pkg.permissions || parsePermissionsFromDescription('', pkg.targetRole, pkg.quotaLimit, pkg.name);
+                          if (isCand) {
+                            return (
+                              <div className="mt-3 p-2.5 rounded-xl bg-amber-50/50 border border-amber-200/70 text-[11px] space-y-1.5">
+                                <div className="text-[10px] font-black text-amber-900 uppercase tracking-wider flex items-center gap-1">
+                                  <span className="material-symbols-outlined text-xs">verified_user</span>
+                                  <span>Đặc quyền phòng phỏng vấn AI Studio:</span>
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                  <span className="px-2 py-0.5 rounded-md bg-white border border-amber-300 text-amber-900 font-bold">
+                                    {p.maxQuestions || 3} câu/phiên
+                                  </span>
+                                  <span className="px-2 py-0.5 rounded-md bg-white border border-amber-300 text-amber-900 font-bold">
+                                    {p.maxDurationMinutes || 5} phút/phiên
+                                  </span>
+                                  <span className="px-2 py-0.5 rounded-md bg-white border border-amber-300 text-amber-900 font-bold">
+                                    {p.allowedPersonas?.length || 1}/3 Personas
+                                  </span>
+                                  <span className="px-2 py-0.5 rounded-md bg-white border border-amber-300 text-amber-900 font-bold">
+                                    {p.allowedVoices?.length || 1}/3 Giọng đọc
+                                  </span>
+                                  <span className="px-2 py-0.5 rounded-md bg-white border border-amber-300 text-amber-900 font-bold">
+                                    {p.coachHints === 999 ? '∞ Gợi ý Coach' : `${p.coachHints || 1} gợi ý Coach`}
+                                  </span>
+                                  <span className={`px-2 py-0.5 rounded-md border font-bold ${p.unlockFullStar ? 'bg-emerald-100 border-emerald-300 text-emerald-900' : 'bg-slate-100 border-slate-300 text-slate-500'}`}>
+                                    {p.unlockFullStar ? 'Full STAR 10/10' : 'STAR mẫu câu 1'}
+                                  </span>
+                                  <span className={`px-2 py-0.5 rounded-md border font-bold ${p.unlockRoadmap ? 'bg-emerald-100 border-emerald-300 text-emerald-900' : 'bg-slate-100 border-slate-300 text-slate-500'}`}>
+                                    {p.unlockRoadmap ? 'Trọn bộ 3 GĐ' : 'Lộ trình GĐ 1'}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          }
+                          return (
+                            <div className="mt-3 p-2.5 rounded-xl bg-purple-50/50 border border-purple-200/70 text-[11px] space-y-1.5">
+                              <div className="text-[10px] font-black text-[#1e1b4b] uppercase tracking-wider flex items-center gap-1">
+                                <span className="material-symbols-outlined text-xs">verified_user</span>
+                                <span>Đặc quyền Nhà tuyển dụng B2B:</span>
+                              </div>
+                              <div className="flex flex-wrap gap-1">
+                                <span className={`px-2 py-0.5 rounded-md border font-bold ${p.aiMatching ? 'bg-purple-100 border-purple-300 text-[#5b48bd]' : 'bg-slate-100 border-slate-300 text-slate-400'}`}>
+                                  AI Match 70/30: {p.aiMatching ? 'BẬT' : 'TẮT'}
+                                </span>
+                                <span className={`px-2 py-0.5 rounded-md border font-bold ${p.unlockDirectContact ? 'bg-purple-100 border-purple-300 text-[#5b48bd]' : 'bg-slate-100 border-slate-300 text-slate-400'}`}>
+                                  Xem CV gốc: {p.unlockDirectContact ? 'MỞ' : 'KHÓA'}
+                                </span>
+                                <span className={`px-2 py-0.5 rounded-md border font-bold ${p.featuredJobBadge ? 'bg-emerald-100 border-emerald-300 text-emerald-900' : 'bg-slate-100 border-slate-300 text-slate-400'}`}>
+                                  Huy hiệu Top: {p.featuredJobBadge ? 'CÓ' : 'KHÔNG'}
+                                </span>
+                                <span className={`px-2 py-0.5 rounded-md border font-bold ${p.exportReport ? 'bg-purple-100 border-purple-300 text-[#5b48bd]' : 'bg-slate-100 border-slate-300 text-slate-400'}`}>
+                                  Xuất Báo Cáo: {p.exportReport ? 'CÓ' : 'KHÔNG'}
+                                </span>
+                                <span className={`px-2 py-0.5 rounded-md border font-bold ${p.autoEmail ? 'bg-purple-100 border-purple-300 text-[#5b48bd]' : 'bg-slate-100 border-slate-300 text-slate-400'}`}>
+                                  Email Tự Động: {p.autoEmail ? 'CÓ' : 'KHÔNG'}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })()}
+
                         {/* Permissions & Feature Matrix */}
                         <div className="mt-4 space-y-2 border-t border-purple-100 pt-3">
                           <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
@@ -5010,6 +5643,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
                                 quotaLimit: pkg.quotaLimit || 0,
                                 features: Array.isArray(pkg.features) ? [...pkg.features] : [],
                                 status: pkg.status || 'ACTIVE',
+                                permissions: pkg.permissions || parsePermissionsFromDescription('', pkg.targetRole, pkg.quotaLimit, pkg.name),
                               });
                               setShowEditPackageModal(true);
                             }}
@@ -6575,20 +7209,24 @@ export default function AdminDashboardPage({ user, onLogout }) {
               {/* Header */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-purple-100 gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-purple-50 text-[#5b48bd] flex items-center justify-center">
-                    <span className="material-symbols-outlined text-xl">psychology</span>
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/20">
+                    <span className="material-symbols-outlined text-xl">smart_toy</span>
                   </div>
                   <div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="text-base font-bold text-[#1e1b4b]">
-                        Khối 2: Quản Trị Từ Điển Kỹ Năng &amp; Bộ Lọc Tuyển Dụng (Master Skills Dictionary)
+                        Khối 2: 🤖 Trung Tâm Từ Điển Kỹ Năng AI Đa Ngành (AI Self-Evolving Skill Taxonomy)
                       </h3>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-[#5b48bd]">
-                        {skillsList.length} Kỹ Năng Thực Tế
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
+                        {skillsList.length} Kỹ Năng Supabase
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        AI Chuẩn Hóa Tự Động
                       </span>
                     </div>
-                    <p className="text-xs text-slate-500">
-                      Nối trực tiếp 100% bảng <code className="text-[#5b48bd] font-mono">public.skills</code> trên Supabase. Kỹ năng thêm/xóa tại đây sẽ tự động hiển thị trên Bộ lọc Ứng viên &amp; Màn hình Đăng tin của HR.
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Tự động hóa 100% việc chuẩn hóa tên gọi, phân loại nhóm ngành và mở rộng vốn từ vựng kỹ năng cho toàn bộ hệ thống từ JD, CV và AI Generator.
                     </p>
                   </div>
                 </div>
@@ -6605,11 +7243,131 @@ export default function AdminDashboardPage({ user, onLogout }) {
                 </button>
               </div>
 
-              {/* Sub-block A: Form Thêm Kỹ Năng Mới */}
+              {/* Sub-block 0: 🤖 KHỐI AI KHỞI TẠO BỘ KỸ NĂNG THEO NGÀNH NGHỀ 1-CLICK */}
+              <div className="p-5 rounded-2xl bg-gradient-to-r from-indigo-950 via-purple-950 to-slate-900 text-white shadow-lg space-y-4 border border-indigo-500/20 relative overflow-hidden">
+                <div className="flex items-center justify-between gap-3 flex-wrap relative z-10">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-indigo-500/30 text-indigo-300 flex items-center justify-center border border-indigo-400/30">
+                      <span className="material-symbols-outlined text-lg text-yellow-300">auto_awesome</span>
+                    </div>
+                    <div>
+                      <h4 className="font-extrabold text-sm text-white flex items-center gap-2">
+                        <span>AI Tự Sinh Bộ Kỹ Năng Đa Ngành Nghề (1-Click Taxonomy Builder)</span>
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/40 text-indigo-200 border border-indigo-400/30">Gemini 2.5 Flash</span>
+                      </h4>
+                      <p className="text-[11px] text-slate-300">
+                        Nhập tên bất kỳ ngành nghề nào (Marketing, Kế toán, Xây dựng, Y tế, HR...). AI sẽ tự thiết kế và nạp 10 - 15 kỹ năng cốt lõi vào Supabase!
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Input & Action Bar */}
+                <div className="flex flex-col sm:flex-row items-center gap-2.5 relative z-10">
+                  <div className="relative flex-1 w-full">
+                    <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-base">
+                      category
+                    </span>
+                    <input
+                      type="text"
+                      placeholder="Nhập tên ngành nghề (VD: Digital Marketing, Kế toán Kiểm toán, Logistics, Trí tuệ nhân tạo...)"
+                      value={aiIndustryInput}
+                      onChange={(e) => setAiIndustryInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAiGenerateIndustrySkills();
+                        }
+                      }}
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 focus:bg-white/20 border border-white/20 focus:border-indigo-400 text-xs text-white placeholder-slate-400 focus:outline-none transition-all font-sans"
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleAiGenerateIndustrySkills()}
+                    disabled={isGeneratingIndustrySkills || !aiIndustryInput.trim()}
+                    className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:from-indigo-600 hover:to-pink-600 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0 hover:scale-[1.02]"
+                  >
+                    {isGeneratingIndustrySkills ? (
+                      <>
+                        <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                        <span>AI Đang Sinh Kỹ Năng...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="material-symbols-outlined text-sm text-yellow-300">auto_awesome</span>
+                        <span>✨ AI Tự Sinh Bộ Kỹ Năng Theo Ngành</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Quick Industry Presets */}
+                <div className="flex items-center gap-1.5 flex-wrap pt-1 relative z-10 text-[11px]">
+                  <span className="text-slate-400 text-[10px] font-semibold flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[13px] text-yellow-400">tips_and_updates</span>
+                    <span>Gợi ý ngành nghề phổ biến:</span>
+                  </span>
+                  {[
+                    'Digital Marketing',
+                    'Kế toán Kiểm toán',
+                    'Trí tuệ nhân tạo & Data',
+                    'Quản trị Chuỗi cung ứng (Logistics)',
+                    'Thiết kế Đồ họa & UI/UX',
+                    'Nhân sự & Tuyển dụng (HR)',
+                    'Kỹ thuật Xây dựng & Kiến trúc',
+                    'Chăm sóc Khách hàng (CSKH)',
+                    'Y tế & Dược phẩm'
+                  ].map((ind) => (
+                    <button
+                      key={ind}
+                      type="button"
+                      onClick={() => {
+                        setAiIndustryInput(ind);
+                        handleAiGenerateIndustrySkills(ind);
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-indigo-500/40 border border-white/10 hover:border-indigo-400/50 text-indigo-200 hover:text-white transition-all cursor-pointer text-[10px] font-medium"
+                    >
+                      + {ind}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Live Result Details */}
+                {lastAiGeneratedIndustryResult && (
+                  <div className="mt-3 p-3.5 rounded-xl bg-white/10 border border-white/20 text-xs space-y-2 animate-fade-in relative z-10">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <span className="font-bold text-emerald-300 flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-sm text-emerald-400">check_circle</span>
+                        Đã sinh thành công {lastAiGeneratedIndustryResult.totalGenerated} kỹ năng cho ngành: <strong>{lastAiGeneratedIndustryResult.industry}</strong>
+                      </span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/30 text-emerald-200 border border-emerald-400/30 font-semibold">
+                        + {lastAiGeneratedIndustryResult.newlyCreatedCount} Kỹ năng mới nạp Supabase
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {Array.isArray(lastAiGeneratedIndustryResult.skills) && lastAiGeneratedIndustryResult.skills.map((sk, idx) => (
+                        <span
+                          key={`gen-${idx}`}
+                          className="px-2 py-0.5 rounded-md bg-white/15 text-slate-100 border border-white/10 text-[10px] font-medium flex items-center gap-1"
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>
+                          <span>{sk.name}</span>
+                          <span className="text-[9px] text-indigo-300">({sk.category})</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Sub-block A: Form Thêm Kỹ Năng Thủ Công */}
               <form onSubmit={handleCreateSkill} className="p-5 rounded-2xl bg-gradient-to-r from-purple-50/50 via-indigo-50/30 to-purple-50/50 border border-purple-100 space-y-4">
                 <div className="flex items-center gap-2 text-xs font-bold text-[#1e1b4b]">
                   <span className="material-symbols-outlined text-base text-[#5b48bd]">add_circle</span>
-                  <span>Thêm Kỹ Năng Mới Vào Danh Mục Hệ Thống</span>
+                  <span>Thêm Kỹ Năng Thủ Công Vào Danh Mục Hệ Thống</span>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 items-end">
@@ -8242,7 +9000,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
       {/* ========================================================= */}
       {showCreatePackageModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in font-sans overflow-y-auto">
-          <div className="bg-white max-w-xl w-full rounded-3xl shadow-2xl border border-purple-100 p-6 sm:p-7 space-y-5 relative my-8">
+          <div className="bg-white max-w-3xl w-full rounded-3xl shadow-2xl border border-purple-100 p-6 sm:p-7 space-y-5 relative my-8 max-h-[90vh] overflow-y-auto">
             <button
               onClick={() => setShowCreatePackageModal(false)}
               className="absolute top-5 right-5 text-slate-400 hover:text-slate-600 cursor-pointer"
@@ -8256,7 +9014,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
               </div>
               <div>
                 <h3 className="text-lg sm:text-xl font-bold text-[#1e1b4b]">Tạo Gói Dịch Vụ &amp; Phân Quyền Mới</h3>
-                <p className="text-xs text-slate-500">Cấu hình tính năng, hạn ngạch và giá bán dành cho người dùng</p>
+                <p className="text-xs text-slate-500">Cấu hình tính năng, ma trận đặc quyền hệ thống và giá bán cho từng nhóm người dùng</p>
               </div>
             </div>
 
@@ -8278,16 +9036,27 @@ export default function AdminDashboardPage({ user, onLogout }) {
                           'Lọc ứng viên Top 5% xuất sắc nhất',
                           'Mở khóa xem CV & thông tin liên hệ đầy đủ',
                         ],
+                        permissions: {
+                          jobPostingQuota: 10,
+                          aiMatching: true,
+                          unlockDirectContact: true,
+                          featuredJobBadge: false,
+                          exportReport: true,
+                          autoEmail: false,
+                        },
                       }));
                     }}
                     className={`p-3 rounded-2xl border flex items-center gap-2.5 font-bold cursor-pointer transition-all ${
                       newPackageForm.targetRole === 'RECRUITER'
-                        ? 'border-[#5b48bd] bg-purple-50 text-[#5b48bd] shadow-xs'
+                        ? 'border-[#5b48bd] bg-purple-50 text-[#5b48bd] shadow-xs ring-1 ring-purple-400'
                         : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                     }`}
                   >
                     <span className="material-symbols-outlined text-lg">business_center</span>
-                    <span>Nhà tuyển dụng (B2B)</span>
+                    <div>
+                      <div className="font-bold">Nhà tuyển dụng (B2B)</div>
+                      <div className="text-[10px] text-slate-400 font-normal">Đăng tin &amp; Quét đối sánh AI Matching 70/30</div>
+                    </div>
                   </button>
 
                   <button
@@ -8301,18 +9070,31 @@ export default function AdminDashboardPage({ user, onLogout }) {
                           'Luyện phỏng vấn AI Voice Mock Studio theo hạn ngạch',
                           'Chấm điểm & tối ưu hóa CV chuẩn ATS',
                           'Báo cáo cải thiện kỹ năng Delta sau phỏng vấn',
-                          'Ngân hàng câu hỏi động theo vị trí tuyển dụng',
+                          'Ngân hàng câu hỏi động theo JD thực tế',
                         ],
+                        permissions: {
+                          maxQuestions: 5,
+                          maxDurationMinutes: 10,
+                          allowedPersonas: ['HR_MANAGER', 'TECH_LEAD'],
+                          allowedVoices: ['vi-native', 'eleven-alice'],
+                          coachHints: 3,
+                          unlockFullStar: true,
+                          unlockRoadmap: true,
+                          atsCvAnalysis: true,
+                        },
                       }));
                     }}
                     className={`p-3 rounded-2xl border flex items-center gap-2.5 font-bold cursor-pointer transition-all ${
                       newPackageForm.targetRole === 'CANDIDATE'
-                        ? 'border-amber-500 bg-amber-50 text-amber-800 shadow-xs'
+                        ? 'border-amber-500 bg-amber-50 text-amber-800 shadow-xs ring-1 ring-amber-400'
                         : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                     }`}
                   >
                     <span className="material-symbols-outlined text-lg">psychology</span>
-                    <span>Ứng viên (B2C)</span>
+                    <div>
+                      <div className="font-bold">Ứng viên (B2C)</div>
+                      <div className="text-[10px] text-slate-400 font-normal">Luyện phỏng vấn AI Studio &amp; Nhận xét STAR</div>
+                    </div>
                   </button>
                 </div>
               </div>
@@ -8391,6 +9173,13 @@ export default function AdminDashboardPage({ user, onLogout }) {
                   <div className="text-[10px] text-slate-400 mt-0.5">999 = Không giới hạn</div>
                 </div>
               </div>
+
+              {/* Role-Based Entitlement Matrix Configuration */}
+              <RolePermissionMatrixConfig
+                form={newPackageForm}
+                setForm={setNewPackageForm}
+                isCand={newPackageForm.targetRole === 'CANDIDATE'}
+              />
 
               {/* Description */}
               <div>
@@ -8517,7 +9306,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
       {/* ========================================================= */}
       {showEditPackageModal && editPackageForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in font-sans overflow-y-auto">
-          <div className="bg-white max-w-xl w-full rounded-3xl shadow-2xl border border-purple-100 p-6 sm:p-7 space-y-5 relative my-8">
+          <div className="bg-white max-w-3xl w-full rounded-3xl shadow-2xl border border-purple-100 p-6 sm:p-7 space-y-5 relative my-8 max-h-[90vh] overflow-y-auto">
             <button
               onClick={() => {
                 setShowEditPackageModal(null);
@@ -8536,7 +9325,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
                 <h3 className="text-lg sm:text-xl font-bold text-[#1e1b4b]">
                   Chỉnh Sửa Phân Quyền &amp; Giá: {editPackageForm.name}
                 </h3>
-                <p className="text-xs text-slate-500">Cập nhật quyền lợi, hạn ngạch và giá niêm yết lên hệ thống</p>
+                <p className="text-xs text-slate-500">Cập nhật quyền lợi, hạn ngạch, ma trận phân quyền hệ thống và giá niêm yết lên Supabase</p>
               </div>
             </div>
 
@@ -8557,7 +9346,14 @@ export default function AdminDashboardPage({ user, onLogout }) {
                   <label className="font-bold text-slate-700 block mb-1">Phân khúc đối tượng</label>
                   <select
                     value={editPackageForm.targetRole}
-                    onChange={(e) => setEditPackageForm((prev) => ({ ...prev, targetRole: e.target.value }))}
+                    onChange={(e) => {
+                      const newRole = e.target.value;
+                      setEditPackageForm((prev) => ({
+                        ...prev,
+                        targetRole: newRole,
+                        permissions: parsePermissionsFromDescription('', newRole, prev.quotaLimit, prev.name),
+                      }));
+                    }}
                     className="w-full px-3 py-2 border border-purple-200 rounded-xl text-xs font-bold bg-white focus:outline-none focus:ring-2 focus:ring-[#5b48bd]/30"
                   >
                     <option value="RECRUITER">Nhà tuyển dụng (B2B)</option>
@@ -8631,6 +9427,13 @@ export default function AdminDashboardPage({ user, onLogout }) {
                   </label>
                 </div>
               </div>
+
+              {/* Role-Based Entitlement Matrix Configuration */}
+              <RolePermissionMatrixConfig
+                form={editPackageForm}
+                setForm={setEditPackageForm}
+                isCand={editPackageForm.targetRole === 'CANDIDATE'}
+              />
 
               {/* Quyền lợi & Ưu đãi hiển thị trên Bảng giá */}
               <div>

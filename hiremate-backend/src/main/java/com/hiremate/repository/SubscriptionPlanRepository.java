@@ -10,4 +10,8 @@ import java.util.List;
 public interface SubscriptionPlanRepository extends JpaRepository<SubscriptionPlan, Long> {
     List<SubscriptionPlan> findByIsActiveTrueOrderByPriceAsc();
     List<SubscriptionPlan> findByTargetRoleAndIsActiveTrueOrderByPriceAsc(String targetRole);
+    java.util.Optional<SubscriptionPlan> findFirstByPlanNameIgnoreCaseAndIsActiveTrue(String planName);
+    java.util.Optional<SubscriptionPlan> findFirstByTargetRoleAndPriceAndIsActiveTrue(String targetRole, java.math.BigDecimal price);
+    List<SubscriptionPlan> findByTargetRoleAndIsActiveTrue(String targetRole);
 }
+

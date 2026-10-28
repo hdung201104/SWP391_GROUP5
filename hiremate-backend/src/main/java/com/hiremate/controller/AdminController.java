@@ -288,4 +288,12 @@ public class AdminController {
         res.put("message", "Kết nối Cổng thanh toán PayOS & Tài khoản " + settings.getVietqrBankName() + " (" + payosAccount + " - " + payosHolder + ") hoạt động xuất sắc (" + pingMs + "ms)! Đã xác thực cổng Napas 24/7 sẵn sàng tự động bắt biến động số dư.");
         return ResponseEntity.ok(ApiResponse.ok("Kiểm tra kết nối thành công", res));
     }
+
+    @PostMapping("/skills/ai-generate-industry")
+    public ResponseEntity<ApiResponse<com.hiremate.dto.response.AiIndustrySkillGenerateResponse>> generateSkillsForIndustry(
+            @RequestBody @Valid com.hiremate.dto.request.AiIndustrySkillGenerateRequest request
+    ) {
+        com.hiremate.dto.response.AiIndustrySkillGenerateResponse response = skillService.generateSkillsForIndustry(request);
+        return ResponseEntity.ok(ApiResponse.ok("Khởi tạo bộ kỹ năng theo ngành thành công", response));
+    }
 }

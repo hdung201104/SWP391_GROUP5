@@ -79,6 +79,21 @@ public interface GeminiAiService {
 
     String processVoiceInterviewTurn(String targetPosition, String userSpeech, List<String> conversationHistory, String focusNotes, String cvSnippet, String jobSnippet, String persona, String difficulty);
 
+    default String processVoiceInterviewTurn(
+            String targetPosition,
+            String userSpeech,
+            List<String> conversationHistory,
+            String focusNotes,
+            String cvSnippet,
+            String jobSnippet,
+            String persona,
+            String difficulty,
+            Integer maxQuestions,
+            String planName
+    ) {
+        return processVoiceInterviewTurn(targetPosition, userSpeech, conversationHistory, focusNotes, cvSnippet, jobSnippet, persona, difficulty);
+    }
+
     /** Phân tích ngữ nghĩa: ứng viên đã nói xong ý trả lời chưa (true) hay còn đang dở và sẽ nói tiếp (false). */
     default boolean isCandidateTurnComplete(String question, String answerSoFar) {
         return true;
@@ -143,5 +158,16 @@ public interface GeminiAiService {
             String cvText,
             String candidateProfileInfo
     );
+
+    /**
+     * Tự động đọc và bóc tách kỹ năng từ tiêu đề & mô tả JD (đa ngành nghề),
+     * chuẩn hóa tên gọi và gán nhãn danh mục ngành chuẩn.
+     */
+    com.hiremate.dto.response.AiJdSkillExtractResponse extractSkillsFromJdWithAi(String title, String description, String industry);
+
+    /**
+     * Tự động thiết kế và sinh 10 - 15 kỹ năng cốt lõi theo tên ngành nghề bất kỳ.
+     */
+    java.util.List<com.hiremate.dto.response.SkillItemDTO> generateSkillsForIndustryWithAi(String industryName);
 }
 

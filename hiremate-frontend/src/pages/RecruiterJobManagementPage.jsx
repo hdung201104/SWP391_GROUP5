@@ -352,6 +352,8 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
   const [jdScanSuccess, setJdScanSuccess] = useState(false);
   const [lastScannedData, setLastScannedData] = useState(null);
   const [rawJdText, setRawJdText] = useState('');
+  const [isExtractingSkillsAi, setIsExtractingSkillsAi] = useState(false);
+  const [aiSuggestedSkillsData, setAiSuggestedSkillsData] = useState(null);
   const fileInputRef = useRef(null);
 
   const triggerToast = (msg) => {
@@ -710,6 +712,78 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
       triggerToast('Không thể quét JD tự động: ' + (err.response?.data?.message || err.message));
     } finally {
       setIsScanningJd(false);
+    }
+  };
+
+  // Luồng 1: AI Tự Động Đọc JD & Đề Xuất Kỹ Năng Đa Ngành Nghề
+  const handleAiExtractSkillsFromJd = async () => {
+    const title = (createForm.title || '').trim();
+    const desc = (createForm.description || '').trim();
+    const req = (createForm.requirements || '').trim();
+    const fullContent = (desc + '\n' + req).trim();
+
+    if (!title && !fullContent) {
+      triggerToast('⚠️ Vui lòng nhập Tiêu đề và Mô tả hoặc Yêu cầu công việc trước khi phân tích kỹ năng bằng AI!');
+      return;
+    }
+
+    try {
+      setIsExtractingSkillsAi(true);
+      triggerToast('✨ AI Gemini đang phân tích nội dung JD và chuẩn hóa kỹ năng vào Supabase...');
+
+      const res = await skillApi.extractSkillsFromJd({
+        title: title || 'Vị trí Tuyển Dụng',
+        description: fullContent || title,
+        industry: createForm.domain || ''
+      });
+
+      const data = res?.data || res;
+      if (data) {
+        setAiSuggestedSkillsData(data);
+
+        const newMandatory = Array.isArray(data.mandatorySkills) ? data.mandatorySkills.map(s => s.name || s) : [];
+        const newPreferred = Array.isArray(data.preferredSkills) ? data.preferredSkills.map(s => s.name || s) : [];
+
+        // Hợp nhất tag kỹ năng vào createForm (chống duplicate)
+        setCreateForm(prev => {
+          const currentMand = (prev.mandatorySkillsInput || '').split(/[,;\n]+/).map(s => s.trim()).filter(Boolean);
+          const currentPref = (prev.preferredSkillsInput || '').split(/[,;\n]+/).map(s => s.trim()).filter(Boolean);
+
+          const mergedMand = [...currentMand];
+          newMandatory.forEach(sk => {
+            if (!mergedMand.some(s => s.toLowerCase() === sk.toLowerCase())) {
+              mergedMand.push(sk);
+            }
+          });
+
+          const mergedPref = [...currentPref];
+          newPreferred.forEach(sk => {
+            if (!mergedPref.some(s => s.toLowerCase() === sk.toLowerCase()) && !mergedMand.some(s => s.toLowerCase() === sk.toLowerCase())) {
+              mergedPref.push(sk);
+            }
+          });
+
+          return {
+            ...prev,
+            mandatorySkillsInput: mergedMand.join(', '),
+            preferredSkillsInput: mergedPref.join(', ')
+          };
+        });
+
+        // Tự động tải lại masterSkillsList để cập nhật các skill mới được lưu trong Supabase
+        skillApi.getAllSkills().then(sRes => {
+          const raw = sRes?.data || sRes;
+          const list = Array.isArray(raw) ? raw : (Array.isArray(raw?.data) ? raw.data : []);
+          setMasterSkillsList(list);
+        }).catch(() => {});
+
+        triggerToast(`🎉 AI đã bóc tách & chuẩn hóa ${newMandatory.length + newPreferred.length} kỹ năng vào bài đăng!`);
+      }
+    } catch (err) {
+      console.error('Lỗi khi AI bóc tách kỹ năng từ JD:', err);
+      triggerToast('Không thể phân tích kỹ năng lúc này: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setIsExtractingSkillsAi(false);
     }
   };
 
@@ -2915,17 +2989,102 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
 
                     {/* SECTION 4: AI SKILLS MATRIX 70/30 (HIREMATE CORE MATCHING ENGINE) */}
                     <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-4">
-                      <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
+                      <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 flex-wrap gap-2">
                         <div className="flex items-center gap-2">
                           <span className="material-symbols-outlined text-indigo-600 text-lg">psychology</span>
                           <span className="font-bold text-xs uppercase tracking-wider text-slate-900">
                             5. Ma Trận Kỹ Năng AI 70/30 (HireMate Match Engine)
                           </span>
                         </div>
-                        <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-2.5 py-0.5 rounded-full">
-                          Chuẩn Trọng Số AI
-                        </span>
+                        
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={handleAiExtractSkillsFromJd}
+                            disabled={isExtractingSkillsAi}
+                            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white text-xs font-bold shadow-sm hover:shadow-md transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02]"
+                            title="AI tự động đọc tiêu đề và mô tả JD để trích xuất kỹ năng chuẩn hóa vào Supabase"
+                          >
+                            {isExtractingSkillsAi ? (
+                              <>
+                                <span className="material-symbols-outlined text-sm animate-spin">sync</span>
+                                <span>AI Đang Phân Tích...</span>
+                              </>
+                            ) : (
+                              <>
+                                <span className="material-symbols-outlined text-sm text-yellow-300">auto_awesome</span>
+                                <span>✨ AI Tự Động Phân Tích JD &amp; Đề Xuất Kỹ Năng</span>
+                              </>
+                            )}
+                          </button>
+                          <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-2.5 py-0.5 rounded-full hidden sm:inline">
+                            Chuẩn Trọng Số AI
+                          </span>
+                        </div>
                       </div>
+
+                      {/* AI Extraction Live Banner if Available */}
+                      {aiSuggestedSkillsData && (
+                        <div className="p-3.5 rounded-xl bg-gradient-to-r from-indigo-50 via-purple-50 to-pink-50 border border-indigo-200 text-slate-800 space-y-2 animate-fade-in">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
+                              <span className="material-symbols-outlined text-sm text-indigo-600">verified</span>
+                              Kỹ năng AI đề xuất theo ngành: <span className="text-purple-700 uppercase">{aiSuggestedSkillsData.detectedIndustry || 'Đa ngành'}</span>
+                            </span>
+                            <span className="text-[10px] bg-indigo-100 text-indigo-800 font-semibold px-2 py-0.5 rounded-full">
+                              Đã lưu vào Supabase
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5 pt-1">
+                            {Array.isArray(aiSuggestedSkillsData.mandatorySkills) && aiSuggestedSkillsData.mandatorySkills.map((sk, idx) => (
+                              <button
+                                key={`ai-mand-${idx}`}
+                                type="button"
+                                onClick={() => {
+                                  const name = sk.name || sk;
+                                  if (mandatorySkillsArray.some(s => s.toLowerCase() === name.toLowerCase())) {
+                                    handleRemoveMandatorySkill(name);
+                                  } else {
+                                    handleAddMandatorySkill(name);
+                                  }
+                                }}
+                                className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border transition-all cursor-pointer ${
+                                  mandatorySkillsArray.some(s => s.toLowerCase() === (sk.name || sk).toLowerCase())
+                                    ? 'bg-indigo-600 text-white border-indigo-600'
+                                    : 'bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-50'
+                                }`}
+                                title={`Nhóm ngành: ${sk.category || 'Chung'} - Bấm để bật/tắt`}
+                              >
+                                {mandatorySkillsArray.some(s => s.toLowerCase() === (sk.name || sk).toLowerCase()) ? '✓ ' : '+ '}
+                                {sk.name || sk} <span className="text-[9px] opacity-75">({sk.category || '70%'})</span>
+                              </button>
+                            ))}
+                            {Array.isArray(aiSuggestedSkillsData.preferredSkills) && aiSuggestedSkillsData.preferredSkills.map((sk, idx) => (
+                              <button
+                                key={`ai-pref-${idx}`}
+                                type="button"
+                                onClick={() => {
+                                  const name = sk.name || sk;
+                                  if (preferredSkillsArray.some(s => s.toLowerCase() === name.toLowerCase())) {
+                                    handleRemovePreferredSkill(name);
+                                  } else {
+                                    handleAddPreferredSkill(name);
+                                  }
+                                }}
+                                className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border transition-all cursor-pointer ${
+                                  preferredSkillsArray.some(s => s.toLowerCase() === (sk.name || sk).toLowerCase())
+                                    ? 'bg-emerald-600 text-white border-emerald-600'
+                                    : 'bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50'
+                                }`}
+                                title={`Nhóm ngành: ${sk.category || 'Chung'} - Bấm để bật/tắt`}
+                              >
+                                {preferredSkillsArray.some(s => s.toLowerCase() === (sk.name || sk).toLowerCase()) ? '✓ ' : '+ '}
+                                {sk.name || sk} <span className="text-[9px] opacity-75">({sk.category || '30%'})</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Visual Weight Balance Bar */}
                       <div className="space-y-1.5 bg-slate-50 p-3 rounded-xl border border-slate-200">

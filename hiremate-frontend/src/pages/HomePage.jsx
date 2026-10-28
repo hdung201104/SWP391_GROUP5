@@ -162,21 +162,34 @@ export default function HomePage({ user }) {
         setAllJobs([]);
       }
 
-      // Collect available skill names from DB and jobs
-      const skillNameSet = new Set();
+      // Collect available skill objects with category from DB and jobs
+      const skillMap = new Map();
       if (Array.isArray(dbSkills)) {
         dbSkills.forEach(s => {
-          if (s.skillName) skillNameSet.add(s.skillName);
+          if (s.skillName) {
+            skillMap.set(s.skillName.toLowerCase(), {
+              name: s.skillName,
+              category: s.category || 'GENERAL',
+              aliases: s.aliases
+            });
+          }
         });
       }
       if (Array.isArray(approvedJobsOnly)) {
         approvedJobsOnly.forEach(j => {
           if (Array.isArray(j.skills)) {
-            j.skills.forEach(sk => skillNameSet.add(sk));
+            j.skills.forEach(sk => {
+              if (sk && !skillMap.has(sk.toLowerCase())) {
+                skillMap.set(sk.toLowerCase(), {
+                  name: sk,
+                  category: 'GENERAL'
+                });
+              }
+            });
           }
         });
       }
-      setAvailableSkills(Array.from(skillNameSet));
+      setAvailableSkills(Array.from(skillMap.values()));
       setLoading(false);
 
       // Background AI recommendations matching

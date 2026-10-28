@@ -15,6 +15,7 @@ import JobApplicantsRosterPage from './pages/JobApplicantsRosterPage';
 import RecruiterDashboardPage from './pages/RecruiterDashboardPage';
 import CandidateEvaluationPage from './pages/CandidateEvaluationPage';
 import AiInterviewStudioPage from './pages/AiInterviewStudioPage';
+import AiInterviewReportPage from './pages/AiInterviewReportPage';
 import AccountSettingsPage from './pages/AccountSettingsPage';
 import CareerInsightsPage from './pages/CareerInsightsPage';
 import RecruiterPricingPage from './pages/RecruiterPricingPage';
@@ -210,6 +211,14 @@ function AppContent() {
           onNavigateLogin={() => { window.location.hash = '#/login'; }}
           onRegisterSuccess={handleLoginSuccess}
         />
+      );
+    }
+
+    if (route.includes('ai-interview-report') || route.includes('interview-report') || route.includes('bao-cao-phong-van')) {
+      return (
+        <ProtectedRoute user={user} requiredRole="CANDIDATE">
+          <AiInterviewReportPage user={user} onBack={() => { window.location.hash = '#/ai-interview'; }} />
+        </ProtectedRoute>
       );
     }
 

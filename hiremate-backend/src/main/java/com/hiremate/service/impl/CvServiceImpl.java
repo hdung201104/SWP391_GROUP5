@@ -26,6 +26,7 @@ public class CvServiceImpl implements CvService {
     private final CvRepository cvRepository;
     private final FileStorageService fileStorageService;
     private final com.hiremate.service.GeminiAiService geminiAiService;
+    private final com.hiremate.service.SkillService skillService;
     private final com.hiremate.repository.SkillRepository skillRepository;
     private final com.hiremate.repository.CandidateSkillRepository candidateSkillRepository;
     private final com.hiremate.repository.CandidateRepository candidateRepository;
@@ -479,16 +480,8 @@ public class CvServiceImpl implements CvService {
                         continue;
                     }
                     try {
-                        com.hiremate.entity.Skill skill = skillByNameMap.get(lower);
-                        if (skill == null) {
-                            skill = skillRepository.save(com.hiremate.entity.Skill.builder()
-                                    .skillName(trimmedSkill)
-                                    .category("Technical")
-                                    .build());
-                            skillByNameMap.put(lower, skill);
-                        }
-
-                        if (!existingCandSkillIds.contains(skill.getSkillId())) {
+                        com.hiremate.entity.Skill skill = skillService.findOrCreateNormalizedSkill(trimmedSkill, null, null);
+                        if (skill != null && !existingCandSkillIds.contains(skill.getSkillId())) {
                             candidateSkillRepository.save(com.hiremate.entity.CandidateSkill.builder()
                                     .profileId(candidate.getUserId())
                                     .skillId(skill.getSkillId())
@@ -606,18 +599,18 @@ public class CvServiceImpl implements CvService {
             for (String skillName : updateDto.getSkills()) {
                 if (skillName == null || skillName.isBlank()) continue;
                 String trimmed = skillName.trim();
-                com.hiremate.entity.Skill skill = skillRepository.findBySkillNameIgnoreCase(trimmed)
-                        .orElseGet(() -> skillRepository.save(com.hiremate.entity.Skill.builder()
-                                .skillName(trimmed)
-                                .category("Technical")
-                                .build()));
-                if (candidateSkillRepository.findByProfileIdAndSkillId(candidate.getUserId(), skill.getSkillId()).isEmpty()) {
-                    candidateSkillRepository.save(com.hiremate.entity.CandidateSkill.builder()
-                            .profileId(candidate.getUserId())
-                            .skillId(skill.getSkillId())
-                            .proficiencyLevel(com.hiremate.enums.SkillProficiency.INTERMEDIATE)
-                            .aiDetected(true)
-                            .build());
+                try {
+                    com.hiremate.entity.Skill skill = skillService.findOrCreateNormalizedSkill(trimmed, null, null);
+                    if (skill != null && candidateSkillRepository.findByProfileIdAndSkillId(candidate.getUserId(), skill.getSkillId()).isEmpty()) {
+                        candidateSkillRepository.save(com.hiremate.entity.CandidateSkill.builder()
+                                .profileId(candidate.getUserId())
+                                .skillId(skill.getSkillId())
+                                .proficiencyLevel(com.hiremate.enums.SkillProficiency.INTERMEDIATE)
+                                .aiDetected(true)
+                                .build());
+                    }
+                } catch (Exception ex) {
+                    log.warn(">> [CvService] Lỗi khi cập nhật kỹ năng '{}': {}", trimmed, ex.getMessage());
                 }
             }
         }

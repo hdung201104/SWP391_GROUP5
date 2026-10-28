@@ -40,9 +40,24 @@ public class SkillController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok("Thêm kỹ năng mới thành công", created));
     }
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<Void>> deleteSkill(@PathVariable Long id) {
-        skillService.deleteSkill(id);
-        return ResponseEntity.ok(ApiResponse.ok("Xóa kỹ năng khỏi danh mục thành công", null));
+    @GetMapping("/categories")
+    public ResponseEntity<ApiResponse<List<com.hiremate.dto.response.SkillCategoryCountDTO>>> getCategoriesSummary() {
+        return ResponseEntity.ok(ApiResponse.ok(skillService.getSkillCategoriesSummary()));
+    }
+
+    @PostMapping("/ai-extract-jd")
+    public ResponseEntity<ApiResponse<com.hiremate.dto.response.AiJdSkillExtractResponse>> extractSkillsFromJd(
+            @RequestBody @Valid com.hiremate.dto.request.AiJdSkillExtractRequest request
+    ) {
+        com.hiremate.dto.response.AiJdSkillExtractResponse response = skillService.extractSkillsFromJd(request);
+        return ResponseEntity.ok(ApiResponse.ok("Trích xuất và chuẩn hóa kỹ năng từ JD thành công", response));
+    }
+
+    @PostMapping("/ai-generate-industry")
+    public ResponseEntity<ApiResponse<com.hiremate.dto.response.AiIndustrySkillGenerateResponse>> generateSkillsForIndustry(
+            @RequestBody @Valid com.hiremate.dto.request.AiIndustrySkillGenerateRequest request
+    ) {
+        com.hiremate.dto.response.AiIndustrySkillGenerateResponse response = skillService.generateSkillsForIndustry(request);
+        return ResponseEntity.ok(ApiResponse.ok("Khởi tạo bộ kỹ năng theo ngành thành công", response));
     }
 }

@@ -47,6 +47,16 @@ public class AiInterviewController {
         )));
     }
 
+    @GetMapping("/quota-status")
+    @PreAuthorize("hasRole('CANDIDATE')")
+    public ResponseEntity<ApiResponse<com.hiremate.dto.response.InterviewQuotaStatusResponse>> getQuotaStatus(
+            @AuthenticationPrincipal User user
+    ) {
+        com.hiremate.dto.response.InterviewQuotaStatusResponse response = aiInterviewService.getCandidateQuotaStatus(user);
+        return ResponseEntity.ok(ApiResponse.ok("Thông tin gói dịch vụ & hạn ngạch phỏng vấn", response));
+    }
+
+
     @GetMapping("/generate-questions")
     public ResponseEntity<ApiResponse<List<String>>> generateQuestions(
             @RequestParam(required = false, defaultValue = "Software Engineer") String targetPosition,
@@ -122,7 +132,26 @@ public class AiInterviewController {
         String persona = body.get("persona") != null ? body.get("persona").toString() : null;
         String difficulty = body.get("difficulty") != null ? body.get("difficulty").toString() : null;
 
-        String aiReply = geminiAiService.processVoiceInterviewTurn(targetPosition, userSpeech, history, focusNotes, cvSnippet, jobSnippet, persona, difficulty);
+        Integer maxQuestions = null;
+        String planName = null;
+        if (body.get("maxQuestions") != null) {
+            try {
+                maxQuestions = Integer.parseInt(body.get("maxQuestions").toString());
+            } catch (Exception ignored) {}
+        }
+        if (body.get("planName") != null) {
+            planName = body.get("planName").toString();
+        }
+
+        if (user != null && (maxQuestions == null || planName == null)) {
+            try {
+                var quota = aiInterviewService.getCandidateQuotaStatus(user);
+                if (maxQuestions == null) maxQuestions = quota.getMaxQuestions();
+                if (planName == null) planName = quota.getPlanName();
+            } catch (Exception ignored) {}
+        }
+
+        String aiReply = geminiAiService.processVoiceInterviewTurn(targetPosition, userSpeech, history, focusNotes, cvSnippet, jobSnippet, persona, difficulty, maxQuestions, planName);
         return ResponseEntity.ok(ApiResponse.ok("Voice turn generated", java.util.Map.of(
                 "reply", aiReply,
                 "timestamp", System.currentTimeMillis()
@@ -166,7 +195,26 @@ public class AiInterviewController {
         String persona = body.get("persona") != null ? body.get("persona").toString() : null;
         String difficulty = body.get("difficulty") != null ? body.get("difficulty").toString() : null;
 
-        String aiReply = geminiAiService.processVoiceInterviewTurn(targetPosition, userSpeech, history, focusNotes, cvSnippet, jobSnippet, persona, difficulty);
+        Integer maxQuestions = null;
+        String planName = null;
+        if (body.get("maxQuestions") != null) {
+            try {
+                maxQuestions = Integer.parseInt(body.get("maxQuestions").toString());
+            } catch (Exception ignored) {}
+        }
+        if (body.get("planName") != null) {
+            planName = body.get("planName").toString();
+        }
+
+        if (user != null && (maxQuestions == null || planName == null)) {
+            try {
+                var quota = aiInterviewService.getCandidateQuotaStatus(user);
+                if (maxQuestions == null) maxQuestions = quota.getMaxQuestions();
+                if (planName == null) planName = quota.getPlanName();
+            } catch (Exception ignored) {}
+        }
+
+        String aiReply = geminiAiService.processVoiceInterviewTurn(targetPosition, userSpeech, history, focusNotes, cvSnippet, jobSnippet, persona, difficulty, maxQuestions, planName);
         return ResponseEntity.ok(ApiResponse.ok("Voice turn generated", java.util.Map.of(
                 "reply", aiReply,
                 "timestamp", System.currentTimeMillis()

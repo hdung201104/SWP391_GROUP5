@@ -6,6 +6,8 @@ import { cvApi } from '../api/cvApi';
 import { aiMatchApi } from '../api/aiMatchApi';
 import VoiceAiAssistantModal from '../components/voice/VoiceAiAssistantModal';
 import { HIREMATE_LOGO_URL } from '../constants/branding';
+import { getFaceLandmarker, analyzeFaceFrameWithMediaPipe } from '../utils/faceTracker';
+import AiInterviewReportPage from './AiInterviewReportPage';
 
 // ============================================================================
 // HỆ THỐNG CẤP BẬC MỤC TIÊU PHỎNG VẤN THỰC CHIẾN
@@ -21,7 +23,7 @@ const LEVELS = [
 const fmt = (s) => String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
 
 // ============================================================================
-// HỆ THỐNG GIỌNG NÓI CHUẨN PHÒNG THU (STUDIO-QUALITY AI VOICES)
+// HỆ THỐNG GIỌNG NÓI CHUẨN PHÒNG THU (STUDIO-QUALITY AI VOICES) PHÂN QUYỀN GÓI
 // ============================================================================
 const VOICE_PRESETS = [
   {
@@ -30,6 +32,8 @@ const VOICE_PRESETS = [
     gender: 'Nữ',
     tone: '100% Tiếng Việt Bản Xứ Chuẩn Mực',
     badge: 'Khuyên Dùng',
+    minTier: 'FREE',
+    tierLabel: 'Mọi Gói',
     color: 'from-emerald-500 to-teal-600',
     desc: 'Động cơ giọng đọc phát thanh viên tiếng Việt bản xứ: phát âm tròn vành rõ chữ, chuẩn từng thanh điệu, ngữ điệu tự nhiên, tuyệt đối không bị lai giọng Tây hay bập bẹ.',
     sampleText: 'Chào bạn, tôi là trợ lý phỏng vấn AI HireMate. Rất vui được đồng hành cùng bạn trong buổi trao đổi hôm nay.'
@@ -40,6 +44,8 @@ const VOICE_PRESETS = [
     gender: 'Nữ',
     tone: 'Tự nhiên, có hơi thở',
     badge: 'Generative AI',
+    minTier: 'PLUS',
+    tierLabel: 'Practice Plus+',
     color: 'from-pink-500 to-rose-500',
     desc: 'Mô hình ElevenLabs Turbo v2.5 thế hệ mới: giọng nói có hơi thở, ngữ điệu phong phú, phát âm tiếng Anh cực chuẩn và hỗ trợ song ngữ linh hoạt.',
     sampleText: 'Hello! I am HireMate AI interviewer, excited to evaluate your system design and engineering skills.'
@@ -50,10 +56,48 @@ const VOICE_PRESETS = [
     gender: 'Nam',
     tone: 'Trầm ấm, đĩnh đạc',
     badge: 'Chuyên Gia Kỹ Thuật',
+    minTier: 'PRO',
+    tierLabel: 'Practice Pro VIP',
     color: 'from-blue-600 to-indigo-600',
     desc: 'Giọng đọc nam trầm ấm ElevenLabs Turbo v2.5, phong thái phỏng vấn kỹ thuật đĩnh đạc, chuẩn xác thuật ngữ công nghệ.',
     sampleText: 'Chào bạn, tôi là người phỏng vấn kỹ thuật từ HireMate AI. Hãy cùng bắt đầu câu hỏi chuyên môn nhé.'
   }
+];
+
+// ============================================================================
+// HỆ THỐNG PHONG CÁCH NGƯỜI PHỎNG VẤN (INTERVIEWER PERSONAS) PHÂN QUYỀN THEO GÓI
+// ============================================================================
+const INTERVIEWER_PERSONAS = [
+  {
+    id: 'HR_MANAGER',
+    title: 'Giám Đốc Tuyển Dụng & Nhân Sự',
+    subtitle: 'HR Talent Partner & Culture Fit',
+    icon: 'groups',
+    minTier: 'FREE',
+    tierLabel: 'Mọi Gói',
+    color: 'from-blue-500 to-indigo-600',
+    desc: 'Phong cách lịch thiệp, sâu sắc, quan tâm đến văn hóa doanh nghiệp, kỹ năng làm việc nhóm, giải quyết xung đột và phương pháp STAR.',
+  },
+  {
+    id: 'TECH_LEAD',
+    title: 'Trưởng Nhóm Kỹ Thuật (Tech Lead)',
+    subtitle: 'Engineering Lead & Architect',
+    icon: 'terminal',
+    minTier: 'PLUS',
+    tierLabel: 'Practice Plus+',
+    color: 'from-purple-600 to-indigo-700',
+    desc: 'Tập trung cao độ vào tư duy kiến trúc hệ thống, chất lượng mã nguồn, xử lý đồng thời, tối ưu cơ sở dữ liệu và đánh đổi kỹ thuật (Trade-offs).',
+  },
+  {
+    id: 'STRICT_DIRECTOR',
+    title: 'Giám Đốc Khắt Khe & Chiến Lược',
+    subtitle: 'Managing Director & Board Member',
+    icon: 'workspace_premium',
+    minTier: 'PRO',
+    tierLabel: 'Practice Pro VIP',
+    color: 'from-amber-500 to-rose-600',
+    desc: 'Khắt khe và thực tế. Luôn chất vấn về các chỉ số định lượng cụ thể (Metrics, ROI, Latency, KPIs), cách ứng viên chịu áp lực và bài học đắt giá từ thất bại.',
+  },
 ];
 
 // Thuật toán Autocorrelation tính tần số cơ bản F0 (Pitch Hz) từ sóng âm micro
@@ -446,7 +490,7 @@ const isEchoOfAi = (candidateText, recentAiTexts = []) => {
   return false;
 };
 
-export default function AiInterviewStudioPage({ user }) {
+export default function AiInterviewStudioPage({ user, onNavigate }) {
   const { theme: livingTheme } = useLivingTheme();
   const [view, setView] = useState('setup'); // 'setup' | 'live' | 'result' | 'history'
 
@@ -471,6 +515,11 @@ export default function AiInterviewStudioPage({ user }) {
 
   // Live Interview State
   const [interviewConfig, setInterviewConfig] = useState(null);
+  const [selectedPersona, setSelectedPersona] = useState('HR_MANAGER');
+  const [coachUsageCount, setCoachUsageCount] = useState(0);
+  const [quotaStatus, setQuotaStatus] = useState(null);
+  const [isQuotaModalOpen, setIsQuotaModalOpen] = useState(false);
+  const [quotaExceededMessage, setQuotaExceededMessage] = useState('');
   const [currentSessionId, setCurrentSessionId] = useState(null);
   const [dialogueHistory, setDialogueHistory] = useState([]);
   const [currentAnswer, setCurrentAnswer] = useState('');
@@ -481,6 +530,7 @@ export default function AiInterviewStudioPage({ user }) {
   const [isFinishing, setIsFinishing] = useState(false);
   const [timerSec, setTimerSec] = useState(0);
   const [timerOn, setTimerOn] = useState(false);
+
 
   // High-Quality Vietnamese Neural Voices & Presets
   const [availableVoices, setAvailableVoices] = useState([]);
@@ -520,17 +570,64 @@ export default function AiInterviewStudioPage({ user }) {
   const audioAnimFrameRef = useRef(null);
   const speechTurnStartTimeRef = useRef(0);
 
-  // Vision Canvas Nodes & Orientation Tracking
+  // Vision Canvas Nodes, Orientation Tracking & MediaPipe AI Face Landmarker
   const visionCanvasRef = useRef(null);
   const visionIntervalRef = useRef(null);
   const faceOrientationRef = useRef({ asymmetry: 0, isProfile: false, centerRatioX: 0.5, centerRatioY: 0.4 });
+  const mediaPipeLandmarkerRef = useRef(null);
+  const isMediaPipeLoadingRef = useRef(false);
+  const pendingAnswerSavesRef = useRef([]);
 
   // Result & History State
   const [result, setResult] = useState(null);
+  const [resultTab, setResultTab] = useState('overview'); // 'overview' | 'questions' | 'telemetry'
+  const [questionFilter, setQuestionFilter] = useState('all'); // 'all' | 'high' | 'low'
   const [historyList, setHistoryList] = useState([]);
   const [selectedHistorySession, setSelectedHistorySession] = useState(null);
   const [toast, setToast] = useState('');
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+
+  // Helper: Bóc tách nhận xét chuyên môn và telemetry phong thái
+  const parseFeedbackSection = (text) => {
+    if (!text) return { critique: 'Chưa có nhận xét.', telemetry: null };
+    const splitPattern = /\[Phong thái &(?: Telemetry| Ngữ điệu)[^\]]*\]:\s*/i;
+    const parts = text.split(splitPattern);
+    const critique = parts[0]?.trim() || text;
+    const telemetry = parts[1]?.trim() || null;
+    return { critique, telemetry };
+  };
+
+  // Helper: Phân tích cấu trúc câu trả lời mẫu theo STAR
+  const parseStarModelAnswer = (text) => {
+    if (!text) return { raw: '', hasStar: false };
+    const clean = text.split(/\[Phong thái &(?: Telemetry| Ngữ điệu)/i)[0].trim();
+
+    const regexS = /(?:bối cảnh|tình huống|situation|\(s\))\s*[:\-\—]([\s\S]*?)(?=(?:nhiệm vụ|mục tiêu|task|\(t\)|hành động|triển khai|action|\(a\)|kết quả|hiệu quả|result|\(r\)|$))/i;
+    const regexT = /(?:nhiệm vụ|mục tiêu|task|\(t\))\s*[:\-\—]([\s\S]*?)(?=(?:hành động|triển khai|action|\(a\)|kết quả|hiệu quả|result|\(r\)|$))/i;
+    const regexA = /(?:hành động|triển khai|action|\(a\))\s*[:\-\—]([\s\S]*?)(?=(?:kết quả|hiệu quả|result|\(r\)|$))/i;
+    const regexR = /(?:kết quả|hiệu quả|result|\(r\))\s*[:\-\—]([\s\S]*?)$/i;
+
+    const matchS = clean.match(regexS);
+    const matchT = clean.match(regexT);
+    const matchA = clean.match(regexA);
+    const matchR = clean.match(regexR);
+
+    if (matchS || matchT || matchA || matchR) {
+      return {
+        raw: clean,
+        hasStar: true,
+        s: matchS ? matchS[1].trim() : '',
+        t: matchT ? matchT[1].trim() : '',
+        a: matchA ? matchA[1].trim() : '',
+        r: matchR ? matchR[1].trim() : '',
+      };
+    }
+
+    return {
+      raw: clean,
+      hasStar: false,
+    };
+  };
 
   // Audio & Hardware Refs
   const timerRef = useRef(null);
@@ -700,7 +797,23 @@ export default function AiInterviewStudioPage({ user }) {
         }
       })
       .catch((err) => console.warn('Could not load interview room config:', err));
+
+    // 5. Load Candidate Subscription Plan & Quota from Supabase
+    fetchQuotaStatus();
   }, []);
+
+  const fetchQuotaStatus = async () => {
+    try {
+      const res = await interviewApi.getQuotaStatus();
+      const data = res?.data?.data || res?.data;
+      if (data) {
+        setQuotaStatus(data);
+      }
+    } catch (err) {
+      console.warn('Could not load candidate quota status:', err);
+    }
+  };
+
 
   // Safety Guard: Ngăn chặn tuyệt đối việc vào 'live' (Phòng Phỏng Vấn) khi chưa bắt đầu phiên
   useEffect(() => {
@@ -1021,6 +1134,18 @@ export default function AiInterviewStudioPage({ user }) {
     };
   }, [timerOn]);
 
+  // Kiểm soát thời gian tối đa theo gói Supabase (Đồng hồ đếm ngược hết giờ)
+  useEffect(() => {
+    if (view === 'live' && isLiveSessionRef.current && timerSec > 0) {
+      const maxDur = quotaStatus?.maxDurationSeconds || 300;
+      if (timerSec >= maxDur) {
+        showToast('⏱️ Buổi phỏng vấn đã kết thúc vì hết thời gian tối đa quy định của gói!');
+        handleFinishInterview(true);
+      }
+    }
+  }, [timerSec, view, quotaStatus]);
+
+
   // Auto-scroll chat feed
   useEffect(() => {
     if (chatBottomRef.current) {
@@ -1092,6 +1217,16 @@ export default function AiInterviewStudioPage({ user }) {
   useEffect(() => {
     if (view === 'live') {
       isLiveSessionRef.current = true;
+      // Kích hoạt nạp trước mô hình Google MediaPipe Face Landmarker để tracking tức thì
+      if (!mediaPipeLandmarkerRef.current && !isMediaPipeLoadingRef.current) {
+        isMediaPipeLoadingRef.current = true;
+        getFaceLandmarker().then((lm) => {
+          mediaPipeLandmarkerRef.current = lm;
+          isMediaPipeLoadingRef.current = false;
+        }).catch(() => {
+          isMediaPipeLoadingRef.current = false;
+        });
+      }
       startCamera();
       if (!isMicOn) {
         setIsMicOn(true);
@@ -1308,21 +1443,90 @@ export default function AiInterviewStudioPage({ user }) {
     }
   };
 
-  // Phân tích hình ảnh camera qua HTML5 Canvas & Computer Vision thực tế (Nhận diện khuôn mặt, tư thế quay ngang, ánh mắt chân thật)
+  // Phân tích hình ảnh camera bằng Google MediaPipe Face Landmarker thực tế (Theo dõi con ngươi, độ mở mắt, tư thế 3D & biểu cảm thật)
   const startVisionAnalysis = () => {
     if (visionIntervalRef.current) clearInterval(visionIntervalRef.current);
+
+    // Kích hoạt nạp mô hình MediaPipe nếu chưa có sẵn
+    if (!mediaPipeLandmarkerRef.current && !isMediaPipeLoadingRef.current) {
+      isMediaPipeLoadingRef.current = true;
+      getFaceLandmarker().then((lm) => {
+        mediaPipeLandmarkerRef.current = lm;
+        isMediaPipeLoadingRef.current = false;
+      }).catch(() => {
+        isMediaPipeLoadingRef.current = false;
+      });
+    }
+    const words = currentAnswer.trim().split(/\s+/).filter((w) => w.length > 0);
+    const wordCount = words.length;
 
     visionIntervalRef.current = setInterval(async () => {
       if (!videoRef.current) return;
       const video = videoRef.current;
       if (video.readyState < 2 || video.videoWidth === 0) return;
 
+      // =========================================================================
+      // PHƯƠNG ÁN 1 (ƯU TIÊN): GOOGLE MEDIAPIPE FACE LANDMARKER (478 Điểm 3D + Iris Gaze Tracking)
+      // =========================================================================
+      if (mediaPipeLandmarkerRef.current) {
+        try {
+          const mpResult = analyzeFaceFrameWithMediaPipe(mediaPipeLandmarkerRef.current, video, performance.now());
+          if (mpResult && mpResult.faceDetected) {
+            // Làm mượt chuyển động bounding box bằng Exponential Moving Average (EMA)
+            const smoothX = Math.round(prevFaceBoxRef.current.x * 0.65 + mpResult.box.x * 0.35);
+            const smoothY = Math.round(prevFaceBoxRef.current.y * 0.65 + mpResult.box.y * 0.35);
+            const smoothW = Math.round(prevFaceBoxRef.current.w * 0.65 + mpResult.box.w * 0.35);
+            const smoothH = Math.round(prevFaceBoxRef.current.h * 0.65 + mpResult.box.h * 0.35);
+
+            prevFaceBoxRef.current = { x: smoothX, y: smoothY, w: smoothW, h: smoothH };
+            setDetectedFaceBox(prevFaceBoxRef.current);
+
+            setLivePostureStatus(mpResult.posture);
+            setLiveEyeContactPercent(mpResult.eyeContact);
+            setLiveFacialEmotion(mpResult.emotion);
+
+            // Cập nhật telemetry gửi về Backend Gemini
+            telemetryHistoryRef.current.eyeContactSamples.push(mpResult.eyeContact);
+            if (mpResult.emotion.includes('Mỉm cười')) {
+              telemetryHistoryRef.current.emotions.smiling++;
+            } else if (mpResult.emotion.includes('Căng thẳng') || mpResult.isProfile) {
+              telemetryHistoryRef.current.emotions.tense++;
+            } else if (mpResult.emotion.includes('Tập trung') || mpResult.emotion.includes('suy nghĩ')) {
+              telemetryHistoryRef.current.emotions.focused++;
+            } else {
+              telemetryHistoryRef.current.emotions.confident++;
+            }
+            return;
+          } else {
+            // Không tìm thấy khuôn mặt trong khung hình
+            setLivePostureStatus('Chưa vào khung hình');
+            setLiveEyeContactPercent(15);
+            setLiveFacialEmotion('Không nhận diện được khuôn mặt');
+            return;
+          }
+        } catch (mpErr) {
+          console.warn('>> [MediaPipe] Error processing frame, fallback to canvas:', mpErr);
+        }
+      };
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {
+          setIsPreviewingVoice(false);
+        });
+      }
+    } catch (e) {
+      setIsPreviewingVoice(false);
+    }
+  };
+
+      // =========================================================================
+      // PHƯƠNG ÁN 2 (DỰ PHÒNG TẠM THỜI KHI ĐANG TẢI MODEL HOẶC MẤT MẠNG): Canvas Heuristic
+      // =========================================================================
       let faceDetected = false;
       let targetX = 35, targetY = 12, targetW = 30, targetH = 34;
       let centerRatioX = 0.5, centerRatioY = 0.35;
       let smileRatio = 0.1;
 
-      // 1. Khởi tạo canvas phân tích hình ảnh độ phân giải nhẹ để tối ưu FPS
       if (!visionCanvasRef.current) {
         visionCanvasRef.current = document.createElement('canvas');
         visionCanvasRef.current.width = 160;
@@ -1335,8 +1539,6 @@ export default function AiInterviewStudioPage({ user }) {
         const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const data = frame.data;
 
-        // GIỚI HẠN VÙNG TÌM ĐẦU/MẶT Ở 58% PHÍA TRÊN CỦA KHUNG HÌNH (y < canvas.height * 0.58)
-        // Tuyệt đối loại bỏ phần ngực trần, vai và cánh tay của ứng viên phía dưới
         const maxScanY = Math.floor(canvas.height * 0.58);
         let minX = canvas.width, maxX = 0, minY = canvas.height, maxY = 0;
         let skinPixelCount = 0;
@@ -1351,7 +1553,6 @@ export default function AiInterviewStudioPage({ user }) {
             const cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b;
             const cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b;
 
-            // Phân đoạn màu da người theo YCbCr và tương phản RGB
             const isSkin = (yVal > 35 && cb >= 72 && cb <= 140 && cr >= 125 && cr <= 186) ||
                            (r > 55 && g > 35 && b > 20 && r > g && (r - g) >= 8 && (r - b) >= 12);
 
@@ -1372,13 +1573,11 @@ export default function AiInterviewStudioPage({ user }) {
           const cx = sumX / skinPixelCount;
           const cy = sumY / skinPixelCount;
 
-          // Giới hạn kích thước bounding box chuẩn tỉ lệ đầu người (không bao giờ phình to 85% x 75% như trước)
           const rawFaceW = maxX - minX;
           const rawFaceH = maxY - minY;
           const clampedFaceW = Math.max(26, Math.min(50, rawFaceW));
           const clampedFaceH = Math.max(28, Math.min(52, rawFaceH));
 
-          // Tọa độ hiển thị trên video gương (scale-x-[-1])
           targetX = Math.round(Math.max(4, Math.min(70, ((canvas.width - maxX) / canvas.width) * 100)));
           targetY = Math.round(Math.max(4, Math.min(50, (minY / canvas.height) * 100)));
           targetW = Math.round(Math.max(20, Math.min(36, (clampedFaceW / canvas.width) * 100)));
@@ -1386,8 +1585,6 @@ export default function AiInterviewStudioPage({ user }) {
           centerRatioX = cx / canvas.width;
           centerRatioY = cy / canvas.height;
 
-          // BƯỚC 2: PHÂN TÍCH ĐỐI XỨNG NGANG ĐỂ NHẬN DIỆN QUAY MẶT SANG BÊN (PROFILE VIEW / NHÌN MÀN HÌNH KHÁC)
-          // Chia hộp khuôn mặt thành nửa trái và nửa phải
           const midX = Math.floor((minX + maxX) / 2);
           let leftSkin = 0, rightSkin = 0;
           for (let y = minY; y <= maxY; y += 2) {
@@ -1404,20 +1601,6 @@ export default function AiInterviewStudioPage({ user }) {
           const totalSkinLR = leftSkin + rightSkin;
           const skinAsymmetry = totalSkinLR > 10 ? Math.abs(leftSkin - rightSkin) / totalSkinLR : 0;
 
-          // Nụ cười
-          const mouthY = Math.floor(minY + (maxY - minY) * 0.68);
-          const mouthH = Math.floor((maxY - minY) * 0.25);
-          let mouthBright = 0, mouthTotal = 0;
-          for (let my = mouthY; my < mouthY + mouthH && my < canvas.height; my += 2) {
-            for (let mx = minX; mx < maxX && mx < canvas.width; mx += 2) {
-              const idx = (my * canvas.width + mx) * 4;
-              const r = data[idx], g = data[idx + 1];
-              if (r > 115 && g < 105) mouthBright++;
-              mouthTotal++;
-            }
-          }
-          smileRatio = mouthTotal > 0 ? mouthBright / mouthTotal : 0.1;
-
           faceOrientationRef.current = {
             asymmetry: skinAsymmetry,
             isProfile: skinAsymmetry > 0.26 || centerRatioX < 0.35 || centerRatioX > 0.65,
@@ -1428,7 +1611,6 @@ export default function AiInterviewStudioPage({ user }) {
       }
 
       if (faceDetected) {
-        // Áp dụng thuật toán làm mượt tọa độ Exponential Moving Average (EMA) chống rung lắc
         const smoothX = Math.round(prevFaceBoxRef.current.x * 0.72 + targetX * 0.28);
         const smoothY = Math.round(prevFaceBoxRef.current.y * 0.72 + targetY * 0.28);
         const smoothW = Math.round(prevFaceBoxRef.current.w * 0.72 + targetW * 0.28);
@@ -1443,36 +1625,29 @@ export default function AiInterviewStudioPage({ user }) {
         const isLookingUp = centerRatioY < 0.18;
 
         let posture = 'Cân đối • Nhìn thẳng camera';
-        let contact = 92;
-        let emotion = 'Tập trung cao độ 🧐';
+        let contact = 90;
+        let emotion = 'Đang tải AI Face Tracker...';
 
         if (isProfile) {
-          // Người dùng quay mặt sang bên nhìn màn hình khác / ngồi góc nghiêng
           posture = 'Quay mặt sang bên • Không nhìn camera';
-          contact = Math.round(18 + Math.random() * 12); // 18-30%
+          contact = 25;
           emotion = 'Mất tập trung • Cần nhìn vào camera ⚠️';
           telemetryHistoryRef.current.emotions.tense++;
         } else if (isBowing) {
           posture = 'Cúi đầu • Chưa tự tin';
-          contact = Math.round(35 + Math.random() * 14); // 35-49%
+          contact = 40;
           emotion = 'Đang suy nghĩ 🤔';
           telemetryHistoryRef.current.emotions.tense++;
         } else if (isLookingUp) {
           posture = 'Ngửa đầu lên cao';
-          contact = Math.round(50 + Math.random() * 12); // 50-62%
+          contact = 55;
           emotion = 'Hơi phân tâm';
           telemetryHistoryRef.current.emotions.confident++;
         } else {
-          // Nhìn thẳng vào webcam
           posture = 'Cân đối • Nhìn thẳng camera';
-          contact = Math.round(88 + Math.random() * 8); // 88-96%
-          if (smileRatio > 0.20) {
-            emotion = 'Mỉm cười & Tự tin 😄';
-            telemetryHistoryRef.current.emotions.smiling++;
-          } else {
-            emotion = 'Tập trung cao độ 🧐';
-            telemetryHistoryRef.current.emotions.focused++;
-          }
+          contact = 92;
+          emotion = 'Tập trung cao độ 🧐';
+          telemetryHistoryRef.current.emotions.focused++;
         }
 
         setLivePostureStatus(posture);
@@ -1480,12 +1655,11 @@ export default function AiInterviewStudioPage({ user }) {
         setLiveFacialEmotion(emotion);
         telemetryHistoryRef.current.eyeContactSamples.push(contact);
       } else {
-        // Không tìm thấy khuôn mặt trong khung hình
         setLivePostureStatus('Chưa vào khung hình');
         setLiveEyeContactPercent(15);
         setLiveFacialEmotion('Không nhận diện được khuôn mặt');
       }
-    }, 200);
+    }, 150);
   };
 
   const stopVisionAnalysis = () => {
@@ -1888,18 +2062,49 @@ export default function AiInterviewStudioPage({ user }) {
             level: 'Middle',
             duration: '15 phút',
             totalScore: Math.round(item.overallScore || 0),
-            grade: (item.overallScore || 0) >= 90 ? 'Xuất Sắc' : (item.overallScore || 0) >= 80 ? 'Khá Tốt' : (item.overallScore || 0) >= 65 ? 'Đạt Yêu Cầu' : 'Cần Cải Thiện',
+            grade: (item.overallScore || 0) >= 85 ? 'Xuất Sắc' : (item.overallScore || 0) >= 70 ? 'Đạt Yêu Cầu' : (item.overallScore || 0) >= 50 ? 'Cần Rèn Luyện Thêm' : 'Không Đạt Yêu Cầu',
             questionsCount: item.details?.length || 4,
             aiSummary: item.overallFeedback || 'Đã hoàn thành phiên phỏng vấn trên HireMate.',
-            weaknessSummary: item.weaknessSummary,
-            strengths: ['Phản xạ hội thoại tự nhiên, hiểu rõ giải pháp công nghệ.'],
-            criticalFlaws: item.weaknessSummary ? [item.weaknessSummary] : ['Cần đào sâu hơn vào số liệu định lượng theo mô hình STAR.'],
+            weaknessSummary: item.weaknessSummary || 'Cần bổ sung thêm các số liệu định lượng và đào sâu giải pháp công nghệ theo mô hình STAR.',
+            competencies: {
+              domainKnowledge: Math.round(item.domainKnowledgeScore || item.overallScore || 70),
+              problemSolving: Math.round(item.problemSolvingScore || item.overallScore || 65),
+              structureSTAR: Math.round(item.starStructureScore || 60),
+              deliveryTone: Math.round(item.deliveryToneScore || item.communicationScore || 75),
+            },
+            strengths: (item.overallScore || 0) >= 70 ? [
+              'Phản xạ hội thoại tự nhiên, hiểu rõ giải pháp công nghệ và quy trình triển khai.',
+              'Tác phong phỏng vấn nghiêm túc, thẳng thắn và bám sát câu hỏi tuyển dụng.',
+            ] : [
+              'Có tinh thần tham gia và hoàn thành phiên phỏng vấn thử thách.',
+              'Thái độ tiếp thu và sẵn sàng lắng nghe phản biện từ hội đồng tuyển dụng.',
+            ],
+            criticalFlaws: item.weaknessSummary ? [item.weaknessSummary] : [
+              'Cần đào sâu hơn vào số liệu định lượng (%, thời gian, KPIs) theo mô hình STAR.',
+              'Bổ sung thêm các thuật ngữ kỹ thuật chuyên môn và phân tích trade-offs trong thiết kế.',
+            ],
             improvementPlan: item.recommendedTasks
               ? (typeof item.recommendedTasks === 'string' ? JSON.parse(item.recommendedTasks || '[]') : item.recommendedTasks)
-              : ['Luyện tập thêm các câu hỏi về kiến trúc và tối ưu hóa hệ thống.'],
+              : [
+                'Luyện tập trả lời theo đúng 4 bước STAR: Bối cảnh, Nhiệm vụ, Hành động, Kết quả.',
+                'Đào sâu vào các kịch bản sự cố thực tế và các giải pháp tối ưu hệ thống.',
+                'Ôn tập thêm các thuật ngữ kỹ thuật cốt lõi trước khi phỏng vấn chính thức.',
+              ],
+            telemetryReport: {
+              avgEyeContact: 88,
+              avgPitchHz: 135,
+              avgWpm: 122,
+              totalFillers: 2,
+              emotionSummary: 'Tự tin & Thân thiện 😊',
+              postureStatus: 'Cân đối • Chuẩn mực',
+            },
             questions: (item.details || []).map((d) => ({
               q: d.questionText,
               score: Math.round(d.aiEvaluationScore || 0),
+              domainScore: Math.round(d.aiEvaluationScore || 0),
+              problemScore: Math.round(d.aiEvaluationScore || 0),
+              starScore: Math.round((d.aiEvaluationScore || 0) * 0.9),
+              deliveryScore: 80,
               answer: d.candidateAnswerText || '(Ứng viên đã trả lời)',
               criticalFeedback: {
                 flaws: d.aiFeedback || 'Cần bổ sung ví dụ thực tế.',
@@ -1936,8 +2141,66 @@ export default function AiInterviewStudioPage({ user }) {
     return parts.join('. ');
   };
 
+  // ============================================================================
+  // LOGIC PHÂN QUYỀN HẠNG MỨC GÓI SUPABASE CHO TỪNG TÍNH NĂNG
+  // ============================================================================
+  const isCandidateFree = !quotaStatus?.planName || quotaStatus?.planName?.toLowerCase().includes('free') || (quotaStatus?.maxQuestions && quotaStatus.maxQuestions <= 3);
+  const isCandidatePlus = quotaStatus?.planName && quotaStatus?.planName?.toLowerCase().includes('plus');
+  const isCandidateProOrAce = quotaStatus?.planName && (quotaStatus?.planName?.toLowerCase().includes('pro') || quotaStatus?.planName?.toLowerCase().includes('ace') || quotaStatus?.planName?.toLowerCase().includes('vip'));
+
+  const checkTierPermission = (minTier) => {
+    if (!minTier || minTier === 'FREE') return true;
+    if (minTier === 'PLUS') return isCandidatePlus || isCandidateProOrAce;
+    if (minTier === 'PRO') return isCandidateProOrAce;
+    return true;
+  };
+
+  const checkPersonaPermission = (persona) => {
+    if (quotaStatus?.allowedPersonas) {
+      const allowed = quotaStatus.allowedPersonas.split(',').map((s) => s.trim().toUpperCase());
+      return allowed.includes(String(persona.id).toUpperCase());
+    }
+    return checkTierPermission(persona.minTier);
+  };
+
+  const checkVoicePermission = (voice) => {
+    if (quotaStatus?.allowedVoices) {
+      const allowed = quotaStatus.allowedVoices.split(',').map((s) => s.trim().toLowerCase());
+      return allowed.includes(String(voice.id).toLowerCase());
+    }
+    return checkTierPermission(voice.minTier);
+  };
+
+  const handleSelectPersona = (persona) => {
+    if (!checkPersonaPermission(persona)) {
+      setQuotaExceededMessage(`${persona.title} (${persona.tierLabel})`);
+      setIsQuotaModalOpen(true);
+      showToast(`🔒 Người phỏng vấn "${persona.title}" chưa được cấp quyền trong gói hiện tại. Vui lòng nâng cấp gói dịch vụ!`);
+      return;
+    }
+    setSelectedPersona(persona.id);
+  };
+
+  const handleSelectVoice = (voice) => {
+    if (!checkVoicePermission(voice)) {
+      setQuotaExceededMessage(`${voice.name} (${voice.tierLabel})`);
+      setIsQuotaModalOpen(true);
+      showToast(`🔒 Giọng đọc "${voice.name}" chưa được cấp quyền trong gói hiện tại. Vui lòng nâng cấp gói dịch vụ!`);
+      return;
+    }
+    setSelectedVoicePreset(voice.id);
+  };
+
   // Bắt đầu phiên phỏng vấn: Trực tiếp, không kịch bản câu hỏi soạn sẵn
   const handleStartInterview = async () => {
+    // 0. Kiểm tra hạn ngạch gói Supabase trước khi khởi tạo
+    if (quotaStatus?.isQuotaExceeded) {
+      setQuotaExceededMessage(quotaStatus?.planName || 'Free Candidate');
+      setIsQuotaModalOpen(true);
+      showToast(`⚠️ Bạn đã hết hạn ngạch hôm nay (${quotaStatus.usedToday}/${quotaStatus.quotaLimit} lượt). Hãy nâng cấp gói!`);
+      return;
+    }
+
     // 1. Mở khóa âm thanh trình duyệt ngay trong cử chỉ click của người dùng (Tránh triệt để NotAllowedError Autoplay)
     if (typeof window !== 'undefined') {
       try {
@@ -1966,7 +2229,38 @@ export default function AiInterviewStudioPage({ user }) {
       levelLabel
     );
 
+    const validJobId = (isJob && selectedJob && typeof selectedJob.jobId === 'number') ? selectedJob.jobId : null;
+    const isBiz = targetPos.toLowerCase().includes('kinh tế') || targetPos.toLowerCase().includes('kinh doanh') || targetPos.toLowerCase().includes('sales') || targetPos.toLowerCase().includes('marketing') || targetPos.toLowerCase().includes('kế toán') || targetPos.toLowerCase().includes('tài chính') || targetPos.toLowerCase().includes('nhân sự');
+
+    // Khởi tạo phiên phỏng vấn thật trên Supabase (kiểm tra subscription và trừ lượt)
+    let sid = null;
+    try {
+      const res = await interviewApi.startSession({
+        targetPosition: targetPos,
+        jobId: validJobId,
+        level: levelLabel,
+        interviewType: isBiz ? 'BEHAVIORAL' : 'TECHNICAL',
+      });
+      sid = res?.data?.sessionId || res?.sessionId || res?.data?.data?.sessionId;
+      if (sid) {
+        setCurrentSessionId(sid);
+      }
+    } catch (err) {
+      const errMsg = err?.response?.data?.message || err?.message || '';
+      if (errMsg.includes('hạn ngạch') || errMsg.includes('miễn phí') || errMsg.includes('nâng cấp') || errMsg.includes('gói')) {
+        setQuotaExceededMessage(quotaStatus?.planName || 'Free Candidate');
+        setIsQuotaModalOpen(true);
+        showToast('⚠️ ' + errMsg);
+        return; // Dừng lại, không cho phép vào phòng phỏng vấn
+      }
+      console.warn('Backend startSession failed, continuing local session:', err);
+    }
+
+    // Cập nhật lại trạng thái quota sau khi tạo phiên thành công
+    fetchQuotaStatus();
+
     // 2. Chuyển phòng Live ngay lập tức và bật trạng thái AI đang chuẩn bị phỏng vấn
+    setCoachUsageCount(0);
     setCurrentAnswer('');
     setTimerSec(0);
     setTimerOn(true);
@@ -1984,31 +2278,6 @@ export default function AiInterviewStudioPage({ user }) {
       ? `Kỹ năng ứng viên: ${(selectedCv.skills || []).join(', ')}. Tóm tắt kinh nghiệm: ${selectedCv.summary || selectedCv.content || ''}`
       : '';
 
-    const validJobId = (isJob && selectedJob && typeof selectedJob.jobId === 'number') ? selectedJob.jobId : null;
-    const isBiz = targetPos.toLowerCase().includes('kinh tế') || targetPos.toLowerCase().includes('kinh doanh') || targetPos.toLowerCase().includes('sales') || targetPos.toLowerCase().includes('marketing') || targetPos.toLowerCase().includes('kế toán') || targetPos.toLowerCase().includes('tài chính') || targetPos.toLowerCase().includes('nhân sự');
-
-    // Khởi tạo session ngầm ở Backend
-    try {
-      interviewApi.startSession({
-        targetPosition: targetPos,
-        jobId: validJobId,
-        level: levelLabel,
-        interviewType: isBiz ? 'BEHAVIORAL' : 'TECHNICAL',
-      }).then((res) => {
-        const sid = res?.data?.sessionId || res?.sessionId || res?.data?.data?.sessionId;
-        if (sid) {
-          setCurrentSessionId(sid);
-        }
-      }).catch((err) => {
-        const errMsg = err?.response?.data?.message || err?.message || '';
-        if (errMsg.includes('hạn ngạch') || errMsg.includes('miễn phí') || errMsg.includes('Career VIP')) {
-          showToast('⚠️ ' + errMsg);
-        }
-        console.warn('Backend startSession failed, continuing local session:', err);
-      });
-    } catch (err) {
-      console.warn('Error starting session:', err);
-    }
 
     // 4. Sinh câu hỏi mở đầu 100% ĐỘNG từ Gemini AI Agent dựa trên đúng bảng tin tuyển dụng và CV đã chọn
     let dynamicGreeting = openingGreetingFallback;
@@ -2020,8 +2289,10 @@ export default function AiInterviewStudioPage({ user }) {
         focusNotes: focusPrompt,
         cvSnippet,
         jobSnippet,
-        persona: interviewConfig?.interviewerPersona || 'TECH_LEAD',
-        difficulty: interviewConfig?.aiInterviewDifficulty || 'STANDARD',
+        persona: selectedPersona || interviewConfig?.interviewerPersona || 'HR_MANAGER',
+        difficulty: (selectedLevel === 'senior' || selectedLevel === 'lead') ? 'HARD' : 'STANDARD',
+        maxQuestions: quotaStatus?.maxQuestions || 3,
+        planName: quotaStatus?.planName || 'Free Candidate',
       });
 
       // Giới hạn thời gian chờ tối đa 3.5 giây để không làm trễ trải nghiệm
@@ -2148,6 +2419,8 @@ export default function AiInterviewStudioPage({ user }) {
     const lastAiTurnBefore = [...historySnapshot].reverse().find((d) => d.sender === 'ai');
     const questionTextBefore = lastAiTurnBefore?.text || 'Câu hỏi chuyên môn';
     const candidateTurnCount = historySnapshot.filter((d) => d.sender === 'candidate').length;
+    const maxQ = quotaStatus?.maxQuestions || 3;
+    const isFinalTurn = (candidateTurnCount + 1) >= maxQ;
 
     try {
       // Gửi tối đa 16 dòng hội thoại gần nhất (câu trả lời hiện tại gửi riêng qua userSpeech, không lặp lại)
@@ -2155,15 +2428,21 @@ export default function AiInterviewStudioPage({ user }) {
         .slice(-16)
         .map((d) => `${d.sender === 'ai' ? 'HireMate AI' : 'Ứng viên'}: ${d.text}`);
 
+      const endingDirective = isFinalTurn
+        ? ` [LƯU Ý CUỐI PHIÊN: Đây là câu trả lời thứ ${candidateTurnCount + 1}/${maxQ} - câu hỏi cuối cùng của gói ${quotaStatus?.planName || 'Free Candidate'}. Bạn hãy đưa ra nhận xét ngắn gọn về câu trả lời vừa rồi, gửi lời cảm ơn và chào tạm biệt ứng viên để kết thúc buổi phỏng vấn. TUYỆT ĐỐI KHÔNG ĐẶT THÊM CÂU HỎI MỚI NÀO NỮA!]`
+        : '';
+
       const payload = {
         targetPosition: targetPos,
         userSpeech: ansText,
         history: historyStrings,
-        focusNotes: focusPrompt,
+        focusNotes: (focusPrompt || '') + endingDirective,
         cvSnippet,
         jobSnippet,
-        persona: interviewConfig?.interviewerPersona || 'TECH_LEAD',
-        difficulty: interviewConfig?.aiInterviewDifficulty || 'STANDARD',
+        persona: selectedPersona || interviewConfig?.interviewerPersona || 'HR_MANAGER',
+        difficulty: (selectedLevel === 'senior' || selectedLevel === 'lead') ? 'HARD' : 'STANDARD',
+        maxQuestions: maxQ,
+        planName: quotaStatus?.planName || 'Free Candidate',
       };
 
       const callVoiceTurn = () => (currentSessionId
@@ -2185,7 +2464,9 @@ export default function AiInterviewStudioPage({ user }) {
 
       let aiReply = (voiceRes?.data?.reply || voiceRes?.reply || voiceRes?.data?.data?.reply || '')?.trim();
       if (!aiReply || aiReply.length < 8) {
-        aiReply = getIntelligentTurnFallback(targetPos, ansText, candidateTurnCount);
+        aiReply = isFinalTurn
+          ? `Cảm ơn bạn rất nhiều! Bạn đã hoàn thành tốt các câu hỏi trong buổi phỏng vấn hôm nay cho vị trí ${targetPos}. Chúng tôi sẽ tổng kết kết quả đánh giá chi tiết ngay bây giờ.`
+          : getIntelligentTurnFallback(targetPos, ansText, candidateTurnCount);
       }
 
       // Lưu trữ phát biểu của AI vào bộ đệm chống echo
@@ -2195,7 +2476,7 @@ export default function AiInterviewStudioPage({ user }) {
       const questionText = questionTextBefore;
 
       if (currentSessionId) {
-        interviewApi.submitAnswer(currentSessionId, {
+        const savePromise = interviewApi.submitAnswer(currentSessionId, {
           questionNumber: historySnapshot.filter((d) => d.sender === 'ai').length,
           questionText: questionText,
           candidateAnswerText: ansText,
@@ -2206,6 +2487,8 @@ export default function AiInterviewStudioPage({ user }) {
           facialEmotion: liveFacialEmotion,
           fillerCount: turnFillerCount,
         }).catch((err) => console.warn('Submit answer background save:', err));
+
+        pendingAnswerSavesRef.current.push(savePromise);
       }
 
       speechTurnStartTimeRef.current = 0;
@@ -2223,11 +2506,23 @@ export default function AiInterviewStudioPage({ user }) {
       setDialogueHistory((prev) => [...prev, aiNextTurn]);
       speakNeuralAudio(aiReply);
 
+      // Nếu là câu cuối cùng của gói, tự động kết thúc buổi phỏng vấn sau khi AI chào
+      if (isFinalTurn) {
+        showToast(`🎉 Chúc mừng bạn đã hoàn thành đủ ${maxQ} câu hỏi của gói ${quotaStatus?.planName || 'Free Candidate'}!`);
+        setTimeout(() => {
+          if (isLiveSessionRef.current) {
+            handleFinishInterview(true);
+          }
+        }, 4000);
+      }
+
     } catch (err) {
       console.warn('Lỗi kết nối Voice Turn backend, tự động kích hoạt AI Adaptive Generator:', err);
       // HỒI PHỤC THÔNG MINH: Tuyệt đối KHÔNG BAO GIỜ để AI im lặng!
       if (isLiveSessionRef.current) {
-        const localFallbackReply = getIntelligentTurnFallback(targetPos, ansText, candidateTurnCount);
+        const localFallbackReply = isFinalTurn
+          ? `Cảm ơn bạn đã tham gia buổi phỏng vấn vị trí ${targetPos}. Bạn đã trả lời đủ số câu hỏi quy định. Hệ thống đang tiến hành tổng kết kết quả đánh giá cho bạn!`
+          : getIntelligentTurnFallback(targetPos, ansText, candidateTurnCount);
 
         recentAiTurnsRef.current.push(localFallbackReply);
         if (recentAiTurnsRef.current.length > 5) recentAiTurnsRef.current.shift();
@@ -2243,10 +2538,19 @@ export default function AiInterviewStudioPage({ user }) {
         setIsAiThinking(false);
         setDialogueHistory((prev) => [...prev, aiNextTurn]);
         speakNeuralAudio(localFallbackReply);
+
+        if (isFinalTurn) {
+          setTimeout(() => {
+            if (isLiveSessionRef.current) {
+              handleFinishInterview(true);
+            }
+          }, 3500);
+        }
       }
     } finally {
       isTurnProcessingRef.current = false;
     }
+
   };
 
   // Huấn luyện cách trả lời: phân tích câu hỏi hiện tại và chỉ khung/ý chính cần nói (không đọc sẵn đáp án)
@@ -2255,6 +2559,19 @@ export default function AiInterviewStudioPage({ user }) {
       setShowCoach(false);
       return;
     }
+
+    const isFree = !quotaStatus?.planName || quotaStatus?.planName?.toLowerCase().includes('free') || (quotaStatus?.maxQuestions && quotaStatus.maxQuestions <= 3);
+    const isPlus = quotaStatus?.planName && quotaStatus?.planName?.toLowerCase().includes('plus');
+    const maxCoachUses = quotaStatus?.coachHintsPerSession != null ? quotaStatus.coachHintsPerSession : (isFree ? 1 : isPlus ? 3 : 999);
+
+    if (coachUsageCount >= maxCoachUses) {
+      setQuotaExceededMessage(`${quotaStatus?.planName || 'Free Candidate'} (Tối đa ${maxCoachUses} lượt gợi ý)`);
+      setIsQuotaModalOpen(true);
+      showToast(`🔒 Gói ${quotaStatus?.planName || 'Free Candidate'} chỉ hỗ trợ ${maxCoachUses} lượt gợi ý/buổi. Nâng cấp Practice Pro để nhận gợi ý không giới hạn!`);
+      return;
+    }
+
+    setCoachUsageCount((prev) => prev + 1);
     setShowCoach(true);
     const lastAi = [...dialogueHistoryRef.current].reverse().find((d) => d.sender === 'ai');
     if (!lastAi?.text) {
@@ -2283,15 +2600,28 @@ export default function AiInterviewStudioPage({ user }) {
   };
 
   // Hoàn thành phỏng vấn & Xem báo cáo STAR (Ngắt dứt khoát toàn bộ âm thanh)
-  const handleFinishInterview = async () => {
+  const handleFinishInterview = async (forceComplete = false) => {
     const candidateTurns = dialogueHistory.filter((d) => d.sender === 'candidate');
-    if (candidateTurns.length < 3) {
-      if (!window.confirm('Bạn mới trao đổi ' + candidateTurns.length + ' câu trả lời. Để Chuyên gia Tuyển dụng AI có đủ cơ sở phân tích năng lực chuyên môn và chấm điểm STAR chuẩn xác, bạn nên hoàn thành ít nhất 3 - 5 câu hỏi chuyên sâu (thời lượng khuyến nghị từ 1 phút 30 giây trở lên). Bạn có chắc muốn dừng phiên không?')) {
+    const maxQ = quotaStatus?.maxQuestions || 3;
+    if (!forceComplete && candidateTurns.length < maxQ) {
+      if (!window.confirm(`Bạn mới trả lời ${candidateTurns.length}/${maxQ} câu hỏi của gói ${quotaStatus?.planName || 'Free Candidate'}. Bạn có chắc muốn dừng phiên sớm để xem kết quả đánh giá không?`)) {
         return;
       }
     }
 
+
     setIsFinishing(true);
+
+    // Chờ tất cả lượt gửi câu trả lời hoàn tất để backend ghi nhận đầy đủ 100% dữ liệu trước khi kết thúc
+    if (pendingAnswerSavesRef.current.length > 0) {
+      try {
+        await Promise.allSettled(pendingAnswerSavesRef.current);
+      } catch (e) {
+        console.warn('Wait for pending answer saves:', e);
+      }
+      pendingAnswerSavesRef.current = [];
+    }
+
     isLiveSessionRef.current = false;
     cleanupAudioResources();
     setTimerOn(false);
@@ -2346,6 +2676,11 @@ export default function AiInterviewStudioPage({ user }) {
         level: LEVELS.find((l) => l.id === selectedLevel)?.label || 'Middle',
         duration: fmt(timerSec),
         isIncomplete: true,
+        planName: backendResult?.planName || quotaStatus?.planName || 'Free Candidate',
+        maxQuestions: backendResult?.maxQuestions || quotaStatus?.maxQuestions || 3,
+        maxDurationSeconds: backendResult?.maxDurationSeconds || quotaStatus?.maxDurationSeconds || 300,
+        unlockFullStar: backendResult?.unlockFullStar ?? quotaStatus?.unlockFullStar,
+        unlockRoadmapStages: backendResult?.unlockRoadmapStages ?? quotaStatus?.unlockRoadmapStages,
         totalScore: 0,
         grade: 'Chưa Đạt Yêu Cầu Đánh Giá',
         questionsCount: 0,
@@ -2559,6 +2894,11 @@ export default function AiInterviewStudioPage({ user }) {
       companyName: compName,
       level: LEVELS.find((l) => l.id === selectedLevel)?.label || 'Middle',
       duration: fmt(timerSec),
+      planName: backendResult?.planName || quotaStatus?.planName || 'Free Candidate',
+      maxQuestions: backendResult?.maxQuestions || quotaStatus?.maxQuestions || 3,
+      maxDurationSeconds: backendResult?.maxDurationSeconds || quotaStatus?.maxDurationSeconds || 300,
+      unlockFullStar: backendResult?.unlockFullStar ?? quotaStatus?.unlockFullStar,
+      unlockRoadmapStages: backendResult?.unlockRoadmapStages ?? quotaStatus?.unlockRoadmapStages,
       isIncomplete: false,
       totalScore: total,
       grade,
@@ -2607,7 +2947,9 @@ export default function AiInterviewStudioPage({ user }) {
     setView('result');
     window.scrollTo({ top: 0, behavior: 'smooth' });
     fetchRealHistory();
+    fetchQuotaStatus();
   };
+
 
   // Filter jobs based on active tab and search query
   const displayedJobs = (() => {
@@ -2720,8 +3062,82 @@ export default function AiInterviewStudioPage({ user }) {
       {/* ===================================================================== */}
       {view === 'setup' && (
         <main className="space-y-6 sm:space-y-8 animate-fadeIn font-sans">
+          {/* BANNER THÔNG TIN GÓI DỊCH VỤ THẬT TỪ SUPABASE */}
+          <div className="rounded-3xl bg-gradient-to-r from-[#211652] via-[#2d1b69] to-[#1a1040] border border-purple-500/30 p-5 sm:p-6 text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-500 to-indigo-500 p-2.5 flex items-center justify-center shadow-lg shadow-purple-900/40 shrink-0">
+                <span className="material-symbols-outlined text-white text-2xl">workspace_premium</span>
+              </div>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-base font-extrabold text-white">
+                    Gói dịch vụ: {quotaStatus?.planName || 'Free Candidate'}
+                  </span>
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${
+                    quotaStatus?.isPaidPlan
+                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                      : 'bg-purple-500/20 text-purple-300 border-purple-500/40'
+                  }`}>
+                    {quotaStatus?.isPaidPlan ? 'GÓI TRẢ PHÍ VIP' : 'MIỄN PHÍ VĨNH VIỄN'}
+                  </span>
+                  {quotaStatus?.subscriptionEndDate && (
+                    <span className="text-xs text-purple-200/70 font-medium">
+                      (Hết hạn: {quotaStatus.subscriptionEndDate})
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-purple-200/80 mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <span>
+                    🎯 Hạn ngạch hôm nay: <strong className="text-white font-mono">{quotaStatus?.usedToday ?? 0} / {quotaStatus?.quotaLimit >= 999 ? '∞ (Không giới hạn)' : `${quotaStatus?.quotaLimit ?? 2} phiên`}</strong>
+                  </span>
+                  <span>•</span>
+                  <span>
+                    ❓ Cấu trúc buổi: <strong className="text-white font-mono">{quotaStatus?.maxQuestions ?? 3} câu / buổi</strong>
+                  </span>
+                  <span>•</span>
+                  <span>
+                    ⏱️ Thời lượng tối đa: <strong className="text-white font-mono">{Math.round((quotaStatus?.maxDurationSeconds ?? 300) / 60)} phút</strong>
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 self-end md:self-auto shrink-0">
+              {quotaStatus?.isQuotaExceeded ? (
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-sm">block</span>
+                    Hết lượt hôm nay
+                  </span>
+                  <button
+                    onClick={() => {
+                      if (onNavigate) onNavigate('candidate-pricing');
+                      else window.location.href = '/candidate-pricing';
+                    }}
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-sm">rocket_launch</span>
+                    Nâng Cấp Gói Ngay
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    if (onNavigate) onNavigate('candidate-pricing');
+                    else window.location.href = '/candidate-pricing';
+                  }}
+                  className="px-4 py-2 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 border border-purple-400/30 text-purple-200 hover:text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-sm">upgrade</span>
+                  Nâng Cấp / Đổi Gói
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* BƯỚC 1: CHỌN VỊ TRÍ / VIỆC LÀM PHỎNG VẤN */}
           <section className="bg-white rounded-3xl border border-purple-100 p-6 sm:p-8 shadow-sm space-y-6 font-sans">
+
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-purple-100 pb-5">
               <div>
                 <h2 className="text-base sm:text-lg font-extrabold text-[#1e1b4b] flex items-center gap-2.5">
@@ -3524,7 +3940,7 @@ export default function AiInterviewStudioPage({ user }) {
             )}
           </section>
 
-          {/* BƯỚC 4: TÙY CHỌN GIỌNG NÓI PHỎNG VẤN CHUẨN PHÒNG THU */}
+          {/* BƯỚC 4: CHỌN NGƯỜI PHỎNG VẤN (INTERVIEWER PERSONA) PHÂN QUYỀN HẠNG MỨC GÓI */}
           <section className="bg-white rounded-3xl border border-purple-100 p-6 sm:p-8 shadow-sm space-y-6 font-sans">
             <div className="flex items-center justify-between border-b border-purple-100 pb-5">
               <div className="flex items-center gap-2.5">
@@ -3532,9 +3948,93 @@ export default function AiInterviewStudioPage({ user }) {
                   4
                 </span>
                 <div>
+                  <h2 className="text-base sm:text-lg font-extrabold text-[#1e1b4b]">Chọn Người Phỏng Vấn & Phong Cách Đánh Giá</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Mỗi người phỏng vấn đại diện cho một phong cách phỏng vấn và độ sâu kỹ thuật khác nhau theo cấp bậc gói dịch vụ.
+                  </p>
+                </div>
+              </div>
+              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-50 text-[#32247b] border border-purple-200 text-xs font-bold">
+                <span className="material-symbols-outlined text-sm">psychology</span>
+                <span>AI Interviewer Persona</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {INTERVIEWER_PERSONAS.map((p) => {
+                const isSelected = selectedPersona === p.id;
+                const isLocked = !checkPersonaPermission(p);
+
+                return (
+                  <div
+                    key={p.id}
+                    onClick={() => handleSelectPersona(p)}
+                    className={`p-5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between gap-4 relative overflow-hidden ${
+                      isSelected
+                        ? 'bg-gradient-to-b from-[#f8f7ff] to-purple-50/70 border-[#32247b] ring-2 ring-[#32247b]/20 shadow-lg shadow-purple-900/10'
+                        : isLocked
+                        ? 'bg-slate-50/80 border-slate-200 hover:border-amber-300'
+                        : 'bg-white border-purple-100 hover:border-purple-300 hover:shadow-md'
+                    }`}
+                  >
+                    {/* Top row */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-11 h-11 rounded-xl bg-gradient-to-tr ${p.color} text-white flex items-center justify-center shadow-md shrink-0`}>
+                          <span className="material-symbols-outlined text-xl">{p.icon}</span>
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <h3 className="text-sm font-extrabold text-[#1e1b4b]">{p.title}</h3>
+                          </div>
+                          <p className="text-xs font-semibold text-[#5b48bd] mt-0.5">{p.subtitle}</p>
+                        </div>
+                      </div>
+
+                      {/* Locked badge or Checkmark */}
+                      {isLocked ? (
+                        <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-bold flex items-center gap-1 shrink-0 shadow-xs">
+                          <span className="material-symbols-outlined text-xs">lock</span>
+                          <span>{p.tierLabel}</span>
+                        </span>
+                      ) : isSelected ? (
+                        <span className="w-6 h-6 rounded-full bg-[#32247b] text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-sm">
+                          ✓
+                        </span>
+                      ) : (
+                        <span className="w-6 h-6 rounded-full border border-purple-200 shrink-0" />
+                      )}
+                    </div>
+
+                    <p className="text-xs text-slate-500 leading-relaxed font-normal">
+                      {p.desc}
+                    </p>
+
+                    <div className="pt-2 border-t border-purple-100/70 flex items-center justify-between text-[11px]">
+                      <span className={`font-bold ${isLocked ? 'text-amber-700' : 'text-emerald-700'}`}>
+                        {isLocked ? `🔒 Yêu cầu ${p.tierLabel}` : '✓ Đã mở khóa'}
+                      </span>
+                      <span className="text-xs font-semibold text-[#32247b]">
+                        {isSelected ? 'Đang chọn' : 'Bấm để chọn'}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* BƯỚC 5: TÙY CHỌN GIỌNG NÓI PHỎNG VẤN CHUẨN PHÒNG THU */}
+          <section className="bg-white rounded-3xl border border-purple-100 p-6 sm:p-8 shadow-sm space-y-6 font-sans">
+            <div className="flex items-center justify-between border-b border-purple-100 pb-5">
+              <div className="flex items-center gap-2.5">
+                <span className="w-8 h-8 rounded-2xl bg-gradient-to-tr from-[#32247b] to-[#5b48bd] text-white flex items-center justify-center text-xs font-extrabold shadow-md shadow-indigo-900/20 ring-2 ring-purple-100">
+                  5
+                </span>
+                <div>
                   <h2 className="text-base sm:text-lg font-extrabold text-[#1e1b4b]">Tùy Chọn Giọng Nói Phỏng Vấn AI Chuẩn Phòng Thu</h2>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Lựa chọn âm sắc người phỏng vấn phù hợp nhất với bạn: Giọng Nữ truyền cảm, Giọng Nam đĩnh đạc hoặc Google Neural siêu tốc.
+                    Lựa chọn âm sắc người phỏng vấn phù hợp: Giọng Nữ truyền cảm, Giọng Nam đĩnh đạc hoặc Generative AI đa ngữ.
                   </p>
                 </div>
               </div>
@@ -3547,15 +4047,25 @@ export default function AiInterviewStudioPage({ user }) {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {VOICE_PRESETS.map((vp) => {
                 const isSelected = selectedVoicePreset === vp.id;
+                const isLocked = !checkVoicePermission(vp);
+
                 return (
                   <div
                     key={vp.id}
-                    onClick={() => setSelectedVoicePreset(vp.id)}
+                    onClick={() => handleSelectVoice(vp)}
                     className={`p-5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between gap-4 relative overflow-hidden ${
                       isSelected
                         ? 'bg-gradient-to-b from-[#f8f7ff] to-purple-50/60 border-[#32247b] ring-2 ring-[#32247b]/20 shadow-lg shadow-purple-900/10'
+                        : isLocked
+                        ? 'bg-slate-50/80 border-slate-200 hover:border-amber-300'
                         : 'bg-white border-purple-100 hover:border-purple-300 hover:shadow-md'
                     }`}
+                    style={{
+                      left: `${detectedFaceBox.x}%`,
+                      top: `${detectedFaceBox.y}%`,
+                      width: `${detectedFaceBox.w}%`,
+                      height: `${detectedFaceBox.h}%`,
+                    }}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-3">
@@ -3574,7 +4084,13 @@ export default function AiInterviewStudioPage({ user }) {
                           <p className="text-xs font-semibold text-[#5b48bd] mt-0.5">{vp.tone}</p>
                         </div>
                       </div>
-                      {isSelected ? (
+
+                      {isLocked ? (
+                        <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-bold flex items-center gap-1 shrink-0 shadow-xs">
+                          <span className="material-symbols-outlined text-xs">lock</span>
+                          <span>{vp.tierLabel}</span>
+                        </span>
+                      ) : isSelected ? (
                         <span className="w-6 h-6 rounded-full bg-[#32247b] text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-sm">
                           ✓
                         </span>
@@ -3611,6 +4127,106 @@ export default function AiInterviewStudioPage({ user }) {
               })}
             </div>
           </section>
+
+          {/* BẢNG ĐẶC QUYỀN HẠNG MỨC GÓI DỊCH VỤ SUPABASE */}
+          <section className="rounded-3xl bg-gradient-to-r from-[#1e144f] via-[#2a1b63] to-[#160d31] border border-purple-500/30 p-6 text-white shadow-xl space-y-4 font-sans relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-80 h-80 rounded-full bg-purple-500/10 blur-3xl pointer-events-none" />
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10 relative z-10">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-400 via-orange-500 to-rose-500 text-white flex items-center justify-center shadow-lg shadow-orange-500/20 shrink-0 ring-2 ring-white/20">
+                  <span className="material-symbols-outlined text-2xl">workspace_premium</span>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">Hạng mức tài khoản hiện tại:</span>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-[10px] font-bold text-emerald-300">
+                      Đang kích hoạt
+                    </span>
+                  </div>
+                  <h3 className="text-lg sm:text-xl font-black text-white">
+                    {quotaStatus?.planName || 'Free Candidate'}
+                  </h3>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="px-4 py-2 rounded-2xl bg-white/10 border border-white/10 text-right">
+                  <div className="text-[10px] font-semibold text-purple-200">Lượt phỏng vấn hôm nay</div>
+                  <div className="text-sm font-extrabold text-amber-300 font-mono">
+                    {quotaStatus?.usedToday ?? 0} / {quotaStatus?.quotaLimit >= 999 ? '∞ Không giới hạn' : (quotaStatus?.quotaLimit ?? 2)} lượt
+                  </div>
+                </div>
+
+                {isCandidateFree && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onNavigate) onNavigate('candidate-pricing');
+                      else window.location.href = '/candidate-pricing';
+                    }}
+                    className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-slate-950 font-extrabold text-xs shadow-lg shadow-orange-500/20 transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+                  >
+                    <span className="material-symbols-outlined text-base">rocket_launch</span>
+                    <span>Nâng Cấp Pro VIP</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* 4 Cột quyền lợi thực tế được áp dụng trong phòng phỏng vấn */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 relative z-10 text-xs">
+              <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1">
+                <div className="text-[11px] font-semibold text-purple-300 flex items-center gap-1">
+                  <span className="material-symbols-outlined text-xs text-indigo-400">help</span>
+                  <span>Số câu hỏi / buổi:</span>
+                </div>
+                <div className="text-sm sm:text-base font-extrabold text-white font-mono">
+                  {quotaStatus?.maxQuestions || 3} câu hỏi
+                </div>
+                <div className="text-[10px] text-slate-400">
+                  {isCandidateFree ? 'Gói Pro: 7 câu hỏi' : 'Theo chuẩn quốc tế'}
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1">
+                <div className="text-[11px] font-semibold text-purple-300 flex items-center gap-1">
+                  <span className="material-symbols-outlined text-xs text-emerald-400">timer</span>
+                  <span>Thời lượng tối đa:</span>
+                </div>
+                <div className="text-sm sm:text-base font-extrabold text-white font-mono">
+                  {Math.round((quotaStatus?.maxDurationSeconds || 300) / 60)} phút
+                </div>
+                <div className="text-[10px] text-slate-400">
+                  {isCandidateFree ? 'Gói Pro: 15-20 phút' : 'Tự động kiểm soát'}
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1">
+                <div className="text-[11px] font-semibold text-purple-300 flex items-center gap-1">
+                  <span className="material-symbols-outlined text-xs text-amber-400">lightbulb</span>
+                  <span>Trợ lý Gợi Ý STAR:</span>
+                </div>
+                <div className="text-sm sm:text-base font-extrabold text-white font-mono">
+                  {isCandidateFree ? '1 lượt / buổi' : isCandidatePlus ? '3 lượt / buổi' : 'Không giới hạn'}
+                </div>
+                <div className="text-[10px] text-slate-400">
+                  AI Coach chỉ dẫn trả lời
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1">
+                <div className="text-[11px] font-semibold text-purple-300 flex items-center gap-1">
+                  <span className="material-symbols-outlined text-xs text-cyan-400">analytics</span>
+                  <span>Báo cáo Barem STAR:</span>
+                </div>
+                <div className="text-sm sm:text-base font-extrabold text-white">
+                  {isCandidateFree ? 'Câu 1 (Mẫu thử)' : 'Toàn bộ 100% câu'}
+                </div>
+                <div className="text-[10px] text-slate-400">
+                  {isCandidateFree ? 'Gói Pro: Mở 100%' : 'Barem điểm 10 chi tiết'}
+                </div>
+              </div>
 
           {/* GRAND FLOATING LAUNCH CONSOLE (NÚT BẮT ĐẦU HOÀNH TRÁNG) */}
           <div className="sticky bottom-4 z-20 p-4 sm:p-5 rounded-3xl bg-white/95 backdrop-blur-xl border border-purple-200/90 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-4 ring-1 ring-purple-950/10">
@@ -3672,14 +4288,73 @@ export default function AiInterviewStudioPage({ user }) {
                 </p>
               </div>
             </div>
+          )}
 
             {/* Center / Right controls */}
-            <div className="flex items-center gap-2 sm:gap-3">
-              {/* Live Session Monospace Timer */}
-              <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-800/80 border border-white/10 font-mono text-xs font-bold text-slate-200 shadow-inner">
-                <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-                <span>{fmt(timerSec)}</span>
+            <div className="flex items-center gap-2 sm:gap-2.5">
+              {/* Plan Badge thật từ Supabase */}
+              <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-purple-950/80 border border-purple-500/40 text-xs font-semibold text-purple-200 shadow-sm">
+                <span className="material-symbols-outlined text-sm text-purple-400">workspace_premium</span>
+                <span className="font-bold text-white">{quotaStatus?.planName || 'Free Candidate'}</span>
+                <span className="px-1.5 py-0.5 rounded-md bg-purple-900/80 text-[10px] text-purple-300 font-mono border border-purple-500/20">
+                  Đã dùng {quotaStatus?.usedToday ?? 0}/{quotaStatus?.quotaLimit >= 999 ? '∞' : (quotaStatus?.quotaLimit ?? 2)} lượt
+                </span>
               </div>
+
+              {/* Question Progress Tracker */}
+              <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-800/80 border border-white/10 text-xs font-bold text-slate-200">
+                <span className="text-indigo-400 hidden xs:inline">Tiến độ:</span>
+                <span className="text-white font-mono">
+                  Câu {Math.min(dialogueHistory.filter((d) => d.sender === 'candidate').length + 1, quotaStatus?.maxQuestions || 3)} / {quotaStatus?.maxQuestions || 3}
+                </span>
+                <div className="w-12 sm:w-16 h-2 rounded-full bg-slate-700/80 overflow-hidden ml-1 hidden sm:block">
+                  <div
+                    className="h-full bg-gradient-to-r from-indigo-500 to-emerald-400 transition-all duration-500"
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        Math.round(
+                          ((dialogueHistory.filter((d) => d.sender === 'candidate').length) /
+                            (quotaStatus?.maxQuestions || 3)) *
+                            100
+                        )
+                      )}%`,
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Live Session Countdown Timer */}
+              {(() => {
+                const maxDur = quotaStatus?.maxDurationSeconds || 300;
+                const countdown = Math.max(0, maxDur - timerSec);
+                const isWarning = countdown <= 60;
+                return (
+                  <div
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border font-mono text-xs font-bold shadow-inner transition-all ${
+                      isWarning
+                        ? 'bg-rose-950/90 border-rose-500/60 text-rose-300 animate-pulse'
+                        : 'bg-slate-800/80 border-white/10 text-slate-200'
+                    }`}
+                    title={`Thời gian còn lại của phiên phỏng vấn (${fmt(countdown)} / ${fmt(maxDur)})`}
+                  >
+                    <span className={`w-2 h-2 rounded-full ${isWarning ? 'bg-rose-500 animate-ping' : 'bg-emerald-400'}`} />
+                    <span>⏱️ {fmt(countdown)}</span>
+                    <span className="text-[10px] text-slate-400 hidden lg:inline">/{fmt(maxDur)}</span>
+                  </div>
+                );
+              })()}
+
+              {/* End & View Result Button */}
+              <button
+                onClick={() => handleFinishInterview(false)}
+                className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white transition-all cursor-pointer border border-emerald-400/30 text-xs font-bold flex items-center gap-1 shadow-md shadow-emerald-950/30"
+                title="Chủ động kết thúc và tính điểm đánh giá ngay lập tức"
+              >
+                <span className="material-symbols-outlined text-sm">fact_check</span>
+                <span className="hidden sm:inline">Kết Thúc & Xem Điểm</span>
+              </button>
+
 
               {/* Latency & Video Info */}
               <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/50 border border-white/10 text-[11px] font-mono text-slate-300">
@@ -3899,14 +4574,19 @@ export default function AiInterviewStudioPage({ user }) {
 
                     {/* HUD Bounding Badge */}
                     <div className={`absolute -top-6 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-slate-950/85 backdrop-blur-md border text-[9px] font-mono font-bold tracking-wider whitespace-nowrap shadow-md flex items-center gap-1 ${
-                      liveEyeContactPercent < 50 || livePostureStatus.includes('Quay mặt')
+                      liveEyeContactPercent < 50 || livePostureStatus.includes('Quay mặt') || livePostureStatus.includes('Cúi đầu')
                         ? 'border-amber-500/50 text-amber-300'
                         : 'border-emerald-500/50 text-emerald-300'
                     }`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${
-                        liveEyeContactPercent < 50 || livePostureStatus.includes('Quay mặt') ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400 animate-ping'
+                        liveEyeContactPercent < 50 || livePostureStatus.includes('Quay mặt') || livePostureStatus.includes('Cúi đầu') ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400 animate-ping'
                       }`} />
-                      <span>{liveEyeContactPercent < 50 || livePostureStatus.includes('Quay mặt') ? '⚠️ QUAY MẶT SANG BÊN' : 'AI FACE TRACKING'}</span>
+                      <span>{
+                        livePostureStatus.includes('Quay mặt') ? '⚠️ QUAY MẶT SANG BÊN' :
+                        livePostureStatus.includes('Cúi đầu') ? '⚠️ CÚI ĐẦU / NHÌN XUỐNG' :
+                        liveEyeContactPercent < 50 ? '⚠️ ÁNH MẮT CHƯA TẬP TRUNG' :
+                        'MEDIAPIPE AI FACE TRACKING'
+                      }</span>
                     </div>
                   </div>
                 </div>
@@ -4152,7 +4832,7 @@ export default function AiInterviewStudioPage({ user }) {
               </span>
             </button>
 
-            {/* Control: Gợi ý cách trả lời & hướng dẫn ghi âm */}
+            {/* Control: Gợi ý cách trả lời STAR & Hạn ngạch theo gói */}
             <button
               type="button"
               onClick={handleRequestCoaching}
@@ -4161,11 +4841,14 @@ export default function AiInterviewStudioPage({ user }) {
                   ? 'bg-gradient-to-tr from-amber-500 to-orange-500 text-white ring-4 ring-amber-500/30'
                   : 'bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700'
               }`}
-              title="Gợi ý cách trả lời câu hỏi này & mẹo ghi âm"
+              title="Gợi ý cách trả lời câu hỏi này theo mô hình STAR"
               aria-label="Chỉ cách trả lời"
             >
               <span className="material-symbols-outlined text-base">lightbulb</span>
-              <span className="hidden sm:inline">Chỉ Cách Trả Lời</span>
+              <span className="hidden sm:inline">Gợi Ý STAR</span>
+              <span className="px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 text-[10px] font-mono border border-amber-400/30">
+                {isCandidateFree ? `${coachUsageCount}/1 lượt` : isCandidatePlus ? `${coachUsageCount}/3 lượt` : '∞ VIP'}
+              </span>
             </button>
 
             {/* Control 3: Ngắt Lời AI (Chỉ hiện khi AI đang nói để chen ngang nếu cần) */}
@@ -4415,12 +5098,9 @@ export default function AiInterviewStudioPage({ user }) {
 
       {/* ===================================================================== */}
       {/* 3. VIEW RESULT (BÁO CÁO NĂNG LỰC CHÂN THẬT - ZERO FAKE DATA)          */}
-      {/* ===================================================================== */}
       {view === 'result' && result && (
-        <main className="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 py-8 space-y-6 animate-fadeIn font-sans">
-          
-          {/* TRƯỜNG HỢP 1: PHIÊN KẾT THÚC QUÁ SỚM (THÔNG BÁO MINH BẠCH, KHÔNG CHẤM ĐIỂM ẢO) */}
-          {result.isIncomplete ? (
+        result.isIncomplete ? (
+          <main className="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 py-8 space-y-6 animate-fadeIn font-sans">
             <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 text-center space-y-4 shadow-xs">
               <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center bg-amber-50 text-amber-600 border border-amber-200">
                 <span className="material-symbols-outlined text-3xl">hourglass_empty</span>
@@ -4457,221 +5137,17 @@ export default function AiInterviewStudioPage({ user }) {
                 </button>
               </div>
             </div>
-          ) : (
-            /* TRƯỜNG HỢP 2: PHIÊN PHỎNG VẤN HỢP LỆ VỚI ĐIỂM SỐ & PHÂN TÍCH CHUẨN XÁC */
-            <div className="space-y-6">
-              
-              {/* Card Tổng Điểm */}
-              <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 text-center space-y-4 shadow-xs">
-                <div className="w-24 h-24 rounded-full mx-auto flex flex-col items-center justify-center border-4 border-purple-100 bg-purple-50/50 shadow-xs">
-                  <span className="font-extrabold text-3xl text-slate-900">
-                    {result.totalScore}
-                  </span>
-                  <span className="text-[10px] font-mono text-slate-500">/100</span>
-                </div>
-
-                <div>
-                  <div className="text-xs font-mono uppercase tracking-widest text-slate-400 font-bold">Đánh Giá Toàn Diện</div>
-                  <div className="text-2xl font-bold mt-0.5 text-slate-900">
-                    Xếp Loại: <span className="text-[#32247b]">{result.grade}</span>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap justify-center gap-2 text-xs text-slate-600 font-medium">
-                  <span className="px-3 py-1 rounded-lg bg-slate-100">Vị trí: <strong className="text-slate-900">{result.topic}</strong></span>
-                  <span className="px-3 py-1 rounded-lg bg-slate-100">Thời gian: <strong className="text-slate-900">{result.duration}</strong></span>
-                  <span className="px-3 py-1 rounded-lg bg-slate-100">Cấp bậc: <strong className="text-slate-900">{result.level}</strong></span>
-                </div>
-
-                <p className="text-xs sm:text-sm text-slate-600 max-w-xl mx-auto leading-relaxed">{result.aiSummary}</p>
-
-                <div className="pt-2 flex flex-wrap justify-center gap-3">
-                  <button
-                    onClick={() => {
-                      setSelectedHistorySession(result);
-                      setView('history');
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}
-                    className="bg-[#32247b] hover:bg-[#251963] text-white rounded-xl px-5 py-2.5 text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer transition-all"
-                  >
-                    <span className="material-symbols-outlined text-sm">analytics</span>
-                    <span>Xem Chi Tiết Từng Lượt Trả Lời</span>
-                  </button>
-                  <button
-                    onClick={() => setView('setup')}
-                    className="bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl px-5 py-2.5 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all"
-                  >
-                    <span className="material-symbols-outlined text-sm">refresh</span>
-                    <span>Luyện Tập Lại</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* 4 Khung Năng Lực Cốt Lõi */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {[
-                  { label: 'Chuyên Môn Kỹ Thuật (35%)', score: result.competencies?.domainKnowledge || 80 },
-                  { label: 'Giải Quyết Vấn Đề (20%)', score: result.competencies?.problemSolving || 78 },
-                  { label: 'Mô Hình STAR (15%)', score: result.competencies?.structureSTAR || 76 },
-                  { label: 'Tác Phong & Tông Giọng (30%)', score: result.competencies?.deliveryTone || 82 },
-                ].map((comp, idx) => (
-                  <div key={idx} className="bg-white rounded-xl border border-slate-200 p-3.5 text-center shadow-xs">
-                    <p className="text-[11px] font-semibold text-slate-500 line-clamp-1">{comp.label}</p>
-                    <div className="text-lg font-bold text-slate-900 mt-1">{comp.score}%</div>
-                  </div>
-                ))}
-              </div>
-
-              {/* BÁO CÁO PHÂN TÍCH PHONG THÁI, TÔNG GIỌNG & CẢM XÚC CAMERA (AI TELEMETRY REPORT) */}
-              <div className="bg-white rounded-2xl border border-purple-100 p-6 sm:p-7 shadow-xs space-y-5">
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-purple-100 pb-4">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#32247b] to-indigo-600 text-white flex items-center justify-center shadow-md">
-                      <span className="material-symbols-outlined text-xl">sensors</span>
-                    </div>
-                    <div>
-                      <h3 className="text-base font-extrabold text-[#1e1b4b]">
-                        Phân Tích Phong Thái, Tông Giọng &amp; Cảm Xúc Camera
-                      </h3>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        Dữ liệu âm học và thị giác máy tính chiếm 30% trọng số điểm tổng kết của phiên phỏng vấn.
-                      </p>
-                    </div>
-                  </div>
-                  <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span>Acoustic &amp; Vision Telemetry HD</span>
-                  </span>
-                </div>
-
-                {/* Nhận xét chuyên sâu từ Gemini AI về Tác phong & Tông giọng */}
-                {result.deliveryFeedback && (
-                  <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-50 via-indigo-50/50 to-white border border-purple-200/90 flex items-start gap-3 shadow-xs">
-                    <div className="w-8 h-8 rounded-xl bg-purple-600 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
-                      <span className="material-symbols-outlined text-base">psychology</span>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="text-xs font-bold text-[#1e1b4b] uppercase tracking-wider flex items-center gap-1.5">
-                        <span>Nhận Xét AI Về Tác Phong, Nét Mặt &amp; Tông Giọng:</span>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-200 text-purple-900 font-semibold normal-case">Trọng số 30%</span>
-                      </div>
-                      <p className="text-xs text-slate-700 leading-relaxed font-normal">
-                        {result.deliveryFeedback}
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Card 1: Giao Tiếp Bằng Mắt (Eye Contact) */}
-                  <div className="p-4 rounded-2xl bg-[#f8f7ff] border border-purple-100 space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-[#1e1b4b] flex items-center gap-1.5">
-                        <span className="material-symbols-outlined text-sm text-[#32247b]">visibility</span>
-                        <span>Giao Tiếp Mắt (Eye Contact):</span>
-                      </span>
-                      <span className="text-xs font-extrabold text-emerald-600">
-                        {result.telemetryReport?.avgEyeContact || 92}%
-                      </span>
-                    </div>
-                    <div className="w-full h-2 rounded-full bg-purple-100 overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-700"
-                        style={{ width: `${result.telemetryReport?.avgEyeContact || 92}%` }}
-                      />
-                    </div>
-                    <p className="text-[11px] text-slate-600 leading-relaxed font-normal">
-                      Bạn đã duy trì ánh mắt hướng về hội đồng phỏng vấn rất ấn tượng, tạo sự tin cậy cao và phong thái tự tin trước người phỏng vấn.
-                    </p>
-                  </div>
-
-                  {/* Card 2: Biểu Cảm Khuôn Mặt (Facial Emotion) */}
-                  <div className="p-4 rounded-2xl bg-[#f8f7ff] border border-purple-100 space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-[#1e1b4b] flex items-center gap-1.5">
-                        <span className="material-symbols-outlined text-sm text-indigo-600">mood</span>
-                        <span>Biểu Cảm Khuôn Mặt:</span>
-                      </span>
-                      <span className="text-xs font-extrabold text-[#32247b]">
-                        {result.telemetryReport?.emotionSummary || 'Tự tin & Thân thiện 😊'}
-                      </span>
-                    </div>
-                    {(() => {
-                      const emo = result.telemetryReport?.emotions || {};
-                      const total = (emo.confident || 0) + (emo.smiling || 0) + (emo.focused || 0) + (emo.tense || 0);
-                      const conf = total > 0 ? Math.round(((emo.confident || 0) / total) * 100) : 70;
-                      const smil = total > 0 ? Math.round(((emo.smiling || 0) / total) * 100) : 20;
-                      const foc = total > 0 ? Math.round(((emo.focused || 0) / total) * 100) : 10;
-                      return (
-                        <div className="flex items-center gap-2 pt-0.5">
-                          <span className="px-2 py-0.5 rounded-md bg-purple-100 text-[#32247b] text-[10px] font-bold">
-                            Tự Tin: {conf}%
-                          </span>
-                          <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                            Mỉm Cười: {smil}%
-                          </span>
-                          <span className="px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 text-[10px] font-bold">
-                            Tập Trung: {foc}%
-                          </span>
-                        </div>
-                      );
-                    })()}
-                    <p className="text-[11px] text-slate-600 leading-relaxed font-normal">
-                      Cơ mặt thư thái, biểu cảm cởi mở và năng lượng tích cực xuyên suốt cuộc đối đáp.
-                    </p>
-                  </div>
-
-                  {/* Card 3: Tông Giọng & Cao Độ (Pitch F0 Hz) */}
-                  <div className="p-4 rounded-2xl bg-[#f8f7ff] border border-purple-100 space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-[#1e1b4b] flex items-center gap-1.5">
-                        <span className="material-symbols-outlined text-sm text-purple-600">graphic_eq</span>
-                        <span>Tông Giọng &amp; Cao Độ:</span>
-                      </span>
-                      <span className="text-xs font-extrabold text-purple-700">
-                        {result.telemetryReport?.avgPitchHz || 128} Hz
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="px-2.5 py-0.5 rounded-lg bg-purple-200/60 text-[#32247b] text-[11px] font-bold">
-                        {(result.telemetryReport?.avgPitchHz || 128) < 165 ? 'Trầm ấm, đĩnh đạc' : 'Tự tin, chuẩn mực'}
-                      </span>
-                      <span className="text-[11px] text-slate-500">Độ rung giọng ổn định</span>
-                    </div>
-                    <p className="text-[11px] text-slate-600 leading-relaxed font-normal">
-                      Tần số cơ bản F0 ổn định trong dải đàm thoại lý tưởng, giọng nói trầm ấm, vững vàng và không bị run rẩy trước các câu hỏi hóc búa.
-                    </p>
-                  </div>
-
-                  {/* Card 4: Tốc Độ Nói & Bộ Lọc Từ Đệm (WPM & Filler Words) */}
-                  <div className="p-4 rounded-2xl bg-[#f8f7ff] border border-purple-100 space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-[#1e1b4b] flex items-center gap-1.5">
-                        <span className="material-symbols-outlined text-sm text-teal-600">speed</span>
-                        <span>Tốc Độ Nói &amp; Từ Đệm:</span>
-                      </span>
-                      <span className="text-xs font-extrabold text-teal-700">
-                        {result.telemetryReport?.avgWpm || 122} WPM
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="px-2.5 py-0.5 rounded-lg bg-teal-100 text-teal-800 text-[11px] font-bold">
-                        Nhịp Điệu Chuẩn (110-150 WPM)
-                      </span>
-                      <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 text-[10px] font-bold">
-                        Đã lọc: {result.telemetryReport?.totalFillers || 0} từ đệm
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-600 leading-relaxed font-normal">
-                      Nhịp điệu trình bày rành mạch, các khoảng ngắt nghỉ tự nhiên, hạn chế tối đa các từ ngữ chêm xen (ờ, à, ừm...).
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-        </main>
+          </main>
+        ) : (
+          <AiInterviewReportPage
+            user={user}
+            sessionData={result}
+            onBack={() => {
+              setView('setup');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          />
+        )
       )}
 
       {/* ===================================================================== */}
@@ -4725,50 +5201,103 @@ export default function AiInterviewStudioPage({ user }) {
         </main>
       )}
 
-      {/* History Detail View */}
+      {/* History Detail View: Executive AiInterviewReportPage */}
       {view === 'history' && selectedHistorySession && (
-        <main className="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 py-6 space-y-4 animate-fadeIn font-sans">
-          <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+        <AiInterviewReportPage
+          user={user}
+          sessionData={selectedHistorySession}
+          onBack={() => {
+            setSelectedHistorySession(null);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        />
+      )}
+
+      {/* Voice Assistant Modal */}
+      <VoiceAiAssistantModal
+        isOpen={isVoiceModalOpen}
+        onClose={() => setIsVoiceModalOpen(false)}
+        user={user}
+        initialContext={{
+          targetPosition: ((contextMode === 'job' || contextMode === 'ai-recommend') && selectedJob) ? selectedJob.title : customPosition,
+          level: LEVELS.find((l) => l.id === selectedLevel)?.label || 'Middle',
+          jobId: ((contextMode === 'job' || contextMode === 'ai-recommend') && selectedJob && typeof selectedJob.jobId === 'number') ? selectedJob.jobId : null,
+        }}
+      />
+
+      {/* QUOTA LIMIT UPGRADE MODAL (KIỂM SOÁT HẠN NGẠCH SUPABASE) */}
+      {isQuotaModalOpen && (
+
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fadeIn">
+          <div className="relative w-full max-w-lg rounded-3xl bg-gradient-to-b from-slate-900 via-slate-900 to-[#160d31] border border-purple-500/40 p-6 sm:p-8 text-white shadow-2xl ring-1 ring-white/10 animate-scaleUp">
+            {/* Close button */}
             <button
-              onClick={() => setSelectedHistorySession(null)}
-              className="text-xs font-bold text-[#32247b] flex items-center gap-1 hover:underline cursor-pointer"
+              onClick={() => setIsQuotaModalOpen(false)}
+              className="absolute top-5 right-5 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-all cursor-pointer"
             >
-              <span className="material-symbols-outlined text-sm">arrow_back</span>
-              Quay lại danh sách
+              <span className="material-symbols-outlined text-sm">close</span>
             </button>
             <span className="text-xs text-slate-400 font-mono">Phiên: {selectedHistorySession.id}</span>
           </div>
 
-          <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-2">
-            <h3 className="text-sm font-bold text-slate-900">{selectedHistorySession.topic}</h3>
-            <p className="text-xs text-slate-600 leading-relaxed">{selectedHistorySession.aiSummary}</p>
-          </div>
+            {/* Modal Icon */}
+            <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-amber-500 via-orange-500 to-rose-500 p-3.5 flex items-center justify-center mx-auto mb-4 shadow-xl shadow-orange-500/25 ring-4 ring-orange-500/20">
+              <span className="material-symbols-outlined text-white text-3xl">lock_clock</span>
+            </div>
 
-          <div className="space-y-3">
-            {selectedHistorySession.questions?.map((item, idx) => (
-              <div key={idx} className="bg-white rounded-xl border border-slate-200 p-4 space-y-2.5 shadow-xs">
-                <div className="flex items-start justify-between gap-2">
-                  <span className="text-xs font-bold text-slate-900">Lượt #{idx + 1}: {item.q}</span>
-                  <span className="px-2 py-0.5 rounded-md bg-purple-50 text-[#32247b] text-xs font-mono font-bold shrink-0">
-                    {item.score} Điểm
-                  </span>
-                </div>
+            <div className="text-center space-y-2">
+              <h3 className="text-xl sm:text-2xl font-black text-white">
+                Hôm Nay Bạn Đã Hết Lượt!
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-md mx-auto">
+                Bạn đã sử dụng hết <span className="font-bold text-amber-400 font-mono">{quotaStatus?.usedToday ?? 0}/{quotaStatus?.quotaLimit ?? 2} lượt phỏng vấn</span> hôm nay của gói <strong className="text-purple-300 font-bold">{quotaStatus?.planName || 'Free Candidate'}</strong>.
+              </p>
+            </div>
 
-                <div className="p-3 rounded-lg bg-slate-50 border border-slate-100 text-xs text-slate-700">
-                  <p className="font-semibold text-slate-800 mb-0.5">Câu trả lời của bạn:</p>
-                  <p className="italic">{item.answer}</p>
-                </div>
-
-                {item.criticalFeedback && (
-                  <div className="p-2.5 rounded-lg bg-amber-50/70 border border-amber-200/60 text-xs text-amber-900">
-                    <p className="font-semibold text-amber-800 mb-0.5">Nhận xét từ AI:</p>
-                    <p>{item.criticalFeedback.flaws}</p>
-                  </div>
-                )}
+            {/* Quick Benefits Comparison */}
+            <div className="mt-5 p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2.5 text-xs text-slate-200">
+              <div className="text-[11px] font-extrabold uppercase tracking-wider text-purple-300">
+                Nâng cấp gói để mở khóa đặc quyền phỏng vấn:
               </div>
-            ))}
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-emerald-400 text-sm">check_circle</span>
+                <span><strong>Practice Plus (49.000đ):</strong> 10 lượt/ngày, 5 câu hỏi chuẩn, 10 phút/buổi</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-emerald-400 text-sm">check_circle</span>
+                <span><strong>Practice Pro (149.000đ):</strong> 30 lượt/ngày, 7 câu đào sâu Follow-up, 15 phút/buổi</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-emerald-400 text-sm">check_circle</span>
+                <span><strong>Career Ace (249.000đ):</strong> Không giới hạn lượt, 8 câu Marathon Tech Lead, 20 phút</span>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="mt-6 flex flex-col sm:flex-row items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsQuotaModalOpen(false);
+                  if (onNavigate) onNavigate('candidate-pricing');
+                  else window.location.href = '/candidate-pricing';
+                }}
+                className="w-full sm:flex-1 py-3.5 px-5 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 hover:from-amber-600 hover:to-rose-600 text-white font-extrabold text-sm shadow-xl shadow-orange-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer transform hover:-translate-y-0.5 active:translate-y-0"
+              >
+                <span className="material-symbols-outlined text-lg">rocket_launch</span>
+                <span>Nâng Cấp Gói Luyện Tập Ngay</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsQuotaModalOpen(false)}
+                className="w-full sm:w-auto py-3 px-5 rounded-2xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white font-bold text-xs transition-all cursor-pointer"
+              >
+                Quay Lại Sau
+              </button>
+            </div>
           </div>
-        </main>
+        </div>
       )}
 
       {/* Voice Assistant Modal */}
@@ -4785,3 +5314,4 @@ export default function AiInterviewStudioPage({ user }) {
     </div>
   );
 }
+

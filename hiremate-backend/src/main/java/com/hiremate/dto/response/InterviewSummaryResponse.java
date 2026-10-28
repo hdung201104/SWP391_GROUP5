@@ -48,4 +48,8 @@ public class InterviewSummaryResponse {
     private java.util.Map<String, Object> telemetryReport;
     private LocalDateTime startedAt;
     private LocalDateTime completedAt;
+    private String planName;
+    private Integer maxQuestions;
+    private Integer maxDurationSeconds;
 }
+
