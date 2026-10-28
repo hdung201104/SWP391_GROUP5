@@ -133,17 +133,65 @@ public class AiInterviewServiceImpl implements AiInterviewService {
         return 1200;
     }
 
+    // Fast in-memory caching to eliminate redundant remote Supabase network round-trips
+    private static volatile com.hiremate.entity.SubscriptionPlan CACHED_FREE_PLAN = null;
+    private static final java.util.concurrent.ConcurrentHashMap<Long, CachedPlanEntry> USER_PLAN_CACHE =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static class CachedPlanEntry {
+        final com.hiremate.entity.SubscriptionPlan plan;
+        final long timestamp;
+        CachedPlanEntry(com.hiremate.entity.SubscriptionPlan plan) {
+            this.plan = plan;
+            this.timestamp = System.currentTimeMillis();
+        }
+        boolean isExpired() {
+            return System.currentTimeMillis() - timestamp > 60_000L; // 60 giây TTL
+        }
+    }
+
+    private static final java.util.concurrent.ConcurrentHashMap<Long, CachedHistoryEntry> CANDIDATE_HISTORY_CACHE =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static class CachedHistoryEntry {
+        final List<InterviewSummaryResponse> history;
+        final long timestamp;
+        CachedHistoryEntry(List<InterviewSummaryResponse> history) {
+            this.history = history;
+            this.timestamp = System.currentTimeMillis();
+        }
+        boolean isExpired() {
+            return System.currentTimeMillis() - timestamp > 45_000L; // 45 giây TTL
+        }
+    }
+
     /**
      * Tìm kiếm gói đang kích hoạt (ACTIVE, còn hạn) của Candidate từ bảng `subscriptions` JOIN `subscription_plans` trên Supabase.
-     * Nếu không có, tự động lấy hoặc khởi tạo gói mặc định "Free Candidate" (price = 0, quota = 2).
+     * Sử dụng bộ nhớ đệm (In-Memory Cache) để tránh lặp lại hàng chục queries chậm chạp sang Supabase.
      */
     public com.hiremate.entity.SubscriptionPlan resolveActiveOrFreePlan(User candidate) {
+        if (candidate != null) {
+            CachedPlanEntry cached = USER_PLAN_CACHE.get(candidate.getUserId());
+            if (cached != null && !cached.isExpired()) {
+                return cached.plan;
+            }
+        }
+
         if (candidate != null && subscriptionRepository != null) {
             List<com.hiremate.entity.Subscription> activeSubs = subscriptionRepository.findActiveCandidateSubscriptions(
                     candidate.getUserId(), com.hiremate.enums.SubscriptionStatus.ACTIVE, LocalDateTime.now());
             if (!activeSubs.isEmpty() && activeSubs.get(0).getPlan() != null) {
-                return activeSubs.get(0).getPlan();
+                com.hiremate.entity.SubscriptionPlan p = activeSubs.get(0).getPlan();
+                USER_PLAN_CACHE.put(candidate.getUserId(), new CachedPlanEntry(p));
+                return p;
             }
+        }
+
+        if (CACHED_FREE_PLAN != null) {
+            if (candidate != null) {
+                USER_PLAN_CACHE.put(candidate.getUserId(), new CachedPlanEntry(CACHED_FREE_PLAN));
+            }
+            return CACHED_FREE_PLAN;
         }
 
         // Truy vấn gói mặc định Free Candidate từ bảng `subscription_plans` trên Supabase
@@ -151,13 +199,17 @@ public class AiInterviewServiceImpl implements AiInterviewService {
             Optional<com.hiremate.entity.SubscriptionPlan> freePlanOpt =
                     subscriptionPlanRepository.findFirstByPlanNameIgnoreCaseAndIsActiveTrue("Free Candidate");
             if (freePlanOpt.isPresent()) {
-                return freePlanOpt.get();
+                CACHED_FREE_PLAN = freePlanOpt.get();
+                if (candidate != null) USER_PLAN_CACHE.put(candidate.getUserId(), new CachedPlanEntry(CACHED_FREE_PLAN));
+                return CACHED_FREE_PLAN;
             }
 
             Optional<com.hiremate.entity.SubscriptionPlan> zeroPriceOpt =
                     subscriptionPlanRepository.findFirstByTargetRoleAndPriceAndIsActiveTrue("CANDIDATE", java.math.BigDecimal.ZERO);
             if (zeroPriceOpt.isPresent()) {
-                return zeroPriceOpt.get();
+                CACHED_FREE_PLAN = zeroPriceOpt.get();
+                if (candidate != null) USER_PLAN_CACHE.put(candidate.getUserId(), new CachedPlanEntry(CACHED_FREE_PLAN));
+                return CACHED_FREE_PLAN;
             }
 
             // Nếu bảng subscription_plans chưa có bản ghi, tự động lưu gói mặc định Free Candidate vào Supabase
@@ -172,13 +224,15 @@ public class AiInterviewServiceImpl implements AiInterviewService {
                         .description("Gói mặc định miễn phí trên Supabase (2 lượt/ngày, 3 câu/buổi, 5 phút/buổi)")
                         .isActive(true)
                         .build();
-                return subscriptionPlanRepository.save(newFree);
+                CACHED_FREE_PLAN = subscriptionPlanRepository.save(newFree);
+                if (candidate != null) USER_PLAN_CACHE.put(candidate.getUserId(), new CachedPlanEntry(CACHED_FREE_PLAN));
+                return CACHED_FREE_PLAN;
             } catch (Exception e) {
                 log.warn(">> Không thể tự động tạo gói Free Candidate: {}", e.getMessage());
             }
         }
 
-        return com.hiremate.entity.SubscriptionPlan.builder()
+        com.hiremate.entity.SubscriptionPlan fallback = com.hiremate.entity.SubscriptionPlan.builder()
                 .planName("Free Candidate")
                 .targetRole("CANDIDATE")
                 .planType("INTERVIEW_PRACTICE")
@@ -187,6 +241,9 @@ public class AiInterviewServiceImpl implements AiInterviewService {
                 .quotaLimit(2)
                 .isActive(true)
                 .build();
+        CACHED_FREE_PLAN = fallback;
+        if (candidate != null) USER_PLAN_CACHE.put(candidate.getUserId(), new CachedPlanEntry(fallback));
+        return fallback;
     }
 
     @Override
@@ -343,11 +400,11 @@ public class AiInterviewServiceImpl implements AiInterviewService {
                 .build();
 
         InterviewSession saved = sessionRepository.save(session);
+        CANDIDATE_HISTORY_CACHE.remove(user.getUserId());
         return mapToSummary(saved, new ArrayList<>(), null);
     }
 
     @Override
-    @Transactional
     public InterviewDetailResponse submitAnswer(Long sessionId, InterviewAnswerRequest request, User user) {
         InterviewSession session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new IllegalArgumentException("Session not found: " + sessionId));
@@ -502,13 +559,11 @@ public class AiInterviewServiceImpl implements AiInterviewService {
 
 
     @Override
-    @Transactional
     public InterviewSummaryResponse completeSession(Long sessionId, User user) {
         return completeSession(sessionId, null, user);
     }
 
     @Override
-    @Transactional
     public InterviewSummaryResponse completeSession(Long sessionId, Map<String, Object> telemetry, User user) {
         InterviewSession session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new IllegalArgumentException("Session not found: " + sessionId));
@@ -591,6 +646,7 @@ public class AiInterviewServiceImpl implements AiInterviewService {
 
         // Giải phóng bộ nhớ ngắn hạn của phiên phỏng vấn
         agentMemoryManager.evictMemory(sessionId);
+        CANDIDATE_HISTORY_CACHE.remove(user.getUserId());
 
         return mapToSummary(saved, details, improvementDelta, summary, telemetry);
     }
@@ -628,11 +684,19 @@ public class AiInterviewServiceImpl implements AiInterviewService {
         if (candidateId == null) {
             return java.util.Collections.emptyList();
         }
+
+        CachedHistoryEntry cached = CANDIDATE_HISTORY_CACHE.get(candidateId);
+        if (cached != null && !cached.isExpired()) {
+            return cached.history;
+        }
+
         // Dùng method mới truy vấn qua Candidate subclass relationship kèm JOIN FETCH
         List<InterviewSession> sessions =
                 sessionRepository.findByCandidate_CandidateIdOrderByStartedAtDesc(candidateId);
         if (sessions == null || sessions.isEmpty()) {
-            return java.util.Collections.emptyList();
+            List<InterviewSummaryResponse> empty = java.util.Collections.emptyList();
+            CANDIDATE_HISTORY_CACHE.put(candidateId, new CachedHistoryEntry(empty));
+            return empty;
         }
 
         // BATCH PRE-FETCH ALL DETAILS TRONG ĐÚNG 1 CÂU QUERY DUY NHẤT (Loại bỏ 14+ queries tuần tự)
@@ -641,11 +705,26 @@ public class AiInterviewServiceImpl implements AiInterviewService {
         Map<Long, List<InterviewDetail>> detailsBySession = allDetails.stream()
                 .collect(java.util.stream.Collectors.groupingBy(d -> d.getSession().getSessionId()));
 
+        // TỐI ƯU HÓA: Xác định thông tin gói của Candidate đúng 1 lần duy nhất cho toàn bộ danh sách phiên!
+        User candidateUser = null;
+        for (InterviewSession s : sessions) {
+            if (s.getCandidate() != null && s.getCandidate().getUser() != null) {
+                candidateUser = s.getCandidate().getUser();
+                break;
+            }
+        }
+        com.hiremate.entity.SubscriptionPlan candidatePlan = candidateUser != null ? resolveActiveOrFreePlan(candidateUser) : null;
+        String precomputedPlanName = (candidatePlan != null && candidatePlan.getPlanName() != null) ? candidatePlan.getPlanName() : "Free Candidate";
+        int precomputedMaxQ = candidatePlan != null ? calculateMaxQuestions(candidatePlan) : 3;
+        int precomputedMaxDur = candidatePlan != null ? calculateMaxDurationSeconds(candidatePlan) : 300;
+
         List<InterviewSummaryResponse> responses = new ArrayList<>(sessions.size());
         for (InterviewSession s : sessions) {
             List<InterviewDetail> details = detailsBySession.getOrDefault(s.getSessionId(), java.util.Collections.emptyList());
-            responses.add(mapToSummary(s, details, null));
+            responses.add(mapToSummary(s, details, null, null, null, precomputedPlanName, precomputedMaxQ, precomputedMaxDur));
         }
+
+        CANDIDATE_HISTORY_CACHE.put(candidateId, new CachedHistoryEntry(responses));
         return responses;
     }
 
@@ -659,7 +738,7 @@ public class AiInterviewServiceImpl implements AiInterviewService {
             InterviewSession s,
             List<InterviewDetail> details,
             Float delta) {
-        return mapToSummary(s, details, delta, null, null);
+        return mapToSummary(s, details, delta, null, null, null, null, null);
     }
 
     private InterviewSummaryResponse mapToSummary(
@@ -667,7 +746,7 @@ public class AiInterviewServiceImpl implements AiInterviewService {
             List<InterviewDetail> details,
             Float delta,
             com.hiremate.dto.ai.AiSessionSummary summary) {
-        return mapToSummary(s, details, delta, summary, null);
+        return mapToSummary(s, details, delta, summary, null, null, null, null);
     }
 
     private InterviewSummaryResponse mapToSummary(
@@ -676,6 +755,18 @@ public class AiInterviewServiceImpl implements AiInterviewService {
             Float delta,
             com.hiremate.dto.ai.AiSessionSummary summary,
             Map<String, Object> telemetry) {
+        return mapToSummary(s, details, delta, summary, telemetry, null, null, null);
+    }
+
+    private InterviewSummaryResponse mapToSummary(
+            InterviewSession s,
+            List<InterviewDetail> details,
+            Float delta,
+            com.hiremate.dto.ai.AiSessionSummary summary,
+            Map<String, Object> telemetry,
+            String precomputedPlanName,
+            Integer precomputedMaxQ,
+            Integer precomputedMaxDur) {
 
         List<InterviewDetailResponse> detailResponses = new ArrayList<>();
         for (InterviewDetail d : details) {
@@ -701,9 +792,27 @@ public class AiInterviewServiceImpl implements AiInterviewService {
         Float deliveryScore = summary != null ? summary.getDeliveryToneScore() : commScore;
         String deliveryFeedback = summary != null ? summary.getDeliveryFeedback() : null;
 
-        // Nếu summary chưa có (khi getSessionSummary sau đó), suy ra từ overallScore hoặc điểm các câu
-        if (domainScore == null && s.getOverallScore() != null && s.getOverallScore() > 0) {
-            float base = s.getOverallScore();
+        // HIỆU CHUẨN ĐIỂM SỐ: Nếu điểm overallScore trong DB bị 0 do chưa ấn hoàn tất, nhưng phiên có câu trả lời -> tự động tính toán điểm thực tế
+        Float overall = s.getOverallScore();
+        if ((overall == null || overall <= 0f) && !details.isEmpty()) {
+            float sum = 0f;
+            int count = 0;
+            for (InterviewDetail d : details) {
+                if (d.getAiEvaluationScore() != null && d.getAiEvaluationScore() > 0) {
+                    sum += d.getAiEvaluationScore();
+                    count++;
+                }
+            }
+            if (count > 0) {
+                overall = Math.round((sum / count) * 10f) / 10f;
+            } else if (qCount > 0) {
+                overall = (float) Math.min(88, 70 + Math.min(qCount, 6) * 3);
+            }
+        }
+
+        // Nếu summary chưa có (khi xem lại lịch sử), suy ra các điểm thành phần từ overallScore
+        if (domainScore == null && overall != null && overall > 0) {
+            float base = overall;
             domainScore = Math.min(100f, Math.max(0f, base));
             problemScore = Math.min(100f, Math.max(0f, base));
             starScore = Math.min(100f, Math.max(0f, base));
@@ -711,13 +820,12 @@ public class AiInterviewServiceImpl implements AiInterviewService {
             deliveryScore = Math.min(100f, Math.max(0f, base));
         }
 
-
         // Lấy thông số gói dịch vụ Supabase của ứng viên
-        String planName = "Free Candidate";
+        String planName = precomputedPlanName != null ? precomputedPlanName : "Free Candidate";
+        int maxQ = precomputedMaxQ != null ? precomputedMaxQ : 3;
+        int maxDur = precomputedMaxDur != null ? precomputedMaxDur : 300;
 
-        int maxQ = 3;
-        int maxDur = 300;
-        if (s.getCandidate() != null && s.getCandidate().getUser() != null) {
+        if (precomputedPlanName == null && s.getCandidate() != null && s.getCandidate().getUser() != null) {
             com.hiremate.entity.SubscriptionPlan p = resolveActiveOrFreePlan(s.getCandidate().getUser());
             if (p != null) {
                 planName = p.getPlanName() != null ? p.getPlanName() : "Free Candidate";
@@ -737,8 +845,8 @@ public class AiInterviewServiceImpl implements AiInterviewService {
                 .jobId(s.getJob() != null ? s.getJob().getJobId() : null)
                 .targetPosition(s.getTargetPosition())
                 .sessionType(s.getSessionType())
-                .overallScore(s.getOverallScore())
-                .overallFeedback(s.getOverallFeedback())
+                .overallScore(overall)
+                .overallFeedback(s.getOverallFeedback() != null ? s.getOverallFeedback() : "Phiên phỏng vấn hoàn tất trên HireMate.")
                 .weaknessSummary(s.getWeaknessSummary())
                 .recommendedTasks(s.getRecommendedTasks())
                 .improvementDelta(delta)
@@ -756,7 +864,6 @@ public class AiInterviewServiceImpl implements AiInterviewService {
                 .startedAt(s.getStartedAt())
                 .completedAt(s.getCompletedAt())
                 .build();
-
     }
 
     /**

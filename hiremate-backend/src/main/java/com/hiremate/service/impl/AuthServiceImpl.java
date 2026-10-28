@@ -183,6 +183,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Transactional
     public AuthResponse login(LoginRequest request) {
         if (request.getEmail() == null || request.getPassword() == null) {
             throw new IllegalArgumentException("Vui lòng nhập đầy đủ email và mật khẩu");
@@ -216,10 +217,18 @@ public class AuthServiceImpl implements AuthService {
         if (user.getRole() == UserRole.RECRUITER) {
             // Tìm company qua Recruiter subclass
             Optional<Recruiter> recruiterOpt = recruiterRepository.findById(user.getUserId());
-            if (recruiterOpt.isPresent() && recruiterOpt.get().getCompany() != null) {
-                companyId = recruiterOpt.get().getCompany().getCompanyId();
-                companyName = recruiterOpt.get().getCompany().getCompanyName();
-            } else {
+            if (recruiterOpt.isPresent()) {
+                try {
+                    Company comp = recruiterOpt.get().getCompany();
+                    if (comp != null) {
+                        companyId = comp.getCompanyId();
+                        companyName = comp.getCompanyName();
+                    }
+                } catch (Exception e) {
+                    log.warn("Không thể load lazy company từ recruiter: {}", e.getMessage());
+                }
+            }
+            if (companyId == null) {
                 // fallback: tìm thẳng trong companies table
                 Optional<Company> company = companyRepository.findByRecruiterId(user.getUserId());
                 if (company.isPresent()) {
@@ -236,27 +245,46 @@ public class AuthServiceImpl implements AuthService {
         String refreshToken = jwtUtil.generateRefreshToken(user.getEmail(), claims);
 
         // Ghi nhận thông báo bảo mật đăng nhập
-        notificationService.createNotification(
-                user.getUserId(),
-                com.hiremate.enums.NotificationType.SYSTEM_ALERT,
-                "Đăng nhập thành công",
-                "Hệ thống ghi nhận phiên đăng nhập an toàn vào tài khoản của bạn.",
-                user.getUserId(),
-                "users"
-        );
+        try {
+            notificationService.createNotification(
+                    user.getUserId(),
+                    com.hiremate.enums.NotificationType.SYSTEM_ALERT,
+                    "Đăng nhập thành công",
+                    "Hệ thống ghi nhận phiên đăng nhập an toàn vào tài khoản của bạn.",
+                    user.getUserId(),
+                    "users"
+            );
+        } catch (Exception notifEx) {
+            log.warn("Không thể tạo notification đăng nhập: {}", notifEx.getMessage());
+        }
 
         return buildAuthResponse(user, token, refreshToken, companyId, companyName);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public AuthResponse getCurrentUser(User user) {
         Long companyId = null;
         String companyName = null;
-        if (user.getRole() == UserRole.RECRUITER) {
+        if (user != null && user.getRole() == UserRole.RECRUITER) {
             Optional<Recruiter> recruiterOpt = recruiterRepository.findById(user.getUserId());
-            if (recruiterOpt.isPresent() && recruiterOpt.get().getCompany() != null) {
-                companyId = recruiterOpt.get().getCompany().getCompanyId();
-                companyName = recruiterOpt.get().getCompany().getCompanyName();
+            if (recruiterOpt.isPresent()) {
+                try {
+                    Company comp = recruiterOpt.get().getCompany();
+                    if (comp != null) {
+                        companyId = comp.getCompanyId();
+                        companyName = comp.getCompanyName();
+                    }
+                } catch (Exception e) {
+                    log.warn("Không thể load lazy company từ recruiter: {}", e.getMessage());
+                }
+            }
+            if (companyId == null) {
+                Optional<Company> company = companyRepository.findByRecruiterId(user.getUserId());
+                if (company.isPresent()) {
+                    companyId = company.get().getCompanyId();
+                    companyName = company.get().getCompanyName();
+                }
             }
         }
 

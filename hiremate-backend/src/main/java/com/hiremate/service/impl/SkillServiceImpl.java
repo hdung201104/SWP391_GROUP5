@@ -426,14 +426,14 @@ public class SkillServiceImpl implements SkillService {
             return existing.get();
         }
 
-        // 2. Tìm kiếm trong aliases của các skill hiện có
-        List<Skill> allInDb = skillRepository.findAll();
-        for (Skill s : allInDb) {
+        // 2. Tìm kiếm trong aliases của các skill hiện có (sử dụng in-memory cache, tránh query findAll lặp lại)
+        List<SkillResponse> cachedSkills = getAllSkills(null, null);
+        for (SkillResponse s : cachedSkills) {
             if (s.getAliases() != null && !s.getAliases().isBlank()) {
                 String[] aliasArr = s.getAliases().split("[,;]");
                 for (String a : aliasArr) {
                     if (a.trim().equalsIgnoreCase(normalized) || a.trim().equalsIgnoreCase(rawName.trim())) {
-                        return s;
+                        return skillRepository.findById(s.getSkillId()).orElse(null);
                     }
                 }
             }
@@ -551,10 +551,10 @@ public class SkillServiceImpl implements SkillService {
 
     @Override
     public List<SkillCategoryCountDTO> getSkillCategoriesSummary() {
-        List<Skill> all = skillRepository.findAll();
+        List<SkillResponse> all = getAllSkills(null, null);
         Map<String, Long> countMap = new HashMap<>();
 
-        for (Skill s : all) {
+        for (SkillResponse s : all) {
             String cat = (s.getCategory() != null && !s.getCategory().isBlank()) ? s.getCategory().trim() : "IT_SOFTWARE";
             countMap.put(cat, countMap.getOrDefault(cat, 0L) + 1);
         }

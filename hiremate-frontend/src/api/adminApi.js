@@ -7,6 +7,7 @@ export const adminApi = {
   // Users Management
   getUsers: () => axiosClient.get('/admin/users'),
   updateUserStatus: (userId, status) => axiosClient.put(`/admin/users/${userId}/status`, { status }),
+  assignUserTier: (userId, data) => axiosClient.put(`/admin/users/${userId}/tier`, data),
 
   // Companies Management
   getCompanies: () => axiosClient.get('/admin/companies'),
@@ -24,6 +25,8 @@ export const adminApi = {
   getPlans: () => axiosClient.get('/admin/plans'),
   createPlan: (plan) => axiosClient.post('/admin/plans', plan),
   updatePlan: (planId, plan) => axiosClient.put(`/admin/plans/${planId}`, plan),
+  deletePlan: (planId) => axiosClient.delete(`/admin/plans/${planId}`),
+  togglePlan: (planId) => axiosClient.put(`/admin/plans/${planId}/toggle`),
 
   // Job Moderation
   getJobs: () => axiosClient.get('/admin/jobs'),

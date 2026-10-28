@@ -30,6 +30,10 @@ public class VoiceAgentServiceImpl implements VoiceAgentService {
     private final ObjectMapper objectMapper;
     private final CandidateRepository candidateRepository;
 
+    @org.springframework.beans.factory.annotation.Autowired
+    @org.springframework.context.annotation.Lazy
+    private com.hiremate.service.AiInterviewService aiInterviewService;
+
     private static final String SYSTEM_PROMPT_TEMPLATE = """
             Bạn là trợ lý AI tuyển dụng của nền tảng HireMate.
             Tên ứng viên đang trò chuyện: %s.
@@ -55,6 +59,18 @@ public class VoiceAgentServiceImpl implements VoiceAgentService {
     public VoiceSessionResponse createRealtimeSession(VoiceSessionRequest request, User user) {
         if (!openAiConfig.isConfigured()) {
             throw new BadRequestException("Hệ thống chưa được cấu hình biến môi trường OPENAI_API_KEY. Vui lòng liên hệ Quản trị viên để kích hoạt tính năng Trò chuyện Giọng nói AI.");
+        }
+
+        // Kiểm tra phân quyền & hạn ngạch phỏng vấn trong ngày của Ứng viên (Admin luôn được bypass)
+        if (user != null && user.getRole() == com.hiremate.enums.UserRole.CANDIDATE) {
+            if (aiInterviewService != null) {
+                var quota = aiInterviewService.getCandidateQuotaStatus(user);
+                if (Boolean.TRUE.equals(quota.getIsQuotaExceeded())) {
+                    throw new BadRequestException(String.format(
+                            "Bạn đã sử dụng hết hạn ngạch hôm nay (%d/%d phiên) của gói \"%s\". Vui lòng quay lại vào ngày mai hoặc nâng cấp gói dịch vụ để tiếp tục luyện tập.",
+                            quota.getUsedToday(), quota.getQuotaLimit(), quota.getPlanName()));
+                }
+            }
         }
 
         String candidateName = (user != null && user.getFullName() != null && !user.getFullName().isBlank())

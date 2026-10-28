@@ -6,6 +6,7 @@ import { jobApi, applicationApi, aiMatchApi, companyApi } from '../api';
 import { parseSkillList } from '../utils/helpers';
 import { calculateJobDeadline } from '../utils/jobTimeUtils';
 import { exportRecruiterReportToExcel } from '../utils/excelExportUtils';
+import paymentApi from '../api/paymentApi';
 
 export default function RecruiterDashboardPage({ user, currentRoute }) {
   // Parse tab from currentRoute
@@ -43,6 +44,39 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
   const [hoveredRadarSkill, setHoveredRadarSkill] = useState(null);
   const [selectedFunnelStage, setSelectedFunnelStage] = useState(null);
   const [velocityViewMode, setVelocityViewMode] = useState('ALL'); // 'ALL' | 'WEEK' | 'JOB'
+
+  // Recruiter Subscription & Gating
+  const [recruiterSubscription, setRecruiterSubscription] = useState(null);
+  const [showRecruiterUpgradeModal, setShowRecruiterUpgradeModal] = useState(false);
+  const [recruiterUpgradeMessage, setRecruiterUpgradeMessage] = useState('');
+
+  useEffect(() => {
+    paymentApi.getMySubscription()
+      .then((res) => {
+        const sub = res?.data?.data || res?.data;
+        if (sub && sub.active) {
+          setRecruiterSubscription(sub);
+        }
+      })
+      .catch((e) => console.warn('Could not load recruiter subscription in dashboard', e));
+  }, []);
+
+  const isAdmin = user?.role === 'ADMIN';
+  const planPrice = Number(recruiterSubscription?.price || 0);
+  const planName = recruiterSubscription?.planName || 'Free Recruiter';
+  const quotaLimit = Number(recruiterSubscription?.quotaLimit || 0);
+  const isPaidRecruiter = recruiterSubscription && recruiterSubscription.active && planPrice > 0;
+  // Hiring Starter (199k) trở lên mở khóa: Xuất Báo Cáo Tuyển Dụng Excel / PDF
+  const isStarterOrHigher = isAdmin || (isPaidRecruiter && (planPrice >= 199000 || quotaLimit >= 10 || planName.toLowerCase().includes('starter') || planName.toLowerCase().includes('pro') || planName.toLowerCase().includes('elite')));
+
+  const handleTriggerExportModal = () => {
+    if (!isStarterOrHigher) {
+      setRecruiterUpgradeMessage('Tính năng xuất báo cáo tuyển dụng chuyên sâu ra định dạng Excel / PDF chỉ khả dụng cho gói Hiring Starter (199.000đ) hoặc Hiring Pro trở lên. Hãy nâng cấp gói để tải toàn bộ báo cáo doanh nghiệp.');
+      setShowRecruiterUpgradeModal(true);
+      return;
+    }
+    setShowExportModal(true);
+  };
 
   // Company Profile state from DB
   const [companyProfile, setCompanyProfile] = useState({
@@ -227,6 +261,11 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
 
   const handleDownloadReport = () => {
     setShowExportModal(false);
+    if (!isStarterOrHigher) {
+      setRecruiterUpgradeMessage('Tính năng xuất báo cáo tuyển dụng chuyên sâu ra định dạng Excel / PDF chỉ khả dụng cho gói Hiring Starter (199.000đ) hoặc Hiring Pro trở lên. Hãy nâng cấp gói để tải toàn bộ báo cáo doanh nghiệp.');
+      setShowRecruiterUpgradeModal(true);
+      return;
+    }
     if (exportFormat === 'PDF') {
       setNotification('Đang mở bản in PDF báo cáo tuyển dụng...');
       setTimeout(() => {
@@ -851,7 +890,7 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                 {/* Export Report CTA */}
                 <button
                   type="button"
-                  onClick={() => setShowExportModal(true)}
+                  onClick={handleTriggerExportModal}
                   className="px-5 py-2 rounded-full bg-gradient-to-r from-[#5b48bd] to-[#7c66dc] hover:from-[#47369f] hover:to-[#6852ca] text-white font-bold text-xs uppercase tracking-wider shadow-md hover:shadow-lg hover:shadow-purple-200 transition-all flex items-center gap-2 cursor-pointer shrink-0 whitespace-nowrap"
                 >
                   <span className="material-symbols-outlined text-base">download</span>
@@ -1893,7 +1932,7 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                     <div className="flex items-center gap-3 shrink-0">
                       <button
                         type="button"
-                        onClick={() => setShowExportModal(true)}
+                        onClick={handleTriggerExportModal}
                         className="px-4 py-2 rounded-xl bg-[#5b48bd] hover:bg-[#4a39a6] text-white text-xs font-bold transition-all shadow-md shadow-purple-500/20 flex items-center gap-1.5 cursor-pointer"
                       >
                         <span>Xem chi tiết báo cáo</span>
@@ -3025,6 +3064,48 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
               >
                 <span className="material-symbols-outlined text-base">download</span>
                 <span>Tải Báo Cáo ({exportFormat})</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Recruiter Tier Upgrade Modal for Dashboard Export */}
+      {showRecruiterUpgradeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-purple-100 text-center space-y-4">
+            <div className="w-14 h-14 rounded-2xl bg-purple-100 text-[#5b48bd] flex items-center justify-center mx-auto shadow-sm">
+              <span className="material-symbols-outlined text-3xl">workspace_premium</span>
+            </div>
+            <div className="space-y-1.5">
+              <h3 className="text-base font-bold text-slate-900">
+                Nâng Cấp Gói Tuyển Dụng Doanh Nghiệp
+              </h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                {recruiterUpgradeMessage || 'Tính năng xuất báo cáo chuyên sâu chỉ dành cho tài khoản gói Hiring Starter (199.000đ) hoặc Hiring Pro trở lên.'}
+              </p>
+            </div>
+            <div className="p-3 bg-purple-50/60 rounded-xl border border-purple-100 text-[11px] text-purple-950 font-medium">
+              💡 Gói đề xuất: <strong>Hiring Starter / Hiring Pro</strong> • Mở khóa đầy đủ tính năng xuất báo cáo PDF &amp; Excel, phân tích chuyên sâu ứng viên và mở rộng hạn mức tin đăng!
+            </div>
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowRecruiterUpgradeModal(false)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 transition-colors cursor-pointer"
+              >
+                Để Sau
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowRecruiterUpgradeModal(false);
+                  window.location.hash = '#/recruiter-pricing';
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#5b48bd] to-indigo-600 hover:from-[#4a39a7] hover:to-indigo-700 text-white text-xs font-bold shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <span className="material-symbols-outlined text-base">upgrade</span>
+                <span>Xem Bảng Giá Gói</span>
               </button>
             </div>
           </div>

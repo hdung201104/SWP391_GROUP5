@@ -7,6 +7,7 @@ import { extractBlob } from '../utils/excelExportUtils';
 import JobDetailModal from '../components/jobs/JobDetailModal';
 import ApplyJobModal from '../components/jobs/ApplyJobModal';
 import CvViewModal from '../components/common/CvViewModal';
+import interviewApi from '../api/interviewApi';
 
 
 // Safe Null-Guard Helpers
@@ -320,6 +321,30 @@ export default function CandidateProfilePage({ user }) {
   const [isRewritingBio, setIsRewritingBio] = useState(false);
   const [viewingFile, setViewingFile] = useState(null);
 
+  // Subscription Quota State for Candidate
+  const [quotaInfo, setQuotaInfo] = useState(null);
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+  const [upgradeModalMessage, setUpgradeModalMessage] = useState('');
+  const [aiAtsUsageCount, setAiAtsUsageCount] = useState(0);
+
+  useEffect(() => {
+    interviewApi.getQuotaStatus()
+      .then((res) => {
+        const q = res?.data?.data || res?.data;
+        if (q) setQuotaInfo(q);
+      })
+      .catch((e) => console.warn('Could not load quota status:', e));
+  }, [user]);
+
+  const isAdmin = user?.role === 'ADMIN';
+  const planPrice = Number(quotaInfo?.price) || 0;
+  const planName = quotaInfo?.planName || 'Free Candidate';
+  const isPaidPlan = Boolean(quotaInfo?.isPaidPlan || planPrice > 0);
+  const isProOrAce = planPrice >= 100000 || planName.toLowerCase().includes('pro') || planName.toLowerCase().includes('ace') || planName.toLowerCase().includes('vip');
+  const isPlus = (planPrice > 0 && planPrice < 100000) || planName.toLowerCase().includes('plus');
+  const maxCvLimit = isAdmin ? Infinity : isProOrAce ? Infinity : isPlus ? 5 : 2;
+  const maxCvLimitStr = maxCvLimit === Infinity ? 'Không giới hạn' : `${maxCvLimit}`;
+
   const showToast = (msg) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(''), 3200);
@@ -367,6 +392,12 @@ export default function CandidateProfilePage({ user }) {
 
   // Gemini AI Polish Summary
   const handleRewriteBioWithGemini = () => {
+    if (!isAdmin && !isPaidPlan && aiAtsUsageCount >= 1) {
+      setUpgradeModalMessage(`Gói "${planName}" chỉ hỗ trợ 1 lượt AI Tinh Chỉnh ATS mỗi phiên làm việc. Hãy nâng cấp gói Practice Plus / Pro để sử dụng tính năng AI tinh chỉnh không giới hạn!`);
+      setUpgradeModalOpen(true);
+      return;
+    }
+    setAiAtsUsageCount(prev => prev + 1);
     setIsRewritingBio(true);
     showToast('Gemini AI đang tối ưu hóa từ khóa theo tiêu chuẩn ATS cho phiên bản này...');
     setTimeout(() => {
@@ -766,9 +797,25 @@ export default function CandidateProfilePage({ user }) {
     }
   };
 
+  const handleTriggerUpload = () => {
+    if (!isAdmin && cvFiles.length >= maxCvLimit) {
+      setUpgradeModalMessage(`Bạn đã sử dụng hết hạn mức lưu trữ CV (${cvFiles.length}/${maxCvLimitStr} bản) của gói "${planName}". Hãy nâng cấp gói Practice Plus hoặc Practice Pro để mở rộng kho lưu trữ CV không giới hạn!`);
+      setUpgradeModalOpen(true);
+      return;
+    }
+    fileUploadInputRef.current?.click();
+  };
+
   const handleUploadCv = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (!isAdmin && cvFiles.length >= maxCvLimit) {
+      setUpgradeModalMessage(`Bạn đã đạt giới hạn lưu trữ tối đa (${cvFiles.length}/${maxCvLimitStr} bản CV) của gói "${planName}". Vui lòng xóa bớt CV cũ hoặc nâng cấp gói Practice Plus / Pro để lưu trữ thêm.`);
+      setUpgradeModalOpen(true);
+      if (e.target) e.target.value = '';
+      return;
+    }
 
     const isImg = Boolean(file.name.match(/\.(png|jpe?g|webp)$/i));
 
@@ -877,6 +924,10 @@ export default function CandidateProfilePage({ user }) {
       console.warn('Upload CV scan failed:', err);
       setScanState({ isScanning: false, step: 1, fileName: '', progress: 0, statusText: '' });
       const errMsg = err?.response?.data?.message || err?.message || 'Vui lòng kiểm tra lại định dạng tệp!';
+      if (errMsg.includes('giới hạn lưu trữ') || errMsg.includes('nâng cấp gói')) {
+        setUpgradeModalMessage(errMsg);
+        setUpgradeModalOpen(true);
+      }
       showToast(`Tải lên CV gặp lỗi: ${errMsg}`);
     } finally {
       if (e.target) e.target.value = '';
@@ -1151,7 +1202,7 @@ export default function CandidateProfilePage({ user }) {
                   }`}
               >
                 <span className="material-symbols-outlined text-base">folder_shared</span>
-                <span>Kho Tệp &amp; Điểm ATS ({cvFiles.length})</span>
+                <span>Kho Tệp &amp; Điểm ATS ({cvFiles.length}/{maxCvLimit === Infinity ? '∞' : maxCvLimit} bản - {planName})</span>
               </button>
 
               {/* End Main Tab Segment */}
@@ -1163,7 +1214,7 @@ export default function CandidateProfilePage({ user }) {
 
                 {/* Upload CV button with AI Scanner */}
                 <button
-                  onClick={() => fileUploadInputRef.current?.click()}
+                  onClick={handleTriggerUpload}
                   className="px-3.5 py-1.5 rounded-full text-[11px] font-sans font-bold bg-[#32247b] text-white hover:bg-[#5b48bd] flex items-center gap-1.5 shadow-sm cursor-pointer transition-all"
                   title="Tải lên tệp CV (PDF/DOCX) để AI quét dữ liệu"
                 >
@@ -1335,11 +1386,18 @@ export default function CandidateProfilePage({ user }) {
                     {[
                       { id: 'executive', label: '2 Cột Chuẩn' },
                       { id: 'harvard', label: 'Harvard ATS' },
-                      { id: 'modern', label: 'Hiện Đại' }
+                      { id: 'modern', label: 'Hiện Đại (VIP)' }
                     ].map((tpl) => (
                       <button
                         key={tpl.id}
-                        onClick={() => setCvTemplate(tpl.id)}
+                        onClick={() => {
+                          if (tpl.id === 'modern' && !isAdmin && !isPaidPlan) {
+                            setUpgradeModalMessage(`Mẫu bố cục "Hiện Đại (VIP)" là đặc quyền dành riêng cho gói Practice Plus và Practice Pro. Hãy nâng cấp để mở khóa toàn bộ mẫu thiết kế CV chuẩn ATS!`);
+                            setUpgradeModalOpen(true);
+                            return;
+                          }
+                          setCvTemplate(tpl.id);
+                        }}
                         className={`px-3 py-1 rounded-full text-xs font-sans transition-all cursor-pointer ${
                           cvTemplate === tpl.id
                             ? 'bg-[#32247b] text-white shadow-xs font-bold'
@@ -2715,7 +2773,7 @@ export default function CandidateProfilePage({ user }) {
                   </div>
                 </div>
                 <span className="px-3.5 py-1 rounded-full text-xs font-sans font-bold bg-purple-50 text-[#5b48bd] border border-purple-100">
-                  {cvFiles.length} Tệp Lưu Trữ
+                  {cvFiles.length}/{maxCvLimit === Infinity ? '∞' : maxCvLimit} Tệp Lưu Trữ ({planName})
                 </span>
               </div>
 
@@ -2724,6 +2782,13 @@ export default function CandidateProfilePage({ user }) {
                   type="file"
                   accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp"
                   onChange={handleUploadCv}
+                  onClick={(e) => {
+                    if (!isAdmin && cvFiles.length >= maxCvLimit) {
+                      e.preventDefault();
+                      setUpgradeModalMessage(`Bạn đã sử dụng hết hạn mức lưu trữ CV (${cvFiles.length}/${maxCvLimitStr} bản) của gói "${planName}". Hãy nâng cấp gói Practice Plus hoặc Practice Pro để mở rộng kho lưu trữ CV không giới hạn!`);
+                      setUpgradeModalOpen(true);
+                    }
+                  }}
                   className="hidden"
                 />
                 <span className="material-symbols-outlined text-4xl text-[#5b48bd] group-hover:scale-110 transition-transform">cloud_upload</span>
@@ -3318,7 +3383,14 @@ export default function CandidateProfilePage({ user }) {
                     <button
                       key={tpl.id}
                       type="button"
-                      onClick={() => setCvTemplate(tpl.id)}
+                      onClick={() => {
+                        if (tpl.id === 'modern' && !isAdmin && !isPaidPlan) {
+                          setUpgradeModalMessage(`Mẫu thiết kế CV "Hiện Đại (Modern VIP)" là đặc quyền dành riêng cho gói Practice Plus và Practice Pro. Hãy nâng cấp để xuất bản CV chuẩn thiết kế cao cấp!`);
+                          setUpgradeModalOpen(true);
+                          return;
+                        }
+                        setCvTemplate(tpl.id);
+                      }}
                       className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
                         cvTemplate === tpl.id
                           ? 'bg-[#32247b] text-white border-[#32247b] shadow-md'
@@ -3444,18 +3516,54 @@ export default function CandidateProfilePage({ user }) {
         )}
 
         {/* ========================================================= */}
-        {/* MODAL: XEM TRỰC TIẾP TỆP CV GỐC (CVVIEWMODAL)             */}
+        {/* UPGRADE SUBSCRIPTION MODAL                                */}
         {/* ========================================================= */}
-        {viewingCvFile && (
-          <CvViewModal
-            isOpen={Boolean(viewingCvFile)}
-            onClose={() => setViewingCvFile(null)}
-            cvId={viewingCvFile.id}
-            cvUrl={viewingCvFile.fileUrl}
-            fileName={viewingCvFile.name || 'CV_Ung_Vien.pdf'}
-            candidateName={currentCandidate.accountName}
-            atsScore={viewingCvFile.atsScore}
-          />
+        {upgradeModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn font-sans">
+            <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-purple-100 text-center space-y-5 animate-scaleUp">
+              <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-purple-600 via-indigo-600 to-amber-500 text-white flex items-center justify-center mx-auto shadow-lg shadow-purple-200">
+                <span className="material-symbols-outlined text-3xl">workspace_premium</span>
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-xl font-black text-[#1e1b4b]">Nâng Cấp Gói Dịch Vụ Ứng Viên</h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  {upgradeModalMessage || 'Tính năng này yêu cầu nâng cấp gói dịch vụ để tiếp tục sử dụng không giới hạn.'}
+                </p>
+              </div>
+              <div className="p-4 rounded-2xl bg-purple-50/70 border border-purple-100 text-left space-y-2 text-xs">
+                <div className="font-bold text-[#32247b] flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-sm">stars</span>
+                  <span>Quyền lợi khi nâng cấp Practice Plus / Pro:</span>
+                </div>
+                <ul className="space-y-1 text-slate-700 list-disc list-inside text-[11px]">
+                  <li>Mở rộng kho lưu trữ lên tới 5 bản CV hoặc không giới hạn</li>
+                  <li>Không giới hạn lượt AI Tinh Chỉnh ATS &amp; Từ khóa ngành</li>
+                  <li>Mở khóa toàn bộ mẫu bố cục CV Hiện Đại chuẩn quốc tế</li>
+                  <li>Luyện phỏng vấn thử AI Voice Studio theo ngày</li>
+                </ul>
+              </div>
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setUpgradeModalOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-all cursor-pointer"
+                >
+                  Để Sau
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUpgradeModalOpen(false);
+                    window.location.hash = '#/candidate-pricing';
+                  }}
+                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#5b48bd] to-[#32247b] text-white font-bold text-xs shadow-md hover:opacity-95 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <span>Nâng Cấp Ngay</span>
+                  <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
       </div>

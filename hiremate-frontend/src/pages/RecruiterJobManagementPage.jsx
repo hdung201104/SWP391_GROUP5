@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useLivingTheme } from '../context/LivingThemeContext';
-import { jobApi, applicationApi, companyApi, skillApi } from '../api';
+import { jobApi, applicationApi, companyApi, skillApi, paymentApi } from '../api';
 import { parseSkillList } from '../utils/helpers';
 import { calculateJobDeadline } from '../utils/jobTimeUtils';
 import { exportJobsToExcel } from '../utils/excelExportUtils';
@@ -196,6 +196,46 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
   const companyStatusRef = useRef(companyStatus);
   companyStatusRef.current = companyStatus;
   const [showUnverifiedWarningModal, setShowUnverifiedWarningModal] = useState(false);
+  const [recruiterSubscription, setRecruiterSubscription] = useState(null);
+  const [showQuotaExceededModal, setShowQuotaExceededModal] = useState(false);
+  const [quotaModalMessage, setQuotaModalMessage] = useState('');
+
+  useEffect(() => {
+    paymentApi.getMySubscription()
+      .then(res => {
+        const sub = res.data?.data || res.data;
+        if (sub && sub.active) {
+          setRecruiterSubscription(sub);
+        }
+      })
+      .catch(e => console.warn('Could not load recruiter subscription', e));
+  }, []);
+
+  const isAdmin = user?.role === 'ADMIN';
+  const planPrice = Number(recruiterSubscription?.price || 0);
+  const planName = recruiterSubscription?.planName || 'Free Recruiter';
+  const isFreeRecruiter = !isAdmin && (!recruiterSubscription || planPrice === 0 || planName.toLowerCase().includes('free'));
+
+  const checkAiJdQuota = () => {
+    if (!isFreeRecruiter) return true;
+    const today = new Date().toISOString().split('T')[0];
+    const key = `hiremate_ai_jd_usage_${today}_${user?.userId || user?.id || 'default'}`;
+    const currentUsage = parseInt(localStorage.getItem(key) || '0', 10);
+    if (currentUsage >= 2) {
+      setQuotaModalMessage('Bạn đã sử dụng hết 2 lượt dùng thử tính năng AI Phân Tích JD & Đề Xuất Kỹ Năng trong ngày của gói Free Recruiter. Vui lòng nâng cấp lên gói Hiring Starter (199.000đ) để sử dụng KHÔNG GIỚI HẠN tính năng AI trích xuất JD tự động!');
+      setShowQuotaExceededModal(true);
+      return false;
+    }
+    return true;
+  };
+
+  const incrementAiJdQuota = () => {
+    if (!isFreeRecruiter) return;
+    const today = new Date().toISOString().split('T')[0];
+    const key = `hiremate_ai_jd_usage_${today}_${user?.userId || user?.id || 'default'}`;
+    const currentUsage = parseInt(localStorage.getItem(key) || '0', 10);
+    localStorage.setItem(key, String(currentUsage + 1));
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -579,6 +619,11 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (!checkAiJdQuota()) {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
     const validExtensions = ['.pdf', '.doc', '.docx', '.txt', '.png', '.jpg', '.jpeg', '.webp'];
     const fileName = file.name.toLowerCase();
     const isValid = validExtensions.some(ext => fileName.endsWith(ext));
@@ -637,6 +682,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
             : prev.preferredSkillsInput,
         }));
         setJdScanSuccess(true);
+        incrementAiJdQuota();
         triggerToast(`🎉 AI đã bóc tách dữ liệu từ "${file.name}" và điền kỹ năng vào form!`);
       }
     } catch (err) {
@@ -652,6 +698,10 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
   const handleScanRawJdText = async () => {
     if (!rawJdText || rawJdText.trim().length < 20) {
       triggerToast('Vui lòng dán nội dung mô tả công việc (tối thiểu 20 ký tự) để AI phân tích.');
+      return;
+    }
+
+    if (!checkAiJdQuota()) {
       return;
     }
 
@@ -705,6 +755,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
             : prev.preferredSkillsInput,
         }));
         setJdScanSuccess(true);
+        incrementAiJdQuota();
         triggerToast('🎉 AI đã bóc tách văn bản và tự động điền kỹ năng chuẩn xác vào form!');
       }
     } catch (err) {
@@ -717,6 +768,10 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
 
   // Luồng 1: AI Tự Động Đọc JD & Đề Xuất Kỹ Năng Đa Ngành Nghề
   const handleAiExtractSkillsFromJd = async () => {
+    if (!checkAiJdQuota()) {
+      return;
+    }
+
     const title = (createForm.title || '').trim();
     const desc = (createForm.description || '').trim();
     const req = (createForm.requirements || '').trim();
@@ -740,6 +795,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
       const data = res?.data || res;
       if (data) {
         setAiSuggestedSkillsData(data);
+        incrementAiJdQuota();
 
         const newMandatory = Array.isArray(data.mandatorySkills) ? data.mandatorySkills.map(s => s.name || s) : [];
         const newPreferred = Array.isArray(data.preferredSkills) ? data.preferredSkills.map(s => s.name || s) : [];
@@ -777,6 +833,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
           setMasterSkillsList(list);
         }).catch(() => {});
 
+        incrementAiJdQuota();
         triggerToast(`🎉 AI đã bóc tách & chuẩn hóa ${newMandatory.length + newPreferred.length} kỹ năng vào bài đăng!`);
       }
     } catch (err) {
@@ -826,6 +883,12 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
 
     if (!isVerified) {
       setShowUnverifiedWarningModal(true);
+      return;
+    }
+
+    const maxJobQuota = recruiterSubscription?.quotaLimit || 3;
+    if (activeCount >= maxJobQuota) {
+      setShowQuotaExceededModal(true);
       return;
     }
 
@@ -1384,7 +1447,11 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                 <p className="text-xs uppercase tracking-wider text-slate-500 font-bold">Vị Trí Đang Mở</p>
                 <div className="flex items-baseline gap-2 mt-2">
                   <span className="text-3xl lg:text-4xl font-sans font-extrabold text-[#221d47]">{activeCount}</span>
-                  <span className="text-xs text-[#10b981] font-semibold">/ {jobsList.length} tổng tin</span>
+                  <span className="text-xs text-[#10b981] font-bold">/ {recruiterSubscription?.quotaLimit || 3} hạn mức</span>
+                </div>
+                <div className="mt-1 flex items-center gap-1.5 text-[11px] font-semibold text-purple-700">
+                  <span className="material-symbols-outlined text-[13px] text-amber-500">workspace_premium</span>
+                  <span>{recruiterSubscription?.planName || 'Gói Khởi Đầu (Starter)'}</span>
                 </div>
               </div>
               <div className="w-11 h-11 rounded-2xl bg-[#edeafd] border border-purple-200 flex items-center justify-center text-[#5b48bd] group-hover:scale-105 transition-transform">
@@ -1395,7 +1462,10 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
               <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-[#10b981]" /> {activeCount} Đang tuyển &bull; {pausedCount} Tạm dừng
               </span>
-              <span className="text-[#5b48bd] font-bold">{jobsList.length > 0 ? Math.round((activeCount / jobsList.length) * 100) : 0}% Active</span>
+              <a href="#/recruiter/pricing" className="text-[#5b48bd] hover:underline font-bold text-[11px] flex items-center gap-0.5">
+                <span>Nâng cấp</span>
+                <span className="material-symbols-outlined text-[12px]">chevron_right</span>
+              </a>
             </div>
           </div>
 
@@ -2045,6 +2115,72 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
           </div>
         )}
       </div>
+
+      {/* ======================================================== */}
+      {/* MODAL CẢNH BÁO: ĐÃ ĐẠT HẠN MỨC TIN ĐĂNG GÓI DỊCH VỤ       */}
+      {/* ======================================================== */}
+      {showQuotaExceededModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans">
+          <div className="relative w-full max-w-lg bg-white border border-slate-100 rounded-3xl shadow-2xl text-slate-800 overflow-hidden">
+            <div className="h-2.5 w-full bg-gradient-to-r from-purple-500 via-indigo-500 to-[#5b48bd]" />
+            <div className="p-6 sm:p-7 space-y-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-purple-100 text-[#5b48bd] flex items-center justify-center shadow-md">
+                    <span className="material-symbols-outlined text-2xl">workspace_premium</span>
+                  </div>
+                  <div>
+                    <h3 className="text-base sm:text-lg font-extrabold text-[#1e1b4b] leading-snug">
+                      Đã Đạt Hạn Mức Đăng Tin Tuyển Dụng
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Gói hiện tại: <span className="font-bold text-purple-700">{recruiterSubscription?.planName || 'Gói Khởi Đầu (Starter)'}</span>
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowQuotaExceededModal(false)}
+                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-base">close</span>
+                </button>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-purple-50/60 border border-purple-200 text-xs text-slate-700 space-y-2">
+                <div className="flex items-center justify-between font-medium">
+                  <span>Tin tuyển dụng đang mở:</span>
+                  <span className="font-bold text-rose-600">{activeCount} / {recruiterSubscription?.quotaLimit || 3} tin tối đa</span>
+                </div>
+                <p className="text-slate-600 leading-relaxed text-[11.5px]">
+                  Doanh nghiệp đã xuất bản tối đa số lượng tin tuyển dụng được phép theo quy định của gói dịch vụ hiện tại. Để tiếp tục đăng thêm tin mới, bạn có thể:
+                </p>
+                <ul className="list-disc pl-5 space-y-1 text-slate-600 text-[11px]">
+                  <li>Nâng cấp lên gói <strong>Doanh nghiệp Tăng trưởng</strong> (15 tin) hoặc <strong>Tập đoàn VIP</strong> (50 tin).</li>
+                  <li>Hoặc tạm dừng / đóng bớt một trong các tin tuyển dụng đang hoạt động trong danh sách bên dưới.</li>
+                </ul>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowQuotaExceededModal(false)}
+                  className="w-full sm:w-auto px-5 py-2.5 rounded-full border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-100 transition-all cursor-pointer"
+                >
+                  Để sau
+                </button>
+                <a
+                  href="#/recruiter/pricing"
+                  onClick={() => setShowQuotaExceededModal(false)}
+                  className="w-full sm:w-auto px-6 py-2.5 rounded-full bg-gradient-to-r from-[#5b48bd] to-[#32247b] hover:from-[#4a39a7] hover:to-[#261966] text-white text-xs font-bold shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-sm">rocket_launch</span>
+                  <span>Xem Bảng Giá &amp; Nâng Cấp Gói</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ======================================================== */}
       {/* MODAL CẢNH BÁO: DOANH NGHIỆP CHƯA ĐƯỢC XÁC MINH GPKD      */}
@@ -4027,6 +4163,65 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                     <span>Xác Nhận Xóa</span>
                   </>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* UPGRADE MODAL KHI HẾT LƯỢT AI PHÂN TÍCH JD */}
+      {showQuotaExceededModal && (
+        <div className="fixed inset-0 z-[130] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="relative w-full max-w-md bg-white border border-purple-100 rounded-[32px] p-6 sm:p-7 shadow-2xl space-y-5 text-slate-800 animate-fade-in text-center font-sans">
+            <button
+              onClick={() => setShowQuotaExceededModal(false)}
+              className="absolute top-5 right-5 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-base">close</span>
+            </button>
+
+            <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white flex items-center justify-center mx-auto shadow-lg shadow-purple-200">
+              <span className="material-symbols-outlined text-3xl">auto_awesome</span>
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-xl font-black text-[#1e1b4b]">Nâng Cấp Gói Tuyển Dụng</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                {quotaModalMessage || 'Bạn đã sử dụng hết 2 lượt dùng thử AI Phân Tích JD trong ngày của gói Free Recruiter.'}
+              </p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-100 text-left space-y-2 text-xs">
+              <div className="font-bold text-[#32247b] flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-sm">stars</span>
+                <span>Quyền lợi gói Hiring Starter (199.000đ / 30 ngày):</span>
+              </div>
+              <ul className="space-y-1 text-slate-700 list-disc list-inside text-[11px]">
+                <li><strong>KHÔNG GIỚI HẠN</strong> sử dụng AI Phân Tích JD &amp; Đề xuất kỹ năng</li>
+                <li>Đăng tối đa 10 tin tuyển dụng hoạt động cùng lúc</li>
+                <li>Mở khóa Báo cáo khoảng trống kỹ năng (Skill Gap)</li>
+                <li>Mở khóa tính năng Xuất danh sách ứng viên ra Excel (.xlsx)</li>
+              </ul>
+            </div>
+
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowQuotaExceededModal(false)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-all cursor-pointer"
+              >
+                Để Sau
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowQuotaExceededModal(false);
+                  window.location.hash = '#/recruiter-pricing';
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#5b48bd] to-[#32247b] text-white font-bold text-xs shadow-md hover:opacity-95 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <span>Nâng Cấp Ngay</span>
+                <span className="material-symbols-outlined text-sm">arrow_forward</span>
               </button>
             </div>
           </div>

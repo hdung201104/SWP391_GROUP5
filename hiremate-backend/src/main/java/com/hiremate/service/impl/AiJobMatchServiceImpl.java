@@ -513,12 +513,13 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
             return Collections.emptyList();
         }
 
-        Map<Long, AiJobMatch> resolvedMatchesMap = new HashMap<>();
+        Map<Long, AiJobMatchResponse> resolvedMatchesMap = new HashMap<>();
         for (Job j : candidateJobs) {
             try {
-                calculateAndSaveMatch(candidate, j, defaultCv, false);
-                aiJobMatchRepository.findByCandidate_CandidateIdAndJob_JobId(candidateId, j.getJobId())
-                        .ifPresent(m -> resolvedMatchesMap.put(j.getJobId(), m));
+                AiJobMatchResponse matchResp = calculateAndSaveMatch(candidate, j, defaultCv, false);
+                if (matchResp != null) {
+                    resolvedMatchesMap.put(j.getJobId(), matchResp);
+                }
             } catch (Exception ex) {
                 log.warn(">> [AiJobMatchService] Fast compute match error for job {}: {}", j.getJobId(), ex.getMessage());
             }
@@ -529,7 +530,7 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
                 : new ArrayList<>();
 
         for (com.hiremate.dto.response.JobResponse resp : jobResponses) {
-            AiJobMatch match = resolvedMatchesMap.get(resp.getJobId());
+            AiJobMatchResponse match = resolvedMatchesMap.get(resp.getJobId());
             if (match != null) {
                 resp.setMatchingScore(match.getMatchingScore());
                 resp.setAiReasoning(match.getAiReasoning());

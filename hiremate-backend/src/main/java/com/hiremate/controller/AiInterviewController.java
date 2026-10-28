@@ -61,10 +61,21 @@ public class AiInterviewController {
     public ResponseEntity<ApiResponse<List<String>>> generateQuestions(
             @RequestParam(required = false, defaultValue = "Software Engineer") String targetPosition,
             @RequestParam(required = false, defaultValue = "Middle") String level,
-            @RequestParam(required = false) Integer count
+            @RequestParam(required = false) Integer count,
+            @AuthenticationPrincipal User user
     ) {
         int finalCount = (count != null && count > 0) ? count : 5;
-        if (count == null && systemSettingsService != null && systemSettingsService.getSettings() != null) {
+        if (user != null && user.getRole() != com.hiremate.enums.UserRole.ADMIN) {
+            try {
+                var quota = aiInterviewService.getCandidateQuotaStatus(user);
+                if (quota != null && quota.getMaxQuestions() > 0) {
+                    int allowedMax = quota.getMaxQuestions();
+                    if (finalCount > allowedMax) {
+                        finalCount = allowedMax;
+                    }
+                }
+            } catch (Exception ignored) {}
+        } else if (count == null && systemSettingsService != null && systemSettingsService.getSettings() != null) {
             Integer defCount = systemSettingsService.getSettings().getInterviewMaxQuestions();
             if (defCount != null && defCount > 0) finalCount = defCount;
         }
@@ -143,10 +154,17 @@ public class AiInterviewController {
             planName = body.get("planName").toString();
         }
 
-        if (user != null && (maxQuestions == null || planName == null)) {
+        if (user != null) {
             try {
                 var quota = aiInterviewService.getCandidateQuotaStatus(user);
-                if (maxQuestions == null) maxQuestions = quota.getMaxQuestions();
+                int allowedMaxQuestions = quota.getMaxQuestions();
+                if (user.getRole() != com.hiremate.enums.UserRole.ADMIN) {
+                    if (maxQuestions == null || maxQuestions > allowedMaxQuestions) {
+                        maxQuestions = allowedMaxQuestions;
+                    }
+                } else if (maxQuestions == null) {
+                    maxQuestions = allowedMaxQuestions;
+                }
                 if (planName == null) planName = quota.getPlanName();
             } catch (Exception ignored) {}
         }
@@ -206,10 +224,17 @@ public class AiInterviewController {
             planName = body.get("planName").toString();
         }
 
-        if (user != null && (maxQuestions == null || planName == null)) {
+        if (user != null) {
             try {
                 var quota = aiInterviewService.getCandidateQuotaStatus(user);
-                if (maxQuestions == null) maxQuestions = quota.getMaxQuestions();
+                int allowedMaxQuestions = quota.getMaxQuestions();
+                if (user.getRole() != com.hiremate.enums.UserRole.ADMIN) {
+                    if (maxQuestions == null || maxQuestions > allowedMaxQuestions) {
+                        maxQuestions = allowedMaxQuestions;
+                    }
+                } else if (maxQuestions == null) {
+                    maxQuestions = allowedMaxQuestions;
+                }
                 if (planName == null) planName = quota.getPlanName();
             } catch (Exception ignored) {}
         }

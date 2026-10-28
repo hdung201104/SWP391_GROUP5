@@ -13,7 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -89,14 +89,43 @@ public class AdminServiceImpl implements AdminService {
     @Override
     @Transactional(readOnly = true)
     public List<AdminUserResponse> getAllUsers() {
-        return userRepository.findAllByOrderByCreatedAtDesc().stream()
-                .map(user -> {
-                    String companyName = null;
-                    if (user.getRole() == UserRole.RECRUITER) {
-                        companyName = companyRepository.findByRecruiterId(user.getUserId())
-                                .map(Company::getCompanyName)
-                                .orElse(null);
+        List<User> users = userRepository.findAllByOrderByCreatedAtDesc();
+        if (users.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // 1. Batch load companies for all recruiters in 1 single query (loại bỏ N+1)
+        Map<Long, String> recruiterCompanyMap = new HashMap<>();
+        try {
+            companyRepository.findAll().forEach(comp -> {
+                if (comp.getRecruiterId() != null && comp.getCompanyName() != null) {
+                    recruiterCompanyMap.put(comp.getRecruiterId(), comp.getCompanyName());
+                }
+            });
+        } catch (Exception e) {
+            log.warn("Batch load companies error: {}", e.getMessage());
+        }
+
+        // 2. Batch load active subscriptions for all users in 1 single query (loại bỏ N+1)
+        Map<Long, Subscription> activeSubsMap = new HashMap<>();
+        if (subscriptionRepository != null) {
+            try {
+                List<Subscription> activeSubs = subscriptionRepository.findByStatusWithDetails(SubscriptionStatus.ACTIVE);
+                for (Subscription sub : activeSubs) {
+                    if (sub.getUser() != null && sub.getUser().getUserId() != null) {
+                        activeSubsMap.putIfAbsent(sub.getUser().getUserId(), sub);
                     }
+                }
+            } catch (Exception e) {
+                log.warn("Batch load subscriptions error: {}", e.getMessage());
+            }
+        }
+
+        return users.stream()
+                .map(user -> {
+                    String companyName = user.getRole() == UserRole.RECRUITER
+                            ? recruiterCompanyMap.get(user.getUserId())
+                            : null;
 
                     String authProvider = "LOCAL";
                     if (user.getPasswordHash() != null && user.getPasswordHash().contains("GoogleOAuth2_")) {
@@ -118,6 +147,19 @@ public class AdminServiceImpl implements AdminService {
                     resp.setAuthProvider(authProvider);
                     resp.setAvatarUrl(user.getAvatarUrl());
                     resp.setLastActiveAt(user.getUpdatedAt() != null ? user.getUpdatedAt() : user.getCreatedAt());
+
+                    Subscription activeSub = activeSubsMap.get(user.getUserId());
+                    if (activeSub != null) {
+                        resp.setCurrentTier(activeSub.getPlan() != null ? activeSub.getPlan().getPlanName() : "Gói Trả Phí");
+                        resp.setCurrentPlanId(activeSub.getPlan() != null ? activeSub.getPlan().getPlanId() : null);
+                        resp.setSubscriptionStatus("ACTIVE");
+                        resp.setSubscriptionEndDate(activeSub.getEndDate());
+                        resp.setQuotaLimit(activeSub.getPlan() != null ? activeSub.getPlan().getQuotaLimit() : null);
+                    } else {
+                        resp.setCurrentTier("Starter (Free)");
+                        resp.setSubscriptionStatus("NONE");
+                        resp.setQuotaLimit(user.getRole() == UserRole.RECRUITER ? 3 : 2);
+                    }
                     return resp;
                 })
                 .collect(Collectors.toList());
@@ -151,13 +193,34 @@ public class AdminServiceImpl implements AdminService {
     @Override
     @Transactional(readOnly = true)
     public List<AdminCompanyResponse> getAllCompanies() {
-        return companyRepository.findAllByOrderByCreatedAtDesc().stream()
+        List<Company> companies = companyRepository.findAllByOrderByCreatedAtDesc();
+        if (companies.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // Batch load all recruiter users in 1 single query (loại bỏ N+1)
+        List<Long> recruiterIds = companies.stream()
+                .map(Company::getRecruiterId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+
+        Map<Long, User> recruiterUserMap = new HashMap<>();
+        if (!recruiterIds.isEmpty()) {
+            try {
+                userRepository.findAllById(recruiterIds).forEach(u -> recruiterUserMap.put(u.getUserId(), u));
+            } catch (Exception e) {
+                log.warn("Batch load recruiter users error: {}", e.getMessage());
+            }
+        }
+
+        return companies.stream()
                 .map(comp -> {
                     String recruiterName = null;
                     String recruiterEmail = null;
                     String recruiterPhone = null;
                     if (comp.getRecruiterId() != null) {
-                        User r = userRepository.findById(comp.getRecruiterId()).orElse(null);
+                        User r = recruiterUserMap.get(comp.getRecruiterId());
                         if (r != null) {
                             recruiterName = r.getFullName();
                             recruiterEmail = r.getEmail();
@@ -409,8 +472,181 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     @Transactional
+    @org.springframework.cache.annotation.CacheEvict(value = "subscriptionPlans", allEntries = true)
     public SubscriptionPlan savePlan(SubscriptionPlan plan) {
         return subscriptionPlanRepository.save(plan);
+    }
+
+    @Override
+    @Transactional
+    @org.springframework.cache.annotation.CacheEvict(value = "subscriptionPlans", allEntries = true)
+    public SubscriptionPlan createPlan(SubscriptionPlan plan) {
+        if (plan.getPlanName() == null || plan.getPlanName().isBlank()) {
+            throw new IllegalArgumentException("Tên gói dịch vụ không được để trống.");
+        }
+        if (plan.getTargetRole() == null || plan.getTargetRole().isBlank()) {
+            plan.setTargetRole("RECRUITER");
+        } else {
+            plan.setTargetRole(plan.getTargetRole().trim().toUpperCase());
+        }
+        if (plan.getPlanType() == null || plan.getPlanType().isBlank()) {
+            plan.setPlanType("COMBO");
+        }
+        if (plan.getPrice() == null || plan.getPrice().compareTo(BigDecimal.ZERO) < 0) {
+            plan.setPrice(BigDecimal.ZERO);
+        }
+        if (plan.getDurationDays() == null || plan.getDurationDays() <= 0) {
+            plan.setDurationDays(30);
+        }
+        if (plan.getQuotaLimit() == null || plan.getQuotaLimit() < 0) {
+            plan.setQuotaLimit(plan.getTargetRole().equals("CANDIDATE") ? 5 : 10);
+        }
+        if (plan.getIsActive() == null) {
+            plan.setIsActive(true);
+        }
+        SubscriptionPlan saved = subscriptionPlanRepository.save(plan);
+        log.info(">> [AdminService] Admin đã tạo mới gói dịch vụ ID #{}: {} (Role: {}, Giá: {} VNĐ, Quota: {})",
+                saved.getPlanId(), saved.getPlanName(), saved.getTargetRole(), saved.getPrice(), saved.getQuotaLimit());
+        return saved;
+    }
+
+    @Override
+    @Transactional
+    @org.springframework.cache.annotation.CacheEvict(value = "subscriptionPlans", allEntries = true)
+    public SubscriptionPlan updatePlan(Long planId, SubscriptionPlan updated) {
+        SubscriptionPlan plan = subscriptionPlanRepository.findById(planId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy gói dịch vụ với ID: " + planId));
+
+        if (updated.getPlanName() != null && !updated.getPlanName().isBlank()) {
+            plan.setPlanName(updated.getPlanName().trim());
+        }
+        if (updated.getTargetRole() != null && !updated.getTargetRole().isBlank()) {
+            plan.setTargetRole(updated.getTargetRole().trim().toUpperCase());
+        }
+        if (updated.getPlanType() != null && !updated.getPlanType().isBlank()) {
+            plan.setPlanType(updated.getPlanType().trim().toUpperCase());
+        }
+        if (updated.getPrice() != null && updated.getPrice().compareTo(BigDecimal.ZERO) >= 0) {
+            plan.setPrice(updated.getPrice());
+        }
+        if (updated.getDurationDays() != null && updated.getDurationDays() > 0) {
+            plan.setDurationDays(updated.getDurationDays());
+        }
+        if (updated.getQuotaLimit() != null && updated.getQuotaLimit() >= 0) {
+            plan.setQuotaLimit(updated.getQuotaLimit());
+        }
+        if (updated.getDescription() != null) {
+            plan.setDescription(updated.getDescription());
+        }
+        if (updated.getIsActive() != null) {
+            plan.setIsActive(updated.getIsActive());
+        }
+
+        SubscriptionPlan saved = subscriptionPlanRepository.save(plan);
+        log.info(">> [AdminService] Admin đã cập nhật gói dịch vụ ID #{}: {}", saved.getPlanId(), saved.getPlanName());
+        return saved;
+    }
+
+    @Override
+    @Transactional
+    @org.springframework.cache.annotation.CacheEvict(value = "subscriptionPlans", allEntries = true)
+    public void deletePlan(Long planId) {
+        SubscriptionPlan plan = subscriptionPlanRepository.findById(planId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy gói dịch vụ với ID: " + planId));
+        // Soft delete bằng cách tắt isActive
+        plan.setIsActive(false);
+        subscriptionPlanRepository.save(plan);
+        log.info(">> [AdminService] Admin đã vô hiệu hóa gói dịch vụ ID #{}", planId);
+    }
+
+    @Override
+    @Transactional
+    @org.springframework.cache.annotation.CacheEvict(value = "subscriptionPlans", allEntries = true)
+    public SubscriptionPlan togglePlanStatus(Long planId) {
+        SubscriptionPlan plan = subscriptionPlanRepository.findById(planId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy gói dịch vụ với ID: " + planId));
+        plan.setIsActive(!Boolean.TRUE.equals(plan.getIsActive()));
+        SubscriptionPlan saved = subscriptionPlanRepository.save(plan);
+        log.info(">> [AdminService] Admin đã chuyển trạng thái gói dịch vụ ID #{} sang: {}", planId, saved.getIsActive());
+        return saved;
+    }
+
+    @Override
+    @Transactional
+    public AdminUserResponse assignUserTier(Long userId, Long planId, Integer customDurationDays) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng ID: " + userId));
+
+        SubscriptionPlan plan = subscriptionPlanRepository.findById(planId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy gói dịch vụ ID: " + planId));
+
+        int duration = (customDurationDays != null && customDurationDays > 0)
+                ? customDurationDays
+                : (plan.getDurationDays() != null && plan.getDurationDays() > 0 ? plan.getDurationDays() : 30);
+
+        // Hủy các subscription ACTIVE cũ của user
+        List<Subscription> currentSubs = subscriptionRepository.findByUser_UserIdAndStatus(userId, SubscriptionStatus.ACTIVE);
+        for (Subscription s : currentSubs) {
+            s.setStatus(SubscriptionStatus.EXPIRED);
+            subscriptionRepository.save(s);
+        }
+
+        // Tạo Subscription mới
+        Subscription newSub = Subscription.builder()
+                .user(user)
+                .plan(plan)
+                .startDate(LocalDateTime.now())
+                .endDate(LocalDateTime.now().plusDays(duration))
+                .status(SubscriptionStatus.ACTIVE)
+                .build();
+        subscriptionRepository.save(newSub);
+
+        log.info(">> [AdminService] Admin đã gán trực tiếp hạng mức '{}' cho user {} ({}) trong {} ngày.",
+                plan.getPlanName(), user.getEmail(), user.getUserId(), duration);
+
+        // Gửi thông báo đến user
+        if (notificationService != null) {
+            try {
+                notificationService.createNotification(
+                        user.getUserId(),
+                        NotificationType.SYSTEM_ALERT,
+                        "Hạng mức tài khoản đã được nâng cấp!",
+                        "Ban Quản Trị đã kích hoạt đặc quyền gói \"" + plan.getPlanName() + "\" (Thời hạn " + duration + " ngày) cho tài khoản của bạn.",
+                        plan.getPlanId(),
+                        "subscription_plans"
+                );
+            } catch (Exception ex) {
+                log.warn("Không thể gửi thông báo gán tier: {}", ex.getMessage());
+            }
+        }
+
+        String companyName = null;
+        if (user.getRole() == UserRole.RECRUITER) {
+            companyName = companyRepository.findByRecruiterId(user.getUserId())
+                    .map(Company::getCompanyName)
+                    .orElse(null);
+        }
+        String authProvider = (user.getPasswordHash() != null && user.getPasswordHash().contains("GoogleOAuth2_")) ? "GOOGLE" : "LOCAL";
+
+        AdminUserResponse resp = new AdminUserResponse();
+        resp.setId(user.getUserId());
+        resp.setName(user.getFullName());
+        resp.setEmail(user.getEmail());
+        resp.setPhone(user.getPhone());
+        resp.setRole(user.getRole());
+        resp.setCompany(companyName != null ? companyName : "-");
+        resp.setStatus(user.getStatus());
+        resp.setJoined(user.getCreatedAt());
+        resp.setIsEmailVerified(user.getIsEmailVerified());
+        resp.setAuthProvider(authProvider);
+        resp.setAvatarUrl(user.getAvatarUrl());
+        resp.setLastActiveAt(LocalDateTime.now());
+        resp.setCurrentTier(plan.getPlanName());
+        resp.setCurrentPlanId(plan.getPlanId());
+        resp.setSubscriptionStatus("ACTIVE");
+        resp.setSubscriptionEndDate(newSub.getEndDate());
+        resp.setQuotaLimit(plan.getQuotaLimit());
+        return resp;
     }
 
     @Override
@@ -484,10 +720,32 @@ public class AdminServiceImpl implements AdminService {
     @Override
     @Transactional(readOnly = true)
     public List<InterviewSummaryResponse> getAllInterviewSessions() {
-        return interviewSessionRepository.findAll(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "startedAt"))
-                .stream()
-                .map(this::mapToInterviewSummary)
-                .collect(Collectors.toList());
+        List<InterviewSession> sessions = interviewSessionRepository.findAll(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "startedAt"));
+        if (sessions.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // Batch count question details in 1 single query (loại bỏ N+1 queries)
+        List<Long> sessionIds = sessions.stream().map(InterviewSession::getSessionId).filter(java.util.Objects::nonNull).toList();
+        Map<Long, Long> countsMap = new HashMap<>();
+        if (!sessionIds.isEmpty()) {
+            try {
+                List<Object[]> rows = interviewDetailRepository.countDetailsBySessionIds(sessionIds);
+                for (Object[] row : rows) {
+                    if (row != null && row.length >= 2 && row[0] instanceof Long sId && row[1] instanceof Number cnt) {
+                        countsMap.put(sId, cnt.longValue());
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Batch count interview details error: {}", e.getMessage());
+            }
+        }
+
+        List<InterviewSummaryResponse> result = new ArrayList<>(sessions.size());
+        for (InterviewSession s : sessions) {
+            result.add(mapToInterviewSummary(s, countsMap.getOrDefault(s.getSessionId(), 0L)));
+        }
+        return result;
     }
 
     @Override
@@ -499,6 +757,11 @@ public class AdminServiceImpl implements AdminService {
     }
 
     private InterviewSummaryResponse mapToInterviewSummary(InterviewSession s) {
+        long qCount = interviewDetailRepository.countBySession_SessionId(s.getSessionId());
+        return mapToInterviewSummary(s, qCount);
+    }
+
+    private InterviewSummaryResponse mapToInterviewSummary(InterviewSession s, long qCount) {
         String candName = "Ứng viên";
         String candEmail = "";
         if (s.getCandidate() != null) {
@@ -509,7 +772,6 @@ public class AdminServiceImpl implements AdminService {
                 candName = "Ứng viên #" + s.getCandidate().getCandidateId();
             }
         }
-        long qCount = interviewDetailRepository.countBySession_SessionId(s.getSessionId());
 
         Float delta = null;
         if (s.getSessionType() == com.hiremate.enums.InterviewSessionType.PRACTICE_RETRY && s.getParentSessionId() != null) {
