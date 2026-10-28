@@ -1457,6 +1457,8 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
         isMediaPipeLoadingRef.current = false;
       });
     }
+    const words = currentAnswer.trim().split(/\s+/).filter((w) => w.length > 0);
+    const wordCount = words.length;
 
     visionIntervalRef.current = setInterval(async () => {
       if (!videoRef.current) return;
@@ -1505,7 +1507,17 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
         } catch (mpErr) {
           console.warn('>> [MediaPipe] Error processing frame, fallback to canvas:', mpErr);
         }
+      };
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {
+          setIsPreviewingVoice(false);
+        });
       }
+    } catch (e) {
+      setIsPreviewingVoice(false);
+    }
+  };
 
       // =========================================================================
       // PHƯƠNG ÁN 2 (DỰ PHÒNG TẠM THỜI KHI ĐANG TẢI MODEL HOẶC MẤT MẠNG): Canvas Heuristic
@@ -4048,6 +4060,12 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
                         ? 'bg-slate-50/80 border-slate-200 hover:border-amber-300'
                         : 'bg-white border-purple-100 hover:border-purple-300 hover:shadow-md'
                     }`}
+                    style={{
+                      left: `${detectedFaceBox.x}%`,
+                      top: `${detectedFaceBox.y}%`,
+                      width: `${detectedFaceBox.w}%`,
+                      height: `${detectedFaceBox.h}%`,
+                    }}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-3">
@@ -4209,8 +4227,6 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
                   {isCandidateFree ? 'Gói Pro: Mở 100%' : 'Barem điểm 10 chi tiết'}
                 </div>
               </div>
-            </div>
-          </section>
 
           {/* GRAND FLOATING LAUNCH CONSOLE (NÚT BẮT ĐẦU HOÀNH TRÁNG) */}
           <div className="sticky bottom-4 z-20 p-4 sm:p-5 rounded-3xl bg-white/95 backdrop-blur-xl border border-purple-200/90 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-4 ring-1 ring-purple-950/10">
@@ -4272,6 +4288,7 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
                 </p>
               </div>
             </div>
+          )}
 
             {/* Center / Right controls */}
             <div className="flex items-center gap-2 sm:gap-2.5">
@@ -5220,6 +5237,8 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
             >
               <span className="material-symbols-outlined text-sm">close</span>
             </button>
+            <span className="text-xs text-slate-400 font-mono">Phiên: {selectedHistorySession.id}</span>
+          </div>
 
             {/* Modal Icon */}
             <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-amber-500 via-orange-500 to-rose-500 p-3.5 flex items-center justify-center mx-auto mb-4 shadow-xl shadow-orange-500/25 ring-4 ring-orange-500/20">
@@ -5280,6 +5299,18 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
           </div>
         </div>
       )}
+
+      {/* Voice Assistant Modal */}
+      <VoiceAiAssistantModal
+        isOpen={isVoiceModalOpen}
+        onClose={() => setIsVoiceModalOpen(false)}
+        user={user}
+        initialContext={{
+          targetPosition: ((contextMode === 'job' || contextMode === 'ai-recommend') && selectedJob) ? selectedJob.title : customPosition,
+          level: LEVELS.find((l) => l.id === selectedLevel)?.label || 'Middle',
+          jobId: ((contextMode === 'job' || contextMode === 'ai-recommend') && selectedJob && typeof selectedJob.jobId === 'number') ? selectedJob.jobId : null,
+        }}
+      />
     </div>
   );
 }
