@@ -247,23 +247,41 @@ export const computeAuthenticCompetencies = (session, questions, totalScore, tel
   }
 
   const qList = Array.isArray(questions) && questions.length > 0 ? questions : (session?.questions || []);
-  const avgEye = telemetry?.avgEyeContact ?? 88;
-  const avgWpm = telemetry?.avgWpm ?? 122;
-  const totalFillers = telemetry?.totalFillers ?? 2;
+  const hasCamera = Boolean(
+    telemetry?.isCameraUsed !== false &&
+    telemetry?.avgEyeContact != null &&
+    Number(telemetry.avgEyeContact) > 0 &&
+    telemetry?.postureStatus !== 'Chưa bật camera' &&
+    telemetry?.postureStatus !== 'Không có dữ liệu (Camera tắt)'
+  );
+  const avgEye = hasCamera ? Number(telemetry.avgEyeContact) : null;
+  const avgWpm = Number(telemetry?.avgWpm ?? 0);
+  const totalFillers = Number(telemetry?.totalFillers ?? 0);
 
   // 1. Tác phong & Telemetry (30% trọng số): Phản ánh thực tế từ camera và micro
-  let deliveryScore = 75;
-  if (avgEye >= 85) deliveryScore += 10;
-  else if (avgEye >= 75) deliveryScore += 6;
-  else if (avgEye < 60) deliveryScore -= 18;
+  let deliveryScore = hasCamera ? 60 : 45;
+  if (hasCamera && avgEye != null) {
+    if (avgEye >= 85) deliveryScore += 12;
+    else if (avgEye >= 75) deliveryScore += 6;
+    else if (avgEye < 60) deliveryScore -= 18;
+  }
 
   if (avgWpm >= 115 && avgWpm <= 140) deliveryScore += 5;
-  else if (avgWpm < 90 || avgWpm > 160) deliveryScore -= 10;
+  else if (avgWpm < 85 || avgWpm > 165) deliveryScore -= 10;
 
-  if (totalFillers <= 2) deliveryScore += 5;
+  if (totalFillers <= 2) deliveryScore += 4;
   else if (totalFillers > 6) deliveryScore -= 12;
 
-  deliveryScore = Math.max(50, Math.min(95, deliveryScore));
+  // Kiểm tra số lượng từ thực tế ứng viên phát biểu
+  const totalWords = qList.reduce((acc, q) => acc + ((q.answer || '').trim().split(/\s+/).filter(Boolean).length), 0);
+  if (totalWords < 15) {
+    // Trả lời quá ngắn hoặc không trả lời -> điểm tác phong và diễn đạt cực thấp
+    deliveryScore = Math.min(deliveryScore, 30);
+  }
+  if (!hasCamera) {
+    deliveryScore = Math.min(deliveryScore, 65);
+  }
+  deliveryScore = Math.max(15, Math.min(95, deliveryScore));
 
   if (qList.length > 0) {
     let domainPoints = 0;
@@ -280,7 +298,7 @@ export const computeAuthenticCompetencies = (session, questions, totalScore, tel
       const techMatches = (lower.match(/spring|java|sql|api|database|microservice|docker|postgre|mysql|redis|node|react|rest|json|query|architecture|git|ci\/cd|backend|frontend|service|controller|entity|transaction|index/g) || []).length;
       let qDomain;
       if (techMatches === 0) {
-        qDomain = Math.min(24, Math.max(12, Math.round(words * 0.9 + baseQScore * 0.4)));
+        qDomain = Math.min(24, Math.max(10, Math.round(words * 0.9 + baseQScore * 0.35)));
       } else {
         qDomain = Math.min(92, Math.max(25, Math.round(baseQScore * 0.7 + techMatches * 7)));
       }
@@ -289,7 +307,7 @@ export const computeAuthenticCompetencies = (session, questions, totalScore, tel
       const probMatches = (lower.match(/giải quyết|nguyên nhân|xử lý|khắc phục|tối ưu|vấn đề|sự cố|lỗi|giải pháp|đánh đổi|trade-off|phân tích|ngăn ngừa|exception|debug/g) || []).length;
       let qProblem;
       if (probMatches === 0) {
-        qProblem = Math.min(20, Math.max(10, Math.round(words * 0.7 + baseQScore * 0.35)));
+        qProblem = Math.min(20, Math.max(8, Math.round(words * 0.7 + baseQScore * 0.3)));
       } else {
         qProblem = Math.min(90, Math.max(28, Math.round(baseQScore * 0.7 + probMatches * 8)));
       }
@@ -299,7 +317,7 @@ export const computeAuthenticCompetencies = (session, questions, totalScore, tel
       const starKeywords = (lower.match(/bối cảnh|tình huống|nhiệm vụ|mục tiêu|triển khai|hành động|kết quả|đạt được|giảm|tăng/g) || []).length;
       let qStar;
       if (!hasMetrics && starKeywords === 0) {
-        qStar = Math.min(18, Math.max(8, Math.round(baseQScore * 0.35)));
+        qStar = Math.min(18, Math.max(6, Math.round(baseQScore * 0.3)));
       } else {
         qStar = Math.min(90, Math.max(20, (starKeywords * 6) + (hasMetrics ? 28 : 0)));
       }
@@ -315,24 +333,24 @@ export const computeAuthenticCompetencies = (session, questions, totalScore, tel
     let sVal = Math.round(starPoints / n);
 
     // Đảm bảo không có 2 chỉ số nào bị bằng nhau chằn chặn để tránh tạo cảm giác giả tạo
-    if (dVal === pVal) pVal = Math.max(8, pVal - 3);
-    if (sVal === pVal) sVal = Math.max(8, sVal - 4);
-    if (sVal === dVal) sVal = Math.max(8, sVal - 2);
+    if (dVal === pVal) pVal = Math.max(6, pVal - 3);
+    if (sVal === pVal) sVal = Math.max(6, sVal - 4);
+    if (sVal === dVal) sVal = Math.max(6, sVal - 2);
 
     return {
-      domainKnowledge: Math.max(10, Math.min(98, dVal)),
-      problemSolving: Math.max(10, Math.min(98, pVal)),
-      structureSTAR: Math.max(8, Math.min(98, sVal)),
+      domainKnowledge: Math.max(8, Math.min(98, dVal)),
+      problemSolving: Math.max(8, Math.min(98, pVal)),
+      structureSTAR: Math.max(6, Math.min(98, sVal)),
       deliveryTone: deliveryScore,
     };
   }
 
   // Fallback nếu không có câu trả lời chi tiết
-  const baseVal = totalScore > 0 ? totalScore : 20;
+  const baseVal = totalScore > 0 ? totalScore : 15;
   return {
-    domainKnowledge: Math.max(14, Math.min(95, Math.round(baseVal * 1.15))),
-    problemSolving: Math.max(12, Math.min(95, Math.round(baseVal * 0.95))),
-    structureSTAR: Math.max(8, Math.min(95, Math.round(baseVal * 0.7))),
+    domainKnowledge: Math.max(8, Math.min(95, Math.round(baseVal * 1.0))),
+    problemSolving: Math.max(8, Math.min(95, Math.round(baseVal * 0.9))),
+    structureSTAR: Math.max(6, Math.min(95, Math.round(baseVal * 0.7))),
     deliveryTone: deliveryScore,
   };
 };
@@ -382,7 +400,8 @@ export default function AiInterviewReportPage({ user, sessionData = null, sessio
     if (!sid) {
       // Kiểm tra trong localStorage xem có phiên vừa hoàn thành hoặc cache không
       try {
-        const cachedHistory = JSON.parse(localStorage.getItem('hiremate_interview_history') || '[]');
+        const userHistoryCacheKey = user?.userId ? `hiremate_interview_history_${user.userId}` : 'hiremate_interview_history_guest';
+        const cachedHistory = JSON.parse(localStorage.getItem(userHistoryCacheKey) || '[]');
         if (Array.isArray(cachedHistory) && cachedHistory.length > 0) {
           setSession(cachedHistory[0]);
           setLoading(false);
@@ -443,13 +462,14 @@ export default function AiInterviewReportPage({ user, sessionData = null, sessio
                 'Đào sâu vào các kịch bản sự cố thực tế và các giải pháp tối ưu hệ thống.',
                 'Ôn tập thêm các thuật ngữ kỹ thuật cốt lõi trước khi phỏng vấn chính thức.',
               ],
-            telemetryReport: {
-              avgEyeContact: 88,
-              avgPitchHz: 135,
-              avgWpm: 124,
-              totalFillers: 2,
-              emotionSummary: 'Tự tin & Thân thiện 😊',
-              postureStatus: 'Cân đối • Chuẩn mực',
+            telemetryReport: d.telemetryReport || {
+              isCameraUsed: Boolean(d.telemetry?.isCameraUsed),
+              avgEyeContact: d.telemetry?.avgEyeContact || null,
+              avgPitchHz: d.telemetry?.avgPitchHz || 120,
+              avgWpm: d.telemetry?.avgWpm || 0,
+              totalFillers: d.telemetry?.totalFillers || 0,
+              emotionSummary: d.telemetry?.dominantEmotion || 'Chưa bật camera',
+              postureStatus: d.telemetry?.postureStatus || 'Chưa bật camera',
             },
             questions: (d.details || []).map((detail, idx) => ({
               q: detail.questionText || `Lượt đối đáp #${idx + 1}`,
@@ -457,11 +477,11 @@ export default function AiInterviewReportPage({ user, sessionData = null, sessio
               domainScore: Math.round(detail.aiEvaluationScore || 0),
               problemScore: Math.round(detail.aiEvaluationScore || 0),
               starScore: Math.round((detail.aiEvaluationScore || 0) * 0.9),
-              deliveryScore: 80,
+              deliveryScore: Math.round(d.deliveryToneScore || 50),
               answer: detail.candidateAnswerText || '(Ứng viên đã trả lời bằng giọng nói)',
               criticalFeedback: {
                 flaws: detail.aiFeedback || 'Cần bổ sung dẫn chứng dự án cụ thể.',
-                interviewerImpression: 'Ứng viên phản hồi rõ ràng, cần tăng chiều sâu lập luận.',
+                interviewerImpression: detail.tone || (detail.aiEvaluationScore >= 60 ? 'Ứng viên có phản xạ đối đáp chuyên môn.' : 'Chưa đạt chuẩn tuyển dụng, câu trả lời còn sơ sài.'),
               },
               modelAnswer: detail.aiSuggestedAnswer || 'Gợi ý câu trả lời chuẩn theo mô hình STAR.',
             })),
@@ -473,9 +493,10 @@ export default function AiInterviewReportPage({ user, sessionData = null, sessio
       })
       .catch((err) => {
         console.warn('Load session report error:', err);
-        // Fallback: Tìm trong localStorage
+        // Fallback: Tìm trong localStorage của riêng tài khoản này
         try {
-          const cachedHistory = JSON.parse(localStorage.getItem('hiremate_interview_history') || '[]');
+          const userHistoryCacheKey = user?.userId ? `hiremate_interview_history_${user.userId}` : 'hiremate_interview_history_guest';
+          const cachedHistory = JSON.parse(localStorage.getItem(userHistoryCacheKey) || '[]');
           const found = cachedHistory.find((c) => String(c.id).includes(sid) || String(c.sessionId) === String(sid));
           if (found) {
             setSession(found);
@@ -612,13 +633,22 @@ export default function AiInterviewReportPage({ user, sessionData = null, sessio
         : '#e11d48';
 
   const telemetry = session.telemetryReport || {
-    avgEyeContact: 88,
-    avgPitchHz: 135,
-    avgWpm: 122,
-    totalFillers: 2,
-    emotionSummary: 'Tự tin & Thân thiện 😊',
-    postureStatus: 'Cân đối • Chuẩn mực',
+    isCameraUsed: false,
+    avgEyeContact: null,
+    avgPitchHz: 120,
+    avgWpm: 0,
+    totalFillers: 0,
+    emotionSummary: 'Chưa bật camera',
+    postureStatus: 'Chưa bật camera',
   };
+
+  const hasCameraData = Boolean(
+    telemetry?.isCameraUsed !== false &&
+    telemetry?.avgEyeContact != null &&
+    Number(telemetry.avgEyeContact) > 0 &&
+    telemetry?.postureStatus !== 'Chưa bật camera' &&
+    telemetry?.postureStatus !== 'Không có dữ liệu (Camera tắt)'
+  );
 
   // Tính toán 4 Trụ Cột Năng Lực xác thực, tránh bị trùng điểm tổng (17-17-17-17)
   const comps = computeAuthenticCompetencies(session, questions, totalScore, telemetry);
@@ -627,18 +657,38 @@ export default function AiInterviewReportPage({ user, sessionData = null, sessio
   const cleanedWeakness = cleanWeaknessText(session.weaknessSummary);
 
   const authenticFlaws = [
+    ...(session.isIncomplete || totalQ < (session.maxQuestions || 3) ? [`Phiên phỏng vấn kết thúc sớm: Ứng viên mới trả lời ${totalQ}/${session.maxQuestions || 3} câu hỏi, chưa hoàn thành đầy đủ các vòng thử thách chuyên môn.`] : []),
     cleanedWeakness
       ? `Lỗ hổng kiến thức cốt lõi: ${cleanedWeakness}`
       : `Thiếu hụt kiến thức công nghệ thực tế: Chưa gọi tên và giải thích được các framework, công nghệ backend cụ thể của vị trí ${session.topic} (như Spring Boot, Database Transaction, ORM, API Security...).`,
     'Lập luận kỹ thuật bị rời rạc & đứt quãng: Câu trả lời còn quá ngắn, chưa phân tích được nguyên nhân gốc rễ (Root Cause) và các kịch bản ngoại lệ khi hệ thống gặp sự cố.',
     'Chưa vận dụng mô hình STAR & thiếu số liệu thực chứng: Hoàn toàn vắng bóng các số liệu đo lường định lượng (thời gian phản hồi API, % tối ưu hóa, số lượng request chịu tải) để chứng minh năng lực thực tế.',
+    ...(!hasCameraData ? ['Chưa bật camera: Hệ thống không ghi nhận dữ liệu hình ảnh để đánh giá ánh mắt, biểu cảm và cử chỉ giao tiếp.'] : []),
   ];
 
-  const authenticStrengths = [
-    `Giao tiếp mắt qua camera tốt (${telemetry.avgEyeContact}%): Duy trì tiếp xúc mắt với ống kính webcam đều đặn, tư thế ngồi cân đối giữa khung hình và giữ được sự điềm đạm trước các câu hỏi thách thức.`,
-    `Tốc độ phát biểu chuẩn mực (${telemetry.avgWpm} WPM): Nhịp điệu phát biểu nằm trong ngưỡng chuẩn (115 - 135 từ/phút), phát âm rõ ràng và kiểm soát tốt các từ đệm ngập ngừng (${telemetry.totalFillers} lần).`,
-    `Thái độ cầu thị & Tinh thần kiên trì: Hoàn thành trọn vẹn cả ${totalQ} câu hỏi đối đáp chuyên môn mà không bỏ dở giữa chừng, thể hiện thái độ nghiêm túc và sẵn sàng đón nhận câu hỏi đào sâu.`,
-  ];
+  const authenticStrengths = [];
+  if (hasCameraData && telemetry.avgEyeContact >= 70) {
+    authenticStrengths.push(
+      `Giao tiếp mắt qua camera tốt (${telemetry.avgEyeContact}%): Duy trì tiếp xúc mắt với ống kính webcam đều đặn, tư thế ngồi cân đối giữa khung hình và giữ được sự điềm đạm trước các câu hỏi thách thức.`
+    );
+  }
+  if (telemetry.avgWpm >= 100 && telemetry.avgWpm <= 155) {
+    authenticStrengths.push(
+      `Tốc độ phát biểu chuẩn mực (${telemetry.avgWpm} WPM): Nhịp điệu phát biểu nằm trong ngưỡng chuẩn (115 - 135 từ/phút), phát âm rõ ràng và kiểm soát tốt các từ đệm ngập ngừng (${telemetry.totalFillers} lần).`
+    );
+  }
+  if (totalQ >= (session.maxQuestions || 3)) {
+    authenticStrengths.push(
+      `Thái độ cầu thị & Tinh thần kiên trì: Hoàn thành trọn vẹn cả ${totalQ} câu hỏi đối đáp chuyên môn mà không bỏ dở giữa chừng, thể hiện thái độ nghiêm túc và sẵn sàng đón nhận câu hỏi đào sâu.`
+    );
+  } else if (totalQ > 0) {
+    authenticStrengths.push(
+      `Đã tham gia phản hồi câu hỏi khởi động của buổi phỏng vấn.`
+    );
+  }
+  if (authenticStrengths.length === 0) {
+    authenticStrengths.push('Cần tích cực rèn luyện thêm cả về kiến thức công nghệ thực tế và tác phong giao tiếp trước camera.');
+  }
 
   const authenticRoadmap = [
     {
@@ -903,12 +953,25 @@ export default function AiInterviewReportPage({ user, sessionData = null, sessio
               <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
                 Giao Tiếp Mắt (AI)
               </span>
-              <div className="text-lg sm:text-xl font-extrabold text-teal-700 font-mono">
-                {telemetry.avgEyeContact}%
-              </div>
-              <span className="text-[10px] text-slate-500 font-medium block mt-0.5">
-                Tiếp xúc mắt camera
-              </span>
+              {hasCameraData ? (
+                <>
+                  <div className="text-lg sm:text-xl font-extrabold text-teal-700 font-mono">
+                    {telemetry.avgEyeContact}%
+                  </div>
+                  <span className="text-[10px] text-slate-500 font-medium block mt-0.5">
+                    Tiếp xúc mắt camera
+                  </span>
+                </>
+              ) : (
+                <>
+                  <div className="text-sm sm:text-base font-bold text-amber-600 font-mono">
+                    Chưa bật camera
+                  </div>
+                  <span className="text-[10px] text-slate-400 font-medium block mt-0.5">
+                    Không có dữ liệu hình ảnh
+                  </span>
+                </>
+              )}
             </div>
 
             <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100/80 text-center">
@@ -1160,9 +1223,15 @@ export default function AiInterviewReportPage({ user, sessionData = null, sessio
                   </div>
 
                   <div className="pt-2 border-t border-slate-200/60 text-xs text-slate-600 leading-relaxed">
-                    <p className="text-emerald-950 font-medium">
-                      <strong>Điểm sáng:</strong> Tiếp xúc mắt camera đạt {telemetry.avgEyeContact}%, dáng người {telemetry.postureStatus || 'cân đối'}, tốc độ phát biểu {telemetry.avgWpm} WPM đạt chuẩn và kiểm soát từ đệm tốt ({telemetry.totalFillers} từ đệm).
-                    </p>
+                    {hasCameraData ? (
+                      <p className="text-emerald-950 font-medium">
+                        <strong>Điểm sáng:</strong> Tiếp xúc mắt camera đạt {telemetry.avgEyeContact}%, dáng người {telemetry.postureStatus || 'cân đối'}, tốc độ phát biểu {telemetry.avgWpm} WPM đạt chuẩn và kiểm soát từ đệm tốt ({telemetry.totalFillers} từ đệm).
+                      </p>
+                    ) : (
+                      <p className="text-amber-900 font-medium bg-amber-50/80 p-2 rounded-xl border border-amber-200/60">
+                        <strong>Lưu ý tác phong:</strong> Camera đã tắt trong suốt buổi phỏng vấn. Tốc độ phát biểu {telemetry.avgWpm || 0} WPM, từ đệm: {telemetry.totalFillers || 0} lần. Bật camera ở phiên tiếp theo để AI đánh giá ánh mắt và cử chỉ.
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1351,32 +1420,61 @@ export default function AiInterviewReportPage({ user, sessionData = null, sessio
               </div>
 
               {/* Tóm tắt phong thái từ Chuyên gia Tuyển dụng */}
-              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-teal-50/80 via-emerald-50/40 to-teal-50/60 border border-teal-100/90 space-y-2">
-                <div className="flex items-center gap-2 font-bold text-teal-900 text-xs sm:text-sm">
-                  <span className="material-symbols-outlined text-base text-teal-600">verified</span>
-                  <span>Tổng kết phong thái từ Chuyên gia Phỏng vấn AI:</span>
+              {hasCameraData ? (
+                <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-teal-50/80 via-emerald-50/40 to-teal-50/60 border border-teal-100/90 space-y-2">
+                  <div className="flex items-center gap-2 font-bold text-teal-900 text-xs sm:text-sm">
+                    <span className="material-symbols-outlined text-base text-teal-600">verified</span>
+                    <span>Tổng kết phong thái từ Chuyên gia Phỏng vấn AI:</span>
+                  </div>
+                  <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">
+                    {session.deliveryFeedback ||
+                      `Ứng viên duy trì tương tác ánh mắt đạt ${telemetry.avgEyeContact}%, dáng ngồi ${telemetry.postureStatus || 'cân đối'}, biểu cảm ${telemetry.emotionSummary || 'tự tin'}. Nhịp điệu phát biểu đều đặn (${telemetry.avgWpm} từ/phút), kiểm soát từ đệm (${telemetry.totalFillers} lần ngập ngừng).`}
+                  </p>
+                  
+                  {/* 3 Chỉ số phong thái cốt lõi */}
+                  <div className="pt-2 border-t border-teal-200/60 flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-teal-900">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/90 border border-teal-200 font-medium">
+                      <span className="material-symbols-outlined text-xs text-teal-600">visibility</span>
+                      Tương tác mắt: <strong>{telemetry.avgEyeContact}% ({telemetry.avgEyeContact >= 80 ? 'Xuất sắc' : 'Khá'})</strong>
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/90 border border-teal-200 font-medium">
+                      <span className="material-symbols-outlined text-xs text-teal-600">speed</span>
+                      Tốc độ nói: <strong>{telemetry.avgWpm} từ/phút</strong>
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/90 border border-teal-200 font-medium">
+                      <span className="material-symbols-outlined text-xs text-teal-600">record_voice_over</span>
+                      Từ đệm ngập ngừng: <strong>{telemetry.totalFillers} lần</strong>
+                    </span>
+                  </div>
                 </div>
-                <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">
-                  {session.deliveryFeedback ||
-                    `Ứng viên thể hiện phong thái tự tin và giữ được sự tập trung cao độ xuyên suốt buổi trao đổi. Tương tác ánh mắt đạt mức xuất sắc (${telemetry.avgEyeContact}%), dáng ngồi đĩnh đạc, biểu cảm thân thiện tạo được thiện cảm tích cực với nhà tuyển dụng. Nhịp điệu phát biểu đều đặn (${telemetry.avgWpm} từ/phút), kiểm soát tốt từ đệm (${telemetry.totalFillers} lần ngập ngừng).`}
-                </p>
-                
-                {/* 3 Chỉ số phong thái cốt lõi */}
-                <div className="pt-2 border-t border-teal-200/60 flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-teal-900">
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/90 border border-teal-200 font-medium">
-                    <span className="material-symbols-outlined text-xs text-teal-600">visibility</span>
-                    Tương tác mắt: <strong>{telemetry.avgEyeContact}% ({telemetry.avgEyeContact >= 80 ? 'Xuất sắc' : 'Khá'})</strong>
-                  </span>
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/90 border border-teal-200 font-medium">
-                    <span className="material-symbols-outlined text-xs text-teal-600">speed</span>
-                    Tốc độ nói: <strong>{telemetry.avgWpm} từ/phút (Vừa phải)</strong>
-                  </span>
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/90 border border-teal-200 font-medium">
-                    <span className="material-symbols-outlined text-xs text-teal-600">record_voice_over</span>
-                    Từ đệm ngập ngừng: <strong>{telemetry.totalFillers} lần ({telemetry.totalFillers <= 3 ? 'Rất ít' : 'Cần giảm'})</strong>
-                  </span>
+              ) : (
+                <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-amber-50/90 via-orange-50/50 to-amber-50/70 border border-amber-200/90 space-y-3">
+                  <div className="flex items-center gap-2 font-bold text-amber-900 text-xs sm:text-sm">
+                    <span className="material-symbols-outlined text-base text-amber-600">videocam_off</span>
+                    <span>Trạng thái Camera: Đã Tắt Trong Suốt Buổi Phỏng Vấn</span>
+                  </div>
+                  <p className="text-xs sm:text-sm text-amber-950 leading-relaxed">
+                    {session.deliveryFeedback ||
+                      `Hệ thống không thu thập được luồng video từ webcam của bạn. Do đó, AI không thể phân tích và chấm điểm độ tập trung ánh mắt, nụ cười biểu cảm và tư thế ngồi. Báo cáo tác phong hiện tại chỉ ghi nhận các chỉ số âm thanh từ Micro. Vui lòng cấp quyền và bật camera trong phiên tiếp theo để nhận đánh giá phi ngôn ngữ toàn diện.`}
+                  </p>
+                  
+                  {/* 3 Chỉ số phong thái */}
+                  <div className="pt-2 border-t border-amber-200/60 flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-amber-950">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/90 border border-amber-200 font-medium text-amber-800">
+                      <span className="material-symbols-outlined text-xs">videocam_off</span>
+                      Tương tác mắt: <strong>Chưa bật camera (N/A)</strong>
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/90 border border-amber-200 font-medium">
+                      <span className="material-symbols-outlined text-xs text-amber-600">speed</span>
+                      Tốc độ nói: <strong>{telemetry.avgWpm} từ/phút</strong>
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/90 border border-amber-200 font-medium">
+                      <span className="material-symbols-outlined text-xs text-amber-600">record_voice_over</span>
+                      Từ đệm ngập ngừng: <strong>{telemetry.totalFillers} lần</strong>
+                    </span>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* 4 Thẻ Đánh Giá Tác Phong Dễ Hiểu & Thực Tế */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
@@ -1390,16 +1488,18 @@ export default function AiInterviewReportPage({ user, sessionData = null, sessio
                       </span>
                       1. Thần Thái & Biểu Cảm
                     </span>
-                    <span className="px-2.5 py-1 rounded-lg bg-purple-100 text-[#32247b] text-xs font-bold">
-                      {telemetry.emotionSummary || 'Tự tin & Thân thiện 😊'}
+                    <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${hasCameraData ? 'bg-purple-100 text-[#32247b]' : 'bg-amber-100 text-amber-800'}`}>
+                      {hasCameraData ? (telemetry.emotionSummary || 'Tự tin & Thân thiện 😊') : 'Chưa bật camera • N/A'}
                     </span>
                   </div>
                   <p className="text-xs text-slate-600 leading-relaxed">
-                    Gương mặt tươi sáng, biểu cảm cởi mở và chú ý lắng nghe người phỏng vấn. Biểu cảm thể hiện sự tôn trọng, tích cực và cầu thị — đây là yếu tố quan trọng giúp bạn ghi điểm thiện cảm ngay từ những phút đầu tiên.
+                    {hasCameraData
+                      ? 'Gương mặt tươi sáng, biểu cảm cởi mở và chú ý lắng nghe người phỏng vấn. Biểu cảm thể hiện sự tôn trọng, tích cực và cầu thị — đây là yếu tố quan trọng giúp bạn ghi điểm thiện cảm.'
+                      : 'Không có dữ liệu hình ảnh khuôn mặt để chấm điểm biểu cảm. AI cần camera để nhận diện nụ cười, thần thái tự tin và mức độ cởi mở của bạn khi đối đáp.'}
                   </p>
                   <div className="pt-2.5 border-t border-slate-200/60 text-[11px] text-purple-900 flex items-start gap-1.5 bg-purple-50/60 p-2 rounded-xl">
                     <span className="material-symbols-outlined text-xs text-purple-700 shrink-0 mt-0.5">tips_and_updates</span>
-                    <span><strong>Lời khuyên:</strong> Tiếp tục duy trì nụ cười tự nhiên và gật đầu nhẹ khi nghe câu hỏi để biểu thị sự tập trung tiếp thu.</span>
+                    <span><strong>Lời khuyên:</strong> {hasCameraData ? 'Tiếp tục duy trì nụ cười tự nhiên và gật đầu nhẹ khi nghe câu hỏi để biểu thị sự tập trung tiếp thu.' : 'Bật camera trong phiên tới để AI giúp bạn phát hiện các biểu hiện căng thẳng cơ mặt hoặc nhíu mày khi gặp câu hỏi khó.'}</span>
                   </div>
                 </div>
 
@@ -1412,18 +1512,20 @@ export default function AiInterviewReportPage({ user, sessionData = null, sessio
                       </span>
                       2. Giao Tiếp Ánh Mắt (Eye Contact)
                     </span>
-                    <span className="px-2.5 py-1 rounded-lg bg-teal-100 text-teal-800 text-xs font-bold font-mono">
-                      {telemetry.avgEyeContact}% Thời lượng
+                    <span className={`px-2.5 py-1 rounded-lg text-xs font-bold font-mono ${hasCameraData ? 'bg-teal-100 text-teal-800' : 'bg-amber-100 text-amber-800'}`}>
+                      {hasCameraData ? `${telemetry.avgEyeContact}% Thời lượng` : '0% • Chưa bật camera'}
                     </span>
                   </div>
                   <p className="text-xs text-slate-600 leading-relaxed">
-                    {telemetry.avgEyeContact >= 80
-                      ? 'Bạn duy trì ánh mắt hướng thẳng vào người phỏng vấn rất tốt. Không bị đảo mắt liên tục hay cúi nhìn xuống bàn khi suy nghĩ — thể hiện sự đĩnh đạc và nắm chắc chuyên môn.'
-                      : 'Bạn thỉnh thoảng có thói quen nhìn xuống bàn hoặc đảo mắt khi tìm ý trả lời. Cần tập trung nhìn thẳng vào camera để tạo cảm giác tự tin và kiên định hơn.'}
+                    {hasCameraData
+                      ? (telemetry.avgEyeContact >= 80
+                          ? 'Bạn duy trì ánh mắt hướng thẳng vào người phỏng vấn rất tốt. Không bị đảo mắt liên tục hay cúi nhìn xuống bàn khi suy nghĩ.'
+                          : 'Bạn thỉnh thoảng có thói quen nhìn xuống bàn hoặc đảo mắt khi tìm ý trả lời. Cần tập trung nhìn thẳng vào camera để tạo cảm giác tự tin hơn.')
+                      : 'Không thể đánh giá tương tác ánh mắt do camera không hoạt động trong suốt phiên phỏng vấn. Duy trì ánh mắt nhìn thẳng vào ống kính là yếu tố then chốt tạo sự tin cậy.'}
                   </p>
                   <div className="pt-2.5 border-t border-slate-200/60 text-[11px] text-teal-900 flex items-start gap-1.5 bg-teal-50/60 p-2 rounded-xl">
                     <span className="material-symbols-outlined text-xs text-teal-700 shrink-0 mt-0.5">tips_and_updates</span>
-                    <span><strong>Lời khuyên:</strong> Đặt webcam ngang tầm mắt để ánh nhìn luôn trực diện và tự nhiên như đang trao đổi trực tiếp ngoài đời.</span>
+                    <span><strong>Lời khuyên:</strong> {hasCameraData ? 'Đặt webcam ngang tầm mắt để ánh nhìn luôn trực diện và tự nhiên như đang trao đổi trực tiếp ngoài đời.' : 'Đặt webcam ngang tầm mắt và nhìn thẳng vào camera khi bắt đầu trả lời câu hỏi.'}</span>
                   </div>
                 </div>
 
@@ -1436,16 +1538,18 @@ export default function AiInterviewReportPage({ user, sessionData = null, sessio
                       </span>
                       3. Tư Thế & Dáng Ngồi
                     </span>
-                    <span className="px-2.5 py-1 rounded-lg bg-indigo-100 text-indigo-800 text-xs font-bold">
-                      {telemetry.postureStatus || 'Cân đối • Chuẩn mực'}
+                    <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${hasCameraData ? 'bg-indigo-100 text-indigo-800' : 'bg-amber-100 text-amber-800'}`}>
+                      {hasCameraData ? (telemetry.postureStatus || 'Cân đối • Chuẩn mực') : 'Chưa bật camera • N/A'}
                     </span>
                   </div>
                   <p className="text-xs text-slate-600 leading-relaxed">
-                    Dáng ngồi thẳng lưng, cân đối hai vai, khoảng cách đến màn hình vừa vặn. Phong thái đĩnh đạc, không bị nghiêng ngả, rung lắc cơ thể hay chống cằm khi trả lời, tạo cảm giác rất đáng tin cậy.
+                    {hasCameraData
+                      ? 'Dáng ngồi thẳng lưng, cân đối hai vai, khoảng cách đến màn hình vừa vặn. Phong thái đĩnh đạc, không bị nghiêng ngả hay chống cằm khi trả lời.'
+                      : 'Không có dữ liệu hình thể để phân tích dáng ngồi. Phong thái thẳng lưng, hai vai cân đối và giữ khoảng cách vừa vặn với ống kính là yếu tố quan trọng tạo cảm giác tin cậy.'}
                   </p>
                   <div className="pt-2.5 border-t border-slate-200/60 text-[11px] text-indigo-900 flex items-start gap-1.5 bg-indigo-50/60 p-2 rounded-xl">
                     <span className="material-symbols-outlined text-xs text-indigo-700 shrink-0 mt-0.5">tips_and_updates</span>
-                    <span><strong>Lời khuyên:</strong> Đặt hai bàn tay thoải mái trên mặt bàn, có thể kết hợp cử chỉ tay nhẹ nhàng khi giải thích kiến trúc hoặc quy trình.</span>
+                    <span><strong>Lời khuyên:</strong> {hasCameraData ? 'Đặt hai bàn tay thoải mái trên mặt bàn, có thể kết hợp cử chỉ tay nhẹ nhàng khi giải thích kiến trúc hoặc quy trình.' : 'Ngồi cách camera 50 - 70 cm, giữ hai vai ngang bằng và giữ cơ thể ở trung tâm khung hình.'}</span>
                   </div>
                 </div>
 

@@ -43,6 +43,10 @@ public class CvServiceImpl implements CvService {
     @org.springframework.context.annotation.Lazy
     private com.hiremate.service.NotificationService notificationService;
 
+    @org.springframework.beans.factory.annotation.Autowired
+    @org.springframework.context.annotation.Lazy
+    private com.hiremate.service.AiInterviewService aiInterviewService;
+
     @Override
     @Transactional
     public CvResponse uploadCv(MultipartFile file, User candidate) {
@@ -70,6 +74,34 @@ public class CvServiceImpl implements CvService {
                         .build()));
 
         List<Cv> existingCvs = cvRepository.findByCandidateId(candidate.getUserId());
+
+        // Kiểm tra phân quyền giới hạn lưu trữ CV theo gói dịch vụ thật trên Supabase (Admin luôn được bypass)
+        if (candidate.getRole() != com.hiremate.enums.UserRole.ADMIN) {
+            int maxCvAllowed = 2; // Mặc định gói Free Candidate: tối đa 2 bản CV
+            String planName = "Free Candidate";
+            if (aiInterviewService != null) {
+                try {
+                    com.hiremate.dto.response.InterviewQuotaStatusResponse quota = aiInterviewService.getCandidateQuotaStatus(candidate);
+                    if (quota != null) {
+                        planName = quota.getPlanName() != null ? quota.getPlanName() : planName;
+                        java.math.BigDecimal price = quota.getPrice() != null ? quota.getPrice() : java.math.BigDecimal.ZERO;
+                        if (price.compareTo(new java.math.BigDecimal("100000")) >= 0 || planName.toLowerCase().contains("pro") || planName.toLowerCase().contains("ace") || planName.toLowerCase().contains("vip")) {
+                            maxCvAllowed = Integer.MAX_VALUE; // Không giới hạn cho Practice Pro / Career Ace
+                        } else if (price.compareTo(java.math.BigDecimal.ZERO) > 0 || planName.toLowerCase().contains("plus")) {
+                            maxCvAllowed = 5; // Tối đa 5 bản CV cho Practice Plus
+                        }
+                    }
+                } catch (Exception e) {
+                    log.warn(">> Không thể kiểm tra quota gói của ứng viên khi upload CV: {}", e.getMessage());
+                }
+            }
+            if (maxCvAllowed != Integer.MAX_VALUE && existingCvs.size() >= maxCvAllowed) {
+                throw new IllegalArgumentException(String.format(
+                        "Bạn đã đạt giới hạn lưu trữ tối đa (%d/%d bản CV) của gói \"%s\". Vui lòng xóa bớt CV cũ hoặc nâng cấp gói dịch vụ để lưu trữ thêm CV.",
+                        existingCvs.size(), maxCvAllowed, planName));
+            }
+        }
+
         boolean isFirst = existingCvs.isEmpty();
 
         String parsedText = null;

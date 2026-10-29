@@ -134,7 +134,10 @@ function AppContent() {
 
   const handleLogout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
+    localStorage.removeItem('hiremate_interview_history');
+    localStorage.removeItem('hiremate_candidate_subscription');
     setUser(null);
     window.location.hash = '#/';
   };
@@ -144,6 +147,8 @@ function AppContent() {
       localStorage.removeItem('user');
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
+      localStorage.removeItem('hiremate_interview_history');
+      localStorage.removeItem('hiremate_candidate_subscription');
       setUser(null);
       window.location.hash = '#/';
       return;
@@ -238,7 +243,7 @@ function AppContent() {
       );
     }
 
-    if (route.includes('candidate-pricing') || route.includes('candidate-subscription') || route.includes('goi-ung-vien') || route.includes('mua-goi-candidate')) {
+    if (route.includes('candidate-pricing') || route.includes('candidate-subscription') || route.includes('goi-ung-vien') || route.includes('mua-goi-candidate') || (route.includes('pricing') && user?.role === 'CANDIDATE')) {
       return (
         <ProtectedRoute user={user} requiredRole="CANDIDATE">
           <CandidatePricingPage user={user} onNavigate={(r) => setCurrentRoute(r)} />

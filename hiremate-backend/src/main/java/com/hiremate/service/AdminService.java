@@ -25,6 +25,11 @@ public interface AdminService {
     
     List<SubscriptionPlan> getAllPlans();
     SubscriptionPlan savePlan(SubscriptionPlan plan);
+    SubscriptionPlan createPlan(SubscriptionPlan plan);
+    SubscriptionPlan updatePlan(Long planId, SubscriptionPlan plan);
+    void deletePlan(Long planId);
+    SubscriptionPlan togglePlanStatus(Long planId);
+    AdminUserResponse assignUserTier(Long userId, Long planId, Integer durationDays);
     
     List<JobResponse> getAllJobs();
     JobResponse updateJobApproval(Long jobId, JobApprovalStatus status);

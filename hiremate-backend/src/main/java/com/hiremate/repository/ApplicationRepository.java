@@ -17,6 +17,9 @@ import java.util.Optional;
 @Repository
 public interface ApplicationRepository extends JpaRepository<Application, Long> {
 
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"job", "job.company", "job.recruiter", "job.recruiter.user", "candidate", "candidate.user", "cv"})
+    Optional<Application> findById(Long applicationId);
+
     /** Kiểm tra ứng viên đã apply job này chưa (Single Application Rule) */
     Optional<Application> findByJob_JobIdAndCandidate_CandidateId(Long jobId, Long candidateId);
 

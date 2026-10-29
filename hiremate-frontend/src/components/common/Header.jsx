@@ -168,8 +168,9 @@ export default function Header({
     if (!user) return;
     try {
       const res = await import('../../api/paymentApi').then(m => m.default.getMySubscription());
-      const sub = res?.data?.data || res?.data;
-      if (sub && sub.active) {
+      const sub = res?.data?.data !== undefined ? res.data.data : (res?.data !== undefined ? res.data : res);
+      const isSubActive = Boolean(sub && (sub.active === true || sub.isActive === true || sub.status === 'ACTIVE'));
+      if (sub && isSubActive && sub.planName && !sub.planName.toLowerCase().includes('free') && !sub.planName.toLowerCase().includes('miễn phí')) {
         setActivePlanName(sub.planName || '');
       } else {
         setActivePlanName('');
@@ -422,9 +423,9 @@ export default function Header({
   // Display details
   const displayName = user?.fullName || (isGuest ? 'Khách (Guest)' : 'Long Tran');
   const displaySubtitle = isRoleCandidate
-    ? 'ATS Match 98%'
+    ? (activePlanName ? `👑 ${activePlanName}` : 'ATS Match 98%')
     : isRoleRecruiter
-      ? (user?.companyName ? `${user.companyName} • HR Lead` : 'FPT Software • HR Lead')
+      ? (user?.companyName ? `${user.companyName} • HR Lead` : (activePlanName ? `${activePlanName} • HR` : 'FPT Software • HR Lead'))
       : 'Tham quan hệ thống';
 
   const avatarUrl = user?.avatarUrl || (isRoleRecruiter
@@ -798,11 +799,15 @@ export default function Header({
             <div className="flex items-center gap-1.5">
               <button
                 onClick={() => handleNav('#/candidate-pricing')}
-                className="hidden lg:flex px-2.5 py-1.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-[11px] font-extrabold tracking-wider flex items-center gap-1 cursor-pointer shadow-md transition-all hover:scale-105 border border-amber-300/40"
-                title="Xem bảng giá và nâng cấp gói dịch vụ"
+                className={`hidden lg:flex px-2.5 py-1.5 rounded-full text-white text-[11px] font-extrabold tracking-wider flex items-center gap-1 cursor-pointer shadow-md transition-all hover:scale-105 border ${
+                  activePlanName 
+                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 border-purple-300/40 hover:from-purple-700 hover:to-indigo-700' 
+                    : 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 border-amber-300/40'
+                }`}
+                title={activePlanName ? `Gói đang kích hoạt: ${activePlanName} (Xem chi tiết/Gia hạn)` : 'Xem bảng giá và nâng cấp gói dịch vụ'}
               >
                 <span className="material-symbols-outlined text-xs font-bold animate-bounce">workspace_premium</span>
-                <span>NÂNG CẤP GÓI</span>
+                <span>{activePlanName ? activePlanName.toUpperCase() : 'NÂNG CẤP GÓI'}</span>
               </button>
               <button
                 onClick={() => handleNav('#/applications?tab=saved')}

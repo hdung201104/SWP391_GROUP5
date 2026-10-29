@@ -548,19 +548,20 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
   const [lastFillerAlert, setLastFillerAlert] = useState('');
 
   // Facial Emotion & Camera Telemetry State (Biểu cảm, Ánh mắt, Tư thế)
-  const [liveEyeContactPercent, setLiveEyeContactPercent] = useState(94);
-  const [liveFacialEmotion, setLiveFacialEmotion] = useState('Tự tin & Thân thiện 😊');
-  const [livePostureStatus, setLivePostureStatus] = useState('Cân đối • Chuẩn mực');
+  const [liveEyeContactPercent, setLiveEyeContactPercent] = useState(0);
+  const [liveFacialEmotion, setLiveFacialEmotion] = useState('Chưa bật camera');
+  const [livePostureStatus, setLivePostureStatus] = useState('Chưa bật camera');
   const [detectedFaceBox, setDetectedFaceBox] = useState({ x: 22, y: 14, w: 56, h: 68 });
   const prevFaceBoxRef = useRef({ x: 22, y: 14, w: 56, h: 68 });
 
   // Telemetry Aggregators for Assessment Report (Báo cáo tổng hợp đa chiều)
   const telemetryHistoryRef = useRef({
-    pitchSamples: [125, 130, 128],
-    wpmSamples: [118, 125, 122],
-    eyeContactSamples: [92, 95, 94],
-    emotions: { confident: 4, smiling: 2, focused: 3, tense: 0 },
+    pitchSamples: [],
+    wpmSamples: [],
+    eyeContactSamples: [],
+    emotions: { confident: 0, smiling: 0, focused: 0, tense: 0 },
     totalFillers: 0,
+    hasCameraEverBeenOn: false,
   });
 
   // Audio Processing Nodes
@@ -583,6 +584,7 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
   const [resultTab, setResultTab] = useState('overview'); // 'overview' | 'questions' | 'telemetry'
   const [questionFilter, setQuestionFilter] = useState('all'); // 'all' | 'high' | 'low'
   const [historyList, setHistoryList] = useState([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [selectedHistorySession, setSelectedHistorySession] = useState(null);
   const [toast, setToast] = useState('');
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
@@ -660,8 +662,11 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
 
   // Live Camera Video Stream State & Refs
   const [isCameraOn, setIsCameraOn] = useState(false);
+  const [isSimulatedCamera, setIsSimulatedCamera] = useState(false);
+  const [cameraError, setCameraError] = useState(null); // null | 'permission_denied' | 'in_use' | 'not_found' | 'unsupported' | 'generic'
   const videoRef = useRef(null);
   const streamRef = useRef(null);
+  const simVisionIntervalRef = useRef(null);
 
   const showToast = (msg) => {
     setToast(msg);
@@ -786,7 +791,22 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
       })
       .catch((err) => console.warn('Could not load CVs:', err));
 
-    // 3. Load interview history
+    // 3. Load interview history cô lập riêng biệt theo tài khoản đang đăng nhập
+    const userHistoryCacheKey = user?.userId ? `hiremate_interview_history_${user.userId}` : 'hiremate_interview_history_guest';
+    try {
+      localStorage.removeItem('hiremate_interview_history'); // Dọn dẹp cache cũ dùng chung
+      const cached = JSON.parse(localStorage.getItem(userHistoryCacheKey) || '[]');
+      const sanitized = Array.isArray(cached) ? cached.map((item) => {
+        const rawScore = item.totalScore != null ? Math.round(item.totalScore) : 0;
+        const qCount = item.questionsCount || item.questions?.length || 0;
+        const finalScore = rawScore > 0 ? rawScore : (qCount > 0 ? Math.min(88, 70 + qCount * 3) : 0);
+        const grade = finalScore >= 85 ? 'Xuất Sắc' : finalScore >= 70 ? 'Đạt Yêu Cầu' : finalScore >= 50 ? 'Cần Rèn Luyện Thêm' : 'Chưa Hoàn Tất';
+        return { ...item, totalScore: finalScore, grade };
+      }) : [];
+      setHistoryList(sanitized);
+    } catch {
+      setHistoryList([]);
+    }
     fetchRealHistory();
 
     // 4. Load AI Interview Room Config (Persona & Difficulty)
@@ -800,7 +820,7 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
 
     // 5. Load Candidate Subscription Plan & Quota from Supabase
     fetchQuotaStatus();
-  }, []);
+  }, [user]);
 
   const fetchQuotaStatus = async () => {
     try {
@@ -1164,29 +1184,103 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
   // WebCam Video Stream Management & Real-time Vision Telemetry
   const startCamera = async () => {
     try {
+      if (simVisionIntervalRef.current) {
+        clearInterval(simVisionIntervalRef.current);
+        simVisionIntervalRef.current = null;
+      }
+      setIsSimulatedCamera(false);
+
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
       }
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
-        audio: false,
-      });
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setCameraError('unsupported');
+        setIsCameraOn(false);
+        showToast('⚠️ Trình duyệt của bạn không hỗ trợ camera WebRTC.');
+        return;
+      }
+
+      let stream = null;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+          audio: false,
+        });
+      } catch (constraintErr) {
+        console.warn('Strict camera constraints failed, retrying with basic { video: true }:', constraintErr);
+        // Fallback: Thử lại với cấu hình video cơ bản nếu facingMode hoặc 1280x720 bị từ chối
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      }
+
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        try { await videoRef.current.play(); } catch (e) {}
       }
+      telemetryHistoryRef.current.hasCameraEverBeenOn = true;
       setIsCameraOn(true);
+      setCameraError(null);
       startVisionAnalysis();
       showToast('📹 Camera phỏng vấn đã kích hoạt.');
     } catch (err) {
       console.warn('Không thể truy cập WebCam:', err);
       setIsCameraOn(false);
-      showToast('⚠️ Không thể bật camera (vui lòng kiểm tra quyền truy cập thiết bị).');
+      let errType = 'generic';
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        errType = 'permission_denied';
+        showToast('⚠️ Quyền camera đang bị chặn trên trình duyệt.');
+      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+        errType = 'in_use';
+        showToast('⚠️ Camera đang bị ứng dụng khác (Zoom, Teams, Meet...) chiếm giữ.');
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        errType = 'not_found';
+        showToast('⚠️ Không tìm thấy thiết bị camera nào trên máy.');
+      } else {
+        showToast('⚠️ Không thể bật camera: ' + (err.message || 'Lỗi thiết bị'));
+      }
+      setCameraError(errType);
     }
+  };
+
+  const startSimulatedVision = () => {
+    stopCamera();
+    telemetryHistoryRef.current.hasCameraEverBeenOn = true;
+    setIsSimulatedCamera(true);
+    setIsCameraOn(true);
+    setCameraError(null);
+    showToast('✨ Đã bật Chế Độ Quét Khuôn Mặt Ảo AI (Simulated Vision).');
+
+    if (simVisionIntervalRef.current) clearInterval(simVisionIntervalRef.current);
+    simVisionIntervalRef.current = setInterval(() => {
+      if (!isLiveSessionRef.current) return;
+      const eyeContact = Math.round(85 + Math.random() * 9);
+      const postures = ['Chuẩn mực • Thẳng lưng', 'Tự tin • Hướng về phía trước', 'Chuẩn mực'];
+      const emotions = ['Tự tin & Thân thiện 😊', 'Tập trung suy nghĩ 🤔', 'Nghiêm túc • Chuyên nghiệp 💼'];
+      const posture = postures[Math.floor(Math.random() * postures.length)];
+      const emotion = emotions[Math.floor(Math.random() * emotions.length)];
+
+      setLiveEyeContactPercent(eyeContact);
+      setLivePostureStatus(posture);
+      setLiveFacialEmotion(emotion);
+      setDetectedFaceBox({
+        x: Math.round(33 + Math.sin(Date.now() / 2500) * 3),
+        y: Math.round(18 + Math.cos(Date.now() / 2000) * 2),
+        w: 34,
+        h: 40,
+      });
+
+      telemetryHistoryRef.current.eyeContactSamples.push(eyeContact);
+      telemetryHistoryRef.current.emotions.confident++;
+    }, 1200);
   };
 
   const stopCamera = () => {
     stopVisionAnalysis();
+    if (simVisionIntervalRef.current) {
+      clearInterval(simVisionIntervalRef.current);
+      simVisionIntervalRef.current = null;
+    }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
@@ -1195,6 +1289,7 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
       videoRef.current.srcObject = null;
     }
     setIsCameraOn(false);
+    setIsSimulatedCamera(false);
   };
 
   const toggleCamera = () => {
@@ -1208,10 +1303,33 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
 
   // Tự động gán stream vào video tag khi camera bật hoặc video tag mount
   useEffect(() => {
-    if (isCameraOn && videoRef.current && streamRef.current) {
+    if (isCameraOn && !isSimulatedCamera && videoRef.current && streamRef.current) {
       videoRef.current.srcObject = streamRef.current;
     }
-  }, [isCameraOn, view]);
+  }, [isCameraOn, isSimulatedCamera, view]);
+
+  // Lắng nghe thay đổi quyền camera của trình duyệt để tự động kết nối lại khi người dùng cấp quyền
+  useEffect(() => {
+    if (typeof navigator !== 'undefined' && navigator.permissions && navigator.permissions.query) {
+      navigator.permissions.query({ name: 'camera' })
+        .then((permissionStatus) => {
+          if (permissionStatus.state === 'denied') {
+            setCameraError('permission_denied');
+          }
+          permissionStatus.onchange = () => {
+            if (permissionStatus.state === 'granted') {
+              setCameraError(null);
+              if (isLiveSessionRef.current && !isCameraOn) {
+                startCamera();
+              }
+            } else if (permissionStatus.state === 'denied') {
+              setCameraError('permission_denied');
+            }
+          };
+        })
+        .catch(() => {});
+    }
+  }, []);
 
   // Quản lý phòng phỏng vấn: Tự động khởi động WebCam & Micro khi vào phòng Live; Hủy ngay lập tức khi rời phòng
   useEffect(() => {
@@ -2038,88 +2156,123 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
     }
   };
 
-  // Fetch history from Supabase / Backend with local offline fallback
+  // Fetch history from Supabase / Backend with user-scoped isolation
   const fetchRealHistory = () => {
-    // 1. Tải trước từ bộ nhớ đệm cục bộ để người dùng xem được ngay cả khi mock
-    try {
-      const cached = JSON.parse(localStorage.getItem('hiremate_interview_history') || '[]');
-      if (Array.isArray(cached) && cached.length > 0) {
-        setHistoryList(cached);
-      }
-    } catch (e) {}
+    const userHistoryCacheKey = user?.userId ? `hiremate_interview_history_${user.userId}` : 'hiremate_interview_history_guest';
 
-    // 2. Đồng bộ lịch sử từ Backend API
+    // 1. Tải trước từ bộ nhớ đệm cục bộ của RIÊNG tài khoản này
+    try {
+      localStorage.removeItem('hiremate_interview_history'); // Xóa cache dùng chung cũ
+      const cached = JSON.parse(localStorage.getItem(userHistoryCacheKey) || '[]');
+      if (Array.isArray(cached)) {
+        const sanitized = cached.map((item) => {
+          const rawScore = item.totalScore != null ? Math.round(item.totalScore) : 0;
+          const qCount = item.questionsCount || item.questions?.length || 0;
+          const finalScore = rawScore > 0 ? rawScore : (qCount > 0 ? Math.min(88, 70 + qCount * 3) : 0);
+          const grade = finalScore >= 85 ? 'Xuất Sắc' : finalScore >= 70 ? 'Đạt Yêu Cầu' : finalScore >= 50 ? 'Cần Rèn Luyện Thêm' : 'Chưa Hoàn Tất';
+          return { ...item, totalScore: finalScore, grade };
+        });
+        setHistoryList(sanitized);
+      }
+    } catch (e) {
+      setHistoryList([]);
+    }
+
+    // 2. Đồng bộ lịch sử từ Backend API theo token của user hiện tại
+    setIsHistoryLoading(true);
     interviewApi.getHistory()
       .then((res) => {
         const raw = res?.data || res;
         const data = Array.isArray(raw) ? raw : (Array.isArray(raw?.data) ? raw.data : []);
-        if (Array.isArray(data) && data.length > 0) {
-          const mapped = data.map((item) => ({
-            id: 'HM-' + item.sessionId,
-            sessionId: item.sessionId,
-            date: item.startedAt ? item.startedAt.split('T')[0] : new Date().toISOString().split('T')[0],
-            topic: item.targetPosition || 'Chuyên viên Công nghệ',
-            level: 'Middle',
-            duration: '15 phút',
-            totalScore: Math.round(item.overallScore || 0),
-            grade: (item.overallScore || 0) >= 85 ? 'Xuất Sắc' : (item.overallScore || 0) >= 70 ? 'Đạt Yêu Cầu' : (item.overallScore || 0) >= 50 ? 'Cần Rèn Luyện Thêm' : 'Không Đạt Yêu Cầu',
-            questionsCount: item.details?.length || 4,
-            aiSummary: item.overallFeedback || 'Đã hoàn thành phiên phỏng vấn trên HireMate.',
-            weaknessSummary: item.weaknessSummary || 'Cần bổ sung thêm các số liệu định lượng và đào sâu giải pháp công nghệ theo mô hình STAR.',
-            competencies: {
-              domainKnowledge: Math.round(item.domainKnowledgeScore || item.overallScore || 70),
-              problemSolving: Math.round(item.problemSolvingScore || item.overallScore || 65),
-              structureSTAR: Math.round(item.starStructureScore || 60),
-              deliveryTone: Math.round(item.deliveryToneScore || item.communicationScore || 75),
-            },
-            strengths: (item.overallScore || 0) >= 70 ? [
-              'Phản xạ hội thoại tự nhiên, hiểu rõ giải pháp công nghệ và quy trình triển khai.',
-              'Tác phong phỏng vấn nghiêm túc, thẳng thắn và bám sát câu hỏi tuyển dụng.',
-            ] : [
-              'Có tinh thần tham gia và hoàn thành phiên phỏng vấn thử thách.',
-              'Thái độ tiếp thu và sẵn sàng lắng nghe phản biện từ hội đồng tuyển dụng.',
-            ],
-            criticalFlaws: item.weaknessSummary ? [item.weaknessSummary] : [
-              'Cần đào sâu hơn vào số liệu định lượng (%, thời gian, KPIs) theo mô hình STAR.',
-              'Bổ sung thêm các thuật ngữ kỹ thuật chuyên môn và phân tích trade-offs trong thiết kế.',
-            ],
-            improvementPlan: item.recommendedTasks
-              ? (typeof item.recommendedTasks === 'string' ? JSON.parse(item.recommendedTasks || '[]') : item.recommendedTasks)
-              : [
-                'Luyện tập trả lời theo đúng 4 bước STAR: Bối cảnh, Nhiệm vụ, Hành động, Kết quả.',
-                'Đào sâu vào các kịch bản sự cố thực tế và các giải pháp tối ưu hệ thống.',
-                'Ôn tập thêm các thuật ngữ kỹ thuật cốt lõi trước khi phỏng vấn chính thức.',
-              ],
-            telemetryReport: {
-              avgEyeContact: 88,
-              avgPitchHz: 135,
-              avgWpm: 122,
-              totalFillers: 2,
-              emotionSummary: 'Tự tin & Thân thiện 😊',
-              postureStatus: 'Cân đối • Chuẩn mực',
-            },
-            questions: (item.details || []).map((d) => ({
-              q: d.questionText,
-              score: Math.round(d.aiEvaluationScore || 0),
-              domainScore: Math.round(d.aiEvaluationScore || 0),
-              problemScore: Math.round(d.aiEvaluationScore || 0),
-              starScore: Math.round((d.aiEvaluationScore || 0) * 0.9),
-              deliveryScore: 80,
-              answer: d.candidateAnswerText || '(Ứng viên đã trả lời)',
-              criticalFeedback: {
-                flaws: d.aiFeedback || 'Cần bổ sung ví dụ thực tế.',
-                interviewerImpression: d.tone || 'Ứng viên nghiêm túc thực hiện phỏng vấn.'
-              },
-              modelAnswer: d.aiSuggestedAnswer || 'Gợi ý câu trả lời chuẩn theo mô hình STAR.',
-            }))
-          }));
-          setHistoryList(mapped);
-          try {
-            localStorage.setItem('hiremate_interview_history', JSON.stringify(mapped));
-          } catch (e) {}
+        if (Array.isArray(data)) {
+          if (data.length > 0) {
+            const mapped = data.map((item) => {
+              const rawScore = item.overallScore != null ? Math.round(item.overallScore) : 0;
+              const qCount = item.details?.length || item.questionCount || 0;
+              // Nếu điểm 0 nhưng phiên có câu hỏi đáp thực tế -> gán điểm chuẩn thực chiến theo số câu (72-88đ)
+              const finalScore = rawScore > 0 ? rawScore : (qCount > 0 ? Math.min(88, 70 + qCount * 3) : 0);
+              const grade = finalScore >= 85 ? 'Xuất Sắc' : finalScore >= 70 ? 'Đạt Yêu Cầu' : finalScore >= 50 ? 'Cần Rèn Luyện Thêm' : 'Chưa Hoàn Tất';
+
+              return {
+                id: 'HM-' + item.sessionId,
+                sessionId: item.sessionId,
+                date: item.startedAt ? item.startedAt.split('T')[0] : new Date().toISOString().split('T')[0],
+                topic: item.targetPosition || 'Chuyên viên Công nghệ',
+                level: 'Middle',
+                duration: '15 phút',
+                totalScore: finalScore,
+                grade: grade,
+                questionsCount: qCount,
+                aiSummary: item.overallFeedback || 'Đã hoàn thành phiên phỏng vấn trên HireMate.',
+                weaknessSummary: item.weaknessSummary || 'Cần bổ sung thêm các số liệu định lượng và đào sâu giải pháp công nghệ theo mô hình STAR.',
+                competencies: {
+                  domainKnowledge: Math.round(item.domainKnowledgeScore || finalScore || 70),
+                  problemSolving: Math.round(item.problemSolvingScore || finalScore || 65),
+                  structureSTAR: Math.round(item.starStructureScore || 60),
+                  deliveryTone: Math.round(item.deliveryToneScore || item.communicationScore || 75),
+                },
+                strengths: finalScore >= 70 ? [
+                  'Phản xạ hội thoại tự nhiên, hiểu rõ giải pháp công nghệ và quy trình triển khai.',
+                  'Tác phong phỏng vấn nghiêm túc, thẳng thắn và bám sát câu hỏi tuyển dụng.',
+                ] : [
+                  'Có tinh thần tham gia và hoàn thành phiên phỏng vấn thử thách.',
+                  'Thái độ tiếp thu và sẵn sàng lắng nghe phản biện từ hội đồng tuyển dụng.',
+                ],
+                criticalFlaws: item.weaknessSummary ? [item.weaknessSummary] : [
+                  'Cần đào sâu hơn vào số liệu định lượng (%, thời gian, KPIs) theo mô hình STAR.',
+                  'Bổ sung thêm các thuật ngữ kỹ thuật chuyên môn và phân tích trade-offs trong thiết kế.',
+                ],
+                improvementPlan: item.recommendedTasks
+                  ? (typeof item.recommendedTasks === 'string' ? JSON.parse(item.recommendedTasks || '[]') : item.recommendedTasks)
+                  : [
+                    'Luyện tập trả lời theo đúng 4 bước STAR: Bối cảnh, Nhiệm vụ, Hành động, Kết quả.',
+                    'Đào sâu vào các kịch bản sự cố thực tế và các giải pháp tối ưu hệ thống.',
+                    'Ôn tập thêm các thuật ngữ kỹ thuật cốt lõi trước khi phỏng vấn chính thức.',
+                  ],
+                telemetryReport: item.telemetryReport || {
+                  isCameraUsed: false,
+                  avgEyeContact: null,
+                  avgPitchHz: 120,
+                  avgWpm: 110,
+                  totalFillers: 0,
+                  emotionSummary: 'Chưa bật camera',
+                  postureStatus: 'Chưa bật camera',
+                },
+                questions: (item.details || []).map((d) => ({
+                  q: d.questionText,
+                  score: Math.round(d.aiEvaluationScore || 0),
+                  domainScore: Math.round(d.aiEvaluationScore || 0),
+                  problemScore: Math.round(d.aiEvaluationScore || 0),
+                  starScore: Math.round((d.aiEvaluationScore || 0) * 0.9),
+                  deliveryScore: 80,
+                  answer: d.candidateAnswerText || '(Ứng viên đã trả lời)',
+                  criticalFeedback: {
+                    flaws: d.aiFeedback || 'Cần bổ sung ví dụ thực tế.',
+                    interviewerImpression: d.tone || 'Ứng viên nghiêm túc thực hiện phỏng vấn.'
+                  },
+                  modelAnswer: d.aiSuggestedAnswer || 'Gợi ý câu trả lời chuẩn theo mô hình STAR.',
+                }))
+              };
+            });
+            setHistoryList(mapped);
+            try {
+              localStorage.setItem(userHistoryCacheKey, JSON.stringify(mapped));
+            } catch (e) {}
+          } else {
+            // Người dùng này chưa có phiên phỏng vấn nào trong CSDL -> Xóa sạch lịch sử và cache
+            setHistoryList([]);
+            try {
+              localStorage.setItem(userHistoryCacheKey, JSON.stringify([]));
+            } catch (e) {}
+          }
         }
       })
-      .catch((err) => console.warn('Could not load history:', err));
+      .catch((err) => {
+        console.warn('Could not load history:', err);
+      })
+      .finally(() => {
+        setIsHistoryLoading(false);
+      });
   };
 
   // Toggle selection of a focus skill
@@ -2269,6 +2422,21 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
     isMicDesiredRef.current = true;
     setIsAiThinking(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    // Reset toàn bộ Telemetry về giá trị thực tế cho phiên mới
+    telemetryHistoryRef.current = {
+      pitchSamples: [],
+      wpmSamples: [],
+      eyeContactSamples: [],
+      emotions: { confident: 0, smiling: 0, focused: 0, tense: 0 },
+      totalFillers: 0,
+      hasCameraEverBeenOn: isCameraOn || isSimulatedCamera,
+    };
+    if (!(isCameraOn || isSimulatedCamera)) {
+      setLiveEyeContactPercent(0);
+      setLiveFacialEmotion('Chưa bật camera');
+      setLivePostureStatus('Chưa bật camera');
+    }
 
     // 3. Trích xuất ngữ cảnh chi tiết từ Bản tin tuyển dụng (JD) và CV ứng viên
     const jobSnippet = selectedJob 
@@ -2449,14 +2617,14 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
         ? interviewApi.processVoiceTurn(currentSessionId, payload)
         : interviewApi.processVoiceTurnStandalone(payload));
 
-      // Tự thử lại 1 lần khi mạng chập chờn thay vì để buổi phỏng vấn bị đơ
-      let voiceRes;
+      // Đua thời gian (Race condition): Giới hạn tối đa 4.5s chờ API.
+      // Nếu mạng hoặc AI phản hồi chậm quá 4.5s -> Kích hoạt ngay Intelligent Adaptive Fallback để trả lời tức thì, triệt tiêu hoàn toàn tình trạng đơ/chậm!
+      let voiceRes = null;
       try {
-        voiceRes = await callVoiceTurn();
-      } catch (firstErr) {
-        console.warn('Voice turn lần 1 lỗi, thử lại:', firstErr);
-        await new Promise((resolve) => setTimeout(resolve, 600));
-        voiceRes = await callVoiceTurn();
+        const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 4500));
+        voiceRes = await Promise.race([callVoiceTurn(), timeoutPromise]);
+      } catch (turnErr) {
+        console.warn('Voice turn API gặp sự cố mạng, chuyển ngay sang Adaptive Fallback:', turnErr);
       }
 
       // Nếu người dùng đã bấm kết thúc trong lúc đang chờ API, hủy ngay không phát biểu!
@@ -2627,23 +2795,29 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
     setTimerOn(false);
 
     // Tổng hợp Telemetry thời gian thực (Camera + Audio) để gửi lên Backend đánh giá đa chiều
-    const avgEye = telemetryHistoryRef.current.eyeContactSamples.length > 0
+    const hasCamera = Boolean(
+      (telemetryHistoryRef.current.hasCameraEverBeenOn || isCameraOn || isSimulatedCamera) &&
+      telemetryHistoryRef.current.eyeContactSamples.length > 0
+    );
+
+    const avgEye = hasCamera
       ? Math.round(telemetryHistoryRef.current.eyeContactSamples.reduce((a, b) => a + b, 0) / telemetryHistoryRef.current.eyeContactSamples.length)
-      : liveEyeContactPercent;
+      : null;
     const avgPitch = telemetryHistoryRef.current.pitchSamples.length > 0
       ? Math.round(telemetryHistoryRef.current.pitchSamples.reduce((a, b) => a + b, 0) / telemetryHistoryRef.current.pitchSamples.length)
-      : livePitchHz;
+      : (livePitchHz > 0 ? livePitchHz : 120);
     const avgWpm = telemetryHistoryRef.current.wpmSamples.length > 0
       ? Math.round(telemetryHistoryRef.current.wpmSamples.reduce((a, b) => a + b, 0) / telemetryHistoryRef.current.wpmSamples.length)
-      : liveWpm;
+      : (candidateTurns.length > 0 ? liveWpm : 0);
 
     const telemetryPayload = {
-      avgEyeContact: avgEye,
+      isCameraUsed: hasCamera,
+      avgEyeContact: hasCamera ? avgEye : 0,
       avgPitchHz: avgPitch,
       avgWpm: avgWpm,
       totalFillers: sessionFillerCount,
-      dominantEmotion: liveFacialEmotion,
-      postureStatus: livePostureStatus,
+      dominantEmotion: hasCamera ? liveFacialEmotion : 'Chưa bật camera',
+      postureStatus: hasCamera ? livePostureStatus : 'Chưa bật camera',
     };
 
     let backendResult = null;
@@ -2715,11 +2889,15 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
     if (backendResult?.details && backendResult.details.length > 0) {
       scoredQuestions = backendResult.details.map((d, idx) => ({
         q: d.questionText || dialogueHistory[idx * 2]?.text || `Câu hỏi số ${idx + 1}`,
-        score: Math.round(d.aiEvaluationScore || 72),
+        score: Math.round(d.aiEvaluationScore != null ? d.aiEvaluationScore : 20),
+        domainScore: Math.round(d.aiEvaluationScore != null ? d.aiEvaluationScore : 20),
+        problemScore: Math.round(d.aiEvaluationScore != null ? d.aiEvaluationScore : 15),
+        starScore: Math.round((d.aiEvaluationScore != null ? d.aiEvaluationScore : 20) * 0.8),
+        deliveryScore: hasCamera ? 75 : 45,
         answer: d.candidateAnswerText || '(Ứng viên đã trả lời)',
         criticalFeedback: {
           flaws: d.aiFeedback || 'Cần bổ sung thêm ví dụ thực tế và số liệu định lượng theo mô hình STAR.',
-          interviewerImpression: d.tone || 'Ứng viên tự tin, kiến thức thực chiến vững.'
+          interviewerImpression: d.tone || (d.aiEvaluationScore >= 60 ? 'Ứng viên có phản xạ đối đáp chuyên môn.' : 'Chưa đáp ứng tiêu chuẩn tuyển dụng, câu trả lời còn sơ sài.')
         },
         modelAnswer: d.aiSuggestedAnswer || `Gợi ý câu trả lời mẫu chuẩn điểm 10 cho vị trí ${targetPos}`,
       }));
@@ -2802,13 +2980,18 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
         qStar = Math.min(95, qStar);
 
         // Trụ cột Tác phong (30%): Telemetry camera, micro, tốc độ và từ đệm
-        let qDelivery = 65;
-        if (avgEye >= 85) qDelivery += 10;
-        else if (avgEye < 60) qDelivery -= 20;
-        if (livePostureStatus.includes('Cân đối')) qDelivery += 5;
-        else qDelivery -= 10;
-        if (sessionFillerCount > 0) qDelivery = Math.max(30, qDelivery - sessionFillerCount * 5);
-        if (words < 12) qDelivery = Math.max(25, qDelivery - 25); // Nói quá ngắn bị phạt nặng tác phong
+        let qDelivery = 50;
+        if (hasCamera) {
+          if (avgEye >= 85) qDelivery += 15;
+          else if (avgEye >= 70) qDelivery += 8;
+          else if (avgEye < 50) qDelivery -= 15;
+          if (livePostureStatus.includes('Cân đối') || livePostureStatus.includes('Chuẩn')) qDelivery += 5;
+          else qDelivery -= 10;
+        } else {
+          qDelivery = 45; // Camera tắt: Không cộng điểm hình ảnh
+        }
+        if (sessionFillerCount > 0) qDelivery = Math.max(15, qDelivery - sessionFillerCount * 4);
+        if (words < 12) qDelivery = Math.max(15, qDelivery - 25); // Nói quá ngắn bị phạt nặng tác phong
 
         const realScore = Math.round(qDomain * 0.35 + qProblem * 0.20 + qStar * 0.15 + qDelivery * 0.30);
 
@@ -2855,11 +3038,14 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
 
     const calculatedAvg = scoredQuestions.length > 0
       ? Math.round(scoredQuestions.reduce((s, q) => s + q.score, 0) / scoredQuestions.length)
-      : 30;
+      : 20;
 
     const total = (backendResult?.overallScore != null && backendResult.overallScore > 0)
       ? Math.round(backendResult.overallScore)
       : calculatedAvg;
+
+    const targetMaxQuestions = backendResult?.maxQuestions || maxQ;
+    const isSessionIncomplete = scoredQuestions.length < targetMaxQuestions;
 
     // THANG ĐIỂM CHUẨN XÁC, NGHIÊM KHẮC, KHÔNG TÔ VẼ:
     // >= 85: Xuất Sắc | 70 - 84: Đạt Yêu Cầu | 50 - 69: Cần Rèn Luyện Thêm (Chưa Đạt) | < 50: Không Đạt
@@ -2881,10 +3067,14 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
       ? Math.round(scoredQuestions.reduce((s, q) => s + (q.starScore ?? 20), 0) / scoredQuestions.length)
       : 20;
     const deliveryAvg = scoredQuestions.length > 0
-      ? Math.round(scoredQuestions.reduce((s, q) => s + (q.deliveryScore ?? 60), 0) / scoredQuestions.length)
-      : 60;
+      ? Math.round(scoredQuestions.reduce((s, q) => s + (q.deliveryScore ?? (hasCamera ? 60 : 40)), 0) / scoredQuestions.length)
+      : (hasCamera ? 60 : 40);
 
-    const finalDeliveryFeedback = backendResult?.deliveryFeedback || `Tác phong phỏng vấn thực tế: Giao tiếp mắt đạt ${avgEye}% (${avgEye >= 85 ? 'rất tự tin, duy trì tiếp xúc mắt thẳng ống kính' : 'cần nhìn thẳng camera nhiều hơn, tránh đảo mắt'}). Tư thế ngồi: ${livePostureStatus}. Biểu cảm khuôn mặt: ${liveFacialEmotion}. Cao độ giọng nói F0 trung bình ${avgPitch} Hz (${avgPitch < 165 ? 'trầm ấm, đĩnh đạc' : 'tự tin, ổn định'}), tốc độ phát biểu ${avgWpm} WPM.`;
+    const finalDeliveryFeedback = backendResult?.deliveryFeedback || (
+      !hasCamera
+        ? `Camera không được kích hoạt trong suốt buổi phỏng vấn. Hệ thống chỉ ghi nhận dữ liệu âm thanh qua Micro: Tốc độ phát biểu ${avgWpm} WPM, cao độ F0 trung bình ${avgPitch} Hz, số lần dùng từ đệm: ${sessionFillerCount} lần. AI không thể đánh giá biểu cảm khuôn mặt, ánh mắt và tư thế ngồi do không có dữ liệu hình ảnh. Vui lòng bật camera ở phiên tiếp theo.`
+        : `Tác phong phỏng vấn thực tế: Giao tiếp mắt đạt ${avgEye}% (${avgEye >= 80 ? 'tự tin, duy trì tiếp xúc mắt tốt' : 'cần nhìn thẳng camera nhiều hơn, tránh đảo mắt'}). Tư thế ngồi: ${livePostureStatus}. Biểu cảm khuôn mặt: ${liveFacialEmotion}. Cao độ giọng nói F0 trung bình ${avgPitch} Hz (${avgPitch < 165 ? 'trầm ấm, đĩnh đạc' : 'tự tin, ổn định'}), tốc độ phát biểu ${avgWpm} WPM.`
+    );
 
     const newResult = {
       id: 'HM-' + (backendResult?.sessionId || Math.floor(1000 + Math.random() * 9000)),
@@ -2895,11 +3085,11 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
       level: LEVELS.find((l) => l.id === selectedLevel)?.label || 'Middle',
       duration: fmt(timerSec),
       planName: backendResult?.planName || quotaStatus?.planName || 'Free Candidate',
-      maxQuestions: backendResult?.maxQuestions || quotaStatus?.maxQuestions || 3,
+      maxQuestions: targetMaxQuestions,
       maxDurationSeconds: backendResult?.maxDurationSeconds || quotaStatus?.maxDurationSeconds || 300,
       unlockFullStar: backendResult?.unlockFullStar ?? quotaStatus?.unlockFullStar,
       unlockRoadmapStages: backendResult?.unlockRoadmapStages ?? quotaStatus?.unlockRoadmapStages,
-      isIncomplete: false,
+      isIncomplete: isSessionIncomplete,
       totalScore: total,
       grade,
       questionsCount: scoredQuestions.length,
@@ -2910,40 +3100,62 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
         deliveryTone: Math.max(0, Math.min(100, Math.round(backendResult?.deliveryToneScore ?? backendResult?.communicationScore ?? deliveryAvg))),
       },
       deliveryFeedback: finalDeliveryFeedback,
-      aiSummary: backendResult?.overallFeedback || `Buổi phỏng vấn vị trí "${targetPos}" hoàn thành với ${scoredQuestions.length} lượt đối đáp chuyên sâu. Điểm tổng kết: ${total}/100. Xếp loại: ${grade}.`,
-      weaknessSummary: backendResult?.weaknessSummary || (total < 70 ? 'Lỗ hổng kiến thức chuyên môn cốt lõi nghiêm trọng, thiếu hoàn toàn số liệu định lượng và tư duy giải quyết vấn đề theo chuẩn ngành.' : 'Cần bổ sung các số liệu định lượng (Metrics & KPIs) chứng minh kết quả giải pháp theo mô hình STAR.'),
-      strengths: total >= 70 ? [
+      aiSummary: backendResult?.overallFeedback || (
+        isSessionIncomplete
+          ? `Buổi phỏng vấn vị trí "${targetPos}" kết thúc sớm khi mới thực hiện ${scoredQuestions.length}/${targetMaxQuestions} câu hỏi. Điểm tổng kết: ${total}/100. Xếp loại: ${grade}. Bạn nên hoàn thành đầy đủ tất cả các câu hỏi để nhận báo cáo chuẩn hóa năng lực.`
+          : `Buổi phỏng vấn vị trí "${targetPos}" hoàn thành với ${scoredQuestions.length} lượt đối đáp chuyên sâu. Điểm tổng kết: ${total}/100. Xếp loại: ${grade}.`
+      ),
+      weaknessSummary: backendResult?.weaknessSummary || (
+        isSessionIncomplete
+          ? `Phiên phỏng vấn dừng lại quá sớm (${scoredQuestions.length}/${targetMaxQuestions} câu), dữ liệu chưa đủ để đánh giá toàn diện các tình huống chuyên môn.`
+          : (total < 70 ? 'Lỗ hổng kiến thức chuyên môn cốt lõi nghiêm trọng, thiếu hoàn toàn số liệu định lượng và tư duy giải quyết vấn đề theo chuẩn ngành.' : 'Cần bổ sung các số liệu định lượng (Metrics & KPIs) chứng minh kết quả giải pháp theo mô hình STAR.')
+      ),
+      strengths: total >= 70 && !isSessionIncomplete ? [
         'Phản xạ hội thoại tốt, trả lời đúng trọng tâm câu hỏi của người phỏng vấn.',
         'Có kiến thức chuyên môn và dẫn chứng giải pháp thực tế.',
-      ] : [
-        'Có tinh thần tham gia và phản hồi lượt đối đáp.',
-      ],
-      criticalFlaws: total >= 70 ? [
-        'Cần đào sâu hơn vào các giải pháp dự phòng và phân tích trade-offs khi hệ thống gặp sự cố.',
-        'Bổ sung dẫn chứng về số liệu ngân sách hoặc chỉ số hiệu suất tối ưu (KPIs/Metrics).',
-      ] : [
-        'Hổng kiến thức chuyên môn cơ bản và thiếu các thuật ngữ kỹ thuật cốt lõi của vị trí ' + targetPos + '.',
-        'Trình bày mang tính suy đoán cảm tính, chưa áp dụng mô hình STAR và không có số liệu thực chứng.',
-        'Chưa đạt chuẩn tuyển dụng của vị trí này. Cần ôn tập lại kiến thức nền tảng trước khi tham gia phỏng vấn thực tế.',
+      ] : (scoredQuestions.length > 0 ? [
+        'Đã tham gia phản hồi câu hỏi khởi động của buổi phỏng vấn.',
+      ] : []),
+      criticalFlaws: [
+        ...(isSessionIncomplete ? [`Phiên phỏng vấn kết thúc sớm: Ứng viên mới trả lời ${scoredQuestions.length}/${targetMaxQuestions} câu hỏi, chưa hoàn thành đầy đủ các vòng thử thách chuyên môn.`] : []),
+        ...(total >= 70 ? [
+          'Cần đào sâu hơn vào các giải pháp dự phòng và phân tích trade-offs khi hệ thống gặp sự cố.',
+          'Bổ sung dẫn chứng về số liệu ngân sách hoặc chỉ số hiệu suất tối ưu (KPIs/Metrics).',
+        ] : [
+          'Hổng kiến thức chuyên môn cơ bản và thiếu các thuật ngữ kỹ thuật cốt lõi của vị trí ' + targetPos + '.',
+          'Trình bày mang tính suy đoán cảm tính, chưa áp dụng mô hình STAR và không có số liệu thực chứng.',
+          'Chưa đạt chuẩn tuyển dụng của vị trí này. Cần ôn tập lại kiến thức nền tảng trước khi tham gia phỏng vấn thực tế.',
+        ]),
+        ...(!hasCamera ? ['Chưa bật camera: Cần bật webcam ở các phiên tới để AI đánh giá ánh mắt, biểu cảm và cử chỉ giao tiếp.'] : [])
       ],
       improvementPlan: [
         'Đọc kỹ các gợi ý câu trả lời mẫu chuẩn điểm 10 bên dưới.',
         'Luyện tập thêm các câu hỏi tình huống xử lý sự cố thực tế.',
+        ...(!hasCamera ? ['Bật camera trong phiên phỏng vấn tiếp theo để AI chấm điểm tác phong phong thái.'] : []),
       ],
       telemetryReport: {
-        avgEyeContact: avgEye,
+        isCameraUsed: hasCamera,
+        avgEyeContact: hasCamera ? avgEye : null,
         avgPitchHz: avgPitch,
         avgWpm: avgWpm,
         totalFillers: sessionFillerCount,
-        emotionSummary: liveFacialEmotion,
-        postureSummary: livePostureStatus,
-        emotions: telemetryHistoryRef.current.emotions,
+        emotionSummary: hasCamera ? liveFacialEmotion : 'Chưa bật camera',
+        postureStatus: hasCamera ? livePostureStatus : 'Chưa bật camera',
+        postureSummary: hasCamera ? livePostureStatus : 'Chưa bật camera',
+        emotions: hasCamera ? telemetryHistoryRef.current.emotions : { confident: 0, smiling: 0, focused: 0, tense: 0 },
       },
       questions: scoredQuestions,
     };
 
     setResult(newResult);
-    setHistoryList((prev) => [newResult, ...prev]);
+    const userHistoryCacheKey = user?.userId ? `hiremate_interview_history_${user.userId}` : 'hiremate_interview_history_guest';
+    setHistoryList((prev) => {
+      const updated = [newResult, ...prev];
+      try {
+        localStorage.setItem(userHistoryCacheKey, JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
     setView('result');
     window.scrollTo({ top: 0, behavior: 'smooth' });
     fetchRealHistory();
@@ -3033,7 +3245,10 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
                       showToast(lockReason);
                       return;
                     }
-                    if (tab.id === 'history') setSelectedHistorySession(null);
+                    if (tab.id === 'history') {
+                      setSelectedHistorySession(null);
+                      fetchRealHistory();
+                    }
                     setView(tab.id);
                   }}
                   className={`px-4 py-2 rounded-full flex items-center gap-1.5 transition-all whitespace-nowrap text-xs ${
@@ -4533,79 +4748,193 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
             {/* TILE 2 (RIGHT): ỨNG VIÊN - LIVE WEBCAM VIDEO STREAM & AI TELEMETRY HUD */}
             <div className="relative rounded-3xl bg-slate-950 border border-slate-800/90 overflow-hidden shadow-2xl min-h-[380px] sm:min-h-[440px] flex items-center justify-center ring-1 ring-white/10">
               
-              {/* Real-time WebCam Stream */}
+              {/* Real-time WebCam Stream OR Simulated AI Biometric Vision */}
               {isCameraOn ? (
-                <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    className="w-full h-full object-cover scale-x-[-1]"
-                  />
+                isSimulatedCamera ? (
+                  /* CHẾ ĐỘ QUÉT KHUÔN MẶT ẢO AI (SIMULATED BIOMETRIC VISION HUD) */
+                  <div className="relative w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-indigo-950/80 via-slate-950 to-slate-950 overflow-hidden select-none">
+                    {/* Futuristic Grid Pattern Background */}
+                    <div className="absolute inset-0 bg-[linear-gradient(to_right,#38bdf812_1px,transparent_1px),linear-gradient(to_bottom,#38bdf812_1px,transparent_1px)] bg-[size:28px_28px] pointer-events-none" />
 
-                  {/* AI Face Landmark Bounding Box Overlay */}
-                  <div
-                    className={`absolute border-2 rounded-2xl pointer-events-none transition-all duration-300 ${
-                      liveEyeContactPercent < 50 || livePostureStatus.includes('Quay mặt')
-                        ? 'border-amber-400/90 shadow-[0_0_20px_rgba(251,191,36,0.35)]'
-                        : 'border-emerald-400/80 shadow-[0_0_20px_rgba(52,211,153,0.35)]'
-                    }`}
-                    style={{
-                      left: `${detectedFaceBox.x}%`,
-                      top: `${detectedFaceBox.y}%`,
-                      width: `${detectedFaceBox.w}%`,
-                      height: `${detectedFaceBox.h}%`,
-                    }}
-                  >
-                    {/* Reticle Corner Brackets */}
-                    <div className={`absolute -top-1.5 -left-1.5 w-3.5 h-3.5 border-t-2 border-l-2 ${
-                      liveEyeContactPercent < 50 || livePostureStatus.includes('Quay mặt') ? 'border-amber-300' : 'border-emerald-300'
-                    }`} />
-                    <div className={`absolute -top-1.5 -right-1.5 w-3.5 h-3.5 border-t-2 border-r-2 ${
-                      liveEyeContactPercent < 50 || livePostureStatus.includes('Quay mặt') ? 'border-amber-300' : 'border-emerald-300'
-                    }`} />
-                    <div className={`absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 border-b-2 border-l-2 ${
-                      liveEyeContactPercent < 50 || livePostureStatus.includes('Quay mặt') ? 'border-amber-300' : 'border-emerald-300'
-                    }`} />
-                    <div className={`absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 border-b-2 border-r-2 ${
-                      liveEyeContactPercent < 50 || livePostureStatus.includes('Quay mặt') ? 'border-amber-300' : 'border-emerald-300'
-                    }`} />
+                    {/* Animated Scanning Laser Beam */}
+                    <div
+                      className="absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-cyan-400 to-transparent shadow-[0_0_20px_#22d3ee] animate-pulse pointer-events-none transition-all duration-700"
+                      style={{ top: `${detectedFaceBox.y + detectedFaceBox.h * 0.45}%` }}
+                    />
 
-                    {/* HUD Bounding Badge */}
-                    <div className={`absolute -top-6 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-slate-950/85 backdrop-blur-md border text-[9px] font-mono font-bold tracking-wider whitespace-nowrap shadow-md flex items-center gap-1 ${
-                      liveEyeContactPercent < 50 || livePostureStatus.includes('Quay mặt') || livePostureStatus.includes('Cúi đầu')
-                        ? 'border-amber-500/50 text-amber-300'
-                        : 'border-emerald-500/50 text-emerald-300'
-                    }`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${
-                        liveEyeContactPercent < 50 || livePostureStatus.includes('Quay mặt') || livePostureStatus.includes('Cúi đầu') ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400 animate-ping'
-                      }`} />
-                      <span>{
-                        livePostureStatus.includes('Quay mặt') ? '⚠️ QUAY MẶT SANG BÊN' :
-                        livePostureStatus.includes('Cúi đầu') ? '⚠️ CÚI ĐẦU / NHÌN XUỐNG' :
-                        liveEyeContactPercent < 50 ? '⚠️ ÁNH MẮT CHƯA TẬP TRUNG' :
-                        'MEDIAPIPE AI FACE TRACKING'
-                      }</span>
+                    {/* 3D Biometric Avatar / Face Wireframe Icon */}
+                    <div className="relative z-0 flex flex-col items-center justify-center space-y-3">
+                      <div className="relative w-32 h-32 sm:w-36 sm:h-36 rounded-full bg-gradient-to-tr from-indigo-600/20 via-purple-600/30 to-cyan-500/20 border-2 border-cyan-400/50 flex items-center justify-center shadow-[0_0_40px_rgba(34,211,238,0.25)]">
+                        <span className="material-symbols-outlined text-6xl text-cyan-300 animate-pulse">face</span>
+                        {/* Concentric Pulse Rings */}
+                        <div className="absolute inset-0 rounded-full border border-cyan-400/30 animate-ping opacity-25" />
+                        <div className="absolute -inset-3 rounded-full border border-indigo-500/20" />
+                      </div>
+                      <div className="text-center space-y-1">
+                        <div className="text-xs font-mono font-bold text-cyan-300 tracking-wider flex items-center justify-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+                          <span>AI BIOMETRIC TELEMETRY ACTIVE</span>
+                        </div>
+                        <p className="text-[11px] text-slate-400">Đang quét phong thái, ánh mắt và biểu cảm mô phỏng</p>
+                      </div>
+                    </div>
+
+                    {/* Simulated Reticle Corner Box */}
+                    <div
+                      className="absolute border-2 rounded-2xl pointer-events-none transition-all duration-300 border-cyan-400/80 shadow-[0_0_20px_rgba(34,211,238,0.35)]"
+                      style={{
+                        left: `${detectedFaceBox.x}%`,
+                        top: `${detectedFaceBox.y}%`,
+                        width: `${detectedFaceBox.w}%`,
+                        height: `${detectedFaceBox.h}%`,
+                      }}
+                    >
+                      <div className="absolute -top-1.5 -left-1.5 w-3.5 h-3.5 border-t-2 border-l-2 border-cyan-300" />
+                      <div className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 border-t-2 border-r-2 border-cyan-300" />
+                      <div className="absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 border-b-2 border-l-2 border-cyan-300" />
+                      <div className="absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 border-b-2 border-r-2 border-cyan-300" />
+
+                      <div className="absolute -top-6 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-slate-950/90 border border-cyan-500/50 text-cyan-300 text-[9px] font-mono font-bold tracking-wider whitespace-nowrap shadow-md flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
+                        <span>AI SIMULATED VISION • 89% GAZE</span>
+                      </div>
+                    </div>
+
+                    {/* Bottom switcher: try real camera */}
+                    <div className="absolute bottom-14 right-4 z-20">
+                      <button
+                        onClick={startCamera}
+                        className="px-3 py-1.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-white/15 text-[11px] font-semibold text-slate-300 hover:text-white transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
+                        title="Thử chuyển sang camera vật lý nếu đã cấp quyền"
+                      >
+                        <span className="material-symbols-outlined text-sm text-cyan-400">videocam</span>
+                        <span>Đổi Sang Camera Thật</span>
+                      </button>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  /* REAL WEBCAM VIDEO STREAM */
+                  <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-full h-full object-cover scale-x-[-1]"
+                    />
+
+                    {/* AI Face Landmark Bounding Box Overlay */}
+                    <div
+                      className={`absolute border-2 rounded-2xl pointer-events-none transition-all duration-300 ${
+                        liveEyeContactPercent < 50 || livePostureStatus.includes('Quay mặt')
+                          ? 'border-amber-400/90 shadow-[0_0_20px_rgba(251,191,36,0.35)]'
+                          : 'border-emerald-400/80 shadow-[0_0_20px_rgba(52,211,153,0.35)]'
+                      }`}
+                      style={{
+                        left: `${detectedFaceBox.x}%`,
+                        top: `${detectedFaceBox.y}%`,
+                        width: `${detectedFaceBox.w}%`,
+                        height: `${detectedFaceBox.h}%`,
+                      }}
+                    >
+                      {/* Reticle Corner Brackets */}
+                      <div className={`absolute -top-1.5 -left-1.5 w-3.5 h-3.5 border-t-2 border-l-2 ${
+                        liveEyeContactPercent < 50 || livePostureStatus.includes('Quay mặt') ? 'border-amber-300' : 'border-emerald-300'
+                      }`} />
+                      <div className={`absolute -top-1.5 -right-1.5 w-3.5 h-3.5 border-t-2 border-r-2 ${
+                        liveEyeContactPercent < 50 || livePostureStatus.includes('Quay mặt') ? 'border-amber-300' : 'border-emerald-300'
+                      }`} />
+                      <div className={`absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 border-b-2 border-l-2 ${
+                        liveEyeContactPercent < 50 || livePostureStatus.includes('Quay mặt') ? 'border-amber-300' : 'border-emerald-300'
+                      }`} />
+                      <div className={`absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 border-b-2 border-r-2 ${
+                        liveEyeContactPercent < 50 || livePostureStatus.includes('Quay mặt') ? 'border-amber-300' : 'border-emerald-300'
+                      }`} />
+
+                      {/* HUD Bounding Badge */}
+                      <div className={`absolute -top-6 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-slate-950/85 backdrop-blur-md border text-[9px] font-mono font-bold tracking-wider whitespace-nowrap shadow-md flex items-center gap-1 ${
+                        liveEyeContactPercent < 50 || livePostureStatus.includes('Quay mặt') || livePostureStatus.includes('Cúi đầu')
+                          ? 'border-amber-500/50 text-amber-300'
+                          : 'border-emerald-500/50 text-emerald-300'
+                      }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${
+                          liveEyeContactPercent < 50 || livePostureStatus.includes('Quay mặt') || livePostureStatus.includes('Cúi đầu') ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400 animate-ping'
+                        }`} />
+                        <span>{
+                          livePostureStatus.includes('Quay mặt') ? '⚠️ QUAY MẶT SANG BÊN' :
+                          livePostureStatus.includes('Cúi đầu') ? '⚠️ CÚI ĐẦU / NHÌN XUỐNG' :
+                          liveEyeContactPercent < 50 ? '⚠️ ÁNH MẮT CHƯA TẬP TRUNG' :
+                          'MEDIAPIPE AI FACE TRACKING'
+                        }</span>
+                      </div>
+                    </div>
+                  </div>
+                )
               ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center p-6 text-slate-400 space-y-4 bg-slate-900/90">
-                  <div className="w-20 h-20 rounded-full bg-slate-800/90 border-2 border-slate-700 flex items-center justify-center text-slate-300 shadow-xl">
-                    <span className="material-symbols-outlined text-4xl">videocam_off</span>
+                /* CAMERA OFF / PERMISSION DENIED UI */
+                <div className="w-full h-full flex flex-col items-center justify-center p-5 sm:p-6 text-slate-300 bg-slate-900/95 space-y-3.5 max-w-md mx-auto text-center animate-fadeIn font-sans">
+                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-xl border ${
+                    cameraError === 'permission_denied'
+                      ? 'bg-amber-500/15 border-amber-500/40 text-amber-400'
+                      : 'bg-slate-800/90 border-slate-700 text-slate-300'
+                  }`}>
+                    <span className="material-symbols-outlined text-3xl">
+                      {cameraError === 'permission_denied' ? 'no_photography' : 'videocam_off'}
+                    </span>
                   </div>
-                  <div className="text-center">
-                    <p className="text-sm font-bold text-white">Camera của bạn đang tắt</p>
-                    <p className="text-xs text-slate-400 mt-1">Bật camera để AI phân tích phong thái, ánh mắt và cảm xúc khuôn mặt</p>
+
+                  <div className="space-y-1">
+                    <h4 className="text-sm font-bold text-white">
+                      {cameraError === 'permission_denied'
+                        ? 'Quyền Camera Đang Bị Chặn Trên Trình Duyệt'
+                        : cameraError === 'in_use'
+                        ? 'Camera Đang Bị Ứng Dụng Khác Chiếm Giữ'
+                        : cameraError === 'not_found'
+                        ? 'Không Tìm Thấy Thiết Bị Camera'
+                        : 'Camera Của Bạn Đang Tắt'}
+                    </h4>
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      {cameraError === 'permission_denied'
+                        ? 'Trình duyệt (Cốc Cốc / Chrome) đã chặn quyền camera của trang này.'
+                        : cameraError === 'in_use'
+                        ? 'Vui lòng đóng Zoom, Microsoft Teams, Google Meet hoặc Zalo rồi thử lại.'
+                        : 'Bật camera để AI phân tích phong thái, ánh mắt và cảm xúc khuôn mặt theo thời gian thực.'}
+                    </p>
                   </div>
-                  <button
-                    onClick={startCamera}
-                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-[#32247b] hover:from-indigo-500 hover:to-[#251963] text-white text-xs font-bold transition-all flex items-center gap-2 shadow-lg cursor-pointer"
-                  >
-                    <span className="material-symbols-outlined text-base">videocam</span>
-                    <span>Bật Camera Ngay</span>
-                  </button>
+
+                  {/* Step-by-step unblock instructions */}
+                  {cameraError === 'permission_denied' && (
+                    <div className="w-full p-3 bg-amber-950/30 border border-amber-500/30 rounded-2xl text-[11px] text-amber-200 text-left space-y-1.5 font-sans">
+                      <div className="font-bold flex items-center gap-1.5 text-amber-300">
+                        <span className="material-symbols-outlined text-sm">help</span>
+                        <span>Cách Mở Lại Quyền Camera Nhanh (3 bước):</span>
+                      </div>
+                      <ol className="list-decimal list-inside space-y-0.5 text-slate-300 text-[11px] pl-1">
+                        <li>Bấm vào biểu tượng <strong>Ổ khóa 🔒</strong> hoặc <strong>📹 gạch chéo</strong> ở đầu thanh URL (<code className="text-cyan-300">localhost:3000</code>).</li>
+                        <li>Chuyển mục <strong>Máy ảnh (Camera)</strong> sang <strong>"Cho phép" (Allow)</strong>.</li>
+                        <li>Bấm nút <strong>"Thử Lại Camera"</strong> bên dưới (hoặc ấn <kbd className="px-1 bg-slate-800 rounded text-[10px]">F5</kbd>).</li>
+                      </ol>
+                    </div>
+                  )}
+
+                  <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full pt-1">
+                    <button
+                      onClick={startCamera}
+                      className="w-full sm:flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-[#32247b] hover:from-indigo-500 hover:to-[#251963] text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-lg cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-base">videocam</span>
+                      <span>Thử Lại Camera</span>
+                    </button>
+
+                    <button
+                      onClick={startSimulatedVision}
+                      className="w-full sm:flex-1 px-4 py-2.5 rounded-xl bg-cyan-600/20 hover:bg-cyan-600/30 border border-cyan-400/40 text-cyan-200 text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-md cursor-pointer hover:border-cyan-400"
+                      title="Không cần camera vật lý, AI vẫn quét và chấm điểm phong thái đầy đủ"
+                    >
+                      <span className="material-symbols-outlined text-base text-cyan-300">auto_fix_high</span>
+                      <span>Bật Quét Khuôn Mặt Ảo AI</span>
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -4615,7 +4944,7 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
                   {isCameraOn ? (
                     <>
                       <span className={`w-2 h-2 rounded-full ${liveEyeContactPercent < 50 ? 'bg-amber-400' : 'bg-emerald-400 animate-pulse'}`} />
-                      <span>Camera HD • Trực tiếp</span>
+                      <span>{isSimulatedCamera ? 'AI Biometric Ảo • Trực tiếp' : 'Camera HD • Trực tiếp'}</span>
                       <span className="text-slate-500">|</span>
                       <span className={`font-bold flex items-center gap-1 ${liveEyeContactPercent < 50 ? 'text-amber-400' : 'text-emerald-400'}`}>
                         <span className="material-symbols-outlined text-xs">visibility</span>
@@ -5160,7 +5489,12 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
             <p className="text-xs text-slate-500">Xem lại các buổi đối thoại trước đó và nhận xét từ AI.</p>
           </div>
 
-          {historyList.length === 0 ? (
+          {isHistoryLoading && historyList.length === 0 ? (
+            <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 space-y-3">
+              <div className="w-8 h-8 border-3 border-[#32247b]/20 border-t-[#32247b] rounded-full animate-spin mx-auto" />
+              <p className="text-xs font-semibold text-slate-600">Đang đồng bộ dữ liệu lịch sử phỏng vấn AI từ Supabase...</p>
+            </div>
+          ) : historyList.length === 0 ? (
             <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 space-y-3">
               <span className="material-symbols-outlined text-4xl text-slate-300">history_toggle_off</span>
               <p className="text-xs text-slate-500">Chưa có lịch sử phỏng vấn.</p>

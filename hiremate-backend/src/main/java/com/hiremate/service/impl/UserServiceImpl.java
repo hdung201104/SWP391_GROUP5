@@ -40,6 +40,7 @@ public class UserServiceImpl implements UserService {
     private final CandidateSkillRepository candidateSkillRepository;
     private final SkillRepository skillRepository;
     private final com.hiremate.service.FileStorageService fileStorageService;
+    private final com.hiremate.service.UserCacheService userCacheService;
 
     @Override
     public UserProfileResponse getProfile(Long userId) {
@@ -64,6 +65,9 @@ public class UserServiceImpl implements UserService {
         if (request.getGithubUrl() != null) user.setGithubUrl(request.getGithubUrl().trim());
 
         User savedUser = userRepository.save(user);
+        if (userCacheService != null) {
+            userCacheService.evict(savedUser.getEmail(), savedUser.getUserId());
+        }
 
         // Cập nhật subclass-specific fields nếu là CANDIDATE
         // Candidate.candidateId = user.userId (Shared PK)

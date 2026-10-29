@@ -69,11 +69,16 @@ public interface JobRepository extends JpaRepository<Job, Long> {
            "ORDER BY j.createdAt DESC")
     List<Job> searchJobs(@Param("keyword") String keyword, @Param("location") String location);
 
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"company", "recruiter", "recruiter.user"})
+    java.util.Optional<Job> findById(Long jobId);
+
     /** Tìm kiếm phân trang (Pageable) cho published jobs (chỉ lấy tin đã được duyệt APPROVED) */
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"company", "recruiter", "recruiter.user"})
     @Query("SELECT j FROM Job j WHERE j.status = :status AND " +
            "(j.approvalStatus IS NULL OR j.approvalStatus = com.hiremate.enums.JobApprovalStatus.APPROVED)")
     org.springframework.data.domain.Page<Job> findByStatus(@Param("status") JobStatus status, org.springframework.data.domain.Pageable pageable);
 
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"company", "recruiter", "recruiter.user"})
     @Query("SELECT j FROM Job j WHERE j.status = com.hiremate.enums.JobStatus.PUBLISHED AND " +
            "(j.approvalStatus IS NULL OR j.approvalStatus = com.hiremate.enums.JobApprovalStatus.APPROVED) AND " +
            "(CAST(:keyword AS string) IS NULL OR LOWER(j.title) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
@@ -83,6 +88,7 @@ public interface JobRepository extends JpaRepository<Job, Long> {
            "(CAST(:location AS string) IS NULL OR LOWER(j.location) LIKE LOWER(CONCAT('%', CAST(:location AS string), '%')))")
     org.springframework.data.domain.Page<Job> searchJobsPaged(@Param("keyword") String keyword, @Param("location") String location, org.springframework.data.domain.Pageable pageable);
 
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"company", "recruiter", "recruiter.user"})
     @Query("SELECT j FROM Job j WHERE j.status = com.hiremate.enums.JobStatus.PUBLISHED AND " +
            "(j.approvalStatus IS NULL OR j.approvalStatus = com.hiremate.enums.JobApprovalStatus.APPROVED) AND " +
            "(j.deadlineDate IS NULL OR j.deadlineDate >= CURRENT_DATE) AND " +
@@ -103,15 +109,22 @@ public interface JobRepository extends JpaRepository<Job, Long> {
             org.springframework.data.domain.Pageable pageable
     );
 
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"company", "recruiter", "recruiter.user"})
     org.springframework.data.domain.Page<Job> findByRecruiter_RecruiterId(Long recruiterId, org.springframework.data.domain.Pageable pageable);
+
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"company", "recruiter", "recruiter.user"})
     List<Job> findAllByOrderByCreatedAtDesc();
+
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"company", "recruiter", "recruiter.user"})
     List<Job> findByApprovalStatusOrderByCreatedAtDesc(com.hiremate.enums.JobApprovalStatus approvalStatus);
+
     long countByApprovalStatus(com.hiremate.enums.JobApprovalStatus approvalStatus);
 
     /**
      * BƯỚC 1: Lọc thô bằng SQL Database (Pre-filtering)
      * Tìm các công việc PUBLISHED & APPROVED, cùng ngành nghề hoặc có ít nhất 1 kỹ năng trùng với ứng viên.
      */
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"company", "recruiter", "recruiter.user"})
     @Query("SELECT DISTINCT j FROM Job j " +
            "LEFT JOIN JobSkill js ON js.jobId = j.jobId " +
            "WHERE j.status = com.hiremate.enums.JobStatus.PUBLISHED " +
@@ -133,6 +146,7 @@ public interface JobRepository extends JpaRepository<Job, Long> {
             org.springframework.data.domain.Pageable pageable
     );
 
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"company", "recruiter", "recruiter.user"})
     @Query("SELECT j FROM Job j " +
            "WHERE j.status = com.hiremate.enums.JobStatus.PUBLISHED " +
            "AND (j.approvalStatus IS NULL OR j.approvalStatus = com.hiremate.enums.JobApprovalStatus.APPROVED) " +

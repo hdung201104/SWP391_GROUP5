@@ -101,8 +101,8 @@ public class AdminController {
 
     @PostMapping("/plans")
     public ResponseEntity<ApiResponse<SubscriptionPlan>> createPlan(@RequestBody SubscriptionPlan plan) {
-        SubscriptionPlan saved = adminService.savePlan(plan);
-        return ResponseEntity.ok(ApiResponse.ok("Tạo gói dịch vụ thành công", saved));
+        SubscriptionPlan created = adminService.createPlan(plan);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok("Tạo gói dịch vụ thành công", created));
     }
 
     @PutMapping("/plans/{planId}")
@@ -110,9 +110,36 @@ public class AdminController {
             @PathVariable Long planId,
             @RequestBody SubscriptionPlan plan
     ) {
-        plan.setPlanId(planId);
-        SubscriptionPlan saved = adminService.savePlan(plan);
-        return ResponseEntity.ok(ApiResponse.ok("Cập nhật gói dịch vụ thành công", saved));
+        SubscriptionPlan updated = adminService.updatePlan(planId, plan);
+        return ResponseEntity.ok(ApiResponse.ok("Cập nhật gói dịch vụ thành công", updated));
+    }
+
+    @DeleteMapping("/plans/{planId}")
+    public ResponseEntity<ApiResponse<Void>> deletePlan(@PathVariable Long planId) {
+        adminService.deletePlan(planId);
+        return ResponseEntity.ok(ApiResponse.ok("Vô hiệu hóa gói dịch vụ thành công", null));
+    }
+
+    @PutMapping("/plans/{planId}/toggle")
+    public ResponseEntity<ApiResponse<SubscriptionPlan>> togglePlan(@PathVariable Long planId) {
+        SubscriptionPlan plan = adminService.togglePlanStatus(planId);
+        return ResponseEntity.ok(ApiResponse.ok("Chuyển trạng thái gói dịch vụ thành công", plan));
+    }
+
+    @PutMapping("/users/{userId}/tier")
+    public ResponseEntity<ApiResponse<AdminUserResponse>> assignUserTier(
+            @PathVariable Long userId,
+            @RequestBody Map<String, Object> body
+    ) {
+        Object planIdObj = body.get("planId");
+        if (planIdObj == null) {
+            throw new IllegalArgumentException("Vui lòng chọn gói dịch vụ cần gán.");
+        }
+        Long planId = Long.valueOf(String.valueOf(planIdObj));
+        Integer durationDays = body.get("durationDays") != null ? Integer.valueOf(String.valueOf(body.get("durationDays"))) : null;
+
+        AdminUserResponse response = adminService.assignUserTier(userId, planId, durationDays);
+        return ResponseEntity.ok(ApiResponse.ok("Gán phân hạng mức người dùng thành công", response));
     }
 
     @GetMapping("/jobs")

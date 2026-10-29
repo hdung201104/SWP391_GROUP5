@@ -1,0 +1,11 @@
+{
+  "targetPosition": "Backend Java Developer",
+  "userSpeech": "Dạ em dùng Propagation.REQUIRED và Isolation.READ_COMMITTED để tránh dirty read",
+  "history": [
+    "HireMate AI: Chào bạn, hãy giới thiệu bản thân.",
+    "Ứng viên: Em làm Spring Boot và Redis.",
+    "HireMate AI: Bạn vừa chia sẻ về việc áp dụng Spring Boot. Khi cần xử lý giao dịch cơ sở dữ liệu phức tạp, bạn cấu hình @Transactional với isolation level và propagation như thế nào để tránh dirty read?"
+  ],
+  "persona": "TECH_LEAD",
+  "difficulty": "STANDARD"
+}

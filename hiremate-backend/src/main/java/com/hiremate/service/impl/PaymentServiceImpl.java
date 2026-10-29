@@ -478,6 +478,7 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     @Override
+    @org.springframework.cache.annotation.Cacheable(value = "subscriptionPlans", key = "#targetRole != null ? #targetRole.toUpperCase() : 'ALL'")
     @Transactional(readOnly = true)
     public List<SubscriptionPlan> getActivePlans(String targetRole) {
         if (targetRole != null && !targetRole.isBlank()) {
@@ -495,6 +496,39 @@ public class PaymentServiceImpl implements PaymentService {
 
         Subscription sub = subscriptionRepository.findFirstByUser_UserIdAndStatusOrderByCreatedAtDesc(user.getUserId(), SubscriptionStatus.ACTIVE)
                 .orElse(null);
+
+        if (sub == null) {
+            // Tự động kiểm tra đơn hàng APPROVED gần nhất để kích hoạt Subscription cho user nếu chưa được tạo
+            List<PaymentOrder> orders = paymentOrderRepository.findByUser_UserIdOrderByCreatedAtDesc(user.getUserId());
+            PaymentOrder latestApproved = orders.stream()
+                    .filter(o -> o.getStatus() == PaymentOrderStatus.APPROVED && o.getPlan() != null)
+                    .findFirst()
+                    .orElse(null);
+
+            if (latestApproved != null && latestApproved.getPlan() != null) {
+                SubscriptionPlan approvedPlan = latestApproved.getPlan();
+                int duration = (approvedPlan.getDurationDays() != null && approvedPlan.getDurationDays() > 0)
+                        ? approvedPlan.getDurationDays() : 30;
+                if (latestApproved.getAdminNote() != null && latestApproved.getAdminNote().contains("YEARLY")) {
+                    duration = 365;
+                }
+                LocalDateTime start = latestApproved.getApprovedAt() != null ? latestApproved.getApprovedAt() : LocalDateTime.now();
+                LocalDateTime end = start.plusDays(duration);
+
+                if (LocalDateTime.now().isBefore(end)) {
+                    sub = Subscription.builder()
+                            .user(user)
+                            .plan(approvedPlan)
+                            .order(latestApproved)
+                            .startDate(start)
+                            .endDate(end)
+                            .status(SubscriptionStatus.ACTIVE)
+                            .build();
+                    subscriptionRepository.save(sub);
+                    log.info(">> [PaymentService] Tự động đồng bộ kích hoạt Subscription cho user {} từ đơn hàng APPROVED #{}", user.getEmail(), latestApproved.getOrderCode());
+                }
+            }
+        }
 
         if (sub == null) {
             return com.hiremate.dto.response.SubscriptionResponse.inactive();
@@ -524,6 +558,7 @@ public class PaymentServiceImpl implements PaymentService {
                 plan != null ? plan.getPlanType() : "COMBO",
                 plan != null ? plan.getTargetRole() : (user.getRole() != null ? user.getRole().name() : null),
                 plan != null ? plan.getQuotaLimit() : 0,
+                plan != null ? plan.getPrice() : java.math.BigDecimal.ZERO,
                 sub.getStartDate(),
                 sub.getEndDate(),
                 "ACTIVE",

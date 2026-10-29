@@ -1329,6 +1329,11 @@ export default function AdminDashboardPage({ user, onLogout }) {
               authProvider: isGoogle ? 'GOOGLE' : 'LOCAL',
               isOnline: Math.random() > 0.35,
               joined: u.joined ? new Date(u.joined).toLocaleDateString('vi-VN') : 'Mới',
+              currentTier: u.currentTier || (u.role === 'RECRUITER' ? 'Gói Khởi Đầu (Starter)' : 'Ứng Viên Miễn Phí'),
+              currentPlanId: u.currentPlanId || null,
+              subscriptionStatus: u.subscriptionStatus || 'ACTIVE',
+              subscriptionEndDate: u.subscriptionEndDate ? new Date(u.subscriptionEndDate).toLocaleDateString('vi-VN') : 'Vô thời hạn',
+              quotaLimit: u.quotaLimit != null ? u.quotaLimit : (u.role === 'RECRUITER' ? 3 : 2),
             };
           }));
         }
@@ -1764,6 +1769,16 @@ export default function AdminDashboardPage({ user, onLogout }) {
   });
   const [editPackageForm, setEditPackageForm] = useState(null);
 
+  // User Tier Assignment Modal State
+  const [showTierModal, setShowTierModal] = useState(false);
+  const [userForTierModal, setUserForTierModal] = useState(null);
+  const [tierFormData, setTierFormData] = useState({
+    planId: null,
+    customQuota: 10,
+    durationDays: 30,
+    adminNote: '',
+  });
+
   // Voucher Management States & Filters
   const [voucherFilter, setVoucherFilter] = useState('ALL'); // 'ALL' | 'ACTIVE' | 'EXPIRED'
   const [voucherSearch, setVoucherSearch] = useState('');
@@ -1942,12 +1957,24 @@ export default function AdminDashboardPage({ user, onLogout }) {
     }
   };
 
-  const handleDeletePackage = (planId) => {
+  const handleDeletePackage = async (planId) => {
+    if (!window.confirm('Bạn có chắc chắn muốn ngưng cung cấp hoặc xóa gói dịch vụ này không?')) return;
+    const rawId = parseInt(String(planId).replace(/\D/g, ''), 10);
     setPackagesList((prev) => prev.filter((p) => p.id !== planId));
-    triggerToast('Đã xóa gói dịch vụ khỏi danh sách', 'info');
+    try {
+      if (rawId) {
+        await adminApi.deletePlan(rawId);
+      }
+      triggerToast('Đã xóa gói dịch vụ thành công!');
+      await fetchRealData();
+    } catch (err) {
+      console.warn('Lỗi xóa gói trên backend:', err);
+      triggerToast('Đã xóa gói dịch vụ cục bộ', 'info');
+    }
   };
 
-  const handleTogglePackageStatus = (planId) => {
+  const handleTogglePackageStatus = async (planId) => {
+    const rawId = parseInt(String(planId).replace(/\D/g, ''), 10);
     setPackagesList((prev) =>
       prev.map((p) =>
         p.id === planId
@@ -1955,7 +1982,50 @@ export default function AdminDashboardPage({ user, onLogout }) {
           : p
       )
     );
-    triggerToast('Đã thay đổi trạng thái kích hoạt gói dịch vụ');
+    try {
+      if (rawId) {
+        await adminApi.togglePlan(rawId);
+      }
+      triggerToast('Đã cập nhật trạng thái hiển thị gói dịch vụ!');
+      await fetchRealData();
+    } catch (err) {
+      console.warn('Lỗi bật tắt gói trên backend:', err);
+      triggerToast('Đã thay đổi trạng thái gói dịch vụ');
+    }
+  };
+
+  // User Tier Assignment Handlers
+  const handleOpenTierModal = (targetUser) => {
+    setUserForTierModal(targetUser);
+    const availablePlans = packagesList.filter(p => (p.targetRole || '').toUpperCase() === (targetUser.role || '').toUpperCase());
+    const matchedPlan = availablePlans.find(p => p.rawId === targetUser.currentPlanId) || availablePlans[0];
+    setTierFormData({
+      planId: matchedPlan ? matchedPlan.rawId : null,
+      customQuota: targetUser.quotaLimit || (targetUser.role === 'RECRUITER' ? 10 : 20),
+      durationDays: 30,
+      adminNote: `Quản trị viên phân hạng mức và kích hoạt đặc quyền cho ${targetUser.name}`,
+    });
+    setShowTierModal(true);
+  };
+
+  const handleAssignTierSubmit = async (e) => {
+    if (e) e.preventDefault();
+    if (!userForTierModal) return;
+    try {
+      await adminApi.assignUserTier(userForTierModal.id, {
+        planId: tierFormData.planId ? Number(tierFormData.planId) : null,
+        customQuota: Number(tierFormData.customQuota) || 0,
+        durationDays: Number(tierFormData.durationDays) || 30,
+        adminNote: tierFormData.adminNote || 'Cập nhật phân hạng người dùng bởi Quản trị viên',
+      });
+      triggerToast(`Đã gán hạng mức thành công cho tài khoản ${userForTierModal.name}!`);
+      setShowTierModal(false);
+      setUserForTierModal(null);
+      await fetchRealData();
+    } catch (err) {
+      console.error('Lỗi phân hạng mức người dùng:', err);
+      triggerToast(err.response?.data?.message || 'Lỗi khi gán hạng mức người dùng', 'warning');
+    }
   };
 
   // Voucher Action Handlers
@@ -6163,6 +6233,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
                             <th className="py-3.5 px-4">Email &amp; Số Điện Thoại</th>
                             <th className="py-3.5 px-4 text-center">Phương Thức (Auth)</th>
                             <th className="py-3.5 px-4">Vai Trò (Role)</th>
+                            <th className="py-3.5 px-4">Hạng Mức &amp; Gói Dịch Vụ</th>
                             <th className="py-3.5 px-4">Tổ Chức / Doanh Nghiệp</th>
                             <th className="py-3.5 px-4">Ngày Tham Gia</th>
                             <th className="py-3.5 px-4 text-center">Quyền Hạn Tài Khoản</th>
@@ -6241,6 +6312,24 @@ export default function AdminDashboardPage({ user, onLogout }) {
                                   </span>
                                 </td>
 
+                                <td className="py-3.5 px-4">
+                                  <div className="space-y-1">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="material-symbols-outlined text-amber-500 text-sm">workspace_premium</span>
+                                      <span className="font-extrabold text-[#1e1b4b] text-xs">
+                                        {u.currentTier || (u.role === 'RECRUITER' ? 'Gói Khởi Đầu (Starter)' : 'Ứng Viên Miễn Phí')}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-1 text-[11px] text-slate-500 font-medium">
+                                      <span className="material-symbols-outlined text-[13px] text-indigo-500">pie_chart</span>
+                                      <span>Hạn ngạch: <strong>{u.quotaLimit != null ? u.quotaLimit : (u.role === 'RECRUITER' ? 3 : 2)}</strong> {u.role === 'RECRUITER' ? 'tin đăng' : 'lượt mock'}</span>
+                                    </div>
+                                    <div className="text-[10px] text-slate-400">
+                                      HSD: {u.subscriptionEndDate || 'Vô thời hạn'}
+                                    </div>
+                                  </div>
+                                </td>
+
                                 <td className="py-3.5 px-4 font-semibold text-slate-700">{u.company}</td>
                                 <td className="py-3.5 px-4 text-slate-500 font-medium">{u.joined}</td>
 
@@ -6265,16 +6354,28 @@ export default function AdminDashboardPage({ user, onLogout }) {
                                 </td>
 
                                 <td className="py-3.5 px-4 text-right">
-                                  <button
-                                    onClick={() => handleToggleUserLock(u.id)}
-                                    className={`px-3 py-1.5 text-xs font-bold rounded-full border transition-all cursor-pointer ${
-                                      u.status === 'ACTIVE'
-                                        ? 'bg-white text-rose-700 border-rose-200 hover:bg-rose-50'
-                                        : 'bg-[#10b981] text-white border-transparent hover:bg-[#059669]'
-                                    }`}
-                                  >
-                                    {u.status === 'ACTIVE' ? 'Khóa tài khoản' : 'Mở khóa'}
-                                  </button>
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    {u.role !== 'ADMIN' && (
+                                      <button
+                                        onClick={() => handleOpenTierModal(u)}
+                                        title="Phân hạng mức & hạn ngạch gói dịch vụ"
+                                        className="px-2.5 py-1.5 text-xs font-bold rounded-full bg-purple-50 text-[#5b48bd] border border-purple-200 hover:bg-[#5b48bd] hover:text-white transition-all flex items-center gap-1 cursor-pointer shadow-2xs"
+                                      >
+                                        <span className="material-symbols-outlined text-sm">tune</span>
+                                        <span>Phân hạng mức</span>
+                                      </button>
+                                    )}
+                                    <button
+                                      onClick={() => handleToggleUserLock(u.id)}
+                                      className={`px-3 py-1.5 text-xs font-bold rounded-full border transition-all cursor-pointer ${
+                                        u.status === 'ACTIVE'
+                                          ? 'bg-white text-rose-700 border-rose-200 hover:bg-rose-50'
+                                          : 'bg-[#10b981] text-white border-transparent hover:bg-[#059669]'
+                                      }`}
+                                    >
+                                      {u.status === 'ACTIVE' ? 'Khóa' : 'Mở'}
+                                    </button>
+                                  </div>
                                 </td>
                               </tr>
                             );
@@ -9542,6 +9643,149 @@ export default function AdminDashboardPage({ user, onLogout }) {
                 <span>Lưu Thay Đổi</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL: PHÂN HẠNG MỨC & ĐẶC QUYỀN NGƯỜI DÙNG (TIER ASSIGN) */}
+      {/* ========================================================= */}
+      {showTierModal && userForTierModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in font-sans overflow-y-auto">
+          <div className="bg-white max-w-xl w-full rounded-3xl shadow-2xl border border-purple-100 p-6 sm:p-7 space-y-5 relative my-8">
+            <button
+              onClick={() => {
+                setShowTierModal(false);
+                setUserForTierModal(null);
+              }}
+              className="absolute top-5 right-5 text-slate-400 hover:text-slate-600 cursor-pointer"
+            >
+              <span className="material-symbols-outlined">close</span>
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-purple-100 text-[#5b48bd] flex items-center justify-center">
+                <span className="material-symbols-outlined text-2xl">workspace_premium</span>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-[#1e1b4b]">Phân Hạng Mức &amp; Nâng Cấp Gói Dịch Vụ</h3>
+                <p className="text-xs text-slate-500">Gán trực tiếp hạng mức và hạn ngạch tính năng cho tài khoản người dùng</p>
+              </div>
+            </div>
+
+            {/* User Info Overview */}
+            <div className="p-3.5 rounded-2xl bg-purple-50/60 border border-purple-100 space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 font-medium">Khách hàng:</span>
+                <span className="font-bold text-[#1e1b4b]">{userForTierModal.name}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 font-medium">Email / Điện thoại:</span>
+                <span className="font-semibold text-slate-700">{userForTierModal.email} | {userForTierModal.phone}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 font-medium">Vai trò tài khoản:</span>
+                <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                  userForTierModal.role === 'RECRUITER' ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'
+                }`}>
+                  {userForTierModal.role === 'RECRUITER' ? 'Nhà tuyển dụng (B2B)' : 'Ứng viên (B2C)'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 font-medium">Gói hiện tại:</span>
+                <span className="font-bold text-purple-700">{userForTierModal.currentTier || 'Mặc định'} (Hạn ngạch: {userForTierModal.quotaLimit})</span>
+              </div>
+            </div>
+
+            <form onSubmit={handleAssignTierSubmit} className="space-y-4 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Chọn gói dịch vụ để gán</label>
+                <select
+                  value={tierFormData.planId || ''}
+                  onChange={(e) => {
+                    const selId = e.target.value ? Number(e.target.value) : null;
+                    const chosen = packagesList.find(p => p.rawId === selId);
+                    setTierFormData(prev => ({
+                      ...prev,
+                      planId: selId,
+                      customQuota: chosen?.quotaLimit || prev.customQuota,
+                      durationDays: chosen?.durationDays || 30,
+                    }));
+                  }}
+                  className="w-full px-3 py-2.5 border border-purple-200 rounded-xl font-bold bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#5b48bd]/30"
+                >
+                  <option value="">-- Tùy chỉnh hạn ngạch thủ công (Không gắn gói cố định) --</option>
+                  {packagesList
+                    .filter(p => (p.targetRole || '').toUpperCase() === (userForTierModal.role || '').toUpperCase())
+                    .map(p => (
+                      <option key={p.id} value={p.rawId}>
+                        {p.name} - {formatVND(p.price)} / {p.durationDays || 30} ngày (Hạn ngạch: {p.quotaLimit})
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">
+                    {userForTierModal.role === 'RECRUITER' ? 'Hạn ngạch tin tuyển dụng (Tin active)' : 'Hạn ngạch phỏng vấn AI Studio (Lượt)'}
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="10000"
+                    value={tierFormData.customQuota}
+                    onChange={(e) => setTierFormData(prev => ({ ...prev, customQuota: parseInt(e.target.value, 10) || 0 }))}
+                    className="w-full px-3 py-2 border border-purple-200 rounded-xl font-bold focus:outline-none focus:ring-2 focus:ring-[#5b48bd]/30"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">Thời hạn hiệu lực (Ngày)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="3650"
+                    value={tierFormData.durationDays}
+                    onChange={(e) => setTierFormData(prev => ({ ...prev, durationDays: parseInt(e.target.value, 10) || 30 }))}
+                    className="w-full px-3 py-2 border border-purple-200 rounded-xl font-bold focus:outline-none focus:ring-2 focus:ring-[#5b48bd]/30"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">Ghi chú quản trị viên (Admin Note)</label>
+                <textarea
+                  rows="2"
+                  value={tierFormData.adminNote}
+                  onChange={(e) => setTierFormData(prev => ({ ...prev, adminNote: e.target.value }))}
+                  placeholder="Ghi chú lý do gán gói, nâng cấp hoặc gia hạn đặc quyền..."
+                  className="w-full px-3 py-2 border border-purple-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#5b48bd]/30"
+                />
+              </div>
+
+              <div className="pt-3 flex justify-end gap-2.5 border-t border-purple-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowTierModal(false);
+                    setUserForTierModal(null);
+                  }}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-full cursor-pointer transition-all"
+                >
+                  Đóng
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-gradient-to-r from-[#5b48bd] to-[#32247b] hover:from-[#4a39a7] hover:to-[#261966] text-white text-xs font-bold rounded-full shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-sm">verified</span>
+                  <span>Xác Nhận Phân Hạng Mức</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

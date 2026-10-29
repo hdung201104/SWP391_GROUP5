@@ -18,6 +18,7 @@ public class SubscriptionResponse {
     private String planType;
     private String targetRole;
     private Integer quotaLimit;
+    private java.math.BigDecimal price;
     private LocalDateTime startDate;
     private LocalDateTime endDate;
     private String status;
@@ -30,6 +31,7 @@ public class SubscriptionResponse {
         res.planName = "Miễn phí (Free Tier)";
         res.status = "INACTIVE";
         res.quotaLimit = 0;
+        res.price = java.math.BigDecimal.ZERO;
         res.daysRemaining = 0L;
         return res;
     }
@@ -41,6 +43,7 @@ public class SubscriptionResponse {
         res.planName = planName != null ? planName : "Đã hết hạn";
         res.status = "EXPIRED";
         res.quotaLimit = 0;
+        res.price = java.math.BigDecimal.ZERO;
         res.daysRemaining = 0L;
         return res;
     }
@@ -52,6 +55,7 @@ public class SubscriptionResponse {
             String planType,
             String targetRole,
             Integer quotaLimit,
+            java.math.BigDecimal price,
             LocalDateTime startDate,
             LocalDateTime endDate,
             String status,
@@ -65,6 +69,7 @@ public class SubscriptionResponse {
         res.planType = planType;
         res.targetRole = targetRole;
         res.quotaLimit = quotaLimit;
+        res.price = price != null ? price : java.math.BigDecimal.ZERO;
         res.startDate = startDate;
         res.endDate = endDate;
         res.status = status;

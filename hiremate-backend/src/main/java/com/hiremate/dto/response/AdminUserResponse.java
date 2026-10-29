@@ -23,4 +23,9 @@ public class AdminUserResponse {
     private String authProvider; // "GOOGLE" | "LOCAL"
     private String avatarUrl;
     private LocalDateTime lastActiveAt;
+    private String currentTier;
+    private Long currentPlanId;
+    private String subscriptionStatus;
+    private LocalDateTime subscriptionEndDate;
+    private Integer quotaLimit;
 }

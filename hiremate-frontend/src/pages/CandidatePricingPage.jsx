@@ -5,8 +5,8 @@ import VoucherSelector from '../components/common/VoucherSelector';
 const CANDIDATE_SUBSCRIPTION_PLANS = [
   {
     id: 'CANDIDATE_FREE',
-    name: 'Ứng Viên Khởi Tạo (Starter)',
-    tagline: 'Trải nghiệm tính năng tìm việc, soi điểm ATS & phỏng vấn thử bằng AI cơ bản.',
+    name: 'Free Candidate',
+    tagline: 'Trải nghiệm tìm việc, bóc tách CV & luyện phỏng vấn AI cơ bản với phản hồi chuẩn mực.',
     monthlyPrice: 0,
     yearlyPrice: 0,
     badgeText: 'MIỄN PHÍ VĨNH VIỄN',
@@ -14,67 +14,89 @@ const CANDIDATE_SUBSCRIPTION_PLANS = [
     buttonText: 'Gói Mặc Định Hiện Tại',
     isPopular: false,
     isCurrent: true,
+    durationDays: 365,
     features: [
-      { text: 'Ứng tuyển không giới hạn vào tất cả việc làm', highlight: true },
-      { text: '3 Lượt phỏng vấn giả lập AI Voice / tháng', highlight: false },
-      { text: '3 Lượt bóc tách CV & Soi điểm ATS score', highlight: false },
-      { text: 'Báo cáo điểm AI Matching cho từng vị trí', highlight: false },
-      { text: 'Lưu trữ tối đa 2 bản CV trên hệ thống', highlight: false },
+      { text: '2 Phiên phỏng vấn AI Voice / ngày', highlight: true },
+      { text: 'Cấu trúc 3 câu hỏi / buổi (Tối đa 5 phút)', highlight: false },
+      { text: 'Người phỏng vấn: HR Manager (Giọng Việt chuẩn)', highlight: false },
+      { text: '1 Lượt gợi ý trả lời AI Coach / buổi', highlight: false },
+      { text: 'Xem điểm tổng quan & Đáp án mẫu STAR câu 1', highlight: false },
+      { text: 'Lưu trữ tối đa 2 bản CV & Quét điểm ATS cơ bản', highlight: false },
     ],
     missingFeatures: [
-      '30+ Lượt phỏng vấn thử AI Voice / tháng',
-      'Báo cáo Lộ trình tiến bộ (Improvement Delta %)',
-      'Barem đáp án mẫu & Gợi ý cải thiện từ AI',
-      'Huy hiệu Ứng Viên Nổi Bật (Featured Candidate)',
-      'Tự động gửi thông báo việc làm khớp 95%+ tức thì',
+      'Mở khóa Tech Lead, Giám đốc & Giọng đọc ElevenLabs AI',
+      'Phỏng vấn chuyên sâu 5 - 8 câu/buổi & Gợi ý AI Coach vô hạn',
+      'Mở khóa 100% Barem đáp án STAR & Lộ trình cải thiện',
+    ]
+  },
+  {
+    id: 'CANDIDATE_PLUS',
+    name: 'Practice Plus',
+    tagline: 'Luyện phỏng vấn AI tự tin theo tuần, mở rộng kho CV & nhận gợi ý câu trả lời chuẩn STAR.',
+    monthlyPrice: 49000,
+    yearlyPrice: 49000,
+    badgeText: 'TIẾT KIỆM ⭐',
+    badgeColor: 'bg-blue-100 text-blue-800 border-blue-300',
+    buttonText: 'Nâng Cấp Practice Plus',
+    isPopular: false,
+    isCurrent: false,
+    durationDays: 7,
+    features: [
+      { text: '10 Phiên phỏng vấn AI Voice / ngày (Trong 7 ngày)', highlight: true },
+      { text: 'Cấu trúc 5 câu hỏi tiêu chuẩn / buổi (Tối đa 10 phút)', highlight: true },
+      { text: 'Mở khóa thêm Phong cách Tech Lead & Giọng ElevenLabs Alice', highlight: true },
+      { text: '3 Lượt gợi ý trả lời AI Coach / buổi', highlight: true },
+      { text: 'Mở khóa 100% Đáp án mẫu STAR & Lộ trình cải thiện', highlight: true },
+      { text: 'Lưu trữ tối đa 5 bản CV & AI Tinh chỉnh từ khóa ATS', highlight: true },
+    ],
+    missingFeatures: [
+      'Phỏng vấn chuyên sâu 7 - 8 câu/buổi cùng Giám đốc Khắt khe',
+      'Gợi ý AI Coach không giới hạn & Lưu trữ CV vô hạn',
     ]
   },
   {
     id: 'CANDIDATE_PRO',
-    name: 'Ứng Viên Pro AI',
-    tagline: 'Luyện phỏng vấn AI tự tin, tối ưu CV chuẩn ATS & nổi bật trước Nhà tuyển dụng.',
-    monthlyPrice: 199000,
-    yearlyPrice: 132500, // ~33% off
-    badgeText: 'KHUYÊN DÙNG 🔥',
+    name: 'Practice Pro',
+    tagline: 'Luyện phỏng vấn AI chuyên sâu, tối ưu CV chuẩn ATS không giới hạn & nổi bật trước HR.',
+    monthlyPrice: 149000,
+    yearlyPrice: 99000, // ~33% off
+    badgeText: 'PHỔ BIẾN NHẤT 🔥',
     badgeColor: 'bg-emerald-100 text-emerald-800 border-emerald-300',
-    buttonText: 'Nâng Cấp Pro AI',
+    buttonText: 'Nâng Cấp Practice Pro',
     isPopular: true,
     isCurrent: false,
+    durationDays: 30,
     features: [
-      { text: '30 Lượt phỏng vấn giả lập AI Voice / tháng', highlight: true },
-      { text: 'Phân tích tốc độ nói WPM & Độ rõ chữ (Clarity)', highlight: true },
-      { text: 'Barem đáp án mẫu AI & Gợi ý sửa câu trả lời', highlight: true },
-      { text: 'KHÔNG GIỚI HẠN Tối ưu CV & Kiểm tra ATS Score', highlight: true },
-      { text: 'Báo cáo Lộ Trình Tiến Bộ (Improvement Delta %)', highlight: false },
-      { text: 'Huy hiệu Ứng Viên Nổi Bật (Featured Candidate)', highlight: true },
-      { text: 'Gợi ý câu hỏi phỏng vấn bám sát 100% JD thực tế', highlight: false },
-      { text: 'Lưu trữ không giới hạn bản CV', highlight: false },
+      { text: '30 Phiên phỏng vấn AI Voice / ngày (Trong 30 ngày)', highlight: true },
+      { text: 'Cấu trúc 7 câu hỏi chuyên sâu / buổi (Tối đa 15 phút)', highlight: true },
+      { text: 'Mở khóa đủ 3 Phong cách: HR, Tech Lead & Giám đốc Khắt khe', highlight: true },
+      { text: 'Mở khóa đủ 3 Giọng đọc ElevenLabs Turbo (Alice & George)', highlight: true },
+      { text: 'Gợi ý trả lời AI Coach KHÔNG GIỚI HẠN trong buổi thi', highlight: true },
+      { text: 'Lưu trữ CV & AI Tinh chỉnh ATS KHÔNG GIỚI HẠN + Biểu đồ Delta', highlight: true },
     ],
     missingFeatures: [
-      'KHÔNG GIỚI HẠN lượt phỏng vấn thử AI',
-      'Huy hiệu Top 1% Qualified Candidate VIP',
-      'Hỗ trợ Review CV 1-on-1 từ Chuyên gia HR',
+      'Không giới hạn số phiên/ngày & Chế độ Marathon 8 câu (20 phút)',
     ]
   },
   {
-    id: 'CANDIDATE_VIP',
-    name: 'Career Mastery VIP 👑',
-    tagline: 'Gói cao cấp nhất dành cho nhân sự muốn chinh phục công ty toàn cầu & lương Top 5%.',
-    monthlyPrice: 499000,
-    yearlyPrice: 332500, // ~33% off
-    badgeText: 'CAHO CẤP & VIP 👑',
+    id: 'CANDIDATE_ACE',
+    name: 'Career Ace',
+    tagline: 'Gói đặc quyền tối thượng dành cho nhân sự muốn chinh phục công ty đa quốc gia & mức lương Top 5%.',
+    monthlyPrice: 249000,
+    yearlyPrice: 179000, // ~28% off
+    badgeText: 'CAO CẤP & VIP 👑',
     badgeColor: 'bg-purple-100 text-purple-800 border-purple-300',
-    buttonText: 'Mua Gói VIP Mastery',
+    buttonText: 'Mua Gói Career Ace',
     isPopular: false,
     isCurrent: false,
+    durationDays: 30,
     features: [
-      { text: 'KHÔNG GIỚI HẠN lượt AI Voice Mock Interview', highlight: true },
-      { text: 'AI Career Coach tư vấn chiến lược trả lời phỏng vấn', highlight: true },
-      { text: 'Huy hiệu Top 1% Qualified Candidate VIP Badge', highlight: true },
-      { text: 'Tự động đề xuất CV tới Top 50 Doanh nghiệp lớn', highlight: true },
-      { text: 'Thông báo việc làm khớp 95%+ qua Email/Zalo tức thì', highlight: false },
-      { text: 'Hỗ trợ Review CV 1-on-1 với Chuyên gia HR HireMate', highlight: true },
-      { text: 'Ưu tiên hỗ trợ kỹ thuật 24/7', highlight: false },
+      { text: 'KHÔNG GIỚI HẠN số phiên phỏng vấn AI Voice mỗi ngày', highlight: true },
+      { text: 'Chế độ Marathon 8 câu hỏi áp lực cao / buổi (Tối đa 20 phút)', highlight: true },
+      { text: 'Trọn bộ 3 Phong cách phỏng vấn & 3 Giọng đọc ElevenLabs AI', highlight: true },
+      { text: 'Trợ lý AI Coach gợi ý trả lời & Phân tích giọng nói toàn diện', highlight: true },
+      { text: 'Mở khóa 100% Barem đáp án mẫu STAR, Biểu đồ Delta & Lộ trình', highlight: true },
+      { text: 'Không giới hạn kho lưu trữ CV, Quét ATS & Toàn bộ mẫu CV A4', highlight: true },
     ],
     missingFeatures: []
   }
@@ -93,32 +115,30 @@ const CANDIDATE_ADDONS = [
   {
     id: 'FEATURED_CANDIDATE',
     name: 'Huy Hiệu Ứng Viên Nổi Bật',
-    desc: 'Gắn badge Featured Candidate 30 ngày, ưu tiên hiển thị TOP 1 cho HR.',
+    desc: 'Gắn badge Featured Candidate 30 ngày, ưu tiên hiển thị cho Nhà tuyển dụng.',
     price: 99000,
-    badge: 'Tăng 400% tương tác',
+    badge: 'Tăng tương tác',
     icon: 'workspace_premium',
     color: 'from-amber-500 to-orange-600'
   },
   {
     id: 'CV_REWRITE',
-    name: 'AI CV Rewrite & ATS Pass',
-    desc: 'AI tự động viết lại CV chuẩn thuật ngữ ngành & đảm bảo vượt ATS 95%+.',
+    name: 'AI Tinh Chỉnh CV & ATS Pass',
+    desc: 'AI hỗ trợ rà soát từ khóa chuẩn ATS và đề xuất chỉnh sửa CV chuyên nghiệp.',
     price: 149000,
-    badge: 'Đảm bảo đậu ATS',
+    badge: 'Tối ưu ATS',
     icon: 'auto_fix_high',
     color: 'from-emerald-500 to-teal-600'
   }
 ];
 
 const COMPARISON_ROWS = [
-  { feature: 'Số lượt AI Voice Mock Interview / tháng', free: '3 Lượt', pro: '30 Lượt', vip: 'Không giới hạn' },
-  { feature: 'Lượt soi CV & ATS Score Check', free: '3 Lượt', pro: 'Không giới hạn', vip: 'Không giới hạn' },
-  { feature: 'Phân tích WPM & Độ rõ chữ giọng nói', free: 'Cơ bản', pro: 'Chi tiết', vip: 'Chuyên sâu Executive' },
-  { feature: 'Barem đáp án mẫu & Gợi ý câu trả lời AI', free: '❌', pro: '✅', vip: '✅' },
-  { feature: 'Báo cáo Lộ Trình Tiến Bộ (Improvement Delta)', free: '❌', pro: '✅', vip: '✅' },
-  { feature: 'Huy hiệu Ứng Viên Nổi Bật cho HR', free: '❌', pro: '✅', vip: '✅' },
-  { feature: 'Gợi ý JD phù hợp khớp 95%+', free: 'Hàng tuần', pro: 'Hàng ngày', vip: 'Tức thì' },
-  { feature: 'Hỗ trợ Review CV 1-on-1 từ HR Expert', free: '❌', pro: '❌', vip: '✅' },
+  { feature: 'Số phiên phỏng vấn AI Voice / ngày', free: '2 Phiên / ngày', plus: '10 Phiên / ngày (Trong 7 ngày)', pro: '30 Phiên / ngày (Trong 30 ngày)', ace: 'Không giới hạn / ngày' },
+  { feature: 'Cấu trúc câu hỏi & Thời lượng / buổi', free: '3 câu (Tối đa 5 phút)', plus: '5 câu tiêu chuẩn (10 phút)', pro: '7 câu chuyên sâu (15 phút)', ace: '8 câu Marathon (20 phút)' },
+  { feature: 'Người phỏng vấn & Giọng đọc AI', free: 'HR Manager (Giọng Việt)', plus: 'HR & Tech Lead (ElevenLabs Alice)', pro: '3 Phong cách & Giọng ElevenLabs (Alice & George)', ace: 'Trọn bộ 3 Phong cách & Giọng ElevenLabs Turbo' },
+  { feature: 'Gợi ý trả lời AI Coach / buổi', free: '1 Lượt / buổi', plus: '3 Lượt / buổi', pro: 'Không giới hạn', ace: 'Không giới hạn' },
+  { feature: 'Barem đáp án STAR, Biểu đồ Delta & Lộ trình', free: 'Điểm tổng quan & STAR câu 1', plus: '100% Đáp án STAR & Lộ trình', pro: '100% STAR & Biểu đồ Delta đa phiên', ace: '100% Barem STAR, Biểu đồ Delta & Lộ trình' },
+  { feature: 'Lưu trữ CV & AI Tinh chỉnh từ khóa ATS', free: 'Tối đa 2 bản CV & Điểm ATS', plus: 'Tối đa 5 bản CV & AI Tinh chỉnh ATS', pro: 'Không giới hạn CV & AI ATS', ace: 'Không giới hạn kho CV & Toàn bộ mẫu A4' },
 ];
 
 const CANDIDATE_FAQS = [
@@ -128,7 +148,7 @@ const CANDIDATE_FAQS = [
   },
   {
     q: 'Huy hiệu Featured Candidate giúp ích gì cho tôi khi tìm việc?',
-    a: 'Hồ sơ của bạn sẽ được gắn huy hiệu nổi bật màu vàng tím và ưu tiên đẩy lên vị trí trên cùng trong danh sách ứng viên mà Nhà tuyển dụng xem xét, tăng gấp 4 lần cơ hội được gọi phỏng vấn.'
+    a: 'Hồ sơ của bạn sẽ được gắn huy hiệu nổi bật và ưu tiên xuất hiện trong danh sách ứng viên mà Nhà tuyển dụng xem xét, gia tăng cơ hội tiếp cận nhà tuyển dụng.'
   },
   {
     q: 'Tôi có thể hủy hoặc đổi gói cước bất kỳ lúc nào không?',
@@ -136,11 +156,89 @@ const CANDIDATE_FAQS = [
   }
 ];
 
+const getCandidateEnrichedFeatures = (planName, monthlyPrice, quotaLimit, description) => {
+  const name = (planName || '').toLowerCase();
+  const price = Number(monthlyPrice) || 0;
+  const quota = Number(quotaLimit) || 0;
+
+  // Cấp độ 0: FREE CANDIDATE (Giá = 0 hoặc có chữ free)
+  if (price === 0 || name.includes('free')) {
+    return {
+      tagline: 'Trải nghiệm tìm việc, bóc tách CV & luyện phỏng vấn AI cơ bản với phản hồi chuẩn mực.',
+      features: [
+        { text: `${quota > 0 ? quota : 2} Phiên phỏng vấn AI Voice / ngày`, highlight: true },
+        { text: 'Cấu trúc 3 câu hỏi / buổi (Tối đa 5 phút)', highlight: false },
+        { text: 'Người phỏng vấn: HR Manager (Giọng Việt chuẩn)', highlight: false },
+        { text: '1 Lượt gợi ý trả lời AI Coach / buổi', highlight: false },
+        { text: 'Xem điểm tổng quan & Đáp án mẫu STAR câu 1', highlight: false },
+        { text: 'Lưu trữ tối đa 2 bản CV & Quét điểm ATS cơ bản', highlight: false },
+      ],
+      missingFeatures: [
+        'Mở khóa Tech Lead, Giám đốc & Giọng đọc ElevenLabs AI',
+        'Phỏng vấn chuyên sâu 5 - 8 câu/buổi & Gợi ý AI Coach vô hạn',
+        'Mở khóa 100% Barem đáp án STAR & Lộ trình cải thiện',
+      ]
+    };
+  }
+
+  // Cấp độ 1: PRACTICE PLUS (Giá từ 1 đến dưới 100k, ví dụ Practice Plus 49.000đ / 7 ngày)
+  if (price < 100000 || name.includes('plus')) {
+    return {
+      tagline: 'Luyện phỏng vấn AI tự tin theo tuần, mở rộng kho CV & nhận gợi ý câu trả lời chuẩn STAR.',
+      features: [
+        { text: `${quota > 0 ? quota : 10} Phiên phỏng vấn AI Voice / ngày (Trong 7 ngày)`, highlight: true },
+        { text: 'Cấu trúc 5 câu hỏi tiêu chuẩn / buổi (Tối đa 10 phút)', highlight: true },
+        { text: 'Mở khóa thêm Phong cách Tech Lead & Giọng ElevenLabs Alice', highlight: true },
+        { text: '3 Lượt gợi ý trả lời AI Coach / buổi', highlight: true },
+        { text: 'Mở khóa 100% Đáp án mẫu STAR & Lộ trình cải thiện', highlight: true },
+        { text: 'Lưu trữ tối đa 5 bản CV & AI Tinh chỉnh từ khóa ATS', highlight: true },
+      ],
+      missingFeatures: [
+        'Phỏng vấn chuyên sâu 7 - 8 câu/buổi cùng Giám đốc Khắt khe',
+        'Gợi ý AI Coach không giới hạn & Lưu trữ CV vô hạn',
+      ]
+    };
+  }
+
+  // Cấp độ 2: PRACTICE PRO (Giá từ 100k đến dưới 200k, ví dụ Practice Pro 149.000đ / 30 ngày)
+  if (price < 200000 || name.includes('pro')) {
+    return {
+      tagline: 'Luyện phỏng vấn AI chuyên sâu, tối ưu CV chuẩn ATS không giới hạn & nổi bật trước HR.',
+      features: [
+        { text: `${quota > 0 ? quota : 30} Phiên phỏng vấn AI Voice / ngày (Trong 30 ngày)`, highlight: true },
+        { text: 'Cấu trúc 7 câu hỏi chuyên sâu / buổi (Tối đa 15 phút)', highlight: true },
+        { text: 'Mở khóa đủ 3 Phong cách: HR, Tech Lead & Giám đốc Khắt khe', highlight: true },
+        { text: 'Mở khóa đủ 3 Giọng đọc ElevenLabs Turbo (Alice & George)', highlight: true },
+        { text: 'Gợi ý trả lời AI Coach KHÔNG GIỚI HẠN trong buổi thi', highlight: true },
+        { text: 'Lưu trữ CV & AI Tinh chỉnh ATS KHÔNG GIỚI HẠN + Biểu đồ Delta', highlight: true },
+      ],
+      missingFeatures: [
+        'Không giới hạn số phiên/ngày & Chế độ Marathon 8 câu (20 phút)',
+      ]
+    };
+  }
+
+  // Cấp độ 3: CAREER ACE (Giá từ 200k trở lên, ví dụ Career Ace 249.000đ / 30 ngày)
+  return {
+    tagline: 'Gói đặc quyền tối thượng dành cho nhân sự muốn chinh phục công ty đa quốc gia & mức lương Top 5%.',
+    features: [
+      { text: 'KHÔNG GIỚI HẠN số phiên phỏng vấn AI Voice mỗi ngày', highlight: true },
+      { text: 'Chế độ Marathon 8 câu hỏi áp lực cao / buổi (Tối đa 20 phút)', highlight: true },
+      { text: 'Trọn bộ 3 Phong cách phỏng vấn & 3 Giọng đọc ElevenLabs AI', highlight: true },
+      { text: 'Trợ lý AI Coach gợi ý trả lời & Phân tích giọng nói toàn diện', highlight: true },
+      { text: 'Mở khóa 100% Barem đáp án mẫu STAR, Biểu đồ Delta & Lộ trình', highlight: true },
+      { text: 'Không giới hạn kho lưu trữ CV, Quét ATS & Toàn bộ mẫu CV A4', highlight: true },
+    ],
+    missingFeatures: []
+  };
+};
+
 const getCandidatePlanTier = (planId) => {
   if (!planId) return 0;
-  const id = planId.toUpperCase();
-  if (id.includes('VIP') || id.includes('MASTERY') || id.includes('ACE') || id.includes('ELITE')) return 2;
-  if (id.includes('PRO') || id.includes('PLUS') || id.includes('PRACTICE')) return 1;
+  const id = String(planId).toUpperCase();
+  if (id.includes('VIP') || id.includes('MASTERY') || id.includes('ACE') || id.includes('ELITE') || id.includes('PREMIUM')) return 3;
+  if (id.includes('PRO') || id.includes('PROFESSIONAL')) return 2;
+  if (id.includes('PLUS') || id.includes('PRACTICE') || id.includes('BASIC')) return 1;
   return 0; // FREE / STARTER
 };
 
@@ -163,40 +261,95 @@ export default function CandidatePricingPage({ user, onNavigate }) {
   const [activeFaqIndex, setActiveFaqIndex] = useState(null);
   const [dbPlans, setDbPlans] = useState([]);
 
-  // Simulated Candidate active subscription state
+  // Active subscription state (được đồng bộ từ backend Supabase)
   const [activePlan, setActivePlan] = useState('CANDIDATE_FREE');
   const [mockInterviewPasses, setMockInterviewPasses] = useState(3);
   const [atsCheckPasses, setAtsCheckPasses] = useState(3);
-  const [activeSubscriptionInfo, setActiveSubscriptionInfo] = useState(null);
+  const [activeSubscriptionInfo, setActiveSubscriptionInfo] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hiremate_candidate_subscription');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [pendingOrders, setPendingOrders] = useState([]);
+
+  const syncSubscriptionState = (sub) => {
+    const isSubActive = Boolean(
+      sub && (sub.active === true || sub.isActive === true || sub.status === 'ACTIVE')
+    );
+
+    if (!sub || !isSubActive) {
+      setActiveSubscriptionInfo(null);
+      localStorage.removeItem('hiremate_candidate_subscription');
+      setActivePlan('CANDIDATE_FREE');
+      setMockInterviewPasses(3);
+      setAtsCheckPasses(3);
+      return;
+    }
+
+    const normalizedSub = {
+      ...sub,
+      active: true,
+      isActive: true,
+      status: 'ACTIVE'
+    };
+
+    setActiveSubscriptionInfo(normalizedSub);
+    try {
+      localStorage.setItem('hiremate_candidate_subscription', JSON.stringify(normalizedSub));
+    } catch (e) {
+      console.warn('Could not cache subscription in localStorage', e);
+    }
+
+    const pName = (sub.planName || '').toLowerCase();
+    const pId = sub.planId ? `PLAN_${sub.planId}` : '';
+
+    if (pName.includes('ace') || pName.includes('vip') || pName.includes('mastery') || (sub.quotaLimit && sub.quotaLimit >= 999)) {
+      setActivePlan('CANDIDATE_VIP');
+      setMockInterviewPasses(9999);
+      setAtsCheckPasses(9999);
+    } else if (pName.includes('pro')) {
+      setActivePlan('CANDIDATE_PRO');
+      setMockInterviewPasses(sub.quotaLimit || 30);
+      setAtsCheckPasses(999);
+    } else if (pName.includes('plus') || pName.includes('practice')) {
+      setActivePlan(pId || 'PLAN_PLUS');
+      setMockInterviewPasses(sub.quotaLimit || 10);
+      setAtsCheckPasses(10);
+    } else {
+      setActivePlan(pId || 'CANDIDATE_FREE');
+      setMockInterviewPasses(sub.quotaLimit || 3);
+      setAtsCheckPasses(3);
+    }
+  };
 
   const fetchMySubscription = () => {
     paymentApi.getMySubscription()
       .then(res => {
-        const sub = res.data?.data || res.data;
-        if (sub && sub.active) {
-          setActiveSubscriptionInfo(sub);
-          const pName = (sub.planName || '').toLowerCase();
-          if (pName.includes('ace') || pName.includes('vip') || pName.includes('mastery')) {
-            setActivePlan('CANDIDATE_VIP');
-            setMockInterviewPasses(9999);
-            setAtsCheckPasses(9999);
-          } else if (pName.includes('pro') || pName.includes('plus') || pName.includes('practice')) {
-            setActivePlan('CANDIDATE_PRO');
-            setMockInterviewPasses(sub.quotaLimit || 30);
-            setAtsCheckPasses(999);
-          }
-        } else {
-          setActiveSubscriptionInfo(null);
-        }
+        const sub = res?.data?.data !== undefined 
+          ? res.data.data 
+          : (res?.data !== undefined ? res.data : res);
+        syncSubscriptionState(sub);
       })
-      .catch(err => console.warn('Could not load user active subscription', err));
+      .catch(err => {
+        console.warn('Could not load user active subscription from API, using fallback cache', err);
+        try {
+          const cached = localStorage.getItem('hiremate_candidate_subscription');
+          if (cached) {
+            syncSubscriptionState(JSON.parse(cached));
+          }
+        } catch (e) {}
+      });
   };
 
   const fetchMyPendingOrders = () => {
     paymentApi.getMyOrders()
       .then(res => {
-        const orders = res.data?.data || res.data || [];
+        const orders = res?.data?.data !== undefined
+          ? res.data.data
+          : (res?.data !== undefined ? res.data : (Array.isArray(res) ? res : []));
         if (Array.isArray(orders)) {
           const pendings = orders.filter(o => o.status === 'PENDING');
           setPendingOrders(pendings);
@@ -205,18 +358,20 @@ export default function CandidatePricingPage({ user, onNavigate }) {
       .catch(err => console.warn('Could not load user orders', err));
   };
 
-  // Fetch real plans & active subscription from Supabase
+  // Fetch real plans & active subscription from Supabase (chạy lại khi user thay đổi hoặc đăng nhập)
   useEffect(() => {
     paymentApi.getPlans('CANDIDATE')
       .then(res => {
-        const plans = res.data?.data || res.data || [];
+        const plans = res?.data?.data !== undefined 
+          ? res.data.data 
+          : (res?.data !== undefined ? res.data : (Array.isArray(res) ? res : []));
         setDbPlans(plans);
       })
       .catch(err => console.warn('Could not load DB plans, using UI defaults', err));
 
     fetchMySubscription();
     fetchMyPendingOrders();
-  }, []);
+  }, [user]);
 
   const handleCopy = (text, label) => {
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -238,7 +393,7 @@ export default function CandidatePricingPage({ user, onNavigate }) {
     let basePrice = 0;
     if (selectedPlanForPurchase) {
       basePrice = billingCycle === 'YEARLY' 
-        ? selectedPlanForPurchase.yearlyPrice * 12 
+        ? (selectedPlanForPurchase.yearlyTotal || selectedPlanForPurchase.yearlyPrice * 12) 
         : selectedPlanForPurchase.monthlyPrice;
     } else if (selectedAddonForPurchase) {
       basePrice = selectedAddonForPurchase.price;
@@ -318,7 +473,7 @@ export default function CandidatePricingPage({ user, onNavigate }) {
 
     if (selectedPlanForPurchase) {
       basePrice = billingCycle === 'YEARLY' 
-        ? selectedPlanForPurchase.yearlyPrice * 12 
+        ? (selectedPlanForPurchase.yearlyTotal || selectedPlanForPurchase.yearlyPrice * 12) 
         : selectedPlanForPurchase.monthlyPrice;
       planName = selectedPlanForPurchase.name;
     } else if (selectedAddonForPurchase) {
@@ -330,6 +485,7 @@ export default function CandidatePricingPage({ user, onNavigate }) {
 
     // Map matched DB Plan ID
     const matchedPlan = dbPlans.find(p => 
+      p.planId === selectedPlanForPurchase?.dbPlanId ||
       p.planName.toLowerCase().includes(planName.toLowerCase()) || 
       planName.toLowerCase().includes(p.planName.toLowerCase())
     );
@@ -337,7 +493,7 @@ export default function CandidatePricingPage({ user, onNavigate }) {
     const payload = {
       userId: user?.id || user?.userId || null,
       userEmail: user?.email || null,
-      planId: matchedPlan?.planId || null,
+      planId: selectedPlanForPurchase?.dbPlanId || matchedPlan?.planId || null,
       planName: planName,
       targetRole: 'CANDIDATE',
       billingCycle: billingCycle,
@@ -519,7 +675,7 @@ export default function CandidatePricingPage({ user, onNavigate }) {
     let basePrice = 0;
     if (selectedPlanForPurchase) {
       basePrice = billingCycle === 'YEARLY' 
-        ? selectedPlanForPurchase.yearlyPrice * 12 
+        ? (selectedPlanForPurchase.yearlyTotal || selectedPlanForPurchase.yearlyPrice * 12) 
         : selectedPlanForPurchase.monthlyPrice;
     } else if (selectedAddonForPurchase) {
       basePrice = selectedAddonForPurchase.price;
@@ -534,31 +690,83 @@ export default function CandidatePricingPage({ user, onNavigate }) {
     return basePrice;
   };
 
-  // Đồng bộ động các gói và giá từ CSDL Supabase (khi Admin chỉnh sửa giá)
-  const plansToDisplay = CANDIDATE_SUBSCRIPTION_PLANS.map((plan) => {
-    const matched = dbPlans.find((db) => {
-      const pName = plan.name.toLowerCase();
-      const dbName = (db.planName || '').toLowerCase();
-      return (
-        (dbName.includes('starter') && pName.includes('starter')) ||
-        (dbName.includes('pro') && pName.includes('pro')) ||
-        (dbName.includes('vip') && pName.includes('vip'))
-      );
-    });
-    if (matched) {
-      const dbMonthly = Number(matched.price) || 0;
-      const dbYearly = Math.round(dbMonthly * 0.7); // 30% discount on yearly
+  // Đồng bộ động các gói và giá từ CSDL Supabase (khi Admin chỉnh sửa giá / tạo gói mới)
+  const plansToDisplay = React.useMemo(() => {
+    const rawList = (!dbPlans || dbPlans.length === 0) ? CANDIDATE_SUBSCRIPTION_PLANS : dbPlans;
+
+    return rawList.map((db, idx) => {
+      const dbMonthly = Number(db.price !== undefined ? db.price : db.monthlyPrice) || 0;
+      const dbYearlyTotal = Math.round(dbMonthly * 12 * 0.7); // 30% discount on yearly
+      const dbMonthlyEquivalent = Math.round(dbMonthly * 0.7);
+      const dbName = db.planName || db.name || `Gói Dịch Vụ #${idx + 1}`;
+      const quota = db.quotaLimit !== undefined ? db.quotaLimit : (dbMonthly === 0 ? 3 : dbMonthly < 100000 ? 10 : dbMonthly < 200000 ? 30 : 999);
+      const planId = db.planId ? `PLAN_${db.planId}` : (db.id || `PLAN_${idx}`);
+
+      // Sinh toàn bộ quyền lợi chi tiết và hạn quyền phân quyền rõ ràng bằng hàm getCandidateEnrichedFeatures
+      const enriched = getCandidateEnrichedFeatures(dbName, dbMonthly, quota, db.description);
+
+      const isFree = dbMonthly === 0;
+      const isAceOrVip = dbName.toLowerCase().includes('ace') || dbName.toLowerCase().includes('vip') || dbMonthly >= 200000;
+      const isPro = dbName.toLowerCase().includes('pro');
+
       return {
-        ...plan,
-        dbPlanId: matched.planId,
+        id: db.id || planId,
+        dbPlanId: db.planId || null,
+        name: dbName,
+        tagline: enriched.tagline,
         monthlyPrice: dbMonthly,
-        yearlyPrice: dbYearly,
-        quotaLimit: matched.quotaLimit,
-        durationDays: matched.durationDays,
+        yearlyPrice: dbMonthlyEquivalent, // giá quy đổi mỗi tháng
+        yearlyTotal: dbYearlyTotal, // tổng tiền cả năm
+        badgeText: isFree ? 'MIỄN PHÍ VĨNH VIỄN' : isAceOrVip ? 'GÓI ĐẶC QUYỀN 👑' : isPro ? 'KHUYÊN DÙNG 🔥' : 'TIẾT KIỆM ⭐',
+        badgeColor: isFree ? 'bg-slate-100 text-slate-600 border-slate-200' : isAceOrVip ? 'bg-purple-100 text-purple-800 border-purple-300' : isPro ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-blue-100 text-blue-800 border-blue-300',
+        buttonText: isFree ? 'Gói Mặc Định' : isAceOrVip ? 'Nâng Cấp Gói VIP' : isPro ? 'Nâng Cấp Pro AI' : 'Nâng Cấp Ngay',
+        isPopular: isPro || (dbMonthly >= 100000 && dbMonthly < 200000),
+        quotaLimit: quota,
+        durationDays: db.durationDays || 30,
+        features: enriched.features,
+        missingFeatures: enriched.missingFeatures,
       };
+    });
+  }, [dbPlans]);
+
+  const isThisPlanActive = (plan) => {
+    if (!activeSubscriptionInfo || !activeSubscriptionInfo.active) return false;
+
+    // 1. So khớp theo ID DB
+    if (activeSubscriptionInfo.planId && plan.dbPlanId && Number(activeSubscriptionInfo.planId) === Number(plan.dbPlanId)) {
+      return true;
     }
-    return plan;
-  });
+    // 2. So khớp theo String ID dạng PLAN_x
+    if (activeSubscriptionInfo.planId && String(plan.id) === `PLAN_${activeSubscriptionInfo.planId}`) {
+      return true;
+    }
+    // 3. So khớp theo Tên gói cước
+    const subName = (activeSubscriptionInfo.planName || '').trim().toLowerCase();
+    const pName = (plan.name || '').trim().toLowerCase();
+    if (subName && pName) {
+      if (subName === pName) return true;
+      if (subName.includes('plus') && pName.includes('plus')) return true;
+      if (subName.includes('pro') && pName.includes('pro')) return true;
+      if (subName.includes('ace') && (pName.includes('ace') || pName.includes('vip') || pName.includes('mastery'))) return true;
+      if ((subName.includes('free') || subName.includes('starter')) && (pName.includes('free') || pName.includes('starter'))) return true;
+    }
+    // 4. So khớp theo template id
+    if (activePlan && activePlan === plan.id) {
+      return true;
+    }
+    return false;
+  };
+
+  const hasActivePaidPlan = Boolean(
+    activeSubscriptionInfo &&
+    activeSubscriptionInfo.active &&
+    (
+      (activeSubscriptionInfo.planId && Number(activeSubscriptionInfo.planId) > 1) ||
+      (activeSubscriptionInfo.planName && !activeSubscriptionInfo.planName.toLowerCase().includes('free') && !activeSubscriptionInfo.planName.toLowerCase().includes('starter'))
+    )
+  );
+
+  const currentTier = hasActivePaidPlan ? getCandidatePlanTier(activeSubscriptionInfo?.planName || activePlan) : 0;
 
   return (
     <div className="min-h-screen bg-transparent text-[#1e1b4b] py-6 px-3 sm:px-6 lg:px-8 font-sans">
@@ -585,14 +793,28 @@ export default function CandidatePricingPage({ user, onNavigate }) {
 
             {/* Current Candidate Status Badge */}
             <div className="pt-3 flex flex-wrap items-center justify-center gap-3 sm:gap-4 text-xs font-medium">
-              <div className="px-4 py-2.5 rounded-2xl bg-white/15 backdrop-blur-md border border-white/20 flex items-center gap-2">
+              <div className={`px-4 py-2.5 rounded-2xl backdrop-blur-md border flex items-center gap-2.5 ${
+                hasActivePaidPlan 
+                  ? 'bg-gradient-to-r from-amber-500/25 via-purple-500/25 to-indigo-500/25 border-amber-300/40 shadow-md ring-1 ring-amber-300/30' 
+                  : 'bg-white/15 border-white/20'
+              }`}>
                 <span className="text-purple-200">Gói Hiện Tại:</span>
-                <span className="font-bold text-white uppercase tracking-wide">
-                  {activePlan === 'CANDIDATE_FREE' ? 'Ứng Viên Starter (Free)' : activePlan === 'CANDIDATE_PRO' ? 'Ứng Viên Pro AI' : 'Career Mastery VIP'}
+                <span className="font-extrabold text-white uppercase tracking-wider flex items-center gap-1.5">
+                  {hasActivePaidPlan && <span className="text-amber-300">👑</span>}
+                  <span>
+                    {activeSubscriptionInfo?.planName || (activePlan === 'CANDIDATE_VIP' ? 'Career Ace' : activePlan === 'CANDIDATE_PRO' ? 'Practice Pro' : 'Free Candidate (Miễn Phí)')}
+                  </span>
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-500/30 text-emerald-200 text-[10px] font-bold border border-emerald-400/30">
-                  ACTIVE
-                </span>
+                {hasActivePaidPlan ? (
+                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-500 text-white text-[10px] font-extrabold border border-emerald-300 shadow-xs flex items-center gap-1">
+                    <span className="material-symbols-outlined text-xs">verified</span>
+                    <span>ACTIVE {activeSubscriptionInfo?.daysRemaining != null ? `(${activeSubscriptionInfo.daysRemaining} ngày còn lại)` : ''}</span>
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full bg-white/20 text-purple-200 text-[10px] font-bold border border-white/20">
+                    GÓI MIỄN PHÍ
+                  </span>
+                )}
               </div>
 
               <div className="px-4 py-2.5 rounded-2xl bg-white/15 backdrop-blur-md border border-white/20 flex items-center gap-2">
@@ -684,23 +906,23 @@ export default function CandidatePricingPage({ user, onNavigate }) {
             >
               <span>Thanh Toán Theo Năm</span>
               <span className="px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[10px] font-extrabold uppercase animate-pulse">
-                Tiết Kiệm 33%
+                Tiết Kiệm 30%
               </span>
             </button>
           </div>
           <p className="text-xs text-slate-500 font-medium">
-            {billingCycle === 'YEARLY' ? '🎉 Giảm ngay 33% chi phí khi đăng ký chu kỳ 1 Năm!' : '💡 Đổi sang Thanh Toán Theo Năm để tiết kiệm tới 1,998,000 VNĐ!'}
+            {billingCycle === 'YEARLY' 
+              ? '🎉 Gói Trọn Năm: Thanh toán 1 lần cho cả 12 tháng - Tiết kiệm ngay 30% chi phí!' 
+              : '💡 Đổi sang Thanh Toán Theo Năm để tiết kiệm hàng trăm ngàn đồng mỗi năm!'}
           </p>
         </div>
 
-        {/* PRICING CARDS GRID */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
+        {/* PRICING CARDS GRID: 4 CỘT HIỂN THỊ ĐẦY ĐỦ CẢ 4 GÓI TỪ SUPABASE */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
           {plansToDisplay.map((plan) => {
-            const currentTier = getCandidatePlanTier(activePlan);
-            const planTier = getCandidatePlanTier(plan.id);
-            const isSelected = activePlan === plan.id;
-            const isLowerTier = !isSelected && planTier < currentTier;
-            const price = billingCycle === 'YEARLY' ? plan.yearlyPrice : plan.monthlyPrice;
+            const planTier = getCandidatePlanTier(plan.name || plan.id);
+            const isSelected = hasActivePaidPlan ? isThisPlanActive(plan) : (plan.monthlyPrice === 0 || plan.id === 'CANDIDATE_FREE');
+            const isLowerTier = hasActivePaidPlan && !isSelected && planTier < currentTier;
 
             return (
               <div
@@ -741,33 +963,62 @@ export default function CandidatePricingPage({ user, onNavigate }) {
                     <p className="text-xs text-slate-500 mt-1 line-clamp-2">{plan.tagline}</p>
                   </div>
 
-                  <div className="py-2 border-y border-slate-100">
+                  <div className="py-3 border-y border-slate-100">
                     {plan.monthlyPrice === 0 ? (
                       <div className="flex items-baseline gap-1">
-                        <span className="text-4xl font-black text-[#1e1b4b]">0 VNĐ</span>
-                        <span className="text-xs text-slate-400 font-medium">/ tháng</span>
+                        <span className="text-3xl sm:text-4xl font-black text-[#1e1b4b]">0 VNĐ</span>
+                        <span className="text-xs text-slate-400 font-medium">/ Vĩnh viễn</span>
                       </div>
-                    ) : (
-                      <div>
+                    ) : (plan.durationDays === 7 || (plan.name && plan.name.toLowerCase().includes('plus'))) ? (
+                      <div className="space-y-1">
                         <div className="flex items-baseline gap-1">
-                          <span className="text-4xl font-black text-[#32247b]">
-                            {formatVND(price).replace(' VNĐ', '')}
+                          <span className="text-3xl sm:text-4xl font-black text-[#32247b]">
+                            {formatVND(plan.monthlyPrice).replace(' VNĐ', '')}
                           </span>
                           <span className="text-xs font-bold text-[#32247b]">VNĐ</span>
-                          <span className="text-xs text-slate-400 font-medium">/ tháng</span>
+                          <span className="text-xs text-slate-400 font-medium">/ 7 ngày</span>
                         </div>
-                        {billingCycle === 'YEARLY' && (
-                          <span className="text-[11px] text-emerald-600 font-semibold block mt-0.5">
-                            Thanh toán {formatVND(price * 12)} / năm
+                        <span className="text-[11px] text-emerald-600 font-medium block">
+                          Gói luyện tập ngắn hạn 1 tuần
+                        </span>
+                      </div>
+                    ) : billingCycle === 'YEARLY' ? (
+                      <div className="space-y-1.5">
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-3xl sm:text-4xl font-black text-[#32247b]">
+                            {formatVND(plan.yearlyTotal).replace(' VNĐ', '')}
                           </span>
-                        )}
+                          <span className="text-xs font-bold text-[#32247b]">VNĐ</span>
+                          <span className="text-xs text-slate-500 font-bold">/ năm (12 tháng)</span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-xs text-slate-400 line-through">
+                            {formatVND(plan.monthlyPrice * 12)}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700 text-[11px] font-extrabold">
+                            Tiết kiệm 30% (~{formatVND(plan.yearlyPrice)}/tháng)
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-3xl sm:text-4xl font-black text-[#32247b]">
+                            {formatVND(plan.monthlyPrice).replace(' VNĐ', '')}
+                          </span>
+                          <span className="text-xs font-bold text-[#32247b]">VNĐ</span>
+                          <span className="text-xs text-slate-400 font-medium">/ 30 ngày</span>
+                        </div>
+                        <span className="text-[11px] text-slate-500 font-medium block">
+                          Thanh toán linh hoạt từng chu kỳ 30 ngày
+                        </span>
                       </div>
                     )}
                   </div>
 
                   {/* Feature Checklist */}
                   <div className="space-y-3 pt-2">
-                    <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">Quyền Lợi Ứng Viên:</p>
+                    <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">Quyền Lợi &amp; Phân Quyền Hạn Mức:</p>
                     <ul className="space-y-2.5 text-xs text-slate-700">
                       {plan.features.map((feat, idx) => (
                         <li key={idx} className="flex items-start gap-2.5">
@@ -899,18 +1150,20 @@ export default function CandidatePricingPage({ user, onNavigate }) {
               <thead>
                 <tr className="border-b-2 border-slate-200 text-xs text-slate-600 uppercase font-extrabold bg-slate-50/80">
                   <th className="py-4 px-4">Tính Năng / Quyền Lợi</th>
-                  <th className="py-4 px-4 text-center">Gói Starter (Free)</th>
-                  <th className="py-4 px-4 text-center text-[#32247b]">Gói Pro AI (199K)</th>
-                  <th className="py-4 px-4 text-center text-purple-700">Career VIP (499K)</th>
+                  <th className="py-4 px-4 text-center">Free Candidate</th>
+                  <th className="py-4 px-4 text-center text-blue-700">Practice Plus (49K)</th>
+                  <th className="py-4 px-4 text-center text-[#32247b]">Practice Pro (149K)</th>
+                  <th className="py-4 px-4 text-center text-purple-700">Career Ace (249K)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700">
                 {COMPARISON_ROWS.map((row, idx) => (
                   <tr key={idx} className="hover:bg-indigo-50/40 transition-colors">
                     <td className="py-3.5 px-4 font-bold text-[#1e1b4b]">{row.feature}</td>
-                    <td className="py-3.5 px-4 text-center">{row.free}</td>
+                    <td className="py-3.5 px-4 text-center text-slate-600">{row.free}</td>
+                    <td className="py-3.5 px-4 text-center font-bold text-blue-800 bg-blue-50/20">{row.plus}</td>
                     <td className="py-3.5 px-4 text-center font-bold text-[#32247b] bg-indigo-50/20">{row.pro}</td>
-                    <td className="py-3.5 px-4 text-center font-bold text-purple-700 bg-purple-50/20">{row.vip}</td>
+                    <td className="py-3.5 px-4 text-center font-bold text-purple-700 bg-purple-50/20">{row.ace}</td>
                   </tr>
                 ))}
               </tbody>
@@ -998,7 +1251,7 @@ export default function CandidatePricingPage({ user, onNavigate }) {
                     <div className="flex justify-between items-center text-slate-600">
                       <span>Chu kỳ thanh toán:</span>
                       <span className="font-semibold text-emerald-600">
-                        {billingCycle === 'YEARLY' ? '12 Tháng (Tiết kiệm 33%)' : '1 Tháng'}
+                        {billingCycle === 'YEARLY' ? '12 Tháng (Trọn Gói 1 Năm - Tiết Kiệm 30%)' : '1 Tháng (Linh Hoạt)'}
                       </span>
                     </div>
                   )}
@@ -1007,11 +1260,17 @@ export default function CandidatePricingPage({ user, onNavigate }) {
                     <span className="font-bold">
                       {formatVND(
                         selectedPlanForPurchase
-                          ? (billingCycle === 'YEARLY' ? selectedPlanForPurchase.yearlyPrice * 12 : selectedPlanForPurchase.monthlyPrice)
+                          ? (billingCycle === 'YEARLY' ? (selectedPlanForPurchase.yearlyTotal || selectedPlanForPurchase.yearlyPrice * 12) : selectedPlanForPurchase.monthlyPrice)
                           : (selectedAddonForPurchase?.price || 0)
                       )}
                     </span>
                   </div>
+                  {billingCycle === 'YEARLY' && selectedPlanForPurchase && (
+                    <div className="flex justify-between items-center text-emerald-700 text-xs font-semibold">
+                      <span>Ưu đãi thanh toán trọn năm (-30%):</span>
+                      <span>Đã tiết kiệm {formatVND(selectedPlanForPurchase.monthlyPrice * 12 * 0.3)}</span>
+                    </div>
+                  )}
                   {voucherDiscountAmount > 0 && (
                     <div className="flex justify-between items-center text-emerald-700 font-bold bg-emerald-50/80 px-2.5 py-1.5 rounded-xl border border-emerald-200">
                       <span className="flex items-center gap-1 text-xs">
@@ -1030,7 +1289,7 @@ export default function CandidatePricingPage({ user, onNavigate }) {
                   currentPlanName={selectedPlanForPurchase?.name || selectedAddonForPurchase?.name}
                   basePrice={
                     selectedPlanForPurchase
-                      ? (billingCycle === 'YEARLY' ? selectedPlanForPurchase.yearlyPrice * 12 : selectedPlanForPurchase.monthlyPrice)
+                      ? (billingCycle === 'YEARLY' ? (selectedPlanForPurchase.yearlyTotal || selectedPlanForPurchase.yearlyPrice * 12) : selectedPlanForPurchase.monthlyPrice)
                       : (selectedAddonForPurchase?.price || 0)
                   }
                   appliedVoucher={appliedVoucher}
