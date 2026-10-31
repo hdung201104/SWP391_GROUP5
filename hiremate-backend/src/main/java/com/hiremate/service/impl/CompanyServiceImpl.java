@@ -118,15 +118,22 @@ public class CompanyServiceImpl implements CompanyService {
             if (request.getIndustry() != null) company.setIndustry(request.getIndustry());
             if (request.getTaxCode() != null) company.setTaxCode(request.getTaxCode());
             if (request.getLicenseNumber() != null) company.setLicenseNumber(request.getLicenseNumber());
-            if (request.getLicenseDocUrl() != null) company.setLicenseDocUrl(request.getLicenseDocUrl());
+            if (request.getLicenseDocUrl() != null) {
+                company.setLicenseDocUrl(request.getLicenseDocUrl());
+                if (!request.getLicenseDocUrl().isBlank() && company.getStatus() != CompanyStatus.VERIFIED) {
+                    company.setStatus(CompanyStatus.PENDING);
+                    company.setRejectionReason(null);
+                }
+            }
             if (request.getLicenseDocName() != null) company.setLicenseDocName(request.getLicenseDocName());
             if (request.getLegalRepresentative() != null) company.setLegalRepresentative(request.getLegalRepresentative());
             
             if (request.getStatus() != null) {
                 company.setStatus(request.getStatus());
-            } else if (request.getTaxCode() != null || request.getLicenseDocUrl() != null) {
+            } else if (request.getLicenseDocUrl() != null && !request.getLicenseDocUrl().isBlank()) {
                 if (company.getStatus() == null || company.getStatus() != CompanyStatus.VERIFIED) {
                     company.setStatus(CompanyStatus.PENDING);
+                    company.setRejectionReason(null);
                 }
             }
             company = companyRepository.save(company);
@@ -136,8 +143,9 @@ public class CompanyServiceImpl implements CompanyService {
             }
         }
 
-        // Gửi thông báo cho Recruiter và Ban Quản Trị (Admin) nếu hồ sơ đang chờ duyệt
-        if (company.getStatus() == CompanyStatus.PENDING && notificationService != null) {
+        // Gửi thông báo cho Recruiter và Ban Quản Trị (Admin) nếu hồ sơ đã nộp GPKD và đang chờ duyệt
+        boolean hasLicenseDoc = company.getLicenseDocUrl() != null && !company.getLicenseDocUrl().isBlank();
+        if (company.getStatus() == CompanyStatus.PENDING && hasLicenseDoc && notificationService != null) {
             try {
                 notificationService.createNotification(
                         recruiterUser.getUserId(),
@@ -176,6 +184,7 @@ public class CompanyServiceImpl implements CompanyService {
             company.setLicenseDocName(docName);
             if (company.getStatus() != CompanyStatus.VERIFIED) {
                 company.setStatus(CompanyStatus.PENDING);
+                company.setRejectionReason(null); // Xóa lý do từ chối cũ để Admin duyệt lại
             }
             companyRepository.save(company);
             if (recruiter.getCompany() == null) {

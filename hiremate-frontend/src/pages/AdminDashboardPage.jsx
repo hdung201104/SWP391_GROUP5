@@ -1345,7 +1345,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
           rawId: c.id,
           name: c.name,
           shortName: c.shortName || c.name,
-          taxCode: c.taxCode || ('MST-' + c.id),
+          taxCode: c.taxCode || null,
           recruiterName: c.recruiterName || 'Chưa cập nhật',
           recruiterEmail: c.recruiterEmail || '-',
           recruiterPhone: c.recruiterPhone || '-',
@@ -1355,8 +1355,8 @@ export default function AdminDashboardPage({ user, onLogout }) {
           website: c.website || '',
           status: (c.status === 'VERIFIED' || c.status === 'ACTIVE') ? 'VERIFIED' : (c.status === 'REJECTED' || c.status === 'BANNED' ? 'REJECTED' : 'PENDING'),
           submittedAt: c.createdAt ? new Date(c.createdAt).toLocaleDateString('vi-VN') : 'Gần đây',
-          docUrl: c.docUrl || '',
-          docName: c.docName || 'GPKD_Doanh_Nghiep.pdf',
+          docUrl: c.docUrl || null,
+          docName: c.docUrl ? (c.docName || 'Giay_Phep_Kinh_Doanh.pdf') : null,
           notes: c.notes || 'Hồ sơ doanh nghiệp thực tế từ Supabase PostgreSQL',
           logo: c.name?.slice(0, 3)?.toUpperCase() || 'CMP',
           logoBg: 'bg-[#5b48bd]',
@@ -1673,8 +1673,69 @@ export default function AdminDashboardPage({ user, onLogout }) {
   // Computed Pending Sets & Dynamic Analytics from Supabase DB
   const pendingOrders = orders.filter((o) => o.status === 'PENDING');
   const pendingCompanies = companies.filter((c) => c.status === 'PENDING');
+  const actionablePendingCompanies = companies.filter((c) => c.status === 'PENDING' && Boolean(c.docUrl));
   const verifiedCompanies = companies.filter((c) => c.status === 'VERIFIED');
   const rejectedCompanies = companies.filter((c) => c.status === 'REJECTED');
+
+  const realTimeEvents = useMemo(() => {
+    const events = [];
+
+    // 1. Tuyển dụng: Tin đăng mới nhất từ jobsList
+    (jobsList || []).slice(0, 3).forEach((j) => {
+      const compName = j.companyName || j.company || 'Doanh nghiệp';
+      events.push({
+        id: `job-${j.id || j.jobId || Math.random()}`,
+        badge: 'HR',
+        badgeBg: 'bg-[#5b48bd]',
+        title: `${compName} vừa đăng tin tuyển dụng mới`,
+        desc: `Vị trí: ${j.title || 'Vị trí mới'} • Trạng thái: ${
+          j.approvalStatus === 'APPROVED' ? 'Đã duyệt' : (j.approvalStatus === 'REJECTED' ? 'Bị từ chối' : 'Chờ duyệt')
+        }`,
+        time: j.submittedAt || (j.createdAt ? new Date(j.createdAt).toLocaleDateString('vi-VN') : 'Gần đây'),
+      });
+    });
+
+    // 2. Giao dịch: Thanh toán gói dịch vụ VietQR
+    (orders || []).slice(0, 3).forEach((o) => {
+      const isPaid = ['PAID', 'APPROVED', 'COMPLETED', 'SUCCESS'].includes(String(o.status).toUpperCase());
+      events.push({
+        id: `order-${o.id || o.rawId || Math.random()}`,
+        badge: 'QR',
+        badgeBg: 'bg-[#10b981]',
+        title: `Thanh toán VietQR cho đơn hàng ${o.id} (${o.user || 'Khách hàng'})`,
+        desc: `Số tiền: ${o.amountText || '0 đ'} • Gói: ${o.pkg || 'Dịch vụ'} • Trạng thái: ${isPaid ? 'Đã xác nhận' : 'Đang xử lý'}`,
+        time: o.timestamp || 'Gần đây',
+      });
+    });
+
+    // 3. Doanh nghiệp: Cập nhật hồ sơ & nộp GPKD
+    (companies || []).filter((c) => Boolean(c.docUrl)).slice(0, 2).forEach((c) => {
+      events.push({
+        id: `comp-${c.id || Math.random()}`,
+        badge: 'DN',
+        badgeBg: 'bg-indigo-600',
+        title: `Doanh nghiệp "${c.shortName || c.name}" nộp hồ sơ GPKD`,
+        desc: `Đại diện HR: ${c.recruiterName || 'Chưa rõ'} • Trạng thái: ${
+          c.status === 'VERIFIED' ? 'Đã duyệt GPKD' : (c.status === 'REJECTED' ? 'Bị từ chối' : 'Đang chờ duyệt')
+        }`,
+        time: c.submittedAt || 'Gần đây',
+      });
+    });
+
+    // 4. Phỏng vấn AI: Luyện phỏng vấn gần nhất
+    (interviewsList || []).slice(0, 2).forEach((inv, idx) => {
+      events.push({
+        id: `inv-${inv.id || idx}`,
+        badge: 'AI',
+        badgeBg: 'bg-amber-500',
+        title: `Ứng viên ${inv.candidateName || 'Ứng viên'} hoàn thành phiên AI Interview`,
+        desc: `Vị trí: ${inv.role || 'Luyện tập'} • Điểm số: ${inv.score != null ? inv.score + '/100' : 'Đã chấm'}`,
+        time: inv.date || 'Gần đây',
+      });
+    });
+
+    return events.slice(0, 4);
+  }, [jobsList, companies, orders, interviewsList]);
 
   const pendingJobs = jobsList.filter((j) => j.approvalStatus === 'PENDING' || !j.approvalStatus);
   const approvedJobs = jobsList.filter((j) => j.approvalStatus === 'APPROVED');
@@ -2161,6 +2222,10 @@ export default function AdminDashboardPage({ user, onLogout }) {
   const handleApproveCompany = async (companyId) => {
     try {
       const comp = companies.find((c) => c.id === companyId);
+      if (!comp?.docUrl) {
+        triggerToast('Doanh nghiệp này chưa nộp Giấy phép kinh doanh (GPKD), không thể phê duyệt!', 'error');
+        return;
+      }
       const rawId = comp?.rawId || parseInt(String(companyId).replace(/\D/g, ''), 10);
       if (rawId) {
         await adminApi.updateCompanyStatus(rawId, 'VERIFIED');
@@ -2855,7 +2920,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
     moderation: [
       { id: 'jobs', label: `Duyệt Tin Đăng (${pendingJobs.length})`, icon: 'fact_check' },
       { id: 'users', label: `Quản Lý Tài Khoản (${usersList.length})`, icon: 'manage_accounts' },
-      { id: 'companies', label: `Doanh Nghiệp (${pendingCompanies.length})`, icon: 'corporate_fare' },
+      { id: 'companies', label: `Doanh Nghiệp (${actionablePendingCompanies.length})`, icon: 'corporate_fare' },
     ],
     finance: [
       { id: 'orders', label: 'Lịch Sử Giao Dịch', icon: 'receipt_long' },
@@ -3184,7 +3249,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
                 </div>
                 <div className="mt-3">
                   <div className="text-xl sm:text-2xl font-black text-[#1e1b4b] tracking-tight flex items-center gap-2">
-                    <span>{pendingJobs.length + pendingCompanies.length + pendingOrders.length}</span>
+                    <span>{pendingJobs.length + actionablePendingCompanies.length + pendingOrders.length}</span>
                     <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
                       {pendingJobs.length > 0 ? 'Có việc gấp' : 'Ổn định'}
                     </span>
@@ -3192,7 +3257,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
                   <div className="flex items-center gap-1 mt-1 text-[11px] text-slate-500 truncate">
                     <span>{pendingJobs.length} tin</span>
                     <span>•</span>
-                    <span>{pendingCompanies.length} GPKD</span>
+                    <span>{actionablePendingCompanies.length} GPKD</span>
                     <span>•</span>
                     <span>{pendingOrders.length} đơn</span>
                   </div>
@@ -3718,7 +3783,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold text-slate-500">
-                    Tổng chờ duyệt: <strong className="text-rose-600 font-extrabold">{pendingJobs.length + pendingCompanies.length + pendingOrders.length} mục</strong>
+                    Tổng chờ duyệt: <strong className="text-rose-600 font-extrabold">{pendingJobs.length + actionablePendingCompanies.length + pendingOrders.length} mục</strong>
                   </span>
                 </div>
               </div>
@@ -3839,14 +3904,14 @@ export default function AdminDashboardPage({ user, onLogout }) {
                         </div>
                       </div>
                       <span className={`px-2.5 py-0.5 rounded-full text-xs font-extrabold ${
-                        pendingCompanies.length > 0 ? 'bg-amber-100 text-amber-800' : 'bg-emerald-50 text-emerald-700'
+                        actionablePendingCompanies.length > 0 ? 'bg-amber-100 text-amber-800' : 'bg-emerald-50 text-emerald-700'
                       }`}>
-                        {pendingCompanies.length} hồ sơ
+                        {actionablePendingCompanies.length > 0 ? `${actionablePendingCompanies.length} hồ sơ chờ duyệt` : 'Tất cả đã duyệt'}
                       </span>
                     </div>
 
                     <div className="space-y-3 mt-3">
-                      {pendingCompanies.slice(0, 2).map((comp) => (
+                      {actionablePendingCompanies.slice(0, 2).map((comp) => (
                         <div key={comp.id} className="p-3.5 rounded-2xl border border-amber-200/80 bg-amber-50/30 space-y-2">
                           <div className="flex items-start justify-between gap-2">
                             <div className="w-8 h-8 rounded-lg bg-[#5b48bd] text-white flex items-center justify-center font-bold text-xs shrink-0">
@@ -3854,8 +3919,8 @@ export default function AdminDashboardPage({ user, onLogout }) {
                             </div>
                             <div className="min-w-0 flex-1">
                               <h5 className="text-xs font-bold text-[#1e1b4b] truncate">{comp.shortName}</h5>
-                              <div className="text-[11px] text-slate-500 font-mono">MST: {comp.taxCode}</div>
-                              <div className="text-[10px] text-slate-400 truncate">HR: {comp.recruiterName}</div>
+                              <div className="text-[11px] text-slate-500 font-mono">MST: {comp.taxCode || 'Chưa cập nhật'}</div>
+                              <div className="text-[10px] text-slate-400 truncate">HR: {comp.recruiterName || 'Chưa rõ'}</div>
                             </div>
                           </div>
 
@@ -3876,11 +3941,11 @@ export default function AdminDashboardPage({ user, onLogout }) {
                         </div>
                       ))}
 
-                      {pendingCompanies.length === 0 && (
+                      {actionablePendingCompanies.length === 0 && (
                         <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-100 space-y-2.5">
                           <div className="flex items-center gap-2 text-emerald-700 font-bold text-xs">
                             <span className="material-symbols-outlined text-base">verified</span>
-                            <span>{verifiedCompanies.length > 0 ? `${verifiedCompanies.length} Doanh Nghiệp Đã Được Phê Duyệt GPKD` : 'Hiện không có hồ sơ nào chờ duyệt'}</span>
+                            <span>{verifiedCompanies.length > 0 ? `${verifiedCompanies.length} Doanh Nghiệp Đã Được Phê Duyệt GPKD` : 'Hiện không có hồ sơ GPKD nào chờ duyệt'}</span>
                           </div>
                           <div className="space-y-1.5 text-[11px]">
                             {verifiedCompanies.slice(0, 3).map((comp) => (
@@ -4023,73 +4088,30 @@ export default function AdminDashboardPage({ user, onLogout }) {
               </div>
 
               <div className="space-y-2.5">
-                <div className="flex items-center justify-between p-3 rounded-2xl bg-purple-50/40 border border-purple-100 text-xs">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-[#5b48bd] text-white flex items-center justify-center text-xs font-bold shrink-0">
-                      HR
-                    </div>
-                    <div>
-                      <div className="font-bold text-[#1e1b4b]">
-                        Nguyễn Minh Anh (FPT Software) vừa đăng tin tuyển dụng mới
+                {realTimeEvents.map((ev) => (
+                  <div key={ev.id} className="flex items-center justify-between p-3 rounded-2xl bg-purple-50/40 border border-purple-100 text-xs">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-xl ${ev.badgeBg || 'bg-[#5b48bd]'} text-white flex items-center justify-center text-xs font-bold shrink-0`}>
+                        {ev.badge}
                       </div>
-                      <div className="text-[11px] text-slate-500">
-                        Vị trí: Senior Java Backend Engineer • Mức lương 30 - 45 triệu • Trạng thái: Chờ duyệt
+                      <div>
+                        <div className="font-bold text-[#1e1b4b]">
+                          {ev.title}
+                        </div>
+                        <div className="text-[11px] text-slate-500">
+                          {ev.desc}
+                        </div>
                       </div>
                     </div>
+                    <span className="text-slate-400 text-[11px] font-medium whitespace-nowrap">{ev.time}</span>
                   </div>
-                  <span className="text-slate-400 text-[11px] font-medium whitespace-nowrap">2 giờ trước</span>
-                </div>
+                ))}
 
-                <div className="flex items-center justify-between p-3 rounded-2xl bg-emerald-50/40 border border-emerald-100 text-xs">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-[#10b981] text-white flex items-center justify-center text-xs font-bold shrink-0">
-                      QR
-                    </div>
-                    <div>
-                      <div className="font-bold text-[#1e1b4b]">
-                        Thanh toán VietQR Napas247 cho đơn hàng #ORD-9021 được tự động xác nhận
-                      </div>
-                      <div className="text-[11px] text-slate-500">
-                        Số tiền: 599.000 đ • Gói Hiring Pro (Combo 30 ngày) • Ngân hàng MBBank
-                      </div>
-                    </div>
+                {realTimeEvents.length === 0 && (
+                  <div className="p-4 text-center text-xs text-slate-400">
+                    Chưa có nhật ký hoạt động mới phát sinh.
                   </div>
-                  <span className="text-slate-400 text-[11px] font-medium whitespace-nowrap">3 giờ trước</span>
-                </div>
-
-                <div className="flex items-center justify-between p-3 rounded-2xl bg-amber-50/40 border border-amber-100 text-xs">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center text-xs font-bold shrink-0">
-                      AI
-                    </div>
-                    <div>
-                      <div className="font-bold text-[#1e1b4b]">
-                        Ứng viên Trần Hoàng Nam hoàn thành phiên AI Voice Mock Interview (Lần 2)
-                      </div>
-                      <div className="text-[11px] text-slate-500">
-                        Điểm số: 84 / 100 • Chỉ số delta tiến bộ: +18 điểm • Tốc độ nói: 135 từ/phút
-                      </div>
-                    </div>
-                  </div>
-                  <span className="text-slate-400 text-[11px] font-medium whitespace-nowrap">4 giờ trước</span>
-                </div>
-
-                <div className="flex items-center justify-between p-3 rounded-2xl bg-blue-50/40 border border-blue-100 text-xs">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center text-xs font-bold shrink-0">
-                      DB
-                    </div>
-                    <div>
-                      <div className="font-bold text-[#1e1b4b]">
-                        Đồng bộ thành công 22 người dùng và 4 doanh nghiệp từ Supabase PostgreSQL
-                      </div>
-                      <div className="text-[11px] text-slate-500">
-                        Thời gian phản hồi: 42ms • Cache hit: 99.4% • Toàn vẹn 19 bảng 3NF
-                      </div>
-                    </div>
-                  </div>
-                  <span className="text-slate-400 text-[11px] font-medium whitespace-nowrap">6 giờ trước</span>
-                </div>
+                )}
               </div>
             </div>
           </div>
@@ -4491,11 +4513,13 @@ export default function AdminDashboardPage({ user, onLogout }) {
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="text-xs font-bold text-amber-800 flex items-center gap-1">
-                      <span>Công ty chưa duyệt</span>
-                      <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
+                      <span>Công ty chờ duyệt GPKD</span>
+                      {actionablePendingCompanies.length > 0 && (
+                        <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
+                      )}
                     </div>
-                    <div className="text-2xl font-extrabold text-amber-900 mt-1">{pendingCompanies.length}</div>
-                    <div className="text-[11px] text-amber-700 mt-0.5">Cần duyệt khẩn cấp trong 24h</div>
+                    <div className="text-2xl font-extrabold text-amber-900 mt-1">{actionablePendingCompanies.length}</div>
+                    <div className="text-[11px] text-amber-700 mt-0.5">Đã nộp file GPKD hợp lệ</div>
                   </div>
                   <div className="w-12 h-12 rounded-2xl bg-amber-200/80 text-amber-900 border border-amber-300 flex items-center justify-center font-bold shadow-xs">
                     <span className="material-symbols-outlined text-2xl">pending_actions</span>
@@ -4588,7 +4612,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
                 {/* 5 Filter Pills: Pending, Verified, Users, All, Rejected */}
                 <div className="flex items-center gap-1 bg-purple-50 p-1 rounded-full border border-purple-100">
                   {[
-                    { id: 'PENDING', label: `Công ty chưa duyệt (${pendingCompanies.length})` },
+                    { id: 'PENDING', label: `Chờ duyệt GPKD (${actionablePendingCompanies.length})` },
                     { id: 'VERIFIED', label: `Công ty đã duyệt (${verifiedCompanies.length})` },
                     { id: 'USERS', label: `List thành viên (${usersList.length})` },
                     { id: 'ALL', label: `Tất cả công ty (${companies.length})` },
@@ -4842,13 +4866,20 @@ export default function AdminDashboardPage({ user, onLogout }) {
               /* COMPANY APPROVAL LIST (TABLE OR GRID) */
               (() => {
                 const filteredList = companies.filter((c) => {
-                  const matchStatus = companyStatusFilter === 'ALL' || c.status === companyStatusFilter;
+                  const matchStatus =
+                    companyStatusFilter === 'ALL'
+                      ? true
+                      : companyStatusFilter === 'PENDING'
+                      ? (c.status === 'PENDING' && Boolean(c.docUrl))
+                      : c.status === companyStatusFilter;
+                  const q = (searchQuery || '').toLowerCase().trim();
                   const matchQuery =
-                    c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    c.shortName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    c.taxCode.includes(searchQuery) ||
-                    c.recruiterName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    c.recruiterEmail.toLowerCase().includes(searchQuery.toLowerCase());
+                    !q ||
+                    (c.name || '').toLowerCase().includes(q) ||
+                    (c.shortName || '').toLowerCase().includes(q) ||
+                    (c.taxCode || '').includes(q) ||
+                    (c.recruiterName || '').toLowerCase().includes(q) ||
+                    (c.recruiterEmail || '').toLowerCase().includes(q);
                   return matchStatus && matchQuery;
                 });
 

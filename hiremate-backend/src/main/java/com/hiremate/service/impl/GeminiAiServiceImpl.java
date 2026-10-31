@@ -389,36 +389,46 @@ public class GeminiAiServiceImpl implements GeminiAiService {
                 telemetrySection.append("\n");
             }
 
+            int totalWords = 0;
+            int meaningfulAnswers = 0;
+            for (InterviewDetail d : details) {
+                String ans = d.getCandidateAnswerText() != null ? d.getCandidateAnswerText().trim() : "";
+                int w = ans.isBlank() ? 0 : ans.split("\\s+").length;
+                totalWords += w;
+                if (w >= 5) meaningfulAnswers++;
+            }
+            boolean isTooShort = totalWords < 30 || meaningfulAnswers < 2;
+
             String position = targetPosition != null ? targetPosition : "Software Engineer";
             String prompt = "Bạn là Hội Đồng Tuyển Dụng & Giám Khảo Khảo Thí CỰC KỲ KHẮT KHE, CÔNG TÂM VÀ THẲNG THẮN của HireMate AI cho vị trí '" + position + "'.\n" +
                     "MỤC TIÊU CỐT LÕI: Bới móc toàn bộ khuyết điểm, lỗ hổng kiến thức, sự ba hoa hoặc sáo rỗng trong các câu trả lời của ứng viên để họ thấy rõ thiếu sót. TUYỆT ĐỐI KHÔNG TÔ VẼ, KHÔNG NỊNH BỢ, KHÔNG CHO ĐIỂM KHỐNG.\n\n" +
                     telemetrySection.toString() +
-                    "NỘI DUNG CÁC LƯỢT ĐỐI ĐÁP (" + details.size() + " câu):\n" + truncateText(transcript.toString(), 3500) + "\n\n" +
-                    "QUY TẮC CHẤM ĐẶC BIỆT KHI CÂU TRẢ LỜI QUÁ NGẮN / BỎ DỞ / KHÔNG BẬT CAMERA:\n" +
-                    "- Nếu ứng viên chỉ trả lời 1 câu hỏi, hoặc câu trả lời cộc lốc/ngô nghê/không đạt: CHẤM overallCalibratedScore DƯỚI 25 ĐIỂM (Không Đạt). overallFeedback PHẢI phê bình thẳng thắn việc bỏ dở phiên và thiếu hụt kiến thức. TUYỆT ĐỐI KHÔNG khen 'tự tin' hay 'trúng trọng tâm'!\n" +
-                    "- Nếu camera bị tắt: deliveryFeedback PHẢI ghi rõ: 'Camera đã tắt trong suốt buổi phỏng vấn. Hệ thống chỉ ghi nhận dữ liệu âm thanh qua micro, không có dữ liệu giao tiếp mắt và dáng ngồi.' Không chấm điểm cao cho tác phong hình ảnh.\n\n" +
+                    "NỘI DUNG CÁC LƯỢT ĐỐI ĐÁP (" + details.size() + " câu, tổng số từ ứng viên nói: " + totalWords + " từ):\n" + truncateText(transcript.toString(), 3500) + "\n\n" +
+                    "QUY TẮC CHỐNG ĐIỂM ẢO KHI CÂU TRẢ LỜI QUÁ NGẮN / BỎ DỞ / KHÔNG BẬT CAMERA:\n" +
+                    "- Nếu tổng số từ ứng viên nói < 30 từ HOẶC số câu trả lời có nghĩa < 2: CHẤM overallCalibratedScore DƯỚI 25 ĐIỂM (Không Đạt). communicationScore và deliveryToneScore TỐI ĐA 10 - 25 ĐIỂM (Kém / Chưa đủ dữ liệu). overallFeedback PHẢI phê bình thẳng thắn việc câu trả lời quá ngắn hoặc bỏ dở phiên. weaknessSummary BẮT BUỘC ghi rõ: 'Chưa ghi nhận được ưu điểm chuyên môn rõ nét do phiên phỏng vấn kết thúc quá sớm hoặc câu trả lời quá ngắn.' TUYỆT ĐỐI KHÔNG khen 'tự tin' hay 'trúng trọng tâm'!\n" +
+                    "- Nếu camera bị tắt: TUYỆT ĐỐI KHÔNG chấm điểm hay nhận xét về dáng ngồi, ánh mắt hay nét mặt. deliveryFeedback PHẢI ghi: 'Camera đã tắt trong suốt buổi phỏng vấn. Hệ thống chỉ ghi nhận dữ liệu âm thanh qua micro.'\n\n" +
                     "QUY TẮC CHẤM 4 TRỤ CỘT NĂNG LỰC (0.0 đến 100.0):\n" +
                     "1. domainKnowledgeScore (35% trọng số): Phải có thuật ngữ, công cụ, nguyên lý chuyên môn sâu của vị trí " + position + ". Nếu nói chung chung lý thuyết hoặc lạc đề: CHẤM 0 - 25 ĐIỂM.\n" +
-                    "2. problemSolvingScore (20% trọng số): Khả năng phân tích nguyên nhân gốc rễ và đánh đổi kỹ thuật. Nếu chỉ nói suông: CHẤM 0 - 20 ĐIỂM.\n" +
-                    "3. starStructureScore (15% trọng số): Cấu trúc STAR và số liệu định lượng (%, thời gian, số lượng). Không có số liệu: CHẤM TỐI ĐA 15 ĐIỂM.\n" +
-                    "4. deliveryToneScore (30% trọng số): Tác phong thực tế từ Telemetry. Nếu camera tắt hoặc nói quá ít: TỐI ĐA 40 ĐIỂM.\n\n" +
-                    "5. overallCalibratedScore: Điểm tổng hợp trọng số = (domain*0.35 + problem*0.20 + star*0.15 + delivery*0.30).\n" +
+                    "2. problemSolvingScore (25% trọng số): Khả năng phân tích nguyên nhân gốc rễ và đánh đổi. Nếu chỉ nói suông: CHẤM 0 - 20 ĐIỂM.\n" +
+                    "3. starStructureScore (20% trọng số): Cấu trúc STAR và số liệu định lượng (%, thời gian, số lượng). Không có số liệu: CHẤM TỐI ĐA 15 ĐIỂM.\n" +
+                    "4. communicationScore (20% trọng số - Kỹ Năng Diễn Đạt & Sự Mạch Lạc): Khả năng diễn đạt rõ ý, từ đệm ít, ngắt nghỉ hợp lý. Nếu nói dưới 30 từ: TỐI ĐA 20 ĐIỂM.\n\n" +
+                    "5. overallCalibratedScore: Điểm tổng hợp trọng số = (domain*0.35 + problem*0.25 + star*0.20 + communication*0.20).\n" +
                     "- Dưới 50: Không Đạt (Yếu kém, thiếu hụt chuyên môn trầm trọng hoặc bỏ dở)\n" +
                     "- 50 - 69: Cần Rèn Luyện Thêm (Chưa đạt tiêu chuẩn phỏng vấn thực tế)\n" +
-                    "- 70 - 84: Đạt Yêu Cầu (Đáp ứng tốt năng lực chuyên môn và tác phong)\n" +
-                    "- 85 - 100: Xuất Sắc (Vượt trội về kiến trúc, tư duy và số liệu)\n\n" +
+                    "- 70 - 84: Đạt Yêu Cầu (Đáp ứng tốt năng lực chuyên môn và diễn đạt)\n" +
+                    "- 85 - 100: Xuất Sắc (Vượt trội về kiến thức, tư duy và số liệu)\n\n" +
                     "6. overallFeedback: Nhận xét tổng quan thẳng thắn (3-4 câu tiếng Việt): chỉ rõ ứng viên thiếu gì, sai gì, yếu ở đâu.\n" +
-                    "7. deliveryFeedback: Nhận xét chuyên sâu về phong thái giao tiếp, biểu cảm khuôn mặt và tông giọng dựa trên Telemetry.\n" +
+                    "7. deliveryFeedback: Nhận xét về kỹ năng diễn đạt và sự mạch lạc qua giọng nói.\n" +
                     "8. weaknessSummary: Bới móc điểm yếu chí mạng nhất của ứng viên (1-2 câu tiếng Việt gãy gọn, không nể nang).\n" +
-                    "9. recommendedTasks: 2-3 nhiệm vụ rèn luyện bù đắp lỗ hổng kỹ thuật (mảng chuỗi tiếng Việt).\n\n" +
+                    "9. recommendedTasks: 2-3 nhiệm vụ rèn luyện bù đắp lỗ hổng (mảng chuỗi tiếng Việt).\n\n" +
                     "Return ONLY a valid JSON object:\n" +
                     "{\n" +
                     "  \"domainKnowledgeScore\": 20.0,\n" +
                     "  \"problemSolvingScore\": 15.0,\n" +
                     "  \"starStructureScore\": 10.0,\n" +
-                    "  \"deliveryToneScore\": 40.0,\n" +
-                    "  \"communicationScore\": 40.0,\n" +
-                    "  \"overallCalibratedScore\": 21.0,\n" +
+                    "  \"communicationScore\": 20.0,\n" +
+                    "  \"deliveryToneScore\": 20.0,\n" +
+                    "  \"overallCalibratedScore\": 17.0,\n" +
                     "  \"overallFeedback\": \"...\",\n" +
                     "  \"deliveryFeedback\": \"...\",\n" +
                     "  \"weaknessSummary\": \"...\",\n" +
@@ -2125,141 +2135,112 @@ public class GeminiAiServiceImpl implements GeminiAiService {
                     .build();
         }
 
+        int totalWords = 0;
+        int meaningfulCount = 0;
         float totalScore = 0f;
         for (InterviewDetail d : details) {
+            String ans = d.getCandidateAnswerText() != null ? d.getCandidateAnswerText().trim() : "";
+            int w = ans.isBlank() ? 0 : ans.split("\\s+").length;
+            totalWords += w;
+            if (w >= 5) meaningfulCount++;
             totalScore += (d.getAiEvaluationScore() != null ? d.getAiEvaluationScore() : 20f);
         }
         float avgQuestionScore = details.isEmpty() ? 0f : (totalScore / details.size());
+        boolean isTooShort = totalWords < 30 || meaningfulCount < 2;
 
         // 1. Trụ cột Chuyên môn (Domain Knowledge - 35%):
-        float domainScore = Math.max(10f, Math.min(98f, Math.round(avgQuestionScore * 10f) / 10f));
+        float domainScore = isTooShort
+                ? Math.min(25f, Math.max(10f, Math.round(avgQuestionScore * 0.4f * 10f) / 10f))
+                : Math.max(10f, Math.min(98f, Math.round(avgQuestionScore * 10f) / 10f));
 
         // 2. Trụ cột Giải quyết Vấn đề (Problem Solving - 25%):
-        float problemScore = Math.max(8f, Math.min(98f, Math.round(avgQuestionScore * 0.90f * 10f) / 10f));
+        float problemScore = isTooShort
+                ? Math.min(20f, Math.max(8f, Math.round(avgQuestionScore * 0.35f * 10f) / 10f))
+                : Math.max(8f, Math.min(98f, Math.round(avgQuestionScore * 0.90f * 10f) / 10f));
 
         // 3. Trụ cột Cấu trúc STAR (STAR Structure - 20%):
-        float starScore = Math.max(6f, Math.min(95f, Math.round(avgQuestionScore * 0.80f * 10f) / 10f));
+        float starScore = isTooShort
+                ? Math.min(15f, Math.max(6f, Math.round(avgQuestionScore * 0.30f * 10f) / 10f))
+                : Math.max(6f, Math.min(95f, Math.round(avgQuestionScore * 0.80f * 10f) / 10f));
 
-        // 4. Trụ cột Tác phong, Khuôn mặt, Tông giọng (Delivery & Telemetry - 20%):
-        boolean cameraUsed = telemetry != null && Boolean.TRUE.equals(telemetry.get("isCameraUsed"));
-        float deliveryScore = cameraUsed ? 60.0f : 40.0f;
+        // 4. Trụ cột Kỹ Năng Diễn Đạt & Sự Mạch Lạc (Verbal Communication - 20%):
+        float commScore;
         StringBuilder deliveryNote = new StringBuilder();
 
-        if (telemetry != null && !telemetry.isEmpty()) {
-            float eyeScore = 60f;
-            float postureScore = 60f;
-            float emotionScore = 60f;
-
-            if (cameraUsed) {
-                if (telemetry.containsKey("avgEyeContact")) {
+        if (isTooShort) {
+            commScore = Math.max(10.0f, Math.min(25.0f, Math.round((totalWords * 0.5f + avgQuestionScore * 0.2f) * 10f) / 10f));
+            deliveryNote.append("Chưa đủ dữ liệu đàm thoại: Tổng số từ ứng viên nói dưới 30 từ, câu trả lời còn quá ngắn hoặc bỏ dở giữa chừng.");
+        } else {
+            float speechScore = 75f;
+            if (telemetry != null && !telemetry.isEmpty()) {
+                if (totalWords >= 20 && telemetry.containsKey("avgWpm")) {
                     try {
-                        float eye = Float.parseFloat(telemetry.get("avgEyeContact").toString());
-                        if (eye >= 85f) {
-                            eyeScore = 94f;
-                            deliveryNote.append("Giao tiếp bằng mắt qua camera tốt (").append(Math.round(eye)).append("%). ");
-                        } else if (eye >= 70f) {
-                            eyeScore = 80f;
-                            deliveryNote.append("Giao tiếp bằng mắt ở mức khá (").append(Math.round(eye)).append("%). ");
-                        } else {
-                            eyeScore = 50f;
-                            deliveryNote.append("Cần nhìn thẳng vào camera nhiều hơn (đạt ").append(Math.round(eye)).append("%), tránh đảo mắt. ");
+                        float wpm = Float.parseFloat(telemetry.get("avgWpm").toString());
+                        if (wpm >= 100f && wpm <= 150f) {
+                            speechScore += 5f;
+                            deliveryNote.append("Tốc độ nói đạt chuẩn tự nhiên (").append(Math.round(wpm)).append(" WPM). ");
+                        } else if (wpm > 150f) {
+                            speechScore -= 8f;
+                            deliveryNote.append("Tốc độ nói hơi nhanh (").append(Math.round(wpm)).append(" WPM), cần nhấn nhá rõ ý hơn. ");
+                        } else if (wpm < 100f && wpm > 0f) {
+                            speechScore -= 10f;
+                            deliveryNote.append("Tốc độ nói hơi chậm hoặc ngắt quãng (").append(Math.round(wpm)).append(" WPM). ");
                         }
                     } catch (Exception ignored) {}
                 }
 
-                if (telemetry.containsKey("postureStatus")) {
-                    String posture = telemetry.get("postureStatus").toString();
-                    if (posture.contains("Cân đối") || posture.contains("Chuẩn")) {
-                        postureScore = 90f;
-                        deliveryNote.append("Tư thế ngồi thẳng thắn, cân đối chuẩn mực. ");
-                    } else if (posture.contains("nghiêng") || posture.contains("lệch") || posture.contains("cúi")) {
-                        postureScore = 60f;
-                        deliveryNote.append("Lưu ý tư thế: còn ").append(posture).append(", nên giữ lưng thẳng và camera ngang tầm mắt. ");
-                    }
-                }
-
-                if (telemetry.containsKey("dominantEmotion")) {
-                    String emo = telemetry.get("dominantEmotion").toString();
-                    if (emo.contains("Mỉm cười") || emo.contains("Tự tin") || emo.contains("Thân thiện")) {
-                        emotionScore = 90f;
-                        deliveryNote.append("Nét mặt tươi tắn, cởi mở và tạo thiện cảm tốt cho người phỏng vấn. ");
-                    } else if (emo.contains("Tập trung")) {
-                        emotionScore = 82f;
-                        deliveryNote.append("Thái độ nghiêm túc, tập trung khi trả lời. ");
-                    } else if (emo.contains("Căng thẳng") || emo.contains("hồi hộp")) {
-                        emotionScore = 55f;
-                        deliveryNote.append("Còn biểu lộ căng thẳng trên cơ mặt, hãy thả lỏng và hít thở sâu trước khi trả lời. ");
-                    }
+                if (telemetry.containsKey("totalFillers")) {
+                    try {
+                        int fillers = Integer.parseInt(telemetry.get("totalFillers").toString());
+                        if (fillers > 0) {
+                            speechScore = Math.max(35f, speechScore - (fillers * 3.0f));
+                            deliveryNote.append("Phát hiện ").append(fillers).append(" lần dùng từ đệm ngập ngừng (ờ, à, kiểu như, thì là). ");
+                        } else {
+                            speechScore += 3f;
+                            deliveryNote.append("Kiểm soát từ đệm tốt, diễn đạt gãy gọn. ");
+                        }
+                    } catch (Exception ignored) {}
                 }
             } else {
-                deliveryNote.append("Camera đã tắt trong suốt buổi phỏng vấn. Hệ thống chỉ ghi nhận dữ liệu âm thanh qua micro, không có dữ liệu giao tiếp mắt và dáng ngồi. ");
+                deliveryNote.append("Chưa có đầy đủ dữ liệu telemetry giọng nói.");
             }
-
-            float speechScore = 75f;
-            if (telemetry.containsKey("avgWpm")) {
-                try {
-                    float wpm = Float.parseFloat(telemetry.get("avgWpm").toString());
-                    if (wpm >= 110f && wpm <= 155f) {
-                        speechScore += 5f;
-                    } else if (wpm > 165f) {
-                        speechScore -= 8f;
-                        deliveryNote.append("Nhịp nói hơi nhanh (").append(Math.round(wpm)).append(" WPM), nên nói chậm lại để ngắt nghỉ rõ ý. ");
-                    } else if (wpm < 80f && wpm > 0f) {
-                        speechScore -= 10f;
-                        deliveryNote.append("Nhịp nói hơi chậm (").append(Math.round(wpm)).append(" WPM), cần phản xạ nhanh hơn. ");
-                    }
-                } catch (Exception ignored) {}
-            }
-
-            if (telemetry.containsKey("totalFillers")) {
-                try {
-                    int fillers = Integer.parseInt(telemetry.get("totalFillers").toString());
-                    if (fillers > 0) {
-                        speechScore = Math.max(40f, speechScore - (fillers * 3.0f));
-                        deliveryNote.append("Phát hiện ").append(fillers).append(" lần dùng từ đệm ngập ngừng (ờ, à, kiểu như). ");
-                    } else {
-                        speechScore += 3f;
-                        deliveryNote.append("Khả năng kiểm soát từ đệm tốt, không bị ậm ừ ngập ngừng. ");
-                    }
-                } catch (Exception ignored) {}
-            }
-
-            if (cameraUsed) {
-                deliveryScore = Math.max(30f, Math.min(98f,
-                        Math.round((eyeScore * 0.35f + postureScore * 0.25f + emotionScore * 0.20f + speechScore * 0.20f) * 10f) / 10f));
-            } else {
-                deliveryScore = Math.max(25f, Math.min(65f, Math.round(speechScore * 10f) / 10f));
-            }
-        } else {
-            deliveryNote.append("Hệ thống chưa ghi nhận đầy đủ telemetry phong thái.");
+            commScore = Math.max(30f, Math.min(95f, Math.round(speechScore * 10f) / 10f));
         }
 
-        float calibrated = Math.round((domainScore * 0.35f + problemScore * 0.25f + starScore * 0.20f + deliveryScore * 0.20f) * 10f) / 10f;
+        float calibrated = Math.round((domainScore * 0.35f + problemScore * 0.25f + starScore * 0.20f + commScore * 0.20f) * 10f) / 10f;
 
-        boolean incompleteOrPoor = details.size() < 2 || avgQuestionScore < 45f;
+        boolean incompleteOrPoor = isTooShort || details.size() < 2 || avgQuestionScore < 45f;
         String gradeDesc = calibrated >= 85f ? "Xuất sắc" : calibrated >= 70f ? "Đạt chuẩn" : calibrated >= 50f ? "Cần rèn luyện thêm" : "Không đạt yêu cầu";
         String overallFb = incompleteOrPoor
-                ? String.format("Phiên phỏng vấn vị trí %s kết thúc sớm (%d câu hỏi) với điểm số %.1f/100 (%s). Câu trả lời còn sơ sài, thiếu dữ liệu đàm thoại chuyên môn và dẫn chứng kỹ thuật thực tế.", pos, details.size(), calibrated, gradeDesc)
-                : String.format("Ứng viên hoàn thành phiên phỏng vấn vị trí %s (%d câu hỏi) đạt kết quả %s (%.1f/100). Kiến thức chuyên môn phản hồi trúng trọng tâm, giải quyết bài toán mạch lạc. Tác phong phỏng vấn và khả năng kiểm soát cảm xúc thể hiện sự chuẩn bị nghiêm túc.", pos, details.size(), gradeDesc, calibrated);
+                ? String.format("Phiên phỏng vấn vị trí %s kết thúc sớm (%d câu hỏi, %d từ) với điểm số %.1f/100 (%s). Câu trả lời còn quá ngắn hoặc sơ sài, thiếu dữ liệu đàm thoại chuyên môn và dẫn chứng thực tế để đánh giá năng lực.", pos, details.size(), totalWords, calibrated, gradeDesc)
+                : String.format("Ứng viên hoàn thành phiên phỏng vấn vị trí %s (%d câu hỏi) đạt kết quả %s (%.1f/100). Kiến thức chuyên môn phản hồi trúng trọng tâm, giải quyết bài toán mạch lạc và có tinh thần cầu thị.", pos, details.size(), gradeDesc, calibrated);
 
-        String weaknessSummary = starScore < 75f
+        String weaknessSummary = isTooShort
+                ? "Chưa ghi nhận được ưu điểm chuyên môn rõ nét do phiên phỏng vấn kết thúc quá sớm hoặc câu trả lời quá ngắn."
+                : (starScore < 75f
                 ? "Điểm cần khắc phục cốt lõi: Các câu trả lời còn thiếu số liệu định lượng (Metrics & KPIs) chứng minh kết quả giải pháp theo mô hình STAR."
-                : (deliveryScore < 75f
-                ? "Điểm cần khắc phục cốt lõi: Cần cải thiện tác phong nhìn thẳng camera, tư thế ngồi thẳng và hạn chế dùng từ đệm khi chuyển ý."
-                : "Điểm cần cải thiện: Nâng cao chiều sâu phân tích các phương án trade-offs và kiến trúc chịu tải lớn trong các bài toán quy mô cao.");
+                : (commScore < 75f
+                ? "Điểm cần khắc phục cốt lõi: Cần nâng cao tính mạch lạc khi trình bày và hạn chế từ đệm (à, ừm, thì là)."
+                : "Điểm cần cải thiện: Nâng cao chiều sâu phân tích các phương án xử lý sự cố và tình huống thực tế chuyên sâu."));
 
-        List<String> tasks = List.of(
-                "Rèn luyện kỹ thuật trả lời theo phương pháp STAR (Situation, Task, Action, Result) có số liệu định lượng",
-                "Luyện tập trước gương hoặc camera: giữ ánh mắt nhìn thẳng vào ống kính và hít thở sâu để kiểm soát từ đệm (ờ, à)",
-                "Đọc lại các gợi ý câu trả lời mẫu chuẩn điểm 10 trong từng câu hỏi của phiên phỏng vấn này"
-        );
+        List<String> tasks = isTooShort
+                ? List.of(
+                        "Luyện tập nói câu trả lời đầy đủ độ dài (tối thiểu 60 - 120 từ) cho mỗi câu hỏi",
+                        "Áp dụng cấu trúc STAR (Bối cảnh, Nhiệm vụ, Hành động, Kết quả) để giải thích giải pháp",
+                        "Đọc lại các gợi ý câu trả lời mẫu chuẩn điểm 10 trong từng câu hỏi của phiên phỏng vấn này"
+                )
+                : List.of(
+                        "Rèn luyện kỹ thuật trả lời theo phương pháp STAR có số liệu định lượng (%, thời gian, số lượng)",
+                        "Luyện tập diễn đạt mạch lạc, hít thở sâu để kiểm soát từ đệm (ờ, à, thì là)",
+                        "Đọc lại các gợi ý câu trả lời mẫu chuẩn điểm 10 trong từng câu hỏi của phiên phỏng vấn này"
+                );
 
         return AiSessionSummary.builder()
                 .domainKnowledgeScore(domainScore)
                 .problemSolvingScore(problemScore)
                 .starStructureScore(starScore)
-                .communicationScore(deliveryScore)
-                .deliveryToneScore(deliveryScore)
+                .communicationScore(commScore)
+                .deliveryToneScore(commScore)
                 .overallCalibratedScore(calibrated)
                 .overallFeedback(overallFb)
                 .deliveryFeedback(deliveryNote.toString().trim())

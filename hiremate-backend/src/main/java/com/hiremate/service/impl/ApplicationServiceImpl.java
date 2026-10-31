@@ -6,6 +6,7 @@ import com.hiremate.dto.response.AiJobMatchResponse;
 import com.hiremate.dto.response.ApplicationResponse;
 import com.hiremate.entity.*;
 import com.hiremate.enums.ApplicationStatus;
+import com.hiremate.exception.BadRequestException;
 import com.hiremate.repository.*;
 import com.hiremate.service.ApplicationService;
 import lombok.RequiredArgsConstructor;
@@ -44,6 +45,18 @@ public class ApplicationServiceImpl implements ApplicationService {
         Job job = jobRepository.findById(request.getJobId())
                 .orElseThrow(() -> new IllegalArgumentException("Job not found: " + request.getJobId()));
 
+        // 1. Kiểm tra điều kiện hợp lệ của tin tuyển dụng: Tin phải đang PUBLISHED và đã được APPROVED
+        boolean isPublished = job.getStatus() == com.hiremate.enums.JobStatus.PUBLISHED;
+        boolean isApproved = job.getApprovalStatus() == null || job.getApprovalStatus() == com.hiremate.enums.JobApprovalStatus.APPROVED;
+        if (!isPublished || !isApproved) {
+            throw new BadRequestException("Tin tuyển dụng này hiện không còn nhận hồ sơ.");
+        }
+
+        // Kiểm tra hạn chót nộp hồ sơ
+        if (job.getDeadlineDate() != null && job.getDeadlineDate().isBefore(java.time.LocalDate.now())) {
+            throw new BadRequestException("Tin tuyển dụng này đã hết hạn nộp hồ sơ.");
+        }
+
         // Lấy Candidate subclass – candidate_id = user_id (Shared PK)
         Candidate candidate = candidateRepository.findById(user.getUserId())
                 .orElseThrow(() -> new IllegalStateException(
@@ -56,12 +69,16 @@ public class ApplicationServiceImpl implements ApplicationService {
             throw new IllegalStateException("You have already submitted an application for this position.");
         }
 
-        // Tìm CV mặc định nếu không chỉ định cụ thể
+        // 2. Tìm CV: bắt buộc phải có CV hợp lệ để ứng tuyển
         Cv cv = null;
         if (request.getCvId() != null) {
             cv = cvRepository.findById(request.getCvId()).orElse(null);
         } else {
             cv = cvRepository.findByCandidateIdAndIsDefaultTrue(candidate.getCandidateId()).orElse(null);
+        }
+
+        if (cv == null) {
+            throw new BadRequestException("Vui lòng tải lên hoặc chọn một CV trước khi ứng tuyển!");
         }
 
         Application application = Application.builder()
@@ -308,13 +325,14 @@ public class ApplicationServiceImpl implements ApplicationService {
             Long candidateId = application.getCandidate().getCandidateId();
             String companyName = job.getCompany() != null ? job.getCompany().getCompanyName() : "Nhà tuyển dụng";
 
-            // 1. Gửi thông báo chuông trên ứng dụng
+            // 1. Gửi thông báo chuông trên ứng dụng với trạng thái tiếng Việt chuẩn
+            String statusVi = formatApplicationStatusVi(request.getStatus());
             notificationService.createNotification(
                     candidateId,
                     com.hiremate.enums.NotificationType.APPLICATION_STATUS,
                     "Cập nhật tiến độ ứng tuyển",
-                    String.format("Công ty %s đã cập nhật hồ sơ ứng tuyển vị trí %s của bạn sang vòng: %s",
-                            companyName, job.getTitle(), request.getStatus().name()),
+                    String.format("Công ty %s đã cập nhật hồ sơ ứng tuyển vị trí %s của bạn sang trạng thái: \"%s\"",
+                            companyName, job.getTitle(), statusVi),
                     updated.getApplicationId(),
                     "applications"
             );
@@ -556,5 +574,27 @@ public class ApplicationServiceImpl implements ApplicationService {
         }
 
         return csv.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    private String formatApplicationStatusVi(ApplicationStatus status) {
+        if (status == null) return "Cập nhật hồ sơ";
+        switch (status) {
+            case APPLIED:
+                return "Đã nộp hồ sơ";
+            case SCREENING:
+                return "Nhà tuyển dụng đã xem hồ sơ";
+            case SHORTLISTED:
+                return "Vào danh sách rút gọn";
+            case INTERVIEWING:
+                return "Mời phỏng vấn";
+            case OFFERED:
+                return "Đề nghị nhận việc (Offer)";
+            case HIRED:
+                return "Trúng tuyển";
+            case REJECTED:
+                return "Chưa phù hợp (Từ chối)";
+            default:
+                return status.name();
+        }
     }
 }

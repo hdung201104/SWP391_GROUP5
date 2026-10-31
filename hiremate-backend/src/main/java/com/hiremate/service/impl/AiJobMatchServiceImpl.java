@@ -1039,47 +1039,6 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
                         log.warn(">> [AiJobMatchService] Lỗi giải mã detailedReport từ cache: {}", ex.getMessage());
                     }
                 }
-
-                // NẾU BẢN GHI ĐÃ CÓ ĐIỂM NHƯNG CHƯA ĐÓNG GÓI detailedReport:
-                // Sinh báo cáo tức thì từ dữ liệu đã có sẵn trong bản ghi mà KHÔNG quét lại DB hay gọi AI
-                if (m.getMatchingScore() != null) {
-                    AiJobMatchResponse matchRes = mapToResponse(m);
-                    Cv cv = m.getCv();
-                    com.hiremate.dto.response.AiDetailedEvaluationReport fastReport = buildDefaultEvaluationReport(
-                            job, candidate, cv,
-                            matchRes.getMatchedMandatorySkills() != null ? matchRes.getMatchedMandatorySkills() : Collections.emptyList(),
-                            matchRes.getMissingMandatorySkills() != null ? matchRes.getMissingMandatorySkills() : Collections.emptyList(),
-                            matchRes.getMatchedPreferredSkills() != null ? matchRes.getMatchedPreferredSkills() : Collections.emptyList(),
-                            matchRes.getMissingPreferredSkills() != null ? matchRes.getMissingPreferredSkills() : Collections.emptyList(),
-                            matchRes.getSkillsScore() != null ? matchRes.getSkillsScore() : 80f,
-                            matchRes.getExperienceScore() != null ? matchRes.getExperienceScore() : 80f,
-                            matchRes.getEducationScore() != null ? matchRes.getEducationScore() : 90f,
-                            matchRes.getSemanticScore() != null ? matchRes.getSemanticScore() : 80f,
-                            m.getMatchingScore(),
-                            m.getAiReasoning() != null ? m.getAiReasoning() : ""
-                    );
-                    enrichAndSynchronizeReportDisadvantages(fastReport, job, candidate, cv, matchRes);
-                    fastReport.setCandidateId(candidateId);
-                    fastReport.setCandidateEmail(candidate.getUser() != null ? candidate.getUser().getEmail() : "");
-                    fastReport.setJobId(jobId);
-                    fastReport.setJobTitle(job.getTitle());
-
-                    // Cập nhật lại vào cache DB để các lần truy cập tiếp theo đạt 0ms
-                    try {
-                        Map<String, Object> gapMap;
-                        try {
-                            gapMap = objectMapper.readValue(m.getSkillGapJson(), new TypeReference<>() {});
-                        } catch (Exception e) {
-                            gapMap = new HashMap<>();
-                        }
-                        gapMap.put("detailedReport", fastReport);
-                        m.setSkillGapJson(objectMapper.writeValueAsString(gapMap));
-                        aiJobMatchRepository.save(m);
-                    } catch (Exception ignored) {}
-
-                    log.info(">> [AiJobMatchService] Trả về báo cáo AI nhanh từ bản ghi có sẵn cho candidateId={} jobId={}", candidateId, jobId);
-                    return fastReport;
-                }
             }
         }
 

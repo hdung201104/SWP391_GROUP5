@@ -3,6 +3,7 @@ package com.hiremate.service.impl;
 import com.hiremate.dto.response.*;
 import com.hiremate.entity.*;
 import com.hiremate.enums.*;
+import com.hiremate.exception.BadRequestException;
 import com.hiremate.exception.ResourceNotFoundException;
 import com.hiremate.repository.*;
 import com.hiremate.service.AdminService;
@@ -232,7 +233,7 @@ public class AdminServiceImpl implements AdminService {
                     resp.setId(comp.getCompanyId());
                     resp.setName(comp.getCompanyName());
                     resp.setShortName(comp.getCompanyName());
-                    resp.setTaxCode(comp.getTaxCode() != null ? comp.getTaxCode() : "MST-" + comp.getCompanyId());
+                    resp.setTaxCode(comp.getTaxCode()); // null nếu chưa khai báo
                     resp.setRecruiterId(comp.getRecruiterId());
                     resp.setRecruiterName(recruiterName != null ? recruiterName : "Chưa gắn recruiter");
                     resp.setRecruiterEmail(recruiterEmail != null ? recruiterEmail : "-");
@@ -244,8 +245,16 @@ public class AdminServiceImpl implements AdminService {
                     resp.setLogoUrl(comp.getLogoUrl());
                     resp.setStatus(comp.getStatus() != null ? comp.getStatus() : CompanyStatus.PENDING);
                     resp.setCreatedAt(comp.getCreatedAt());
-                    resp.setDocUrl(comp.getLicenseDocUrl());
-                    resp.setDocName(comp.getLicenseDocName() != null ? comp.getLicenseDocName() : "GPKD_Doanh_Nghiep.pdf");
+
+                    // Chỉ trả về docUrl và docName khi Recruiter thực sự đã tải lên file GPKD
+                    if (comp.getLicenseDocUrl() != null && !comp.getLicenseDocUrl().isBlank()) {
+                        resp.setDocUrl(comp.getLicenseDocUrl());
+                        resp.setDocName(comp.getLicenseDocName() != null ? comp.getLicenseDocName() : "Giay_Phep_Kinh_Doanh.pdf");
+                    } else {
+                        resp.setDocUrl(null);
+                        resp.setDocName(null);
+                    }
+
                     resp.setLicenseNumber(comp.getLicenseNumber());
                     resp.setLegalRepresentative(comp.getLegalRepresentative());
                     resp.setVerifiedAt(comp.getVerifiedAt());
@@ -266,8 +275,13 @@ public class AdminServiceImpl implements AdminService {
     public AdminCompanyResponse updateCompanyStatus(Long companyId, CompanyStatus status, String notes) {
         Company company = companyRepository.findById(companyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy công ty với ID: " + companyId));
-        company.setStatus(status);
+
         if (status == CompanyStatus.VERIFIED || status == CompanyStatus.ACTIVE) {
+            // Chặn phê duyệt nếu công ty chưa nộp file GPKD
+            if (company.getLicenseDocUrl() == null || company.getLicenseDocUrl().isBlank()) {
+                throw new BadRequestException("Nhà tuyển dụng này chưa tải lên Giấy phép kinh doanh (GPKD), không thể phê duyệt!");
+            }
+            company.setStatus(status);
             company.setVerifiedAt(LocalDateTime.now());
             company.setRejectionReason(null);
             if (company.getRecruiterId() != null && notificationService != null) {
@@ -285,6 +299,7 @@ public class AdminServiceImpl implements AdminService {
                 }
             }
         } else if (status == CompanyStatus.REJECTED || status == CompanyStatus.BANNED) {
+            company.setStatus(status);
             company.setVerifiedAt(null);
             if (notes != null && !notes.isBlank()) {
                 company.setRejectionReason(notes);

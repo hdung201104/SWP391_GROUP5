@@ -194,6 +194,13 @@ public class AiInterviewServiceImpl implements AiInterviewService {
             return CACHED_FREE_PLAN;
         }
 
+        if (CACHED_FREE_PLAN != null) {
+            if (candidate != null) {
+                USER_PLAN_CACHE.put(candidate.getUserId(), new CachedPlanEntry(CACHED_FREE_PLAN));
+            }
+            return CACHED_FREE_PLAN;
+        }
+
         // Truy vấn gói mặc định Free Candidate từ bảng `subscription_plans` trên Supabase
         if (subscriptionPlanRepository != null) {
             Optional<com.hiremate.entity.SubscriptionPlan> freePlanOpt =
@@ -810,14 +817,31 @@ public class AiInterviewServiceImpl implements AiInterviewService {
             }
         }
 
+        int totalWordsInSession = 0;
+        int meaningfulAnsCount = 0;
+        for (InterviewDetail d : details) {
+            String ans = d.getCandidateAnswerText() != null ? d.getCandidateAnswerText().trim() : "";
+            int w = ans.isBlank() ? 0 : ans.split("\\s+").length;
+            totalWordsInSession += w;
+            if (w >= 5) meaningfulAnsCount++;
+        }
+        boolean sessionTooShort = !details.isEmpty() && (totalWordsInSession < 30 || meaningfulAnsCount < 2);
+
         // Nếu summary chưa có (khi xem lại lịch sử), suy ra các điểm thành phần từ overallScore
-        if (domainScore == null && overall != null && overall > 0) {
+        if (sessionTooShort) {
+            if (overall != null && overall > 35f) overall = 22.0f;
+            if (domainScore == null || domainScore > 30f) domainScore = 20.0f;
+            if (problemScore == null || problemScore > 25f) problemScore = 18.0f;
+            if (starScore == null || starScore > 20f) starScore = 12.0f;
+            if (commScore == null || commScore > 25f) commScore = 18.0f;
+            deliveryScore = commScore;
+        } else if (domainScore == null && overall != null && overall > 0) {
             float base = overall;
             domainScore = Math.min(100f, Math.max(0f, base));
-            problemScore = Math.min(100f, Math.max(0f, base));
-            starScore = Math.min(100f, Math.max(0f, base));
-            commScore = Math.min(100f, Math.max(0f, base));
-            deliveryScore = Math.min(100f, Math.max(0f, base));
+            problemScore = Math.min(100f, Math.max(0f, Math.round(base * 0.95f)));
+            starScore = Math.min(100f, Math.max(0f, Math.round(base * 0.85f)));
+            commScore = Math.min(100f, Math.max(0f, Math.round(base * 0.90f)));
+            deliveryScore = commScore;
         }
 
         // Lấy thông số gói dịch vụ Supabase của ứng viên
