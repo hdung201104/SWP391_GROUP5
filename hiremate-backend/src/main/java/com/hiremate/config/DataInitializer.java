@@ -30,8 +30,85 @@ public class DataInitializer implements CommandLineRunner {
     @Override
     public void run(String... args) {
         initAdminUser();
+        initDefaultSubscriptionPlans();
         initPendingJobsForModeration();
         initPaymentOrders();
+    }
+
+    private void initDefaultSubscriptionPlans() {
+        try {
+            if (subscriptionPlanRepository.count() == 0) {
+                List<com.hiremate.entity.SubscriptionPlan> defaultPlans = List.of(
+                        // 1. Candidate Plans
+                        com.hiremate.entity.SubscriptionPlan.builder()
+                                .planName("Ứng viên Miễn phí (Candidate Free)")
+                                .targetRole("CANDIDATE")
+                                .planType("INTERVIEW_PRACTICE")
+                                .price(java.math.BigDecimal.ZERO)
+                                .durationDays(365)
+                                .quotaLimit(2)
+                                .description("Gói trải nghiệm phỏng vấn AI cơ bản [PERMS:{\"interviewLimit\":2,\"atsScanLimit\":3,\"canViewFullFeedback\":false,\"supportLevel\":\"Cơ bản\"}]")
+                                .isActive(true)
+                                .build(),
+                        com.hiremate.entity.SubscriptionPlan.builder()
+                                .planName("Ứng viên Chuyên nghiệp (Candidate Pro)")
+                                .targetRole("CANDIDATE")
+                                .planType("INTERVIEW_PRACTICE")
+                                .price(new java.math.BigDecimal("99000"))
+                                .durationDays(30)
+                                .quotaLimit(20)
+                                .description("Luyện phỏng vấn AI không giới hạn chủ đề, chấm điểm chi tiết [PERMS:{\"interviewLimit\":20,\"atsScanLimit\":30,\"canViewFullFeedback\":true,\"supportLevel\":\"Ưu tiên\"}]")
+                                .isActive(true)
+                                .build(),
+                        com.hiremate.entity.SubscriptionPlan.builder()
+                                .planName("Đột phá Sự nghiệp (Candidate Premium)")
+                                .targetRole("CANDIDATE")
+                                .planType("COMBO")
+                                .price(new java.math.BigDecimal("199000"))
+                                .durationDays(90)
+                                .quotaLimit(100)
+                                .description("Gói tối ưu sự nghiệp toàn diện, phỏng vấn AI chuyên sâu không giới hạn [PERMS:{\"interviewLimit\":100,\"atsScanLimit\":100,\"canViewFullFeedback\":true,\"supportLevel\":\"VIP 24/7\"}]")
+                                .isActive(true)
+                                .build(),
+
+                        // 2. Recruiter Plans
+                        com.hiremate.entity.SubscriptionPlan.builder()
+                                .planName("Nhà tuyển dụng Khởi đầu (Recruiter Starter)")
+                                .targetRole("RECRUITER")
+                                .planType("JOB_POSTING")
+                                .price(java.math.BigDecimal.ZERO)
+                                .durationDays(30)
+                                .quotaLimit(3)
+                                .description("Dành cho doanh nghiệp trải nghiệm đăng tin tuyển dụng miễn phí [PERMS:{\"jobLimit\":3,\"cvViewLimit\":15,\"aiFilter\":false,\"badge\":\"Tiêu chuẩn\"}]")
+                                .isActive(true)
+                                .build(),
+                        com.hiremate.entity.SubscriptionPlan.builder()
+                                .planName("Doanh nghiệp Tăng trưởng (Recruiter Business)")
+                                .targetRole("RECRUITER")
+                                .planType("JOB_POSTING")
+                                .price(new java.math.BigDecimal("499000"))
+                                .durationDays(30)
+                                .quotaLimit(15)
+                                .description("Đăng 15 tin tuyển dụng chất lượng cao, AI gợi ý ứng viên tự động [PERMS:{\"jobLimit\":15,\"cvViewLimit\":100,\"aiFilter\":true,\"badge\":\"Doanh nghiệp xác thực\"}]")
+                                .isActive(true)
+                                .build(),
+                        com.hiremate.entity.SubscriptionPlan.builder()
+                                .planName("Tập đoàn Cao cấp (Recruiter Enterprise)")
+                                .targetRole("RECRUITER")
+                                .planType("COMBO")
+                                .price(new java.math.BigDecimal("1499000"))
+                                .durationDays(90)
+                                .quotaLimit(50)
+                                .description("Tuyển dụng không giới hạn, Top tin tuyển dụng nổi bật và AI Matching nâng cao [PERMS:{\"jobLimit\":50,\"cvViewLimit\":500,\"aiFilter\":true,\"badge\":\"Doanh nghiệp VIP\"}]")
+                                .isActive(true)
+                                .build()
+                );
+                subscriptionPlanRepository.saveAll(defaultPlans);
+                log.info(">> [DataInitializer] Đã khởi tạo thành công 6 gói dịch vụ phân hạng chuẩn cho Ứng viên & Nhà tuyển dụng.");
+            }
+        } catch (Exception e) {
+            log.warn(">> [DataInitializer] Lỗi khởi tạo gói dịch vụ mặc định: {}", e.getMessage());
+        }
     }
 
     private void initAdminUser() {

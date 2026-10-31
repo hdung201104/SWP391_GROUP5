@@ -157,16 +157,6 @@ public class JobServiceImpl implements JobService {
                 }
             }
         }
-        if (prefIds.isEmpty() && request.getBenefits() != null) {
-            for (String skName : parseCleanList(request.getBenefits())) {
-                if (skName.length() < 35 && !skName.contains(".")) {
-                    Long id = resolveOrCreateSkillId(skName);
-                    if (id != null && !mandIds.contains(id) && !prefIds.contains(id)) {
-                        prefIds.add(id);
-                    }
-                }
-            }
-        }
 
         for (Long skillId : prefIds) {
             jobSkillRepository.save(JobSkill.builder()
@@ -378,25 +368,42 @@ public class JobServiceImpl implements JobService {
             job.setDeadlineDate(request.getDeadlineDate());
         }
 
+        // Nếu tin tuyển dụng từng bị REJECTED, khi NTD chỉnh sửa và lưu lại thì tự động chuyển về PENDING để Admin duyệt lại
+        if (job.getApprovalStatus() == com.hiremate.enums.JobApprovalStatus.REJECTED) {
+            job.setApprovalStatus(com.hiremate.enums.JobApprovalStatus.PENDING);
+            if (job.getStatus() == JobStatus.CLOSED) {
+                job.setStatus(JobStatus.DRAFT);
+            }
+        }
+
         Job updatedJob = jobRepository.save(job);
 
-        // Update skills if provided
+        // Cập nhật lại kỹ năng và xóa cache AI matching cũ để AI tính lại chuẩn xác
         if (request.getMandatorySkillIds() != null || request.getPreferredSkillIds() != null
                 || request.getMandatorySkills() != null || request.getPreferredSkills() != null) {
             jobSkillRepository.deleteByJobId(jobId);
             saveJobSkills(jobId, request);
+            if (aiJobMatchRepository != null) {
+                try {
+                    aiJobMatchRepository.deleteByJob_JobId(jobId);
+                    log.info(">> [JobService] Cleared old AI matches cache for updated job ID: {}", jobId);
+                } catch (Exception e) {
+                    log.warn(">> [JobService] Could not clear AI match cache for job ID {}: {}", jobId, e.getMessage());
+                }
+            }
         }
 
         return mapToResponse(updatedJob);
     }
 
     @Override
+    @Transactional
     public JobResponse getJobById(Long jobId) {
         Job job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new IllegalArgumentException("Job not found: " + jobId));
 
-        // Increment total views
-        job.setTotalViews(job.getTotalViews() + 1);
+        // Increment total views và lưu DB
+        job.setTotalViews((job.getTotalViews() != null ? job.getTotalViews() : 0) + 1);
         jobRepository.save(job);
 
         return mapToResponse(job);

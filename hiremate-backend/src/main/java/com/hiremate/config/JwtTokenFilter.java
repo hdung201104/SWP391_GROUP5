@@ -24,7 +24,7 @@ import java.util.Optional;
 public class JwtTokenFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
-    private final UserRepository userRepository;
+    private final com.hiremate.service.UserCacheService userCacheService;
     private final com.hiremate.service.TokenBlacklistService tokenBlacklistService;
 
     @Override
@@ -50,13 +50,9 @@ public class JwtTokenFilter extends OncePerRequestFilter {
             return;
         }
 
-        // Hỗ trợ demo-admin-token khi truy cập từ UI
+        // Hỗ trợ demo-admin-token khi truy cập từ UI (sử dụng in-memory admin cache)
         if ("demo-admin-token".equals(token)) {
-            User adminUser = userRepository.findByEmail("admin@hiremate.ai")
-                    .orElseGet(() -> userRepository.findAll().stream()
-                            .filter(u -> u.getRole() == com.hiremate.enums.UserRole.ADMIN)
-                            .findFirst()
-                            .orElse(null));
+            User adminUser = userCacheService.getDemoAdminUser();
             if (adminUser != null) {
                 SimpleGrantedAuthority authority = new SimpleGrantedAuthority("ROLE_ADMIN");
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
@@ -75,7 +71,8 @@ public class JwtTokenFilter extends OncePerRequestFilter {
             final String userEmail = jwtUtil.extractEmail(token);
 
             if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                Optional<User> userOpt = userRepository.findByEmail(userEmail);
+                // Tối ưu hóa: Truy vấn qua UserCacheService bộ nhớ đệm (0ms latency, không nghẽn connection pool)
+                Optional<User> userOpt = userCacheService.getUserByEmail(userEmail);
 
                 if (userOpt.isPresent() && jwtUtil.isTokenValid(token, userEmail)) {
                     User user = userOpt.get();

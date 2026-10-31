@@ -4,6 +4,298 @@ import interviewApi from '../api/interviewApi';
 const HIREMATE_LOGO_URL = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=120&h=120&q=80';
 
 /**
+ * Danh mục Từ Khóa Chuyên Ngành Đa Lĩnh Vực (Industry Taxonomy Dictionary)
+ * Giúp nhận diện chính xác thuật ngữ của từng vị trí (Marketing, Kế toán, HR, BA, Sales, IT...)
+ * Thay thế triệt để các chuỗi IT hardcode.
+/**
+ * Làm sạch chuỗi Tên vị trí:
+ * Xóa bỏ các nhãn [TECHNICAL], [HR], [CUSTOM], [BEHAVIORAL]...
+ * Xóa tiền tố cấp bậc bị lặp ở đầu (ví dụ: "Middle Senior BrSE" -> "Senior BrSE", "Junior Middle Backend" -> "Middle Backend")
+ */
+export const cleanTopicName = (rawTopic = '') => {
+  if (!rawTopic || typeof rawTopic !== 'string') return 'Chuyên Viên';
+
+  // 1. Xóa bỏ các nhãn trong ngoặc vuông
+  let cleaned = rawTopic.replace(/\[.*?\]/g, '').trim();
+
+  // 2. Chuẩn hóa khoảng trắng thừa
+  cleaned = cleaned.replace(/\s+/g, ' ');
+
+  // 3. Xử lý trường hợp lặp tiền tố cấp bậc ở đầu chuỗi (ví dụ: "Middle Senior...", "Junior Middle...")
+  cleaned = cleaned.replace(/^(intern|fresher|junior|middle)\s+(senior|lead|principal|middle)\b/i, (match, p1, p2) => {
+    return p2.charAt(0).toUpperCase() + p2.slice(1);
+  });
+
+  return cleaned.trim() || 'Chuyên Viên';
+};
+
+/**
+ * Danh mục Từ Khóa Chuyên Ngành Đa Lĩnh Vực (Industry Taxonomy Dictionary)
+ * Giúp nhận diện chính xác thuật ngữ của từng vị trí (BrSE, QA, Backend, Frontend, Marketing, HR, BA, Sales...)
+ */
+export const INDUSTRY_TAXONOMY = {
+  brse: {
+    categoryName: 'Kỹ Sư Cầu Nối (BrSE) & Quản Trị Dự Án IT',
+    keywords: [
+      'Basic Design (Kihon Sekkei)', 'Detail Design (Shosai Sekkei)', 'Q&A Spec',
+      'Hou-Ren-So', 'Quản lý thay đổi (Change Request)', 'Impact Analysis',
+      'UAT', 'Offshore Coordination', 'System Architecture', 'SQL & API Spec'
+    ],
+    metricsTerm: 'Tỷ lệ giao hàng đúng hạn (On-time Delivery %), Tỷ lệ lỗi sau bàn giao (Leakage Bug %), Hiệu suất xử lý Q&A Spec',
+    coreConcepts: 'Phân tích yêu cầu khách hàng Nhật, Thiết kế tài liệu kỹ thuật (Kihon/Shosai Sekkei), Điều phối Offshore & văn hóa Hou-Ren-So',
+    troubleshootConcepts: 'Xử lý lệch hiểu spec giữa khách Nhật và dev, Quản lý rủi ro chậm tiến độ (Schedule Delay), Đàm phán Change Request',
+  },
+  qa: {
+    categoryName: 'Kiểm Thử Phần Mềm (QA/QC)',
+    keywords: [
+      'Test Case', 'Automation Testing', 'Selenium/Playwright', 'API Testing (Postman)',
+      'Regression Testing', 'Bug Life Cycle', 'Performance/Load Testing', 'Jira',
+      'Integration Testing', 'CI/CD Test Pipeline', 'Test Plan', 'Security Testing'
+    ],
+    metricsTerm: 'Độ bao phủ kiểm thử (Test Coverage %), Số lượng bug phát hiện, Thời gian thực thi test suite',
+    coreConcepts: 'Xây dựng kịch bản kiểm thử, Tự động hóa quy trình kiểm tra hồi quy, Quản lý vòng đời lỗi',
+    troubleshootConcepts: 'Cô lập nguyên nhân lỗi chập chờn (Flaky Tests), Tối ưu thời gian chạy bộ test tự động',
+  },
+  frontend: {
+    categoryName: 'Frontend Engineering',
+    keywords: [
+      'React', 'Vue', 'TypeScript', 'State Management (Redux/Zustand)', 'CSS/Tailwind',
+      'Responsive Web', 'DOM Performance', 'REST/GraphQL', 'Next.js', 'Web Vitals',
+      'Component Lifecycle', 'Vite/Webpack', 'Accessibility (a11y)'
+    ],
+    metricsTerm: 'Thời gian tải trang (LCP < 2.5s, FID < 100ms), Tỷ lệ render time, Kích thước bundle KB',
+    coreConcepts: 'Kiến trúc Component tái sử dụng, Quản trị trạng thái tập trung, Tối ưu trải nghiệm UX/UI',
+    troubleshootConcepts: 'Khắc phục hiện tượng re-render thừa, Tối ưu bộ nhớ trên trình duyệt, Xử lý tương thích đa thiết bị',
+  },
+  backend: {
+    categoryName: 'Backend & Kiến Trúc Hệ Thống',
+    keywords: [
+      'Microservices', 'RESTful API', 'Database', 'Transaction ACID', 'Indexing',
+      'Redis Cache', 'Docker', 'CI/CD', 'Kafka/RabbitMQ', 'Query Optimization',
+      'High Availability', 'Spring Boot/Node.js/Go', 'Security (JWT/OAuth2)'
+    ],
+    metricsTerm: 'Độ trễ API (p99 latency < 50ms), Thông lượng (TPS/RPS), Tỷ lệ uptime (99.9%)',
+    coreConcepts: 'Thiết kế kiến trúc phân tán, Quản trị cơ sở dữ liệu & Caching, Bảo mật API & Xác thực',
+    troubleshootConcepts: 'Xử lý tắc nghẽn truy vấn, Khắc phục Deadlock DB, Phân tích đánh đổi giữa tính nhất quán và tính sẵn sàng',
+  },
+  data: {
+    categoryName: 'Data & Trí Tuệ Nhân Tạo (AI/ML)',
+    keywords: [
+      'Python', 'SQL', 'ETL Pipeline', 'Pandas/NumPy', 'Machine Learning',
+      'Data Warehousing', 'BigQuery/Snowflake', 'Model Evaluation', 'Feature Engineering',
+      'Data Cleaning', 'Dashboard (PowerBI/Tableau)', 'Deep Learning'
+    ],
+    metricsTerm: 'Độ chính xác mô hình (Accuracy, F1-score > 0.85), Thời gian xử lý batch pipeline, Độ trễ suy luận',
+    coreConcepts: 'Xây dựng luồng trích xuất dữ liệu, Huấn luyện & tối ưu mô hình máy học, Trực quan hóa dữ liệu',
+    troubleshootConcepts: 'Khắc phục hiện tượng overfitting, Xử lý mất mát dữ liệu hoặc trôi dạt phân phối (Data Drift)',
+  },
+  ba: {
+    categoryName: 'Business Analyst (Phân Tích Nghiệp Vụ)',
+    keywords: [
+      'User Story', 'BRD/SRS', 'Use Case', 'BPMN/Flowchart', 'UML',
+      'Requirement Elicitation', 'Stakeholder Management', 'Acceptance Criteria',
+      'Gap Analysis', 'Agile/Scrum', 'Backlog Refinement', 'Wireframe', 'UAT'
+    ],
+    metricsTerm: 'Độ bao phủ yêu cầu (%), Tỷ lệ thay đổi scope (Scope Creep %), Tỷ lệ chấp thuận UAT',
+    coreConcepts: 'Khai thác & phân tích yêu cầu nghiệp vụ, Viết tài liệu đặc tả, Quản lý kỳ vọng đối tác',
+    troubleshootConcepts: 'Giải quyết mâu thuẫn yêu cầu giữa các bên, Tối ưu luồng quy trình nghiệp vụ phức tạp',
+  },
+  marketing: {
+    categoryName: 'Marketing & Truyền Thông',
+    keywords: [
+      'SEO', 'SEM', 'Content Strategy', 'Conversion Rate (CR)', 'CAC', 'LTV',
+      'ROAS', 'Google Analytics', 'A/B Testing', 'Social Media Ads', 'Lead Generation',
+      'Phễu Chuyển Đổi', 'Target Audience', 'Brand Awareness', 'CTR', 'Inbound Marketing'
+    ],
+    metricsTerm: 'Conversion Rate (%), CAC, ROAS, CTR (%), CPL, Tỷ lệ rời bỏ (Churn Rate)',
+    coreConcepts: 'Chiến lược nội dung, Phễu chuyển đổi, Đo lường hiệu quả chiến dịch',
+    troubleshootConcepts: 'Tối ưu chi phí chuyển đổi, Giảm tỷ lệ thoát trang (Bounce Rate), Xử lý khủng hoảng truyền thông',
+  },
+  accounting: {
+    categoryName: 'Tài Chính & Kế Toán',
+    keywords: [
+      'Báo cáo tài chính', 'Bảng cân đối kế toán', 'Dòng tiền (Cashflow)', 'Thuế GTGT',
+      'Thuế TNDN', 'Chuẩn mực VAS/IFRS', 'Quyết toán thuế', 'Kiểm soát nội bộ',
+      'Khấu hao tài sản', 'EBITDA', 'Công nợ', 'Đối chiếu sổ sách', 'Chi phí dở dang'
+    ],
+    metricsTerm: 'Biên lợi nhuận (%), Dòng tiền thuần, Tỷ lệ nợ/Vốn chủ sở hữu, Số ngày thu tiền bình quân',
+    coreConcepts: 'Lập báo cáo tài chính, Kiểm soát dòng tiền, Tuân thủ chuẩn mực kế toán và luật thuế',
+    troubleshootConcepts: 'Xử lý chênh lệch số dư, Kiểm soát rủi ro truy thu thuế, Tối ưu dòng tiền hoạt động',
+  },
+  sales: {
+    categoryName: 'Kinh Doanh & Bán Hàng (Sales/BD)',
+    keywords: [
+      'Sales Funnel', 'Chốt hợp đồng (Closing)', 'Xử lý từ chối (Objection Handling)',
+      'CRM', 'Doanh số (Quota)', 'Cold Outreach', 'B2B/B2C', 'Upsell/Cross-sell',
+      'Đàm phán giá', 'Lead Nurturing', 'Khách hàng tiềm năng', 'Pipeline Management'
+    ],
+    metricsTerm: 'Doanh số thực đạt so với KPI (%), Tỷ lệ chốt đơn (Win Rate %), Giá trị đơn trung bình (AOV)',
+    coreConcepts: 'Quản trị phễu khách hàng, Kỹ năng đàm phán & chốt hợp đồng, Chăm sóc khách hàng sau bán',
+    troubleshootConcepts: 'Xử lý khi khách hàng phàn nàn về giá, Khôi phục quan hệ khách hàng có nguy cơ rời bỏ',
+  },
+  hr: {
+    categoryName: 'Nhân Sự & Tuyển Dụng (HR)',
+    keywords: [
+      'Quy trình tuyển dụng (Recruitment)', 'Headhunting', 'C&B (Lương & Phúc lợi)', 'KPI/OKRs',
+      'Đào tạo (L&D)', 'Đánh giá năng lực 360', 'Quan hệ lao động', 'Onboarding',
+      'Giữ chân nhân tài (Retention)', 'Văn hóa doanh nghiệp', 'Luật lao động', 'Employer Branding'
+    ],
+    metricsTerm: 'Time-to-hire (ngày), Cost-per-hire, Tỷ lệ thôi việc (Turnover Rate %), Điểm eNPS',
+    coreConcepts: 'Quy trình tuyển dụng & đánh giá, Xây dựng khung năng lực, Quản trị hiệu suất làm việc',
+    troubleshootConcepts: 'Xử lý xung đột nội bộ, Giảm thiểu tỷ lệ thôi việc, Đàm phán mức lương cạnh tranh',
+  },
+  general: {
+    categoryName: 'Chuyên Môn Doanh Nghiệp',
+    keywords: [
+      'Quy trình làm việc (SOP)', 'Mục tiêu đo lường (KPI)', 'Quản trị rủi ro',
+      'Phối hợp liên phòng ban', 'Tối ưu chi phí', 'Đánh giá hiệu suất',
+      'Giải pháp thực tế', 'Tiến độ dự án', 'Kế hoạch hành động', 'Lập kế hoạch'
+    ],
+    metricsTerm: 'Tiến độ hoàn thành (%), % Cải thiện chi phí, Mức độ hài lòng của khách hàng',
+    coreConcepts: 'Chuẩn hóa quy trình, Phối hợp làm việc nhóm hiệu quả, Đạt mục tiêu chiến lược của tổ chức',
+    troubleshootConcepts: 'Nhận diện nguyên nhân gốc rễ vấn đề, Đề xuất giải pháp dự phòng và kiểm soát rủi ro',
+  }
+};
+
+/**
+ * Tự động nhận diện nhóm ngành từ topic phỏng vấn
+ * CHỈ phân loại dựa trên cleanTopicName(topic) - Tuyệt đối KHÔNG nối questions.q vào để tránh dính chữ 'tuyển dụng' của hội đồng
+ */
+export const detectIndustryCategory = (topic = '') => {
+  const clean = cleanTopicName(topic).toLowerCase();
+
+  // 1. brse: /brse|cầu nối|bridge|nhật|japanese/i
+  if (/brse|cầu nối|bridge|nhật|japanese/i.test(clean)) return 'brse';
+
+  // 2. qa: /\bqa\b|\bqc\b|tester|kiểm thử|automation test|selenium/i
+  if (/\bqa\b|\bqc\b|tester|kiểm thử|automation test|selenium/i.test(clean)) return 'qa';
+
+  // 3. frontend: /frontend|front-end|react|vue|angular|ui\/ux|next\.js/i
+  if (/frontend|front-end|react|vue|angular|ui\/ux|next\.js/i.test(clean)) return 'frontend';
+
+  // 4. backend: /backend|back-end|java|spring|node|golang|dotnet|\.net|c#|microservice/i
+  if (/backend|back-end|java|spring|node|golang|dotnet|\.net|c#|microservice/i.test(clean)) return 'backend';
+
+  // 5. data: /\bdata\b|dữ liệu|machine learning|\bai\b|python|deep learning/i
+  if (/\bdata\b|dữ liệu|machine learning|\bai\b|python|deep learning/i.test(clean)) return 'data';
+
+  // 6. ba: /business analyst|\bba\b|phân tích nghiệp vụ|product owner|product manager|\bpm\b|scrum/i
+  if (/business analyst|\bba\b|phân tích nghiệp vụ|product owner|product manager|\bpm\b|scrum/i.test(clean)) return 'ba';
+
+  // 7. marketing: /marketing|seo|sem|content|brand|truyền thông/i
+  if (/marketing|seo|sem|content|brand|truyền thông/i.test(clean)) return 'marketing';
+
+  // 8. accounting: /kế toán|kiểm toán|accounting|audit|thuế|finance|tài chính/i
+  if (/kế toán|kiểm toán|accounting|audit|thuế|finance|tài chính/i.test(clean)) return 'accounting';
+
+  // 9. sales: /sales|kinh doanh|bán hàng|account executive|\bbd\b/i
+  if (/sales|kinh doanh|bán hàng|account executive|\bbd\b/i.test(clean)) return 'sales';
+
+  // 10. hr: /nhân sự|\bhr\b|human resources|talent acquisition|c&b/i (Không dùng từ khóa chung 'tuyển dụng' đơn lẻ)
+  if (/nhân sự|\bhr\b|human resources|talent acquisition|c&b/i.test(clean)) return 'hr';
+
+  // 11. Các từ khóa kỹ sư lập trình chung:
+  if (/fullstack|full-stack|software|engineer|developer|lập trình/i.test(clean)) return 'backend';
+
+  return 'general';
+};
+
+/**
+ * Trích xuất độ phủ từ khóa (Keyword Gap Analysis)
+ * 🟢 Đã nêu vs 🔴 Còn thiếu
+ */
+export const extractKeywordGap = (taxonomy, questions = []) => {
+  const allAnswersText = (questions || []).map(q => q.answer || '').join(' ').toLowerCase();
+  const taxKeywords = taxonomy?.keywords || [];
+
+  const mentioned = [];
+  const missing = [];
+
+  taxKeywords.forEach((kw) => {
+    const rawClean = kw.replace(/\(.*?\)/g, '').trim().toLowerCase();
+    if (rawClean && allAnswersText.includes(rawClean)) {
+      mentioned.push(kw);
+    } else {
+      missing.push(kw);
+    }
+  });
+
+  return { mentioned, missing };
+};
+
+/**
+ * Phân loại toán học Tốc độ nói (WPM)
+ * Tuyệt đối không hiển thị con số ảo khi < 20 từ.
+ * Phân loại chuẩn xác theo toán học: < 100 WPM, 100 - 150 WPM, > 150 WPM.
+ */
+export const computeWpmClassification = (totalWords, avgWpm) => {
+  if (!avgWpm || Number(avgWpm) <= 0) {
+    return {
+      displayVal: 'Chưa đo WPM',
+      badgeText: 'Không ghi nhận âm thanh qua Micro',
+      assessment: 'Phiên này chưa ghi nhận tốc độ phát biểu qua Micro (hoặc ứng viên đã trả lời bằng cách nhập văn bản). Hệ thống không chấm điểm WPM ảo.',
+      isReliable: false,
+      colorClass: 'text-slate-600 bg-slate-100 border-slate-200',
+    };
+  }
+
+  if (totalWords < 20) {
+    return {
+      displayVal: 'Chưa đủ dữ liệu',
+      badgeText: 'Chưa đủ dữ liệu (< 20 từ)',
+      assessment: 'Ứng viên nói quá ngắn (< 20 từ) trong cả buổi phỏng vấn, chưa đủ dữ liệu toán học để tính tốc độ nói thực tế.',
+      isReliable: false,
+      colorClass: 'text-slate-600 bg-slate-100 border-slate-200',
+    };
+  }
+
+  const wpm = Math.round(Number(avgWpm));
+
+  if (wpm < 100) {
+    return {
+      displayVal: `${wpm} WPM`,
+      badgeText: 'Nói hơi chậm / Ngắt quãng nhiều (Cần tăng sự lưu loát)',
+      assessment: `Tốc độ nói thực tế ${wpm} WPM nằm dưới mức khuyến nghị (< 100 từ/phút). Có hiện tượng ngập ngừng hoặc câu bị đứt đoạn. Cần luyện tập diễn đạt trôi chảy hơn.`,
+      isReliable: true,
+      colorClass: 'text-amber-800 bg-amber-50 border-amber-200',
+    };
+  }
+
+  if (wpm <= 150) {
+    return {
+      displayVal: `${wpm} WPM`,
+      badgeText: 'Tốc độ nói đạt chuẩn tự nhiên (100 - 150 từ/phút)',
+      assessment: `Tốc độ nói thực tế ${wpm} WPM nằm trong ngưỡng chuẩn vàng (100 - 150 từ/phút). Nhịp điệu tự nhiên, người phỏng vấn dễ nắm bắt trọn vẹn thông điệp.`,
+      isReliable: true,
+      colorClass: 'text-emerald-800 bg-emerald-50 border-emerald-200',
+    };
+  }
+
+  return {
+    displayVal: `${wpm} WPM`,
+    badgeText: 'Tốc độ nói hơi nhanh (Cần nhấn nhá rõ ý hơn)',
+    assessment: `Tốc độ nói thực tế ${wpm} WPM vượt ngưỡng 150 từ/phút. Cần chủ động ngắt nghỉ giữa các luận điểm để người nghe kịp thẩm thấu.`,
+    isReliable: true,
+    colorClass: 'text-indigo-800 bg-indigo-50 border-indigo-200',
+  };
+};
+
+/**
+ * Làm sạch từng phần S, T, A, R:
+ * Loại bỏ nhãn đầu câu ([S], Bối cảnh:...) và loại bỏ chữ bị dính của ô sau (; Nhiệm vụ:, ; Hành động:...)
+ * Giữ nguyên chữ cái đầu tiên của câu (không cắt nhầm 'T' trong 'Tái', 'A' trong 'A/B', 'T' trong 'Tăng').
+ */
+export const cleanStarPart = (str) => {
+  if (!str) return '';
+  return str
+    .replace(/^(?:\s*(?:\[[STARstar]\]|\([STARstar]\)|(?:S|T|A|R)\s*[:\-\—]|Bối cảnh|Nhiệm vụ|Hành động|Kết quả|Situation|Task|Action|Result)\s*[:\-\—]?\s*)+/i, '')
+    .replace(/;\s*(?:Nhiệm vụ|Hành động|Kết quả|Bối cảnh|Task|Action|Result|Situation).*$/i, '')
+    .replace(/(?:\[[STARstar]\]|\([STARstar]\))\s*[:\-\—]?.*$/i, '')
+    .replace(/\s*;\s*$/, '')
+    .trim();
+};
+
+/**
  * Helper: Bóc tách nhận xét chuyên môn và telemetry phong thái từ chuỗi text
  */
 export const parseFeedbackSection = (text) => {
@@ -17,18 +309,16 @@ export const parseFeedbackSection = (text) => {
 
 /**
  * Helper: Phân tích cấu trúc câu trả lời mẫu theo mô hình STAR (Situation, Task, Action, Result)
- * Đảm bảo regex nhận diện chuẩn xác theo nhãn, tuyệt đối không bị đứt gãy giữa chừng.
+ * Đảm bảo 4 ô S, T, A, R hiển thị sạch sẽ, không dính nhãn ô sau.
  */
 export const parseStarModelAnswer = (text) => {
   if (!text) return { raw: '', hasStar: false, s: '', t: '', a: '', r: '' };
   const clean = text.split(/\[Phong thái &(?: Telemetry| Ngữ điệu)/i)[0].trim();
 
-  // 1. Phân tách chuẩn xác theo nhãn [S], [T], [A], [R] hoặc "Bối cảnh:", "Nhiệm vụ:", "Hành động:", "Kết quả:"
-  // Sử dụng delimiter có dấu hai chấm ":" hoặc ngoặc "]" để không bị cắt nhầm bởi các từ thông dụng trong văn bản
-  const regexS = /(?:\[S\]|\(S\)|(?:\bS\b|bối cảnh|tình huống|situation)\s*[:\-\—])([\s\S]*?)(?=(?:\[T\]|\(T\)|(?:\bT\b|nhiệm vụ|mục tiêu|task)\s*[:\-\—]|$))/i;
-  const regexT = /(?:\[T\]|\(T\)|(?:\bT\b|nhiệm vụ|mục tiêu|task)\s*[:\-\—])([\s\S]*?)(?=(?:\[A\]|\(A\)|(?:\bA\b|hành động|công nghệ|giải pháp|action)\s*(?:&[^:\-\—]+)?[:\-\—]|$))/i;
-  const regexA = /(?:\[A\]|\(A\)|(?:\bA\b|hành động|công nghệ|giải pháp|action)\s*(?:&[^:\-\—]+)?[:\-\—])([\s\S]*?)(?=(?:\[R\]|\(R\)|(?:\bR\b|kết quả|hiệu quả|số liệu|result)\s*(?:&[^:\-\—]+)?[:\-\—]|$))/i;
-  const regexR = /(?:\[R\]|\(R\)|(?:\bR\b|kết quả|hiệu quả|số liệu|result)\s*(?:&[^:\-\—]+)?[:\-\—])([\s\S]*?)$/i;
+  const regexS = /(?:\[S\]|\(S\)|\bS\b\s*[:\-\—]|(?:bối cảnh|situation)\s*[:\-\—])([\s\S]*?)(?=(?:\[T\]|\(T\)|\bT\b\s*[:\-\—]|(?:nhiệm vụ|mục tiêu|task)\s*[:\-\—]|$))/i;
+  const regexT = /(?:\[T\]|\(T\)|\bT\b\s*[:\-\—]|(?:nhiệm vụ|mục tiêu|task)\s*[:\-\—])([\s\S]*?)(?=(?:\[A\]|\(A\)|\bA\b\s*[:\-\—]|(?:hành động|công nghệ|giải pháp|action)\s*(?:&[^:\-\—]+)?[:\-\—]|$))/i;
+  const regexA = /(?:\[A\]|\(A\)|\bA\b\s*[:\-\—]|(?:hành động|công nghệ|giải pháp|action)\s*(?:&[^:\-\—]+)?[:\-\—])([\s\S]*?)(?=(?:\[R\]|\(R\)|\bR\b\s*[:\-\—]|(?:kết quả|hiệu quả|số liệu|result)\s*(?:&[^:\-\—]+)?[:\-\—]|$))/i;
+  const regexR = /(?:\[R\]|\(R\)|\bR\b\s*[:\-\—]|(?:kết quả|hiệu quả|số liệu|result)\s*(?:&[^:\-\—]+)?[:\-\—])([\s\S]*?)$/i;
 
   const matchS = clean.match(regexS);
   const matchT = clean.match(regexT);
@@ -36,34 +326,26 @@ export const parseStarModelAnswer = (text) => {
   const matchR = clean.match(regexR);
 
   if (matchS || matchT || matchA || matchR) {
-    const s = matchS ? matchS[1].trim() : '';
-    const t = matchT ? matchT[1].trim() : '';
-    const a = matchA ? matchA[1].trim() : '';
-    const r = matchR ? matchR[1].trim() : '';
+    const s = cleanStarPart(matchS ? matchS[1] : '');
+    const t = cleanStarPart(matchT ? matchT[1] : '');
+    const a = cleanStarPart(matchA ? matchA[1] : '');
+    const r = cleanStarPart(matchR ? matchR[1] : '');
 
     if (s || t || a || r) {
-      return {
-        raw: clean,
-        hasStar: true,
-        s,
-        t,
-        a,
-        r,
-      };
+      return { raw: clean, hasStar: true, s, t, a, r };
     }
   }
 
-  // 2. Bóc tách tự động theo các câu văn tự nhiên chuẩn STAR nếu không có nhãn
   const sentences = clean.split(/(?<=\.)\s+/).filter(Boolean);
   if (sentences.length >= 2) {
     let s = '', t = '', a = '', r = '';
     sentences.forEach((sent) => {
       const lower = sent.toLowerCase();
-      if (/kết quả|nhờ đó|đạt được|giúp hệ thống|hiệu suất|vận hành ổn định|giảm \d+|tăng \d+/i.test(lower)) {
+      if (/kết quả|nhờ đó|đạt được|hiệu suất|vận hành|giảm \d+|tăng \d+|doanh thu|tiết kiệm/i.test(lower)) {
         r += (r ? ' ' : '') + sent;
-      } else if (/công nghệ|sử dụng|triển khai|áp dụng|xây dựng|viết code|docker|thiết kế cơ sở|restful|kafka|mqtt|yolo|redis/i.test(lower)) {
+      } else if (/triển khai|áp dụng|xây dựng|thực hiện|sử dụng|công cụ|kỹ thuật|giải pháp/i.test(lower)) {
         a += (a ? ' ' : '') + sent;
-      } else if (/nhiệm vụ|mục tiêu|trách nhiệm|đảm nhận vai trò|vai trò chính/i.test(lower)) {
+      } else if (/nhiệm vụ|mục tiêu|trách nhiệm|đảm nhận|vai trò chính/i.test(lower)) {
         t += (t ? ' ' : '') + sent;
       } else {
         s += (s ? ' ' : '') + sent;
@@ -74,151 +356,19 @@ export const parseStarModelAnswer = (text) => {
       return {
         raw: clean,
         hasStar: true,
-        s: s || (sentences[0] || 'Bối cảnh dự án thực tế.'),
-        t: t || 'Trách nhiệm thiết kế và giải quyết bài toán cốt lõi.',
-        a: a || 'Triển khai công nghệ kỹ thuật phù hợp.',
-        r: r || 'Hệ thống vận hành trơn tru và đạt hiệu quả đo lường.',
+        s: cleanStarPart(s || (sentences[0] || 'Bối cảnh dự án thực tế.')),
+        t: cleanStarPart(t || 'Trách nhiệm phân tích và xử lý bài toán cốt lõi.'),
+        a: cleanStarPart(a || 'Lựa chọn phương án và triển khai giải pháp phù hợp.'),
+        r: cleanStarPart(r || 'Đạt hiệu quả đo lường và hoàn thành mục tiêu đặt ra.'),
       };
     }
   }
 
-  return {
-    raw: clean,
-    hasStar: false,
-    s: '',
-    t: '',
-    a: '',
-    r: '',
-  };
+  return { raw: clean, hasStar: false, s: '', t: '', a: '', r: '' };
 };
 
 /**
- * Helper: Tự động làm giàu nhận xét chuyên môn, bày cách trả lời & ví dụ mẫu thực chiến điểm 10
- * Bám sát ngữ cảnh câu hỏi thực tế (Quyết định kỹ thuật, Local AI, Tối ưu DB, Giới thiệu bản thân)
- */
-export const enrichFeedbackAndModelAnswer = (
-  qText = '',
-  ansText = '',
-  rawCritique = '',
-  rawModel = '',
-  targetPosition = 'Senior Backend Engineer'
-) => {
-  const cleanQ = (qText || '').trim();
-  const cleanAns = (ansText || '').trim();
-  const lowerAns = cleanAns.toLowerCase();
-  const lowerQ = cleanQ.toLowerCase();
-
-  // Phân loại chủ đề câu hỏi & câu trả lời
-  const isDecisionQuestion =
-    lowerQ.includes('quyết định kỹ thuật') ||
-    lowerQ.includes('quyết định quan trọng') ||
-    lowerQ.includes('technical decision') ||
-    lowerAns.includes('ai local') ||
-    lowerAns.includes('local ai') ||
-    lowerAns.includes('nhận diện xe');
-
-  const isIntroQuestion =
-    lowerQ.includes('chia sẻ ngắn gọn về bản thân') ||
-    lowerQ.includes('dự án tiêu biểu') ||
-    lowerQ.includes('giới thiệu');
-
-  const isTroubleshootQuestion =
-    lowerQ.includes('xử lý') ||
-    lowerQ.includes('tối ưu') ||
-    lowerQ.includes('sự cố') ||
-    lowerQ.includes('lỗi') ||
-    lowerQ.includes('deadlock') ||
-    lowerQ.includes('database');
-
-  // 1. LÀM GIÀU NHẬN XÉT (CRITIQUE) BÁM SÁT THỰC TẾ
-  let enrichedCritique = (rawCritique || '').trim();
-  const isCritiqueGeneric =
-    !enrichedCritique ||
-    enrichedCritique.length < 90 ||
-    /Nội dung bước đầu nêu được ý chính nhưng còn thiếu ví dụ/i.test(enrichedCritique) ||
-    /Chưa có nhận xét/i.test(enrichedCritique) ||
-    /Lập luận còn mang tính lý thuyết, thiếu ví dụ thực chiến/i.test(enrichedCritique);
-
-  if (isCritiqueGeneric) {
-    if (isDecisionQuestion) {
-      enrichedCritique =
-        `• Điểm ghi nhận: Bạn đã đưa ra quyết định kỹ thuật mang tính chiến lược rất đúng đắn: Chuyển dịch thuật toán AI nhận diện phương tiện xuống xử lý trực tiếp tại thiết bị biên (Local AI / Edge Computing) thay vì truyền tải toàn bộ luồng video thô lên Cloud Server.\n` +
-        `• Lỗ hổng cốt lõi: Câu trả lời mới dừng ở mức nêu ý tưởng sơ sài (${cleanAns ? cleanAns.split(/\s+/).filter(Boolean).length : 0} từ), chưa chứng minh được năng lực của một ${targetPosition}:\n` +
-        `  (1) Chưa nêu tên model AI và phần cứng cụ thể: "1 số thuật toán nổi tiếng" là model gì (cần nêu đích danh như YOLOv8-nano, MobileNet SSD) và chạy trên phần cứng nào (NVIDIA Jetson, Raspberry Pi hay camera AI tích hợp NPU).\n` +
-        `  (2) Thiếu bài toán phân tích đánh đổi (Trade-offs): Chưa giải thích vì sao chọn Local AI (Đánh đổi giữa: Tiết kiệm băng thông Cloud vs Giới hạn tài nguyên phần cứng biên và độ trễ inference).\n` +
-        `  (3) Thiếu giải pháp đồng bộ dữ liệu: Làm thế nào để Backend Cloud nhận được kết quả từ Local AI? (Cần giao thức MQTT/WebSocket truyền gói tin metadata gọn nhẹ dạng JSON).\n` +
-        `  (4) Thiếu số liệu đo lường định lượng: Giảm bao nhiêu % băng thông, độ trễ phát hiện xe bao nhiêu mili-giây (ms), FPS đạt bao nhiêu?\n` +
-        `• Chỉ dẫn cải thiện: Áp dụng công thức 4 bước: Nêu bài toán thách thức -> Quyết định chọn Local AI & bài toán đánh đổi -> Công nghệ Edge Computing chi tiết -> Số liệu định lượng minh chứng hiệu quả.`;
-    } else if (isIntroQuestion) {
-      enrichedCritique =
-        `• Điểm ghi nhận: Bạn đã xác định được tên chủ đề dự án liên quan đến ${cleanAns ? `"${cleanAns}"` : 'lĩnh vực chuyên môn'}.\n` +
-        `• Lỗ hổng cốt lõi: Câu trả lời quá sơ sài so với tiêu chuẩn của vị trí ${targetPosition}: (1) Bỏ qua phần chào hỏi và giới thiệu tổng quan bản thân (kinh nghiệm, thế mạnh kỹ thuật), (2) Chưa nêu vai trò cụ thể trong dự án, (3) Hoàn toàn thiếu ngăn xếp công nghệ (như giao thức truyền thông, message broker, database, cơ chế caching), (4) Thiếu số liệu định lượng về quy mô hệ thống và hiệu năng xử lý.\n` +
-        `• Chỉ dẫn cải thiện: Áp dụng đầy đủ mô hình STAR: Giới thiệu bản thân ngắn gọn -> Bối cảnh bài toán dự án -> Trách nhiệm & công nghệ backend xử lý -> Số liệu kết quả vận hành thực tế.`;
-    } else if (isTroubleshootQuestion) {
-      enrichedCritique =
-        `• Điểm ghi nhận: Đã nắm được bài toán kỹ thuật cần giải quyết.\n` +
-        `• Lỗ hổng cốt lõi: Chưa phân tích nguyên nhân gốc rễ (root cause), thiếu các giải pháp kiến trúc bền vững và chưa nêu được các đánh đổi kỹ thuật (trade-offs) khi hệ thống chịu tải cao.\n` +
-        `• Chỉ dẫn cải thiện: Trình bày quy trình 3 bước: Nhận diện nguyên nhân qua log/metric -> Giải pháp kỹ thuật xử lý tức thời và lâu dài -> Đánh giá hiệu năng bằng số liệu định lượng.`;
-    } else {
-      enrichedCritique =
-        `• Điểm ghi nhận: Bước đầu trả lời đúng trọng tâm câu hỏi phỏng vấn.\n` +
-        `• Lỗ hổng cốt lõi: Lập luận còn mang tính lý thuyết, thiếu ví dụ thực chiến từ các dự án đã tham gia và chưa có số liệu chứng minh tính hiệu quả.\n` +
-        `• Chỉ dẫn cải thiện: Bổ sung các công nghệ cụ thể đã sử dụng và kết quả định lượng đạt được theo tiêu chuẩn STAR.`;
-    }
-  }
-
-  // 2. LÀM GIÀU CÂU TRẢ LỜI MẪU (BÀY CÁCH TRẢ LỜI & VÍ DỤ PHÁT BIỂU MẪU ĐIỂM 10)
-  let enrichedModel = (rawModel || '').trim();
-  const isModelDefective =
-    !enrichedModel ||
-    /Áp dụng mô hình STAR:\s*Situation/i.test(enrichedModel) ||
-    enrichedModel.length < 80 ||
-    /Gợi ý câu trả lời chuẩn theo mô hình STAR/i.test(enrichedModel) ||
-    /Khi triển khai hệ thống lõi cho vị trí/i.test(enrichedModel);
-
-  if (isModelDefective) {
-    if (isDecisionQuestion) {
-      enrichedModel =
-        `[S] Bối cảnh: Trong hệ thống phân làn giao thông với hơn 1.200 camera Full-HD, nếu truyền toàn bộ luồng video thô về Cloud Server thì hệ thống sẽ cần băng thông hơn 6 Gbps và phát sinh chi phí đường truyền cực lớn.\n` +
-        `[T] Nhiệm vụ: Tôi có nhiệm vụ đưa ra quyết định kiến trúc để tối ưu băng thông mạng mà vẫn đảm bảo độ trễ nhận diện xe dưới 50ms phục vụ việc điều tiết đèn tín hiệu thời gian thực.\n` +
-        `[A] Hành động & Công nghệ: Quyết định quan trọng nhất của tôi là chuyển dịch sang kiến trúc Edge AI Computing: Tích hợp model YOLOv8-nano tối ưu qua TensorRT chạy trực tiếp trên các Gateway biên NVIDIA Jetson tại từng nút giao. Camera nhận diện loại xe và đếm mật độ tại chỗ, sau đó chỉ gửi gói tin metadata nhẹ dạng JSON qua giao thức MQTT về Backend Cloud.\n` +
-        `[R] Kết quả & Số liệu: Quyết định này giúp giảm tới 88% lưu lượng băng thông truyền tải lên Cloud, độ trễ phát hiện phương tiện chỉ còn 32ms (đạt chuẩn thời gian thực) và tiết kiệm hơn 40% chi phí hạ tầng máy chủ hàng tháng.`;
-    } else if (isIntroQuestion) {
-      enrichedModel =
-        `[S] Bối cảnh: Tôi có hơn 4 năm kinh nghiệm chuyên sâu về xây dựng kiến trúc phân tán và backend hiệu năng cao. Dự án tiêu biểu gần đây tôi tâm đắc nhất là Hệ thống IoT Giám sát & Phân làn Giao thông Đô thị Thông minh.\n` +
-        `[T] Nhiệm vụ: Trong dự án này, tôi giữ vai trò Senior Backend Engineer chịu trách nhiệm thiết kế pipeline xử lý dữ liệu thời gian thực từ hơn 1.200 camera và cảm biến IoT tại các nút giao trọng điểm.\n` +
-        `[A] Hành động & Công nghệ: Tôi lựa chọn giao thức MQTT để tiếp nhận luồng viễn thám, kết hợp Apache Kafka làm message broker và Go/Spring Boot microservices để xử lý bất đồng bộ. Dữ liệu cảm biến được lưu trữ trên TimescaleDB kết hợp Redis Cluster để cache trạng thái luồng xe. Tôi đồng thời xây dựng cơ chế local buffering và auto-retry tại các trạm biên để đảm bảo zero-data-loss khi chập chờn đường truyền.\n` +
-        `[R] Kết quả & Số liệu: Hệ thống vận hành ổn định với thông lượng 18.000 events/giây, độ trễ phản hồi dưới 45ms, duy trì uptime đạt 99.98% liên tục trong 6 tháng và giúp giảm 27% thời gian ùn tắc tại các nút giao thí điểm.`;
-    } else if (isTroubleshootQuestion) {
-      enrichedModel =
-        `[S] Bối cảnh: Trong dự án thanh toán xử lý 5.000 TPS, cơ sở dữ liệu PostgreSQL từng gặp hiện tượng Deadlock nghiêm trọng vào các khung giờ cao điểm do các transaction cập nhật số dư ví đồng thời.\n` +
-        `[T] Nhiệm vụ: Tôi được giao nhiệm vụ phân tích deadlock graph, cô lập nguyên nhân và tái cấu trúc tầng truy vấn dữ liệu để loại bỏ hoàn toàn xung đột khóa.\n` +
-        `[A] Hành động & Công nghệ: Tôi kích hoạt log_lock_waits và phân tích trace log để tìm cặp transaction gây nghẽn. Giải pháp áp dụng là chuẩn hóa thứ tự khóa tài nguyên (Lock Ordering) theo ID tăng dần, áp dụng SELECT ... FOR UPDATE NOWAIT với cơ chế Exponential Backoff Retry, đồng thời chuyển bớt các tác vụ đọc nặng sang Read Replica.\n` +
-        `[R] Kết quả & Số liệu: Tỷ lệ Deadlock giảm về 0%, độ trễ truy vấn trung bình (P99) giảm từ 850ms xuống còn 35ms, giúp hệ thống chịu tải an toàn trong đợt Mega Sale.`;
-    } else {
-      enrichedModel =
-        `[S] Bối cảnh: Khi phụ trách kiến trúc backend cho hệ thống lõi tại dự án thực tế, tôi đối mặt với bài toán mở rộng quy mô khi lưu lượng người dùng tăng đột biến gấp 5 lần.\n` +
-        `[T] Nhiệm vụ: Trực tiếp chịu trách nhiệm thiết kế kiến trúc phân tán, đảm bảo tính sẵn sàng cao (High Availability) và không có điểm lỗi đơn lẻ (Single Point of Failure).\n` +
-        `[A] Hành động & Công nghệ: Tôi đã tái cấu trúc từ Monolith sang Microservices, áp dụng Event-driven Architecture qua Apache Kafka, thiết kế caching đa tầng với Redis Cluster và container hóa toàn bộ dịch vụ trên nền tảng Kubernetes với cơ chế HPA tự động scale.\n` +
-        `[R] Kết quả & Số liệu: Hệ thống xử lý thông lượng tăng gấp 4 lần, giảm 40% chi phí hạ tầng máy chủ và đạt chứng chỉ SLA 99.95% từ đối tác.`;
-    }
-  }
-
-  // Tạo thêm phần "Bày cách trả lời" (Chiến lược ghi điểm)
-  let strategyGuide = 'Nêu rõ bài toán thách thức -> Vai trò đảm nhận -> Công nghệ kỹ thuật cụ thể -> Số liệu kết quả đo lường.';
-  if (isDecisionQuestion) {
-    strategyGuide = 'Thách thức băng thông/chi phí khi xử lý video -> Quyết định chọn Local AI/Edge Computing & phân tích Trade-off -> Công nghệ triển khai (YOLOv8-nano trên NVIDIA Jetson, MQTT metadata) -> Số liệu minh chứng (giảm 88% băng thông, độ trễ 32ms).';
-  } else if (isIntroQuestion) {
-    strategyGuide = 'Chào hỏi & giới thiệu số năm kinh nghiệm -> Bối cảnh bài toán dự án giao thông thông minh -> Vai trò & công nghệ backend xử lý -> Số liệu kết quả vận hành thực tế.';
-  } else if (isTroubleshootQuestion) {
-    strategyGuide = 'Triệu chứng sự cố & phân tích root cause -> Phương án xử lý (Lock ordering, Caching, Retry) -> Đánh đổi kỹ thuật -> Số liệu hiệu năng P99/TPS đo lường sau khắc phục.';
-  }
-
-  return { critique: enrichedCritique, modelAnswer: enrichedModel, strategyGuide };
-};
-
-/**
- * Helper: Làm sạch chuỗi raw text debug (như EMA Weakness Score)
+ * Làm sạch chuỗi debug EMA
  */
 export const cleanWeaknessText = (text) => {
   if (!text) return '';
@@ -231,137 +381,245 @@ export const cleanWeaknessText = (text) => {
 };
 
 /**
- * Helper: Tính toán 4 Trụ Cột Năng Lực xác thực, chân thực, bám sát câu trả lời thực tế
+ * Làm giàu nhận xét chuyên môn và câu trả lời mẫu bám sát vị trí công việc (JD/Role)
  */
-export const computeAuthenticCompetencies = (session, questions, totalScore, telemetry) => {
-  const rawComps = session?.competencies;
-  const hasDistinctRealScores = rawComps &&
-    rawComps.domainKnowledge > 0 &&
-    rawComps.problemSolving > 0 &&
-    rawComps.domainKnowledge !== rawComps.problemSolving &&
-    rawComps.domainKnowledge !== totalScore &&
-    rawComps.problemSolving !== totalScore;
+export const enrichFeedbackAndModelAnswer = (
+  qText = '',
+  ansText = '',
+  rawCritique = '',
+  rawModel = '',
+  targetPosition = 'Chuyên viên',
+  taxonomy = INDUSTRY_TAXONOMY.general
+) => {
+  const cleanQ = (qText || '').trim();
+  const cleanAns = (ansText || '').trim();
+  const lowerQ = cleanQ.toLowerCase();
+  const words = cleanAns ? cleanAns.split(/\s+/).filter(Boolean).length : 0;
 
-  if (hasDistinctRealScores) {
-    return rawComps;
+  let qType = 'Chuyên Môn';
+  if (/chào|giới thiệu|bản thân|kinh nghiệm|điểm mạnh/i.test(lowerQ)) {
+    qType = 'Chào Hỏi & Tổng Quan';
+  } else if (/xử lý|sự cố|khó khăn|thử thách|thất bại|xung đột|khủng hoảng/i.test(lowerQ)) {
+    qType = 'Xử Lý Tình Huống';
+  } else if (/quyết định|chiến lược|lựa chọn|đánh đổi|tại sao/i.test(lowerQ)) {
+    qType = 'Quyết Định Chuyên Môn';
+  } else if (/áp lực|deadline|trách nhiệm|khách hàng khó tính/i.test(lowerQ)) {
+    qType = 'Câu Hỏi Thách Thức';
   }
 
-  const qList = Array.isArray(questions) && questions.length > 0 ? questions : (session?.questions || []);
-  const avgEye = telemetry?.avgEyeContact ?? 88;
-  const avgWpm = telemetry?.avgWpm ?? 122;
-  const totalFillers = telemetry?.totalFillers ?? 2;
+  let enrichedCritique = (rawCritique || '').trim();
+  const isCritiqueGeneric =
+    !enrichedCritique ||
+    enrichedCritique.length < 80 ||
+    /Chưa có nhận xét/i.test(enrichedCritique) ||
+    /Nội dung bước đầu nêu được ý chính/i.test(enrichedCritique);
 
-  // 1. Tác phong & Telemetry (30% trọng số): Phản ánh thực tế từ camera và micro
-  let deliveryScore = 75;
-  if (avgEye >= 85) deliveryScore += 10;
-  else if (avgEye >= 75) deliveryScore += 6;
-  else if (avgEye < 60) deliveryScore -= 18;
+  if (isCritiqueGeneric) {
+    if (words < 15) {
+      enrichedCritique =
+        `• Điểm ghi nhận: Đã mở lời phản hồi câu hỏi của hội đồng tuyển dụng.\n` +
+        `• Lỗ hổng cốt lõi: Câu trả lời quá ngắn (${words} từ), chưa cung cấp đủ dữ liệu chuyên môn về vị trí ${targetPosition}. Hoàn toàn thiếu vắng các thuật ngữ (${taxonomy.keywords.slice(0, 3).join(', ')}), không nêu được quy trình thực hiện và thiếu minh chứng số liệu.\n` +
+        `• Chỉ dẫn cải thiện: Áp dụng công thức STAR: Nêu rõ bối cảnh tình huống -> Trách nhiệm được giao -> Các bước giải quyết cụ thể -> Kết quả đo lường bằng con số.`;
+    } else if (qType === 'Chào Hỏi & Tổng Quan') {
+      enrichedCritique =
+        `• Điểm ghi nhận: Đã xác định được nội dung giới thiệu kinh nghiệm cá nhân.\n` +
+        `• Lỗ hổng cốt lõi: Trình bày còn mang tính liệt kê chung chung, chưa làm nổi bật được thế mạnh chuyên môn cốt lõi của vị trí ${targetPosition} và thiếu các dự án tiêu biểu có số liệu đo lường.\n` +
+        `• Chỉ dẫn cải thiện: Tập trung vào 3 trọng điểm: (1) Số năm kinh nghiệm & định hướng chuyên môn, (2) Dự án/thành tựu tâm đắc nhất, (3) Giá trị cụ thể bạn sẽ mang lại cho tổ chức.`;
+    } else if (qType === 'Xử Lý Tình Huống') {
+      enrichedCritique =
+        `• Điểm ghi nhận: Đã nắm bắt được tình huống bài toán cần giải quyết.\n` +
+        `• Lỗ hổng cốt lõi: Chưa phân tích được nguyên nhân gốc rễ (Root Cause), thiếu các giải pháp dự phòng và chưa chỉ ra được các đánh đổi thực tế trong quá trình xử lý.\n` +
+        `• Chỉ dẫn cải thiện: Trình bày theo 3 bước: Xác định nguyên nhân gốc rễ -> Phương án hành động chi tiết -> Số liệu đo lường hiệu quả sau khi khắc phục.`;
+    } else {
+      enrichedCritique =
+        `• Điểm ghi nhận: Trả lời đúng hướng trọng tâm câu hỏi phỏng vấn.\n` +
+        `• Lỗ hổng cốt lõi: Thiếu các thuật ngữ chuyên sâu ngành ${taxonomy.categoryName} (${taxonomy.keywords.slice(0, 3).join(', ')}). Lập luận còn mang tính lý thuyết, thiếu các minh chứng định lượng (${taxonomy.metricsTerm}).\n` +
+        `• Chỉ dẫn cải thiện: Bổ sung công cụ nghiệp vụ cụ thể và đo lường kết quả theo mô hình STAR.`;
+    }
+  }
 
-  if (avgWpm >= 115 && avgWpm <= 140) deliveryScore += 5;
-  else if (avgWpm < 90 || avgWpm > 160) deliveryScore -= 10;
+  let enrichedModel = (rawModel || '').trim();
+  const isModelDefective =
+    !enrichedModel ||
+    enrichedModel.length < 80 ||
+    /Gợi ý câu trả lời chuẩn theo mô hình STAR/i.test(enrichedModel);
 
-  if (totalFillers <= 2) deliveryScore += 5;
-  else if (totalFillers > 6) deliveryScore -= 12;
+  if (isModelDefective) {
+    const kw1 = taxonomy.keywords[0] || 'Chuyên môn';
+    const kw2 = taxonomy.keywords[1] || 'Quy trình';
+    const kw3 = taxonomy.keywords[2] || 'Giải pháp';
 
-  deliveryScore = Math.max(50, Math.min(95, deliveryScore));
+    if (qType === 'Chào Hỏi & Tổng Quan') {
+      enrichedModel =
+        `[S] Bối cảnh: Tôi có hơn 3 năm kinh nghiệm làm việc chuyên sâu trong lĩnh vực ${taxonomy.categoryName}, tham gia trực tiếp các dự án quan trọng về ${kw1} và ${kw2}.\n` +
+        `[T] Nhiệm vụ: Trong vai trò ${targetPosition}, tôi chịu trách nhiệm chính về việc tối ưu quy trình vận hành, nâng cao chất lượng đầu ra và đảm bảo mục tiêu kế hoạch.\n` +
+        `[A] Hành động & Phương pháp: Tôi đã chuẩn hóa quy trình làm việc, ứng dụng các công cụ chuyên ngành (${kw1}, ${kw3}) và thiết lập cơ chế kiểm soát chất lượng chặt chẽ theo tiêu chuẩn ngành.\n` +
+        `[R] Kết quả & Số liệu: Đội ngũ của tôi đã nâng cao hơn 30% hiệu suất hoàn thành công việc, giảm thiểu 25% sai sót quy trình và liên tục vượt chỉ tiêu KPI được giao.`;
+    } else if (qType === 'Xử Lý Tình Huống') {
+      enrichedModel =
+        `[S] Bối cảnh: Trong một dự án quan trọng, hệ thống quy trình bất ngờ gặp sự cố phát sinh ảnh hưởng trực tiếp đến tiến độ và trải nghiệm của khách hàng/đối tác.\n` +
+        `[T] Nhiệm vụ: Tôi được giao nhiệm vụ cô lập vấn đề, tìm ra nguyên nhân gốc rễ và đưa ra giải pháp khắc phục khẩn cấp trong vòng 24 giờ.\n` +
+        `[A] Hành động & Phương pháp: Tôi nhanh chóng rà soát dữ liệu, áp dụng phương pháp ${kw1} và phối hợp với các bên liên quan để triển khai phương án thay thế ${kw2}, đồng thời thiết lập rào chắn rủi ro.\n` +
+        `[R] Kết quả & Số liệu: Sự cố được giải quyết triệt để trong 8 giờ, giảm thiểu 90% thiệt hại phát sinh và thiết lập thêm tài liệu SOP ngăn ngừa tái diễn.`;
+    } else {
+      enrichedModel =
+        `[S] Bối cảnh: Khi đối mặt với yêu cầu nâng cao hiệu suất nghiệp vụ ${targetPosition} trong điều kiện tài nguyên và thời gian hạn hẹp.\n` +
+        `[T] Nhiệm vụ: Trực tiếp xây dựng chiến lược hành động, phân bổ nguồn lực hợp lý và đảm bảo các chỉ số đo lường (${taxonomy.metricsTerm}).\n` +
+        `[A] Hành động & Phương pháp: Tôi đã áp dụng các phương pháp cốt lõi (${kw1}, ${kw2}), thiết kế các mốc kiểm tra định kỳ và chủ động xử lý các rủi ro phát sinh.\n` +
+        `[R] Kết quả & Số liệu: Đạt 100% mục tiêu đề ra, tiết kiệm hơn 20% chi phí vận hành và nhận được đánh giá xuất sắc từ ban lãnh đạo.`;
+    }
+  }
 
-  if (qList.length > 0) {
-    let domainPoints = 0;
-    let problemPoints = 0;
-    let starPoints = 0;
+  const strategyGuide = `Nêu rõ bối cảnh thực tế -> Xác định trách nhiệm cá nhân -> Lựa chọn công cụ chuyên môn (${taxonomy.keywords.slice(0, 3).join(', ')}) -> Khẳng định hiệu quả bằng số liệu định lượng (${taxonomy.metricsTerm}).`;
 
-    qList.forEach((q) => {
-      const ans = (q.answer || '').trim();
-      const lower = ans.toLowerCase();
-      const words = ans ? ans.split(/\s+/).filter(Boolean).length : 0;
-      const baseQScore = q.score != null && q.score > 0 ? q.score : (totalScore > 0 ? totalScore : 20);
+  return { qType, critique: enrichedCritique, modelAnswer: enrichedModel, strategyGuide };
+};
 
-      // 1. Chuyên môn: Thuật ngữ kỹ thuật, công cụ công nghệ
-      const techMatches = (lower.match(/spring|java|sql|api|database|microservice|docker|postgre|mysql|redis|node|react|rest|json|query|architecture|git|ci\/cd|backend|frontend|service|controller|entity|transaction|index/g) || []).length;
-      let qDomain;
-      if (techMatches === 0) {
-        qDomain = Math.min(24, Math.max(12, Math.round(words * 0.9 + baseQScore * 0.4)));
-      } else {
-        qDomain = Math.min(92, Math.max(25, Math.round(baseQScore * 0.7 + techMatches * 7)));
-      }
+/**
+ * Tính toán 4 Trụ Cột Năng Lực Tuyển Dụng Xác Thực
+ * Trụ Cột 4: "Phong Thái Khuôn Mặt, Ngữ Điệu & Độ Lưu Loát (20%)"
+ * Tích hợp đầy đủ: WPM, Fillers, Pitch Hz, Eye Contact (nếu có Camera)
+ */
+export const computeAuthenticCompetencies = (
+  session,
+  questions = [],
+  totalScore = 0,
+  telemetry = {},
+  totalWords = 0,
+  meaningfulAnswersCount = 0
+) => {
+  const isSessionTooShort = totalWords < 30 || meaningfulAnswersCount < 2;
 
-      // 2. Problem Solving: Khắc phục sự cố, nguyên nhân, đánh đổi
-      const probMatches = (lower.match(/giải quyết|nguyên nhân|xử lý|khắc phục|tối ưu|vấn đề|sự cố|lỗi|giải pháp|đánh đổi|trade-off|phân tích|ngăn ngừa|exception|debug/g) || []).length;
-      let qProblem;
-      if (probMatches === 0) {
-        qProblem = Math.min(20, Math.max(10, Math.round(words * 0.7 + baseQScore * 0.35)));
-      } else {
-        qProblem = Math.min(90, Math.max(28, Math.round(baseQScore * 0.7 + probMatches * 8)));
-      }
+  // 1. Trụ Cột 4: Phong Thái Khuôn Mặt, Ngữ Điệu & Độ Lưu Loát (20%)
+  const hasCam = Boolean(
+    telemetry?.isCameraUsed &&
+    telemetry?.avgEyeContact != null &&
+    Number(telemetry.avgEyeContact) > 0 &&
+    telemetry?.postureStatus !== 'Chưa bật camera'
+  );
+  const eye = hasCam ? Number(telemetry.avgEyeContact) : null;
 
-      // 3. Structure STAR & Metrics: Số liệu định lượng %, thời gian, số lượng
-      const hasMetrics = /\d+[\.,]?\d*\s*(%|ms|s|giây|phút|giờ|user|rps|triệu|k|lần|bug)/i.test(lower);
-      const starKeywords = (lower.match(/bối cảnh|tình huống|nhiệm vụ|mục tiêu|triển khai|hành động|kết quả|đạt được|giảm|tăng/g) || []).length;
-      let qStar;
-      if (!hasMetrics && starKeywords === 0) {
-        qStar = Math.min(18, Math.max(8, Math.round(baseQScore * 0.35)));
-      } else {
-        qStar = Math.min(90, Math.max(20, (starKeywords * 6) + (hasMetrics ? 28 : 0)));
-      }
+  const hasMic = Boolean(
+    telemetry?.avgWpm != null &&
+    Number(telemetry.avgWpm) > 0
+  );
+  const wpm = hasMic ? Number(telemetry.avgWpm) : null;
+  const fillers = Number(telemetry?.totalFillers ?? 0);
+  const pitch = (telemetry?.avgPitchHz != null && Number(telemetry.avgPitchHz) > 0) ? Number(telemetry.avgPitchHz) : null;
 
-      domainPoints += qDomain;
-      problemPoints += qProblem;
-      starPoints += qStar;
-    });
+  let verbalCommScore = 60;
+  if (isSessionTooShort) {
+    verbalCommScore = Math.min(25, Math.max(10, Math.round(totalWords * 0.6)));
+  } else {
+    // Đánh giá dựa trên độ dài và dung lượng từ thực tế
+    if (totalWords >= 120) verbalCommScore += 10;
+    else if (totalWords >= 60) verbalCommScore += 5;
 
-    const n = qList.length;
-    let dVal = Math.round(domainPoints / n);
-    let pVal = Math.round(problemPoints / n);
-    let sVal = Math.round(starPoints / n);
+    // Chỉ tính điểm WPM nếu THỰC SỰ có thu âm qua Micro
+    if (hasMic && wpm != null) {
+      if (wpm >= 100 && wpm <= 150) verbalCommScore += 8;
+      else if (wpm < 85 || wpm > 165) verbalCommScore -= 8;
+    }
 
-    // Đảm bảo không có 2 chỉ số nào bị bằng nhau chằn chặn để tránh tạo cảm giác giả tạo
-    if (dVal === pVal) pVal = Math.max(8, pVal - 3);
-    if (sVal === pVal) sVal = Math.max(8, sVal - 4);
-    if (sVal === dVal) sVal = Math.max(8, sVal - 2);
+    // Từ đệm
+    if (fillers <= 2 && totalWords >= 40) verbalCommScore += 5;
+    else if (fillers >= 6) verbalCommScore -= 10;
 
+    // Tần số Pitch thật
+    if (pitch != null) {
+      if (pitch >= 100 && pitch <= 240) verbalCommScore += 5;
+      else if (pitch > 260) verbalCommScore -= 5;
+    }
+
+    // Camera thật
+    if (hasCam && eye != null) {
+      if (eye >= 75) verbalCommScore += 6;
+      else if (eye < 50) verbalCommScore -= 8;
+    }
+
+    verbalCommScore = Math.max(25, Math.min(95, verbalCommScore));
+  }
+
+  // Nếu phiên quá ngắn, phạt triệt để cả 4 trụ cột
+  if (isSessionTooShort) {
+    const clampedBase = Math.min(25, Math.max(10, Math.round(totalWords * 0.7)));
     return {
-      domainKnowledge: Math.max(10, Math.min(98, dVal)),
-      problemSolving: Math.max(10, Math.min(98, pVal)),
-      structureSTAR: Math.max(8, Math.min(98, sVal)),
-      deliveryTone: deliveryScore,
+      domainKnowledge: clampedBase,
+      problemSolving: Math.min(25, Math.max(10, clampedBase - 2)),
+      structureSTAR: Math.min(20, Math.max(8, clampedBase - 4)),
+      deliveryTone: verbalCommScore,
     };
   }
 
-  // Fallback nếu không có câu trả lời chi tiết
-  const baseVal = totalScore > 0 ? totalScore : 20;
+  const rawComps = session?.competencies;
+  if (rawComps && rawComps.domainKnowledge > 0 && rawComps.problemSolving > 0) {
+    return {
+      domainKnowledge: Math.max(10, Math.min(100, Math.round(rawComps.domainKnowledge))),
+      problemSolving: Math.max(10, Math.min(100, Math.round(rawComps.problemSolving))),
+      structureSTAR: Math.max(10, Math.min(100, Math.round(rawComps.structureSTAR ?? rawComps.starStructureScore ?? 50))),
+      deliveryTone: Math.max(10, Math.min(100, Math.round(rawComps.deliveryTone ?? rawComps.communicationScore ?? verbalCommScore))),
+    };
+  }
+
+  const qList = Array.isArray(questions) && questions.length > 0 ? questions : (session?.questions || []);
+  if (qList.length > 0) {
+    let domainSum = 0;
+    let problemSum = 0;
+    let starSum = 0;
+    let deliverySum = 0;
+
+    qList.forEach((q) => {
+      const baseQ = q.score != null && q.score > 0 ? q.score : (totalScore > 0 ? totalScore : 40);
+      domainSum += q.domainScore != null ? q.domainScore : baseQ;
+      problemSum += q.problemScore != null ? q.problemScore : baseQ;
+      starSum += q.starScore != null ? q.starScore : Math.round(baseQ * 0.85);
+      deliverySum += q.deliveryScore != null ? q.deliveryScore : verbalCommScore;
+    });
+
+    const n = qList.length;
+    return {
+      domainKnowledge: Math.max(10, Math.min(100, Math.round(domainSum / n))),
+      problemSolving: Math.max(10, Math.min(100, Math.round(problemSum / n))),
+      structureSTAR: Math.max(10, Math.min(100, Math.round(starSum / n))),
+      deliveryTone: Math.max(10, Math.min(100, Math.round(deliverySum / n))),
+    };
+  }
+
+  const base = totalScore > 0 ? totalScore : 30;
   return {
-    domainKnowledge: Math.max(14, Math.min(95, Math.round(baseVal * 1.15))),
-    problemSolving: Math.max(12, Math.min(95, Math.round(baseVal * 0.95))),
-    structureSTAR: Math.max(8, Math.min(95, Math.round(baseVal * 0.7))),
-    deliveryTone: deliveryScore,
+    domainKnowledge: base,
+    problemSolving: Math.max(10, base - 3),
+    structureSTAR: Math.max(10, base - 6),
+    deliveryTone: verbalCommScore,
   };
 };
 
 /**
- * AiInterviewReportPage - Trang Báo Cáo Đánh Giá Phỏng Vấn AI Chuyên Nghiệp & Toàn Diện
- * 
- * Props:
- * - user: Thông tin người dùng đăng nhập
- * - sessionData: Dữ liệu phiên phỏng vấn truyền trực tiếp (nếu được nhúng từ Studio)
- * - sessionIdProp: ID phiên phỏng vấn (tùy chọn)
- * - onBack: Callback khi người dùng bấm nút Quay lại
+ * AiInterviewReportPage - Báo Cáo Đánh Giá Phỏng Vấn AI Sắc Nét & AI Face/Voice Biometrics
+ * Bố cục 3 Tab:
+ * - Tab 1: Ma Trận Năng Lực & Độ Phủ Từ Khóa
+ * - Tab 2: Khuôn Mặt, Biểu Cảm & Ngữ Điệu Giọng Nói (AI Biometrics)
+ * - Tab 3: Giải Phẫu Từng Câu Hỏi & Lộ Trình Cải Thiện
  */
-export default function AiInterviewReportPage({ user, sessionData = null, sessionIdProp = null, onBack = null }) {
+export default function AiInterviewReportPage({
+  user,
+  sessionData = null,
+  sessionIdProp = null,
+  onBack = null,
+}) {
   const [session, setSession] = useState(sessionData);
   const [loading, setLoading] = useState(!sessionData);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'delivery' | 'questions'
+  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'biometrics' | 'questions'
   const [questionFilter, setQuestionFilter] = useState('all'); // 'all' | 'high' | 'low'
   const [playingQuestionIdx, setPlayingQuestionIdx] = useState(null);
   const [toast, setToast] = useState('');
-  const audioRef = useRef(null);
 
   const showToast = (msg) => {
     setToast(msg);
     setTimeout(() => setToast(''), 3000);
   };
 
-  // Xác định Session ID từ props hoặc query string hash: #/ai-interview-report?id=123
   const getSessionIdFromUrl = () => {
     if (sessionIdProp) return sessionIdProp;
     const hash = window.location.hash || '';
@@ -370,7 +628,6 @@ export default function AiInterviewReportPage({ user, sessionData = null, sessio
     return params.get('id') || params.get('sessionId') || null;
   };
 
-  // Tải dữ liệu phiên phỏng vấn nếu chưa có sessionData
   useEffect(() => {
     if (sessionData) {
       setSession(sessionData);
@@ -380,9 +637,11 @@ export default function AiInterviewReportPage({ user, sessionData = null, sessio
 
     const sid = getSessionIdFromUrl();
     if (!sid) {
-      // Kiểm tra trong localStorage xem có phiên vừa hoàn thành hoặc cache không
       try {
-        const cachedHistory = JSON.parse(localStorage.getItem('hiremate_interview_history') || '[]');
+        const userHistoryCacheKey = user?.userId
+          ? `hiremate_interview_history_${user.userId}`
+          : 'hiremate_interview_history_guest';
+        const cachedHistory = JSON.parse(localStorage.getItem(userHistoryCacheKey) || '[]');
         if (Array.isArray(cachedHistory) && cachedHistory.length > 0) {
           setSession(cachedHistory[0]);
           setLoading(false);
@@ -397,8 +656,9 @@ export default function AiInterviewReportPage({ user, sessionData = null, sessio
 
     setLoading(true);
     const numericId = parseInt(sid.toString().replace(/\D/g, ''), 10);
-    
-    interviewApi.getSessionResult(numericId || sid)
+
+    interviewApi
+      .getSessionResult(numericId || sid)
       .then((res) => {
         const raw = res?.data || res;
         const d = raw?.data || raw;
@@ -407,64 +667,63 @@ export default function AiInterviewReportPage({ user, sessionData = null, sessio
             id: 'HM-' + (d.sessionId || sid),
             sessionId: d.sessionId || sid,
             date: d.startedAt ? d.startedAt.split('T')[0] : new Date().toISOString().split('T')[0],
-            topic: d.targetPosition || 'Chuyên viên Công nghệ',
+            topic: d.targetPosition || 'Chuyên viên',
             level: 'Middle',
             duration: '15 phút',
             totalScore: Math.round(d.overallScore || 0),
-            grade: (d.overallScore || 0) >= 85 ? 'Xuất Sắc' : (d.overallScore || 0) >= 70 ? 'Đạt Yêu Cầu' : (d.overallScore || 0) >= 50 ? 'Cần Rèn Luyện Thêm' : 'Không Đạt Yêu Cầu',
+            grade:
+              (d.overallScore || 0) >= 85
+                ? 'Xuất Sắc'
+                : (d.overallScore || 0) >= 70
+                  ? 'Đạt Yêu Cầu'
+                  : (d.overallScore || 0) >= 50
+                    ? 'Cần Rèn Luyện Thêm'
+                    : 'Không Đạt Yêu Cầu',
             questionsCount: d.details?.length || 0,
             planName: d.planName || 'Free Candidate',
             maxQuestions: d.maxQuestions || 3,
             maxDurationSeconds: d.maxDurationSeconds || 300,
             aiSummary: d.overallFeedback || 'Đã hoàn thành phiên phỏng vấn với HireMate AI.',
-            weaknessSummary: d.weaknessSummary || 'Cần bổ sung thêm các số liệu định lượng và đào sâu giải pháp công nghệ theo mô hình STAR.',
+            weaknessSummary: d.weaknessSummary || '',
             competencies: {
-              domainKnowledge: Math.round(d.domainKnowledgeScore || d.overallScore || 70),
-              problemSolving: Math.round(d.problemSolvingScore || d.overallScore || 65),
-              structureSTAR: Math.round(d.starStructureScore || 60),
-              deliveryTone: Math.round(d.deliveryToneScore || d.communicationScore || 75),
+              domainKnowledge: Math.round(d.domainKnowledgeScore || d.overallScore || 20),
+              problemSolving: Math.round(d.problemSolvingScore || d.overallScore || 20),
+              structureSTAR: Math.round(d.starStructureScore || 20),
+              deliveryTone: Math.round(d.deliveryToneScore || d.communicationScore || 20),
             },
-            strengths: (d.overallScore || 0) >= 70 ? [
-              'Phản xạ hội thoại tự nhiên, bám sát các câu hỏi của hội đồng tuyển dụng.',
-              'Nắm được các công cụ và quy trình triển khai công việc thực tế.',
-              'Tác phong giao tiếp thẳng thắn, thái độ hợp tác và cởi mở.',
-            ] : [
-              'Có tinh thần tham gia và hoàn thành các lượt câu hỏi phỏng vấn.',
-              'Thái độ tiếp thu và sẵn sàng đón nhận câu hỏi phản biện từ AI.',
-            ],
-            criticalFlaws: d.weaknessSummary ? [d.weaknessSummary] : [
-              'Câu trả lời còn mang tính lý thuyết chung chung, thiếu chiều sâu kiến trúc thực tế.',
-              'Chưa vận dụng triệt để mô hình STAR và thiếu các minh chứng định lượng (%, thời gian, số lượng).',
-            ],
-            improvementPlan: d.recommendedTasks
-              ? (typeof d.recommendedTasks === 'string' ? JSON.parse(d.recommendedTasks || '[]') : d.recommendedTasks)
-              : [
-                'Luyện tập trả lời theo đúng 4 bước STAR: Bối cảnh, Nhiệm vụ, Hành động, Kết quả.',
-                'Đào sâu vào các kịch bản sự cố thực tế và các giải pháp tối ưu hệ thống.',
-                'Ôn tập thêm các thuật ngữ kỹ thuật cốt lõi trước khi phỏng vấn chính thức.',
-              ],
-            telemetryReport: {
-              avgEyeContact: 88,
-              avgPitchHz: 135,
-              avgWpm: 124,
-              totalFillers: 2,
-              emotionSummary: 'Tự tin & Thân thiện 😊',
-              postureStatus: 'Cân đối • Chuẩn mực',
+            telemetryReport: d.telemetryReport || {
+              isCameraUsed: Boolean(d.telemetry?.isCameraUsed),
+              isMicrophoneUsed: Boolean(d.telemetry?.avgWpm && Number(d.telemetry.avgWpm) > 0),
+              avgEyeContact: d.telemetry?.avgEyeContact || null,
+              avgPitchHz: d.telemetry?.avgPitchHz || null,
+              avgWpm: d.telemetry?.avgWpm || null,
+              totalFillers: d.telemetry?.totalFillers || 0,
+              emotionSummary: d.telemetry?.dominantEmotion || 'Chưa bật camera',
+              postureStatus: d.telemetry?.postureStatus || 'Chưa bật camera',
+              emotions: d.telemetry?.emotions || { confident: 0, smiling: 0, focused: 0, tense: 0 },
             },
-            questions: (d.details || []).map((detail, idx) => ({
-              q: detail.questionText || `Lượt đối đáp #${idx + 1}`,
-              score: Math.round(detail.aiEvaluationScore || 0),
-              domainScore: Math.round(detail.aiEvaluationScore || 0),
-              problemScore: Math.round(detail.aiEvaluationScore || 0),
-              starScore: Math.round((detail.aiEvaluationScore || 0) * 0.9),
-              deliveryScore: 80,
-              answer: detail.candidateAnswerText || '(Ứng viên đã trả lời bằng giọng nói)',
-              criticalFeedback: {
-                flaws: detail.aiFeedback || 'Cần bổ sung dẫn chứng dự án cụ thể.',
-                interviewerImpression: 'Ứng viên phản hồi rõ ràng, cần tăng chiều sâu lập luận.',
-              },
-              modelAnswer: detail.aiSuggestedAnswer || 'Gợi ý câu trả lời chuẩn theo mô hình STAR.',
-            })),
+            questions: (d.details || []).map((detail, idx) => {
+              const ans = detail.candidateAnswerText || '';
+              const wCount = ans.trim().split(/\s+/).filter(Boolean).length;
+              return {
+                q: detail.questionText || `Lượt đối đáp #${idx + 1}`,
+                score: Math.round(detail.aiEvaluationScore || 0),
+                domainScore: Math.round(detail.aiEvaluationScore || 0),
+                problemScore: Math.round(detail.aiEvaluationScore || 0),
+                starScore: Math.round((detail.aiEvaluationScore || 0) * 0.85),
+                deliveryScore: Math.round(d.deliveryToneScore || 20),
+                answer: ans,
+                words: wCount,
+                wpm: d.telemetry?.avgWpm || null,
+                pitchHz: d.telemetry?.avgPitchHz || null,
+                eyeContact: d.telemetry?.isCameraUsed ? (d.telemetry?.avgEyeContact || null) : null,
+                criticalFeedback: {
+                  flaws: detail.aiFeedback || '',
+                  interviewerImpression: detail.tone || '',
+                },
+                modelAnswer: detail.aiSuggestedAnswer || '',
+              };
+            }),
           };
           setSession(mapped);
         } else {
@@ -473,10 +732,14 @@ export default function AiInterviewReportPage({ user, sessionData = null, sessio
       })
       .catch((err) => {
         console.warn('Load session report error:', err);
-        // Fallback: Tìm trong localStorage
         try {
-          const cachedHistory = JSON.parse(localStorage.getItem('hiremate_interview_history') || '[]');
-          const found = cachedHistory.find((c) => String(c.id).includes(sid) || String(c.sessionId) === String(sid));
+          const userHistoryCacheKey = user?.userId
+            ? `hiremate_interview_history_${user.userId}`
+            : 'hiremate_interview_history_guest';
+          const cachedHistory = JSON.parse(localStorage.getItem(userHistoryCacheKey) || '[]');
+          const found = cachedHistory.find(
+            (c) => String(c.id).includes(sid) || String(c.sessionId) === String(sid)
+          );
           if (found) {
             setSession(found);
             return;
@@ -487,7 +750,7 @@ export default function AiInterviewReportPage({ user, sessionData = null, sessio
       .finally(() => setLoading(false));
   }, [sessionData, sessionIdProp]);
 
-  // Phát âm thanh giọng đọc câu trả lời mẫu
+  // Phát âm thanh giọng đọc TTS
   const playModelAudio = (text, qIdx) => {
     if (!text) return;
     if (playingQuestionIdx === qIdx) {
@@ -499,8 +762,6 @@ export default function AiInterviewReportPage({ user, sessionData = null, sessio
     }
 
     setPlayingQuestionIdx(qIdx);
-
-    // Dùng Web SpeechSynthesis API để phát giọng đọc chuẩn tiếng Việt
     try {
       if (typeof window !== 'undefined' && window.speechSynthesis) {
         window.speechSynthesis.cancel();
@@ -511,7 +772,7 @@ export default function AiInterviewReportPage({ user, sessionData = null, sessio
         utterance.onend = () => setPlayingQuestionIdx(null);
         utterance.onerror = () => setPlayingQuestionIdx(null);
         window.speechSynthesis.speak(utterance);
-        showToast('🔊 Đang đọc câu trả lời mẫu chuẩn STAR...');
+        showToast('🔊 Đang đọc phát biểu mẫu chuẩn STAR...');
       } else {
         showToast('Trình duyệt chưa hỗ trợ Text-to-Speech.');
         setPlayingQuestionIdx(null);
@@ -522,17 +783,19 @@ export default function AiInterviewReportPage({ user, sessionData = null, sessio
     }
   };
 
-  // Sao chép nội dung vào Clipboard
   const copyToClipboard = (text, label = 'Nội dung') => {
     if (!navigator.clipboard) {
       showToast('⚠️ Không thể truy cập clipboard.');
       return;
     }
-    navigator.clipboard.writeText(text).then(() => {
-      showToast(`✨ Đã sao chép ${label} vào clipboard!`);
-    }).catch(() => {
-      showToast('⚠️ Lỗi sao chép.');
-    });
+    navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        showToast(`✨ Đã sao chép ${label} vào clipboard!`);
+      })
+      .catch(() => {
+        showToast('⚠️ Lỗi sao chép.');
+      });
   };
 
   const handleBack = () => {
@@ -543,17 +806,12 @@ export default function AiInterviewReportPage({ user, sessionData = null, sessio
     }
   };
 
-  // In hoặc xuất PDF báo cáo
-  const handlePrint = () => {
-    window.print();
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-slate-50 font-sans">
-        <div className="w-16 h-16 rounded-3xl bg-[#32247b]/10 border-2 border-[#32247b] border-t-transparent animate-spin mb-4" />
-        <h2 className="text-base font-bold text-slate-800">Đang tổng hợp báo cáo phỏng vấn AI...</h2>
-        <p className="text-xs text-slate-500 mt-1">Hệ thống đang kết xuất dữ liệu phân tích thị giác, giọng nói và mô hình STAR</p>
+        <div className="w-14 h-14 rounded-2xl bg-[#32247b]/10 border-2 border-[#32247b] border-t-transparent animate-spin mb-4" />
+        <h2 className="text-sm font-bold text-slate-800">Đang tổng hợp Báo Cáo Phỏng Vấn AI...</h2>
+        <p className="text-xs text-slate-500 mt-1">Đang phân tích 4 trụ cột năng lực, sinh trắc học khuôn mặt &amp; ngữ điệu giọng nói</p>
       </div>
     );
   }
@@ -562,125 +820,222 @@ export default function AiInterviewReportPage({ user, sessionData = null, sessio
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-slate-50 font-sans">
         <div className="max-w-md w-full bg-white rounded-3xl border border-rose-200 p-8 text-center space-y-4 shadow-xl">
-          <span className="material-symbols-outlined text-5xl text-rose-500">error</span>
-          <h2 className="text-lg font-bold text-slate-900">Không Thể Tải Báo Cáo Phỏng Vấn</h2>
+          <span className="material-symbols-outlined text-4xl text-rose-500">error</span>
+          <h2 className="text-base font-bold text-slate-900">Không Thể Tải Báo Cáo Phỏng Vấn</h2>
           <p className="text-xs text-slate-600">{error || 'Phiên phỏng vấn không tồn tại hoặc đã bị xóa.'}</p>
           <button
             onClick={handleBack}
-            className="w-full py-3 rounded-2xl bg-[#32247b] text-white text-xs font-bold hover:bg-[#261a63] transition-all cursor-pointer flex items-center justify-center gap-2"
+            className="w-full py-2.5 rounded-xl bg-[#32247b] text-white text-xs font-bold hover:bg-[#261a63] transition-all cursor-pointer flex items-center justify-center gap-2"
           >
             <span className="material-symbols-outlined text-sm">arrow_back</span>
-            <span>Quay Lại Studio Phỏng Vấn</span>
+            <span>Quay Lại Studio</span>
           </button>
         </div>
       </div>
     );
   }
 
-  // Phân quyền gói dịch vụ Supabase thực tế & chỉ số thống kê
-  const planName = session.planName || 'Free Candidate';
-  const isFreeTier = session.unlockFullStar !== undefined
-    ? !session.unlockFullStar
-    : (!planName || planName.toLowerCase().includes('free') || (session.maxQuestions && session.maxQuestions <= 3));
-  const isPlusTier = Boolean(planName && planName.toLowerCase().includes('plus'));
-  const isProOrAceTier = Boolean(planName && (planName.toLowerCase().includes('pro') || planName.toLowerCase().includes('ace') || planName.toLowerCase().includes('vip')));
-  const isRoadmapLocked = session.unlockRoadmapStages !== undefined ? !session.unlockRoadmapStages : isFreeTier;
-
+  // =========================================================================
+  // TOÁN HỌC & CHỈ SỐ THỰC TẾ
+  // =========================================================================
   const questions = session.questions || [];
   const totalQ = questions.length;
-  const highScoredQ = questions.filter((q) => (q.score ?? 0) >= 60).length;
-  const lowScoredQ = questions.filter((q) => (q.score ?? 0) < 60).length;
-  const passRate = totalQ > 0 ? Math.round((highScoredQ / totalQ) * 100) : 0;
-  
-  const totalScore = Math.round(session.totalScore || 0);
-  const grade = session.grade || (totalScore >= 85 ? 'Xuất Sắc' : totalScore >= 70 ? 'Đạt Yêu Cầu' : totalScore >= 50 ? 'Cần Rèn Luyện Thêm' : 'Không Đạt Yêu Cầu');
+  const targetMaxQ = session.maxQuestions || 3;
+  const isSessionIncomplete = session.isIncomplete || totalQ < targetMaxQ;
 
-  const gradeColor = totalScore >= 85
-    ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
-    : totalScore >= 70
-      ? 'text-teal-700 bg-teal-50 border-teal-200'
-      : totalScore >= 50
-        ? 'text-amber-700 bg-amber-50 border-amber-200'
-        : 'text-rose-700 bg-rose-50 border-rose-200';
+  const totalWords = questions.reduce((sum, q) => {
+    const txt = (q.answer || '').trim();
+    return sum + (txt ? txt.split(/\s+/).filter(Boolean).length : 0);
+  }, 0);
 
-  const gaugeStroke = totalScore >= 85
-    ? '#059669'
-    : totalScore >= 70
-      ? '#0d9488'
-      : totalScore >= 50
-        ? '#d97706'
-        : '#e11d48';
+  const meaningfulAnswersCount = questions.filter((q) => {
+    const txt = (q.answer || '').trim();
+    return txt.split(/\s+/).filter(Boolean).length >= 5;
+  }).length;
+
+  const avgWordsPerQ = totalQ > 0 ? Math.round(totalWords / totalQ) : 0;
+  const avgWordEvaluation =
+    avgWordsPerQ === 0
+      ? 'Chưa có câu trả lời'
+      : avgWordsPerQ < 15
+        ? 'Quá ngắn (Thiếu chiều sâu)'
+        : avgWordsPerQ <= 45
+          ? 'Vừa đủ (Cần thêm số liệu)'
+          : 'Chi tiết (Đầy đủ luận điểm)';
 
   const telemetry = session.telemetryReport || {
-    avgEyeContact: 88,
-    avgPitchHz: 135,
-    avgWpm: 122,
-    totalFillers: 2,
-    emotionSummary: 'Tự tin & Thân thiện 😊',
-    postureStatus: 'Cân đối • Chuẩn mực',
+    isCameraUsed: false,
+    avgEyeContact: null,
+    avgPitchHz: null,
+    avgWpm: null,
+    totalFillers: 0,
+    emotionSummary: 'Chưa bật camera',
+    postureStatus: 'Chưa bật camera',
+    emotions: { confident: 0, smiling: 0, focused: 0, tense: 0 },
   };
 
-  // Tính toán 4 Trụ Cột Năng Lực xác thực, tránh bị trùng điểm tổng (17-17-17-17)
-  const comps = computeAuthenticCompetencies(session, questions, totalScore, telemetry);
+  const hasCameraUsed = Boolean(
+    telemetry?.isCameraUsed !== false &&
+    telemetry?.avgEyeContact != null &&
+    Number(telemetry.avgEyeContact) > 0 &&
+    telemetry?.postureStatus !== 'Chưa bật camera' &&
+    telemetry?.postureStatus !== 'Không có dữ liệu (Camera tắt)'
+  );
 
-  // Bóc tách và làm sạch điểm yếu (loại bỏ text debug EMA)
+  const hasMicrophoneUsed = Boolean(
+    telemetry?.avgWpm != null &&
+    Number(telemetry.avgWpm) > 0
+  );
+
+  const hasPitchData = Boolean(
+    telemetry?.avgPitchHz != null &&
+    Number(telemetry.avgPitchHz) > 0
+  );
+
+  const wpmInfo = computeWpmClassification(totalWords, telemetry.avgWpm);
+  const cleanTopic = cleanTopicName(session.topic);
+  const industryCategoryKey = detectIndustryCategory(cleanTopic);
+  const taxonomy = INDUSTRY_TAXONOMY[industryCategoryKey] || INDUSTRY_TAXONOMY.general;
+  const keywordGap = extractKeywordGap(taxonomy, questions);
+
+  const lowestQuestion = questions.length > 0
+    ? questions.reduce((min, q, idx) => {
+        const qScore = q.score != null ? Number(q.score) : 0;
+        const minScore = min.score != null ? Number(min.score) : 0;
+        return qScore < minScore ? { ...q, index: idx + 1 } : min;
+      }, { ...questions[0], index: 1 })
+    : null;
+  const lowestQWords = lowestQuestion?.answer ? lowestQuestion.answer.trim().split(/\s+/).filter(Boolean).length : 0;
+
+  let totalScore = Math.round(session.totalScore || 0);
+  const isVeryShortSession = totalWords < 30 || meaningfulAnswersCount < 2;
+  if (isVeryShortSession) {
+    totalScore = Math.min(25, Math.max(10, totalScore));
+  }
+
+  const grade =
+    totalScore >= 85
+      ? 'Xuất Sắc'
+      : totalScore >= 70
+        ? 'Đạt Yêu Cầu'
+        : totalScore >= 50
+          ? 'Cần Rèn Luyện Thêm'
+          : 'Không Đạt Yêu Cầu';
+
+  const gradeColor =
+    totalScore >= 85
+      ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+      : totalScore >= 70
+        ? 'text-teal-700 bg-teal-50 border-teal-200'
+        : totalScore >= 50
+          ? 'text-amber-700 bg-amber-50 border-amber-200'
+          : 'text-rose-700 bg-rose-50 border-rose-200';
+
+  const gaugeStroke =
+    totalScore >= 85
+      ? '#059669'
+      : totalScore >= 70
+        ? '#0d9488'
+        : totalScore >= 50
+          ? '#d97706'
+          : '#e11d48';
+
+  const comps = computeAuthenticCompetencies(
+    session,
+    questions,
+    totalScore,
+    telemetry,
+    totalWords,
+    meaningfulAnswersCount
+  );
+
   const cleanedWeakness = cleanWeaknessText(session.weaknessSummary);
 
-  const authenticFlaws = [
-    cleanedWeakness
-      ? `Lỗ hổng kiến thức cốt lõi: ${cleanedWeakness}`
-      : `Thiếu hụt kiến thức công nghệ thực tế: Chưa gọi tên và giải thích được các framework, công nghệ backend cụ thể của vị trí ${session.topic} (như Spring Boot, Database Transaction, ORM, API Security...).`,
-    'Lập luận kỹ thuật bị rời rạc & đứt quãng: Câu trả lời còn quá ngắn, chưa phân tích được nguyên nhân gốc rễ (Root Cause) và các kịch bản ngoại lệ khi hệ thống gặp sự cố.',
-    'Chưa vận dụng mô hình STAR & thiếu số liệu thực chứng: Hoàn toàn vắng bóng các số liệu đo lường định lượng (thời gian phản hồi API, % tối ưu hóa, số lượng request chịu tải) để chứng minh năng lực thực tế.',
-  ];
+  // Xử lý phân bổ cảm xúc
+  const rawEmotions = telemetry.emotions || { confident: 0, smiling: 0, focused: 0, tense: 0 };
+  const totalEmotionCounts = (rawEmotions.confident || 0) + (rawEmotions.smiling || 0) + (rawEmotions.focused || 0) + (rawEmotions.tense || 0);
+  const emotionPcts = totalEmotionCounts > 0 ? {
+    confident: Math.round(((rawEmotions.confident || 0) / totalEmotionCounts) * 100),
+    focused: Math.round(((rawEmotions.focused || 0) / totalEmotionCounts) * 100),
+    smiling: Math.round(((rawEmotions.smiling || 0) / totalEmotionCounts) * 100),
+    tense: Math.round(((rawEmotions.tense || 0) / totalEmotionCounts) * 100),
+  } : {
+    confident: hasCameraUsed ? 45 : 0,
+    focused: hasCameraUsed ? 35 : 0,
+    smiling: hasCameraUsed ? 15 : 0,
+    tense: hasCameraUsed ? 5 : 0,
+  };
 
-  const authenticStrengths = [
-    `Giao tiếp mắt qua camera tốt (${telemetry.avgEyeContact}%): Duy trì tiếp xúc mắt với ống kính webcam đều đặn, tư thế ngồi cân đối giữa khung hình và giữ được sự điềm đạm trước các câu hỏi thách thức.`,
-    `Tốc độ phát biểu chuẩn mực (${telemetry.avgWpm} WPM): Nhịp điệu phát biểu nằm trong ngưỡng chuẩn (115 - 135 từ/phút), phát âm rõ ràng và kiểm soát tốt các từ đệm ngập ngừng (${telemetry.totalFillers} lần).`,
-    `Thái độ cầu thị & Tinh thần kiên trì: Hoàn thành trọn vẹn cả ${totalQ} câu hỏi đối đáp chuyên môn mà không bỏ dở giữa chừng, thể hiện thái độ nghiêm túc và sẵn sàng đón nhận câu hỏi đào sâu.`,
-  ];
-
-  const authenticRoadmap = [
-    {
-      step: '01',
-      title: 'Chuẩn Bị 3 Kịch Bản Dự Án Chuẩn STAR',
-      timeline: '2 Tuần Đầu',
-      goal: 'Chấm dứt tình trạng trả lời ngắn cụt lủn, mơ hồ và thiếu số liệu thực chứng.',
-      actions: [
-        'Chọn 2 dự án kỹ thuật tiêu biểu nhất bạn từng tham gia làm hoặc học tập.',
-        'Viết ra giấy kịch bản 2 phút theo đúng 4 phần: Bối cảnh hệ thống (S), Trách nhiệm cụ thể (T), Công nghệ & Giải pháp code trực tiếp (A - Spring Boot, SQL, Redis, REST API...), Kết quả đo lường (R).',
-        'Luyện tập nói to cho đến khi đạt độ dài 120 - 180 từ/câu và có ít nhất 2 số liệu định lượng (%, ms, request).'
-      ],
-      checklist: 'Nêu được ít nhất 2 số liệu định lượng và 3 công cụ công nghệ cụ thể trong mỗi câu trả lời.'
-    },
-    {
-      step: '02',
-      title: `Hệ Thống Hóa Thuật Ngữ & Nguyên Lý Cốt Lõi Vị Trí ${session.topic}`,
-      timeline: 'Tuần 3 - 4',
-      goal: 'Bù đắp lỗ hổng kiến thức chuyên môn, trả lời có chiều sâu thay vì nói chung chung.',
-      actions: [
-        'Ôn tập sâu các chủ đề phỏng vấn cốt lõi: Cơ chế Index, Isolation Level và Transaction ACID trong Database.',
-        'Thực hành thiết kế RESTful API chuẩn, xử lý ngoại lệ (Global Exception Handling) và Validation dữ liệu.',
-        'Luyện tập giải thích các đánh đổi kỹ thuật (Trade-offs): ví dụ khi nào dùng Cache, khi nào cần tối ưu Index thay vì tăng RAM.'
-      ],
-      checklist: 'Mỗi câu trả lời kỹ thuật bắt buộc gọi đúng tên và giải thích được nguyên lý vận hành của công cụ.'
-    },
-    {
-      step: '03',
-      title: 'Luyện Tập Phản Xạ Trước Camera & Làm Chủ Khung Hình',
-      timeline: 'Tuần 5',
-      goal: 'Tự tin làm chủ khung hình webcam và trả lời lưu loát trước hội đồng tuyển dụng.',
-      actions: [
-        'Bật camera và ghi hình bản thân trả lời thử 5 câu hỏi tình huống bất kỳ trong HireMate AI Studio.',
-        'Dành 3-5 giây định hình dàn ý trước khi mở lời thay vì ngắt quãng giữa chừng.',
-        'Duy trì mắt nhìn thẳng vào ống kính webcam (> 80% thời gian), tuyệt đối không đảo mắt xuống bàn hoặc nhìn màn hình.',
-        'Giữ tốc độ phát biểu vừa phải (115 - 130 WPM), loại bỏ hoàn toàn các từ ngữ chêm xen "à, ừm, thì, là".'
-      ],
-      checklist: 'Xem lại video ghi hình và đạt điểm tác phong delivery ≥ 80 điểm.'
+  const authenticStrengths = [];
+  if (isVeryShortSession || totalScore < 40) {
+    authenticStrengths.push(
+      'Chưa ghi nhận được ưu điểm chuyên môn rõ nét do phiên phỏng vấn kết thúc quá sớm hoặc câu trả lời quá ngắn.'
+    );
+  } else {
+    if (comps.domainKnowledge >= 70) {
+      authenticStrengths.push(
+        `Nắm bắt tốt các thuật ngữ và nguyên lý ngành ${taxonomy.categoryName}. Thể hiện được kiến thức nền tảng vững vàng.`
+      );
     }
-  ];
+    if (comps.problemSolving >= 70) {
+      authenticStrengths.push(
+        'Tư duy giải quyết vấn đề mạch lạc, biết phân tích nguyên nhân gốc rễ và đề xuất phương án xử lý thực tế.'
+      );
+    }
+    if (wpmInfo.isReliable && telemetry.avgWpm >= 100 && telemetry.avgWpm <= 150) {
+      authenticStrengths.push(
+        `Tốc độ trình bày đạt chuẩn tự nhiên (${telemetry.avgWpm} từ/phút), phát âm rõ ràng, nhịp điệu ổn định.`
+      );
+    }
+    if (telemetry.totalFillers <= 2 && totalWords >= 40) {
+      authenticStrengths.push(
+        `Kiểm soát tốt ngôn từ diễn đạt, hạn chế tối đa các từ đệm ngập ngừng (chỉ ${telemetry.totalFillers} lần trong suốt buổi).`
+      );
+    }
+    if (hasCameraUsed && telemetry.avgEyeContact >= 70) {
+      authenticStrengths.push(
+        `Tương tác ánh mắt qua webcam tốt (${telemetry.avgEyeContact}%), duy trì sự tập trung trực diện tạo cảm giác tự tin.`
+      );
+    }
+    if (totalQ >= targetMaxQ && totalScore >= 60) {
+      authenticStrengths.push(
+        `Hoàn thành trọn vẹn ${totalQ} câu hỏi đối thoại chuyên sâu, duy trì sự tập trung và tinh thần cầu thị.`
+      );
+    }
+    if (authenticStrengths.length === 0) {
+      authenticStrengths.push('Đã có nỗ lực phản hồi các câu hỏi phỏng vấn trong buổi đối thoại.');
+    }
+  }
 
-  // Lọc câu hỏi theo bộ lọc
+  const authenticFlaws = [];
+  if (isSessionIncomplete) {
+    authenticFlaws.push(
+      `Phiên phỏng vấn kết thúc sớm: Mới thực hiện ${totalQ}/${targetMaxQ} câu hỏi, chưa đủ dữ liệu đánh giá đầy đủ các vòng chuyên môn.`
+    );
+  }
+  if (cleanedWeakness) {
+    authenticFlaws.push(`Lỗ hổng cốt lõi: ${cleanedWeakness}`);
+  } else if (comps.domainKnowledge < 70) {
+    authenticFlaws.push(
+      `Thiếu hụt kiến thức công nghệ thực tế: Chưa gọi tên và phân tích được các khái niệm cốt lõi của vị trí ${cleanTopic} (như ${keywordGap.missing.slice(0, 3).join(', ') || 'các công cụ chuyên ngành'}).`
+    );
+  }
+  if (comps.problemSolving < 70) {
+    authenticFlaws.push(
+      'Tư duy xử lý tình huống còn sơ sài: Chưa chỉ rõ nguyên nhân gốc rễ (Root Cause) và thiếu các phương án giải pháp dự phòng.'
+    );
+  }
+  if (comps.structureSTAR < 70) {
+    authenticFlaws.push(
+      `Chưa áp dụng mô hình STAR: Thiếu số liệu đo lường định lượng (${taxonomy.metricsTerm}) để chứng minh kết quả giải pháp thực tế.`
+    );
+  }
+  if (comps.deliveryTone < 50 || isVeryShortSession) {
+    authenticFlaws.push(
+      'Phong thái diễn đạt chưa đạt chuẩn: Câu trả lời quá ngắn hoặc ngắt quãng, thiếu sự liên kết logic giữa các luận điểm.'
+    );
+  }
+
   const filteredQuestions = questions.filter((q) => {
     if (questionFilter === 'high') return (q.score ?? 0) >= 60;
     if (questionFilter === 'low') return (q.score ?? 0) < 60;
@@ -691,30 +1046,30 @@ export default function AiInterviewReportPage({ user, sessionData = null, sessio
     <div className="min-h-screen bg-[#f8f9fc] text-[#1e1b4b] pb-20 font-sans print:bg-white print:p-0">
       {/* Toast Alert */}
       {toast && (
-        <div className="fixed top-6 right-6 z-[100] px-5 py-3.5 rounded-2xl bg-[#32247b]/95 text-white text-xs font-semibold shadow-2xl flex items-center gap-2.5 backdrop-blur-xl border border-white/20 animate-bounce print:hidden">
-          <span className="material-symbols-outlined text-base text-emerald-400">check_circle</span>
+        <div className="fixed top-6 right-6 z-[100] px-4 py-3 rounded-2xl bg-[#32247b]/95 text-white text-xs font-semibold shadow-2xl flex items-center gap-2 backdrop-blur-xl border border-white/20 animate-bounce print:hidden">
+          <span className="material-symbols-outlined text-sm text-emerald-400">check_circle</span>
           <span>{toast}</span>
         </div>
       )}
 
-      {/* Top Header & Breadcrumbs Bar */}
+      {/* Top Header */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-2xs print:static print:border-b-2">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <button
               onClick={handleBack}
-              className="px-3.5 py-1.5 rounded-xl border border-slate-200 hover:border-[#32247b] text-slate-700 hover:text-[#32247b] text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs print:hidden"
+              className="px-3 py-1.5 rounded-xl border border-slate-200 hover:border-[#32247b] text-slate-700 hover:text-[#32247b] text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs print:hidden"
             >
-              <span className="material-symbols-outlined text-base">arrow_back</span>
+              <span className="material-symbols-outlined text-sm">arrow_back</span>
               <span className="hidden sm:inline">Quay Lại Studio</span>
             </button>
             <div className="h-5 w-[1px] bg-slate-200 hidden sm:block print:hidden" />
             <div className="flex items-center gap-2">
-              <span className="px-2.5 py-1 rounded-lg bg-purple-50 text-[#32247b] text-xs font-mono font-bold border border-purple-200">
+              <span className="px-2 py-0.5 rounded-lg bg-purple-50 text-[#32247b] text-xs font-mono font-bold border border-purple-200">
                 {session.id || 'HM-REPORT'}
               </span>
               <h1 className="text-xs sm:text-sm font-bold text-slate-900 truncate max-w-xs sm:max-w-md">
-                Báo Cáo Đánh Giá Phỏng Vấn: {session.topic}
+                Báo Cáo Đánh Giá: {cleanTopic}
               </h1>
             </div>
           </div>
@@ -722,54 +1077,43 @@ export default function AiInterviewReportPage({ user, sessionData = null, sessio
           <div className="flex items-center gap-2 print:hidden">
             <button
               onClick={() => copyToClipboard(window.location.href, 'Liên kết báo cáo')}
-              title="Sao chép liên kết báo cáo"
+              title="Sao chép liên kết"
               className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-bold transition-all cursor-pointer"
             >
-              <span className="material-symbols-outlined text-base">share</span>
+              <span className="material-symbols-outlined text-sm">share</span>
             </button>
             <button
-              onClick={handlePrint}
-              className="px-3.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+              onClick={() => window.print()}
+              className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
             >
-              <span className="material-symbols-outlined text-base">print</span>
+              <span className="material-symbols-outlined text-sm">print</span>
               <span className="hidden sm:inline">In Báo Cáo</span>
             </button>
             <button
               onClick={() => { window.location.hash = '#/ai-interview'; }}
-              className="px-4 py-1.5 rounded-xl bg-[#32247b] hover:bg-[#251963] text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-purple-900/10 cursor-pointer"
+              className="px-3.5 py-1.5 rounded-xl bg-[#32247b] hover:bg-[#251963] text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
             >
-              <span className="material-symbols-outlined text-base">tune</span>
+              <span className="material-symbols-outlined text-sm">tune</span>
               <span>Luyện Phiên Mới</span>
             </button>
           </div>
         </div>
       </header>
 
-      {/* Main Content Area */}
+      {/* Main Content */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 pt-6 space-y-6">
 
         {/* ===================================================================== */}
-        {/* HERO EXECUTIVE DASHBOARD BANNER                                       */}
+        {/* HEADER TỔNG QUAN                                                      */}
         {/* ===================================================================== */}
-        <section className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 sm:p-8 relative overflow-hidden font-sans">
-          {/* Subtle Ambient Background Gradient */}
-          <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-gradient-to-br from-purple-200/40 via-indigo-100/30 to-transparent blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-32 -left-32 w-80 h-80 rounded-full bg-gradient-to-tr from-amber-100/40 to-transparent blur-3xl pointer-events-none" />
-
+        <section className="bg-white rounded-3xl border border-slate-200/90 shadow-xs p-6 sm:p-8 relative overflow-hidden font-sans">
           <div className="relative z-10 flex flex-col lg:flex-row items-center lg:items-start gap-8">
             
-            {/* 1. Radial High-Tech Score Gauge */}
+            {/* Vòng tròn Điểm Tổng Kết */}
             <div className="flex flex-col items-center shrink-0">
               <div className="relative w-36 h-36 flex items-center justify-center">
                 <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
-                  <circle
-                    cx="50"
-                    cy="50"
-                    r="42"
-                    fill="transparent"
-                    stroke="#f1f5f9"
-                    strokeWidth="9"
-                  />
+                  <circle cx="50" cy="50" r="42" fill="transparent" stroke="#f1f5f9" strokeWidth="9" />
                   <circle
                     cx="50"
                     cy="50"
@@ -791,144 +1135,149 @@ export default function AiInterviewReportPage({ user, sessionData = null, sessio
                 </div>
               </div>
 
-              {/* Status Badge */}
               <div className={`mt-3 px-3.5 py-1 rounded-full text-xs font-bold border tracking-wide shadow-2xs ${gradeColor}`}>
                 {grade}
               </div>
             </div>
 
-            {/* 2. Executive Details & AI Board Callout */}
+            {/* Thông Tin Phiên & Nhận Xét AI */}
             <div className="flex-1 space-y-4 text-center lg:text-left">
               <div>
                 <div className="flex flex-wrap items-center justify-center lg:justify-start gap-2 mb-2">
                   <span className="px-3 py-1 rounded-xl bg-purple-100/80 text-[#32247b] text-xs font-bold border border-purple-200/60">
-                    {session.topic}
+                    {cleanTopic}
                   </span>
-                  {/* Badge Hạng Mức Gói Supabase */}
-                  <span className={`px-3 py-1 rounded-xl text-xs font-bold border flex items-center gap-1.5 shadow-2xs ${
-                    isProOrAceTier
-                      ? 'bg-amber-100 text-amber-900 border-amber-300'
-                      : isPlusTier
-                        ? 'bg-indigo-100 text-indigo-900 border-indigo-300'
-                        : 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                  }`}>
-                    <span className="material-symbols-outlined text-xs">
-                      {isProOrAceTier ? 'workspace_premium' : isPlusTier ? 'bolt' : 'verified_user'}
-                    </span>
-                    <span>{planName}</span>
+                  <span className="px-2.5 py-1 rounded-xl bg-indigo-50 text-indigo-800 text-xs font-semibold border border-indigo-100">
+                    Ngành: {taxonomy.categoryName}
                   </span>
                   <span className="px-2.5 py-1 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold">
                     Cấp độ: {session.level || 'Middle'}
                   </span>
                   <span className="px-2.5 py-1 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold">
-                    Ngày: {session.date}
-                  </span>
-                  <span className="px-2.5 py-1 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold">
                     Thời lượng: {session.duration || '15 phút'}
+                  </span>
+                  <span className={`px-2.5 py-1 rounded-xl text-xs font-bold flex items-center gap-1 border ${hasCameraUsed ? 'bg-teal-50 text-teal-800 border-teal-200' : 'bg-amber-50 text-amber-800 border-amber-200'}`}>
+                    <span className="material-symbols-outlined text-xs">{hasCameraUsed ? 'videocam' : 'videocam_off'}</span>
+                    <span>{hasCameraUsed ? 'Webcam Bật (Face Biometrics)' : 'Camera Tắt (Audio Only)'}</span>
                   </span>
                 </div>
                 <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
-                  Báo Cáo Đánh Giá Toàn Diện Buổi Phỏng Vấn AI
+                  Báo Cáo Đánh Giá Năng Lực Phỏng Vấn AI
                 </h2>
               </div>
 
-              {/* Callout Nhận xét chung của Hội đồng tuyển dụng AI */}
-              <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-50/80 via-indigo-50/60 to-white border border-purple-100 text-xs sm:text-sm text-slate-800 leading-relaxed shadow-2xs">
+              {/* Nhận xét chung */}
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-50/80 via-indigo-50/50 to-white border border-purple-100 text-xs sm:text-sm text-slate-800 leading-relaxed shadow-2xs">
                 <div className="flex items-center gap-2 mb-1.5 text-[#32247b] font-bold">
                   <span className="material-symbols-outlined text-base text-amber-500">psychology</span>
-                  <span>Nhận Xét Chung Từ Hội Đồng Tuyển Dụng AI:</span>
+                  <span>Nhận Xét Từ Hội Đồng Tuyển Dụng AI:</span>
                 </div>
                 <p className="italic text-slate-700 font-normal">
                   "{session.aiSummary}"
                 </p>
-                {session.weaknessSummary && (
+                {cleanedWeakness && (
                   <div className="mt-2.5 pt-2 border-t border-purple-200/50 text-xs text-rose-800 flex items-start gap-1.5 font-medium">
                     <span className="material-symbols-outlined text-sm text-rose-600 shrink-0 mt-0.5">warning</span>
-                    <span><strong>Lỗ hổng trọng yếu:</strong> {cleanedWeakness || session.weaknessSummary}</span>
+                    <span><strong>Lỗ hổng trọng yếu:</strong> {cleanedWeakness}</span>
                   </div>
                 )}
               </div>
-
-              {/* Dải Banner Nâng Cấp Gói nếu là Free Candidate */}
-              {isFreeTier && (
-                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white flex flex-col sm:flex-row items-center justify-between gap-3 shadow-md border border-purple-400/20">
-                  <div className="flex items-center gap-2.5 text-xs text-left">
-                    <span className="w-8 h-8 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center shrink-0 font-bold shadow-xs">
-                      <span className="material-symbols-outlined text-lg">workspace_premium</span>
-                    </span>
-                    <div>
-                      <p className="font-bold text-amber-300 text-[13px]">Bạn đang sử dụng quyền lợi gói Free Candidate (3 câu hỏi thử nghiệm)</p>
-                      <p className="text-purple-200 text-[11px]">Nâng cấp lên Practice Plus / Pro để mở khóa 100% mẫu câu trả lời STAR điểm 10, phân tích 3 giai đoạn và luyện tập không giới hạn.</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => { window.location.hash = '#/candidate-pricing'; }}
-                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-amber-300 hover:from-amber-300 hover:to-amber-200 text-slate-950 text-xs font-bold transition-all shadow-sm shrink-0 flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <span>Nâng Cấp Gói Ngay</span>
-                    <span className="material-symbols-outlined text-xs">arrow_forward</span>
-                  </button>
-                </div>
-              )}
             </div>
           </div>
 
-          {/* 3. Quick KPI Cards Strip */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-6 border-t border-slate-100">
-            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100/80 text-center">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                Lượt Trao Đổi
+          {/* 4 MINI STAT CARDS (THANH CHỈ SỐ THỰC TẾ) */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-6 pt-6 border-t border-slate-100">
+            {/* Card 1: Tiến độ hoàn thành */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 text-center space-y-0.5">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                1. Tiến Độ Hoàn Thành
               </span>
               <div className="text-lg sm:text-xl font-extrabold text-slate-900 font-mono">
-                {totalQ} <span className="text-xs font-normal text-slate-500">câu</span>
+                {totalQ} / {targetMaxQ} <span className="text-xs font-normal text-slate-500">câu</span>
               </div>
-              <span className="text-[10px] text-emerald-600 font-semibold block mt-0.5">
-                {passRate}% đạt chuẩn (≥60đ)
+              <span className={`text-[10px] font-semibold block ${isSessionIncomplete ? 'text-amber-600' : 'text-emerald-600'}`}>
+                {isSessionIncomplete ? 'Dừng sớm • Chưa đủ vòng' : 'Hoàn thành 100%'}
               </span>
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100/80 text-center">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                Kiến Thức Ngành
+            {/* Card 2: Độ dài câu trả lời TB */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 text-center space-y-0.5">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                2. Độ Dài Câu Trả Lời TB
               </span>
               <div className="text-lg sm:text-xl font-extrabold text-indigo-700 font-mono">
-                {comps.domainKnowledge} <span className="text-xs font-normal text-slate-500">/ 100</span>
+                {avgWordsPerQ} <span className="text-xs font-normal text-slate-500">từ / câu</span>
               </div>
-              <span className="text-[10px] text-slate-500 font-medium block mt-0.5">
-                Thuật ngữ & Kiến trúc
+              <span className="text-[10px] text-slate-600 font-medium block">
+                {avgWordEvaluation}
               </span>
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100/80 text-center">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                Giao Tiếp Mắt (AI)
+            {/* Card 3: Tốc độ nói WPM */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 text-center space-y-0.5">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                3. Tốc Độ Trình Bày
               </span>
               <div className="text-lg sm:text-xl font-extrabold text-teal-700 font-mono">
-                {telemetry.avgEyeContact}%
+                {wpmInfo.displayVal}
               </div>
-              <span className="text-[10px] text-slate-500 font-medium block mt-0.5">
-                Tiếp xúc mắt camera
+              <span className="text-[10px] text-slate-600 font-medium block truncate" title={wpmInfo.badgeText}>
+                {wpmInfo.badgeText}
               </span>
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100/80 text-center">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                Tốc Độ Nói & Tông
+            {/* Card 4: Từ đệm & Độ trôi chảy */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 text-center space-y-0.5">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                4. Từ Đệm &amp; Độ Trôi Chảy
               </span>
               <div className="text-lg sm:text-xl font-extrabold text-amber-700 font-mono">
-                {telemetry.avgWpm} <span className="text-xs font-normal text-slate-500">WPM</span>
+                {telemetry.totalFillers} <span className="text-xs font-normal text-slate-500">từ đệm</span>
               </div>
-              <span className="text-[10px] text-slate-500 font-medium block mt-0.5">
-                {telemetry.totalFillers} từ đệm (à, ừm)
+              <span className="text-[10px] text-slate-600 font-medium block">
+                {telemetry.totalFillers <= 2 ? 'Lưu loát • Kiểm soát tốt' : telemetry.totalFillers <= 5 ? 'Chấp nhận được' : 'Ngắt quãng nhiều'}
               </span>
+            </div>
+          </div>
+
+          {/* 2 HỘP ĐỐI CHIẾU NHANH (ĐIỂM SÁNG vs LỖ HỔNG) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5">
+            <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 space-y-2">
+              <div className="flex items-center gap-2 text-emerald-900 font-bold text-xs sm:text-sm">
+                <span className="material-symbols-outlined text-base text-emerald-600">verified</span>
+                <span>Điểm Sáng Ghi Nhận:</span>
+              </div>
+              <ul className="space-y-1.5 text-xs text-emerald-950 font-medium">
+                {authenticStrengths.map((str, idx) => (
+                  <li key={idx} className="flex items-start gap-2">
+                    <span className="text-emerald-600 font-bold shrink-0 mt-0.5">✓</span>
+                    <span className="leading-relaxed">{str}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-rose-50/70 border border-rose-200/80 space-y-2">
+              <div className="flex items-center gap-2 text-rose-900 font-bold text-xs sm:text-sm">
+                <span className="material-symbols-outlined text-base text-rose-600">cancel</span>
+                <span>Lỗ Hổng Cốt Lõi Cần Khắc Phục Ngay:</span>
+              </div>
+              <ul className="space-y-1.5 text-xs text-rose-950 font-medium">
+                {authenticFlaws.map((flaw, idx) => (
+                  <li key={idx} className="flex items-start gap-2">
+                    <span className="text-rose-600 font-bold shrink-0 mt-0.5">✕</span>
+                    <span className="leading-relaxed">{flaw}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         </section>
 
         {/* ===================================================================== */}
-        {/* SEGMENTED TAB SELECTOR                                                */}
+        {/* SEGMENTED 3-TAB SELECTOR (CHUẨN 3 TAB CHUYÊN NGHIỆP)                  */}
         {/* ===================================================================== */}
-        <div className="flex border-b border-slate-200 gap-1 sm:gap-2 print:hidden overflow-x-auto pb-1">
+        <div className="flex border-b border-slate-200 gap-2 print:hidden overflow-x-auto pb-1">
           <button
             onClick={() => setActiveTab('overview')}
             className={`px-4 sm:px-5 py-3 rounded-t-2xl font-bold text-xs sm:text-sm flex items-center gap-2 border-b-2 transition-all cursor-pointer whitespace-nowrap ${
@@ -938,19 +1287,19 @@ export default function AiInterviewReportPage({ user, sessionData = null, sessio
             }`}
           >
             <span className="material-symbols-outlined text-base sm:text-lg">analytics</span>
-            <span>1. Báo Cáo Chung & Ưu/Nhược Điểm</span>
+            <span>1. Ma Trận Năng Lực &amp; Độ Phủ Từ Khóa</span>
           </button>
 
           <button
-            onClick={() => setActiveTab('delivery')}
+            onClick={() => setActiveTab('biometrics')}
             className={`px-4 sm:px-5 py-3 rounded-t-2xl font-bold text-xs sm:text-sm flex items-center gap-2 border-b-2 transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === 'delivery'
+              activeTab === 'biometrics'
                 ? 'border-[#32247b] text-[#32247b] bg-white shadow-xs'
                 : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/60'
             }`}
           >
             <span className="material-symbols-outlined text-base sm:text-lg">face</span>
-            <span>2. Thái Độ, Nét Mặt & Dáng Người</span>
+            <span>2. Khuôn Mặt, Biểu Cảm &amp; Ngữ Điệu (AI Biometrics)</span>
           </button>
 
           <button
@@ -962,17 +1311,17 @@ export default function AiInterviewReportPage({ user, sessionData = null, sessio
             }`}
           >
             <span className="material-symbols-outlined text-base sm:text-lg">quiz</span>
-            <span>3. Nhận Xét Từng Câu & Mẫu STAR ({totalQ})</span>
+            <span>3. Giải Phẫu Từng Câu Hỏi &amp; Lộ Trình Cải Thiện ({totalQ})</span>
           </button>
         </div>
 
         {/* ===================================================================== */}
-        {/* TAB 1: BÁO CÁO CHUNG, CÁCH TRẢ LỜI & ƯU/NHƯỢC ĐIỂM                    */}
+        {/* TAB 1: MA TRẬN 4 TRỤ CỘT NĂNG LỰC & ĐỘ PHỦ TỪ KHÓA CHUYÊN NGÀNH       */}
         {/* ===================================================================== */}
-        {(activeTab === 'overview' || window.matchMedia?.('print').matches) && (
+        {activeTab === 'overview' && (
           <div className="space-y-6 animate-fadeIn">
             
-            {/* 4 Trụ Cột Năng Lực Tuyển Dụng Chuẩn Khảo Thí */}
+            {/* 4 Thẻ Trụ Cột Năng Lực Tuyển Dụng (2x2 Grid) */}
             <div className="bg-white rounded-3xl border border-slate-200/90 p-6 sm:p-7 shadow-xs space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-2">
                 <div className="flex items-center gap-2.5">
@@ -981,10 +1330,10 @@ export default function AiInterviewReportPage({ user, sessionData = null, sessio
                   </div>
                   <div>
                     <h3 className="text-sm sm:text-base font-extrabold text-slate-900">
-                      Phân Tích 4 Trụ Cột Năng Lực Tuyển Dụng
+                      Ma Trận 4 Trụ Cột Năng Lực Tuyển Dụng
                     </h3>
                     <p className="text-xs text-slate-500">
-                      Đo lường đa chiều độc lập giữa năng lực chuyên môn, tư duy giải quyết vấn đề và tác phong phỏng vấn
+                      Đo lường năng lực chuyên môn, giải quyết vấn đề, cấu trúc STAR và phong thái sinh trắc học
                     </p>
                   </div>
                 </div>
@@ -994,13 +1343,13 @@ export default function AiInterviewReportPage({ user, sessionData = null, sessio
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {/* 1. Domain */}
+                {/* 1. Kiến Thức Chuyên Môn Ngành (35%) */}
                 <div className="p-5 rounded-2xl bg-slate-50/80 border border-slate-200/80 space-y-3 hover:border-indigo-300 transition-all">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full bg-indigo-600" />
                       <h4 className="text-xs sm:text-sm font-bold text-slate-900">
-                        1. Chuyên Môn Kỹ Thuật (Domain Knowledge)
+                        1. Kiến Thức Chuyên Môn Ngành
                       </h4>
                     </div>
                     <span className="px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 text-[11px] font-mono font-bold">
@@ -1011,13 +1360,13 @@ export default function AiInterviewReportPage({ user, sessionData = null, sessio
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between text-xs">
                       <span className={`font-semibold ${comps.domainKnowledge >= 70 ? 'text-emerald-700' : comps.domainKnowledge >= 50 ? 'text-amber-700' : 'text-rose-700'}`}>
-                        {comps.domainKnowledge >= 70 ? '✓ Đạt chuẩn chuyên môn' : comps.domainKnowledge >= 50 ? '△ Cần trau dồi thêm' : '✕ Chưa đạt chuẩn'}
+                        {comps.domainKnowledge >= 70 ? '✓ Đạt chuẩn kiến thức' : comps.domainKnowledge >= 50 ? '△ Cần bổ sung thuật ngữ' : '✕ Chưa đạt chuẩn'}
                       </span>
                       <span className="font-mono font-extrabold text-slate-900 text-sm">
                         {comps.domainKnowledge} <span className="text-xs font-normal text-slate-400">/ 100</span>
                       </span>
                     </div>
-                    <div className="w-full h-2.5 rounded-full bg-slate-200 overflow-hidden">
+                    <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all duration-700 ${
                           comps.domainKnowledge >= 70 ? 'bg-indigo-600' : comps.domainKnowledge >= 50 ? 'bg-amber-500' : 'bg-rose-500'
@@ -1029,39 +1378,39 @@ export default function AiInterviewReportPage({ user, sessionData = null, sessio
 
                   <div className="pt-2 border-t border-slate-200/60 text-xs text-slate-600 leading-relaxed">
                     {comps.domainKnowledge >= 70 ? (
-                      <p>Ứng viên nắm vững thuật ngữ và các khái niệm cốt lõi của vị trí {session.topic}. Gọi đúng tên công nghệ và cơ chế vận hành.</p>
+                      <p>Ứng viên nắm vững thuật ngữ và các khái niệm cốt lõi của vị trí {cleanTopic}. Thể hiện sự tự tin khi giải thích quy trình nghiệp vụ.</p>
                     ) : (
                       <p className="text-rose-900/90 font-medium">
-                        <strong>Nhận xét:</strong> Thiếu vắng các thuật ngữ kỹ thuật cốt lõi (như Spring Boot, Database Transaction, Indexing, REST API). Câu trả lời còn chung chung, mang tính suy đoán thay vì kiến thức thực chiến.
+                        <strong>Nhận xét:</strong> Thiếu vắng các thuật ngữ chuyên môn cốt lõi của vị trí {cleanTopic} (như {keywordGap.missing.slice(0, 3).join(', ') || 'các tiêu chuẩn chuyên ngành'}). Câu trả lời còn chung chung, mang tính suy đoán thay vì kiến thức thực chiến.
                       </p>
                     )}
                   </div>
                 </div>
 
-                {/* 2. Problem Solving */}
+                {/* 2. Tư Duy Giải Quyết Vấn Đề (25%) */}
                 <div className="p-5 rounded-2xl bg-slate-50/80 border border-slate-200/80 space-y-3 hover:border-cyan-300 transition-all">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full bg-cyan-600" />
                       <h4 className="text-xs sm:text-sm font-bold text-slate-900">
-                        2. Tư Duy Xử Lý Sự Cố (Problem Solving)
+                        2. Tư Duy Giải Quyết Vấn Đề
                       </h4>
                     </div>
                     <span className="px-2 py-0.5 rounded-md bg-cyan-100 text-cyan-800 text-[11px] font-mono font-bold">
-                      20% trọng số
+                      25% trọng số
                     </span>
                   </div>
 
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between text-xs">
                       <span className={`font-semibold ${comps.problemSolving >= 70 ? 'text-emerald-700' : comps.problemSolving >= 50 ? 'text-amber-700' : 'text-rose-700'}`}>
-                        {comps.problemSolving >= 70 ? '✓ Khả năng phản biện tốt' : comps.problemSolving >= 50 ? '△ Cần đào sâu giải pháp' : '✕ Tư duy rời rạc'}
+                        {comps.problemSolving >= 70 ? '✓ Phân tích logic tốt' : comps.problemSolving >= 50 ? '△ Cần đào sâu giải pháp' : '✕ Tư duy rời rạc'}
                       </span>
                       <span className="font-mono font-extrabold text-slate-900 text-sm">
                         {comps.problemSolving} <span className="text-xs font-normal text-slate-400">/ 100</span>
                       </span>
                     </div>
-                    <div className="w-full h-2.5 rounded-full bg-slate-200 overflow-hidden">
+                    <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all duration-700 ${
                           comps.problemSolving >= 70 ? 'bg-cyan-600' : comps.problemSolving >= 50 ? 'bg-amber-500' : 'bg-rose-500'
@@ -1073,39 +1422,39 @@ export default function AiInterviewReportPage({ user, sessionData = null, sessio
 
                   <div className="pt-2 border-t border-slate-200/60 text-xs text-slate-600 leading-relaxed">
                     {comps.problemSolving >= 70 ? (
-                      <p>Có khả năng phân tích nguyên nhân gốc rễ (Root Cause) rõ ràng, nêu được giải pháp dự phòng và đánh đổi kỹ thuật (Trade-offs).</p>
+                      <p>Có khả năng phân tích nguyên nhân gốc rễ (Root Cause) rõ ràng, nêu được phương án dự phòng và hiểu các đánh đổi thực tế.</p>
                     ) : (
                       <p className="text-rose-900/90 font-medium">
-                        <strong>Nhận xét:</strong> Chưa phân tích được nguyên nhân gốc rễ (Root Cause) khi đối mặt tình huống sự cố. Thiếu phương án dự phòng và chưa nêu được các đánh đổi kỹ thuật (Trade-offs).
+                        <strong>Nhận xét:</strong> Chưa phân tích được nguyên nhân gốc rễ khi đối mặt tình huống sự cố. Thiếu phương án dự phòng và chưa nêu được các đánh đổi nghiệp vụ (Trade-offs).
                       </p>
                     )}
                   </div>
                 </div>
 
-                {/* 3. STAR Structure */}
+                {/* 3. Cấu Trúc STAR & Dẫn Chứng Thực Tế (20%) */}
                 <div className="p-5 rounded-2xl bg-slate-50/80 border border-slate-200/80 space-y-3 hover:border-amber-300 transition-all">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
                       <h4 className="text-xs sm:text-sm font-bold text-slate-900">
-                        3. Cấu Trúc STAR & Số Liệu (STAR Structure)
+                        3. Cấu Trúc STAR & Dẫn Chứng Thực Tế
                       </h4>
                     </div>
                     <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 text-[11px] font-mono font-bold">
-                      15% trọng số
+                      20% trọng số
                     </span>
                   </div>
 
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between text-xs">
                       <span className={`font-semibold ${comps.structureSTAR >= 70 ? 'text-emerald-700' : comps.structureSTAR >= 50 ? 'text-amber-700' : 'text-rose-700'}`}>
-                        {comps.structureSTAR >= 70 ? '✓ Lập luận có cấu trúc' : comps.structureSTAR >= 50 ? '△ Thiếu số liệu thực chứng' : '✕ Chưa áp dụng STAR'}
+                        {comps.structureSTAR >= 70 ? '✓ Cấu trúc bài bản' : comps.structureSTAR >= 50 ? '△ Thiếu số liệu thực chứng' : '✕ Chưa áp dụng STAR'}
                       </span>
                       <span className="font-mono font-extrabold text-slate-900 text-sm">
                         {comps.structureSTAR} <span className="text-xs font-normal text-slate-400">/ 100</span>
                       </span>
                     </div>
-                    <div className="w-full h-2.5 rounded-full bg-slate-200 overflow-hidden">
+                    <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all duration-700 ${
                           comps.structureSTAR >= 70 ? 'bg-amber-500' : comps.structureSTAR >= 50 ? 'bg-amber-500' : 'bg-rose-500'
@@ -1120,36 +1469,36 @@ export default function AiInterviewReportPage({ user, sessionData = null, sessio
                       <p>Trình bày mạch lạc theo đúng 4 phần: Bối cảnh (S) - Nhiệm vụ (T) - Hành động (A) - Kết quả (R) kèm số liệu minh chứng.</p>
                     ) : (
                       <p className="text-rose-900/90 font-medium">
-                        <strong>Nhận xét:</strong> Trình bày gộp chung lý thuyết, không tách bạch hành động cá nhân và kết quả. Hoàn toàn vắng bóng các số liệu đo lường định lượng (%, độ trễ ms, request chịu tải).
+                        <strong>Nhận xét:</strong> Trình bày còn gộp chung lý thuyết, không tách bạch hành động cá nhân và kết quả. Hoàn toàn vắng bóng các số liệu đo lường định lượng ({taxonomy.metricsTerm}).
                       </p>
                     )}
                   </div>
                 </div>
 
-                {/* 4. Delivery & Posture */}
+                {/* 4. Phong Thái Khuôn Mặt, Ngữ Điệu & Độ Lưu Loát (20%) */}
                 <div className="p-5 rounded-2xl bg-slate-50/80 border border-slate-200/80 space-y-3 hover:border-emerald-300 transition-all">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
                       <h4 className="text-xs sm:text-sm font-bold text-slate-900">
-                        4. Tác Phong, Ánh Mắt & Micro (Delivery AI)
+                        4. Phong Thái Khuôn Mặt, Ngữ Điệu &amp; Độ Lưu Loát
                       </h4>
                     </div>
                     <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900 text-[11px] font-mono font-bold">
-                      30% trọng số
+                      20% trọng số
                     </span>
                   </div>
 
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between text-xs">
                       <span className={`font-semibold ${comps.deliveryTone >= 70 ? 'text-emerald-700' : comps.deliveryTone >= 50 ? 'text-amber-700' : 'text-rose-700'}`}>
-                        {comps.deliveryTone >= 75 ? '✓ Điểm sáng tích cực' : comps.deliveryTone >= 50 ? '△ Cần ổn định phong thái' : '✕ Tác phong yếu'}
+                        {comps.deliveryTone >= 70 ? '✓ Phong thái tự tin & lưu loát' : comps.deliveryTone >= 50 ? '△ Cần ổn định nhịp điệu' : '✕ Chưa đạt chuẩn lưu loát'}
                       </span>
                       <span className="font-mono font-extrabold text-slate-900 text-sm">
                         {comps.deliveryTone} <span className="text-xs font-normal text-slate-400">/ 100</span>
                       </span>
                     </div>
-                    <div className="w-full h-2.5 rounded-full bg-slate-200 overflow-hidden">
+                    <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all duration-700 ${
                           comps.deliveryTone >= 70 ? 'bg-emerald-600' : comps.deliveryTone >= 50 ? 'bg-amber-500' : 'bg-rose-500'
@@ -1159,169 +1508,217 @@ export default function AiInterviewReportPage({ user, sessionData = null, sessio
                     </div>
                   </div>
 
-                  <div className="pt-2 border-t border-slate-200/60 text-xs text-slate-600 leading-relaxed">
-                    <p className="text-emerald-950 font-medium">
-                      <strong>Điểm sáng:</strong> Tiếp xúc mắt camera đạt {telemetry.avgEyeContact}%, dáng người {telemetry.postureStatus || 'cân đối'}, tốc độ phát biểu {telemetry.avgWpm} WPM đạt chuẩn và kiểm soát từ đệm tốt ({telemetry.totalFillers} từ đệm).
+                  {/* Hiển thị rõ cả 2 nhóm chỉ số: Ngữ điệu giọng nói & Nhận diện khuôn mặt */}
+                  <div className="pt-2 border-t border-slate-200/60 text-xs space-y-2">
+                    {isVeryShortSession ? (
+                      <p className="text-rose-900/90 font-medium">
+                        <strong>Chưa đủ dữ liệu:</strong> Phiên kết thúc quá sớm ({totalWords} từ), chưa đủ dữ liệu giọng nói và biểu cảm để chấm điểm phong thái.
+                      </p>
+                    ) : (
+                      <>
+                        <div className="p-2 rounded-xl bg-white border border-slate-200/80 text-[11px] space-y-1 text-slate-700">
+                          <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                            <span className="material-symbols-outlined text-xs text-indigo-600">graphic_eq</span>
+                            <span>Ngữ điệu &amp; Độ lưu loát giọng nói:</span>
+                          </div>
+                          <p className="pl-4">
+                            {hasMicrophoneUsed ? (
+                              <>
+                                Tốc độ: <strong>{telemetry.avgWpm} WPM</strong>
+                                {hasPitchData && (
+                                  <>
+                                    {' '}• Âm sắc F0: <strong>{telemetry.avgPitchHz} Hz</strong> ({Number(telemetry.avgPitchHz) >= 100 && Number(telemetry.avgPitchHz) <= 240 ? 'Âm sắc ổn định' : 'Hơi căng thẳng'})
+                                  </>
+                                )}
+                                {' '}• Từ đệm: <strong>{telemetry.totalFillers} lần</strong>.
+                              </>
+                            ) : (
+                              <span className="text-slate-500 italic">Chưa ghi nhận âm thanh qua Micro (hoặc ứng viên trả lời bằng văn bản).</span>
+                            )}
+                          </p>
+                        </div>
+
+                        <div className="p-2 rounded-xl bg-white border border-slate-200/80 text-[11px] space-y-1 text-slate-700">
+                          <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                            <span className="material-symbols-outlined text-xs text-teal-600">face</span>
+                            <span>Nhận diện khuôn mặt &amp; Ánh mắt:</span>
+                          </div>
+                          <p className="pl-4">
+                            {hasCameraUsed ? (
+                              <>
+                                Giao tiếp mắt: <strong>{telemetry.avgEyeContact}%</strong> • Biểu cảm: <strong>{telemetry.emotionSummary || 'Tự tin'}</strong> • Góc mặt: <strong>{telemetry.postureStatus || 'Nhìn thẳng ổn định'}</strong>.
+                              </>
+                            ) : (
+                              <span className="text-amber-700 italic">Camera đang tắt (Chỉ chấm điểm dựa trên ngữ điệu và độ lưu loát giọng nói).</span>
+                            )}
+                          </p>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* BẢNG TÓM TẮT NHANH SINH TRẮC HỌC KHUÔN MẶT & NGỮ ĐIỆU GIỌNG NÓI */}
+            <div className="bg-gradient-to-r from-teal-50/70 via-indigo-50/60 to-purple-50/50 rounded-3xl border border-teal-200/80 p-5 sm:p-6 shadow-xs space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-teal-100">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-teal-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <span className="material-symbols-outlined text-lg">psychology</span>
+                  </div>
+                  <div>
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-900">
+                      Tóm Tắt Nhanh Quét Sinh Trắc Học (AI Face &amp; Voice Biometrics)
+                    </h4>
+                    <p className="text-[11px] text-slate-600">
+                      Dữ liệu âm thanh Micro và luồng camera phân tích tự động trong suốt phiên đối thoại
                     </p>
                   </div>
                 </div>
+
+                <button
+                  onClick={() => setActiveTab('biometrics')}
+                  className="px-3.5 py-1.5 rounded-xl bg-[#32247b] hover:bg-[#251963] text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
+                >
+                  <span>Xem Chi Tiết AI Biometrics</span>
+                  <span className="material-symbols-outlined text-xs">arrow_forward</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                <div className="p-3 bg-white/90 rounded-2xl border border-teal-100 shadow-2xs space-y-0.5">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Tốc Độ Phát Biểu</span>
+                  <div className="text-sm font-extrabold text-teal-800 font-mono">
+                    {hasMicrophoneUsed ? `${telemetry.avgWpm} WPM` : 'Chưa đo WPM'}
+                  </div>
+                  <span className="text-[10px] text-slate-600 font-medium block truncate">{wpmInfo.badgeText}</span>
+                </div>
+
+                <div className="p-3 bg-white/90 rounded-2xl border border-teal-100 shadow-2xs space-y-0.5">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Ngữ Điệu F0</span>
+                  <div className="text-sm font-extrabold text-indigo-700 font-mono">
+                    {hasPitchData ? `${telemetry.avgPitchHz} Hz` : 'Chưa đo Pitch'}
+                  </div>
+                  <span className="text-[10px] text-slate-600 font-medium block">
+                    {hasPitchData
+                      ? (Number(telemetry.avgPitchHz) >= 100 && Number(telemetry.avgPitchHz) <= 240 ? 'Âm sắc ổn định' : 'Hơi đều / Căng thẳng')
+                      : 'Không có dữ liệu F0'}
+                  </span>
+                </div>
+
+                <div className="p-3 bg-white/90 rounded-2xl border border-teal-100 shadow-2xs space-y-0.5">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Từ Đệm Ngập Ngừng</span>
+                  <div className="text-sm font-extrabold text-amber-700 font-mono">{telemetry.totalFillers} lần</div>
+                  <span className="text-[10px] text-slate-600 font-medium block">
+                    {totalWords < 20 ? 'Chưa đủ dữ liệu' : telemetry.totalFillers <= 2 ? 'Rất lưu loát' : 'Cần hạn chế từ đệm'}
+                  </span>
+                </div>
+
+                <div className="p-3 bg-white/90 rounded-2xl border border-teal-100 shadow-2xs space-y-0.5">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Ánh Mắt &amp; Camera</span>
+                  {hasCameraUsed ? (
+                    <>
+                      <div className="text-sm font-extrabold text-teal-700 font-mono">{telemetry.avgEyeContact}%</div>
+                      <span className="text-[10px] text-slate-600 font-medium block truncate">{telemetry.emotionSummary || 'Tự tin'}</span>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-xs font-bold text-amber-700">Camera Tắt</div>
+                      <span className="text-[10px] text-slate-400 font-medium block">
+                        {hasMicrophoneUsed ? 'Chỉ đo Micro' : 'Chưa đo âm thanh'}
+                      </span>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* Ma Trận Đối Chiếu: Ưu Điểm Đã Thể Hiện vs Lỗ Hổng Kỹ Năng Cốt Lõi */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Cột Điểm Mạnh (Strengths) */}
-              <div className="bg-white rounded-3xl border border-emerald-200/90 p-6 sm:p-7 shadow-xs space-y-4">
-                <div className="flex items-center gap-3 pb-3 border-b border-emerald-100">
-                  <div className="w-9 h-9 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-                    <span className="material-symbols-outlined text-lg">verified</span>
-                  </div>
-                  <div>
-                    <h3 className="text-sm sm:text-base font-extrabold text-emerald-950">
-                      Ưu Điểm Nổi Bật Đã Thể Hiện
-                    </h3>
-                    <p className="text-[11px] text-emerald-700">Các điểm sáng thực tế cần tiếp tục duy trì</p>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  {authenticStrengths.map((str, idx) => (
-                    <div key={idx} className="p-3.5 rounded-2xl bg-emerald-50/60 border border-emerald-100 text-xs text-emerald-950 flex items-start gap-3">
-                      <span className="material-symbols-outlined text-base text-emerald-600 shrink-0 mt-0.5">check_circle</span>
-                      <span className="leading-relaxed font-medium">{str}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Cột Nhược Điểm (Flaws) */}
-              <div className="bg-white rounded-3xl border border-rose-200/90 p-6 sm:p-7 shadow-xs space-y-4">
-                <div className="flex items-center gap-3 pb-3 border-b border-rose-100">
-                  <div className="w-9 h-9 rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
-                    <span className="material-symbols-outlined text-lg">error_outline</span>
-                  </div>
-                  <div>
-                    <h3 className="text-sm sm:text-base font-extrabold text-rose-950">
-                      Lỗ Hổng Kỹ Năng Cốt Lõi Cần Khắc Phục
-                    </h3>
-                    <p className="text-[11px] text-rose-700">Nguyên nhân trực tiếp khiến ứng viên bị trừ điểm</p>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  {authenticFlaws.map((flaw, idx) => (
-                    <div key={idx} className="p-3.5 rounded-2xl bg-rose-50/60 border border-rose-100 text-xs text-rose-950 flex items-start gap-3">
-                      <span className="material-symbols-outlined text-base text-rose-600 shrink-0 mt-0.5">cancel</span>
-                      <span className="leading-relaxed font-medium">{flaw}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Lộ Trình Hành Động Cải Thiện 3 Giai Đoạn Chi Tiết */}
+            {/* KHUNG PHÂN TÍCH TỪ KHÓA CHUYÊN NGÀNH (KEYWORD GAP ANALYSIS) */}
             <div className="bg-white rounded-3xl border border-slate-200/90 p-6 sm:p-7 shadow-xs space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-2">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-2xl bg-indigo-100 text-[#32247b] flex items-center justify-center shrink-0">
-                    <span className="material-symbols-outlined text-xl">alt_route</span>
+                  <div className="w-9 h-9 rounded-2xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
+                    <span className="material-symbols-outlined text-xl">key</span>
                   </div>
                   <div>
                     <h3 className="text-sm sm:text-base font-extrabold text-slate-900">
-                      Lộ Trình Hành Động Cải Thiện 3 Giai Đoạn (Action Plan)
+                      Phân Tích Độ Phủ Từ Khóa Chuyên Ngành ({taxonomy.categoryName})
                     </h3>
                     <p className="text-xs text-slate-500">
-                      Kế hoạch cụ thể, rõ ràng từng bước giúp bạn tự tin vượt qua phỏng vấn kỹ thuật
+                      Đối chiếu thuật ngữ chuyên môn trong câu trả lời thực tế của bạn với tiêu chuẩn tuyển dụng vị trí {cleanTopic}
                     </p>
                   </div>
                 </div>
                 <span className="self-start sm:self-auto px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-bold border border-indigo-200">
-                  Lộ Trình May Đo Theo Kết Quả
+                  Keyword Gap Analysis
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                {authenticRoadmap.map((item, idx) => {
-                  const isLockedStage = isRoadmapLocked && idx > 0;
-                  return (
-                    <div
-                      key={idx}
-                      className={`relative rounded-2xl border p-5 flex flex-col justify-between transition-all space-y-4 ${
-                        isLockedStage
-                          ? 'border-dashed border-purple-300 bg-purple-50/20 overflow-hidden'
-                          : 'border-slate-200 bg-slate-50/70 hover:border-[#32247b] hover:shadow-md'
-                      }`}
-                    >
-                      <div className={`space-y-3 ${isLockedStage ? 'blur-xs select-none pointer-events-none opacity-40' : ''}`}>
-                        <div className="flex items-center justify-between">
-                          <span className="px-2.5 py-0.5 rounded-lg bg-[#32247b] text-white text-[11px] font-mono font-bold tracking-wide">
-                            GIAI ĐOẠN {item.step}
-                          </span>
-                          <span className="text-[11px] font-semibold text-purple-700 bg-purple-100/70 px-2.5 py-0.5 rounded-full">
-                            {item.timeline}
-                          </span>
-                        </div>
-
-                        <h4 className="text-xs sm:text-sm font-bold text-slate-900 leading-snug">
-                          {item.title}
-                        </h4>
-
-                        <div className="p-3 rounded-xl bg-white border border-slate-200/80 text-[11px] text-slate-700 space-y-1">
-                          <strong className="text-slate-900 block font-bold text-[10px] uppercase tracking-wider text-indigo-700">
-                            Mục Tiêu Cốt Lõi:
-                          </strong>
-                          <p className="leading-relaxed">{item.goal}</p>
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <strong className="text-slate-900 block font-bold text-[10px] uppercase tracking-wider text-slate-500">
-                            Các Hành Động Cụ Thể:
-                          </strong>
-                          <ul className="space-y-1.5 text-xs text-slate-600">
-                            {item.actions.map((act, aIdx) => (
-                              <li key={aIdx} className="flex items-start gap-1.5 leading-relaxed text-[11px]">
-                                <span className="text-indigo-600 font-bold shrink-0 mt-0.5">•</span>
-                                <span>{act}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      </div>
-
-                      <div className={`pt-3 border-t border-slate-200/80 text-[11px] text-emerald-800 font-medium flex items-start gap-1.5 bg-emerald-50/70 p-2.5 rounded-xl border border-emerald-100 ${isLockedStage ? 'blur-xs select-none pointer-events-none opacity-40' : ''}`}>
-                        <span className="material-symbols-outlined text-sm text-emerald-600 shrink-0 mt-0.5">task_alt</span>
-                        <span><strong>Nghiệm thu:</strong> {item.checklist}</span>
-                      </div>
-
-                      {/* VIP Locked Overlay cho Giai đoạn 2 và 3 nếu dùng gói Free */}
-                      {isLockedStage && (
-                        <div className="absolute inset-0 bg-white/85 backdrop-blur-xs flex flex-col items-center justify-center p-5 text-center space-y-3 z-10">
-                          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#32247b] to-indigo-600 text-amber-300 flex items-center justify-center shadow-md">
-                            <span className="material-symbols-outlined text-xl">lock</span>
-                          </div>
-                          <div className="space-y-1">
-                            <span className="px-2.5 py-0.5 rounded-full bg-purple-100 text-[#32247b] text-[10px] font-bold uppercase tracking-wider">
-                              Đặc Quyền Plus / Pro
-                            </span>
-                            <h5 className="text-xs font-bold text-slate-900">
-                              Mở Khóa Giai Đoạn {item.step}
-                            </h5>
-                            <p className="text-[11px] text-slate-500 max-w-[200px] mx-auto leading-relaxed">
-                              Xem trọn bộ danh mục hành động, thuật ngữ cốt lõi và bài tập thực hành phản xạ.
-                            </p>
-                          </div>
-                          <button
-                            onClick={() => { window.location.hash = '#/candidate-pricing'; }}
-                            className="px-3.5 py-1.5 rounded-xl bg-[#32247b] hover:bg-[#251963] text-white text-[11px] font-bold shadow-md transition-all flex items-center gap-1 cursor-pointer"
-                          >
-                            <span>Mở Khóa Gói</span>
-                            <span className="material-symbols-outlined text-xs">arrow_forward</span>
-                          </button>
-                        </div>
-                      )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* 🟢 Từ khóa chuyên ngành bạn đã nêu được */}
+                <div className="p-5 rounded-2xl bg-emerald-50/50 border border-emerald-200/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-emerald-900 font-bold text-xs sm:text-sm">
+                      <span className="material-symbols-outlined text-base text-emerald-600">check_circle</span>
+                      <span>Từ Khóa Chuyên Ngành Bạn Đã Nêu Được:</span>
                     </div>
-                  );
-                })}
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-mono font-bold">
+                      {keywordGap.mentioned.length} từ
+                    </span>
+                  </div>
+
+                  {keywordGap.mentioned.length > 0 ? (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {keywordGap.mentioned.map((kw, idx) => (
+                        <span
+                          key={idx}
+                          className="px-3 py-1.5 rounded-xl bg-white border border-emerald-200 text-emerald-900 text-xs font-bold shadow-2xs flex items-center gap-1.5"
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          <span>{kw}</span>
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-xl bg-white/80 border border-emerald-200/60 text-xs text-emerald-900 italic">
+                      Chưa ghi nhận thuật ngữ chuyên môn cốt lõi nào trong các câu trả lời. Bạn đang trả lời bằng các từ ngữ chung chung hoặc suy đoán cảm tính.
+                    </div>
+                  )}
+
+                  <p className="text-[11px] text-emerald-800 leading-relaxed pt-2 border-t border-emerald-200/60">
+                    💡 <strong>Ý nghĩa tuyển dụng:</strong> Sử dụng chính xác thuật ngữ ngành giúp bạn chứng minh kinh nghiệm thực chiến và tạo sự tin cậy với người phỏng vấn.
+                  </p>
+                </div>
+
+                {/* 🔴 Từ khóa cốt lõi còn thiếu (Missing Keywords) */}
+                <div className="p-5 rounded-2xl bg-rose-50/50 border border-rose-200/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-rose-900 font-bold text-xs sm:text-sm">
+                      <span className="material-symbols-outlined text-base text-rose-600">error_outline</span>
+                      <span>Từ Khóa Cốt Lõi Còn Thiếu (Missing Keywords):</span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 text-[11px] font-mono font-bold">
+                      {keywordGap.missing.length} từ
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {keywordGap.missing.map((kw, idx) => (
+                      <span
+                        key={idx}
+                        className="px-3 py-1.5 rounded-xl bg-white border border-rose-200 text-rose-900 text-xs font-medium shadow-2xs flex items-center gap-1.5"
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+                        <span>{kw}</span>
+                      </span>
+                    ))}
+                  </div>
+
+                  <p className="text-[11px] text-rose-800 leading-relaxed pt-2 border-t border-rose-200/60">
+                    ⚠️ <strong>Khuyến nghị từ AI:</strong> Hãy chủ động lồng ghép các từ khóa cốt lõi trên vào phần Bối cảnh và Hành động của mô hình STAR ở phiên phỏng vấn tiếp theo.
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -1329,168 +1726,355 @@ export default function AiInterviewReportPage({ user, sessionData = null, sessio
         )}
 
         {/* ===================================================================== */}
-        {/* TAB 2: ĐÁNH GIÁ TÁC PHONG, ÁNH MẮT & KỸ NĂNG PHI NGÔN NGỮ            */}
+        {/* TAB 2: KHUÔN MẶT, BIỂU CẢM & NGỮ ĐIỆU GIỌNG NÓI (AI BIOMETRICS)        */}
         {/* ===================================================================== */}
-        {(activeTab === 'delivery' || window.matchMedia?.('print').matches) && (
-          <div className="space-y-6 animate-fadeIn">
+        {activeTab === 'biometrics' && (
+          <div className="space-y-6 animate-fadeIn font-sans">
             
-            <div className="bg-white rounded-3xl border border-slate-200/90 p-5 sm:p-7 shadow-xs space-y-5">
-              {/* Header Tab 2 */}
-              <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-                <div className="w-10 h-10 rounded-2xl bg-teal-50 text-teal-700 flex items-center justify-center shrink-0">
-                  <span className="material-symbols-outlined text-2xl">sentiment_satisfied_alt</span>
+            {/* Header Tab 2 */}
+            <div className="bg-white rounded-3xl border border-slate-200/90 p-6 sm:p-7 shadow-xs space-y-2">
+              <div className="flex items-center gap-2.5 text-[#32247b]">
+                <div className="w-10 h-10 rounded-2xl bg-purple-100 text-[#32247b] flex items-center justify-center shrink-0">
+                  <span className="material-symbols-outlined text-2xl">sensors</span>
                 </div>
                 <div>
-                  <h3 className="text-base sm:text-lg font-bold text-slate-900">
-                    Đánh Giá Tác Phong, Ánh Mắt & Kỹ Năng Phi Ngôn Ngữ
+                  <h3 className="text-base sm:text-lg font-extrabold text-slate-900">
+                    Phân Tích Sinh Trắc Học Giọng Nói &amp; Nhận Diện Khuôn Mặt (AI Biometrics)
                   </h3>
                   <p className="text-xs text-slate-500">
-                    Góc nhìn từ Chuyên gia Tuyển dụng về phong thái tự tin, giao tiếp ánh mắt và năng lượng trao đổi
+                    Hệ thống đo lường khách quan tốc độ nói, ngữ điệu âm sắc, tiếp xúc mắt và phân bổ cảm xúc
                   </p>
                 </div>
               </div>
+            </div>
 
-              {/* Tóm tắt phong thái từ Chuyên gia Tuyển dụng */}
-              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-teal-50/80 via-emerald-50/40 to-teal-50/60 border border-teal-100/90 space-y-2">
-                <div className="flex items-center gap-2 font-bold text-teal-900 text-xs sm:text-sm">
-                  <span className="material-symbols-outlined text-base text-teal-600">verified</span>
-                  <span>Tổng kết phong thái từ Chuyên gia Phỏng vấn AI:</span>
+            {/* ================================================================= */}
+            {/* KHỐI A: PHÂN TÍCH NGỮ ĐIỆU GIỌNG NÓI & ĐỘ LƯU LOÁT                */}
+            {/* ================================================================= */}
+            <div className="bg-white rounded-3xl border border-slate-200/90 p-6 sm:p-7 shadow-xs space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
+                    <span className="material-symbols-outlined text-lg">record_voice_over</span>
+                  </div>
+                  <div>
+                    <h4 className="text-sm sm:text-base font-extrabold text-slate-900">
+                      Khối A: Phân Tích Ngữ Điệu Giọng Nói &amp; Độ Lưu Loát (AI Voice &amp; Fluency Analytics)
+                    </h4>
+                    <p className="text-xs text-slate-500">
+                      Phân tích tần số âm thanh, tốc độ phát biểu và khả năng kiểm soát từ đệm thu âm qua Micro
+                    </p>
+                  </div>
                 </div>
-                <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">
-                  {session.deliveryFeedback ||
-                    `Ứng viên thể hiện phong thái tự tin và giữ được sự tập trung cao độ xuyên suốt buổi trao đổi. Tương tác ánh mắt đạt mức xuất sắc (${telemetry.avgEyeContact}%), dáng ngồi đĩnh đạc, biểu cảm thân thiện tạo được thiện cảm tích cực với nhà tuyển dụng. Nhịp điệu phát biểu đều đặn (${telemetry.avgWpm} từ/phút), kiểm soát tốt từ đệm (${telemetry.totalFillers} lần ngập ngừng).`}
-                </p>
-                
-                {/* 3 Chỉ số phong thái cốt lõi */}
-                <div className="pt-2 border-t border-teal-200/60 flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-teal-900">
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/90 border border-teal-200 font-medium">
-                    <span className="material-symbols-outlined text-xs text-teal-600">visibility</span>
-                    Tương tác mắt: <strong>{telemetry.avgEyeContact}% ({telemetry.avgEyeContact >= 80 ? 'Xuất sắc' : 'Khá'})</strong>
-                  </span>
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/90 border border-teal-200 font-medium">
-                    <span className="material-symbols-outlined text-xs text-teal-600">speed</span>
-                    Tốc độ nói: <strong>{telemetry.avgWpm} từ/phút (Vừa phải)</strong>
-                  </span>
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-white/90 border border-teal-200 font-medium">
-                    <span className="material-symbols-outlined text-xs text-teal-600">record_voice_over</span>
-                    Từ đệm ngập ngừng: <strong>{telemetry.totalFillers} lần ({telemetry.totalFillers <= 3 ? 'Rất ít' : 'Cần giảm'})</strong>
-                  </span>
-                </div>
+                <span className="self-start sm:self-auto px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-bold border border-indigo-200">
+                  Microphone Stream
+                </span>
               </div>
 
-              {/* 4 Thẻ Đánh Giá Tác Phong Dễ Hiểu & Thực Tế */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-                
-                {/* 1. Thần thái & Biểu cảm */}
-                <div className="p-4 sm:p-5 rounded-2xl bg-slate-50/80 border border-slate-200/80 space-y-3 hover:border-purple-300 transition-all">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {/* 1. Tốc Độ Trình Bày & Nhịp Điệu (avgWpm) */}
+                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2">
-                      <span className="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
-                        <span className="material-symbols-outlined text-base">mood</span>
-                      </span>
-                      1. Thần Thái & Biểu Cảm
+                      <span className="material-symbols-outlined text-base text-teal-600">speed</span>
+                      1. Tốc Độ Trình Bày &amp; Nhịp Điệu
                     </span>
-                    <span className="px-2.5 py-1 rounded-lg bg-purple-100 text-[#32247b] text-xs font-bold">
-                      {telemetry.emotionSummary || 'Tự tin & Thân thiện 😊'}
+                    <span className="px-2.5 py-0.5 rounded-lg bg-teal-100 text-teal-800 text-xs font-mono font-bold">
+                      {hasMicrophoneUsed ? `${telemetry.avgWpm} WPM` : 'Chưa đo WPM'}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    Gương mặt tươi sáng, biểu cảm cởi mở và chú ý lắng nghe người phỏng vấn. Biểu cảm thể hiện sự tôn trọng, tích cực và cầu thị — đây là yếu tố quan trọng giúp bạn ghi điểm thiện cảm ngay từ những phút đầu tiên.
+
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium">
+                      <span>Chậm (&lt;100)</span>
+                      <span className="text-emerald-700 font-bold">Chuẩn Vàng (100 - 150 WPM)</span>
+                      <span>Nhanh (&gt;150)</span>
+                    </div>
+                    <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden relative">
+                      <div
+                        className={`h-full rounded-full transition-all duration-700 ${
+                          hasMicrophoneUsed
+                            ? (telemetry.avgWpm >= 100 && telemetry.avgWpm <= 150 ? 'bg-emerald-600' : 'bg-amber-500')
+                            : 'bg-slate-300'
+                        }`}
+                        style={{ width: hasMicrophoneUsed ? `${Math.min(100, Math.max(10, (telemetry.avgWpm / 180) * 100))}%` : '0%' }}
+                      />
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-slate-700 leading-relaxed pt-1">
+                    {wpmInfo.assessment}
                   </p>
-                  <div className="pt-2.5 border-t border-slate-200/60 text-[11px] text-purple-900 flex items-start gap-1.5 bg-purple-50/60 p-2 rounded-xl">
-                    <span className="material-symbols-outlined text-xs text-purple-700 shrink-0 mt-0.5">tips_and_updates</span>
-                    <span><strong>Lời khuyên:</strong> Tiếp tục duy trì nụ cười tự nhiên và gật đầu nhẹ khi nghe câu hỏi để biểu thị sự tập trung tiếp thu.</span>
+                </div>
+
+                {/* 2. Ngữ Điệu & Độ Ổn Định Âm Sắc (avgPitchHz) */}
+                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2">
+                      <span className="material-symbols-outlined text-base text-indigo-600">graphic_eq</span>
+                      2. Ngữ Điệu &amp; Độ Ổn Định Âm Sắc
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-lg bg-indigo-100 text-indigo-800 text-xs font-mono font-bold">
+                      {hasPitchData ? `${telemetry.avgPitchHz} Hz` : 'Chưa có dữ liệu F0'}
+                    </span>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium">
+                      <span>Trầm ấm (&lt;120Hz)</span>
+                      <span className="text-indigo-700 font-bold">Ổn Định (100 - 240 Hz)</span>
+                      <span>Cao độ (&gt;240Hz)</span>
+                    </div>
+                    <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-indigo-600 transition-all duration-700"
+                        style={{ width: hasPitchData ? `${Math.min(100, Math.max(15, (telemetry.avgPitchHz / 280) * 100))}%` : '0%' }}
+                      />
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-slate-700 leading-relaxed pt-1">
+                    {!hasPitchData
+                      ? 'Phiên này chưa ghi nhận được tần số âm sắc F0 qua Micro (do ứng viên tắt micro hoặc trả lời bằng văn bản). Hệ thống không chấm điểm ngữ điệu ảo.'
+                      : totalWords < 20
+                        ? 'Chưa đủ dữ liệu lời nói (< 20 từ) để đo lường tần số âm sắc giọng nói.'
+                        : Number(telemetry.avgPitchHz) >= 100 && Number(telemetry.avgPitchHz) <= 240
+                          ? 'Âm sắc giọng nói nằm trong ngưỡng ổn định (100 - 240 Hz), ngữ điệu rõ ràng, thể hiện sự tự tin và điềm tĩnh khi diễn đạt.'
+                          : 'Ngữ điệu giọng nói có dấu hiệu căng thẳng hoặc hơi đều. Nên chủ động nhấn giọng vào các từ khóa hành động và số liệu kết quả để tăng tính thuyết phục.'}
+                  </p>
+                </div>
+
+                {/* 3. Độ Lưu Loát & Kiểm Soát Từ Đệm (totalFillers) */}
+                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2">
+                      <span className="material-symbols-outlined text-base text-amber-600">record_voice_over</span>
+                      3. Độ Lưu Loát &amp; Kiểm Soát Từ Đệm
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-lg bg-amber-100 text-amber-900 text-xs font-mono font-bold">
+                      {telemetry.totalFillers} từ đệm
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-slate-700 leading-relaxed">
+                    {totalWords < 20
+                      ? `Chưa đủ dữ liệu đàm thoại (${totalWords} từ) để phát hiện từ đệm ngập ngừng.`
+                      : telemetry.totalFillers === 0
+                        ? `Rất lưu loát! Không phát hiện từ đệm ngập ngừng ("à, ừm, kiểu như") trong các câu trả lời.`
+                        : telemetry.totalFillers <= 2
+                          ? `Rất lưu loát! Bạn chỉ dùng ${telemetry.totalFillers} lần từ đệm ("à, ừm"), kiểm soát tốt cấu trúc câu trả lời.`
+                          : telemetry.totalFillers <= 5
+                            ? `Mức độ lưu loát khá (${telemetry.totalFillers} lần từ đệm). Đôi chỗ còn xuất hiện từ đệm ngập ngừng khi bạn chuyển ý hoặc suy nghĩ phương án.`
+                            : `Ngắt quãng nhiều (${telemetry.totalFillers} lần dùng từ đệm "à, ừm, kiểu như"). Hãy tập dừng lại 2 giây suy nghĩ dàn ý trước khi mở lời thay vì phát âm từ đệm.`}
+                  </p>
+
+                  <div className="pt-2 border-t border-slate-200/70 text-[11px] text-amber-900 flex items-center gap-1 font-medium">
+                    <span className="material-symbols-outlined text-xs text-amber-600">tips_and_updates</span>
+                    <span>Bí quyết: 1 giây im lặng chuyên nghiệp luôn tốt hơn 1 từ đệm ngập ngừng.</span>
                   </div>
                 </div>
 
-                {/* 2. Ánh mắt & Tương tác giao tiếp */}
-                <div className="p-4 sm:p-5 rounded-2xl bg-slate-50/80 border border-slate-200/80 space-y-3 hover:border-teal-300 transition-all">
+                {/* 4. Độ Sâu & Sự Mạch Lạc Câu Trả Lời (avgWordsPerQ) */}
+                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2">
-                      <span className="w-7 h-7 rounded-lg bg-teal-100 text-teal-700 flex items-center justify-center shrink-0">
-                        <span className="material-symbols-outlined text-base">visibility</span>
-                      </span>
-                      2. Giao Tiếp Ánh Mắt (Eye Contact)
+                      <span className="material-symbols-outlined text-base text-purple-600">format_quote</span>
+                      4. Độ Sâu &amp; Khả Năng Triển Khai Ý
                     </span>
-                    <span className="px-2.5 py-1 rounded-lg bg-teal-100 text-teal-800 text-xs font-bold font-mono">
-                      {telemetry.avgEyeContact}% Thời lượng
+                    <span className="px-2.5 py-0.5 rounded-lg bg-purple-100 text-purple-900 text-xs font-mono font-bold">
+                      {avgWordsPerQ} từ / câu
                     </span>
                   </div>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    {telemetry.avgEyeContact >= 80
-                      ? 'Bạn duy trì ánh mắt hướng thẳng vào người phỏng vấn rất tốt. Không bị đảo mắt liên tục hay cúi nhìn xuống bàn khi suy nghĩ — thể hiện sự đĩnh đạc và nắm chắc chuyên môn.'
-                      : 'Bạn thỉnh thoảng có thói quen nhìn xuống bàn hoặc đảo mắt khi tìm ý trả lời. Cần tập trung nhìn thẳng vào camera để tạo cảm giác tự tin và kiên định hơn.'}
+
+                  <p className="text-xs text-slate-700 leading-relaxed">
+                    {avgWordsPerQ < 15
+                      ? `Câu trả lời trung bình quá ngắn (${avgWordsPerQ} từ/câu). Bạn chỉ nói ngắn cụt lủn hoặc tóm tắt ý sơ sài, chưa đủ chiều sâu để chứng minh năng lực thực tế.`
+                      : avgWordsPerQ <= 45
+                        ? `Độ dài trung bình đạt mức cơ bản (${avgWordsPerQ} từ/câu). Cần mở rộng thêm phần Hành động kỹ thuật (Action) và dẫn chứng số liệu (Result) để câu trả lời thêm sức nặng.`
+                        : `Độ dài trung bình đạt ${avgWordsPerQ} từ/câu (khá chi tiết về mặt dung lượng lời nói). Hãy đảm bảo câu trả lời chứa đựng thuật ngữ chuyên môn và số liệu định lượng theo mô hình STAR thay vì chỉ nói nhiều về mặt số lượng từ.`}
                   </p>
-                  <div className="pt-2.5 border-t border-slate-200/60 text-[11px] text-teal-900 flex items-start gap-1.5 bg-teal-50/60 p-2 rounded-xl">
-                    <span className="material-symbols-outlined text-xs text-teal-700 shrink-0 mt-0.5">tips_and_updates</span>
-                    <span><strong>Lời khuyên:</strong> Đặt webcam ngang tầm mắt để ánh nhìn luôn trực diện và tự nhiên như đang trao đổi trực tiếp ngoài đời.</span>
+
+                  <div className="pt-2 border-t border-slate-200/70 text-[11px] text-purple-900 flex items-center gap-1 font-medium">
+                    <span className="material-symbols-outlined text-xs text-purple-600">task_alt</span>
+                    <span>Chuẩn khuyến nghị: 60 - 120 từ/câu cho các câu hỏi tình huống &amp; chuyên môn.</span>
                   </div>
                 </div>
-
-                {/* 3. Dáng ngồi & Tác phong */}
-                <div className="p-4 sm:p-5 rounded-2xl bg-slate-50/80 border border-slate-200/80 space-y-3 hover:border-indigo-300 transition-all">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2">
-                      <span className="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
-                        <span className="material-symbols-outlined text-base">accessibility_new</span>
-                      </span>
-                      3. Tư Thế & Dáng Ngồi
-                    </span>
-                    <span className="px-2.5 py-1 rounded-lg bg-indigo-100 text-indigo-800 text-xs font-bold">
-                      {telemetry.postureStatus || 'Cân đối • Chuẩn mực'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    Dáng ngồi thẳng lưng, cân đối hai vai, khoảng cách đến màn hình vừa vặn. Phong thái đĩnh đạc, không bị nghiêng ngả, rung lắc cơ thể hay chống cằm khi trả lời, tạo cảm giác rất đáng tin cậy.
-                  </p>
-                  <div className="pt-2.5 border-t border-slate-200/60 text-[11px] text-indigo-900 flex items-start gap-1.5 bg-indigo-50/60 p-2 rounded-xl">
-                    <span className="material-symbols-outlined text-xs text-indigo-700 shrink-0 mt-0.5">tips_and_updates</span>
-                    <span><strong>Lời khuyên:</strong> Đặt hai bàn tay thoải mái trên mặt bàn, có thể kết hợp cử chỉ tay nhẹ nhàng khi giải thích kiến trúc hoặc quy trình.</span>
-                  </div>
-                </div>
-
-                {/* 4. Giọng điệu & Nhịp độ diễn đạt */}
-                <div className="p-4 sm:p-5 rounded-2xl bg-slate-50/80 border border-slate-200/80 space-y-3 hover:border-amber-300 transition-all">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2">
-                      <span className="w-7 h-7 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
-                        <span className="material-symbols-outlined text-base">record_voice_over</span>
-                      </span>
-                      4. Ngữ Điệu & Tốc Độ Nói
-                    </span>
-                    <span className="px-2.5 py-1 rounded-lg bg-amber-100 text-amber-900 text-xs font-bold font-mono">
-                      {telemetry.avgWpm} từ/phút • Rõ ràng
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    Tốc độ phát biểu ở mức {telemetry.avgWpm} từ/phút (chuẩn giao tiếp công sở lý tưởng là 115 - 135 từ/phút). Bạn phát âm rõ ràng, nhịp điệu vừa phải và chỉ dùng {telemetry.totalFillers} lần từ đệm ("à", "ừm"), giúp câu trả lời mạch lạc, dễ theo dõi.
-                  </p>
-                  <div className="pt-2.5 border-t border-slate-200/60 text-[11px] text-amber-900 flex items-start gap-1.5 bg-amber-50/60 p-2 rounded-xl">
-                    <span className="material-symbols-outlined text-xs text-amber-700 shrink-0 mt-0.5">tips_and_updates</span>
-                    <span><strong>Lời khuyên:</strong> Khi gặp câu hỏi khó, hãy chủ động dừng lại 2 giây để sắp xếp cấu trúc câu thay vì dùng từ đệm kéo dài.</span>
-                  </div>
-                </div>
-
               </div>
+            </div>
+
+            {/* ================================================================= */}
+            {/* KHỐI B: AI QUÉT KHUÔN MẶT, ÁNH MẮT & BIỂU CẢM                     */}
+            {/* ================================================================= */}
+            <div className="bg-white rounded-3xl border border-slate-200/90 p-6 sm:p-7 shadow-xs space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center shrink-0">
+                    <span className="material-symbols-outlined text-lg">face</span>
+                  </div>
+                  <div>
+                    <h4 className="text-sm sm:text-base font-extrabold text-slate-900">
+                      Khối B: AI Quét Khuôn Mặt, Ánh Mắt &amp; Biểu Cảm (AI Face &amp; Gaze Biometrics)
+                    </h4>
+                    <p className="text-xs text-slate-500">
+                      Theo dõi độ tập trung ánh mắt, biểu cảm khuôn mặt và góc mặt qua Camera webcam
+                    </p>
+                  </div>
+                </div>
+                <span className={`self-start sm:self-auto px-3 py-1 rounded-full text-xs font-bold border ${hasCameraUsed ? 'bg-teal-50 text-teal-700 border-teal-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                  {hasCameraUsed ? 'AI Face Tracking Active' : 'Camera Inactive'}
+                </span>
+              </div>
+
+              {hasCameraUsed ? (
+                /* TRƯỜNG HỢP CÓ BẬT CAMERA */
+                <div className="space-y-5">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    {/* 1. Giao tiếp ánh mắt */}
+                    <div className="p-5 rounded-2xl bg-teal-50/50 border border-teal-200/80 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs sm:text-sm font-bold text-teal-950 flex items-center gap-2">
+                          <span className="material-symbols-outlined text-base text-teal-600">visibility</span>
+                          1. Giao Tiếp Ánh Mắt
+                        </span>
+                        <span className="px-2 py-0.5 rounded-lg bg-teal-100 text-teal-800 text-xs font-mono font-bold">
+                          {telemetry.avgEyeContact}%
+                        </span>
+                      </div>
+
+                      <div className="w-full h-2 rounded-full bg-teal-200 overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-teal-600 transition-all duration-700"
+                          style={{ width: `${Math.min(100, Math.max(10, telemetry.avgEyeContact))}%` }}
+                        />
+                      </div>
+
+                      <p className="text-xs text-slate-700 leading-relaxed">
+                        {telemetry.avgEyeContact >= 70
+                          ? `Tập trung trực diện rất tốt (${telemetry.avgEyeContact}% thời lượng). Bạn duy trì ánh mắt vào ống kính camera, tạo cảm giác tự tin và chuyên nghiệp.`
+                          : telemetry.avgEyeContact >= 50
+                            ? `Mức độ tập trung khá (${telemetry.avgEyeContact}%). Đôi lúc có thói quen đảo mắt xuống bàn hoặc nhìn lệch khung hình khi suy nghĩ.`
+                            : `Ánh mắt thường xuyên nhìn lệch khỏi camera (${telemetry.avgEyeContact}%). Hãy tập thói quen nhìn thẳng vào ống kính webcam khi trả lời.`}
+                      </p>
+                    </div>
+
+                    {/* 2. Biểu cảm chủ đạo & phân bổ */}
+                    <div className="p-5 rounded-2xl bg-purple-50/50 border border-purple-200/80 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs sm:text-sm font-bold text-purple-950 flex items-center gap-2">
+                          <span className="material-symbols-outlined text-base text-purple-600">mood</span>
+                          2. Biểu Cảm Chủ Đạo
+                        </span>
+                        <span className="px-2 py-0.5 rounded-lg bg-purple-100 text-purple-800 text-xs font-bold">
+                          {telemetry.emotionSummary || 'Tự tin & Thân thiện'}
+                        </span>
+                      </div>
+
+                      <div className="space-y-1.5 pt-1 text-[11px]">
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-600">Tự tin (Confident):</span>
+                          <span className="font-mono font-bold text-purple-900">{emotionPcts.confident}%</span>
+                        </div>
+                        <div className="w-full h-1.5 rounded-full bg-purple-200 overflow-hidden">
+                          <div className="h-full bg-purple-600 rounded-full" style={{ width: `${emotionPcts.confident}%` }} />
+                        </div>
+
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-slate-600">Tập trung (Focused):</span>
+                          <span className="font-mono font-bold text-indigo-900">{emotionPcts.focused}%</span>
+                        </div>
+                        <div className="w-full h-1.5 rounded-full bg-indigo-200 overflow-hidden">
+                          <div className="h-full bg-indigo-600 rounded-full" style={{ width: `${emotionPcts.focused}%` }} />
+                        </div>
+
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-slate-600">Thân thiện (Smiling):</span>
+                          <span className="font-mono font-bold text-teal-900">{emotionPcts.smiling}%</span>
+                        </div>
+                        <div className="w-full h-1.5 rounded-full bg-teal-200 overflow-hidden">
+                          <div className="h-full bg-teal-600 rounded-full" style={{ width: `${emotionPcts.smiling}%` }} />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 3. Tư thế góc mặt qua webcam */}
+                    <div className="p-5 rounded-2xl bg-indigo-50/50 border border-indigo-200/80 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs sm:text-sm font-bold text-indigo-950 flex items-center gap-2">
+                          <span className="material-symbols-outlined text-base text-indigo-600">accessibility_new</span>
+                          3. Góc Mặt &amp; Khung Hình
+                        </span>
+                        <span className="px-2 py-0.5 rounded-lg bg-indigo-100 text-indigo-800 text-xs font-bold">
+                          {telemetry.postureStatus || 'Nhìn thẳng ổn định'}
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-slate-700 leading-relaxed">
+                        Khuôn mặt và hai vai được giữ cân đối giữa khung hình webcam. Góc mặt trực diện, không bị nghiêng lệch hay cúi gằm mặt xuống bàn khi đối thoại.
+                      </p>
+
+                      <div className="pt-2 border-t border-indigo-200/70 text-[11px] text-indigo-900 flex items-center gap-1 font-medium">
+                        <span className="material-symbols-outlined text-xs text-indigo-600">check_circle</span>
+                        <span>Khoảng cách đến ống kính phù hợp (50 - 70 cm).</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* TRƯỜNG HỢP CAMERA TẮT */
+                <div className="p-6 rounded-2xl bg-amber-50/80 border border-amber-200 space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                      <span className="material-symbols-outlined text-2xl">videocam_off</span>
+                    </div>
+                    <div>
+                      <h5 className="text-sm sm:text-base font-extrabold text-amber-950">
+                        Camera Đang Tắt Trong Phiên Phỏng Vấn Này
+                      </h5>
+                      <p className="text-xs text-amber-900">
+                        Chế độ phỏng vấn hoàn toàn tập trung vào dữ liệu âm thanh giọng nói qua Micro
+                      </p>
+                    </div>
+                  </div>
+
+                  <p className="text-xs sm:text-sm text-slate-700 leading-relaxed bg-white/90 p-4 rounded-xl border border-amber-200/70">
+                    Hệ thống AI Face Tracking <strong>không chấm điểm Ánh mắt &amp; Biểu cảm khuôn mặt</strong> do bạn chưa bật Camera. Điểm Phong thái ở phiên này được tính 100% dựa trên <strong>Ngữ điệu giọng nói, Tốc độ WPM và Độ lưu loát qua Micro</strong>. Hãy bật Camera (hoặc Quét khuôn mặt AI) ở phiên tiếp theo để mở khóa trọn bộ phân tích biểu cảm!
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 text-xs">
+                    <div className="p-3 rounded-xl bg-white border border-amber-200 text-slate-700 space-y-1">
+                      <strong className="text-amber-900 font-bold block">Bước 1: Cấp quyền Webcam</strong>
+                      <span>Nhấp vào biểu tượng camera trên thanh địa chỉ trình duyệt để cho phép.</span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-white border border-amber-200 text-slate-700 space-y-1">
+                      <strong className="text-amber-900 font-bold block">Bước 2: Căn chỉnh ngang mắt</strong>
+                      <span>Đặt webcam ngang tầm mắt để ánh nhìn luôn trực diện tự nhiên.</span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-white border border-amber-200 text-slate-700 space-y-1">
+                      <strong className="text-amber-900 font-bold block">Bước 3: Mở khóa Face Analytics</strong>
+                      <span>AI sẽ chấm điểm tiếp xúc mắt, nụ cười và phân bổ cảm xúc tức thì.</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
           </div>
         )}
 
         {/* ===================================================================== */}
-        {/* TAB 3: BÁO CÁO NHẬN XÉT TỪNG CÂU & CÂU TRẢ LỜI MẪU STAR               */}
+        {/* TAB 3: GIẢI PHẪU CHI TIẾT TỪNG CÂU HỎI & LỘ TRÌNH ÔN TẬP              */}
         {/* ===================================================================== */}
-        {(activeTab === 'questions' || window.matchMedia?.('print').matches) && (
-          <div className="space-y-5 animate-fadeIn">
+        {activeTab === 'questions' && (
+          <div className="space-y-6 animate-fadeIn">
             
-            {/* Header Bộ Lọc Câu Hỏi Tinh Gọn */}
+            {/* Header Bộ Lọc Câu Hỏi */}
             <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 print:hidden">
               <div className="space-y-0.5">
                 <h3 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-purple-600 text-lg">question_answer</span>
-                  Chi Tiết Từng Câu Hỏi & Mẫu Chuẩn STAR
+                  <span className="material-symbols-outlined text-[#32247b] text-lg">question_answer</span>
+                  Chi Tiết Từng Câu Hỏi &amp; Mẫu Chuẩn STAR
                 </h3>
-                <p className="text-xs text-slate-500">Phân tích câu trả lời của bạn, nguyên nhân trừ điểm và gợi ý câu trả lời điểm 10</p>
+                <p className="text-xs text-slate-500">Đối chiếu câu trả lời của bạn với câu trả lời mẫu điểm 10, chỉ số Telemetry và 4 ô S-T-A-R</p>
               </div>
 
               <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl shrink-0">
@@ -1527,302 +2111,254 @@ export default function AiInterviewReportPage({ user, sessionData = null, sessio
               </div>
             </div>
 
-            {/* Danh Sách Từng Câu Hỏi - Thiết Kế Hiện Đại, Tinh Tế, Bỏ Toàn Bộ Border Lồng Nhau */}
+            {/* Danh Sách Từng Câu Hỏi - KHUNG ĐỐI CHIẾU 2 CỘT HIỆN ĐẠI */}
             <div className="space-y-6">
               {filteredQuestions.map((item, idx) => {
                 const score = item.score ?? 0;
-                const scoreBadge = score >= 80
-                  ? { bg: 'bg-emerald-50 text-emerald-700', text: 'Xuất sắc' }
-                  : score >= 60
-                    ? { bg: 'bg-teal-50 text-teal-700', text: 'Đạt yêu cầu' }
-                    : { bg: 'bg-rose-50 text-rose-700', text: 'Cần cải thiện' };
+                const scoreBadge =
+                  score >= 80
+                    ? { bg: 'bg-emerald-50 text-emerald-700 border-emerald-200', text: 'Xuất sắc' }
+                    : score >= 60
+                      ? { bg: 'bg-teal-50 text-teal-700 border-teal-200', text: 'Đạt yêu cầu' }
+                      : { bg: 'bg-rose-50 text-rose-700 border-rose-200', text: 'Cần cải thiện' };
 
                 const qText = item.q || item.questionText || '';
                 const ansText = (item.answer || '').trim();
                 const rawCritique = item.criticalFeedback?.flaws || item.aiFeedback || '';
                 const rawModel = item.modelAnswer || item.aiSuggestedAnswer || '';
-                const targetPos = session?.topic || 'Senior Backend Engineer';
+                const targetPos = cleanTopic;
 
-                // Tự động làm giàu nhận xét, bày cách trả lời và ví dụ câu trả lời mẫu thực chiến
-                const { critique: enrichedCritique, modelAnswer: enrichedModelAnswer, strategyGuide } = enrichFeedbackAndModelAnswer(
+                const { qType, critique, modelAnswer, strategyGuide } = enrichFeedbackAndModelAnswer(
                   qText,
                   ansText,
                   rawCritique,
                   rawModel,
-                  targetPos
+                  targetPos,
+                  taxonomy
                 );
 
-                const parsedCritique = parseFeedbackSection(enrichedCritique);
-                const parsedStar = parseStarModelAnswer(enrichedModelAnswer);
+                const parsedCritique = parseFeedbackSection(critique);
+                const parsedStar = parseStarModelAnswer(modelAnswer);
                 const wordCount = ansText ? ansText.split(/\s+/).filter(Boolean).length : 0;
+
+                const qWpm = (item.wpm && Number(item.wpm) > 0) ? Number(item.wpm) : (hasMicrophoneUsed ? Number(telemetry.avgWpm) : null);
+                const qPitch = (item.pitchHz && Number(item.pitchHz) > 0) ? Number(item.pitchHz) : (hasPitchData ? Number(telemetry.avgPitchHz) : null);
+                const qEye = (item.eyeContact != null && Number(item.eyeContact) > 0) ? Number(item.eyeContact) : (hasCameraUsed ? Number(telemetry.avgEyeContact) : null);
 
                 return (
                   <div
                     key={idx}
-                    className="bg-white rounded-3xl border border-slate-200/80 shadow-xs hover:border-[#32247b]/30 transition-all p-5 sm:p-7 space-y-4 font-sans"
+                    className="bg-white rounded-3xl border border-slate-200/90 shadow-xs hover:border-[#32247b]/30 transition-all p-5 sm:p-7 space-y-5 font-sans"
                   >
-                    {/* Header: Số thứ tự câu, Câu hỏi & Điểm số */}
+                    {/* Header: Số thứ tự câu, Thể loại, Nội dung câu hỏi & Điểm số */}
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 pb-3 border-b border-slate-100">
                       <div className="space-y-1.5 sm:max-w-[78%]">
                         <div className="flex items-center gap-2">
                           <span className="px-2.5 py-0.5 rounded-lg bg-[#32247b]/10 text-[#32247b] text-xs font-mono font-bold">
                             Câu #{idx + 1}
                           </span>
-                          <span className="text-xs text-slate-400 font-medium">Câu hỏi phỏng vấn</span>
+                          <span className="px-2.5 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-semibold border border-indigo-100">
+                            {qType}
+                          </span>
                         </div>
                         <h4 className="text-sm sm:text-base font-bold text-slate-900 leading-snug">
                           {qText}
                         </h4>
                       </div>
 
-                      {/* Badge Điểm số tinh gọn phẳng */}
-                      <div className={`px-3 py-1.5 rounded-xl font-mono font-bold text-xs shrink-0 self-start sm:self-auto flex items-center gap-1.5 ${scoreBadge.bg}`}>
+                      {/* Badge Điểm số */}
+                      <div className={`px-3 py-1.5 rounded-xl font-mono font-bold text-xs shrink-0 self-start sm:self-auto flex items-center gap-1.5 border ${scoreBadge.bg}`}>
                         <span className="text-sm">{score}</span>
                         <span className="text-[10px] font-sans opacity-80">/ 100đ</span>
-                        <span className="w-1 h-1 rounded-full bg-current opacity-40 ml-0.5"></span>
+                        <span className="w-1 h-1 rounded-full bg-current opacity-40 ml-0.5" />
                         <span className="text-[10px] font-sans font-medium">{scoreBadge.text}</span>
                       </div>
                     </div>
 
-                    {/* Khung 1: Lời đáp của bạn (Nền phẳng xám nhạt, viền accent trái, KHÔNG BORDER 4 CẠNH) */}
-                    <div className="rounded-2xl bg-slate-50/90 p-4 sm:p-5 border-l-4 border-slate-400 space-y-2">
-                      <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
-                        <span className="flex items-center gap-1.5">
-                          <span className="material-symbols-outlined text-sm text-slate-500">person</span>
-                          <span>Lời đáp của bạn:</span>
-                        </span>
-                        
-                        {/* Tag đánh giá độ dài câu trả lời */}
-                        {wordCount === 0 ? (
-                          <span className="px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[10px] font-bold">
-                            Không có câu trả lời
-                          </span>
-                        ) : wordCount < 10 ? (
-                          <span className="px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[10px] font-bold">
-                            Quá ngắn ({wordCount} từ)
-                          </span>
-                        ) : wordCount < 30 ? (
-                          <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-medium">
-                            {wordCount} từ • Hơi vắn tắt
-                          </span>
-                        ) : (
-                          <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-medium">
-                            {wordCount} từ • Đầy đủ
-                          </span>
-                        )}
-                      </div>
+                    {/* KHUNG ĐỐI CHIẾU 2 CỘT */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                      {/* ============================================== */}
+                      {/* CỘT TRÁI: THỰC TẾ CỦA BẠN                      */}
+                      {/* ============================================== */}
+                      <div className="space-y-4 flex flex-col justify-between">
+                        {/* 1. Lời đáp của bạn & Dải Telemetry */}
+                        <div className="rounded-2xl bg-slate-50/90 p-4 border-l-4 border-slate-400 space-y-2.5">
+                          <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
+                            <span className="flex items-center gap-1.5">
+                              <span className="material-symbols-outlined text-sm text-slate-500">person</span>
+                              <span>Lời đáp thực tế của bạn:</span>
+                            </span>
 
-                      <p className="text-xs sm:text-sm text-slate-800 italic leading-relaxed pl-1 font-medium">
-                        {ansText ? `"${ansText}"` : '(Ứng viên không nói hoặc nội dung thu âm quá ngắn)'}
-                      </p>
-                    </div>
-
-                    {/* Khung 2: Nhận xét bóc tách chuyên môn từ AI (Nền phẳng ấm áp, viền accent cam, KHÔNG BORDER 4 CẠNH) */}
-                    <div className="rounded-2xl bg-amber-50/50 p-4 sm:p-5 border-l-4 border-amber-500 space-y-2.5 text-xs sm:text-sm">
-                      <div className="flex items-center gap-1.5 font-bold text-amber-950 text-xs sm:text-sm">
-                        <span className="material-symbols-outlined text-base text-amber-600">psychology</span>
-                        <span>Nhận xét chuyên môn từ Giám khảo AI:</span>
-                      </div>
-                      
-                      <div className="text-slate-800 leading-relaxed text-xs sm:text-[13px] whitespace-pre-line space-y-1 pl-1">
-                        {parsedCritique.critique}
-                      </div>
-
-                      {/* Tag tác phong phụ trợ nếu có */}
-                      {parsedCritique.telemetry && (
-                        <div className="pt-2 border-t border-amber-200/50 flex items-center gap-1.5 text-[11px] text-amber-900 font-medium">
-                          <span className="material-symbols-outlined text-xs text-amber-600">sensors</span>
-                          <span>Phong thái tại câu này:</span>
-                          <span className="px-2 py-0.5 rounded-md bg-white/90 text-amber-950 font-mono text-[10px]">
-                            {parsedCritique.telemetry}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Khung 3: Bày Cách Trả Lời & Ví Dụ Phát Biểu Mẫu Chuẩn Điểm 10 (Mô Hình STAR) */}
-                    {enrichedModelAnswer && (
-                      isFreeTier && idx > 0 ? (
-                        /* VIP Locked Container cho gói Free Candidate từ câu #2 trở đi */
-                        <div className="relative rounded-2xl bg-[#faf9fe] p-6 border-l-4 border-amber-500 overflow-hidden shadow-xs">
-                          {/* Nội dung STAR giả lập bị làm mờ phía sau */}
-                          <div className="blur-xs opacity-20 select-none pointer-events-none space-y-4">
-                            <div className="flex items-center justify-between pb-2 border-b border-purple-100">
-                              <div className="h-4 bg-purple-300 rounded w-1/3"></div>
-                              <div className="h-4 bg-purple-200 rounded w-20"></div>
-                            </div>
-                            <div className="p-3 bg-purple-100/50 rounded-xl h-12"></div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              <div className="p-4 bg-white rounded-xl h-24"></div>
-                              <div className="p-4 bg-white rounded-xl h-24"></div>
-                              <div className="p-4 bg-white rounded-xl h-24"></div>
-                              <div className="p-4 bg-white rounded-xl h-24"></div>
-                            </div>
+                            {wordCount === 0 ? (
+                              <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[10px] font-bold">
+                                Không có câu trả lời
+                              </span>
+                            ) : wordCount < 15 ? (
+                              <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[10px] font-bold">
+                                Quá ngắn ({wordCount} từ)
+                              </span>
+                            ) : wordCount < 40 ? (
+                              <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-medium">
+                                {wordCount} từ • Hơi vắn tắt
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-medium">
+                                {wordCount} từ • Chi tiết
+                              </span>
+                            )}
                           </div>
 
-                          {/* Floating VIP Glassmorphism Banner ở giữa */}
-                          <div className="absolute inset-0 bg-white/80 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-center space-y-3.5 z-10">
-                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#32247b] via-indigo-700 to-amber-500 text-amber-300 flex items-center justify-center shadow-lg shadow-purple-950/20">
-                              <span className="material-symbols-outlined text-2xl">workspace_premium</span>
-                            </div>
-                            <div className="max-w-md space-y-1">
-                              <span className="px-3 py-1 rounded-full bg-amber-100 text-amber-900 text-[10px] font-extrabold uppercase tracking-wider border border-amber-300 inline-block">
-                                💎 Barem STAR Điểm 10 • Đặc Quyền Plus & Pro
+                          <p className="text-xs sm:text-sm text-slate-800 italic leading-relaxed pl-1 font-medium">
+                            {ansText ? `"${ansText}"` : '(Ứng viên không nói hoặc nội dung thu âm quá ngắn)'}
+                          </p>
+
+                          {/* DẢI BADGE TELEMETRY SINH TRẮC HỌC CHO TỪNG CÂU HỎI */}
+                          <div className="pt-2 border-t border-slate-200/70 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-600">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-slate-200 font-medium shadow-2xs">
+                              <span className="material-symbols-outlined text-xs text-indigo-600">record_voice_over</span>
+                              <span>Độ dài: <strong>{wordCount} từ</strong></span>
+                            </span>
+                            {qWpm != null && qWpm > 0 ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-slate-200 font-medium shadow-2xs text-teal-800">
+                                <span className="material-symbols-outlined text-xs text-teal-600">speed</span>
+                                <span>Tốc độ: <strong>{qWpm} WPM</strong></span>
                               </span>
-                              <h5 className="text-sm font-extrabold text-slate-900 pt-1">
-                                Mở Khóa Toàn Bộ Kịch Bản STAR Điểm 10 & Audio Nghe Thử
-                              </h5>
-                              <p className="text-xs text-slate-600 leading-relaxed">
-                                Bạn đã được mở khóa miễn phí đáp án câu #1. Để xem chi tiết chiến lược trả lời, kịch bản mẫu 4 phần (S-T-A-R) và audio phát biểu cho câu #{idx + 1}, vui lòng nâng cấp gói dịch vụ.
-                              </p>
-                            </div>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-slate-200 font-medium shadow-2xs text-slate-400">
+                                <span className="material-symbols-outlined text-xs text-slate-400">keyboard</span>
+                                <span>Văn bản (Không đo WPM)</span>
+                              </span>
+                            )}
+                            {qPitch != null && qPitch > 0 && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-slate-200 font-medium shadow-2xs text-indigo-800">
+                                <span className="material-symbols-outlined text-xs text-indigo-600">graphic_eq</span>
+                                <span>Ngữ điệu: <strong>{qPitch} Hz</strong></span>
+                              </span>
+                            )}
+                            {hasCameraUsed && qEye != null && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-slate-200 font-medium shadow-2xs text-teal-800">
+                                <span className="material-symbols-outlined text-xs text-teal-600">visibility</span>
+                                <span>Ánh mắt: <strong>{qEye}%</strong></span>
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* 2. Nhận xét thẳng thắn của AI */}
+                        <div className="rounded-2xl bg-amber-50/60 p-4 border-l-4 border-amber-500 space-y-2 text-xs sm:text-sm">
+                          <div className="flex items-center gap-1.5 font-bold text-amber-950 text-xs">
+                            <span className="material-symbols-outlined text-base text-amber-600">psychology</span>
+                            <span>Nhận xét thẳng thắn từ Giám khảo AI:</span>
+                          </div>
+
+                          <div className="text-slate-800 leading-relaxed text-xs whitespace-pre-line space-y-1 pl-1 font-normal">
+                            {parsedCritique.critique}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* ============================================== */}
+                      {/* CỘT PHẢI: CHUẨN MỰC ĐIỂM 10 (MÔ HÌNH STAR)     */}
+                      {/* ============================================== */}
+                      <div className="rounded-2xl bg-[#faf9fe] p-4 sm:p-5 border-l-4 border-[#32247b] space-y-3.5 flex flex-col justify-between">
+                        {/* Header Mẫu Điểm 10 */}
+                        <div className="flex items-center justify-between gap-2 pb-2 border-b border-purple-100">
+                          <div className="flex items-center gap-1.5">
+                            <span className="material-symbols-outlined text-base text-[#32247b] font-bold">stars</span>
+                            <h5 className="text-xs sm:text-sm font-bold text-[#32247b]">
+                              Gợi Ý Câu Trả Lời Mẫu Điểm 10
+                            </h5>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 print:hidden">
                             <button
-                              onClick={() => { window.location.hash = '#/candidate-pricing'; }}
-                              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#32247b] via-indigo-700 to-purple-800 hover:opacity-95 text-white text-xs font-bold transition-all shadow-md shadow-purple-950/20 flex items-center gap-2 cursor-pointer"
+                              onClick={() => playModelAudio(modelAnswer, idx)}
+                              className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                                playingQuestionIdx === idx
+                                  ? 'bg-rose-500 text-white animate-pulse'
+                                  : 'bg-white hover:bg-purple-100 text-[#32247b] border border-purple-200'
+                              }`}
                             >
-                              <span className="material-symbols-outlined text-sm text-amber-300">bolt</span>
-                              <span>Mở Khóa Toàn Bộ Đáp Án Chỉ Từ 49.000đ</span>
-                              <span className="material-symbols-outlined text-xs">arrow_forward</span>
+                              <span className="material-symbols-outlined text-xs">
+                                {playingQuestionIdx === idx ? 'stop' : 'volume_up'}
+                              </span>
+                              <span>{playingQuestionIdx === idx ? 'Dừng' : 'Nghe Mẫu'}</span>
+                            </button>
+
+                            <button
+                              onClick={() => copyToClipboard(modelAnswer, 'Câu trả lời mẫu')}
+                              className="px-2.5 py-1 rounded-lg bg-white hover:bg-purple-100 text-slate-700 hover:text-[#32247b] text-xs font-bold flex items-center gap-1 border border-purple-200 transition-all cursor-pointer"
+                            >
+                              <span className="material-symbols-outlined text-xs">content_copy</span>
+                              <span>Sao Chép</span>
                             </button>
                           </div>
                         </div>
-                      ) : (
-                        /* Khung Mở Khóa Đầy Đủ (Gói Plus/Pro hoặc Câu #1 của Free) */
-                        <div className="rounded-2xl bg-[#faf9fe] p-4 sm:p-6 border-l-4 border-[#32247b] space-y-4">
-                          {/* Header của khối Mẫu STAR */}
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-purple-100/80">
-                            <div className="flex items-center gap-2">
-                              <span className="w-7 h-7 rounded-xl bg-purple-100 text-[#32247b] flex items-center justify-center shrink-0">
-                                <span className="material-symbols-outlined text-base font-bold">stars</span>
+
+                        {/* Chiến lược ghi điểm */}
+                        {strategyGuide && (
+                          <div className="p-2.5 rounded-xl bg-purple-100/60 text-[11px] text-[#32247b] space-y-0.5">
+                            <strong className="block font-bold">💡 Chiến lược ghi điểm cho câu hỏi này:</strong>
+                            <p className="leading-relaxed text-slate-700">{strategyGuide}</p>
+                          </div>
+                        )}
+
+                        {/* 4 Ô S - T - A - R ĐÃ LÀM SẠCH CHUỖI HIỂN THỊ */}
+                        {parsedStar.hasStar ? (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                            {/* [S] Bối cảnh */}
+                            <div className="p-3 rounded-xl bg-white shadow-2xs space-y-1 border border-sky-100">
+                              <span className="text-[11px] font-bold text-sky-950 flex items-center gap-1.5">
+                                <span className="w-4 h-4 rounded-md bg-sky-600 text-white font-mono text-[9px] flex items-center justify-center font-bold">S</span>
+                                Bối Cảnh (Situation)
                               </span>
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <h5 className="text-xs sm:text-sm font-bold text-[#32247b]">
-                                    Hướng Dẫn & Ví Dụ Trả Lời Mẫu Chuẩn Điểm 10 (Mô Hình STAR)
-                                  </h5>
-                                  {isFreeTier && idx === 0 && (
-                                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold flex items-center gap-1 border border-emerald-200">
-                                      <span className="material-symbols-outlined text-xs">verified</span>
-                                      <span>Mở Khóa Dùng Thử (Câu #1)</span>
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="text-[10px] text-slate-500">Chuẩn mực theo tiêu chí phỏng vấn của các tập đoàn công nghệ</p>
-                              </div>
+                              <p className="text-slate-700 leading-relaxed text-[11px]">{parsedStar.s || 'Nêu rõ hoàn cảnh dự án.'}</p>
                             </div>
 
-                            {/* Cụm nút Nghe & Sao chép phẳng */}
-                            <div className="flex items-center gap-2 self-end sm:self-auto print:hidden">
-                              <button
-                                onClick={() => playModelAudio(enrichedModelAnswer, idx)}
-                                className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                                  playingQuestionIdx === idx
-                                    ? 'bg-rose-500 text-white animate-pulse'
-                                    : 'bg-white hover:bg-purple-100/70 text-[#32247b] shadow-2xs'
-                                }`}
-                              >
-                                <span className="material-symbols-outlined text-sm">
-                                  {playingQuestionIdx === idx ? 'stop' : 'volume_up'}
-                                </span>
-                                <span>{playingQuestionIdx === idx ? 'Dừng' : 'Nghe Mẫu'}</span>
-                              </button>
+                            {/* [T] Nhiệm vụ */}
+                            <div className="p-3 rounded-xl bg-white shadow-2xs space-y-1 border border-indigo-100">
+                              <span className="text-[11px] font-bold text-indigo-950 flex items-center gap-1.5">
+                                <span className="w-4 h-4 rounded-md bg-indigo-600 text-white font-mono text-[9px] flex items-center justify-center font-bold">T</span>
+                                Nhiệm Vụ (Task)
+                              </span>
+                              <p className="text-slate-700 leading-relaxed text-[11px]">{parsedStar.t || 'Trách nhiệm cụ thể được giao.'}</p>
+                            </div>
 
-                              <button
-                                onClick={() => copyToClipboard(enrichedModelAnswer, 'Câu trả lời mẫu')}
-                                className="px-3 py-1.5 rounded-xl bg-white hover:bg-purple-100/70 text-slate-700 hover:text-[#32247b] text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer"
-                              >
-                                <span className="material-symbols-outlined text-sm">content_copy</span>
-                                <span>Sao Chép</span>
-                              </button>
+                            {/* [A] Hành động */}
+                            <div className="p-3 rounded-xl bg-white shadow-2xs space-y-1 border border-amber-100">
+                              <span className="text-[11px] font-bold text-amber-950 flex items-center gap-1.5">
+                                <span className="w-4 h-4 rounded-md bg-amber-600 text-white font-mono text-[9px] flex items-center justify-center font-bold">A</span>
+                                Hành Động (Action)
+                              </span>
+                              <p className="text-slate-700 leading-relaxed text-[11px]">{parsedStar.a || 'Công cụ và các bước xử lý trực tiếp.'}</p>
+                            </div>
+
+                            {/* [R] Kết quả */}
+                            <div className="p-3 rounded-xl bg-white shadow-2xs space-y-1 border border-emerald-100">
+                              <span className="text-[11px] font-bold text-emerald-950 flex items-center gap-1.5">
+                                <span className="w-4 h-4 rounded-md bg-emerald-600 text-white font-mono text-[9px] flex items-center justify-center font-bold">R</span>
+                                Kết Quả (Result)
+                              </span>
+                              <p className="text-slate-700 leading-relaxed text-[11px]">{parsedStar.r || 'Số liệu đo lường định lượng.'}</p>
                             </div>
                           </div>
-
-                          {/* Bày cách trả lời câu hỏi này (Chiến lược ghi điểm) */}
-                          {strategyGuide && (
-                            <div className="p-3.5 rounded-2xl bg-purple-100/60 text-xs text-[#32247b] space-y-1">
-                              <div className="font-bold flex items-center gap-1.5 text-xs text-[#32247b]">
-                                <span className="material-symbols-outlined text-sm">lightbulb</span>
-                                <span>Bày cách trả lời câu hỏi này (Chiến lược ghi điểm):</span>
-                              </div>
-                              <p className="leading-relaxed pl-5 text-slate-700 font-medium">
-                                {strategyGuide}
-                              </p>
-                            </div>
-                          )}
-
-                          {/* Tiêu đề Ví dụ mẫu STAR */}
-                          <div className="pt-1 flex items-center gap-1.5 text-xs font-bold text-slate-800">
-                            <span className="material-symbols-outlined text-sm text-[#32247b]">record_voice_over</span>
-                            <span>Ví dụ phát biểu mẫu chuẩn điểm 10 (Đóng vai ứng viên trả lời):</span>
+                        ) : (
+                          <div className="p-3 rounded-xl bg-white text-xs text-slate-800 leading-relaxed whitespace-pre-line border border-purple-100">
+                            {modelAnswer}
                           </div>
+                        )}
 
-                          {/* Nội dung STAR: 4 Thẻ Phẳng Pastel Sạch Sẽ (HOÀN TOÀN KHÔNG BORDER) */}
-                          {parsedStar.hasStar ? (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                              {/* [S] Situation */}
-                              {parsedStar.s && (
-                                <div className="p-3.5 rounded-2xl bg-white/90 shadow-2xs space-y-1.5">
-                                  <span className="text-[11px] font-bold text-sky-950 flex items-center gap-2">
-                                    <span className="w-5 h-5 rounded-md bg-sky-600 text-white font-mono text-[10px] flex items-center justify-center font-bold">S</span>
-                                    Bối Cảnh (Situation)
-                                  </span>
-                                  <p className="text-slate-700 leading-relaxed text-xs">{parsedStar.s}</p>
-                                </div>
-                              )}
-
-                              {/* [T] Task */}
-                              {parsedStar.t && (
-                                <div className="p-3.5 rounded-2xl bg-white/90 shadow-2xs space-y-1.5">
-                                  <span className="text-[11px] font-bold text-indigo-950 flex items-center gap-2">
-                                    <span className="w-5 h-5 rounded-md bg-indigo-600 text-white font-mono text-[10px] flex items-center justify-center font-bold">T</span>
-                                    Nhiệm Vụ (Task)
-                                  </span>
-                                  <p className="text-slate-700 leading-relaxed text-xs">{parsedStar.t}</p>
-                                </div>
-                              )}
-
-                              {/* [A] Action */}
-                              {parsedStar.a && (
-                                <div className="p-3.5 rounded-2xl bg-white/90 shadow-2xs space-y-1.5">
-                                  <span className="text-[11px] font-bold text-amber-950 flex items-center gap-2">
-                                    <span className="w-5 h-5 rounded-md bg-amber-600 text-white font-mono text-[10px] flex items-center justify-center font-bold">A</span>
-                                    Hành Động & Công Nghệ (Action)
-                                  </span>
-                                  <p className="text-slate-700 leading-relaxed text-xs">{parsedStar.a}</p>
-                                </div>
-                              )}
-
-                              {/* [R] Result */}
-                              {parsedStar.r && (
-                                <div className="p-3.5 rounded-2xl bg-white/90 shadow-2xs space-y-1.5">
-                                  <span className="text-[11px] font-bold text-emerald-950 flex items-center gap-2">
-                                    <span className="w-5 h-5 rounded-md bg-emerald-600 text-white font-mono text-[10px] flex items-center justify-center font-bold">R</span>
-                                    Kết Quả & Số Liệu (Result)
-                                  </span>
-                                  <p className="text-slate-700 leading-relaxed text-xs">{parsedStar.r}</p>
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="p-4 rounded-2xl bg-white/90 shadow-2xs text-xs sm:text-sm text-slate-800 leading-relaxed whitespace-pre-line">
-                              {enrichedModelAnswer}
-                            </div>
-                          )}
-
-                          {/* So Sánh Rút Kinh Nghiệm Tinh Gọn (2 Dòng Bullet Phẳng, KHÔNG KHUNG VIỀN ĐỎ XANH) */}
-                          <div className="pt-3 border-t border-purple-100/80 space-y-1.5 text-xs">
-                            <div className="flex items-start gap-2 text-rose-800">
-                              <span className="material-symbols-outlined text-sm text-rose-600 shrink-0 mt-0.5">cancel</span>
-                              <span><strong>Điểm trừ lớn:</strong> {wordCount < 10 ? 'Câu trả lời quá ngắn, chưa giới thiệu bản thân, thiếu vai trò đảm nhận và công nghệ thực tế.' : 'Thiếu số liệu đo lường định lượng và các giải pháp kỹ thuật chuyên sâu.'}</span>
-                            </div>
-                            <div className="flex items-start gap-2 text-emerald-800">
-                              <span className="material-symbols-outlined text-sm text-emerald-600 shrink-0 mt-0.5">check_circle</span>
-                              <span><strong>Bí quyết điểm 10:</strong> Giới thiệu kinh nghiệm -&gt; Bối cảnh bài toán -&gt; Công nghệ &amp; kiến trúc gánh vác -&gt; Số liệu kết quả vận hành.</span>
-                            </div>
-                          </div>
+                        {/* Badges Từ khóa của riêng câu hỏi này */}
+                        <div className="pt-2 border-t border-purple-100 flex flex-wrap items-center gap-1.5 text-[11px]">
+                          <span className="text-slate-500 font-semibold">Từ khóa trọng tâm:</span>
+                          {taxonomy.keywords.slice(0, 3).map((kw, kIdx) => (
+                            <span key={kIdx} className="px-2 py-0.5 rounded-md bg-purple-100 text-[#32247b] font-medium text-[10px]">
+                              #{kw}
+                            </span>
+                          ))}
                         </div>
-                      )
-                    )}
+                      </div>
+                    </div>
 
                   </div>
                 );
@@ -1836,14 +2372,185 @@ export default function AiInterviewReportPage({ user, sessionData = null, sessio
               )}
             </div>
 
+            {/* KHUNG KẾ HOẠCH CẢI THIỆN TRỰC TIẾP TỪ PHIÊN PHỎNG VẤN NÀY (ACTIONABLE STUDY PLAN Ở CUỐI TAB 3) */}
+            <div className="bg-white rounded-3xl border border-slate-200/90 p-6 sm:p-7 shadow-xs space-y-6 mt-8">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-2xl bg-indigo-100 text-[#32247b] flex items-center justify-center shrink-0">
+                    <span className="material-symbols-outlined text-xl">alt_route</span>
+                  </div>
+                  <div>
+                    <h3 className="text-sm sm:text-base font-extrabold text-slate-900">
+                      Kế Hoạch Cải Thiện Trực Tiếp Từ Phiên Phỏng Vấn Này
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      3 trọng tâm hành động cấp thiết được may đo dựa trên dữ liệu đối thoại và câu trả lời thực tế của bạn
+                    </p>
+                  </div>
+                </div>
+                <span className="self-start sm:self-auto px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-bold border border-indigo-200">
+                  Kế Hoạch Thực Chiến
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                {/* THẺ 1: TRỌNG TÂM 01 (Khắc Phục Ngay Câu Hỏi Điểm Thấp Nhất) */}
+                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3.5 hover:border-[#32247b] transition-all flex flex-col justify-between">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="px-2.5 py-0.5 rounded-lg bg-[#32247b] text-white text-[11px] font-mono font-bold">
+                        TRỌNG TÂM 01
+                      </span>
+                      <span className="text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full">
+                        Khắc Phục Câu Yếu Nhất
+                      </span>
+                    </div>
+
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-900 leading-snug">
+                      Sửa Lỗi Trực Tiếp Ở Câu Hỏi Điểm Thấp Nhất (Câu #{lowestQuestion ? lowestQuestion.index : 1} - Đạt {lowestQuestion ? (lowestQuestion.score ?? 0) : 0}/100đ)
+                    </h4>
+
+                    {lowestQuestion && (
+                      <div className="p-2.5 rounded-xl bg-white border border-slate-200/80 text-[11px] space-y-1.5 text-slate-700">
+                        <div className="font-semibold text-slate-900 line-clamp-2">
+                          "{lowestQuestion.q || lowestQuestion.questionText || 'Câu hỏi'}"
+                        </div>
+                        <div className="text-[10px] text-slate-500">
+                          Thực tế bạn đã nói: <strong className="text-rose-700 font-mono">{lowestQWords} từ</strong>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="text-xs text-slate-600 space-y-1.5 leading-relaxed">
+                      <p className="font-medium text-slate-800">
+                        Để đạt 80+ điểm cho câu hỏi này ở vị trí <strong>{cleanTopic}</strong>, bạn cần trình bày rõ 3 ý:
+                      </p>
+                      <ul className="space-y-1 pl-1 text-[11px]">
+                        <li className="flex items-start gap-1.5">
+                          <span className="text-[#32247b] font-bold">1.</span>
+                          <span><strong>Bối cảnh &amp; Nguyên nhân:</strong> Nêu rõ bài toán/sự cố thực tế tại dự án.</span>
+                        </li>
+                        <li className="flex items-start gap-1.5">
+                          <span className="text-[#32247b] font-bold">2.</span>
+                          <span><strong>Phương pháp &amp; Công cụ:</strong> Áp dụng chuẩn chuyên ngành ({taxonomy.keywords.slice(0, 3).join(', ')}).</span>
+                        </li>
+                        <li className="flex items-start gap-1.5">
+                          <span className="text-[#32247b] font-bold">3.</span>
+                          <span><strong>Kết quả đo lường:</strong> Dẫn chứng con số định lượng ({taxonomy.metricsTerm}).</span>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div className="pt-2.5 border-t border-slate-200 text-[11px] text-emerald-800 font-medium flex items-start gap-1">
+                    <span className="material-symbols-outlined text-xs text-emerald-600 shrink-0 mt-0.5">task_alt</span>
+                    <span><strong>Mục tiêu:</strong> Trả lời lại câu này đạt tối thiểu <strong>60 - 120 từ</strong>, đủ 4 phần S - T - A - R.</span>
+                  </div>
+                </div>
+
+                {/* THẺ 2: TRỌNG TÂM 02 (Bổ Sung Kiến Thức & Thuật Ngữ Cốt Lõi) */}
+                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3.5 hover:border-[#32247b] transition-all flex flex-col justify-between">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="px-2.5 py-0.5 rounded-lg bg-[#32247b] text-white text-[11px] font-mono font-bold">
+                        TRỌNG TÂM 02
+                      </span>
+                      <span className="text-[11px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full">
+                        Thuật Ngữ Cốt Lõi
+                      </span>
+                    </div>
+
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-900 leading-snug">
+                      Ôn Tập Kiến Thức Chuyên Môn Ngành {taxonomy.categoryName}
+                    </h4>
+
+                    <div className="space-y-2">
+                      <span className="text-[11px] font-semibold text-slate-700 block">
+                        Thuật ngữ cốt lõi cần bổ sung (bỏ sót trong buổi phỏng vấn):
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {(keywordGap.missing.length > 0 ? keywordGap.missing.slice(0, 5) : taxonomy.keywords.slice(0, 5)).map((kw, kIdx) => (
+                          <span
+                            key={kIdx}
+                            className="px-2 py-0.5 rounded-lg bg-white border border-rose-200 text-rose-800 text-[11px] font-medium shadow-2xs"
+                          >
+                            • {kw}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="text-xs text-slate-600 space-y-1 text-[11px] leading-relaxed pt-1">
+                      <p>
+                        <strong>Trọng tâm lý thuyết:</strong> {taxonomy.coreConcepts}.
+                      </p>
+                      <p>
+                        <strong>Tình huống xử lý:</strong> {taxonomy.troubleshootConcepts}.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="pt-2.5 border-t border-slate-200 text-[11px] text-emerald-800 font-medium flex items-start gap-1">
+                    <span className="material-symbols-outlined text-xs text-emerald-600 shrink-0 mt-0.5">task_alt</span>
+                    <span><strong>Mục tiêu:</strong> Hiểu rõ bản chất và lồng ghép ít nhất <strong>3 - 4 thuật ngữ chuyên ngành</strong> vào câu trả lời.</span>
+                  </div>
+                </div>
+
+                {/* THẺ 3: TRỌNG TÂM 03 (Chỉnh Sửa Cách Diễn Đạt & Phản Xạ Dựa Trên Số Liệu Thật) */}
+                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3.5 hover:border-[#32247b] transition-all flex flex-col justify-between">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="px-2.5 py-0.5 rounded-lg bg-[#32247b] text-white text-[11px] font-mono font-bold">
+                        TRỌNG TÂM 03
+                      </span>
+                      <span className="text-[11px] font-bold text-teal-700 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-full">
+                        Lưu Loát &amp; Phong Thái
+                      </span>
+                    </div>
+
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-900 leading-snug">
+                      Cải Thiện Độ Lưu Loát &amp; Phong Thái Trả Lời Thực Tế
+                    </h4>
+
+                    {avgWordsPerQ < 25 ? (
+                      <div className="space-y-2 text-xs text-slate-700 leading-relaxed">
+                        <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[11px] font-medium">
+                          ⚠️ <strong>Độ dài trung bình hiện tại quá ngắn ({avgWordsPerQ} từ/câu):</strong> Bạn đang trả lời cụt lủn hoặc bỏ dở ý, chưa đủ dữ liệu để chứng minh năng lực.
+                        </div>
+                        <p className="text-[11px] text-slate-600">
+                          <strong>Quy tắc 3 câu hoàn chỉnh:</strong> (1) Mở đầu nêu bối cảnh &amp; vai trò ➔ (2) Thân bài nêu giải pháp kỹ thuật cụ thể ➔ (3) Kết bài nêu kết quả số liệu.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2 text-xs text-slate-700 leading-relaxed">
+                        <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-[11px]">
+                          Tốc độ nói thực tế: <strong>{wpmInfo.displayVal}</strong> • Từ đệm: <strong>{telemetry.totalFillers} lần</strong>.
+                        </div>
+                        <p className="text-[11px] text-slate-600">
+                          {telemetry.totalFillers > 2
+                            ? `Cần giảm thiểu ${telemetry.totalFillers} từ đệm ("à, ừm"). Tập dừng 1-2 giây im lặng chuyên nghiệp để dàn ý trước khi nói.`
+                            : 'Khả năng kiểm soát từ đệm tốt. Tiếp tục duy trì nhịp thở đều đặn và tương tác mắt trực diện vào camera webcam.'}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="pt-2.5 border-t border-slate-200 text-[11px] text-emerald-800 font-medium flex items-start gap-1">
+                    <span className="material-symbols-outlined text-xs text-emerald-600 shrink-0 mt-0.5">task_alt</span>
+                    <span><strong>Mục tiêu:</strong> Duy trì độ dài <strong>&gt; 50 từ/câu</strong>, tốc độ nói <strong>100 - 150 WPM</strong> và <strong>&lt; 2 từ đệm</strong>.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
           </div>
         )}
 
         {/* Footer Actions */}
         <div className="bg-white rounded-3xl border border-slate-200 p-6 flex flex-col sm:flex-row items-center justify-between gap-4 print:hidden">
           <div className="space-y-0.5 text-center sm:text-left">
-            <h4 className="text-xs font-bold text-slate-900">Bạn đã sẵn sàng nâng cao kỹ năng?</h4>
-            <p className="text-[11px] text-slate-500">Tập luyện thêm các phiên mới với độ khó và ngữ cảnh tuyển dụng khác nhau.</p>
+            <h4 className="text-xs font-bold text-slate-900">Bạn đã sẵn sàng nâng cao phản xạ phỏng vấn?</h4>
+            <p className="text-[11px] text-slate-500">Tập luyện thêm các phiên mới với JD doanh nghiệp thực tế tại HireMate AI Studio.</p>
           </div>
 
           <div className="flex items-center gap-2.5">
@@ -1851,11 +2558,11 @@ export default function AiInterviewReportPage({ user, sessionData = null, sessio
               onClick={handleBack}
               className="px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all cursor-pointer"
             >
-              Quay Lại Danh Sách
+              Quay Lại Studio
             </button>
             <button
               onClick={() => { window.location.hash = '#/ai-interview'; }}
-              className="px-5 py-2.5 rounded-xl bg-[#32247b] hover:bg-[#251963] text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-purple-950/10 cursor-pointer"
+              className="px-5 py-2.5 rounded-xl bg-[#32247b] hover:bg-[#251963] text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
             >
               <span className="material-symbols-outlined text-sm">tune</span>
               <span>Bắt Đầu Phiên Mới</span>

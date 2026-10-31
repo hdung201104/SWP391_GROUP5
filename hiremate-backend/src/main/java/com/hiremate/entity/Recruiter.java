@@ -54,7 +54,7 @@ public class Recruiter implements Persistable<Long> {
         this.isNewEntity = false;
     }
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "company_id")
     private Company company;
 

@@ -10,6 +10,7 @@ import com.hiremate.entity.User;
 import com.hiremate.service.PaymentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -61,6 +62,10 @@ public class PaymentController {
     public ResponseEntity<ApiResponse<List<PaymentOrderResponse>>> getMyOrders(
             @AuthenticationPrincipal User user
     ) {
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.error("Vui lòng đăng nhập để xem lịch sử đơn hàng"));
+        }
         List<PaymentOrderResponse> orders = paymentService.getMyOrders(user);
         return ResponseEntity.ok(ApiResponse.ok("Danh sách đơn hàng", orders));
     }
@@ -69,6 +74,10 @@ public class PaymentController {
     public ResponseEntity<ApiResponse<com.hiremate.dto.response.SubscriptionResponse>> getMySubscription(
             @AuthenticationPrincipal User user
     ) {
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.error("Vui lòng đăng nhập để xem thông tin gói dịch vụ"));
+        }
         com.hiremate.dto.response.SubscriptionResponse response = paymentService.getMyActiveSubscription(user);
         return ResponseEntity.ok(ApiResponse.ok("Thông tin gói dịch vụ hiện tại", response));
     }

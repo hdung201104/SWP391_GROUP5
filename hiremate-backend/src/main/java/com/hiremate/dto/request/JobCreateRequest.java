@@ -1,5 +1,6 @@
 package com.hiremate.dto.request;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.hiremate.enums.EmploymentType;
 import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.Min;
@@ -35,15 +36,29 @@ public class JobCreateRequest {
     private EmploymentType employmentType;
 
     @Min(value = 1, message = "Số lượng tuyển dụng phải từ 1 người trở lên")
+    @JsonAlias({"vacancyCount", "vacancies_count"})
     private Integer vacanciesCount;
 
     @FutureOrPresent(message = "Hạn chót nộp hồ sơ không được là ngày trong quá khứ")
+    @JsonAlias({"deadline", "deadline_date"})
     private LocalDate deadlineDate;
 
+    // Metadata fields
+    private String experience;
+    private String level;
+    private String category;
+
     // Skills
+    @JsonAlias({"mandatory_skill_ids", "requiredSkillIds"})
     private List<Long> mandatorySkillIds;
+
+    @JsonAlias({"preferred_skill_ids"})
     private List<Long> preferredSkillIds;
+
+    @JsonAlias({"requiredSkills", "mandatory_skills"})
     private List<String> mandatorySkills;
+
+    @JsonAlias({"preferred_skills"})
     private List<String> preferredSkills;
 }
 

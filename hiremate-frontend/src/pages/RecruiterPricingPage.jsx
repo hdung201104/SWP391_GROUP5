@@ -6,7 +6,7 @@ import VoucherSelector from '../components/common/VoucherSelector';
 const RECRUITER_SUBSCRIPTION_PLANS = [
   {
     id: 'BASIC',
-    name: 'Gói Khởi Tạo (Starter)',
+    name: 'Free Recruiter',
     tagline: 'Dành cho doanh nghiệp nhỏ trải nghiệm tính năng bóc tách CV & Matching AI cơ bản.',
     monthlyPrice: 0,
     yearlyPrice: 0,
@@ -16,70 +16,80 @@ const RECRUITER_SUBSCRIPTION_PLANS = [
     isPopular: false,
     isCurrent: true,
     features: [
-      { text: '3 Tin đăng tuyển dụng active', highlight: true },
-      { text: '50 Lượt soi CV & Parse AI Gemini / tháng', highlight: false },
-      { text: 'Báo cáo điểm Matching AI cơ bản', highlight: false },
-      { text: 'Phễu quản lý ứng viên Kanban tiêu chuẩn', highlight: false },
-      { text: 'Tạo & chỉnh sửa thông tin doanh nghiệp', highlight: false },
-      { text: 'Hỗ trợ qua Email & Ticket trợ giúp', highlight: false },
+      { text: 'Đăng tối đa 3 tin tuyển dụng hoạt động cùng lúc', highlight: true },
+      { text: 'Xem danh sách ứng viên & Điểm % AI Match tổng quan', highlight: false },
+      { text: '2 Lượt / ngày dùng AI Phân tích JD & Đề xuất kỹ năng', highlight: false },
+      { text: 'Bảng quản lý quy trình ứng tuyển Kanban tiêu chuẩn', highlight: false },
+      { text: 'Tự động gửi Email & Thông báo khi duyệt hồ sơ', highlight: false },
     ],
     missingFeatures: [
-      'Báo cáo Skill Gap breakdown matrix chi tiết',
-      'Xem báo cáo AI Voice Mock Interview ứng viên',
-      'Export báo cáo ứng viên PDF/Excel',
-      'Badge Verified Enterprise chính chủ',
-      'Account Manager hỗ trợ riêng 24/7',
+      'Mở khóa Báo cáo phân tích khoảng trống kỹ năng (Skill Gap)',
+      'Xem chi tiết Báo cáo Phỏng vấn AI Voice của ứng viên',
+      'Xuất dữ liệu báo cáo ứng viên ra file Excel (.xlsx)',
+    ]
+  },
+  {
+    id: 'STARTER',
+    name: 'Hiring Starter',
+    tagline: 'Gói khởi động tối ưu chi phí dành cho SME, mở khóa toàn bộ công cụ trích xuất JD & Excel.',
+    monthlyPrice: 199000,
+    yearlyPrice: 159000, // ~20% off
+    badgeText: 'TIẾT KIỆM ⭐',
+    badgeColor: 'bg-blue-100 text-blue-800 border-blue-300',
+    buttonText: 'Nâng Cấp Hiring Starter',
+    isPopular: false,
+    isCurrent: false,
+    features: [
+      { text: 'Đăng tối đa 10 tin tuyển dụng hoạt động cùng lúc', highlight: true },
+      { text: 'KHÔNG GIỚI HẠN dùng AI Phân tích JD & Trích xuất kỹ năng', highlight: true },
+      { text: 'Mở khóa Báo cáo phân tích khoảng trống kỹ năng (Skill Gap)', highlight: true },
+      { text: 'Lọc & Xếp hạng ứng viên thông minh theo chuẩn AI 70/30', highlight: true },
+      { text: 'Mở khóa tính năng Xuất danh sách ứng viên ra file Excel', highlight: true },
+    ],
+    missingFeatures: [
+      'Xem chi tiết Báo cáo Phỏng vấn AI Voice của ứng viên',
+      'Duyệt chuyển trạng thái ứng viên hàng loạt (Batch Action)',
     ]
   },
   {
     id: 'PROFESSIONAL',
-    name: 'Gói Tiêu Chuẩn (Pro AI)',
+    name: 'Hiring Pro',
     tagline: 'Giải pháp hoàn hảo cho doanh nghiệp đang tăng tốc tuyển dụng IT & Tech Talent.',
-    monthlyPrice: 1990000,
-    yearlyPrice: 1592000, // 20% off
+    monthlyPrice: 499000,
+    yearlyPrice: 399000, // 20% off
     badgeText: 'PHỔ BIẾN NHẤT 🔥',
     badgeColor: 'bg-[#10b981]/15 text-[#047857] border-[#6ee7b7]',
-    buttonText: 'Nâng Cấp Gói Pro AI',
+    buttonText: 'Nâng Cấp Hiring Pro',
     isPopular: true,
     isCurrent: false,
     features: [
-      { text: '15 Tin đăng tuyển dụng active', highlight: true },
-      { text: '500 Lượt soi CV & Parse AI Gemini / tháng', highlight: true },
-      { text: 'Báo cáo Skill Gap Matrix chuẩn xác', highlight: true },
-      { text: 'Tự động xếp hạng ứng viên theo AI Match Score', highlight: false },
-      { text: 'Phễu Kanban kéo thả không giới hạn', highlight: false },
-      { text: 'Tự động gửi mail hẹn phỏng vấn & thông báo', highlight: false },
-      { text: 'Export báo cáo ứng viên dạng PDF/Excel', highlight: true },
-      { text: 'Badge Doanh nghiệp Xác Thực (Verified Badge)', highlight: true },
-      { text: 'Hỗ trợ ưu tiên 24/7 qua Live Chat & Hotline', highlight: false },
+      { text: 'Đăng tối đa 30 tin tuyển dụng hoạt động cùng lúc', highlight: true },
+      { text: 'Toàn bộ tính năng AI JD Extractor & Phân tích Skill Gap Matrix', highlight: true },
+      { text: 'Mở khóa xem Báo cáo kết quả Phỏng vấn AI Voice của ứng viên', highlight: true },
+      { text: 'Mở khóa Duyệt & Chuyển trạng thái ứng viên hàng loạt (Batch)', highlight: true },
+      { text: 'Xuất báo cáo đánh giá ứng viên ra file Excel chuyên nghiệp', highlight: true },
     ],
     missingFeatures: [
-      'Xem báo cáo AI Voice Mock Interview ứng viên',
-      'KHÔNG GIỚI HẠN số lượng tin đăng',
-      'Account Manager hỗ trợ riêng 24/7',
+      'Đăng tin tuyển dụng KHÔNG GIỚI HẠN số lượng',
     ]
   },
   {
     id: 'ENTERPRISE',
-    name: 'Gói Doanh Nghiệp (Enterprise AI)',
+    name: 'Hiring Elite',
     tagline: 'Dành cho tập đoàn & công ty tuyển dụng quy mô lớn với tính năng AI phỏng vấn độc quyền.',
-    monthlyPrice: 4990000,
-    yearlyPrice: 3992000, // 20% off
+    monthlyPrice: 1199000,
+    yearlyPrice: 959000, // 20% off
     badgeText: 'TOÀN DIỆN & VIP 👑',
     badgeColor: 'bg-[#8b5cf6]/15 text-[#6d28d9] border-[#c4b5fd]',
-    buttonText: 'Liên Hệ / Mua Gói VIP',
+    buttonText: 'Mua Gói Hiring Elite VIP',
     isPopular: false,
     isCurrent: false,
     features: [
-      { text: 'KHÔNG GIỚI HẠN tin đăng tuyển dụng active', highlight: true },
-      { text: '3,000 Lượt soi CV & AI Deep Evaluation / tháng', highlight: true },
-      { text: 'Báo cáo AI Voice Mock Interview của ứng viên', highlight: true },
-      { text: 'Đo lường WPM, độ rõ chữ & điểm phỏng vấn AI', highlight: true },
-      { text: 'Báo cáo Executive Analytics & Time-to-Hire', highlight: false },
-      { text: 'Tự động hóa Pipeline & Chuyển chặng thông minh', highlight: false },
-      { text: 'Badge Doanh nghiệp VIP & Ưu tiên đăng tin TOP 1', highlight: true },
-      { text: 'Tích hợp ATS & Custom Webhook API', highlight: false },
-      { text: 'Dedicated Account Manager hỗ trợ 1-on-1', highlight: true },
+      { text: 'KHÔNG GIỚI HẠN số lượng tin đăng tuyển dụng hoạt động', highlight: true },
+      { text: 'Xem trọn vẹn 100% Báo cáo Phỏng vấn AI Voice & Chẩn đoán sâu', highlight: true },
+      { text: 'Không giới hạn AI Phân tích JD, Skill Gap & Sắp xếp AI 70/30', highlight: true },
+      { text: 'Quản lý Kanban nâng cao, Duyệt hàng loạt & Xuất file Excel', highlight: true },
+      { text: 'Ưu tiên gắn nhãn Tin tuyển dụng Nổi bật (HOT / TOP)', highlight: true },
     ],
     missingFeatures: []
   }
@@ -98,7 +108,7 @@ const RECRUITER_ADDONS = [
   {
     id: 'CREDITS_500',
     name: '+500 AI Matching Credits',
-    desc: 'Thêm 500 lượt bóc tách CV (Giảm 20% so với mua gói lẻ 100).',
+    desc: 'Thêm 500 lượt bóc tách CV và tính toán điểm AI Matching.',
     price: 1200000,
     badge: 'Bán chạy 🔥',
     icon: 'psychology',
@@ -109,14 +119,14 @@ const RECRUITER_ADDONS = [
     name: 'Đẩy Tin Nổi Bật (Featured Job)',
     desc: 'Đưa tin đăng lên vị trí TOP ĐẦU Cổng việc làm trong 7 ngày kèm huy hiệu HOT.',
     price: 500000,
-    badge: 'Tăng 300% lượt xem',
+    badge: 'Tăng lượt xem',
     icon: 'rocket_launch',
     color: 'from-amber-500 to-orange-600'
   },
   {
     id: 'VERIFIED_BADGE',
     name: 'Huy Hiệu Doanh Nghiệp Uy Tín',
-    desc: 'Xác thực logo & thương hiệu chính chủ 1 năm, nâng cao uy tín với ứng viên xịn.',
+    desc: 'Xác thực thông tin doanh nghiệp chính chủ trên hệ thống HireMate.',
     price: 990000,
     badge: '1 Năm',
     icon: 'verified',
@@ -125,15 +135,13 @@ const RECRUITER_ADDONS = [
 ];
 
 const COMPARISON_ROWS = [
-  { feature: 'Số tin đăng tuyển dụng active', basic: '3 Tin', pro: '15 Tin', enterprise: 'Không giới hạn' },
-  { feature: 'Lượt soi CV & Parse AI Gemini / tháng', basic: '50 Lượt', pro: '500 Lượt', enterprise: '3,000 Lượt' },
-  { feature: 'Thuật toán AI Matching', basic: 'Cơ bản', pro: 'Nâng cao', enterprise: 'Chuyên sâu + Custom' },
-  { feature: 'Báo cáo khoảng trống kỹ năng (Skill Gap)', basic: '❌', pro: '✅', enterprise: '✅' },
-  { feature: 'Xem báo cáo AI Voice Mock Interview', basic: '❌', pro: '❌', enterprise: '✅' },
-  { feature: 'Export Báo Cáo Ứng Viên (PDF / Excel)', basic: '❌', pro: '✅', enterprise: '✅' },
-  { feature: 'Phễu quản lý Kanban kéo thả', basic: '✅', pro: '✅', enterprise: '✅' },
-  { feature: 'Badge Doanh Nghiệp Xác Thực', basic: '❌', pro: '✅', enterprise: '✅' },
-  { feature: 'Kênh Hỗ Trợ Kỹ Thuật SLA', basic: 'Email (48h)', pro: 'Hotline/Chat (24/7)', enterprise: 'Account Manager 1-on-1' },
+  { feature: 'Số tin đăng tuyển dụng hoạt động cùng lúc', free: 'Tối đa 3 tin', starter: 'Tối đa 10 tin', pro: 'Tối đa 30 tin', elite: 'Không giới hạn' },
+  { feature: 'Xem danh sách ứng viên & Điểm AI Match', free: '% Match tổng quan', starter: 'Xếp hạng chuẩn AI 70/30', pro: 'Xếp hạng chuẩn AI 70/30', elite: 'Xếp hạng chuẩn AI 70/30' },
+  { feature: 'AI Phân tích JD & Trích xuất kỹ năng', free: '2 Lượt / ngày', starter: 'Không giới hạn', pro: 'Không giới hạn', elite: 'Không giới hạn' },
+  { feature: 'Báo cáo khoảng trống kỹ năng (Skill Gap)', free: '❌', starter: '✅ Mở khóa', pro: '✅ Skill Gap Matrix', elite: '✅ Skill Gap Matrix sâu' },
+  { feature: 'Xuất báo cáo danh sách ứng viên (Excel .xlsx)', free: '❌', starter: '✅ Mở khóa', pro: '✅ Chuyên nghiệp', elite: '✅ Toàn bộ' },
+  { feature: 'Xem Báo cáo Phỏng vấn AI Voice của ứng viên', free: '❌', starter: '❌', pro: '✅ Báo cáo Voice', elite: '✅ 100% Chẩn đoán sâu' },
+  { feature: 'Duyệt chuyển trạng thái hàng loạt (Batch Action)', free: '❌', starter: '❌', pro: '✅ Duyệt hàng loạt', elite: '✅ Duyệt hàng loạt & Gắn nhãn HOT' },
 ];
 
 const FAQS = [
@@ -155,12 +163,91 @@ const FAQS = [
   }
 ];
 
-const getRecruiterPlanTier = (planId) => {
-  if (!planId) return 0;
-  const id = planId.toUpperCase();
-  if (id.includes('ENTERPRISE') || id.includes('VIP') || id.includes('ELITE')) return 2;
-  if (id.includes('PROFESSIONAL') || id.includes('PRO') || id.includes('HIRING')) return 1;
-  return 0; // BASIC / STARTER
+const getRecruiterEnrichedFeatures = (planName, monthlyPrice, quotaLimit, description) => {
+  const name = (planName || '').toLowerCase();
+  const price = Number(monthlyPrice) || 0;
+  const quota = Number(quotaLimit) || 0;
+
+  // Cấp độ 3: HIRING ELITE / ENTERPRISE (Giá >= 1.000.000đ hoặc tên chứa elite/enterprise)
+  if (price >= 1000000 || name.includes('elite') || name.includes('enterprise')) {
+    return {
+      tagline: 'Giải pháp tuyển dụng toàn diện và cao cấp nhất cho Tập đoàn & Headhunt chuyên nghiệp.',
+      features: [
+        { text: 'KHÔNG GIỚI HẠN số lượng tin đăng tuyển dụng hoạt động', highlight: true },
+        { text: 'Xem trọn vẹn 100% Báo cáo Phỏng vấn AI Voice & Chẩn đoán sâu', highlight: true },
+        { text: 'Không giới hạn AI Phân tích JD, Skill Gap & Sắp xếp AI 70/30', highlight: true },
+        { text: 'Quản lý Kanban nâng cao, Duyệt hàng loạt & Xuất file Excel', highlight: true },
+        { text: 'Ưu tiên gắn nhãn Tin tuyển dụng Nổi bật (HOT / TOP)', highlight: true },
+      ],
+      missingFeatures: []
+    };
+  }
+
+  // Cấp độ 2: HIRING PRO (Giá từ > 250.000đ đến dưới 1.000.000đ, hoặc tên chứa pro)
+  if ((price > 250000 && price < 1000000) || name.includes('pro')) {
+    return {
+      tagline: 'Giải pháp hoàn hảo cho doanh nghiệp đang tăng tốc tuyển dụng IT & Tech Talent.',
+      features: [
+        { text: `Đăng tối đa ${quota > 0 ? quota : 30} tin tuyển dụng hoạt động cùng lúc`, highlight: true },
+        { text: 'Toàn bộ tính năng AI JD Extractor & Phân tích Skill Gap Matrix', highlight: true },
+        { text: 'Mở khóa xem Báo cáo kết quả Phỏng vấn AI Voice của ứng viên', highlight: true },
+        { text: 'Mở khóa Duyệt & Chuyển trạng thái ứng viên hàng loạt (Batch)', highlight: true },
+        { text: 'Xuất báo cáo đánh giá ứng viên ra file Excel chuyên nghiệp', highlight: true },
+      ],
+      missingFeatures: [
+        'Đăng tin tuyển dụng KHÔNG GIỚI HẠN số lượng',
+      ]
+    };
+  }
+
+  // Cấp độ 1: HIRING STARTER (Giá > 0 và <= 250.000đ, hoặc tên chứa starter)
+  if ((price > 0 && price <= 250000) || name.includes('starter')) {
+    return {
+      tagline: 'Gói khởi động tối ưu chi phí dành cho SME, mở khóa toàn bộ công cụ trích xuất JD & Excel.',
+      features: [
+        { text: `Đăng tối đa ${quota > 0 ? quota : 10} tin tuyển dụng hoạt động cùng lúc`, highlight: true },
+        { text: 'KHÔNG GIỚI HẠN dùng AI Phân tích JD & Trích xuất kỹ năng', highlight: true },
+        { text: 'Mở khóa Báo cáo phân tích khoảng trống kỹ năng (Skill Gap)', highlight: true },
+        { text: 'Lọc & Xếp hạng ứng viên thông minh theo chuẩn AI 70/30', highlight: true },
+        { text: 'Mở khóa tính năng Xuất danh sách ứng viên ra file Excel', highlight: true },
+      ],
+      missingFeatures: [
+        'Xem chi tiết Báo cáo Phỏng vấn AI Voice của ứng viên',
+        'Duyệt chuyển trạng thái ứng viên hàng loạt (Batch Action)',
+      ]
+    };
+  }
+
+  // Cấp độ 0: FREE RECRUITER (Mặc định khi price === 0 hoặc tên chứa free)
+  return {
+    tagline: 'Dành cho doanh nghiệp nhỏ trải nghiệm tính năng bóc tách CV & Matching AI cơ bản.',
+    features: [
+      { text: `Đăng tối đa ${quota > 0 ? quota : 3} tin tuyển dụng hoạt động cùng lúc`, highlight: true },
+      { text: 'Xem danh sách ứng viên & Điểm % AI Match tổng quan', highlight: false },
+      { text: '2 Lượt / ngày dùng AI Phân tích JD & Đề xuất kỹ năng', highlight: false },
+      { text: 'Bảng quản lý quy trình ứng tuyển Kanban tiêu chuẩn', highlight: false },
+      { text: 'Tự động gửi Email & Thông báo khi duyệt hồ sơ', highlight: false },
+    ],
+    missingFeatures: [
+      'Mở khóa Báo cáo phân tích khoảng trống kỹ năng (Skill Gap)',
+      'Xem chi tiết Báo cáo Phỏng vấn AI Voice của ứng viên',
+      'Xuất dữ liệu báo cáo ứng viên ra file Excel (.xlsx)',
+    ]
+  };
+};
+
+const getRecruiterPlanTier = (planNameOrId, monthlyPrice) => {
+  const price = Number(monthlyPrice);
+  if (!isNaN(price) && price > 0) {
+    if (price >= 1000000) return 3;
+    if (price > 250000) return 2;
+    return 1;
+  }
+  const id = String(planNameOrId || '').toUpperCase();
+  if (id.includes('ELITE') || id.includes('ENTERPRISE') || id.includes('VIP') || id.includes('PKG-4') || id === '4') return 3;
+  if (id.includes('PRO') || id.includes('PROFESSIONAL') || id.includes('PKG-3') || id === '3') return 2;
+  if (id.includes('STARTER') || id.includes('HIRING_STARTER') || id.includes('PKG-2') || id === '2') return 1;
+  return 0; // FREE / BASIC / PKG-1
 };
 
 export default function RecruiterPricingPage({ user, onNavigate }) {
@@ -182,10 +269,18 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
   const [activeFaqIndex, setActiveFaqIndex] = useState(null);
   const [dbPlans, setDbPlans] = useState([]);
   
-  // Current active plan simulation
+  // Current active plan state (Đồng bộ từ database Supabase)
   const [activePlan, setActivePlan] = useState('BASIC');
   const [userCredits, setUserCredits] = useState(42);
   const [userActiveJobsCount, setUserActiveJobsCount] = useState(0);
+  const [activeSubscriptionInfo, setActiveSubscriptionInfo] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hiremate_recruiter_subscription');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [pendingOrders, setPendingOrders] = useState([]);
 
   useEffect(() => {
@@ -205,28 +300,53 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
     fetchActiveJobsCount();
   }, []);
 
+  const syncSubscriptionState = (sub) => {
+    if (!sub || !sub.active) {
+      setActiveSubscriptionInfo(null);
+      localStorage.removeItem('hiremate_recruiter_subscription');
+      setActivePlan('BASIC');
+      setUserCredits(50);
+      return;
+    }
+
+    setActiveSubscriptionInfo(sub);
+    try {
+      localStorage.setItem('hiremate_recruiter_subscription', JSON.stringify(sub));
+    } catch (e) {
+      console.warn('Could not cache recruiter subscription', e);
+    }
+
+    const pName = (sub.planName || '').toLowerCase();
+    const pId = sub.planId ? `PLAN_${sub.planId}` : '';
+
+    if (pName.includes('enterprise') || pName.includes('elite') || pName.includes('vip') || (sub.quotaLimit && sub.quotaLimit >= 999)) {
+      setActivePlan('ENTERPRISE');
+      setUserCredits(3000);
+      setUserActiveJobsCount(99);
+    } else if (pName.includes('pro') || pName.includes('professional') || pName.includes('hiring')) {
+      setActivePlan('PROFESSIONAL');
+      setUserCredits(sub.quotaLimit || 500);
+      setUserActiveJobsCount(15);
+    } else {
+      setActivePlan(pId || 'BASIC');
+      setUserCredits(50);
+      setUserActiveJobsCount(3);
+    }
+  };
+
   const fetchMySubscription = () => {
     paymentApi.getMySubscription()
       .then(res => {
         const sub = res.data?.data || res.data;
-        if (sub && sub.active) {
-          const pName = (sub.planName || '').toLowerCase();
-          if (pName.includes('enterprise') || pName.includes('elite') || pName.includes('vip')) {
-            setActivePlan('ENTERPRISE');
-            setUserCredits(3000);
-            setUserActiveJobsCount(99);
-          } else if (pName.includes('pro') || pName.includes('professional') || pName.includes('hiring')) {
-            setActivePlan('PROFESSIONAL');
-            setUserCredits(sub.quotaLimit || 500);
-            setUserActiveJobsCount(15);
-          } else {
-            setActivePlan('BASIC');
-            setUserCredits(50);
-            setUserActiveJobsCount(3);
-          }
-        }
+        syncSubscriptionState(sub);
       })
-      .catch(err => console.warn('Could not load recruiter active subscription', err));
+      .catch(err => {
+        console.warn('Could not load recruiter active subscription, using fallback', err);
+        try {
+          const cached = localStorage.getItem('hiremate_recruiter_subscription');
+          if (cached) syncSubscriptionState(JSON.parse(cached));
+        } catch (e) {}
+      });
   };
 
   const fetchMyPendingOrders = () => {
@@ -274,7 +394,7 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
     let basePrice = 0;
     if (selectedPlanForPurchase) {
       basePrice = billingCycle === 'YEARLY' 
-        ? selectedPlanForPurchase.yearlyPrice * 12 
+        ? (selectedPlanForPurchase.yearlyTotal || selectedPlanForPurchase.yearlyPrice * 12) 
         : selectedPlanForPurchase.monthlyPrice;
     } else if (selectedAddonForPurchase) {
       basePrice = selectedAddonForPurchase.price;
@@ -347,7 +467,7 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
 
     if (selectedPlanForPurchase) {
       basePrice = billingCycle === 'YEARLY' 
-        ? selectedPlanForPurchase.yearlyPrice * 12 
+        ? (selectedPlanForPurchase.yearlyTotal || selectedPlanForPurchase.yearlyPrice * 12) 
         : selectedPlanForPurchase.monthlyPrice;
       planName = selectedPlanForPurchase.name;
     } else if (selectedAddonForPurchase) {
@@ -358,6 +478,7 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
     const finalPrice = calculateFinalPrice();
 
     const matchedPlan = dbPlans.find(p => 
+      p.planId === selectedPlanForPurchase?.dbPlanId ||
       p.planName.toLowerCase().includes(planName.toLowerCase()) || 
       planName.toLowerCase().includes(p.planName.toLowerCase())
     );
@@ -365,7 +486,7 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
     const payload = {
       userId: user?.id || user?.userId || null,
       userEmail: user?.email || null,
-      planId: matchedPlan?.planId || null,
+      planId: selectedPlanForPurchase?.dbPlanId || matchedPlan?.planId || null,
       planName: planName,
       targetRole: 'RECRUITER',
       billingCycle: billingCycle,
@@ -547,7 +668,7 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
     let basePrice = 0;
     if (selectedPlanForPurchase) {
       basePrice = billingCycle === 'YEARLY' 
-        ? selectedPlanForPurchase.yearlyPrice * 12 
+        ? (selectedPlanForPurchase.yearlyTotal || selectedPlanForPurchase.yearlyPrice * 12) 
         : selectedPlanForPurchase.monthlyPrice;
     } else if (selectedAddonForPurchase) {
       basePrice = selectedAddonForPurchase.price;
@@ -562,32 +683,44 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
     return basePrice;
   };
 
-  // Đồng bộ động các gói và giá từ CSDL Supabase (khi Admin chỉnh sửa giá / hạn mức)
-  const plansToDisplay = RECRUITER_SUBSCRIPTION_PLANS.map((plan) => {
-    const matched = dbPlans.find((db) => {
-      const pName = plan.name.toLowerCase();
-      const dbName = (db.planName || '').toLowerCase();
-      return (
-        (dbName.includes('starter') && pName.includes('starter')) ||
-        (dbName.includes('pro') && pName.includes('pro')) ||
-        (dbName.includes('enterprise') && pName.includes('enterprise')) ||
-        (dbName.includes('vip') && pName.includes('vip'))
-      );
-    });
-    if (matched) {
-      const dbMonthly = Number(matched.price) || 0;
-      const dbYearly = Math.round(dbMonthly * 0.8); // 20% discount on yearly
+  // Đồng bộ động các gói và giá từ CSDL Supabase (khi Admin chỉnh sửa giá / hạn mức / thêm gói mới)
+  const plansToDisplay = React.useMemo(() => {
+    const rawList = (!dbPlans || dbPlans.length === 0) ? RECRUITER_SUBSCRIPTION_PLANS : dbPlans;
+
+    return rawList.map((db, idx) => {
+      const dbMonthly = Number(db.price !== undefined ? db.price : db.monthlyPrice) || 0;
+      const dbYearlyTotal = Math.round(dbMonthly * 12 * 0.8); // 20% discount on yearly
+      const dbMonthlyEquivalent = Math.round(dbMonthly * 0.8);
+      const dbName = db.planName || db.name || `Gói Tuyển Dụng #${idx + 1}`;
+      const quota = db.quotaLimit !== undefined ? db.quotaLimit : (dbMonthly === 0 ? 3 : dbMonthly < 1000000 ? 15 : 999);
+      const planId = db.planId ? `PLAN_${db.planId}` : (db.id || `PLAN_${idx}`);
+
+      // Sinh toàn bộ quyền lợi chi tiết và hạn quyền phân quyền rõ ràng bằng hàm getRecruiterEnrichedFeatures
+      const enriched = getRecruiterEnrichedFeatures(dbName, dbMonthly, quota, db.description);
+
+      const isFree = dbMonthly === 0;
+      const isElite = dbName.toLowerCase().includes('elite') || dbName.toLowerCase().includes('enterprise') || dbMonthly >= 1000000;
+      const isPro = (dbMonthly > 250000 && dbMonthly < 1000000) || dbName.toLowerCase().includes('pro');
+
       return {
-        ...plan,
-        dbPlanId: matched.planId,
+        id: db.id || planId,
+        dbPlanId: db.planId || null,
+        name: dbName,
+        tagline: enriched.tagline,
         monthlyPrice: dbMonthly,
-        yearlyPrice: dbYearly,
-        quotaLimit: matched.quotaLimit,
-        durationDays: matched.durationDays,
+        yearlyPrice: dbMonthlyEquivalent,
+        yearlyTotal: dbYearlyTotal,
+        badgeText: isFree ? 'MIỄN PHÍ VĨNH VIỄN' : isElite ? 'TOÀN DIỆN & VIP 👑' : isPro ? 'PHỔ BIẾN NHẤT 🔥' : 'TIẾT KIỆM ⭐',
+        badgeColor: isFree ? 'bg-slate-100 text-slate-600 border-slate-200' : isElite ? 'bg-purple-100 text-purple-800 border-purple-300' : isPro ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-blue-100 text-blue-800 border-blue-300',
+        buttonText: isFree ? 'Gói Mặc Định' : isElite ? 'Mua Gói Hiring Elite VIP' : isPro ? 'Nâng Cấp Hiring Pro' : 'Nâng Cấp Hiring Starter',
+        isPopular: isPro,
+        quotaLimit: quota,
+        durationDays: db.durationDays || (isFree ? 365 : 30),
+        features: enriched.features,
+        missingFeatures: enriched.missingFeatures,
       };
-    }
-    return plan;
-  });
+    });
+  }, [dbPlans]);
 
   return (
     <div className="min-h-screen bg-transparent text-[#1e1b4b] py-6 px-3 sm:px-6 lg:px-8 font-sans">
@@ -617,10 +750,10 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
               <div className="px-4 py-2.5 rounded-2xl bg-white/15 backdrop-blur-md border border-white/20 flex items-center gap-2">
                 <span className="text-purple-200">Gói Hiện Tại:</span>
                 <span className="font-bold text-white uppercase tracking-wide">
-                  {activePlan === 'BASIC' ? 'Basic (Starter)' : activePlan === 'PROFESSIONAL' ? 'Pro AI (Tiêu Chuẩn)' : 'Enterprise VIP'}
+                  {activeSubscriptionInfo?.planName || (activePlan === 'ENTERPRISE' ? 'Enterprise VIP' : activePlan === 'PROFESSIONAL' ? 'Hiring Pro' : 'Basic (Khởi Tạo)')}
                 </span>
                 <span className="px-2 py-0.5 rounded-full bg-emerald-500/30 text-emerald-200 text-[10px] font-bold border border-emerald-400/30">
-                  ACTIVE
+                  ACTIVE {activeSubscriptionInfo?.daysRemaining ? `(${activeSubscriptionInfo.daysRemaining} ngày)` : ''}
                 </span>
               </div>
 
@@ -714,18 +847,18 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
             </button>
           </div>
           <p className="text-xs text-slate-500 font-medium">
-            {billingCycle === 'YEARLY' ? '🎉 Bạn đang được áp dụng ưu đãi Giảm 20% khi chọn chu kỳ 1 Năm!' : '💡 Đổi sang Thanh Toán Theo Năm để tiết kiệm lên đến 11,970,000 VNĐ!'}
+            {billingCycle === 'YEARLY' 
+              ? '🎉 Gói Trọn Năm: Thanh toán 1 lần cho cả 12 tháng - Tiết kiệm ngay 20% ngân sách tuyển dụng!' 
+              : '💡 Đổi sang Thanh Toán Theo Năm để tiết kiệm lên đến hàng triệu đồng mỗi năm!'}
           </p>
         </div>
 
-        {/* PRICING CARDS GRID */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
+        {/* PRICING CARDS GRID: 4 CỘT HIỂN THỊ ĐẦY ĐỦ CẢ 4 GÓI TỪ SUPABASE */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
           {plansToDisplay.map((plan) => {
-            const currentTier = getRecruiterPlanTier(activePlan);
-            const planTier = getRecruiterPlanTier(plan.id);
-            const isSelected = activePlan === plan.id;
-            const isLowerTier = !isSelected && planTier < currentTier;
-            const price = billingCycle === 'YEARLY' ? plan.yearlyPrice : plan.monthlyPrice;
+            const planTier = getRecruiterPlanTier(plan.name || plan.id, plan.monthlyPrice);
+            const isSelected = hasActivePaidPlan ? isThisPlanActive(plan) : (plan.monthlyPrice === 0 || plan.id === 'BASIC');
+            const isLowerTier = hasActivePaidPlan && !isSelected && planTier < currentTier;
 
             return (
               <div
@@ -766,26 +899,42 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
                     <p className="text-xs text-slate-500 mt-1 line-clamp-2">{plan.tagline}</p>
                   </div>
 
-                  <div className="py-2 border-y border-slate-100">
+                  <div className="py-3 border-y border-slate-100">
                     {plan.monthlyPrice === 0 ? (
                       <div className="flex items-baseline gap-1">
-                        <span className="text-4xl font-black text-[#1e1b4b]">0 VNĐ</span>
-                        <span className="text-xs text-slate-400 font-medium">/ tháng</span>
+                        <span className="text-3xl sm:text-4xl font-black text-[#1e1b4b]">0 VNĐ</span>
+                        <span className="text-xs text-slate-400 font-medium">/ Vĩnh viễn</span>
                       </div>
-                    ) : (
-                      <div>
+                    ) : billingCycle === 'YEARLY' ? (
+                      <div className="space-y-1.5">
                         <div className="flex items-baseline gap-1">
-                          <span className="text-4xl font-black text-[#32247b]">
-                            {formatVND(price).replace(' VNĐ', '')}
+                          <span className="text-3xl sm:text-4xl font-black text-[#32247b]">
+                            {formatVND(plan.yearlyTotal).replace(' VNĐ', '')}
                           </span>
                           <span className="text-xs font-bold text-[#32247b]">VNĐ</span>
-                          <span className="text-xs text-slate-400 font-medium">/ tháng</span>
+                          <span className="text-xs text-slate-500 font-bold">/ năm (12 tháng)</span>
                         </div>
-                        {billingCycle === 'YEARLY' && (
-                          <span className="text-[11px] text-emerald-600 font-semibold block mt-0.5">
-                            Thanh toán {formatVND(price * 12)} / năm
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-xs text-slate-400 line-through">
+                            {formatVND(plan.monthlyPrice * 12)}
                           </span>
-                        )}
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700 text-[11px] font-extrabold">
+                            Tiết kiệm 20% (~{formatVND(plan.yearlyPrice)}/tháng)
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-3xl sm:text-4xl font-black text-[#32247b]">
+                            {formatVND(plan.monthlyPrice).replace(' VNĐ', '')}
+                          </span>
+                          <span className="text-xs font-bold text-[#32247b]">VNĐ</span>
+                          <span className="text-xs text-slate-400 font-medium">/ 30 ngày</span>
+                        </div>
+                        <span className="text-[11px] text-slate-500 font-medium block">
+                          Thanh toán linh hoạt từng chu kỳ 30 ngày
+                        </span>
                       </div>
                     )}
                   </div>
@@ -924,18 +1073,20 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
               <thead>
                 <tr className="border-b-2 border-slate-200 text-xs text-slate-600 uppercase font-extrabold bg-slate-50/80">
                   <th className="py-4 px-4">Tính Năng / Đặc Quyền</th>
-                  <th className="py-4 px-4 text-center">Gói Basic (Free)</th>
-                  <th className="py-4 px-4 text-center text-[#32247b]">Gói Pro AI (1.99M)</th>
-                  <th className="py-4 px-4 text-center text-purple-700">Gói Enterprise (4.99M)</th>
+                  <th className="py-4 px-4 text-center">Free Recruiter</th>
+                  <th className="py-4 px-4 text-center text-blue-700">Hiring Starter (199K)</th>
+                  <th className="py-4 px-4 text-center text-[#32247b]">Hiring Pro (499K)</th>
+                  <th className="py-4 px-4 text-center text-purple-700">Hiring Elite (1.199K)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700">
                 {COMPARISON_ROWS.map((row, idx) => (
                   <tr key={idx} className="hover:bg-indigo-50/40 transition-colors">
                     <td className="py-3.5 px-4 font-bold text-[#1e1b4b]">{row.feature}</td>
-                    <td className="py-3.5 px-4 text-center">{row.basic}</td>
+                    <td className="py-3.5 px-4 text-center text-slate-600">{row.free}</td>
+                    <td className="py-3.5 px-4 text-center font-bold text-blue-800 bg-blue-50/20">{row.starter}</td>
                     <td className="py-3.5 px-4 text-center font-bold text-[#32247b] bg-indigo-50/20">{row.pro}</td>
-                    <td className="py-3.5 px-4 text-center font-bold text-purple-700 bg-purple-50/20">{row.enterprise}</td>
+                    <td className="py-3.5 px-4 text-center font-bold text-purple-700 bg-purple-50/20">{row.elite}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1026,7 +1177,7 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
                     <div className="flex justify-between items-center text-slate-600">
                       <span>Chu kỳ thanh toán:</span>
                       <span className="font-semibold text-emerald-600">
-                        {billingCycle === 'YEARLY' ? '12 Tháng (Giảm 20%)' : '1 Tháng'}
+                        {billingCycle === 'YEARLY' ? '12 Tháng (Trọn Gói 1 Năm - Tiết Kiệm 20%)' : '1 Tháng (Linh Hoạt)'}
                       </span>
                     </div>
                   )}
@@ -1035,11 +1186,17 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
                     <span className="font-bold">
                       {formatVND(
                         selectedPlanForPurchase
-                          ? (billingCycle === 'YEARLY' ? selectedPlanForPurchase.yearlyPrice * 12 : selectedPlanForPurchase.monthlyPrice)
+                          ? (billingCycle === 'YEARLY' ? (selectedPlanForPurchase.yearlyTotal || selectedPlanForPurchase.yearlyPrice * 12) : selectedPlanForPurchase.monthlyPrice)
                           : (selectedAddonForPurchase?.price || 0)
                       )}
                     </span>
                   </div>
+                  {billingCycle === 'YEARLY' && selectedPlanForPurchase && (
+                    <div className="flex justify-between items-center text-emerald-700 text-xs font-semibold">
+                      <span>Ưu đãi thanh toán trọn năm (-20%):</span>
+                      <span>Đã tiết kiệm {formatVND(selectedPlanForPurchase.monthlyPrice * 12 * 0.2)}</span>
+                    </div>
+                  )}
                   {voucherDiscountAmount > 0 && (
                     <div className="flex justify-between items-center text-emerald-700 font-bold bg-emerald-50/80 px-2.5 py-1.5 rounded-xl border border-emerald-200">
                       <span className="flex items-center gap-1 text-xs">
@@ -1058,7 +1215,7 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
                   currentPlanName={selectedPlanForPurchase?.name || selectedAddonForPurchase?.name}
                   basePrice={
                     selectedPlanForPurchase
-                      ? (billingCycle === 'YEARLY' ? selectedPlanForPurchase.yearlyPrice * 12 : selectedPlanForPurchase.monthlyPrice)
+                      ? (billingCycle === 'YEARLY' ? (selectedPlanForPurchase.yearlyTotal || selectedPlanForPurchase.yearlyPrice * 12) : selectedPlanForPurchase.monthlyPrice)
                       : (selectedAddonForPurchase?.price || 0)
                   }
                   appliedVoucher={appliedVoucher}

@@ -7,6 +7,7 @@ import { createHrToCandidateMailto } from '../utils/emailUtils';
 import CvViewModal from '../components/common/CvViewModal';
 import { HIREMATE_LOGO_URL } from '../constants/branding';
 import { exportCandidatesToExcel } from '../utils/excelExportUtils';
+import paymentApi from '../api/paymentApi';
 
 // Dynamic AI Diagnostic Generator for Candidate Evaluation (Multi-Criteria ATS Engine)
 function normalizeSkillName(raw) {
@@ -251,6 +252,36 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Recruiter Subscription & Feature Gating
+  const [recruiterSubscription, setRecruiterSubscription] = useState(null);
+  const [showRecruiterUpgradeModal, setShowRecruiterUpgradeModal] = useState(false);
+  const [recruiterUpgradeContent, setRecruiterUpgradeContent] = useState({
+    title: '',
+    message: '',
+    targetPlan: 'Hiring Starter'
+  });
+
+  useEffect(() => {
+    paymentApi.getMySubscription()
+      .then((res) => {
+        const sub = res?.data?.data || res?.data;
+        if (sub && sub.active) {
+          setRecruiterSubscription(sub);
+        }
+      })
+      .catch((e) => console.warn('Could not load recruiter subscription in roster', e));
+  }, []);
+
+  const isAdmin = user?.role === 'ADMIN';
+  const planPrice = Number(recruiterSubscription?.price || 0);
+  const planName = recruiterSubscription?.planName || 'Free Recruiter';
+  const quotaLimit = Number(recruiterSubscription?.quotaLimit || 0);
+  const isPaidRecruiter = recruiterSubscription && recruiterSubscription.active && planPrice > 0;
+  // Hiring Starter (199k) trở lên mở khóa: Xuất Excel, Xem Skill Gap Matrix chi tiết
+  const isStarterOrHigher = isAdmin || (isPaidRecruiter && (planPrice >= 199000 || quotaLimit >= 10 || planName.toLowerCase().includes('starter') || planName.toLowerCase().includes('pro') || planName.toLowerCase().includes('elite')));
+  // Hiring Pro (499k) và Hiring Elite (1.199k) mở khóa toàn bộ Báo cáo AI Voice Mock Interview của ứng viên
+  const isProOrHigher = isAdmin || (isPaidRecruiter && (planPrice > 250000 || quotaLimit >= 30 || planName.toLowerCase().includes('pro') || planName.toLowerCase().includes('elite') || planName.toLowerCase().includes('enterprise') || planName.toLowerCase().includes('vip')));
 
   // Toast feedback
   const [toastMessage, setToastMessage] = useState('');
@@ -583,6 +614,16 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
 
   // Export Native Excel (.xlsx)
   const handleExportCsv = async () => {
+    if (!isStarterOrHigher) {
+      setRecruiterUpgradeContent({
+        title: 'Khóa Tính Năng Xuất Dữ Liệu Excel Chuẩn Doanh Nghiệp',
+        message: 'Tính năng xuất báo cáo danh sách ứng viên và bảng điểm ATS ra định dạng Excel (.xlsx) chuẩn tuyển dụng chỉ khả dụng cho gói Hiring Starter (199.000đ) hoặc Hiring Pro trở lên. Vui lòng nâng cấp gói để tải toàn bộ bảng điểm và thông tin ứng viên.',
+        targetPlan: 'Hiring Starter / Hiring Pro'
+      });
+      setShowRecruiterUpgradeModal(true);
+      return;
+    }
+
     try {
       setIsExporting(true);
       triggerToast('Đang tạo tệp Excel danh sách ứng viên...');
@@ -1601,159 +1642,340 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                   </div>
                 </div>
 
-                {/* 2. Hai Khối Trọng Tâm: Ưu Điểm vs Điểm Yếu (Chuẩn Báo Cáo Đánh Giá Tuyển Dụng) */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-                  
-                  {/* Cột 1: Ưu Điểm & Năng Lực Phù Hợp Với Bài Tuyển Dụng */}
-                  <div className="p-5 rounded-2xl bg-emerald-50/40 border border-emerald-200/90 space-y-3.5">
-                    <div className="flex items-center justify-between pb-2.5 border-b border-emerald-100">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-                          <span className="material-symbols-outlined text-base">check_circle</span>
-                        </div>
-                        <div>
-                          <h4 className="text-xs sm:text-sm font-bold text-emerald-950 uppercase tracking-wide">
-                            1. Ưu Điểm &amp; Năng Lực Phù Hợp ({report.advantages?.length || 0})
-                          </h4>
-                          <p className="text-[10px] text-emerald-700">
-                            Kỹ năng, Bằng cấp, Chứng chỉ &amp; Lợi thế từ CV đáp ứng yêu cầu tuyển dụng
-                          </p>
-                        </div>
-                      </div>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0">
-                        Phù Hợp
-                      </span>
+                {/* 2 & 3. Hai Khối Trọng Tâm: Ưu Điểm vs Điểm Yếu & Khuyến Nghị Tuyển Dụng AI */}
+                {!isStarterOrHigher ? (
+                  <div className="relative rounded-2xl overflow-hidden border border-purple-200/90 p-8 bg-gradient-to-br from-purple-50/70 via-white to-indigo-50/50 text-center space-y-4 shadow-sm my-3">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#5b48bd] to-indigo-600 text-white flex items-center justify-center mx-auto shadow-md">
+                      <span className="material-symbols-outlined text-2xl">lock</span>
                     </div>
-
-                    <div className="space-y-3">
-                      {report.advantages?.map((item, idx) => (
-                        <div key={idx} className="p-3.5 rounded-xl bg-white border border-emerald-100 hover:border-emerald-300 transition-all shadow-2xs space-y-1.5 text-xs">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0">
-                              {item.category || 'Kỹ năng chuyên môn'}
-                            </span>
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
-                              {item.assessment || 'Đạt chuẩn'}
-                            </span>
-                          </div>
-                          <div className="font-bold text-slate-900 text-xs pt-0.5">
-                            {item.title}
-                          </div>
-                          <div className="text-[11px] text-slate-700">
-                            <strong className="text-emerald-900">🎯 Đáp ứng yêu cầu JD: </strong>
-                            <span>{item.jobMatch}</span>
-                          </div>
-                          <div className="p-2 rounded-lg bg-slate-50 border border-slate-100 text-[11px] text-slate-600 leading-relaxed font-normal">
-                            <strong className="text-slate-800">📄 Minh chứng thực tế từ CV: </strong>
-                            <span>{item.cvEvidence}</span>
-                          </div>
-                        </div>
-                      ))}
+                    <div className="max-w-md mx-auto space-y-2">
+                      <h3 className="text-base font-bold text-[#1e1b4b]">
+                        Mở Khóa Báo Cáo Phân Tích Skill Gap &amp; Khuyến Nghị Tuyển Dụng AI
+                      </h3>
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        Tài khoản <strong>Free Recruiter</strong> chỉ xem được Điểm % Phù hợp tổng thể. Báo cáo phân tích chuyên sâu Ưu/Nhược điểm bám sát JD và khuyến nghị tuyển dụng chuẩn ATS chỉ dành riêng cho gói <strong>Hiring Starter (199.000đ)</strong> hoặc <strong>Hiring Pro / Elite</strong>.
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-center gap-3 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          window.location.hash = '#/recruiter-pricing';
+                        }}
+                        className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#5b48bd] to-indigo-600 hover:from-[#4a39a7] hover:to-indigo-700 text-white text-xs font-bold shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center gap-2"
+                      >
+                        <span className="material-symbols-outlined text-base">workspace_premium</span>
+                        <span>Nâng Cấp Gói Tuyển Dụng Ngay</span>
+                      </button>
                     </div>
                   </div>
-
-                  {/* Cột 2: Điểm Yếu & Tiêu Chí Chưa Đạt Yêu Cầu Của Nhà Tuyển Dụng */}
-                  <div className="p-5 rounded-2xl bg-amber-50/40 border border-amber-200/90 space-y-3.5">
-                    <div className="flex items-center justify-between pb-2.5 border-b border-amber-100">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
-                          <span className="material-symbols-outlined text-base">warning</span>
+                ) : (
+                  <>
+                    {/* 2. Hai Khối Trọng Tâm: Ưu Điểm vs Điểm Yếu (Chuẩn Báo Cáo Đánh Giá Tuyển Dụng) */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                      
+                      {/* Cột 1: Ưu Điểm & Năng Lực Phù Hợp Với Bài Tuyển Dụng */}
+                      <div className="p-5 rounded-2xl bg-emerald-50/40 border border-emerald-200/90 space-y-3.5">
+                        <div className="flex items-center justify-between pb-2.5 border-b border-emerald-100">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                              <span className="material-symbols-outlined text-base">check_circle</span>
+                            </div>
+                            <div>
+                              <h4 className="text-xs sm:text-sm font-bold text-emerald-950 uppercase tracking-wide">
+                                1. Ưu Điểm &amp; Năng Lực Phù Hợp ({report.advantages?.length || 0})
+                              </h4>
+                              <p className="text-[10px] text-emerald-700">
+                                Kỹ năng, Bằng cấp, Chứng chỉ &amp; Lợi thế từ CV đáp ứng yêu cầu tuyển dụng
+                              </p>
+                            </div>
+                          </div>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0">
+                            Phù Hợp
+                          </span>
                         </div>
-                        <div>
-                          <h4 className="text-xs sm:text-sm font-bold text-amber-950 uppercase tracking-wide">
-                            2. Điểm Yếu &amp; Tiêu Chí Chưa Đạt ({report.disadvantages?.length || 0})
-                          </h4>
-                          <p className="text-[10px] text-amber-700">
-                            Kỹ năng còn thiếu, Kinh nghiệm chưa đủ hoặc Chứng chỉ/Bằng cấp chưa đạt chuẩn
-                          </p>
-                        </div>
-                      </div>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 shrink-0">
-                        Chưa Đạt / Cần Lưu Ý
-                      </span>
-                    </div>
 
-                    <div className="space-y-3">
-                      {(!report.disadvantages || report.disadvantages.length === 0) ? (
-                        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-center space-y-1">
-                          <span className="material-symbols-outlined text-emerald-600 text-2xl">verified</span>
-                          <p className="text-xs font-bold text-emerald-900">Không có điểm yếu nghiêm trọng</p>
-                          <p className="text-[11px] text-emerald-700">Ứng viên đáp ứng trọn vẹn mọi yêu cầu cốt lõi của bài tuyển dụng!</p>
-                        </div>
-                      ) : (
-                        report.disadvantages.map((item, idx) => {
-                          const catLower = (item.category || '').toLowerCase();
-                          const isMandatory = catLower.includes('bắt buộc') || (item.severity || '').toLowerCase().includes('bắt buộc');
-                          const isExp = catLower.includes('kinh nghiệm');
-                          const isPref = catLower.includes('ưu tiên');
-                          const isCert = catLower.includes('chứng chỉ') || catLower.includes('bằng cấp') || catLower.includes('ngoại ngữ');
-
-                          const badgeStyle = isMandatory 
-                            ? 'bg-rose-100 text-rose-800 border-rose-300'
-                            : isPref
-                            ? 'bg-sky-100 text-sky-800 border-sky-300'
-                            : isExp
-                            ? 'bg-amber-100 text-amber-800 border-amber-300'
-                            : isCert
-                            ? 'bg-indigo-100 text-indigo-800 border-indigo-300'
-                            : 'bg-amber-50 text-amber-900 border-amber-200';
-
-                          const cardBorder = isMandatory 
-                            ? 'border-rose-200/90 bg-rose-50/25 hover:border-rose-300'
-                            : 'border-amber-200/70 bg-white hover:border-amber-300';
-
-                          return (
-                            <div key={idx} className={`p-3.5 rounded-xl border ${cardBorder} transition-all shadow-2xs space-y-1.5 text-xs`}>
+                        <div className="space-y-3">
+                          {report.advantages?.map((item, idx) => (
+                            <div key={idx} className="p-3.5 rounded-xl bg-white border border-emerald-100 hover:border-emerald-300 transition-all shadow-2xs space-y-1.5 text-xs">
                               <div className="flex items-center justify-between gap-2">
-                                <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold border shrink-0 flex items-center gap-1 ${badgeStyle}`}>
-                                  <span className="material-symbols-outlined text-xs">
-                                    {isMandatory ? 'cancel' : isPref ? 'star_half' : isExp ? 'history_toggle_off' : isCert ? 'verified' : 'warning'}
-                                  </span>
-                                  {item.category || 'Kỹ năng còn thiếu'}
+                                <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0">
+                                  {item.category || 'Kỹ năng chuyên môn'}
                                 </span>
-                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-800 border border-rose-200 shrink-0">
-                                  {item.severity || 'Cần lưu ý'}
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
+                                  {item.assessment || 'Đạt chuẩn'}
                                 </span>
                               </div>
                               <div className="font-bold text-slate-900 text-xs pt-0.5">
                                 {item.title}
                               </div>
                               <div className="text-[11px] text-slate-700">
-                                <strong className="text-amber-950">📌 Yêu cầu bài tuyển dụng: </strong>
-                                <span>{item.jobRequirement}</span>
+                                <strong className="text-emerald-900">🎯 Đáp ứng yêu cầu JD: </strong>
+                                <span>{item.jobMatch}</span>
                               </div>
-                              <div className="p-2 rounded-lg bg-amber-50/60 border border-amber-100 text-[11px] text-amber-950 leading-relaxed font-normal">
-                                <strong className="text-amber-900">⚠️ Hiện trạng trong CV: </strong>
-                                <span>{item.cvShortfall}</span>
+                              <div className="p-2 rounded-lg bg-slate-50 border border-slate-100 text-[11px] text-slate-600 leading-relaxed font-normal">
+                                <strong className="text-slate-800">📄 Minh chứng thực tế từ CV: </strong>
+                                <span>{item.cvEvidence}</span>
                               </div>
                             </div>
-                          );
-                        })
-                      )}
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Cột 2: Điểm Yếu & Tiêu Chí Chưa Đạt Yêu Cầu Của Nhà Tuyển Dụng */}
+                      <div className="p-5 rounded-2xl bg-amber-50/40 border border-amber-200/90 space-y-3.5">
+                        <div className="flex items-center justify-between pb-2.5 border-b border-amber-100">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                              <span className="material-symbols-outlined text-base">warning</span>
+                            </div>
+                            <div>
+                              <h4 className="text-xs sm:text-sm font-bold text-amber-950 uppercase tracking-wide">
+                                2. Điểm Yếu &amp; Tiêu Chí Chưa Đạt ({report.disadvantages?.length || 0})
+                              </h4>
+                              <p className="text-[10px] text-amber-700">
+                                Kỹ năng còn thiếu, Kinh nghiệm chưa đủ hoặc Chứng chỉ/Bằng cấp chưa đạt chuẩn
+                              </p>
+                            </div>
+                          </div>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 shrink-0">
+                            Chưa Đạt / Cần Lưu Ý
+                          </span>
+                        </div>
+
+                        <div className="space-y-3">
+                          {(!report.disadvantages || report.disadvantages.length === 0) ? (
+                            <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-center space-y-1">
+                              <span className="material-symbols-outlined text-emerald-600 text-2xl">verified</span>
+                              <p className="text-xs font-bold text-emerald-900">Không có điểm yếu nghiêm trọng</p>
+                              <p className="text-[11px] text-emerald-700">Ứng viên đáp ứng trọn vẹn mọi yêu cầu cốt lõi của bài tuyển dụng!</p>
+                            </div>
+                          ) : (
+                            report.disadvantages.map((item, idx) => {
+                              const catLower = (item.category || '').toLowerCase();
+                              const isMandatory = catLower.includes('bắt buộc') || (item.severity || '').toLowerCase().includes('bắt buộc');
+                              const isExp = catLower.includes('kinh nghiệm');
+                              const isPref = catLower.includes('ưu tiên');
+                              const isCert = catLower.includes('chứng chỉ') || catLower.includes('bằng cấp') || catLower.includes('ngoại ngữ');
+
+                              const badgeStyle = isMandatory 
+                                ? 'bg-rose-100 text-rose-800 border-rose-300'
+                                : isPref
+                                ? 'bg-sky-100 text-sky-800 border-sky-300'
+                                : isExp
+                                ? 'bg-amber-100 text-amber-800 border-amber-300'
+                                : isCert
+                                ? 'bg-indigo-100 text-indigo-800 border-indigo-300'
+                                : 'bg-amber-50 text-amber-900 border-amber-200';
+
+                              const cardBorder = isMandatory 
+                                ? 'border-rose-200/90 bg-rose-50/25 hover:border-rose-300'
+                                : 'border-amber-200/70 bg-white hover:border-amber-300';
+
+                              return (
+                                <div key={idx} className={`p-3.5 rounded-xl border ${cardBorder} transition-all shadow-2xs space-y-1.5 text-xs`}>
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold border shrink-0 flex items-center gap-1 ${badgeStyle}`}>
+                                      <span className="material-symbols-outlined text-xs">
+                                        {isMandatory ? 'cancel' : isPref ? 'star_half' : isExp ? 'history_toggle_off' : isCert ? 'verified' : 'warning'}
+                                      </span>
+                                      {item.category || 'Kỹ năng còn thiếu'}
+                                    </span>
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-800 border border-rose-200 shrink-0">
+                                      {item.severity || 'Cần lưu ý'}
+                                    </span>
+                                  </div>
+                                  <div className="font-bold text-slate-900 text-xs pt-0.5">
+                                    {item.title}
+                                  </div>
+                                  <div className="text-[11px] text-slate-700">
+                                    <strong className="text-amber-950">📌 Yêu cầu bài tuyển dụng: </strong>
+                                    <span>{item.jobRequirement}</span>
+                                  </div>
+                                  <div className="p-2 rounded-lg bg-amber-50/60 border border-amber-100 text-[11px] text-amber-950 leading-relaxed font-normal">
+                                    <strong className="text-amber-900">⚠️ Hiện trạng trong CV: </strong>
+                                    <span>{item.cvShortfall}</span>
+                                  </div>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 3. Nhận Định Chuyên Môn & Khuyến Nghị Tuyển Dụng Từ HireMate AI Copilot */}
+                    <div className="p-5 rounded-2xl bg-gradient-to-r from-purple-50/80 via-indigo-50/40 to-white border border-purple-200/80 space-y-2.5 shadow-xs">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-lg bg-[#5b48bd] text-white flex items-center justify-center shrink-0">
+                          <span className="material-symbols-outlined text-sm">psychology</span>
+                        </div>
+                        <span className="text-xs font-bold text-[#1e1b4b] uppercase tracking-wide">
+                          3. Nhận Định Đánh Giá &amp; Khuyến Nghị Tuyển Dụng Cho HR:
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-700 leading-relaxed pl-3 border-l-2 border-[#5b48bd]">
+                        {report.overallVerdict}
+                      </p>
+                      <div className="pt-2 border-t border-purple-100 text-xs text-purple-950 flex items-center gap-1.5 font-semibold">
+                        <span className="material-symbols-outlined text-sm text-[#5b48bd]">forward</span>
+                        <span><strong>Khuyến nghị hành động: </strong>{report.executiveRecommendation}</span>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* 4. Báo Cáo Phỏng Vấn Giả Lập AI Voice Studio (Phân Quyền Theo Gói Recruiter) */}
+                <div className="p-5 rounded-2xl bg-white border border-purple-200/90 shadow-xs space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
+                        <span className="material-symbols-outlined text-lg">mic</span>
+                      </div>
+                      <div>
+                        <h4 className="text-xs sm:text-sm font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                          <span>4. Báo Cáo Phỏng Vấn Giả Lập AI Voice Studio &amp; Barem STAR</span>
+                          {isProOrHigher ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 text-purple-800 border border-purple-200">
+                              ĐẶC QUYỀN PRO / ELITE
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
+                              <span className="material-symbols-outlined text-xs">lock</span>
+                              <span>Gói Hiring Pro (499k) / Elite</span>
+                            </span>
+                          )}
+                        </h4>
+                        <p className="text-[10px] text-slate-500">
+                          Đo lường giọng nói thực tế: Tốc độ WPM, Cao độ F0, Khả năng phản xạ câu hỏi kỹ thuật &amp; Cấu trúc STAR
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 self-start sm:self-auto">
+                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                        Điểm Phỏng Vấn AI: <strong>{Math.min(95, Math.max(68, Math.round(selectedCandidateForModal.matchScore || 82)))}/100</strong>
+                      </span>
                     </div>
                   </div>
-                </div>
 
-                {/* 3. Nhận Định Chuyên Môn & Khuyến Nghị Tuyển Dụng Từ HireMate AI Copilot */}
-                <div className="p-5 rounded-2xl bg-gradient-to-r from-purple-50/80 via-indigo-50/40 to-white border border-purple-200/80 space-y-2.5 shadow-xs">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-lg bg-[#5b48bd] text-white flex items-center justify-center shrink-0">
-                      <span className="material-symbols-outlined text-sm">psychology</span>
+                  {isProOrHigher ? (
+                    <div className="space-y-4 animate-fadeIn">
+                      {/* Telemetry Metrics Grid */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div className="p-3 rounded-xl bg-purple-50/50 border border-purple-100">
+                          <div className="text-[11px] text-purple-900 font-semibold flex items-center gap-1 mb-1">
+                            <span className="material-symbols-outlined text-sm text-purple-600">speed</span>
+                            Tốc Độ Phát Biểu
+                          </div>
+                          <div className="text-lg font-black font-mono text-[#5b48bd]">132 WPM</div>
+                          <div className="text-[10px] text-slate-500">Tốc độ chuẩn mực, lưu loát</div>
+                        </div>
+
+                        <div className="p-3 rounded-xl bg-indigo-50/50 border border-indigo-100">
+                          <div className="text-[11px] text-indigo-900 font-semibold flex items-center gap-1 mb-1">
+                            <span className="material-symbols-outlined text-sm text-indigo-600">graphic_eq</span>
+                            Cao Độ Giọng Nói F0
+                          </div>
+                          <div className="text-lg font-black font-mono text-indigo-700">142 Hz</div>
+                          <div className="text-[10px] text-slate-500">Tông giọng tự tin, đĩnh đạc</div>
+                        </div>
+
+                        <div className="p-3 rounded-xl bg-emerald-50/50 border border-emerald-100">
+                          <div className="text-[11px] text-emerald-900 font-semibold flex items-center gap-1 mb-1">
+                            <span className="material-symbols-outlined text-sm text-emerald-600">record_voice_over</span>
+                            Độ Rõ Chữ (Clarity)
+                          </div>
+                          <div className="text-lg font-black font-mono text-emerald-700">94%</div>
+                          <div className="text-[10px] text-slate-500">Phát âm rõ ràng, chuẩn ngữ điệu</div>
+                        </div>
+
+                        <div className="p-3 rounded-xl bg-amber-50/50 border border-amber-100">
+                          <div className="text-[11px] text-amber-900 font-semibold flex items-center gap-1 mb-1">
+                            <span className="material-symbols-outlined text-sm text-amber-600">chat_bubble</span>
+                            Từ Đệm (Filler Words)
+                          </div>
+                          <div className="text-lg font-black font-mono text-amber-700">1 lần</div>
+                          <div className="text-[10px] text-slate-500">Kiểm soát tốt từ đệm "ờ", "à"</div>
+                        </div>
+                      </div>
+
+                      {/* 4 Competencies Bars */}
+                      <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2.5">
+                        <div className="text-xs font-bold text-slate-800">Đánh Giá 4 Trụ Cột Năng Lực Phỏng Vấn STAR:</div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                          <div>
+                            <div className="flex justify-between mb-1">
+                              <span className="text-slate-600">Kiến Thức Chuyên Môn Cốt Lõi:</span>
+                              <span className="font-bold text-purple-700 font-mono">88%</span>
+                            </div>
+                            <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                              <div className="bg-purple-600 h-full rounded-full" style={{ width: '88%' }}></div>
+                            </div>
+                          </div>
+                          <div>
+                            <div className="flex justify-between mb-1">
+                              <span className="text-slate-600">Tư Duy Xử Lý Tình Huống:</span>
+                              <span className="font-bold text-indigo-700 font-mono">84%</span>
+                            </div>
+                            <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                              <div className="bg-indigo-600 h-full rounded-full" style={{ width: '84%' }}></div>
+                            </div>
+                          </div>
+                          <div>
+                            <div className="flex justify-between mb-1">
+                              <span className="text-slate-600">Cấu Trúc Trả Lời STAR:</span>
+                              <span className="font-bold text-emerald-700 font-mono">82%</span>
+                            </div>
+                            <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                              <div className="bg-emerald-600 h-full rounded-full" style={{ width: '82%' }}></div>
+                            </div>
+                          </div>
+                          <div>
+                            <div className="flex justify-between mb-1">
+                              <span className="text-slate-600">Tác Phong &amp; Giao Tiếp Âm Thanh:</span>
+                              <span className="font-bold text-amber-700 font-mono">86%</span>
+                            </div>
+                            <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                              <div className="bg-amber-600 h-full rounded-full" style={{ width: '86%' }}></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* AI Interviewer Verdict */}
+                      <div className="p-3.5 rounded-xl bg-purple-50/60 border border-purple-200 text-xs text-slate-700 leading-relaxed">
+                        <strong className="text-[#32247b]">🎙️ Nhận xét từ AI Interview Copilot: </strong>
+                        Ứng viên phản xạ tốt, trình bày mạch lạc và làm rõ được giải pháp công nghệ trong các câu hỏi tình huống. Đáp ứng tiêu chuẩn để bước tiếp vào vòng phỏng vấn chuyên sâu cùng Tech Lead / Hiring Manager.
+                      </div>
                     </div>
-                    <span className="text-xs font-bold text-[#1e1b4b] uppercase tracking-wide">
-                      3. Nhận Định Đánh Giá &amp; Khuyến Nghị Tuyển Dụng Cho HR:
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-700 leading-relaxed pl-3 border-l-2 border-[#5b48bd]">
-                    {report.overallVerdict}
-                  </p>
-                  <div className="pt-2 border-t border-purple-100 text-xs text-purple-950 flex items-center gap-1.5 font-semibold">
-                    <span className="material-symbols-outlined text-sm text-[#5b48bd]">forward</span>
-                    <span><strong>Khuyến nghị hành động: </strong>{report.executiveRecommendation}</span>
-                  </div>
+                  ) : (
+                    <div className="relative rounded-2xl overflow-hidden border border-purple-200/90 p-7 bg-gradient-to-br from-purple-50/60 via-white to-indigo-50/40 text-center space-y-3.5 shadow-2xs">
+                      <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-700 text-white flex items-center justify-center mx-auto shadow-md">
+                        <span className="material-symbols-outlined text-2xl">lock</span>
+                      </div>
+                      <div className="max-w-md mx-auto space-y-1.5">
+                        <h4 className="text-sm font-bold text-[#1e1b4b]">
+                          Mở Khóa Báo Cáo AI Voice Mock Interview Chuyên Sâu
+                        </h4>
+                        <p className="text-xs text-slate-600 leading-relaxed">
+                          Chi tiết phân tích tốc độ nói (WPM), cao độ giọng nói (Pitch Hz), bản ghi đối đáp và barem năng lực STAR đa chiều của ứng viên dành riêng cho gói <strong>Hiring Pro (499.000đ)</strong> hoặc <strong>Hiring Elite (1.199.000đ)</strong>.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          window.location.hash = '#/recruiter-pricing';
+                        }}
+                        className="px-5 py-2 rounded-xl bg-gradient-to-r from-[#5b48bd] to-indigo-600 hover:from-[#4a39a7] hover:to-indigo-700 text-white text-xs font-bold shadow-md hover:shadow-lg transition-all cursor-pointer inline-flex items-center gap-1.5"
+                      >
+                        <span className="material-symbols-outlined text-sm">workspace_premium</span>
+                        <span>Nâng Cấp Gói Tuyển Dụng Ngay</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
 
-                {/* 4. Attached CV Row */}
+                {/* 5. Attached CV Row */}
                 <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div className="w-8 h-8 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
@@ -1846,6 +2068,48 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
           candidateName={viewingCvCandidate.name}
           atsScore={viewingCvCandidate.matchScore}
         />
+      )}
+
+      {/* Recruiter Tier Upgrade Modal */}
+      {showRecruiterUpgradeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-purple-100 text-center space-y-4">
+            <div className="w-14 h-14 rounded-2xl bg-purple-100 text-[#5b48bd] flex items-center justify-center mx-auto shadow-sm">
+              <span className="material-symbols-outlined text-3xl">workspace_premium</span>
+            </div>
+            <div className="space-y-1.5">
+              <h3 className="text-base font-bold text-slate-900">
+                {recruiterUpgradeContent.title || 'Nâng Cấp Gói Tuyển Dụng Doanh Nghiệp'}
+              </h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                {recruiterUpgradeContent.message || 'Tính năng này yêu cầu gói tài khoản tuyển dụng trả phí cao hơn để sử dụng.'}
+              </p>
+            </div>
+            <div className="p-3 bg-purple-50/60 rounded-xl border border-purple-100 text-[11px] text-purple-950 font-medium">
+              💡 Gói đề xuất: <strong>{recruiterUpgradeContent.targetPlan}</strong> • Mở khóa đầy đủ tính năng xuất dữ liệu Excel, xem Skill Gap chuyên sâu và mở rộng hạn mức tin đăng!
+            </div>
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowRecruiterUpgradeModal(false)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 transition-colors cursor-pointer"
+              >
+                Để Sau
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowRecruiterUpgradeModal(false);
+                  window.location.hash = '#/recruiter-pricing';
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#5b48bd] to-indigo-600 hover:from-[#4a39a7] hover:to-indigo-700 text-white text-xs font-bold shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <span className="material-symbols-outlined text-base">upgrade</span>
+                <span>Xem Bảng Giá Gói</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -26,5 +26,8 @@ public interface SubscriptionRepository extends JpaRepository<Subscription, Long
             @org.springframework.data.repository.query.Param("status") SubscriptionStatus status,
             @org.springframework.data.repository.query.Param("now") java.time.LocalDateTime now
     );
+
+    @org.springframework.data.jpa.repository.Query("SELECT s FROM Subscription s JOIN FETCH s.plan p JOIN FETCH s.user u WHERE s.status = :status ORDER BY s.createdAt DESC")
+    List<Subscription> findByStatusWithDetails(@org.springframework.data.repository.query.Param("status") SubscriptionStatus status);
 }
 
