@@ -208,6 +208,10 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
         setErrorMsg('Vui lòng nhập số điện thoại liên hệ.');
         return;
       }
+      if (candDob && candDob > new Date().toLocaleDateString('en-CA')) {
+        setErrorMsg('Ngày sinh không thể là ngày trong tương lai.');
+        return;
+      }
     } else {
       if (!recName.trim()) {
         setErrorMsg('Vui lòng nhập họ và tên người đại diện tuyển dụng.');
@@ -661,8 +665,18 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
                       <span className="material-symbols-outlined absolute left-3.5 text-[#5b48bd] text-base pointer-events-none">calendar_today</span>
                       <input
                         type="date"
+                        max={new Date().toLocaleDateString('en-CA')}
                         value={candDob}
-                        onChange={(e) => setCandDob(e.target.value)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const todayStr = new Date().toLocaleDateString('en-CA');
+                          if (val && val > todayStr) {
+                            setErrorMsg('Ngày sinh không thể là ngày trong tương lai.');
+                            return;
+                          }
+                          setErrorMsg('');
+                          setCandDob(val);
+                        }}
                         className="w-full pl-10 pr-3 py-2.5 bg-purple-50/40 border border-purple-100 focus:border-[#5b48bd] focus:bg-white focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] focus:outline-none transition-all font-sans"
                       />
                     </div>

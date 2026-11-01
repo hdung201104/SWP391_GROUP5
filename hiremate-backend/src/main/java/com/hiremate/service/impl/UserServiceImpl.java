@@ -23,6 +23,8 @@ import com.hiremate.entity.Skill;
 import com.hiremate.repository.CandidateSkillRepository;
 import com.hiremate.repository.SkillRepository;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -60,7 +62,19 @@ public class UserServiceImpl implements UserService {
         // Cập nhật các trường trên bảng users (base class)
         user.setFullName(request.getFullName().trim());
         if (request.getPhone() != null) user.setPhone(request.getPhone().trim());
-        if (request.getDateOfBirth() != null) user.setDateOfBirth(request.getDateOfBirth().trim());
+        if (request.getDateOfBirth() != null && !request.getDateOfBirth().trim().isEmpty()) {
+            String dobStr = request.getDateOfBirth().trim();
+            try {
+                LocalDate dob = LocalDate.parse(dobStr);
+                if (dob.isAfter(LocalDate.now())) {
+                    throw new IllegalArgumentException("Ngày sinh không thể là ngày trong tương lai.");
+                }
+            } catch (DateTimeParseException ignored) {
+            }
+            user.setDateOfBirth(dobStr);
+        } else if (request.getDateOfBirth() != null) {
+            user.setDateOfBirth(null);
+        }
 
         String effectiveAddress = null;
         if (request.getAddress() != null && !request.getAddress().trim().isEmpty()) {

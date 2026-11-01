@@ -334,6 +334,12 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
       return;
     }
 
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    if (isRoleCandidate && dob && dob > todayStr) {
+      triggerToast('Ngày sinh không thể là ngày trong tương lai');
+      return;
+    }
+
     try {
       await authApi.updateProfile({
         fullName: fullName.trim(),
@@ -1522,11 +1528,29 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                       <span className="material-symbols-outlined absolute left-4 top-3 text-base text-slate-400">cake</span>
                       <input
                         type="date"
+                        max={new Date().toLocaleDateString('en-CA')}
                         value={dob || ''}
-                        onChange={(e) => setDob(e.target.value)}
-                        className="w-full pl-11 pr-4 py-2.5 bg-[#f8f7ff] border border-purple-100 rounded-2xl text-xs sm:text-sm text-[#1e1b4b] focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 focus:outline-none transition-all font-sans font-medium"
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const todayStr = new Date().toLocaleDateString('en-CA');
+                          if (val && val > todayStr) {
+                            triggerToast('Ngày sinh không thể lớn hơn ngày hiện tại');
+                            return;
+                          }
+                          setDob(val);
+                        }}
+                        className={`w-full pl-11 pr-4 py-2.5 bg-[#f8f7ff] border ${
+                          dob && dob > new Date().toLocaleDateString('en-CA')
+                            ? 'border-red-400 focus:border-red-500 focus:ring-red-200'
+                            : 'border-purple-100 focus:border-[#5b48bd] focus:ring-[#5b48bd]/20'
+                        } rounded-2xl text-xs sm:text-sm text-[#1e1b4b] focus:ring-2 focus:outline-none transition-all font-sans font-medium`}
                       />
                     </div>
+                    {dob && dob > new Date().toLocaleDateString('en-CA') && (
+                      <p className="text-[11px] text-red-500 font-medium mt-1">
+                        Ngày sinh không hợp lệ (không thể chọn ngày trong tương lai).
+                      </p>
+                    )}
                   </div>
 
                   {/* Giới tính */}

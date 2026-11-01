@@ -25,6 +25,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -73,6 +75,8 @@ public class AuthServiceImpl implements AuthService {
         if (role == UserRole.ADMIN) {
             throw new BadRequestException("Không thể đăng ký tài khoản với vai trò Quản trị viên (ADMIN) qua cổng công khai.");
         }
+
+        validateDateOfBirth(request.getDateOfBirth());
 
         User user = User.builder()
                 .email(request.getEmail().toLowerCase().trim())
@@ -560,6 +564,7 @@ public class AuthServiceImpl implements AuthService {
         }
 
         UserRole role = request.getRole() != null ? request.getRole() : UserRole.CANDIDATE;
+        validateDateOfBirth(request.getDateOfBirth());
         String rawPassword = (request.getPassword() != null && !request.getPassword().isBlank())
                 ? request.getPassword().trim()
                 : ("GoogleOAuth2_" + UUID.randomUUID());
@@ -1070,6 +1075,18 @@ public class AuthServiceImpl implements AuthService {
         } catch (Exception ex) {
             log.error("Lỗi serialize branchesJson với pendingJoinRequests: {}", ex.getMessage());
             return existingBranchesJson;
+        }
+    }
+
+    private void validateDateOfBirth(String dobStr) {
+        if (dobStr != null && !dobStr.isBlank()) {
+            try {
+                LocalDate dob = LocalDate.parse(dobStr.trim());
+                if (dob.isAfter(LocalDate.now())) {
+                    throw new BadRequestException("Ngày sinh không thể là ngày trong tương lai.");
+                }
+            } catch (DateTimeParseException ignored) {
+            }
         }
     }
 }
