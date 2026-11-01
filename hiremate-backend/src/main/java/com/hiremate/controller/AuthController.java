@@ -28,8 +28,24 @@ public class AuthController {
     public ResponseEntity<ApiResponse<Map<String, String>>> uploadLicenseBeforeRegister(
             @RequestParam("file") org.springframework.web.multipart.MultipartFile file
     ) {
+        if (file == null || file.isEmpty()) {
+            throw new com.hiremate.exception.BadRequestException("Tệp Giấy phép kinh doanh không được để trống");
+        }
+        long maxBytes = 10 * 1024 * 1024L; // 10MB
+        if (file.getSize() > maxBytes) {
+            throw new com.hiremate.exception.BadRequestException("Dung lượng tệp vượt quá giới hạn 10MB");
+        }
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename == null || originalFilename.isBlank()) {
+            throw new com.hiremate.exception.BadRequestException("Tên tệp không hợp lệ");
+        }
+        String lower = originalFilename.toLowerCase();
+        if (!lower.endsWith(".pdf") && !lower.endsWith(".jpg") && !lower.endsWith(".jpeg") && !lower.endsWith(".png") && !lower.endsWith(".webp")) {
+            throw new com.hiremate.exception.BadRequestException("Chỉ chấp nhận tệp định dạng .pdf, .jpg, .jpeg, .png, .webp");
+        }
+
         String uploadedUrl = fileStorageService.storeFile(file, "licenses");
-        String fileName = file.getOriginalFilename() != null ? file.getOriginalFilename() : "business_license.pdf";
+        String fileName = originalFilename;
         return ResponseEntity.ok(ApiResponse.ok("Tải tệp GPKD thành công", Map.of(
                 "url", uploadedUrl,
                 "fileName", fileName

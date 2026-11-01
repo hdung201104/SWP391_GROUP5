@@ -18,9 +18,12 @@ const getBrandLogo = (company) => {
 // Brand covers helper
 const getBrandCover = (company) => {
   if (company?.coverUrl && company.coverUrl.trim()) return company.coverUrl;
+  const compId = company?.companyId || company?.id;
   try {
-    const savedCover = localStorage.getItem('hiremate_company_cover');
-    if (savedCover) return savedCover;
+    if (compId) {
+      const savedCover = localStorage.getItem(`hiremate_company_cover_${compId}`);
+      if (savedCover) return savedCover;
+    }
   } catch {}
 
   const name = (company?.companyName || '').toLowerCase();
@@ -119,25 +122,48 @@ export default function CompanyProfileModal({
     ? displayName.split(' ').map(w => w[0]).join('').slice(0, 3).toUpperCase()
     : 'ENT';
 
-  // Get workplace photos: from company data, localStorage, or realistic default
+  const compId = company?.companyId || company?.id;
+
+  // Get workplace photos: from company data, isolated localStorage, or realistic default
   let workplacePhotos = DEFAULT_WORKPLACE_PHOTOS;
   if (Array.isArray(company.photos) && company.photos.length > 0) {
     workplacePhotos = company.photos;
-  } else {
+  } else if (company.workplacePhotosJson) {
     try {
-      const savedPhotos = localStorage.getItem('hiremate_workplace_photos');
+      const parsed = JSON.parse(company.workplacePhotosJson);
+      if (Array.isArray(parsed) && parsed.length > 0) workplacePhotos = parsed;
+    } catch {}
+  } else if (compId) {
+    try {
+      const savedPhotos = localStorage.getItem(`hiremate_workplace_photos_${compId}`);
       if (savedPhotos) workplacePhotos = JSON.parse(savedPhotos);
     } catch {}
   }
 
-  // Get benefits: from company data, localStorage, or realistic default
+  // Get benefits: from company data, isolated localStorage, or realistic default
   let companyBenefits = DEFAULT_COMPANY_BENEFITS;
   if (Array.isArray(company.benefits) && company.benefits.length > 0) {
     companyBenefits = company.benefits;
-  } else {
+  } else if (company.benefitsJson) {
     try {
-      const savedBenefits = localStorage.getItem('hiremate_company_benefits');
+      const parsed = JSON.parse(company.benefitsJson);
+      if (Array.isArray(parsed) && parsed.length > 0) companyBenefits = parsed;
+    } catch {}
+  } else if (compId) {
+    try {
+      const savedBenefits = localStorage.getItem(`hiremate_company_benefits_${compId}`);
       if (savedBenefits) companyBenefits = JSON.parse(savedBenefits);
+    } catch {}
+  }
+
+  // Parse branches from company.branchesJson if available
+  let branchesList = [];
+  if (company.branchesJson) {
+    try {
+      const parsed = typeof company.branchesJson === 'string' ? JSON.parse(company.branchesJson) : company.branchesJson;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        branchesList = parsed;
+      }
     } catch {}
   }
 
@@ -305,23 +331,71 @@ export default function CompanyProfileModal({
               <span className="material-symbols-outlined text-[#5b48bd] text-lg">pin_drop</span>
               <span>Trụ Sở &amp; Chi Nhánh Tuyển Dụng</span>
             </h3>
-            {company.address && (
-              <div className="flex items-center gap-2 text-xs font-semibold text-slate-700 p-3.5 bg-white rounded-xl border border-purple-100 shadow-2xs">
-                <span className="material-symbols-outlined text-base text-[#5b48bd]">location_city</span>
-                <span>Trụ sở chính: {company.address}</span>
+
+            {branchesList.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                {branchesList.map((branch, bIdx) => (
+                  <div
+                    key={bIdx}
+                    className="p-3.5 rounded-2xl bg-[#fcfbfe] border border-purple-100 hover:border-purple-200 transition-all space-y-1.5 shadow-2xs"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <h4 className="font-bold text-xs text-[#1e1b4b] flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-sm text-[#5b48bd]">apartment</span>
+                        <span>{branch.branchName || branch.name || `Cơ sở #${bIdx + 1}`}</span>
+                      </h4>
+                      {(branch.isHeadquarters || branch.isMain || bIdx === 0) && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 text-[#5b48bd] shrink-0">
+                          ⭐ Trụ sở chính
+                        </span>
+                      )}
+                    </div>
+                    {branch.address && (
+                      <p className="text-xs text-slate-600 flex items-start gap-1">
+                        <span className="material-symbols-outlined text-xs text-slate-400 mt-0.5 shrink-0">location_on</span>
+                        <span>{branch.address}</span>
+                      </p>
+                    )}
+                    {(branch.hotline || branch.size) && (
+                      <div className="flex items-center gap-3 text-[11px] text-slate-500 pt-0.5">
+                        {branch.hotline && (
+                          <span className="flex items-center gap-0.5">
+                            <span className="material-symbols-outlined text-[12px] text-slate-400">call</span>
+                            {branch.hotline}
+                          </span>
+                        )}
+                        {branch.size && (
+                          <span className="flex items-center gap-0.5">
+                            <span className="material-symbols-outlined text-[12px] text-slate-400">group</span>
+                            {branch.size}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
+            ) : (
+              <>
+                {company.address && (
+                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-700 p-3.5 bg-white rounded-xl border border-purple-100 shadow-2xs">
+                    <span className="material-symbols-outlined text-base text-[#5b48bd]">location_city</span>
+                    <span>Trụ sở chính: {company.address}</span>
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {locations.map((loc, idx) => (
+                    <span
+                      key={idx}
+                      className="px-3.5 py-1.5 rounded-xl bg-[#f8f7ff] text-[#5b48bd] border border-purple-100 text-xs font-bold flex items-center gap-1.5 shadow-2xs"
+                    >
+                      <span className="w-2 h-2 rounded-full bg-[#5b48bd]"></span>
+                      <span>{loc}</span>
+                    </span>
+                  ))}
+                </div>
+              </>
             )}
-            <div className="flex flex-wrap gap-2 pt-1">
-              {locations.map((loc, idx) => (
-                <span
-                  key={idx}
-                  className="px-3.5 py-1.5 rounded-xl bg-[#f8f7ff] text-[#5b48bd] border border-purple-100 text-xs font-bold flex items-center gap-1.5 shadow-2xs"
-                >
-                  <span className="w-2 h-2 rounded-full bg-[#5b48bd]"></span>
-                  <span>{loc}</span>
-                </span>
-              ))}
-            </div>
           </div>
 
           {/* ========================================================= */}

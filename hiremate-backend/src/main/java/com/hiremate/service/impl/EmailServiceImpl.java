@@ -397,6 +397,47 @@ public class EmailServiceImpl implements EmailService {
         sendHtmlEmail(toEmail, subject, htmlContent);
     }
 
+    @Override
+    public void sendCustomEmail(String toEmail, String candidateName, String subject, String bodyHtml) {
+        if (toEmail == null || toEmail.isBlank()) return;
+        String emailSubject = (subject != null && !subject.isBlank()) ? subject : "[HireMate AI] Thông báo từ Nhà tuyển dụng";
+        String content = bodyHtml != null ? bodyHtml.replace("\n", "<br/>") : "";
+        String html = """
+            <!DOCTYPE html>
+            <html lang="vi">
+            <head>
+              <meta charset="UTF-8">
+              <title>%s</title>
+            </head>
+            <body style="margin:0;padding:24px;background-color:#F9F8F4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#2D3A31;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%%" style="max-width:600px;margin:0 auto;background:#FFFFFF;border-radius:12px;overflow:hidden;border:1px solid #E5E7EB;box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);">
+                <tr>
+                  <td style="padding:28px;background:linear-gradient(135deg,#1E3A2F,#162A22);color:#FFFFFF;">
+                    <h2 style="margin:0 0 8px 0;font-size:20px;font-weight:700;">HireMate AI</h2>
+                    <p style="margin:0;font-size:14px;color:#A3E635;">Thông báo tuyển dụng chính thức</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:32px 28px;">
+                    <p style="font-size:15px;margin:0 0 16px 0;">Kính gửi <strong>%s</strong>,</p>
+                    <div style="font-size:15px;line-height:1.7;color:#374151;">
+                      %s
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:20px 28px;background-color:#F3F4F6;border-top:1px solid #E5E7EB;text-align:center;font-size:12px;color:#6B7280;">
+                    Thư này được gửi tự động từ nền tảng tuyển dụng thông minh <strong>HireMate AI</strong>.
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>
+        """.formatted(emailSubject, candidateName != null ? candidateName : "Quý ứng viên", content);
+
+        sendHtmlEmail(toEmail, emailSubject, html);
+    }
+
     private void sendHtmlEmail(String toEmail, String subject, String htmlContent) {
         if (systemSettingsService != null && systemSettingsService.getSettings() != null) {
             Boolean autoEmail = systemSettingsService.getSettings().getAutoEmailNotify();

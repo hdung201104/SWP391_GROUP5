@@ -55,6 +55,9 @@ public class Application {
     @Column(name = "rejection_reason", columnDefinition = "TEXT")
     private String rejectionReason;
 
+    @Column(name = "evaluation_notes", columnDefinition = "TEXT")
+    private String evaluationNotes;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

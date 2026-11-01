@@ -1,5 +1,7 @@
 package com.hiremate.service.impl;
 
+import com.hiremate.exception.BadRequestException;
+
 import com.hiremate.config.JwtUtil;
 import com.hiremate.dto.request.*;
 import com.hiremate.dto.response.AuthResponse;
@@ -59,7 +61,18 @@ public class AuthServiceImpl implements AuthService {
             throw new IllegalArgumentException("Email already exists: " + request.getEmail());
         }
 
+        if (request.getOtp() == null || request.getOtp().isBlank()) {
+            throw new IllegalArgumentException("Mã xác thực OTP là bắt buộc để hoàn tất đăng ký.");
+        }
+        boolean validOtp = otpService.verifyOtp(request.getEmail().toLowerCase().trim(), request.getOtp().trim(), "REGISTER");
+        if (!validOtp) {
+            throw new IllegalArgumentException("Mã xác thực OTP không chính xác hoặc đã hết hiệu lực.");
+        }
+
         UserRole role = request.getRole() != null ? request.getRole() : UserRole.CANDIDATE;
+        if (role == UserRole.ADMIN) {
+            throw new BadRequestException("Không thể đăng ký tài khoản với vai trò Quản trị viên (ADMIN) qua cổng công khai.");
+        }
 
         User user = User.builder()
                 .email(request.getEmail().toLowerCase().trim())
@@ -100,59 +113,113 @@ public class AuthServiceImpl implements AuthService {
                     ? request.getCompanyName().trim()
                     : request.getFullName() + "'s Company";
 
-            // 1. Kiểm tra công ty đã tồn tại trong hệ thống chưa (dựa trên tên không phân biệt hoa thường)
-            Company company = companyRepository.findFirstByCompanyNameIgnoreCase(companyName).orElse(null);
+            String taxCode = request.getTaxCode() != null && !request.getTaxCode().isBlank()
+                    ? request.getTaxCode().trim()
+                    : null;
+
+            // 1. Tìm công ty theo companyId, sau đó ưu tiên theo Mã số thuế (taxCode), sau đó theo Tên công ty
+            Company company = null;
+            if (request.getCompanyId() != null) {
+                company = companyRepository.findById(request.getCompanyId()).orElse(null);
+            }
+            if (company == null && taxCode != null) {
+                company = companyRepository.findFirstByTaxCodeIgnoreCase(taxCode).orElse(null);
+            }
+            if (company == null) {
+                company = companyRepository.findFirstByCompanyNameIgnoreCase(companyName).orElse(null);
+            }
+
             boolean isNewCompany = false;
+            boolean hasValidDoc = request.getLicenseDocUrl() != null && !request.getLicenseDocUrl().isBlank()
+                    && !request.getLicenseDocUrl().contains("unsplash.com")
+                    && !request.getLicenseDocUrl().startsWith("blob:");
+
+            String bName = request.getBranchName() != null && !request.getBranchName().isBlank()
+                    ? request.getBranchName().trim()
+                    : "Trụ sở chính";
+            String bAddr = request.getBranchAddress() != null && !request.getBranchAddress().isBlank()
+                    ? request.getBranchAddress().trim()
+                    : (request.getCompanyAddress() != null ? request.getCompanyAddress().trim() : (request.getLocation() != null ? request.getLocation().trim() : ""));
+
             if (company == null) {
                 isNewCompany = true;
+                String initialBranchesJson = initOrAppendBranch(null, bName, bAddr, request.getCompanySize(), savedUser.getUserId(), savedUser.getFullName(), true);
                 company = Company.builder()
                         .recruiterId(null)
                         .companyName(companyName)
                         .website(request.getWebsite())
                         .companySize(request.getCompanySize())
-                        .address(request.getCompanyAddress() != null ? request.getCompanyAddress() : request.getLocation())
-                        .taxCode(request.getTaxCode() != null && !request.getTaxCode().isBlank() ? request.getTaxCode().trim() : null)
-                        .licenseNumber(request.getLicenseNumber() != null && !request.getLicenseNumber().isBlank() ? request.getLicenseNumber().trim() : (request.getTaxCode() != null ? request.getTaxCode().trim() + "-GPKD" : null))
-                        .licenseDocUrl(request.getLicenseDocUrl())
-                        .licenseDocName(request.getLicenseDocName() != null ? request.getLicenseDocName() : (request.getLicenseDocUrl() != null ? "GPKD_" + companyName.replaceAll("\\s+", "_") + ".pdf" : null))
+                        .address(bAddr.isEmpty() ? (request.getLocation() != null ? request.getLocation() : "Việt Nam") : bAddr)
+                        .taxCode(taxCode)
+                        .licenseNumber(request.getLicenseNumber() != null && !request.getLicenseNumber().isBlank()
+                                ? request.getLicenseNumber().trim()
+                                : (taxCode != null ? taxCode + "-GPKD" : null))
+                        .licenseDocUrl(hasValidDoc ? request.getLicenseDocUrl() : null)
+                        .licenseDocName(hasValidDoc ? (request.getLicenseDocName() != null ? request.getLicenseDocName() : "GPKD_" + companyName.replaceAll("\\s+", "_") + ".pdf") : null)
                         .legalRepresentative(request.getLegalRepresentative() != null && !request.getLegalRepresentative().isBlank() ? request.getLegalRepresentative().trim() : request.getFullName())
+                        .branchesJson(initialBranchesJson)
                         .status(CompanyStatus.PENDING)
                         .build();
                 company = companyRepository.saveAndFlush(company);
+            } else {
+                // Công ty đã tồn tại: KHÔNG gán thẳng quyền công ty (Chống chiếm quyền công ty / Company Takeover)
+                // Lưu yêu cầu gia nhập vào pendingJoinRequests trong branchesJson của công ty
+                String updatedBranches = appendPendingJoinRequest(company.getBranchesJson(), savedUser, request, bName, bAddr);
+                company.setBranchesJson(updatedBranches);
+                companyRepository.save(company);
             }
-            companyId = company.getCompanyId();
 
-            // 2. Tạo Recruiter subclass record, liên kết với Company (dù là mới hay đã tồn tại)
+            // 2. Tạo Recruiter subclass record
+            // Nếu là công ty mới thì liên kết ngay, nếu công ty đã tồn tại thì company = null chờ Head Recruiter phê duyệt
             Recruiter recruiter = Recruiter.builder()
                     .recruiterId(savedUser.getUserId())  // Shared PK
                     .user(savedUser)
-                    .company(company)
-                    .position("HR Recruiter")
+                    .company(isNewCompany ? company : null)
+                    .position(request.getPosition() != null && !request.getPosition().isBlank() ? request.getPosition().trim() : "HR Recruiter")
+                    .department(request.getDepartment() != null && !request.getDepartment().isBlank() ? request.getDepartment().trim() : "Phòng Tuyển dụng & Nhân sự")
+                    .branchName(bName)
+                    .branchAddress(bAddr)
+                    .isHeadRecruiter(isNewCompany)
                     .build();
             Recruiter savedRecruiter = recruiterRepository.saveAndFlush(recruiter);
 
-            // 3. Nếu là công ty mới hoặc chưa có recruiter đại diện chính, gán recruiter này làm đại diện
-            if (isNewCompany || company.getRecruiterId() == null) {
+            // 3. Nếu là công ty mới, gán recruiter này làm đại diện và cấp companyId
+            if (isNewCompany) {
                 company.setRecruiterId(savedRecruiter.getRecruiterId());
                 companyRepository.save(company);
+                companyId = company.getCompanyId();
             } else {
-                // 4. Nếu gia nhập công ty đã tồn tại, tự động gửi thông báo hệ thống đến các HR cũ / đại diện công ty
+                companyId = null; // Chưa được duyệt, không cấp quyền truy cập dữ liệu nội bộ công ty
+
+                // 4. Gửi thông báo hệ thống đến các HR hiện tại của công ty để xem xét phê duyệt
                 try {
                     List<Recruiter> existingRecruiters = recruiterRepository.findAllByCompany_CompanyId(company.getCompanyId());
                     for (Recruiter existing : existingRecruiters) {
-                        if (!existing.getRecruiterId().equals(savedUser.getUserId())) {
-                            notificationService.createNotification(
-                                    existing.getRecruiterId(),
-                                    com.hiremate.enums.NotificationType.SYSTEM_ALERT,
-                                    "Thành viên HR mới tham gia tổ chức",
-                                    "Chuyên viên nhân sự " + savedUser.getFullName() + " (" + savedUser.getEmail() + ") vừa đăng ký tài khoản và gia nhập đội ngũ tuyển dụng của " + company.getCompanyName() + " trên HireMate AI.",
-                                    company.getCompanyId(),
-                                    "companies"
-                            );
-                        }
+                        notificationService.createNotification(
+                                existing.getRecruiterId(),
+                                com.hiremate.enums.NotificationType.SYSTEM_ALERT,
+                                "Yêu cầu gia nhập đội ngũ HR mới",
+                                "Chuyên viên nhân sự " + savedUser.getFullName() + " (" + savedUser.getEmail() + ") vừa đăng ký và gửi yêu cầu gia nhập đội ngũ tuyển dụng của " + company.getCompanyName() + ". Vui lòng phê duyệt trên Bảng điều khiển.",
+                                company.getCompanyId(),
+                                "companies"
+                        );
                     }
                 } catch (Exception notifEx) {
                     log.warn(">> [AuthService] Không thể gửi thông báo cho các HR cùng công ty: {}", notifEx.getMessage());
+                }
+
+                // Gửi thông báo cho chính HR vừa đăng ký
+                try {
+                    notificationService.createNotification(
+                            savedUser.getUserId(),
+                            com.hiremate.enums.NotificationType.SYSTEM_ALERT,
+                            "Yêu cầu gia nhập công ty đang chờ duyệt",
+                            "Tài khoản của bạn đã được khởi tạo thành công. Yêu cầu gia nhập " + company.getCompanyName() + " đang chờ Trưởng phòng nhân sự phê duyệt.",
+                            company.getCompanyId(),
+                            "companies"
+                    );
+                } catch (Exception notifEx) {
+                    log.warn(">> [AuthService] Không thể gửi thông báo cho HR mới: {}", notifEx.getMessage());
                 }
             }
         }
@@ -196,13 +263,19 @@ public class AuthServiceImpl implements AuthService {
                 .orElseThrow(() -> new IllegalArgumentException("Tài khoản hoặc mật khẩu không chính xác"));
 
         boolean matches = passwordEncoder.matches(rawPassword, user.getPasswordHash())
-                || passwordEncoder.matches(request.getPassword(), user.getPasswordHash())
-                || "Password123@".equalsIgnoreCase(rawPassword)
-                || "Password123".equalsIgnoreCase(rawPassword)
-                || "123456".equals(rawPassword)
-                || "123".equals(rawPassword)
-                || "admin".equalsIgnoreCase(rawPassword)
-                || "admin123".equalsIgnoreCase(rawPassword);
+                || passwordEncoder.matches(request.getPassword(), user.getPasswordHash());
+
+        // Hỗ trợ tài khoản seed cũ lưu mật khẩu thô chưa mã hóa BCrypt
+        if (!matches && user.getPasswordHash() != null) {
+            String dbHash = user.getPasswordHash();
+            boolean isBcrypt = dbHash.startsWith("$2a$") || dbHash.startsWith("$2b$") || dbHash.startsWith("$2y$");
+            if (!isBcrypt && (rawPassword.equals(dbHash) || request.getPassword().equals(dbHash))) {
+                matches = true;
+                user.setPasswordHash(passwordEncoder.encode(rawPassword));
+                userRepository.save(user);
+                log.info(">> [AuthService] Tự động nâng cấp mã hóa BCrypt cho tài khoản: {}", cleanEmail);
+            }
+        }
 
         if (!matches) {
             throw new IllegalArgumentException("Tài khoản hoặc mật khẩu không chính xác");
@@ -361,9 +434,15 @@ public class AuthServiceImpl implements AuthService {
 
         boolean isOAuthPlaceholder = user.getPasswordHash() != null && user.getPasswordHash().contains("GoogleOAuth2_");
         boolean matches = passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())
-                || "123456".equals(request.getCurrentPassword())
-                || "Password123@".equals(request.getCurrentPassword())
                 || isOAuthPlaceholder;
+
+        if (!matches && user.getPasswordHash() != null) {
+            String dbHash = user.getPasswordHash();
+            boolean isBcrypt = dbHash.startsWith("$2a$") || dbHash.startsWith("$2b$") || dbHash.startsWith("$2y$");
+            if (!isBcrypt && request.getCurrentPassword().equals(dbHash)) {
+                matches = true;
+            }
+        }
 
         if (!matches) {
             throw new IllegalArgumentException("Mật khẩu hiện tại không chính xác");
@@ -471,12 +550,13 @@ public class AuthServiceImpl implements AuthService {
             throw new IllegalArgumentException("Email " + email + " đã tồn tại trong hệ thống. Vui lòng đăng nhập.");
         }
 
-        // Xác thực mã OTP nếu có gửi lên
-        if (request.getOtp() != null && !request.getOtp().isBlank()) {
-            boolean validOtp = otpService.verifyOtp(email, request.getOtp().trim(), "REGISTER");
-            if (!validOtp) {
-                throw new IllegalArgumentException("Mã xác thực OTP không chính xác hoặc đã hết hiệu lực.");
-            }
+        // Bắt buộc xác thực mã OTP trước khi hoàn tất đăng ký
+        if (request.getOtp() == null || request.getOtp().isBlank()) {
+            throw new IllegalArgumentException("Mã xác thực OTP là bắt buộc để hoàn tất thiết lập tài khoản.");
+        }
+        boolean validOtp = otpService.verifyOtp(email, request.getOtp().trim(), "REGISTER");
+        if (!validOtp) {
+            throw new IllegalArgumentException("Mã xác thực OTP không chính xác hoặc đã hết hiệu lực.");
         }
 
         UserRole role = request.getRole() != null ? request.getRole() : UserRole.CANDIDATE;
@@ -519,27 +599,99 @@ public class AuthServiceImpl implements AuthService {
             String compName = (request.getCompanyName() != null && !request.getCompanyName().isBlank())
                     ? request.getCompanyName().trim()
                     : request.getFullName() + "'s Company";
-            Company company = Company.builder()
-                    .companyName(compName)
-                    .address("Việt Nam")
-                    .status(CompanyStatus.ACTIVE)
-                    .build();
-            Company savedCompany = companyRepository.saveAndFlush(company);
+
+            // 1. Tìm công ty theo companyId, taxCode hoặc compName
+            Company company = null;
+            if (request.getCompanyId() != null) {
+                company = companyRepository.findById(request.getCompanyId()).orElse(null);
+            }
+            if (company == null && request.getTaxCode() != null && !request.getTaxCode().isBlank()) {
+                company = companyRepository.findFirstByTaxCodeIgnoreCase(request.getTaxCode().trim()).orElse(null);
+            }
+            if (company == null) {
+                company = companyRepository.findFirstByCompanyNameIgnoreCase(compName).orElse(null);
+            }
+
+            boolean isNewComp = false;
+            String bName = request.getBranchName() != null && !request.getBranchName().isBlank()
+                    ? request.getBranchName().trim()
+                    : "Trụ sở chính";
+            String bAddr = request.getBranchAddress() != null && !request.getBranchAddress().isBlank()
+                    ? request.getBranchAddress().trim()
+                    : (request.getCompanyAddress() != null ? request.getCompanyAddress().trim() : (user.getAddress() != null ? user.getAddress() : "Việt Nam"));
+
+            if (company == null) {
+                isNewComp = true;
+                String initialBranchesJson = initOrAppendBranch(null, bName, bAddr, request.getCompanySize(), user.getUserId(), user.getFullName(), true);
+                company = Company.builder()
+                        .companyName(compName)
+                        .address(bAddr)
+                        .website(request.getWebsite())
+                        .companySize(request.getCompanySize())
+                        .taxCode(request.getTaxCode())
+                        .licenseNumber(request.getLicenseNumber())
+                        .licenseDocUrl(request.getLicenseDocUrl())
+                        .licenseDocName(request.getLicenseDocName())
+                        .legalRepresentative(request.getLegalRepresentative() != null && !request.getLegalRepresentative().isBlank() ? request.getLegalRepresentative().trim() : user.getFullName())
+                        .branchesJson(initialBranchesJson)
+                        .status(CompanyStatus.PENDING)
+                        .build();
+                company = companyRepository.saveAndFlush(company);
+            } else {
+                // Tự động kiểm tra và thêm chi nhánh mới nếu chưa có
+                String updatedBranches = initOrAppendBranch(company.getBranchesJson(), bName, bAddr, company.getCompanySize(), user.getUserId(), user.getFullName(), false);
+                company.setBranchesJson(updatedBranches);
+                if ((company.getTaxCode() == null || company.getTaxCode().isBlank()) && request.getTaxCode() != null) {
+                    company.setTaxCode(request.getTaxCode().trim());
+                }
+                if (company.getLicenseDocUrl() == null && request.getLicenseDocUrl() != null) {
+                    company.setLicenseDocUrl(request.getLicenseDocUrl().trim());
+                    company.setLicenseDocName(request.getLicenseDocName());
+                }
+                companyRepository.save(company);
+            }
 
             Recruiter recruiter = Recruiter.builder()
                     .recruiterId(user.getUserId())
                     .user(user)
-                    .company(savedCompany)
+                    .company(company)
                     .position(request.getPosition() != null && !request.getPosition().isBlank() 
                             ? request.getPosition().trim() 
                             : "HR Recruiter")
+                    .department(request.getDepartment() != null && !request.getDepartment().isBlank() 
+                            ? request.getDepartment().trim() 
+                            : "Phòng Tuyển dụng & Nhân sự")
+                    .branchName(bName)
+                    .branchAddress(bAddr)
+                    .isHeadRecruiter(isNewComp || company.getRecruiterId() == null)
                     .build();
             Recruiter savedRecruiter = recruiterRepository.saveAndFlush(recruiter);
-            savedCompany.setRecruiterId(savedRecruiter.getRecruiterId());
-            companyRepository.save(savedCompany);
 
-            companyId = savedCompany.getCompanyId();
-            companyName = savedCompany.getCompanyName();
+            if (isNewComp || company.getRecruiterId() == null) {
+                company.setRecruiterId(savedRecruiter.getRecruiterId());
+                companyRepository.save(company);
+            } else {
+                try {
+                    List<Recruiter> existingRecruiters = recruiterRepository.findAllByCompany_CompanyId(company.getCompanyId());
+                    for (Recruiter existing : existingRecruiters) {
+                        if (!existing.getRecruiterId().equals(user.getUserId())) {
+                            notificationService.createNotification(
+                                    existing.getRecruiterId(),
+                                    com.hiremate.enums.NotificationType.SYSTEM_ALERT,
+                                    "Thành viên HR mới tham gia tổ chức",
+                                    "Chuyên viên nhân sự " + user.getFullName() + " (" + user.getEmail() + ") vừa đăng ký tài khoản qua Google và gia nhập đội ngũ tuyển dụng của " + company.getCompanyName() + ".",
+                                    company.getCompanyId(),
+                                    "companies"
+                            );
+                        }
+                    }
+                } catch (Exception notifEx) {
+                    log.warn(">> [AuthService] Không thể gửi thông báo HR Google: {}", notifEx.getMessage());
+                }
+            }
+
+            companyId = company.getCompanyId();
+            companyName = company.getCompanyName();
         }
 
         try {
@@ -790,7 +942,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     private AuthResponse buildAuthResponse(User user, String token, String refreshToken, Long companyId, String companyName) {
-        return AuthResponse.of(
+        AuthResponse res = AuthResponse.of(
                 token,
                 refreshToken,
                 user.getUserId(),
@@ -808,5 +960,116 @@ public class AuthServiceImpl implements AuthService {
                 user.getGithubUrl(),
                 false
         );
+        if (user.getRole() == UserRole.RECRUITER) {
+            recruiterRepository.findById(user.getUserId()).ifPresent(r -> {
+                res.setPosition(r.getPosition());
+                res.setDepartment(r.getDepartment());
+                res.setBranchName(r.getBranchName());
+                res.setIsHeadRecruiter(r.getIsHeadRecruiter());
+                if (r.getCompany() != null) {
+                    res.setTaxCode(r.getCompany().getTaxCode());
+                }
+            });
+        }
+        return res;
+    }
+
+
+    private String initOrAppendBranch(String existingBranchesJson, String branchName, String branchAddress, String companySize, Long recruiterId, String managerName, boolean isHq) {
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        List<Map<String, Object>> branches = new java.util.ArrayList<>();
+        if (existingBranchesJson != null && !existingBranchesJson.trim().isEmpty()) {
+            try {
+                branches = mapper.readValue(existingBranchesJson, new com.fasterxml.jackson.core.type.TypeReference<List<Map<String, Object>>>() {});
+            } catch (Exception ex) {
+                log.warn("Không thể parse branchesJson cũ: {}", ex.getMessage());
+            }
+        }
+
+        String targetBranchName = (branchName != null && !branchName.trim().isEmpty()) ? branchName.trim() : (isHq ? "Trụ sở chính" : "Chi nhánh");
+        String targetBranchAddress = (branchAddress != null && !branchAddress.trim().isEmpty()) ? branchAddress.trim() : "";
+
+        boolean exists = branches.stream().anyMatch(b -> {
+            Object bn = b.get("branchName");
+            return bn != null && bn.toString().trim().equalsIgnoreCase(targetBranchName);
+        });
+
+        if (!exists) {
+            Map<String, Object> newBranch = new java.util.HashMap<>();
+            newBranch.put("id", UUID.randomUUID().toString());
+            newBranch.put("branchName", targetBranchName);
+            newBranch.put("address", targetBranchAddress);
+            newBranch.put("scale", companySize != null ? companySize : "50-100");
+            newBranch.put("hotline", "");
+            newBranch.put("managerRecruiterId", recruiterId);
+            newBranch.put("managerName", managerName != null ? managerName : "");
+            newBranch.put("isHeadquarters", isHq && branches.isEmpty());
+            branches.add(newBranch);
+        }
+
+        try {
+            return mapper.writeValueAsString(branches);
+        } catch (Exception ex) {
+            log.error("Lỗi serialize branchesJson: {}", ex.getMessage());
+            return existingBranchesJson;
+        }
+    }
+
+    private String appendPendingJoinRequest(String existingBranchesJson, User newUser, RegisterRequest request, String branchName, String branchAddress) {
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        Map<String, Object> rootMap = new HashMap<>();
+        List<Map<String, Object>> branchesList = new java.util.ArrayList<>();
+        List<Map<String, Object>> pendingList = new java.util.ArrayList<>();
+
+        if (existingBranchesJson != null && !existingBranchesJson.trim().isEmpty()) {
+            try {
+                if (existingBranchesJson.trim().startsWith("[")) {
+                    branchesList = mapper.readValue(existingBranchesJson, new com.fasterxml.jackson.core.type.TypeReference<List<Map<String, Object>>>() {});
+                } else {
+                    rootMap = mapper.readValue(existingBranchesJson, new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
+                    if (rootMap.containsKey("branches") && rootMap.get("branches") instanceof List) {
+                        branchesList = (List<Map<String, Object>>) rootMap.get("branches");
+                    }
+                    if (rootMap.containsKey("pendingJoinRequests") && rootMap.get("pendingJoinRequests") instanceof List) {
+                        pendingList = (List<Map<String, Object>>) rootMap.get("pendingJoinRequests");
+                    }
+                }
+            } catch (Exception ex) {
+                log.warn("Không thể parse branchesJson cũ: {}", ex.getMessage());
+            }
+        }
+
+        boolean alreadyPending = pendingList.stream().anyMatch(p -> {
+            Object email = p.get("email");
+            Object id = p.get("id");
+            return (email != null && email.toString().equalsIgnoreCase(newUser.getEmail()))
+                    || (id != null && id.toString().equals(String.valueOf(newUser.getUserId())));
+        });
+
+        if (!alreadyPending) {
+            Map<String, Object> req = new HashMap<>();
+            req.put("id", newUser.getUserId());
+            req.put("email", newUser.getEmail());
+            req.put("name", newUser.getFullName());
+            req.put("fullName", newUser.getFullName());
+            req.put("position", request.getPosition() != null && !request.getPosition().isBlank() ? request.getPosition().trim() : "HR Recruiter");
+            req.put("department", request.getDepartment() != null && !request.getDepartment().isBlank() ? request.getDepartment().trim() : "Phòng Tuyển dụng & Nhân sự");
+            req.put("branchName", branchName);
+            req.put("branchAddress", branchAddress);
+            req.put("phone", newUser.getPhone() != null ? newUser.getPhone() : "");
+            req.put("requestDate", java.time.LocalDate.now().toString());
+            req.put("requestedAt", java.time.LocalDateTime.now().toString());
+            pendingList.add(req);
+        }
+
+        rootMap.put("branches", branchesList);
+        rootMap.put("pendingJoinRequests", pendingList);
+
+        try {
+            return mapper.writeValueAsString(rootMap);
+        } catch (Exception ex) {
+            log.error("Lỗi serialize branchesJson với pendingJoinRequests: {}", ex.getMessage());
+            return existingBranchesJson;
+        }
     }
 }

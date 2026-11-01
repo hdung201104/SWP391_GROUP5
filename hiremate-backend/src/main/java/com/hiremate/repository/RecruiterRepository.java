@@ -23,6 +23,9 @@ public interface RecruiterRepository extends JpaRepository<Recruiter, Long> {
     /** Lấy danh sách tất cả Recruiter thuộc cùng một công ty */
     List<Recruiter> findAllByCompany_CompanyId(Long companyId);
 
+    /** Tìm Recruiter theo email của User */
+    Optional<Recruiter> findByUser_Email(String email);
+
     /** Kiểm tra recruiter đã có profile chưa */
     boolean existsByRecruiterId(Long recruiterId);
 }

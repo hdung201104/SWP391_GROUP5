@@ -71,6 +71,11 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
   // Recruiter-specific fields
   const [companyName, setCompanyName] = useState('');
   const [position, setPosition] = useState('');
+  const [taxCode, setTaxCode] = useState('');
+  const [companySize, setCompanySize] = useState('100 - 500 nhân sự');
+  const [branchName, setBranchName] = useState('Trụ sở chính');
+  const [licenseNumber, setLicenseNumber] = useState('');
+  const [legalRepresentative, setLegalRepresentative] = useState('');
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -175,10 +180,15 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
         dateOfBirth: role === 'CANDIDATE' && dateOfBirth ? dateOfBirth : undefined,
         address: location || undefined,
         githubUrl: role === 'CANDIDATE' && githubUrl ? githubUrl.trim() : undefined,
-        bio: EDUCATION_LEVELS.find((e) => e.value === education)?.label || education,
+        bio: role === 'CANDIDATE' ? (EDUCATION_LEVELS.find((e) => e.value === education)?.label || education) : undefined,
         companyName: role === 'RECRUITER' ? companyName.trim() : undefined,
         position: role === 'RECRUITER' ? position.trim() : undefined,
         companyAddress: role === 'RECRUITER' ? location : undefined,
+        taxCode: role === 'RECRUITER' && taxCode ? taxCode.trim() : undefined,
+        companySize: role === 'RECRUITER' && companySize ? companySize.trim() : undefined,
+        branchName: role === 'RECRUITER' && branchName ? branchName.trim() : undefined,
+        licenseNumber: role === 'RECRUITER' && licenseNumber ? licenseNumber.trim() : undefined,
+        legalRepresentative: role === 'RECRUITER' && legalRepresentative ? legalRepresentative.trim() : undefined,
       };
 
       const res = await authApi.completeGoogleRegistration(payload);
@@ -543,6 +553,76 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
                     placeholder="Bấm chọn Trụ sở chính công ty..."
                     theme="dark"
                   />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+                  <div className="space-y-1">
+                    <span className="text-xs text-slate-200 font-medium">
+                      Mã số thuế doanh nghiệp (MST)
+                    </span>
+                    <input
+                      type="text"
+                      name="onboarding_tax_code"
+                      value={taxCode}
+                      onChange={(e) => setTaxCode(e.target.value)}
+                      placeholder="Ví dụ: 0312345678"
+                      className="w-full px-3.5 py-2.5 bg-white/10 border border-white/20 focus:border-cyan-400 focus:bg-white/15 rounded-xl text-sm text-white placeholder-slate-400 focus:outline-none transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <span className="text-xs text-slate-200 font-medium">
+                      Số Giấy phép KD / ĐKKD
+                    </span>
+                    <input
+                      type="text"
+                      name="onboarding_license_number"
+                      value={licenseNumber}
+                      onChange={(e) => setLicenseNumber(e.target.value)}
+                      placeholder="Ví dụ: GPKD-2024-HCM"
+                      className="w-full px-3.5 py-2.5 bg-white/10 border border-white/20 focus:border-cyan-400 focus:bg-white/15 rounded-xl text-sm text-white placeholder-slate-400 focus:outline-none transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <span className="text-xs text-slate-200 font-medium">
+                      Người đại diện pháp luật
+                    </span>
+                    <input
+                      type="text"
+                      name="onboarding_legal_rep"
+                      value={legalRepresentative}
+                      onChange={(e) => setLegalRepresentative(e.target.value)}
+                      placeholder="Họ và tên người đại diện pháp luật"
+                      className="w-full px-3.5 py-2.5 bg-white/10 border border-white/20 focus:border-cyan-400 focus:bg-white/15 rounded-xl text-sm text-white placeholder-slate-400 focus:outline-none transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <span className="text-xs text-slate-200 font-medium">
+                      Quy mô nhân sự &amp; Chi nhánh
+                    </span>
+                    <div className="grid grid-cols-2 gap-2">
+                      <select
+                        value={companySize}
+                        onChange={(e) => setCompanySize(e.target.value)}
+                        className="w-full px-2.5 py-2.5 bg-slate-800 border border-white/20 focus:border-cyan-400 rounded-xl text-xs text-white focus:outline-none"
+                      >
+                        <option value="10 - 50 nhân sự">10 - 50</option>
+                        <option value="50 - 100 nhân sự">50 - 100</option>
+                        <option value="100 - 500 nhân sự">100 - 500</option>
+                        <option value="500+ nhân sự">500+</option>
+                      </select>
+                      <input
+                        type="text"
+                        name="onboarding_branch_name"
+                        value={branchName}
+                        onChange={(e) => setBranchName(e.target.value)}
+                        placeholder="Chi nhánh làm việc"
+                        className="w-full px-2.5 py-2.5 bg-white/10 border border-white/20 focus:border-cyan-400 rounded-xl text-xs text-white placeholder-slate-400 focus:outline-none"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <p className="text-[11px] text-slate-400 mt-1">

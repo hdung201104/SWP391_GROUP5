@@ -22,6 +22,7 @@ public interface AdminService {
     List<PaymentOrderResponse> getAllOrders();
     PaymentOrderResponse approveOrder(Long orderId, String adminNote);
     PaymentOrderResponse rejectOrder(Long orderId, String adminNote);
+    java.util.Map<String, Object> refundOrder(Long orderId);
     
     List<SubscriptionPlan> getAllPlans();
     SubscriptionPlan savePlan(SubscriptionPlan plan);
@@ -30,13 +31,16 @@ public interface AdminService {
     void deletePlan(Long planId);
     SubscriptionPlan togglePlanStatus(Long planId);
     AdminUserResponse assignUserTier(Long userId, Long planId, Integer durationDays);
+    AdminUserResponse assignUserTier(Long userId, Long planId, Integer durationDays, Integer customQuota);
     
     List<JobResponse> getAllJobs();
     JobResponse updateJobApproval(Long jobId, JobApprovalStatus status);
+    JobResponse updateJobApproval(Long jobId, JobApprovalStatus status, String reason);
 
     List<com.hiremate.entity.Voucher> getAllVouchers();
     com.hiremate.entity.Voucher toggleVoucher(Long voucherId);
     com.hiremate.entity.Voucher saveVoucher(com.hiremate.entity.Voucher voucher);
+    void deleteVoucher(Long voucherId);
 
     List<InterviewSummaryResponse> getAllInterviewSessions();
     InterviewSummaryResponse getInterviewSessionDetail(Long sessionId);

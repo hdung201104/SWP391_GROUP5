@@ -8,6 +8,7 @@ import CompanyCard from '../components/jobs/CompanyCard';
 import CompanyProfileModal from '../components/jobs/CompanyProfileModal';
 import { jobApi, skillApi, companyApi } from '../api';
 import { useLivingTheme } from '../context/LivingThemeContext';
+import { StaggerContainer, StaggerItem, GlassCard, GlassPanel, BlurReveal, CinematicTitle } from '../components/motion/MotionSystem';
 
 export default function HomePage({ user }) {
   const { theme: livingTheme, luminosity } = useLivingTheme();
@@ -17,8 +18,28 @@ export default function HomePage({ user }) {
   const [availableSkills, setAvailableSkills] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Main View Switcher: 'companies' (Cô giáo yêu cầu) vs 'jobs'
-  const [activeTab, setActiveTab] = useState('companies');
+  // Main View Switcher: 'jobs' (Bảng tin việc làm mặc định) vs 'companies'
+  const [activeTab, setActiveTab] = useState(() => {
+    const hash = window.location.hash || '';
+    if (hash.includes('tab=companies') || hash.includes('view=companies')) {
+      return 'companies';
+    }
+    return 'jobs';
+  });
+
+  useEffect(() => {
+    const checkHashTab = () => {
+      const hash = window.location.hash || '';
+      if (hash.includes('tab=companies') || hash.includes('view=companies')) {
+        setActiveTab('companies');
+      } else {
+        setActiveTab('jobs');
+      }
+    };
+    checkHashTab();
+    window.addEventListener('hashchange', checkHashTab);
+    return () => window.removeEventListener('hashchange', checkHashTab);
+  }, []);
 
   // Selected company when user clicks a company card to view its full recruitment page
   const [activeCompanyShowcase, setActiveCompanyShowcase] = useState(null);
@@ -71,6 +92,7 @@ export default function HomePage({ user }) {
   const [selectedJob, setSelectedJob] = useState(null);
   const [applyingJob, setApplyingJob] = useState(null);
   const [isRematching, setIsRematching] = useState(false);
+  const [hoveredJobId, setHoveredJobId] = useState(null);
 
   const isRecruiter = user?.role === 'RECRUITER';
   const isCandidate = user?.role === 'CANDIDATE' || user?.role === 'ROLE_CANDIDATE';
@@ -123,11 +145,67 @@ export default function HomePage({ user }) {
 
       if (approvedJobsOnly.length > 0) {
         const mapped = approvedJobsOnly.map((j) => {
-          const skillsArray = Array.isArray(j.skills) && j.skills.length > 0
-            ? j.skills
-            : Array.isArray(j.requirements) && j.requirements.length > 0
-            ? j.requirements
-            : ['Kỹ năng'];
+          // Bóc tách kỹ năng sạch sẽ: Không bao giờ lấy nguyên câu văn dài từ requirements
+          let skillsArray = [];
+          if (Array.isArray(j.skills) && j.skills.length > 0) {
+            skillsArray = j.skills.filter(s => typeof s === 'string' && s.trim());
+          }
+
+          if (skillsArray.length === 0) {
+            // 1. Quét đối chiếu từ điển kỹ năng chuẩn (dbSkills) trong tiêu đề và yêu cầu công việc
+            const foundSkills = new Set();
+            const searchSource = `${j.title || ''} ${Array.isArray(j.requirements) ? j.requirements.join(' ') : (j.requirements || '')} ${j.description || ''}`.toLowerCase();
+
+            if (Array.isArray(dbSkills) && dbSkills.length > 0) {
+              for (const s of dbSkills) {
+                const sName = s.skillName || s.name;
+                if (!sName || sName.length > 25) continue;
+                const lowerName = sName.toLowerCase();
+                try {
+                  const regex = new RegExp(`(^|[^a-zA-Z0-9+#.])${lowerName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=[^a-zA-Z0-9+#.]|$)`, 'i');
+                  if (regex.test(searchSource)) {
+                    foundSkills.add(sName);
+                    if (foundSkills.size >= 4) break;
+                  }
+                } catch {
+                  if (searchSource.includes(lowerName)) {
+                    foundSkills.add(sName);
+                    if (foundSkills.size >= 4) break;
+                  }
+                }
+              }
+            }
+
+            if (foundSkills.size > 0) {
+              skillsArray = Array.from(foundSkills);
+            } else if (Array.isArray(j.requirements) && j.requirements.length > 0) {
+              // 2. Lọc câu cực ngắn (<= 25 ký tự) không chứa từ chung chung
+              const blacklist = ['tốt nghiệp', 'đại học', 'cao đẳng', 'kinh nghiệm', 'lương', 'thưởng', 'phúc lợi', 'bảo hiểm', 'laptop', 'năm', 'chế độ'];
+              const shortItems = j.requirements
+                .filter(r => typeof r === 'string' && r.trim().length <= 25 && !blacklist.some(b => r.toLowerCase().includes(b)))
+                .map(r => r.trim());
+              if (shortItems.length > 0) {
+                skillsArray = shortItems.slice(0, 3);
+              }
+            }
+
+            // 3. Nếu vẫn rỗng, suy luận theo chức danh nghề nghiệp
+            if (skillsArray.length === 0) {
+              const t = (j.title || '').toLowerCase();
+              if (t.includes('frontend') || t.includes('front-end') || t.includes('react')) skillsArray = ['React', 'JavaScript', 'HTML/CSS'];
+              else if (t.includes('backend') || t.includes('back-end') || t.includes('java')) skillsArray = ['Java', 'Spring Boot', 'SQL'];
+              else if (t.includes('fullstack') || t.includes('full-stack')) skillsArray = ['React', 'Node.js', 'SQL'];
+              else if (t.includes('mobile') || t.includes('flutter')) skillsArray = ['Flutter', 'Mobile Dev', 'Dart'];
+              else if (t.includes('devops') || t.includes('cloud')) skillsArray = ['Docker', 'CI/CD', 'Cloud'];
+              else if (t.includes('data') || t.includes('ai') || t.includes('python')) skillsArray = ['Python', 'SQL', 'Data Analytics'];
+              else if (t.includes('marketing') || t.includes('sales')) skillsArray = ['Digital Marketing', 'SEO', 'Communication'];
+              else if (t.includes('kế toán') || t.includes('accounting')) skillsArray = ['Kế toán thuế', 'Excel', 'Tài chính'];
+              else if (t.includes('nhân sự') || t.includes('hr')) skillsArray = ['Tuyển dụng', 'HR Admin', 'Giao tiếp'];
+              else if (t.includes('designer') || t.includes('ui/ux')) skillsArray = ['Figma', 'UI/UX Design', 'Creativity'];
+              else if (t.includes('ba') || t.includes('business analyst')) skillsArray = ['Business Analysis', 'Agile/Scrum', 'User Stories'];
+              else skillsArray = ['Chuyên môn'];
+            }
+          }
 
           const matchScore = j.matchingScore != null ? Math.round(j.matchingScore) : null;
           const aiReasoning = j.aiReasoning || '';
@@ -327,29 +405,10 @@ export default function HomePage({ user }) {
       return;
     }
 
-    if (activeTab === 'companies' && !activeCompanyShowcase) {
-      setCompanySearch(searchTitle);
-      if (selectedLocation !== 'All Locations') {
-        let locName = selectedLocation;
-        if (locName.includes('Ho Chi Minh')) locName = 'TP. Hồ Chí Minh';
-        else if (locName.includes('Hanoi')) locName = 'Hà Nội';
-        else if (locName.includes('Da Nang')) locName = 'Đà Nẵng';
-        else if (locName.includes('Remote')) locName = 'Remote';
-        setCompanyFilters(prev => ({
-          ...prev,
-          selectedLocations: [locName],
-        }));
-      } else {
-        setCompanyFilters(prev => ({
-          ...prev,
-          selectedLocations: [],
-        }));
-      }
-      setCompanyPage(1);
-    } else {
-      setCurrentPage(1);
-      fetchRealJobs(searchTitle, selectedLocation);
-    }
+    // Đối với Ứng viên / Tìm việc: Tự động chuyển sang tab 'jobs' khi bấm Tìm Kiếm
+    setActiveTab('jobs');
+    setCurrentPage(1);
+    fetchRealJobs(searchTitle, selectedLocation);
   };
 
   // Trending chip click
@@ -549,18 +608,8 @@ export default function HomePage({ user }) {
         return false;
       });
     }
-    // Đối với Ứng viên: Mục Gợi ý AI ưu tiên các công việc ĐÃ ĐƯỢC CHẤM ĐIỂM (aiMatchScore != null && aiMatchScore > 0).
-    // Nếu ứng viên chưa có việc làm nào được chấm điểm (hoặc đang tải gợi ý), hiển thị toàn bộ việc làm đang mở tuyển
-    // để không bị trống giao diện (0 việc làm) và các bộ lọc sidebar không bị về 0.
-    if (isCandidate && activeTab === 'jobs') {
-      const scoredJobs = allJobs.filter(j => j.aiMatchScore != null && j.aiMatchScore > 0);
-      if (scoredJobs.length > 0) {
-        return scoredJobs;
-      }
-      return allJobs;
-    }
     return allJobs;
-  }, [allJobs, activeCompanyShowcase, isCandidate, activeTab]);
+  }, [allJobs, activeCompanyShowcase]);
 
   // Unique branches for the selected company showcase
   const activeCompanyBranches = useMemo(() => {
@@ -710,17 +759,47 @@ export default function HomePage({ user }) {
 
       if (sidebarFilters.selectedSkills && sidebarFilters.selectedSkills.length > 0) {
         const jobSkills = (job.skills || []).map(s => s.toLowerCase());
-        const fullText = `${job.title} ${job.description || ''}`.toLowerCase();
+        const fullText = `${job.title} ${job.description || ''} ${(job.requirements || []).join(' ')}`.toLowerCase();
+
         const matchesAnySkill = sidebarFilters.selectedSkills.some(sk => {
-          const lsk = sk.toLowerCase();
-          return jobSkills.some(s => s.includes(lsk)) || fullText.includes(lsk);
+          const lsk = sk.toLowerCase().trim();
+          const matchTerms = new Set([lsk]);
+
+          // Tìm các từ đồng nghĩa (aliases) trong availableSkills
+          const meta = (availableSkills || []).find(m => 
+            (m.name && m.name.toLowerCase() === lsk) ||
+            (m.skillName && m.skillName.toLowerCase() === lsk)
+          );
+          if (meta?.aliases) {
+            meta.aliases.split(/[,;]+/).forEach(a => {
+              const cleanA = a.trim().toLowerCase();
+              if (cleanA) matchTerms.add(cleanA);
+            });
+          }
+
+          // Kiểm tra nếu sk là alias của một skill nào đó
+          (availableSkills || []).forEach(m => {
+            if (m?.aliases) {
+              const aliasArr = m.aliases.toLowerCase().split(/[,;]+/).map(a => a.trim());
+              if (aliasArr.includes(lsk)) {
+                if (m.name) matchTerms.add(m.name.toLowerCase());
+                if (m.skillName) matchTerms.add(m.skillName.toLowerCase());
+              }
+            }
+          });
+
+          // Khớp cả theo mảng jobSkills lẫn chuỗi fullText
+          return Array.from(matchTerms).some(term => {
+            return jobSkills.some(js => js === term || js.includes(term) || term.includes(js)) ||
+                   fullText.includes(term);
+          });
         });
         if (!matchesAnySkill) return false;
       }
 
       return true;
     });
-  }, [sourceJobsPool, activeCompanyShowcase, companyBranchFilter, searchTitle, selectedLocation, selectedSalary, sidebarFilters]);
+  }, [sourceJobsPool, activeCompanyShowcase, companyBranchFilter, searchTitle, selectedLocation, selectedSalary, sidebarFilters, availableSkills]);
 
   const sortedJobs = useMemo(() => {
     let list = [...filteredJobs];
@@ -746,13 +825,8 @@ export default function HomePage({ user }) {
       list.sort((a, b) => (b.vacanciesCount || 1) - (a.vacanciesCount || 1));
     }
 
-    // Nếu là Ứng viên xem Gợi ý AI: Giới hạn chuẩn đúng TOP 10 công việc xếp hạng cao nhất
-    if (isCandidate && !activeCompanyShowcase) {
-      list = list.slice(0, 10);
-    }
-
     return list;
-  }, [filteredJobs, sortOption, isCandidate, activeCompanyShowcase]);
+  }, [filteredJobs, sortOption]);
 
   const totalPages = Math.max(1, Math.ceil(sortedJobs.length / pageSize));
   const paginatedJobs = useMemo(() => {
@@ -886,7 +960,11 @@ export default function HomePage({ user }) {
                 <select 
                   value={selectedSalary}
                   onChange={(e) => {
-                    setSelectedSalary(e.target.value);
+                    const val = e.target.value;
+                    setSelectedSalary(val);
+                    if (activeTab !== 'jobs') {
+                      setActiveTab('jobs');
+                    }
                     setCurrentPage(1);
                   }}
                   className="w-full bg-transparent text-xs sm:text-sm text-[#1e1b4b] focus:outline-none font-sans font-medium cursor-pointer"
@@ -966,41 +1044,54 @@ export default function HomePage({ user }) {
       <section className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 pb-6">
         <div className="bg-white rounded-3xl p-2.5 sm:p-3 border border-purple-100 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
           {/* Main Tab Switcher */}
-          {isRecruiter ? (
+          {activeCompanyShowcase ? (
             <div className="flex items-center gap-3 w-full sm:w-auto flex-wrap">
-              {activeCompanyShowcase ? (
-                <>
-                  <button
-                    onClick={() => {
-                      setActiveCompanyShowcase(null);
-                      setCompanyBranchFilter('All');
-                      setCurrentPage(1);
-                    }}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#f4f2fd] hover:bg-purple-100 text-[#5b48bd] font-extrabold text-xs sm:text-sm border border-purple-200 transition-all cursor-pointer shadow-xs hover:scale-105"
-                  >
-                    <span className="material-symbols-outlined text-base">arrow_back</span>
-                    <span>Quay Lại Danh Sách Doanh Nghiệp</span>
-                  </button>
-                  <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#5b48bd] text-white font-bold text-xs sm:text-sm shadow-md">
-                    <span className="material-symbols-outlined text-base">business</span>
-                    <span>Bài đăng tuyển dụng: {activeCompanyShowcase.companyName}</span>
-                    <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-white/20 text-white">
-                      {sourceJobsPool.length}
-                    </span>
-                  </div>
-                </>
-              ) : (
-                <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-[#5b48bd] text-white font-extrabold text-xs sm:text-sm shadow-md">
-                  <span className="material-symbols-outlined text-base sm:text-lg">apartment</span>
-                  <span>Mạng Lưới Doanh Nghiệp Đối Tác</span>
-                  <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-white/20 text-white">
-                    {companies.length}
-                  </span>
-                </div>
-              )}
+              <button
+                onClick={() => {
+                  setActiveCompanyShowcase(null);
+                  setCompanyBranchFilter('All');
+                  setCurrentPage(1);
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#f4f2fd] hover:bg-purple-100 text-[#5b48bd] font-extrabold text-xs sm:text-sm border border-purple-200 transition-all cursor-pointer shadow-xs hover:scale-105"
+              >
+                <span className="material-symbols-outlined text-base">arrow_back</span>
+                <span>Quay Lại Danh Sách Doanh Nghiệp</span>
+              </button>
+              <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#5b48bd] text-white font-bold text-xs sm:text-sm shadow-md">
+                <span className="material-symbols-outlined text-base">business</span>
+                <span>Bài đăng tuyển dụng: {activeCompanyShowcase.companyName}</span>
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-white/20 text-white">
+                  {sourceJobsPool.length}
+                </span>
+              </div>
             </div>
           ) : (
             <div className="flex items-center p-1 bg-[#f4f2fd] rounded-2xl w-full sm:w-auto border border-purple-100">
+              <button
+                onClick={() => {
+                  setActiveTab('jobs');
+                  setActiveCompanyShowcase(null);
+                  setCurrentPage(1);
+                }}
+                className={`flex-1 sm:flex-none px-5 py-2.5 rounded-xl font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                  activeTab === 'jobs'
+                    ? 'bg-[#5b48bd] text-white shadow-md'
+                    : 'text-slate-600 hover:text-[#5b48bd] hover:bg-white/60'
+                }`}
+              >
+                <span className="material-symbols-outlined text-base sm:text-lg">work</span>
+                <span>
+                  {isCandidate
+                    ? 'Việc Làm Đang Tuyển & Gợi Ý AI'
+                    : 'Bảng Tin Việc Làm'}
+                </span>
+                <span className={`px-2 py-0.5 rounded-full text-[11px] font-black ${
+                  activeTab === 'jobs' ? 'bg-white/20 text-white' : 'bg-purple-100 text-[#5b48bd]'
+                }`}>
+                  {filteredJobs.length}
+                </span>
+              </button>
+
               <button
                 onClick={() => {
                   setActiveTab('companies');
@@ -1019,49 +1110,12 @@ export default function HomePage({ user }) {
                   {companies.length}
                 </span>
               </button>
-
-              <button
-                onClick={() => {
-                  setActiveTab('jobs');
-                  setActiveCompanyShowcase(null);
-                  setCurrentPage(1);
-                }}
-                className={`flex-1 sm:flex-none px-5 py-2.5 rounded-xl font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                  activeTab === 'jobs'
-                    ? 'bg-[#5b48bd] text-white shadow-md'
-                    : 'text-slate-600 hover:text-[#5b48bd] hover:bg-white/60'
-                }`}
-              >
-                <span className="material-symbols-outlined text-base sm:text-lg">work</span>
-                <span>
-                  {isCandidate
-                    ? 'Top 10 Việc Làm Gợi Ý AI'
-                    : 'Khám Phá Việc Làm'}
-                </span>
-                <span className={`px-2 py-0.5 rounded-full text-[11px] font-black ${
-                  activeTab === 'jobs' ? 'bg-white/20 text-white' : 'bg-purple-100 text-[#5b48bd]'
-                }`}>
-                  {sourceJobsPool.length > 10 ? 'Top 10' : sourceJobsPool.length}
-                </span>
-              </button>
             </div>
           )}
 
           {/* Quick Context Note */}
           <div className="text-xs text-slate-500 font-medium hidden md:flex items-center gap-1.5">
-            {isRecruiter ? (
-              activeCompanyShowcase ? (
-                <span className="flex items-center gap-1 text-[#5b48bd] font-bold">
-                  <span className="material-symbols-outlined text-sm">verified</span>
-                  <span>Đang xem các vị trí tuyển dụng công khai của {activeCompanyShowcase.companyName}</span>
-                </span>
-              ) : (
-                <span className="flex items-center gap-1 text-[#5b48bd] font-bold">
-                  <span className="material-symbols-outlined text-sm">touch_app</span>
-                  <span>Bấm vào từng doanh nghiệp để xem thông tin chi tiết và danh sách bài đăng tuyển dụng</span>
-                </span>
-              )
-            ) : activeTab === 'companies' && activeCompanyShowcase ? (
+            {activeCompanyShowcase ? (
               <span className="flex items-center gap-1 text-[#5b48bd] font-bold">
                 <span className="material-symbols-outlined text-sm">business</span>
                 <span>Đang xem danh sách bài tuyển dụng của {activeCompanyShowcase.companyName}</span>
@@ -1079,7 +1133,7 @@ export default function HomePage({ user }) {
             ) : (
               <>
                 <span className="material-symbols-outlined text-sm text-purple-600">lightbulb</span>
-                <span>Đăng nhập tài khoản Ứng viên để AI so khớp CV cá nhân với từng công việc</span>
+                <span>Khám phá các vị trí tuyển dụng công khai từ các đối tác công nghệ hàng đầu</span>
               </>
             )}
           </div>
@@ -1089,7 +1143,7 @@ export default function HomePage({ user }) {
       {/* ========================================================= */}
       {/* 4. MAIN CONTENT AREA: TAB 1 (COMPANIES DIRECTORY)         */}
       {/* ========================================================= */}
-      {(isRecruiter ? !activeCompanyShowcase : (activeTab === 'companies' && !activeCompanyShowcase)) && (
+      {(activeTab === 'companies' && !activeCompanyShowcase) && (
         <main className="w-full flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
           {/* THE EXACT 2-COLUMN VIEW AS IMAGE 3 (SIDEBAR + CONTENT) */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -1202,27 +1256,33 @@ export default function HomePage({ user }) {
                   </button>
                 </div>
               ) : (
-                <div className={companyViewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 gap-4" : "flex flex-col gap-4"}>
+                <StaggerContainer
+                  key={`company-grid-${companyPage}-${companyViewMode}`}
+                  stagger={0.06}
+                  delay={0.04}
+                  className={companyViewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch" : "flex flex-col gap-4"}
+                >
                   {paginatedCompanies.map((comp) => (
-                    <CompanyCard
-                      key={comp.companyId}
-                      company={comp}
-                      user={user}
-                      onSelectCompany={(c) => {
-                        setActiveCompanyShowcase(c);
-                        setCompanyBranchFilter('All');
-                        setCurrentPage(1);
-                        window.scrollTo({ top: 380, behavior: 'smooth' });
-                      }}
-                      onViewProfile={(c) => {
-                        setSelectedCompanyProfile(c);
-                      }}
-                      onEditCompany={(c) => {
-                        window.location.hash = '#/company-profile';
-                      }}
-                    />
+                    <StaggerItem key={comp.companyId} className="h-full">
+                      <CompanyCard
+                        company={comp}
+                        user={user}
+                        onSelectCompany={(c) => {
+                          setActiveCompanyShowcase(c);
+                          setCompanyBranchFilter('All');
+                          setCurrentPage(1);
+                          window.scrollTo({ top: 380, behavior: 'smooth' });
+                        }}
+                        onViewProfile={(c) => {
+                          setSelectedCompanyProfile(c);
+                        }}
+                        onEditCompany={(c) => {
+                          window.location.hash = '#/company-profile';
+                        }}
+                      />
+                    </StaggerItem>
                   ))}
-                </div>
+                </StaggerContainer>
               )}
 
               {/* Pagination for Companies if many */}
@@ -1284,7 +1344,7 @@ export default function HomePage({ user }) {
       {/* ========================================================= */}
       {/* 5. FULL 2-COLUMN VIEW (FOR ALL JOBS OR COMPANY SHOWCASE)   */}
       {/* ========================================================= */}
-      {((!isRecruiter && activeTab === 'jobs') || activeCompanyShowcase) && (
+      {(activeTab === 'jobs' || activeCompanyShowcase) && (
         <main className="w-full flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
           {/* ===================================================== */}
           {/* IF INSIDE COMPANY SHOWCASE: DEDICATED COMPANY BANNER  */}
@@ -1599,32 +1659,50 @@ export default function HomePage({ user }) {
               )}
 
               {/* Grid / List of Job Cards */}
-              <div className={`grid gap-6 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
-                {paginatedJobs.map((job) => (
-                  <JobCard 
-                    key={job.jobId} 
-                    job={job}
-                    user={user}
-                    onSelectJob={(j) => {
-                      window.location.hash = `#/jobs/${j.jobId || j.id || 101}`;
-                    }}
-                    onApplyJob={(j) => {
-                      if (!user) {
-                        window.location.hash = '#/login';
-                        return;
-                      }
-                      setApplyingJob(j);
-                    }}
-                    onPracticeInterview={(j) => {
-                      if (!user) {
-                        window.location.hash = '#/login';
-                        return;
-                      }
-                      window.location.hash = `#/ai-interview?jobId=${j.jobId || 101}`;
-                    }}
-                  />
-                ))}
-              </div>
+              <StaggerContainer
+                key={`jobs-grid-${currentPage}-${viewMode}`}
+                stagger={0.06}
+                delay={0.04}
+                className={`grid gap-6 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}
+              >
+                {paginatedJobs.map((job) => {
+                  const targetJobId = job.jobId || job.id;
+                  const isHovered = hoveredJobId === targetJobId;
+                  return (
+                    <StaggerItem 
+                      key={targetJobId}
+                      className={`transition-[z-index] ${
+                        isHovered ? 'relative z-50' : 'relative z-10 hover:z-40 focus-within:z-40'
+                      }`}
+                    >
+                      <JobCard 
+                        job={job}
+                        user={user}
+                        onHoverChange={(hovered) => {
+                          setHoveredJobId(hovered ? targetJobId : null);
+                        }}
+                        onSelectJob={(j) => {
+                          window.location.hash = `#/jobs/${j.jobId || j.id || 101}`;
+                        }}
+                        onApplyJob={(j) => {
+                          if (!user) {
+                            window.location.hash = '#/login';
+                            return;
+                          }
+                          setApplyingJob(j);
+                        }}
+                        onPracticeInterview={(j) => {
+                          if (!user) {
+                            window.location.hash = '#/login';
+                            return;
+                          }
+                          window.location.hash = `#/ai-interview?jobId=${j.jobId || 101}`;
+                        }}
+                      />
+                    </StaggerItem>
+                  );
+                })}
+              </StaggerContainer>
 
               {/* Pagination for Jobs */}
               {sortedJobs.length > 0 && (
@@ -1702,6 +1780,7 @@ export default function HomePage({ user }) {
           user={user}
           onClose={() => setApplyingJob(null)}
           onSuccess={() => {
+            sessionStorage.removeItem('hiremate_cached_applications');
             alert('Nộp hồ sơ ứng tuyển thành công!');
           }}
         />

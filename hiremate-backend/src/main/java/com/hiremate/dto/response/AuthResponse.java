@@ -31,6 +31,11 @@ public class AuthResponse {
     private String githubUrl;
     @Builder.Default
     private Boolean isNewUser = false;
+    private String position;
+    private String department;
+    private String branchName;
+    private Boolean isHeadRecruiter;
+    private String taxCode;
 
     public static AuthResponse of(
             String token,

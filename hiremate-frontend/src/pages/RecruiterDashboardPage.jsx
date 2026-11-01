@@ -2,11 +2,13 @@ import React, { useState, useEffect, useMemo } from 'react';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import RecruiterProfilePage from './RecruiterProfilePage';
 import RecruiterJobManagementPage from './RecruiterJobManagementPage';
-import { jobApi, applicationApi, aiMatchApi, companyApi } from '../api';
+import { jobApi, applicationApi, aiMatchApi, companyApi, interviewApi } from '../api';
 import { parseSkillList } from '../utils/helpers';
 import { calculateJobDeadline } from '../utils/jobTimeUtils';
-import { exportRecruiterReportToExcel } from '../utils/excelExportUtils';
+import { exportRecruiterReportToExcel, exportRecruiterReportToCsv } from '../utils/excelExportUtils';
 import paymentApi from '../api/paymentApi';
+import { parseSubscriptionPermissions } from '../utils/subscriptionPerms';
+import AnimatedNumber from '../components/dashboard/AnimatedNumber';
 
 export default function RecruiterDashboardPage({ user, currentRoute }) {
   // Parse tab from currentRoute
@@ -28,6 +30,8 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
   const [jobs, setJobs] = useState([]);
   const [candidates, setCandidates] = useState([]);
   const [allCompanyApplications, setAllCompanyApplications] = useState([]);
+  const [upcomingInterviews, setUpcomingInterviews] = useState([]);
+  const [pendingJoinRequests, setPendingJoinRequests] = useState([]);
   const [selectedJobId, setSelectedJobId] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [notification, setNotification] = useState('');
@@ -62,12 +66,8 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
   }, []);
 
   const isAdmin = user?.role === 'ADMIN';
-  const planPrice = Number(recruiterSubscription?.price || 0);
-  const planName = recruiterSubscription?.planName || 'Free Recruiter';
-  const quotaLimit = Number(recruiterSubscription?.quotaLimit || 0);
-  const isPaidRecruiter = recruiterSubscription && recruiterSubscription.active && planPrice > 0;
-  // Hiring Starter (199k) trở lên mở khóa: Xuất Báo Cáo Tuyển Dụng Excel / PDF
-  const isStarterOrHigher = isAdmin || (isPaidRecruiter && (planPrice >= 199000 || quotaLimit >= 10 || planName.toLowerCase().includes('starter') || planName.toLowerCase().includes('pro') || planName.toLowerCase().includes('elite')));
+  const subscriptionPerms = parseSubscriptionPermissions(recruiterSubscription, 'RECRUITER');
+  const isStarterOrHigher = isAdmin || Boolean(subscriptionPerms.exportReport);
 
   const handleTriggerExportModal = () => {
     if (!isStarterOrHigher) {
@@ -79,6 +79,8 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
   };
 
   // Company Profile state from DB
+  const [companyStatus, setCompanyStatus] = useState('PENDING');
+  const [showUnverifiedWarningModal, setShowUnverifiedWarningModal] = useState(false);
   const [companyProfile, setCompanyProfile] = useState({
     name: user?.companyName || 'Doanh Nghiệp Tuyển Dụng',
     tagline: 'Leading Global IT Services & Digital Transformation Partner',
@@ -112,6 +114,8 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
 
       if (compRes.status === 'fulfilled' && compRes.value?.data) {
         const c = compRes.value.data;
+        const st = (c.status === 'VERIFIED' || c.status === 'ACTIVE' || c.status === 'APPROVED') ? 'VERIFIED' : (c.status || 'PENDING');
+        setCompanyStatus(st);
         setCompanyProfile({
           name: c.companyName || user?.companyName || 'Doanh Nghiệp Tuyển Dụng',
           tagline: c.description || 'Đối Tác Tuyển Dụng Chuyển Đổi Số AI',
@@ -119,6 +123,7 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
           website: c.website || 'https://hiremate.ai',
           headquarters: c.address || 'Việt Nam',
           size: c.companySize || '100 - 500 nhân sự',
+          logoUrl: c.logoUrl || c.logo || user?.companyLogo || user?.avatar || '',
         });
       }
 
@@ -140,11 +145,27 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
           cvUrl: app.cvUrl || '#',
         }));
 
+        const formatSalaryText = (min, max) => {
+          if (!min && !max) return 'Thỏa thuận';
+          if ((min && min >= 1000000) || (max && max >= 1000000)) {
+            const minM = min ? `${(min / 1000000).toLocaleString('vi-VN')} Tr` : '';
+            const maxM = max ? `${(max / 1000000).toLocaleString('vi-VN')} Tr` : '';
+            if (minM && maxM) return `${minM} - ${maxM} VNĐ/tháng`;
+            return minM ? `Từ ${minM} VNĐ/tháng` : `Tới ${maxM} VNĐ/tháng`;
+          }
+          if (min || max) {
+            if (min && max) return `$${min.toLocaleString()} - $${max.toLocaleString()}/tháng`;
+            return min ? `Từ $${min.toLocaleString()}/tháng` : `Tới $${max.toLocaleString()}/tháng`;
+          }
+          return 'Thỏa thuận';
+        };
+
         const mappedJobs = rawJobs.map((j) => {
           const apps = allBackendApps.filter((a) => a.jobId === j.jobId);
           const applicantCount = apps.length;
           const interviewCount = apps.filter((a) => a.status === 'INTERVIEWING').length;
           const offerCount = apps.filter((a) => a.status === 'OFFERED').length;
+          const hiredCount = apps.filter((a) => a.status === 'HIRED').length;
           const totalScore = apps.reduce((sum, a) => sum + (a.matchingScore || 0), 0);
           const avgScore = applicantCount > 0 ? Math.round(totalScore / applicantCount) : 0;
 
@@ -153,25 +174,32 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
             title: j.title || 'Vị trí Tuyển Dụng',
             department: j.company?.industry || j.companyName || 'Engineering',
             location: j.location || 'Việt Nam',
-              salaryText: j.salaryMin && j.salaryMax ? `$${j.salaryMin} - $${j.salaryMax}/tháng` : 'Thỏa thuận',
-              status: j.status || 'PUBLISHED',
-              targetHires: j.vacanciesCount || 2,
-              hiredCount: offerCount,
-              totalViews: 120 + (j.jobId * 7) % 300,
-              totalApplicants: applicantCount,
-              avgMatch: avgScore,
-              interviewCount: interviewCount,
-              offerCount: offerCount,
-              postedDate: j.createdAt ? new Date(j.createdAt).toLocaleDateString('vi-VN') : 'Gần đây',
-              deadlineDate: j.deadlineDate || null,
-              mandatorySkills: Array.isArray(j.mandatorySkills) && j.mandatorySkills.length > 0
-                ? j.mandatorySkills
-                : parseSkillList(j.requirements, ['Kỹ năng chuyên môn']),
-              preferredSkills: Array.isArray(j.preferredSkills) && j.preferredSkills.length > 0
-                ? j.preferredSkills
-                : parseSkillList(j.benefits, ['Đãi ngộ tốt']),
-            };
-          });
+            salaryText: formatSalaryText(j.salaryMin, j.salaryMax),
+            salaryMin: j.salaryMin,
+            salaryMax: j.salaryMax,
+            description: j.description || '',
+            requirements: j.requirements || '',
+            benefits: j.benefits || '',
+            employmentType: j.employmentType || 'FULL_TIME',
+            status: j.status || 'PUBLISHED',
+            targetHires: j.vacanciesCount || 2,
+            vacanciesCount: j.vacanciesCount || 2,
+            hiredCount: hiredCount,
+            totalViews: j.totalViews ?? 0,
+            totalApplicants: applicantCount,
+            avgMatch: avgScore,
+            interviewCount: interviewCount,
+            offerCount: offerCount,
+            postedDate: j.createdAt ? new Date(j.createdAt).toLocaleDateString('vi-VN') : 'Gần đây',
+            deadlineDate: j.deadlineDate || null,
+            mandatorySkills: Array.isArray(j.mandatorySkills) && j.mandatorySkills.length > 0
+              ? j.mandatorySkills
+              : parseSkillList(j.requirements, ['Kỹ năng chuyên môn']),
+            preferredSkills: Array.isArray(j.preferredSkills) && j.preferredSkills.length > 0
+              ? j.preferredSkills
+              : parseSkillList(j.benefits, ['Đãi ngộ tốt']),
+          };
+        });
         setJobs(mappedJobs);
         setAllCompanyApplications(allAppsCollected);
         if (mappedJobs.length > 0 && !selectedJobId) {
@@ -215,12 +243,15 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
             email: app.candidateEmail || 'ungvien@email.com',
             appliedJobId: selectedJobId,
             aiMatchScore: app.matchingScore || m?.matchingScore || 0,
-            stage: app.status === 'APPLIED' ? 'APPLIED'
+            stage: (app.withdrawnByCandidate || app.status === 'WITHDRAWN') ? 'WITHDRAWN'
+              : app.status === 'APPLIED' ? 'APPLIED'
               : app.status === 'SCREENING' ? 'REVIEWING'
               : app.status === 'INTERVIEWING' ? 'INTERVIEW'
               : app.status === 'OFFERED' ? 'OFFERED'
+              : app.status === 'HIRED' ? 'HIRED'
               : app.status === 'REJECTED' ? 'REJECTED'
               : 'APPLIED',
+            withdrawnByCandidate: Boolean(app.withdrawnByCandidate || app.status === 'WITHDRAWN'),
             appliedDate: app.createdAt ? new Date(app.createdAt).toLocaleDateString('vi-VN') : 'Vừa xong',
             cvId: app.cvId,
             cvUrl: app.cvUrl || '#',
@@ -238,10 +269,116 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
     fetchCandidatesForJob();
   }, [selectedJobId]);
 
+  // Load real upcoming interviews from interviewApi
+  useEffect(() => {
+    const interviewApps = allCompanyApplications.filter(a => a.status === 'INTERVIEWING' || a.stage === 'INTERVIEW');
+    if (interviewApps.length === 0) {
+      setUpcomingInterviews([]);
+      return;
+    }
+
+    let isMounted = true;
+    Promise.all(
+      interviewApps.slice(0, 10).map(async (app) => {
+        let interviewData = null;
+        try {
+          if (app.candidateId) {
+            const res = await interviewApi.getLatestCandidateInterview(app.candidateId, app.jobId);
+            interviewData = res?.data?.data || res?.data;
+          }
+          if (!interviewData && app.applicationId) {
+            const res = await interviewApi.getByApplication(app.applicationId);
+            interviewData = res?.data?.data || res?.data;
+          }
+        } catch {}
+
+        const noteStr = app.evaluationNotes || app.notes || '';
+        const linkMatch = noteStr.match(/https?:\/\/[^\s]+/i);
+        const meetLink = linkMatch ? linkMatch[0] : (interviewData?.meetLink || 'https://meet.google.com/hm-eval-session');
+        const dateMatch = noteStr.match(/(?:ngày\s+)?([0-9]{4}-[0-9]{2}-[0-9]{2}|[0-9]{1,2}[\/-][0-9]{1,2}[\/-][0-9]{2,4})/i);
+        const timeMatch = noteStr.match(/lúc\s+([0-9:]+)/i);
+        const scheduleTime = dateMatch && timeMatch ? `${timeMatch[1]} ngày ${dateMatch[1]}` : (interviewData?.scheduledAt ? new Date(interviewData.scheduledAt).toLocaleString('vi-VN') : 'Đã xếp lịch phỏng vấn');
+
+        return {
+          applicationId: app.applicationId,
+          candidateName: app.candidateName || app.fullName || 'Ứng viên',
+          email: app.candidateEmail || app.email || '',
+          jobTitle: app.jobTitle || 'Vị trí Tuyển Dụng',
+          matchScore: Math.round(app.matchingScore || app.aiMatchScore || 0),
+          meetLink: meetLink,
+          scheduleTime: scheduleTime,
+          status: interviewData?.status || 'SCHEDULED',
+        };
+      })
+    ).then((results) => {
+      if (isMounted) setUpcomingInterviews(results);
+    });
+
+    return () => { isMounted = false; };
+  }, [allCompanyApplications]);
+
+  // Load pending join requests for HR team
+  // Load pending join requests for HR team from Database API
+  useEffect(() => {
+    let isMounted = true;
+    const fetchPendingRequests = async () => {
+      try {
+        if (companyApi?.getPendingJoinRequests) {
+          const res = await companyApi.getPendingJoinRequests();
+          const list = res?.data || res || [];
+          if (isMounted) setPendingJoinRequests(Array.isArray(list) ? list : []);
+        }
+      } catch (err) {
+        console.warn('Không thể nạp danh sách yêu cầu gia nhập từ server:', err?.message);
+        if (isMounted) setPendingJoinRequests([]);
+      }
+    };
+    fetchPendingRequests();
+    return () => { isMounted = false; };
+  }, [user]);
+
+  const handleApproveJoinRequest = async (reqId, reqEmail) => {
+    const targetIdentifier = reqEmail || reqId;
+    try {
+      if (companyApi?.approveJoinRequest && targetIdentifier) {
+        await companyApi.approveJoinRequest(targetIdentifier);
+      }
+      setPendingJoinRequests(prev => prev.filter(r => r.id !== reqId && r.email !== reqEmail));
+      setNotification('🎉 Đã phê duyệt yêu cầu gia nhập công ty thành công và lưu vào cơ sở dữ liệu PostgreSQL!');
+    } catch (apiErr) {
+      setNotification('Lỗi phê duyệt yêu cầu: ' + (apiErr?.response?.data?.message || apiErr?.message));
+    }
+  };
+
+  const handleRejectJoinRequest = async (reqId, reqEmail) => {
+    const targetIdentifier = reqEmail || reqId;
+    try {
+      if (companyApi?.rejectJoinRequest && targetIdentifier) {
+        await companyApi.rejectJoinRequest(targetIdentifier);
+      }
+      setPendingJoinRequests(prev => prev.filter(r => r.id !== reqId && r.email !== reqEmail));
+      setNotification('Đã từ chối yêu cầu gia nhập công ty trên cơ sở dữ liệu.');
+    } catch (apiErr) {
+      setNotification('Lỗi từ chối yêu cầu: ' + (apiErr?.response?.data?.message || apiErr?.message));
+    }
+  };
+
+  const activeJobsCount = (jobs || []).filter(j => j.status === 'PUBLISHED' || j.status === 'ACTIVE').length;
+  const maxJobs = isAdmin ? 999 : (recruiterSubscription?.customQuota || subscriptionPerms.jobPostingQuota || 3);
+
   useEffect(() => {
     if (currentRoute?.includes('tab=jobs')) {
       setActiveTab('JOBS');
-      if (currentRoute?.includes('action=new')) setShowCreateModal(true);
+      if (currentRoute?.includes('action=new')) {
+        if (!isAdmin && companyStatus !== 'VERIFIED' && companyStatus !== 'APPROVED' && companyStatus !== 'ACTIVE') {
+          setShowUnverifiedWarningModal(true);
+        } else if (!isAdmin && activeJobsCount >= maxJobs) {
+          setRecruiterUpgradeMessage(`Bạn đã sử dụng hết hạn ngạch đăng tin của gói hiện tại (${activeJobsCount}/${maxJobs} tin). Vui lòng nâng cấp gói hoặc đóng bớt tin cũ để tiếp tục.`);
+          setShowRecruiterUpgradeModal(true);
+        } else {
+          setShowCreateModal(true);
+        }
+      }
     } else if (currentRoute?.includes('tab=pipeline')) {
       setActiveTab('PIPELINE');
     } else if (currentRoute?.includes('tab=company')) {
@@ -249,7 +386,7 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
     } else if (currentRoute?.includes('tab=overview')) {
       setActiveTab('OVERVIEW');
     }
-  }, [currentRoute]);
+  }, [currentRoute, companyStatus, isAdmin]);
 
   const handleRefreshReport = () => {
     setIsRefreshing(true);
@@ -271,6 +408,24 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
       setTimeout(() => {
         window.print();
       }, 300);
+    } else if (exportFormat === 'CSV') {
+      try {
+        exportRecruiterReportToCsv({
+          applications: filteredReportApplications,
+          stats: {
+            totalApplicants: filteredReportApplications.length,
+            avgScore: filteredReportApplications.length > 0
+              ? Math.round(filteredReportApplications.reduce((sum, a) => sum + (a.matchingScore || 0), 0) / filteredReportApplications.length) + '%'
+              : '0%',
+            topGoldCount: filteredReportApplications.filter((a) => (a.matchingScore || 0) >= 85).length,
+            screenedPercent: '100%',
+          },
+          companyName: user?.companyName || user?.company?.companyName || 'Doanh Nghiệp',
+        });
+        setNotification('Đã xuất thành công tệp CSV (.csv) báo cáo tuyển dụng!');
+      } catch (err) {
+        setNotification('Lỗi khi xuất tệp CSV: ' + err.message);
+      }
     } else {
       try {
         exportRecruiterReportToExcel({
@@ -294,6 +449,15 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
 
   const handleCreateJobSubmit = async (e) => {
     e.preventDefault();
+    if (!isAdmin && companyStatus !== 'VERIFIED' && companyStatus !== 'APPROVED' && companyStatus !== 'ACTIVE') {
+      setShowCreateModal(false);
+      setShowUnverifiedWarningModal(true);
+      return;
+    }
+    if (!isAdmin && activeJobsCount >= maxJobs) {
+      setNotification(`⚠️ Bạn đã đạt giới hạn số lượng tin đăng của gói (${activeJobsCount}/${maxJobs}). Vui lòng nâng cấp gói để tiếp tục.`);
+      return;
+    }
     try {
       // 1. Kiểm tra số lượng tuyển dụng: phải >= 1
       const vacancies = Number(newJobForm.vacanciesCount);
@@ -314,23 +478,25 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
       const isTrieu = salaryStr.includes('triệu') || salaryStr.includes('tr');
       const nums = salaryStr.replace(/[^\d.,\-]/g, ' ').split('-').map(s => s.trim()).filter(Boolean);
       
-      let salaryMin = 25000000;
-      let salaryMax = 45000000;
+      let salaryMin = null;
+      let salaryMax = null;
 
-      if (nums[0]) {
-        const val0 = parseFloat(nums[0].replace(/,/g, '').replace(/\.(?=\d{3})/g, ''));
-        if (!isNaN(val0)) salaryMin = isTrieu && val0 < 1000 ? val0 * 1000000 : val0;
-      }
-      if (nums[1]) {
-        const val1 = parseFloat(nums[1].replace(/,/g, '').replace(/\.(?=\d{3})/g, ''));
-        if (!isNaN(val1)) salaryMax = isTrieu && val1 < 1000 ? val1 * 1000000 : val1;
+      if (!salaryStr.includes('thỏa thuận') && !salaryStr.includes('thoa thuan') && nums && nums.length > 0) {
+        if (nums[0]) {
+          const val0 = parseFloat(nums[0].replace(/,/g, '').replace(/\.(?=\d{3})/g, ''));
+          if (!isNaN(val0)) salaryMin = isTrieu && val0 < 1000 ? val0 * 1000000 : val0;
+        }
+        if (nums[1]) {
+          const val1 = parseFloat(nums[1].replace(/,/g, '').replace(/\.(?=\d{3})/g, ''));
+          if (!isNaN(val1)) salaryMax = isTrieu && val1 < 1000 ? val1 * 1000000 : val1;
+        }
       }
 
-      if (salaryMin < 0 || salaryMax < 0) {
+      if ((salaryMin !== null && salaryMin < 0) || (salaryMax !== null && salaryMax < 0)) {
         setNotification('⚠️ Mức lương không được là số âm.');
         return;
       }
-      if (salaryMax < salaryMin) {
+      if (salaryMin !== null && salaryMax !== null && salaryMax < salaryMin) {
         setNotification('⚠️ Mức lương tối đa không được nhỏ hơn mức lương tối thiểu.');
         return;
       }
@@ -344,11 +510,28 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
         .map(s => s.trim())
         .filter(Boolean);
 
+      const defaultRequirements = [
+        '[TIÊU CHUẨN TUYỂN DỤNG & ĐIỀU KIỆN]',
+        '- Vị trí / Cấp bậc: ' + (newJobForm.title || 'Kỹ sư chuyên môn'),
+        '- Yêu cầu bằng cấp: Đại học / Cử nhân chuyên ngành liên quan',
+        '- Kinh nghiệm làm việc: Tối thiểu 1 - 2 năm kinh nghiệm thực chiến',
+        '',
+        '[YÊU CẦU NĂNG LỰC CHI TIẾT]',
+        '- Nắm vững kiến thức nền tảng và các kỹ năng chuyên môn yêu cầu.',
+        '- Tinh thần chủ động, trách nhiệm và khả năng phối hợp nhóm hiệu quả.'
+      ].join('\n');
+
+      const defaultBenefits = [
+        '- Mức thu nhập cạnh tranh tương xứng năng lực + Thưởng hiệu suất dự án theo quý.',
+        '- Đầy đủ chế độ BHXH, BHYT theo luật Lao động và gói bảo hiểm sức khỏe VIP.',
+        '- Môi trường làm việc năng động, lộ trình thăng tiến và đào tạo chuyên sâu rõ ràng.'
+      ].join('\n');
+
       const payload = {
         title: newJobForm.title,
         description: newJobForm.description || newJobForm.title,
-        requirements: newJobForm.mandatorySkillsInput,
-        benefits: newJobForm.preferredSkillsInput,
+        requirements: newJobForm.requirements || defaultRequirements,
+        benefits: newJobForm.benefits || defaultBenefits,
         salaryMin: salaryMin,
         salaryMax: salaryMax,
         location: newJobForm.location,
@@ -389,19 +572,35 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
       REVIEWING: 'SCREENING',
       INTERVIEW: 'INTERVIEWING',
       OFFERED: 'OFFERED',
+      HIRED: 'HIRED',
       REJECTED: 'REJECTED',
     };
     const nextBackendStatus = backendMap[nextStage] || 'SCREENING';
 
     try {
       if (cand.applicationId) {
+        let noteText = `Chuyển trạng thái sang ${nextStage}`;
+        if (nextStage === 'INTERVIEW') {
+          // Khởi tạo lịch phỏng vấn chuẩn hóa cho ngày làm việc tiếp theo lúc 09:00 để widget Dashboard nhận diện chính xác
+          const nextDay = new Date();
+          nextDay.setDate(nextDay.getDate() + 1);
+          if (nextDay.getDay() === 0) nextDay.setDate(nextDay.getDate() + 1); // Tránh Chủ Nhật
+          if (nextDay.getDay() === 6) nextDay.setDate(nextDay.getDate() + 2); // Tránh Thứ Bảy
+          const dStr = nextDay.toISOString().split('T')[0];
+          noteText = `Lịch phỏng vấn ngày ${dStr} lúc 09:00 qua Google Meet (Khởi tạo từ Kanban)`;
+        }
         await applicationApi.updateStatus(cand.applicationId, {
           newStatus: nextBackendStatus,
-          note: `Chuyển trạng thái sang ${nextStage}`,
+          note: noteText,
         });
       }
       setCandidates((prev) => prev.map((c) =>
         c.candidateId === candidateId ? { ...c, stage: nextStage } : c
+      ));
+      setAllCompanyApplications((prev) => prev.map((a) =>
+        (a.applicationId === cand.applicationId || (a.candidateId === candidateId && String(a.jobId) === String(cand.appliedJobId)))
+          ? { ...a, status: nextBackendStatus }
+          : a
       ));
       setNotification(`Đã cập nhật trạng thái ứng viên sang: ${nextStage} trên Supabase`);
     } catch (err) {
@@ -462,12 +661,13 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
   const maxMatchScore = scoresList.length > 0 ? Math.max(...scoresList) : 0;
   const minMatchScore = scoresList.length > 0 ? Math.min(...scoresList) : 0;
 
-  // Hiring Target Fulfillment
+  // Hiring Target Fulfillment (HIRED)
+  const hiredCount = filteredReportApplications.filter((a) => a.status === 'HIRED').length;
+  const totalHired = hiredCount;
   const relevantJobs = reportJobFilter === 'ALL'
     ? jobs
     : jobs.filter((j) => String(j.jobId) === String(reportJobFilter));
-  const totalVacancies = relevantJobs.reduce((sum, j) => sum + (j.targetHires || 1), 0);
-  const totalHired = offerCount;
+  const totalVacancies = relevantJobs.reduce((sum, j) => sum + (j.targetHires || j.vacanciesCount || 1), 0);
   const fulfillmentRate = totalVacancies > 0 ? Math.round((totalHired / totalVacancies) * 100) : 0;
 
   // Conversion rates
@@ -482,7 +682,58 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
     const now = new Date();
     let intervals = [];
 
-    if (reportTimeframe === '7_DAYS' || reportTimeframe === 'TODAY') {
+    if (velocityViewMode === 'JOB') {
+      const topJobs = (jobs || []).slice(0, 5);
+      if (topJobs.length === 0) {
+        intervals = [
+          { label: 'Chưa có tin', displayName: 'Chưa có tin', short: 'N/A', total: 0, match: 0, qualified: 0, interview: 0 }
+        ];
+      } else {
+        intervals = topJobs.map((j) => {
+          const jId = j.jobId || j.id;
+          const jobApps = filteredReportApplications.filter((a) => String(a.jobId) === String(jId) || a.jobTitle === j.title);
+          const total = jobApps.length;
+          const qualified = jobApps.filter((a) => (a.matchingScore || 0) >= 70).length;
+          const interview = jobApps.filter((a) => a.status === 'INTERVIEWING').length;
+          const shortTitle = j.title?.length > 15 ? j.title.substring(0, 13) + '...' : (j.title || 'Vị trí');
+          return {
+            key: `job-${jId}`,
+            label: shortTitle,
+            displayName: j.title || 'Vị trí',
+            short: shortTitle,
+            total,
+            match: qualified,
+            qualified,
+            interview,
+          };
+        });
+      }
+    } else if (velocityViewMode === 'WEEK' || reportTimeframe === 'MONTH' || reportTimeframe === '30_DAYS' || reportTimeframe === 'ALL') {
+      intervals = [
+        { label: 'Tuần 1 (01 - 07)', displayName: 'Tuần 1 (01 - 07)', short: 'Tuần 1', total: 0, match: 0, qualified: 0, interview: 0 },
+        { label: 'Tuần 2 (08 - 14)', displayName: 'Tuần 2 (08 - 14)', short: 'Tuần 2', total: 0, match: 0, qualified: 0, interview: 0 },
+        { label: 'Tuần 3 (15 - 21)', displayName: 'Tuần 3 (15 - 21)', short: 'Tuần 3', total: 0, match: 0, qualified: 0, interview: 0 },
+        { label: 'Tuần 4 (22 - 31)', displayName: 'Tuần 4 (22 - 31)', short: 'Tuần 4', total: 0, match: 0, qualified: 0, interview: 0 },
+      ];
+      filteredReportApplications.forEach((app) => {
+        if (!app.createdAt) {
+          intervals[0].total += 1;
+          return;
+        }
+        const day = new Date(app.createdAt).getDate();
+        let idx = 0;
+        if (day <= 7) idx = 0;
+        else if (day <= 14) idx = 1;
+        else if (day <= 21) idx = 2;
+        else idx = 3;
+        intervals[idx].total += 1;
+        if ((app.matchingScore || 0) >= 70) {
+          intervals[idx].qualified += 1;
+          intervals[idx].match += 1;
+        }
+        if (app.status === 'INTERVIEWING') intervals[idx].interview += 1;
+      });
+    } else {
       for (let i = 6; i >= 0; i--) {
         const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
         const dayStr = d.toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit' });
@@ -509,38 +760,7 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
             target.match += 1;
           }
           if (app.status === 'INTERVIEWING') target.interview += 1;
-        } else if (intervals.length > 0) {
-          intervals[intervals.length - 1].total += 1;
-          if ((app.matchingScore || 0) >= 70) {
-            intervals[intervals.length - 1].qualified += 1;
-            intervals[intervals.length - 1].match += 1;
-          }
         }
-      });
-    } else {
-      intervals = [
-        { label: 'Tuần 1 (01 - 07)', displayName: 'Tuần 1 (01 - 07)', short: 'Tuần 1', total: 0, match: 0, qualified: 0, interview: 0 },
-        { label: 'Tuần 2 (08 - 14)', displayName: 'Tuần 2 (08 - 14)', short: 'Tuần 2', total: 0, match: 0, qualified: 0, interview: 0 },
-        { label: 'Tuần 3 (15 - 21)', displayName: 'Tuần 3 (15 - 21)', short: 'Tuần 3', total: 0, match: 0, qualified: 0, interview: 0 },
-        { label: 'Tuần 4 (22 - 31)', displayName: 'Tuần 4 (22 - 31)', short: 'Tuần 4', total: 0, match: 0, qualified: 0, interview: 0 },
-      ];
-      filteredReportApplications.forEach((app) => {
-        if (!app.createdAt) {
-          intervals[0].total += 1;
-          return;
-        }
-        const day = new Date(app.createdAt).getDate();
-        let idx = 0;
-        if (day <= 7) idx = 0;
-        else if (day <= 14) idx = 1;
-        else if (day <= 21) idx = 2;
-        else idx = 3;
-        intervals[idx].total += 1;
-        if ((app.matchingScore || 0) >= 70) {
-          intervals[idx].qualified += 1;
-          intervals[idx].match += 1;
-        }
-        if (app.status === 'INTERVIEWING') intervals[idx].interview += 1;
       });
     }
 
@@ -551,7 +771,7 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
       maxVal,
       peak: peak ? { ...peak, displayName: peak.displayName || peak.label, match: peak.match || peak.qualified || 0 } : null,
     };
-  }, [filteredReportApplications, reportTimeframe]);
+  }, [filteredReportApplications, reportTimeframe, velocityViewMode, jobs]);
 
   const recruitmentVelocityByTimeframe = recruitmentTimelineData.intervals;
   const maxVelocityTotal = recruitmentTimelineData.maxVal;
@@ -747,11 +967,15 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
         requirements: target.requirements || (target.mandatorySkills || []).join(', '),
         benefits: target.benefits || (target.preferredSkills || []).join(', '),
         location: target.location,
-        salaryMin: 25000000,
-        salaryMax: 45000000,
-        employmentType: 'FULL_TIME',
-        vacanciesCount: target.targetHires || 2,
+        salaryMin: target.salaryMin,
+        salaryMax: target.salaryMax,
+        salaryCurrency: target.salaryCurrency || 'VND',
+        jobCategory: target.jobCategory || target.category || 'Công nghệ thông tin',
+        employmentType: target.employmentType || 'FULL_TIME',
+        vacanciesCount: target.vacanciesCount || target.targetHires || 2,
         deadlineDate: newDeadlineStr,
+        mandatorySkills: target.mandatorySkills,
+        preferredSkills: target.preferredSkills,
         status: 'PUBLISHED',
       });
 
@@ -772,14 +996,112 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
       <div className="max-w-7xl mx-auto space-y-6">
         
         {/* Recruiter Portal Top Banner */}
-        <div className="bg-white border border-purple-100 rounded-3xl p-5 sm:p-6 shadow-md flex items-center gap-4">
-          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#5b48bd] text-white shadow-lg shrink-0 flex items-center justify-center font-bold text-2xl">
-            FPT
+        <div className="bg-white/80 backdrop-blur-xl border border-white/85 rounded-3xl p-5 sm:p-6 shadow-[0_10px_35px_-5px_rgba(59,43,142,0.07)] flex items-center gap-4 relative overflow-hidden">
+          {/* Top Specular Sheen */}
+          <div className="pointer-events-none absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/90 to-transparent" aria-hidden="true" />
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#5b48bd] text-white shadow-lg shrink-0 flex items-center justify-center font-bold text-xl overflow-hidden">
+            {companyProfile?.logoUrl || user?.companyLogo ? (
+              <img 
+                src={companyProfile?.logoUrl || user?.companyLogo} 
+                alt={companyProfile?.name || user?.companyName || 'Logo'} 
+                className="w-full h-full object-cover"
+                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+              />
+            ) : (
+              <span>
+                {(user?.companyName || user?.fullName || 'HR')
+                  .trim()
+                  .slice(0, 3)
+                  .toUpperCase()}
+              </span>
+            )}
           </div>
-          <h1 className="font-bold text-2xl sm:text-3xl text-[#1e1b4b]">
-            {user?.fullName || 'Nguyễn Minh Anh'}
-          </h1>
+          <div>
+            <h1 className="font-bold text-2xl sm:text-3xl text-[#1e1b4b]">
+              {user?.fullName || 'Nguyễn Minh Anh'}
+            </h1>
+            <p className="text-sm font-semibold text-purple-600 flex items-center gap-1.5 mt-0.5">
+              <span className="material-symbols-outlined text-base">domain</span>
+              <span>{user?.companyName || companyProfile?.name || 'Doanh Nghiệp Tuyển Dụng'}</span>
+            </p>
+          </div>
+          <div className="ml-auto flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => {
+                if (!isAdmin && companyStatus !== 'VERIFIED' && companyStatus !== 'APPROVED' && companyStatus !== 'ACTIVE') {
+                  setShowUnverifiedWarningModal(true);
+                } else {
+                  window.location.hash = '#/recruiter-jobs?action=new';
+                }
+              }}
+              className={`flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-bold transition-all shadow-sm ${
+                isAdmin || companyStatus === 'VERIFIED' || companyStatus === 'APPROVED' || companyStatus === 'ACTIVE'
+                  ? 'bg-[#10b981] hover:bg-[#059669] text-white cursor-pointer hover:scale-105'
+                  : 'bg-amber-600 hover:bg-amber-700 text-white cursor-pointer'
+              }`}
+              title={
+                isAdmin || companyStatus === 'VERIFIED' || companyStatus === 'APPROVED' || companyStatus === 'ACTIVE'
+                  ? 'Đăng tin tuyển dụng mới'
+                  : 'Yêu cầu hoàn tất xác thực giấy phép công ty để đăng tin'
+              }
+            >
+              <span className="material-symbols-outlined text-[18px]">
+                {isAdmin || companyStatus === 'VERIFIED' || companyStatus === 'APPROVED' || companyStatus === 'ACTIVE' ? 'add_circle' : 'lock'}
+              </span>
+              <span>Đăng Tin Mới</span>
+              {!(isAdmin || companyStatus === 'VERIFIED' || companyStatus === 'APPROVED' || companyStatus === 'ACTIVE') && (
+                <span className="text-[10px] bg-amber-800/60 px-1.5 py-0.5 rounded-full ml-1">Chờ xác thực</span>
+              )}
+            </button>
+          </div>
         </div>
+
+        {/* Pending HR Join Requests Banner */}
+        {pendingJoinRequests.length > 0 && (
+          <div className="p-4 sm:p-5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 shadow-sm space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-amber-600">group_add</span>
+                <span className="font-bold text-sm">Yêu Cầu Gia Nhập Đội Ngũ Tuyển Dụng ({pendingJoinRequests.length})</span>
+              </div>
+              <a
+                href="#/recruiter-profile?tab=team"
+                className="text-xs font-bold text-purple-700 hover:underline flex items-center gap-1"
+              >
+                <span>Xem chi tiết tab Đội ngũ</span>
+                <span className="material-symbols-outlined text-xs">arrow_forward</span>
+              </a>
+            </div>
+            <div className="space-y-2">
+              {pendingJoinRequests.map((req) => (
+                <div key={req.id || req.email} className="p-3 bg-white rounded-xl border border-amber-100 flex items-center justify-between gap-3 text-xs">
+                  <div>
+                    <span className="font-bold text-slate-800">{req.name || req.email}</span>
+                    <span className="text-slate-500 ml-2">({req.role || 'Chuyên viên Nhân sự'})</span>
+                    <span className="text-slate-400 block text-[11px]">{req.email}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleApproveJoinRequest(req.id, req.email)}
+                      className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs cursor-pointer shadow-xs"
+                    >
+                      Phê duyệt
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRejectJoinRequest(req.id, req.email)}
+                      className="px-3 py-1 rounded-lg bg-slate-200 hover:bg-rose-100 text-slate-700 hover:text-rose-700 font-bold text-xs cursor-pointer"
+                    >
+                      Từ chối
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {notification && (
           <div className="p-4 rounded-2xl bg-purple-50 border border-purple-200 text-[#5b48bd] text-xs flex items-center justify-between shadow-sm animate-fade-in">
@@ -825,7 +1147,9 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
         {activeTab === 'OVERVIEW' && (
           <div className="space-y-8 animate-fade-in font-sans">
             {/* Top Control Bar: Filters, Date Picker, Refresh & Export */}
-            <div className="p-5 sm:p-6 rounded-[24px] bg-white border border-purple-100 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 shadow-sm">
+            <div className="p-5 sm:p-6 rounded-[28px] bg-white/80 backdrop-blur-xl border border-white/85 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 shadow-[0_10px_35px_-5px_rgba(59,43,142,0.07)] relative overflow-hidden">
+              {/* Top Specular Sheen */}
+              <div className="pointer-events-none absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/90 to-transparent" aria-hidden="true" />
               <div className="space-y-1">
                 <div className="flex items-center gap-2.5 flex-wrap">
                   <div className="w-9 h-9 rounded-2xl bg-purple-50 flex items-center justify-center border border-purple-100">
@@ -913,7 +1237,9 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                     </span>
                   </div>
                   <div className="flex items-baseline justify-between pt-1">
-                    <div className="text-3xl font-extrabold text-[#221d47] tracking-tight">{totalAppsCount}</div>
+                    <div className="text-3xl font-extrabold text-[#221d47] tracking-tight">
+                      <AnimatedNumber value={totalAppsCount} />
+                    </div>
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-[#5b48bd] border border-purple-200">
                       {reportJobFilter === 'ALL' ? `${jobs.length} vị trí` : '1 vị trí'}
                     </span>
@@ -940,7 +1266,9 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                     </span>
                   </div>
                   <div className="flex items-baseline justify-between pt-1">
-                    <div className="text-3xl font-extrabold text-indigo-900 tracking-tight">{qualifiedAiCount}</div>
+                    <div className="text-3xl font-extrabold text-indigo-900 tracking-tight">
+                      <AnimatedNumber value={qualifiedAiCount} />
+                    </div>
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
                       {aiQualifiedPercent}% đạt
                     </span>
@@ -967,7 +1295,9 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                     </span>
                   </div>
                   <div className="flex items-baseline justify-between pt-1">
-                    <div className="text-3xl font-extrabold text-[#5b48bd] tracking-tight">{avgMatchScore}%</div>
+                    <div className="text-3xl font-extrabold text-[#5b48bd] tracking-tight">
+                      <AnimatedNumber value={avgMatchScore} suffix="%" />
+                    </div>
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-[#5b48bd] border border-purple-200">
                       Gemini AI
                     </span>
@@ -994,7 +1324,9 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                     </span>
                   </div>
                   <div className="flex items-baseline justify-between pt-1">
-                    <div className="text-3xl font-extrabold text-amber-900 tracking-tight">{interviewCount}</div>
+                    <div className="text-3xl font-extrabold text-amber-900 tracking-tight">
+                      <AnimatedNumber value={interviewCount} />
+                    </div>
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
                       {interviewPercent}% vào PV
                     </span>
@@ -1021,7 +1353,9 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                     </span>
                   </div>
                   <div className="flex items-baseline justify-between pt-1">
-                    <div className="text-3xl font-extrabold text-emerald-800 tracking-tight">{offerCount}</div>
+                    <div className="text-3xl font-extrabold text-emerald-800 tracking-tight">
+                      <AnimatedNumber value={offerCount} />
+                    </div>
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                       {offerCount > 0 ? 'Thành công' : 'Đang xử lý'}
                     </span>
@@ -1049,7 +1383,7 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                   </div>
                   <div className="flex items-baseline justify-between pt-1">
                     <div className="text-3xl font-extrabold text-sky-900 tracking-tight">
-                      {totalHired} <span className="text-sm font-normal text-slate-500">/ {totalVacancies}</span>
+                      <AnimatedNumber value={totalHired} /> <span className="text-sm font-normal text-slate-500">/ {totalVacancies}</span>
                     </div>
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-50 text-sky-700 border border-sky-200">
                       {fulfillmentRate}%
@@ -1112,7 +1446,7 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                 const s2Count = passedAiCount;
                 const s3Count = interviewCount;
                 const s4Count = offerCount;
-                const s5Count = offerCount;
+                const s5Count = totalHired;
 
                 const s1Pct = s1Count > 0 ? 100 : 0;
                 const s2Pct = s1Count > 0 ? Math.round((s2Count / s1Count) * 100) : 0;
@@ -1382,7 +1716,7 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                             if (selectedFunnelStage === 'SCREENING') return (app.matchingScore || 0) >= 70;
                             if (selectedFunnelStage === 'INTERVIEWING') return app.status === 'INTERVIEWING';
                             if (selectedFunnelStage === 'OFFERED') return app.status === 'OFFERED';
-                            if (selectedFunnelStage === 'HIRED') return app.status === 'HIRED' || app.status === 'OFFERED';
+                            if (selectedFunnelStage === 'HIRED') return app.status === 'HIRED';
                             return true;
                           });
 
@@ -1513,7 +1847,7 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600">
-                    <span>&uarr; -12%</span>
+                    <span>&uarr; +12%</span>
                     <span className="text-slate-400 font-normal">So với tuần trước</span>
                   </div>
                 </div>
@@ -1685,33 +2019,36 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                         </defs>
 
                         {/* Y-Axis Horizontal Gridlines & Values */}
-                        {[
-                          { y: 25, label: 4 },
-                          { y: 65, label: 3 },
-                          { y: 105, label: 2 },
-                          { y: 145, label: 1 },
-                          { y: 185, label: 0 },
-                        ].map((grid, gIdx) => (
-                          <g key={gIdx}>
-                            <line
-                              x1="45"
-                              y1={grid.y}
-                              x2="980"
-                              y2={grid.y}
-                              stroke="#f1f5f9"
-                              strokeWidth="1.2"
-                              strokeDasharray={gIdx === 4 ? 'none' : '4 4'}
-                            />
-                            <text
-                              x="35"
-                              y={grid.y + 4}
-                              textAnchor="end"
-                              className="text-[11px] fill-slate-400 font-mono font-bold"
-                            >
-                              {grid.label}
-                            </text>
-                          </g>
-                        ))}
+                        {(() => {
+                          const maxPlotVal = Math.max(maxVelocityTotal, 4);
+                          return [
+                            { y: 25, label: Math.round(maxPlotVal) },
+                            { y: 65, label: Math.round(maxPlotVal * 0.75) },
+                            { y: 105, label: Math.round(maxPlotVal * 0.5) },
+                            { y: 145, label: Math.round(maxPlotVal * 0.25) },
+                            { y: 185, label: 0 },
+                          ].map((grid, gIdx) => (
+                            <g key={gIdx}>
+                              <line
+                                x1="45"
+                                y1={grid.y}
+                                x2="980"
+                                y2={grid.y}
+                                stroke="#f1f5f9"
+                                strokeWidth="1.2"
+                                strokeDasharray={gIdx === 4 ? 'none' : '4 4'}
+                              />
+                              <text
+                                x="35"
+                                y={grid.y + 4}
+                                textAnchor="end"
+                                className="text-[11px] fill-slate-400 font-mono font-bold"
+                              >
+                                {grid.label}
+                              </text>
+                            </g>
+                          ));
+                        })()}
 
                         {/* Splines & Nodes Rendering */}
                         {(() => {
@@ -1958,38 +2295,47 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                           {(() => {
                             const C = 326.72; // 2 * PI * 52
                             const total = Math.max(totalAppsCount, 1);
-                            const dashBlue = (totalAppsCount / total) * C;
-                            const dashPurple = (passedAiCount / total) * C;
-                            const dashOrange = (interviewCount / total) * C;
+                            // Partitioned segments: Orange = interviewCount, Purple = passedAi - interview, Blue = remaining applied
+                            const cntOrange = Math.min(interviewCount, total);
+                            const cntPurple = Math.max(0, Math.min(passedAiCount - cntOrange, total - cntOrange));
+                            const cntBlue = Math.max(0, total - cntOrange - cntPurple);
+
+                            const dashBlue = (cntBlue / total) * C;
+                            const dashPurple = (cntPurple / total) * C;
+                            const dashOrange = (cntOrange / total) * C;
 
                             return (
                               <g transform="rotate(-90 80 80)">
                                 {/* Background Circle */}
                                 <circle cx="80" cy="80" r="52" fill="none" stroke="#f1f5f9" strokeWidth="20" />
                                 {/* Blue Segment */}
-                                <circle
-                                  cx="80"
-                                  cy="80"
-                                  r="52"
-                                  fill="none"
-                                  stroke="#3b82f6"
-                                  strokeWidth="20"
-                                  strokeDasharray={`${dashBlue} ${C - dashBlue}`}
-                                  strokeDashoffset="0"
-                                  className="transition-all"
-                                />
+                                {dashBlue > 0 && (
+                                  <circle
+                                    cx="80"
+                                    cy="80"
+                                    r="52"
+                                    fill="none"
+                                    stroke="#3b82f6"
+                                    strokeWidth="20"
+                                    strokeDasharray={`${dashBlue} ${C - dashBlue}`}
+                                    strokeDashoffset="0"
+                                    className="transition-all"
+                                  />
+                                )}
                                 {/* Purple Segment */}
-                                <circle
-                                  cx="80"
-                                  cy="80"
-                                  r="52"
-                                  fill="none"
-                                  stroke="#8b5cf6"
-                                  strokeWidth="20"
-                                  strokeDasharray={`${dashPurple} ${C - dashPurple}`}
-                                  strokeDashoffset={`-${dashBlue - dashPurple}`}
-                                  className="transition-all"
-                                />
+                                {dashPurple > 0 && (
+                                  <circle
+                                    cx="80"
+                                    cy="80"
+                                    r="52"
+                                    fill="none"
+                                    stroke="#8b5cf6"
+                                    strokeWidth="20"
+                                    strokeDasharray={`${dashPurple} ${C - dashPurple}`}
+                                    strokeDashoffset={`-${dashBlue}`}
+                                    className="transition-all"
+                                  />
+                                )}
                                 {/* Orange Segment */}
                                 {dashOrange > 0 && (
                                   <circle
@@ -2000,7 +2346,7 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                                     stroke="#f97316"
                                     strokeWidth="20"
                                     strokeDasharray={`${dashOrange} ${C - dashOrange}`}
-                                    strokeDashoffset={`-${dashBlue - dashOrange}`}
+                                    strokeDashoffset={`-${dashBlue + dashPurple}`}
                                     className="transition-all"
                                   />
                                 )}
@@ -2154,19 +2500,28 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                         <td className="py-3.5 text-center font-bold text-[#221d47]">{j.interviewCount}</td>
                         <td className="py-3.5 text-center font-bold text-emerald-600">{j.offerCount}</td>
                         <td className="py-3.5 w-48">
-                          <div className="flex items-center justify-between text-[11px] mb-1">
-                            <span className="text-slate-600">{j.hiredCount}/{j.targetHires} nhân sự</span>
-                            <span className="text-[#5b48bd] font-bold">{Math.round((j.hiredCount / j.targetHires) * 100)}%</span>
-                          </div>
-                          <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-gradient-to-r from-[#5b48bd] to-[#7c66dc] rounded-full"
-                              style={{ width: `${(j.hiredCount / j.targetHires) * 100}%` }}
-                            ></div>
-                          </div>
+                          {(() => {
+                            const target = j.targetHires || j.vacanciesCount || 1;
+                            const hired = j.hiredCount || 0;
+                            const pct = Math.round((hired / target) * 100);
+                            return (
+                              <>
+                                <div className="flex items-center justify-between text-[11px] mb-1">
+                                  <span className="text-slate-600">{hired}/{target} nhân sự</span>
+                                  <span className="text-[#5b48bd] font-bold">{pct}%</span>
+                                </div>
+                                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full bg-gradient-to-r from-[#5b48bd] to-[#7c66dc] rounded-full"
+                                    style={{ width: `${Math.min(100, pct)}%` }}
+                                  ></div>
+                                </div>
+                              </>
+                            );
+                          })()}
                         </td>
                         <td className="py-3.5 text-center">
-                          {j.hiredCount >= j.targetHires ? (
+                          {(j.hiredCount || 0) >= (j.targetHires || j.vacanciesCount || 1) ? (
                             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-50 text-emerald-700 border border-emerald-200">
                               ĐẠT CHỈ TIÊU
                             </span>
@@ -2375,40 +2730,40 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                     </h3>
                   </div>
                   <span className="text-xs font-bold text-[#5b48bd] bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-200">
-                    {candidates.filter(c => c.stage === 'INTERVIEW').length} lịch phỏng vấn
+                    {upcomingInterviews.length > 0 ? upcomingInterviews.length : candidates.filter(c => c.stage === 'INTERVIEW').length} lịch phỏng vấn
                   </span>
                 </div>
 
                 <div className="space-y-3">
-                  {candidates.filter(c => c.stage === 'INTERVIEW').length === 0 ? (
+                  {upcomingInterviews.length === 0 && candidates.filter(c => c.stage === 'INTERVIEW').length === 0 ? (
                     <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200/80 text-center text-xs text-slate-500">
-                      Chưa có ứng viên nào trong vòng phỏng vấn. Hãy chuyển ứng viên sang trạng thái Phỏng vấn trên Phễu Kanban để tự động lên lịch.
+                      Chưa có ứng viên nào trong vòng phỏng vấn. Hãy chuyển ứng viên sang trạng thái Phỏng vấn trên Phễu Kanban hoặc Danh sách ứng viên để tự động lên lịch.
                     </div>
                   ) : (
-                    candidates
-                      .filter(c => c.stage === 'INTERVIEW')
-                      .slice(0, 5)
+                    (upcomingInterviews.length > 0 ? upcomingInterviews : candidates.filter(c => c.stage === 'INTERVIEW'))
+                      .slice(0, 6)
                       .map((inv, idx) => (
-                        <div key={idx} className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 hover:border-purple-300 transition-all flex items-center justify-between gap-3">
-                          <div className="space-y-0.5">
+                        <div key={inv.applicationId || idx} className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 hover:border-purple-300 transition-all flex items-center justify-between gap-3">
+                          <div className="space-y-0.5 min-w-0">
                             <div className="flex items-center gap-2">
-                              <span className="font-bold text-[#221d47] text-xs sm:text-sm">{inv.fullName}</span>
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-[#5b48bd] border border-purple-200">
-                                {inv.aiMatchScore}% Match
+                              <span className="font-bold text-[#221d47] text-xs sm:text-sm truncate">{inv.candidateName || inv.fullName}</span>
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-[#5b48bd] border border-purple-200 shrink-0">
+                                {inv.matchScore || inv.aiMatchScore || 0}% Match
                               </span>
                             </div>
-                            <p className="text-[11px] text-slate-500 font-sans">{inv.email} &bull; Hội đồng Kỹ Thuật</p>
+                            <p className="text-[11px] text-slate-500 font-sans truncate">{inv.email} &bull; {inv.jobTitle || 'Hội đồng Tuyển dụng'}</p>
                             <p className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
-                              <span className="material-symbols-outlined text-xs">schedule</span> Đã xếp lịch phỏng vấn
+                              <span className="material-symbols-outlined text-xs">schedule</span>
+                              <span>{inv.scheduleTime || 'Đã xếp lịch phỏng vấn'}</span>
                             </p>
                           </div>
 
                           <div className="flex items-center gap-2 shrink-0">
                             <a
-                              href="https://meet.google.com/hm-9082-eval"
+                              href={inv.meetLink || 'https://meet.google.com/hm-eval-session'}
                               target="_blank"
                               rel="noreferrer"
-                              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#5b48bd] to-[#7c66dc] hover:from-[#47369f] text-white text-xs font-semibold transition-all flex items-center gap-1 shadow-sm"
+                              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#5b48bd] to-[#7c66dc] hover:from-[#47369f] text-white text-xs font-semibold transition-all flex items-center gap-1 shadow-sm cursor-pointer"
                             >
                               <span className="material-symbols-outlined text-sm">videocam</span>
                               <span>Vào Meet</span>
@@ -2517,13 +2872,14 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
               </div>
             </div>
 
-            {/* Kanban Columns (4 Stages) */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Kanban Columns (5 Stages including HIRED) */}
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               {[
                 { stageId: 'APPLIED', title: '1. Hồ sơ mới', color: 'text-[#2D3A31]' },
                 { stageId: 'REVIEWING', title: '2. Đang duyệt', color: 'text-[#8C9A84]' },
                 { stageId: 'INTERVIEW', title: '3. Phỏng vấn', color: 'text-[#C27B66]' },
-                { stageId: 'OFFERED', title: '4. Đã Chốt Tuyển Dụng', color: 'text-[#2D3A31]' },
+                { stageId: 'OFFERED', title: '4. Đã Gửi Offer', color: 'text-[#5b48bd]' },
+                { stageId: 'HIRED', title: '5. Đã Trúng Tuyển (Hired)', color: 'text-emerald-700' },
               ].map(column => {
                 const columnCandidates = jobCandidates.filter(c => c.stage === column.stageId);
                 return (
@@ -2562,7 +2918,7 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                             <div className="pt-2 border-t border-[#E6E2DA] flex items-center justify-between text-xs">
                               <button
                                 onClick={() => {
-                                  window.location.hash = `#/candidate-evaluation?candidateId=${candidate.candidateId}&jobId=${selectedJobId}`;
+                                  window.location.hash = `#/candidate-evaluation?candidateId=${candidate.candidateId}&jobId=${selectedJobId}&appId=${candidate.applicationId || ''}`;
                                 }}
                                 className="text-[11px] text-[#5b48bd] hover:text-[#3b2b8e] hover:underline flex items-center gap-1 cursor-pointer font-bold"
                               >
@@ -2573,13 +2929,21 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                               {/* Stage Mover Selector */}
                               <select
                                 value={candidate.stage}
+                                disabled={Boolean(candidate.withdrawnByCandidate || candidate.stage === 'WITHDRAWN' || candidate.stage === 'HIRED' || candidate.stage === 'REJECTED')}
                                 onChange={(e) => handleMoveCandidateStage(candidate.candidateId, e.target.value)}
-                                className="bg-[#F9F8F4] text-[11px] py-1 px-2 rounded-lg border border-[#E6E2DA] text-[#2D3A31] cursor-pointer focus:outline-none"
+                                className={`text-[11px] py-1 px-2 rounded-lg border border-[#E6E2DA] focus:outline-none ${
+                                  (candidate.withdrawnByCandidate || candidate.stage === 'WITHDRAWN' || candidate.stage === 'HIRED' || candidate.stage === 'REJECTED')
+                                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                    : 'bg-[#F9F8F4] text-[#2D3A31] cursor-pointer'
+                                }`}
                               >
                                 <option value="APPLIED">1. Applied</option>
                                 <option value="REVIEWING">2. Reviewing</option>
                                 <option value="INTERVIEW">3. Interview</option>
                                 <option value="OFFERED">4. Offered</option>
+                                <option value="HIRED">5. Trúng tuyển (Hired)</option>
+                                <option value="REJECTED">Từ chối</option>
+                                {candidate.stage === 'WITHDRAWN' && <option value="WITHDRAWN">Đã rút hồ sơ</option>}
                               </select>
                             </div>
                           </div>
@@ -2939,7 +3303,7 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                     type="button"
                     onClick={() => {
                       setShowCreateModal(false);
-                      window.location.hash = '#/job-management';
+                      window.location.hash = '#/recruiter-jobs';
                     }}
                     className="text-xs text-[#5b48bd] hover:underline font-semibold flex items-center gap-1.5 cursor-pointer"
                   >
@@ -3106,6 +3470,81 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
               >
                 <span className="material-symbols-outlined text-base">upgrade</span>
                 <span>Xem Bảng Giá Gói</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Unverified Company License Warning Modal */}
+      {showUnverifiedWarningModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn font-sans">
+          <div className="bg-white rounded-[28px] max-w-lg w-full p-6 shadow-2xl border border-amber-200 text-left space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                  <span className="material-symbols-outlined text-2xl">verified_user</span>
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Yêu Cầu Xác Minh Giấy Phép Kinh Doanh</h3>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-xs text-slate-500">Trạng thái:</span>
+                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                      companyStatus === 'PENDING'
+                        ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                        : companyStatus === 'REJECTED'
+                        ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                        : 'bg-slate-100 text-slate-700 border border-slate-200'
+                    }`}>
+                      {companyStatus === 'PENDING' ? 'Đang Chờ Duyệt (PENDING)' : companyStatus === 'REJECTED' ? 'Bị Từ Chối (REJECTED)' : 'Chưa Nộp GPKD'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowUnverifiedWarningModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-base">close</span>
+              </button>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200/80 text-amber-950 text-xs leading-relaxed space-y-2">
+              <p className="font-semibold flex items-start gap-1.5">
+                <span className="material-symbols-outlined text-base text-amber-600 shrink-0">policy</span>
+                <span>Theo quy định an toàn tuyển dụng của HireMate AI, doanh nghiệp phải được Quản trị viên (Admin) phê duyệt Giấy phép kinh doanh (GPKD) hợp pháp trước khi đăng tin tuyển dụng.</span>
+              </p>
+              {companyStatus === 'PENDING' && (
+                <p className="text-amber-800 pt-1">
+                  ⏳ Hồ sơ GPKD của bạn đang trong danh sách chờ duyệt của Admin (1-4 giờ làm việc). Vui lòng kiên nhẫn đợi hoặc kiểm tra lại sau!
+                </p>
+              )}
+              {companyStatus === 'REJECTED' && (
+                <p className="text-rose-700 pt-1">
+                  ⚠️ Hồ sơ GPKD trước đó bị Admin từ chối. Vui lòng vào mục Hồ Sơ Doanh Nghiệp để tải lại tệp GPKD rõ nét hơn.
+                </p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setShowUnverifiedWarningModal(false)}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 transition-colors cursor-pointer"
+              >
+                Đóng
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowUnverifiedWarningModal(false);
+                  setActiveTab('COMPANY');
+                  window.location.hash = '#/recruiter-dashboard?tab=company';
+                }}
+                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#5b48bd] to-indigo-600 hover:from-[#4a39a7] hover:to-indigo-700 text-white text-xs font-bold shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                <span className="material-symbols-outlined text-base">domain</span>
+                <span>Nộp / Xem Hồ Sơ Pháp Lý</span>
               </button>
             </div>
           </div>

@@ -26,8 +26,17 @@ public class PaymentController {
 
     @PostMapping("/validate-voucher")
     public ResponseEntity<ApiResponse<VoucherValidationResponse>> validateVoucher(
+            @org.springframework.security.core.annotation.AuthenticationPrincipal com.hiremate.entity.User user,
             @RequestBody @Valid ValidateVoucherRequest request
     ) {
+        if (user != null) {
+            if (request.getUserId() == null) {
+                request.setUserId(user.getUserId());
+            }
+            if ((request.getUserRole() == null || request.getUserRole().isBlank()) && user.getRole() != null) {
+                request.setUserRole(user.getRole().name());
+            }
+        }
         VoucherValidationResponse response = paymentService.validateVoucher(request);
         return ResponseEntity.ok(ApiResponse.ok("Kiểm tra voucher thành công", response));
     }

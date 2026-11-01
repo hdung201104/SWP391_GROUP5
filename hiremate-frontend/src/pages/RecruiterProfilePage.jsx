@@ -1,16 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { useLivingTheme } from '../context/LivingThemeContext';
-import { companyApi, jobApi, applicationApi, authApi } from '../api';
+import { companyApi, jobApi, applicationApi, authApi, paymentApi } from '../api';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import { parseSkillList } from '../utils/helpers';
 
 export default function RecruiterProfilePage({ user, onNavigate }) {
   const { theme: livingTheme, luminosity } = useLivingTheme();
 
-  // Active Main Tab: 'overview' (Tổng Quan & Môi Trường) | 'jobs' (Vị Trí Tuyển Dụng) | 'locations' (Địa Điểm & Chi Nhánh)
+  // Active Main Tab: 'overview' | 'jobs' | 'legal' | 'team' | 'locations' | 'billing'
   const [activeTab, setActiveTab] = useState('overview');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Billing & Subscription states
+  const [myOrders, setMyOrders] = useState([]);
+  const [activeSubscription, setActiveSubscription] = useState(null);
+  const [isLoadingBilling, setIsLoadingBilling] = useState(false);
 
   // Toast feedback state
   const [toastMessage, setToastMessage] = useState('');
@@ -49,12 +54,18 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
   const [hrRepresentative, setHrRepresentative] = useState(() => {
     try {
       const saved = localStorage.getItem('hiremate_hr_profile');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.name || parsed.email) return parsed;
+      }
     } catch {}
     return {
       name: user?.fullName || 'Lê Hoàng Nam',
-      title: 'Lead Talent Acquisition Partner • Senior Tech Recruiter',
-      division: `Ban Tuyển Dụng & Thu Hút Nhân Tài • ${user?.companyName || 'Doanh Nghiệp'}`,
+      title: user?.position || user?.headline || 'Lead Talent Acquisition Partner • Senior Tech Recruiter',
+      division: user?.department || `Ban Tuyển Dụng & Thu Hút Nhân Tài • ${user?.companyName || 'Doanh Nghiệp'}`,
+      position: user?.position || 'Senior Tech Recruiter',
+      department: user?.department || 'Ban Tuyển Dụng & Thu Hút Nhân Tài',
+      branchName: user?.branchName || 'Trụ sở chính',
       email: user?.email || 'recruiter@hiremate.ai',
       hotline: user?.phone || '0988 777 666',
       responseTime: 'Phản hồi trong vòng 30 phút (Giờ hành chính)',
@@ -66,43 +77,122 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
     };
   });
 
-  // Company Legal Dossier (Đồng bộ theo tên công ty giữa các HR)
-  const companyKey = (user?.companyName || 'vng_corporation').toLowerCase().replace(/[^a-z0-9]/g, '_');
+  // Sync user profile from auth if updated
+  useEffect(() => {
+    if (user && user.role === 'RECRUITER') {
+      setHrRepresentative(prev => {
+        const updated = {
+          ...prev,
+          name: user.fullName || prev.name,
+          email: user.email || prev.email,
+          hotline: user.phone || prev.hotline,
+          title: user.position || user.headline || prev.title,
+          division: user.department || prev.division,
+          position: user.position || prev.position || '',
+          department: user.department || prev.department || '',
+          branchName: user.branchName || prev.branchName || '',
+          avatar: user.avatarUrl || prev.avatar,
+        };
+        try {
+          localStorage.setItem('hiremate_hr_profile', JSON.stringify(updated));
+        } catch {}
+        return updated;
+      });
+    }
+  }, [user]);
+
+  // Company Legal Dossier (Đồng bộ theo công ty giữa các HR, cách ly an toàn theo ID hoặc mã)
+  const companyKey = (user?.companyId ? `id_${user.companyId}` : (user?.companyName || user?.company?.companyName || 'vng_corporation')).toLowerCase().replace(/[^a-z0-9]/g, '_');
 
   const [companyLegal, setCompanyLegal] = useState(() => {
     try {
       const saved = localStorage.getItem(`hiremate_company_legal_${companyKey}`);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.licenseDocUrl && (parsed.licenseDocUrl.includes('images.unsplash.com') || parsed.licenseDocUrl.startsWith('blob:'))) {
+          parsed.licenseDocUrl = '';
+          parsed.licenseDocName = '';
+        }
+        return parsed;
+      }
     } catch {}
-    const isVng = (user?.companyName || '').toLowerCase().includes('vng');
     return {
-      taxCode: isVng ? '0303987654' : '0101234567',
-      licenseNumber: isVng ? '0303987654-GPKD-TPHCM' : '0101234567-GPKD-HN',
-      licenseDocName: isVng ? 'VNG_Business_License_2026.pdf' : 'Giay_Phep_Kinh_Doanh_Cong_Ty.pdf',
-      licenseDocUrl: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=800&auto=format&fit=crop&q=80',
-      legalRepresentative: isVng ? 'Hoàng Yến' : (user?.fullName || 'Người Đại Diện Pháp Luật'),
+      taxCode: '',
+      licenseNumber: '',
+      licenseDocName: '',
+      licenseDocUrl: '',
+      legalRepresentative: user?.fullName || 'Người Đại Diện Pháp Luật',
       legalRepresentativeTitle: 'Tổng Giám Đốc / Đại Diện Theo Pháp Luật',
       businessType: 'Công ty Cổ phần (Joint Stock Company)',
-      issuingAuthority: 'Phòng Đăng Ký Kinh Doanh - Sở Kế Hoạch & Đầu Tư TP. Hồ Chí Minh',
-      issueDate: isVng ? '09/09/2004' : '15/03/2020',
-      lastAmendedDate: isVng ? '15/03/2026 (Thay đổi lần thứ 24)' : '10/01/2026 (Thay đổi lần thứ 5)',
-      charterCapital: isVng ? '500.000.000.000 VNĐ (Năm trăm tỷ đồng)' : '120.000.000.000 VNĐ (Một trăm hai mươi tỷ đồng)',
-      registeredAddress: isVng
-        ? 'Z06 Đường số 13, Khu Chế Xuất Tân Thuận, Phường Tân Thuận Đông, Quận 7, TP. Hồ Chí Minh'
-        : 'Tòa nhà FPT, Khu Công nghệ cao, Phường Tân Phú, TP. Thủ Đức, TP. Hồ Chí Minh',
-      mainBusinessSector: isVng
-        ? 'Mã 6201: Lập trình máy vi tính; Xuất bản phần mềm; Cung cấp dịch vụ công nghệ số và nội dung số'
-        : 'Mã 6201: Lập trình máy vi tính và tư vấn giải pháp phần mềm doanh nghiệp',
-      docFileSize: '3.8 MB',
-      docChecksum: 'SHA256: 8f4c2e1b9a03d7e5f1a2b4c6e8',
-      submittedBy: isVng ? 'Hoàng Yến TA Lead' : (user?.fullName || 'Quản Trị HR'),
-      submittedAt: '15/03/2026',
-      status: 'PENDING', // 'VERIFIED' | 'PENDING' | 'REJECTED' | 'UNVERIFIED'
-      notes: 'Đang chờ Ban Quản Trị HireMate xác thực hồ sơ pháp nhân trên Cổng DKKD quốc gia.',
+      issuingAuthority: 'Phòng Đăng Ký Kinh Doanh - Sở Kế Hoạch & Đầu Tư',
+      issueDate: '',
+      lastAmendedDate: '',
+      charterCapital: '',
+      registeredAddress: '',
+      mainBusinessSector: '',
+      docFileSize: '',
+      docChecksum: '',
+      submittedBy: user?.fullName || 'Quản Trị HR',
+      submittedAt: '',
+      status: 'UNVERIFIED', // 'VERIFIED' | 'PENDING' | 'REJECTED' | 'UNVERIFIED'
+      notes: '',
       rejectionReason: '',
       verifiedAt: '',
     };
   });
+
+  const getLegalStatusInfo = (legal) => {
+    if (legal?.status === 'VERIFIED' || legal?.status === 'APPROVED') {
+      return {
+        type: 'VERIFIED',
+        title: 'Đã xác thực pháp lý doanh nghiệp',
+        badgeText: 'Đã duyệt GPKD',
+        color: 'emerald',
+        bannerBg: 'bg-gradient-to-r from-emerald-50/80 via-teal-50/50 to-white border-emerald-200',
+        iconBg: 'bg-emerald-600 text-white',
+        badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+        icon: 'verified',
+        desc: `Hồ sơ đã được thẩm định hợp lệ vào ngày ${legal?.verifiedAt || 'Gần đây'}. Doanh nghiệp có đầy đủ quyền hạn xuất bản tin tuyển dụng.`,
+      };
+    }
+    if (legal?.status === 'REJECTED') {
+      return {
+        type: 'REJECTED',
+        title: 'Hồ sơ pháp lý bị từ chối phê duyệt',
+        badgeText: 'Bị từ chối (Mở quyền nộp lại)',
+        color: 'rose',
+        bannerBg: 'bg-gradient-to-r from-rose-50/80 via-pink-50/40 to-white border-rose-200',
+        iconBg: 'bg-rose-600 text-white',
+        badgeClass: 'bg-rose-100 text-rose-800 border-rose-300',
+        icon: 'cancel',
+        desc: `Lý do từ chối: ${legal?.rejectionReason || 'Thông tin Giấy phép kinh doanh chưa chính xác hoặc không hợp lệ. Quý HR vui lòng cập nhật chứng từ và nhấn "Gửi Thẩm Định Lại".'}`,
+      };
+    }
+    if (legal?.status === 'PENDING') {
+      return {
+        type: 'PENDING',
+        title: 'Hồ sơ GPKD đang chờ Admin thẩm định',
+        badgeText: 'Chờ Admin duyệt',
+        color: 'amber',
+        bannerBg: 'bg-gradient-to-r from-amber-50/80 via-yellow-50/40 to-white border-amber-200',
+        iconBg: 'bg-amber-500 text-white animate-pulse',
+        badgeClass: 'bg-amber-100 text-amber-800 border-amber-300',
+        icon: 'hourglass_top',
+        desc: `Hồ sơ đã được gửi lên hệ thống vào ngày ${legal?.submittedAt || new Date().toLocaleDateString('vi-VN')}. Ban Quản Trị HireMate đang kiểm tra đối soát trên Cổng Thông Tin Đăng Ký Doanh Nghiệp Quốc Gia.`,
+      };
+    }
+    return {
+      type: 'UNSUBMITTED',
+      title: 'Chưa nộp Giấy phép kinh doanh',
+      badgeText: 'Chưa nộp hồ sơ',
+      color: 'slate',
+      bannerBg: 'bg-gradient-to-r from-slate-50/90 via-purple-50/30 to-white border-slate-200',
+      iconBg: 'bg-slate-600 text-white',
+      badgeClass: 'bg-slate-100 text-slate-700 border-slate-300',
+      icon: 'upload_file',
+      desc: 'Chưa nộp Giấy phép kinh doanh — Vui lòng tải lên bản scan PDF hoặc ảnh chụp GPKD và nhập Mã số thuế để gửi Admin xác thực.',
+    };
+  };
 
   // Team HR trực thuộc cùng doanh nghiệp
   const [companyTeam, setCompanyTeam] = useState(() => {
@@ -144,40 +234,189 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
   const [licenseModalTab, setLicenseModalTab] = useState('certificate'); // 'certificate' | 'scan'
   const [scanZoom, setScanZoom] = useState(100);
   const [scanRotate, setScanRotate] = useState(0);
+  const [previewBlobUrl, setPreviewBlobUrl] = useState(null);
+  const [previewMimeType, setPreviewMimeType] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [showInviteHrModal, setShowInviteHrModal] = useState(false);
   const [inviteHrForm, setInviteHrForm] = useState({ name: '', email: '', role: 'Talent Acquisition Specialist' });
+
+  useEffect(() => {
+    let active = true;
+    let createdUrl = null;
+
+    if (showLicensePreviewModal && companyLegal.licenseDocUrl) {
+      const companyId = companyLegal.companyId || companyLegal.id;
+      setPreviewLoading(true);
+
+      const loadPreview = async () => {
+        try {
+          let blob = null;
+          try {
+            const res = await companyApi.previewLicenseFile(companyId);
+            blob = (res instanceof Blob) ? res : (res?.data instanceof Blob ? res.data : null);
+          } catch (err) {
+            console.warn('Backend preview API failed, falling back to direct URL fetch:', err);
+          }
+
+          // Fallback nếu backend API chưa trả blob (hoặc chạy offline)
+          if (!blob && companyLegal.licenseDocUrl) {
+            let fetchUrl = companyLegal.licenseDocUrl;
+            // Nếu là URL Cloudinary PDF bị hạn chế ACL 401, tự động chuyển sang xem trước ảnh .png nét cao
+            if (fetchUrl.includes('res.cloudinary.com') && fetchUrl.toLowerCase().endsWith('.pdf')) {
+              fetchUrl = fetchUrl.replace(/\.pdf$/i, '.png');
+            }
+            try {
+              const resp = await fetch(fetchUrl);
+              if (resp.ok) {
+                const fetchedBlob = await resp.blob();
+                if (fetchedBlob.type !== 'application/json') {
+                  blob = fetchedBlob;
+                }
+              }
+            } catch (fetchErr) {
+              console.warn('Direct fetch failed:', fetchErr);
+            }
+          }
+
+          if (active && blob) {
+            createdUrl = URL.createObjectURL(blob);
+            setPreviewBlobUrl(createdUrl);
+            const detectedMime = blob.type || (/\.pdf($|\?)/i.test(companyLegal.licenseDocName || companyLegal.licenseDocUrl) ? 'application/pdf' : 'image/png');
+            setPreviewMimeType(detectedMime);
+          }
+        } catch (e) {
+          console.error('Error loading license preview blob:', e);
+        } finally {
+          if (active) setPreviewLoading(false);
+        }
+      };
+
+      loadPreview();
+    } else {
+      setPreviewBlobUrl(null);
+      setPreviewMimeType(null);
+      setPreviewLoading(false);
+    }
+
+    return () => {
+      active = false;
+      if (createdUrl) {
+        URL.revokeObjectURL(createdUrl);
+      }
+    };
+  }, [showLicensePreviewModal, companyLegal.licenseDocUrl, companyLegal.companyId, companyLegal.id]);
+
+  const getLicensePreviewUrl = () => {
+    if (previewBlobUrl) return previewBlobUrl;
+    const token = localStorage.getItem('token');
+    const companyId = companyLegal.companyId || companyLegal.id;
+    if (companyId) {
+      return `/api/v1/companies/${companyId}/license/preview?t=${Date.now()}${token ? `&token=${encodeURIComponent(token)}` : ''}`;
+    }
+    if (companyLegal.licenseDocUrl) {
+      if (companyLegal.licenseDocUrl.includes('res.cloudinary.com') && companyLegal.licenseDocUrl.toLowerCase().endsWith('.pdf')) {
+        return companyLegal.licenseDocUrl.replace(/\.pdf$/i, '.png');
+      }
+      return companyLegal.licenseDocUrl;
+    }
+    return `/api/v1/companies/my/license/preview${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+  };
+
+  const handleDownloadLicense = async () => {
+    try {
+      const companyId = companyLegal.companyId || companyLegal.id;
+      let blob = null;
+      try {
+        const res = await companyApi.downloadLicenseFile(companyId);
+        blob = (res instanceof Blob) ? res : (res?.data instanceof Blob ? res.data : null);
+      } catch (err) {
+        console.warn('Backend download failed, falling back to direct URL fetch:', err);
+      }
+      if (!blob && companyLegal.licenseDocUrl) {
+        let fetchUrl = companyLegal.licenseDocUrl;
+        if (fetchUrl.includes('res.cloudinary.com') && fetchUrl.toLowerCase().endsWith('.pdf')) {
+          fetchUrl = fetchUrl.replace(/\.pdf$/i, '.png');
+        }
+        try {
+          const resp = await fetch(fetchUrl);
+          if (resp.ok) {
+            const fetchedBlob = await resp.blob();
+            if (fetchedBlob.type !== 'application/json') {
+              blob = fetchedBlob;
+            }
+          }
+        } catch (fetchErr) {
+          console.warn('Direct fetch failed:', fetchErr);
+        }
+      }
+      if (blob) {
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = companyLegal.licenseDocName || 'Giay_Phep_Kinh_Doanh.pdf';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(downloadUrl);
+        triggerToast('Bắt đầu tải xuống Giấy phép kinh doanh!');
+      } else {
+        triggerToast('Không thể tải file GPKD (chưa có tệp lưu trữ hợp lệ)');
+      }
+    } catch (err) {
+      console.error('Lỗi khi tải file GPKD:', err);
+      triggerToast('Không thể tải file GPKD. Vui lòng thử lại sau.');
+    }
+  };
 
   const handleLicenseFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (file) {
+      const maxBytes = 15 * 1024 * 1024;
+      if (file.size > maxBytes) {
+        triggerToast('Dung lượng tệp vượt quá giới hạn 15MB!');
+        e.target.value = '';
+        return;
+      }
+      const lower = file.name.toLowerCase();
+      if (!lower.endsWith('.pdf') && !lower.endsWith('.jpg') && !lower.endsWith('.jpeg') && !lower.endsWith('.png') && !lower.endsWith('.webp')) {
+        triggerToast('Chỉ chấp nhận tệp định dạng .pdf, .jpg, .jpeg, .png, .webp!');
+        e.target.value = '';
+        return;
+      }
+
       const fileName = file.name;
-      let finalUrl = URL.createObjectURL(file);
       try {
         setIsSaving(true);
         const formData = new FormData();
         formData.append('file', file);
         const res = await companyApi.uploadLicenseDoc(formData);
-        if (res?.data?.url) {
-          finalUrl = res.data.url;
+        const uploadedUrl = res?.data?.data?.url || res?.data?.url || res?.url;
+        const uploadedName = res?.data?.data?.fileName || res?.data?.fileName || fileName;
+
+        if (!uploadedUrl || uploadedUrl.startsWith('blob:') || uploadedUrl.includes('images.unsplash.com')) {
+          throw new Error('Đường dẫn tệp trả về từ server không hợp lệ');
         }
+
+        const updated = {
+          ...companyLegal,
+          licenseDocName: uploadedName,
+          licenseDocUrl: uploadedUrl,
+          submittedBy: user?.fullName || 'Chuyên viên HR',
+          submittedAt: new Date().toLocaleDateString('vi-VN'),
+        };
+        setCompanyLegal(updated);
+        try {
+          localStorage.setItem(`hiremate_company_legal_${companyKey}`, JSON.stringify(updated));
+        } catch {}
+        triggerToast(`Đã tải lên tệp: "${uploadedName}". Hãy bấm nút "Gửi Thẩm Định Lên Admin"!`);
       } catch (err) {
-        console.warn('Lỗi khi tải file lên server, sử dụng link preview:', err);
+        console.error('Lỗi khi tải file lên server:', err);
+        const errorMsg = err?.response?.data?.message || err?.message || 'Không thể tải tệp lên server. Vui lòng thử lại!';
+        triggerToast(errorMsg);
       } finally {
         setIsSaving(false);
+        e.target.value = '';
       }
-
-      const updated = {
-        ...companyLegal,
-        licenseDocName: fileName,
-        licenseDocUrl: finalUrl,
-        submittedBy: user?.fullName || 'Chuyên viên HR',
-        submittedAt: new Date().toLocaleDateString('vi-VN'),
-      };
-      setCompanyLegal(updated);
-      try {
-        localStorage.setItem(`hiremate_company_legal_${companyKey}`, JSON.stringify(updated));
-      } catch {}
-      triggerToast(`Đã đính kèm tệp: "${fileName}". Hãy bấm nút "Gửi Thẩm Định Lên Admin"!`);
     }
   };
 
@@ -186,6 +425,14 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
       triggerToast('Vui lòng nhập Mã số thuế doanh nghiệp!');
       return;
     }
+    const isDocValid = companyLegal.licenseDocUrl &&
+      !companyLegal.licenseDocUrl.startsWith('blob:') &&
+      !companyLegal.licenseDocUrl.includes('images.unsplash.com');
+    if (!isDocValid) {
+      triggerToast('Vui lòng đính kèm file Giấy phép kinh doanh (PDF hoặc Hình ảnh) trước khi gửi thẩm định!');
+      return;
+    }
+
     const finalCompanyName = companyInfo.name?.trim() || user?.companyName?.trim() || 'Doanh Nghiệp Tuyển Dụng';
     try {
       setIsSaving(true);
@@ -199,7 +446,7 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
         taxCode: companyLegal.taxCode?.trim(),
         licenseNumber: companyLegal.licenseNumber?.trim(),
         licenseDocUrl: companyLegal.licenseDocUrl?.trim(),
-        licenseDocName: companyLegal.licenseDocName?.trim() || 'GPKD_Doanh_Nghiep.pdf',
+        licenseDocName: companyLegal.licenseDocName?.trim() || 'Giay_Phep_Kinh_Doanh.pdf',
         legalRepresentative: companyLegal.legalRepresentative?.trim() || user?.fullName || 'Đại diện pháp luật',
         status: 'PENDING',
       });
@@ -237,45 +484,95 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
       } catch {}
       triggerToast('Đã gửi hồ sơ Giấy phép kinh doanh lên Ban Quản Trị Admin HireMate thành công!');
     } catch (err) {
-      console.warn('Lỗi đồng bộ hồ sơ pháp lý lên backend, lưu tạm local:', err);
-      triggerToast('Đã lưu hồ sơ cục bộ (Backend đang xử lý). Ban Quản Trị sẽ nhận được thẩm định!');
+      console.error('Lỗi gửi hồ sơ pháp lý lên backend:', err);
+      const errorMsg = err?.response?.data?.message || err?.message || 'Lỗi gửi hồ sơ pháp lý lên hệ thống';
+      triggerToast(errorMsg);
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleInviteHr = (e) => {
+  const handleInviteHr = async (e) => {
     e.preventDefault();
     if (!inviteHrForm.email?.trim()) {
       triggerToast('Vui lòng nhập email của đồng nghiệp HR!');
       return;
     }
-    const newMember = {
-      id: 'hr_' + Date.now(),
-      name: inviteHrForm.name.trim() || 'Chuyên Viên HR Mới',
-      email: inviteHrForm.email.trim(),
-      phone: '0909 000 111',
-      role: inviteHrForm.role || 'Talent Acquisition Partner',
-      department: 'Ban Tuyển Dụng & Thu Hút Nhân Tài',
-      isRepresentative: false,
-      joinedAt: new Date().toLocaleDateString('vi-VN'),
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
-      activeJobs: 0,
-    };
-    const nextTeam = [...companyTeam, newMember];
-    setCompanyTeam(nextTeam);
     try {
-      localStorage.setItem(`hiremate_company_team_${companyKey}`, JSON.stringify(nextTeam));
-    } catch {}
-    setShowInviteHrModal(false);
-    setInviteHrForm({ name: '', email: '', role: 'Talent Acquisition Specialist' });
-    triggerToast(`Đã thêm thành viên "${newMember.name}" vào đội ngũ tuyển dụng của ${companyInfo.name}!`);
+      setIsSaving(true);
+      const invitePayload = {
+        email: inviteHrForm.email.trim(),
+        role: inviteHrForm.role || 'Talent Acquisition Partner',
+        branchName: inviteHrForm.branchName || ''
+      };
+      await companyApi.inviteMember(invitePayload);
+      triggerToast(`Đã liên kết và đồng bộ thành viên HR "${inviteHrForm.email.trim()}" vào doanh nghiệp thành công!`);
+      
+      // Đồng bộ lại danh sách thành viên thực tế từ Backend CSDL
+      try {
+        const teamRes = await companyApi.getCompanyMembers();
+        const members = teamRes?.data?.data || teamRes?.data;
+        if (Array.isArray(members) && members.length > 0) {
+          const mappedTeam = members.map((m) => ({
+            id: `hr_${m.recruiterId}`,
+            recruiterId: m.recruiterId,
+            name: m.fullName || m.name || (m.email ? m.email.split('@')[0] : 'Thành viên HR'),
+            email: m.email,
+            phone: m.phone || 'Chưa cập nhật',
+            role: m.position || 'Chuyên viên Nhân sự',
+            position: m.position || 'Chuyên viên Nhân sự',
+            department: m.department || 'Phòng Tuyển Dụng',
+            branchName: m.branchName || 'Trụ sở chính',
+            branchAddress: m.branchAddress || '',
+            isRepresentative: Boolean(m.isRepresentative),
+            joinedAt: m.joinedAt ? new Date(m.joinedAt).toLocaleDateString('vi-VN') : 'Thành viên doanh nghiệp',
+            avatar: m.avatarUrl || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop&q=80',
+            activeJobs: m.activeJobsCount || 0,
+          }));
+          setCompanyTeam(mappedTeam);
+        }
+      } catch (err) {
+        console.warn('Lỗi tải lại danh sách thành viên sau khi mời:', err);
+      }
+      setShowInviteHrModal(false);
+      setInviteHrForm({ name: '', email: '', role: 'Talent Acquisition Specialist' });
+    } catch (err) {
+      console.error('Lỗi khi mời đồng nghiệp HR:', err);
+      const errorMsg = err?.response?.data?.message || err?.message || 'Lỗi gửi lời mời HR vào doanh nghiệp!';
+      triggerToast(errorMsg);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // Active Job Openings List
   const [jobsList, setJobsList] = useState([]);
 
   // Fetch real company info & active jobs from Supabase
+  const fetchBillingData = async () => {
+    try {
+      setIsLoadingBilling(true);
+      const [ordersRes, subRes] = await Promise.allSettled([
+        paymentApi.getMyOrders(),
+        paymentApi.getMySubscription(),
+      ]);
+      if (ordersRes.status === 'fulfilled' && ordersRes.value?.data) {
+        const list = ordersRes.value.data?.data || ordersRes.value.data;
+        setMyOrders(Array.isArray(list) ? list : []);
+      }
+      if (subRes.status === 'fulfilled' && subRes.value?.data) {
+        const sub = subRes.value.data?.data || subRes.value.data;
+        if (sub && sub.active) {
+          setActiveSubscription(sub);
+        }
+      }
+    } catch (e) {
+      console.warn('Error loading billing data in RecruiterProfilePage:', e);
+    } finally {
+      setIsLoadingBilling(false);
+    }
+  };
+
   const fetchCompanyAndJobs = async () => {
     try {
       setIsLoading(true);
@@ -304,53 +601,164 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
           name: user?.fullName || prev.name,
           email: user?.email || prev.email,
           hotline: user?.phone || prev.hotline,
-          division: `Ban Tuyển Dụng & Thu Hút Nhân Tài • ${compName}`,
-          bio: `Phụ trách kết nối và tư vấn lộ trình sự nghiệp công nghệ cho các ứng viên gia nhập ${compName}. Sẵn sàng đồng hành cùng bạn suốt quy trình phỏng vấn.`,
+          division: user?.department || `Ban Tuyển Dụng & Thu Hút Nhân Tài • ${compName}`,
+          position: user?.position || prev.position || '',
+          department: user?.department || prev.department || '',
+          branchName: user?.branchName || prev.branchName || '',
+          bio: user?.bio || prev.bio || `Phụ trách kết nối và tư vấn lộ trình sự nghiệp công nghệ cho các ứng viên gia nhập ${compName}. Sẵn sàng đồng hành cùng bạn suốt quy trình phỏng vấn.`,
         }));
 
-        if (c.taxCode || c.licenseNumber || c.status || c.licenseDocUrl) {
-          const syncedLegal = {
-            ...companyLegal,
-            taxCode: c.taxCode || companyLegal.taxCode,
-            licenseNumber: c.licenseNumber || companyLegal.licenseNumber,
-            licenseDocUrl: c.licenseDocUrl || companyLegal.licenseDocUrl,
-            licenseDocName: c.licenseDocName || companyLegal.licenseDocName,
-            legalRepresentative: c.legalRepresentative || companyLegal.legalRepresentative,
-            status: c.status || companyLegal.status,
-            rejectionReason: c.rejectionReason || '',
-            verifiedAt: c.verifiedAt ? new Date(c.verifiedAt).toLocaleDateString('vi-VN') : (companyLegal.verifiedAt || ''),
-            notes: c.rejectionReason || (c.status === 'VERIFIED' ? 'Hồ sơ pháp nhân đã được Ban Quản Trị Admin xác thực và duyệt thành công.' : companyLegal.notes),
-          };
-          setCompanyLegal(syncedLegal);
+        const licenseDocUrlFromBackend = c.licenseDocUrl || c.businessLicenseUrl || '';
+        const isValidDoc = Boolean(
+          licenseDocUrlFromBackend &&
+          !licenseDocUrlFromBackend.startsWith('blob:') &&
+          !licenseDocUrlFromBackend.includes('images.unsplash.com')
+        );
+
+        const syncedLegal = {
+          ...companyLegal,
+          companyId: c.companyId,
+          taxCode: c.taxCode || c.registrationCode || '',
+          licenseNumber: c.licenseNumber || c.registrationCode || '',
+          licenseDocUrl: isValidDoc ? licenseDocUrlFromBackend : (c.status === 'PENDING' ? (licenseDocUrlFromBackend || '/api/v1/companies/my/license/preview') : ''),
+          licenseDocName: c.licenseDocName || (licenseDocUrlFromBackend ? 'Giay_Phep_Kinh_Doanh.pdf' : (c.status === 'PENDING' ? 'Giay_Phep_Kinh_Doanh.pdf' : '')),
+          legalRepresentative: c.legalRepresentative || user?.fullName || 'Người Đại Diện Pháp Luật',
+          status: c.status || 'UNVERIFIED',
+          rejectionReason: c.rejectionReason || '',
+          verifiedAt: c.verifiedAt ? new Date(c.verifiedAt).toLocaleDateString('vi-VN') : '',
+          submittedAt: c.createdAt ? new Date(c.createdAt).toLocaleDateString('vi-VN') : '',
+          notes: c.rejectionReason || (c.status === 'VERIFIED' ? 'Hồ sơ pháp nhân đã được Ban Quản Trị Admin xác thực và duyệt thành công.' : ''),
+        };
+        setCompanyLegal(syncedLegal);
+        try {
+          localStorage.setItem(`hiremate_company_legal_${companyKey}`, JSON.stringify(syncedLegal));
+        } catch {}
+
+        // Đồng bộ danh sách chi nhánh và metadata mở rộng từ branchesJson
+        if (c.branchesJson) {
           try {
-            localStorage.setItem(`hiremate_company_legal_${companyKey}`, JSON.stringify(syncedLegal));
-          } catch {}
+            const parsedBranches = typeof c.branchesJson === 'string' ? JSON.parse(c.branchesJson) : c.branchesJson;
+            if (Array.isArray(parsedBranches) && parsedBranches.length > 0) {
+              const meta = parsedBranches.find((b) => b.isMetadata || b.__companyMeta || b.id === 'company-extended-metadata');
+              if (meta) {
+                if (meta.coverUrl) setCompanyInfo((prev) => ({ ...prev, coverUrl: meta.coverUrl }));
+                if (meta.tagline) setCompanyInfo((prev) => ({ ...prev, tagline: meta.tagline }));
+                if (meta.establishedYear) setCompanyInfo((prev) => ({ ...prev, establishedYear: meta.establishedYear }));
+                if (meta.markets) setCompanyInfo((prev) => ({ ...prev, markets: meta.markets }));
+                if (meta.workplacePhotos && Array.isArray(meta.workplacePhotos) && meta.workplacePhotos.length > 0) {
+                  setWorkplacePhotos(meta.workplacePhotos);
+                }
+                if (meta.companyCulture && Array.isArray(meta.companyCulture) && meta.companyCulture.length > 0) {
+                  setCompanyCulture(meta.companyCulture);
+                }
+                if (meta.companyBenefits && Array.isArray(meta.companyBenefits) && meta.companyBenefits.length > 0) {
+                  setCompanyBenefits(meta.companyBenefits);
+                }
+              }
+
+              const actualBranches = parsedBranches.filter((b) => !b.isMetadata && !b.__companyMeta && b.id !== 'company-extended-metadata');
+              if (actualBranches.length > 0) {
+                const normalizedBranches = actualBranches.map((b, idx) => ({
+                  id: b.id || `loc_${idx + 1}`,
+                  name: b.branchName || b.name || `Chi nhánh ${idx + 1}`,
+                  branchName: b.branchName || b.name || `Chi nhánh ${idx + 1}`,
+                  badge: b.isHeadquarters ? 'Trụ Sở Chính' : (b.badge || 'Chi Nhánh'),
+                  isHeadquarters: Boolean(b.isHeadquarters),
+                  address: b.address || '',
+                  scale: b.scale || 'Quy mô chi nhánh',
+                  hotline: b.hotline || 'Hotline liên hệ',
+                  managerName: b.managerName || '',
+                  managerRecruiterId: b.managerRecruiterId || null,
+                  icon: b.isHeadquarters ? 'corporate_fare' : (b.icon || 'apartment'),
+                }));
+                setCompanyLocations(normalizedBranches);
+              }
+            }
+          } catch (err) {
+            console.warn('Could not parse branchesJson:', err);
+          }
+        }
+
+        // Tải hóa đơn và gói cước thực tế từ paymentApi
+        fetchBillingData();
+
+        // Đồng bộ đội ngũ HR (teamMembers) trực thuộc cùng công ty từ Backend CSDL thực
+        try {
+          const teamRes = await companyApi.getCompanyMembers();
+          const members = teamRes?.data?.data || teamRes?.data;
+          const sourceList = (Array.isArray(members) && members.length > 0) 
+            ? members 
+            : (Array.isArray(c.teamMembers) ? c.teamMembers : []);
+          if (sourceList.length > 0) {
+            const mappedTeam = sourceList.map((m) => ({
+              id: `hr_${m.recruiterId}`,
+              recruiterId: m.recruiterId,
+              name: m.fullName || m.name || (m.email ? m.email.split('@')[0] : 'Thành viên HR'),
+              email: m.email,
+              phone: m.phone || 'Chưa cập nhật',
+              role: m.position || 'Chuyên viên Nhân sự',
+              position: m.position || 'Chuyên viên Nhân sự',
+              department: m.department || 'Phòng Tuyển Dụng',
+              branchName: m.branchName || 'Trụ sở chính',
+              branchAddress: m.branchAddress || '',
+              isRepresentative: Boolean(m.isRepresentative),
+              joinedAt: m.joinedAt ? new Date(m.joinedAt).toLocaleDateString('vi-VN') : 'Thành viên doanh nghiệp',
+              avatar: m.avatarUrl || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop&q=80',
+              activeJobs: m.activeJobsCount || 0,
+            }));
+            setCompanyTeam(mappedTeam);
+          }
+        } catch (teamErr) {
+          console.warn('Không thể tải danh sách đồng nghiệp HR từ backend:', teamErr);
+        }
+
+        // Đồng bộ danh sách phúc lợi (benefitsJson hoặc benefits) từ Backend
+        if (c.benefitsJson || c.benefits) {
+          try {
+            const rawBenefits = c.benefits || (typeof c.benefitsJson === 'string' ? JSON.parse(c.benefitsJson) : c.benefitsJson);
+            if (Array.isArray(rawBenefits) && rawBenefits.length > 0) {
+              setCompanyBenefits(rawBenefits);
+            }
+          } catch (e) {
+            console.warn('Could not parse company benefits from backend:', e);
+          }
         }
       }
 
       if (jobsRes.status === 'fulfilled' && Array.isArray(jobsRes.value?.data)) {
         const rawJobs = jobsRes.value.data;
-        const mapped = await Promise.all(
-          rawJobs.map(async (j) => {
-            let appCount = 0;
-            try {
-              const appsRes = await applicationApi.getJobApplications(j.jobId);
-              if (Array.isArray(appsRes?.data)) appCount = appsRes.data.length;
-            } catch (ignored) {}
+        const formatJobSalary = (min, max, cur = 'VND') => {
+          if (!min && !max) return 'Thỏa thuận';
+          const isVnd = !cur || cur.toUpperCase() === 'VND';
+          const fmt = (val) => {
+            if (isVnd) {
+              if (val >= 1000000) {
+                const m = val / 1000000;
+                return `${Number.isInteger(m) ? m : m.toFixed(1)} triệu VNĐ`;
+              }
+              return `${val.toLocaleString('vi-VN')} VNĐ`;
+            }
+            return `${val.toLocaleString('en-US')}`;
+          };
+          if (min && max) return `${fmt(min)} – ${fmt(max)}${isVnd ? '' : ' USD'}`;
+          if (min) return `Từ ${fmt(min)}${isVnd ? '' : ' USD'}`;
+          return `Tới ${fmt(max)}${isVnd ? '' : ' USD'}`;
+        };
 
-            return {
-              id: j.jobId,
-              title: j.title || 'Vị trí tuyển dụng',
-              salary: j.salaryMin && j.salaryMax ? `$${j.salaryMin} – $${j.salaryMax} USD / tháng` : 'Thỏa thuận',
-              location: j.location || 'Việt Nam',
-              level: j.employmentType || 'Toàn thời gian',
-              tags: parseSkillList(j.requirements, ['Kỹ năng chuyên môn']).slice(0, 4),
-              postedTime: j.createdAt ? new Date(j.createdAt).toLocaleDateString('vi-VN') : 'Gần đây',
-              applicantCount: appCount,
-              isHot: j.status === 'PUBLISHED',
-            };
-          })
-        );
+        const mapped = rawJobs.map((j) => {
+          const appCount = j.applicantCount ?? j.totalApplicants ?? 0;
+          return {
+            id: j.jobId,
+            title: j.title || 'Vị trí tuyển dụng',
+            salary: formatJobSalary(j.salaryMin, j.salaryMax, j.salaryCurrency),
+            location: j.location || 'Việt Nam',
+            level: j.employmentType || 'Toàn thời gian',
+            tags: parseSkillList(j.requirements, ['Kỹ năng chuyên môn']).slice(0, 4),
+            postedTime: j.createdAt ? new Date(j.createdAt).toLocaleDateString('vi-VN') : 'Gần đây',
+            applicantCount: appCount,
+            isHot: j.status === 'PUBLISHED',
+          };
+        });
         setJobsList(mapped);
       }
     } catch (err) {
@@ -417,7 +825,7 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
 
   const [workplacePhotos, setWorkplacePhotos] = useState(() => {
     try {
-      const saved = localStorage.getItem('hiremate_workplace_photos');
+      const saved = localStorage.getItem(`hiremate_workplace_photos_${companyKey}`) || localStorage.getItem('hiremate_workplace_photos');
       if (saved) return JSON.parse(saved);
     } catch {}
     return defaultWorkplacePhotos;
@@ -544,7 +952,7 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
 
   const [companyCulture, setCompanyCulture] = useState(() => {
     try {
-      const saved = localStorage.getItem('hiremate_company_culture');
+      const saved = localStorage.getItem(`hiremate_company_culture_${companyKey}`) || localStorage.getItem('hiremate_company_culture');
       if (saved) return JSON.parse(saved);
     } catch {}
     return defaultCompanyCulture;
@@ -552,7 +960,7 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
 
   const [companyBenefits, setCompanyBenefits] = useState(() => {
     try {
-      const saved = localStorage.getItem('hiremate_company_benefits');
+      const saved = localStorage.getItem(`hiremate_company_benefits_${companyKey}`) || localStorage.getItem('hiremate_company_benefits');
       if (saved) return JSON.parse(saved);
     } catch {}
     return defaultCompanyBenefits;
@@ -591,7 +999,7 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
 
   const [companyLocations, setCompanyLocations] = useState(() => {
     try {
-      const saved = localStorage.getItem('hiremate_company_locations');
+      const saved = localStorage.getItem(`hiremate_company_locations_${companyKey}`) || localStorage.getItem('hiremate_company_locations');
       if (saved) return JSON.parse(saved);
     } catch {}
     return defaultOfficeLocations;
@@ -694,6 +1102,36 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
     e.preventDefault();
     try {
       setIsSaving(true);
+      const effectiveLocations = (companyEditForm.locations && companyEditForm.locations.length > 0)
+        ? companyEditForm.locations
+        : companyLocations;
+
+      const rawBranchItems = effectiveLocations.map((loc, idx) => ({
+        id: loc.id || `loc_${idx + 1}`,
+        branchName: loc.branchName || loc.name,
+        address: loc.address || '',
+        scale: loc.scale || '',
+        hotline: loc.hotline || '',
+        managerName: loc.managerName || '',
+        managerRecruiterId: loc.managerRecruiterId || null,
+        isHeadquarters: loc.isHeadquarters !== undefined ? loc.isHeadquarters : (loc.badge === 'Trụ Sở Chính' || idx === 0),
+      }));
+
+      const metaItem = {
+        id: 'company-extended-metadata',
+        isMetadata: true,
+        coverUrl: companyEditForm.coverUrl || companyInfo.coverUrl || '',
+        workplacePhotos: companyEditForm.photos || workplacePhotos || [],
+        companyCulture: companyEditForm.culture || companyCulture || [],
+        companyBenefits: companyEditForm.benefits || companyBenefits || [],
+        establishedYear: companyEditForm.establishedYear || companyInfo.establishedYear || '',
+        markets: companyEditForm.markets || companyInfo.markets || '',
+        tagline: companyEditForm.tagline || companyInfo.tagline || '',
+        invitedTeamMembers: companyTeam || [],
+      };
+
+      const branchesJsonPayload = JSON.stringify([...rawBranchItems, metaItem]);
+
       const payload = {
         companyName: companyEditForm.companyName,
         website: companyEditForm.website,
@@ -702,6 +1140,10 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
         industry: companyEditForm.industry,
         companySize: companyEditForm.headcount,
         logoUrl: companyEditForm.logoUrl || null,
+        taxCode: companyLegal?.taxCode || null,
+        licenseNumber: companyLegal?.licenseNumber || null,
+        branchesJson: branchesJsonPayload,
+        benefitsJson: JSON.stringify(companyEditForm.benefits && companyEditForm.benefits.length > 0 ? companyEditForm.benefits : companyBenefits),
       };
 
       await companyApi.updateMyCompany(payload);
@@ -732,11 +1174,18 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
       if (companyEditForm.locations && companyEditForm.locations.length > 0) {
         setCompanyLocations(companyEditForm.locations);
       }
+      const cIdSuffix = companyLegal.companyId ? `_${companyLegal.companyId}` : (user?.companyId ? `_${user.companyId}` : '');
       try {
-        localStorage.setItem('hiremate_workplace_photos', JSON.stringify(companyEditForm.photos));
-        localStorage.setItem('hiremate_company_culture', JSON.stringify(companyEditForm.culture || companyCulture));
-        localStorage.setItem('hiremate_company_benefits', JSON.stringify(companyEditForm.benefits || companyBenefits));
-        localStorage.setItem('hiremate_company_locations', JSON.stringify(companyEditForm.locations || companyLocations));
+        localStorage.setItem(`hiremate_workplace_photos_${companyKey}`, JSON.stringify(companyEditForm.photos));
+        localStorage.setItem(`hiremate_company_culture_${companyKey}`, JSON.stringify(companyEditForm.culture || companyCulture));
+        localStorage.setItem(`hiremate_company_benefits_${companyKey}`, JSON.stringify(companyEditForm.benefits || companyBenefits));
+        localStorage.setItem(`hiremate_company_locations_${companyKey}`, JSON.stringify(companyEditForm.locations || companyLocations));
+        if (cIdSuffix) {
+          localStorage.setItem(`hiremate_workplace_photos${cIdSuffix}`, JSON.stringify(companyEditForm.photos));
+          localStorage.setItem(`hiremate_company_culture${cIdSuffix}`, JSON.stringify(companyEditForm.culture || companyCulture));
+          localStorage.setItem(`hiremate_company_benefits${cIdSuffix}`, JSON.stringify(companyEditForm.benefits || companyBenefits));
+          localStorage.setItem(`hiremate_company_locations${cIdSuffix}`, JSON.stringify(companyEditForm.locations || companyLocations));
+        }
         localStorage.setItem('hiremate_company_cover_url', companyEditForm.coverUrl);
         localStorage.setItem('hiremate_company_info_extra', JSON.stringify({
           tagline: companyEditForm.tagline,
@@ -744,7 +1193,25 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
           markets: companyEditForm.markets,
           coverUrl: companyEditForm.coverUrl,
         }));
-      } catch {}
+
+        const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const nextUser = {
+          ...storedUser,
+          companyName: companyEditForm.companyName,
+          company: {
+            ...(storedUser.company || {}),
+            companyName: companyEditForm.companyName,
+            logoUrl: companyEditForm.logoUrl,
+            address: companyEditForm.headquarters,
+            website: companyEditForm.website,
+          }
+        };
+        localStorage.setItem('user', JSON.stringify(nextUser));
+        window.dispatchEvent(new CustomEvent('hiremate_user_updated', { detail: nextUser }));
+        window.dispatchEvent(new Event('storage'));
+      } catch (syncErr) {
+        console.warn('Sync company to localStorage error:', syncErr);
+      }
 
       setShowCompanyModal(false);
       triggerToast('Đã lưu thành công thông tin doanh nghiệp, văn hóa & chế độ đãi ngộ!');
@@ -763,6 +1230,9 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
     name: hrRepresentative.name,
     title: hrRepresentative.title,
     division: hrRepresentative.division,
+    position: hrRepresentative.position || hrRepresentative.title,
+    department: hrRepresentative.department || hrRepresentative.division,
+    branchName: hrRepresentative.branchName || '',
     email: hrRepresentative.email,
     hotline: hrRepresentative.hotline,
     avatar: hrRepresentative.avatar,
@@ -779,45 +1249,68 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
         phone: hrEditForm.hotline,
         bio: hrEditForm.bio,
         headline: hrEditForm.title,
+        position: hrEditForm.position || hrEditForm.title,
+        department: hrEditForm.department || hrEditForm.division,
+        branchName: hrEditForm.branchName || '',
       };
 
-      try {
-        await authApi.updateProfile(payload);
-        if (hrEditForm.avatar && hrEditForm.avatar !== hrRepresentative.avatar) {
-          await authApi.updateAvatar(hrEditForm.avatar);
-        }
-      } catch (apiErr) {
-        console.warn('Backend update profile notice:', apiErr);
+      await authApi.updateProfile(payload);
+      if (hrEditForm.avatar && hrEditForm.avatar !== hrRepresentative.avatar) {
+        await authApi.updateAvatar(hrEditForm.avatar);
       }
 
-      setHrRepresentative({
+      const updated = {
         name: hrEditForm.name,
         title: hrEditForm.title,
         division: hrEditForm.division,
+        position: hrEditForm.position || hrEditForm.title,
+        department: hrEditForm.department || hrEditForm.division,
+        branchName: hrEditForm.branchName || '',
         email: hrEditForm.email,
         hotline: hrEditForm.hotline,
         avatar: hrEditForm.avatar,
         responseTime: hrEditForm.responseTime,
         bio: hrEditForm.bio,
-      });
+      };
+
+      setHrRepresentative(updated);
 
       try {
-        localStorage.setItem('hiremate_hr_profile', JSON.stringify(hrEditForm));
-      } catch {}
+        localStorage.setItem('hiremate_hr_profile', JSON.stringify(updated));
+        const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const nextUser = {
+          ...storedUser,
+          fullName: hrEditForm.name,
+          phone: hrEditForm.hotline,
+          bio: hrEditForm.bio,
+          avatarUrl: hrEditForm.avatar || storedUser.avatarUrl,
+          position: hrEditForm.position || hrEditForm.title,
+          department: hrEditForm.department || hrEditForm.division,
+          branchName: hrEditForm.branchName || '',
+        };
+        localStorage.setItem('user', JSON.stringify(nextUser));
+        window.dispatchEvent(new CustomEvent('hiremate_user_updated', { detail: nextUser }));
+        window.dispatchEvent(new Event('storage'));
+      } catch (err) {
+        console.warn('Sync user to localStorage error:', err);
+      }
 
       setShowHrModal(false);
-      triggerToast('Đã cập nhật thông tin đại diện tuyển dụng HR thành công!');
+      triggerToast('Đã lưu cấu hình đại diện HR & đồng bộ hệ thống thành công!');
     } catch (err) {
-      triggerToast('Lỗi cập nhật thông tin HR: ' + (err.message || 'Thử lại sau'));
+      console.error('Lỗi cập nhật profile HR:', err);
+      triggerToast('Lỗi cập nhật thông tin HR: ' + (err.response?.data?.message || err.message || 'Thử lại sau'));
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleCopyShareLink = () => {
+    const compId = companyLegal.companyId || companyInfo?.id || '1';
+    const publicUrl = `${window.location.origin}/#/jobs?companyId=${compId}`;
     if (navigator.clipboard) {
-      navigator.clipboard.writeText(window.location.href);
-      triggerToast('Đã sao chép link trang hồ sơ doanh nghiệp!');
+      navigator.clipboard.writeText(publicUrl);
+      triggerToast(`Đã sao chép liên kết công khai việc làm công ty: ${publicUrl}`);
     } else {
       triggerToast('Đã sao chép đường dẫn hồ sơ công ty.');
     }
@@ -861,13 +1354,19 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                 className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/90 backdrop-blur-md text-[#221d47] text-xs font-bold border border-purple-100 shadow-sm cursor-pointer hover:bg-white hover:text-[#5b48bd] transition-all"
                 title="Nhấp để xem hồ sơ xác thực pháp lý & Giấy phép kinh doanh của công ty"
               >
-                <span className="material-symbols-outlined text-sm text-[#5b48bd]">verified</span>
+                <span className={`material-symbols-outlined text-sm ${
+                  getLegalStatusInfo(companyLegal).type === 'VERIFIED'
+                    ? 'text-emerald-600'
+                    : getLegalStatusInfo(companyLegal).type === 'PENDING'
+                    ? 'text-amber-600'
+                    : getLegalStatusInfo(companyLegal).type === 'REJECTED'
+                    ? 'text-rose-600'
+                    : 'text-slate-500'
+                }`}>
+                  {getLegalStatusInfo(companyLegal).icon}
+                </span>
                 <span>
-                  {companyLegal.status === 'VERIFIED'
-                    ? 'Doanh Nghiệp Đã Xác Thực Pháp Nhân'
-                    : companyLegal.status === 'PENDING'
-                    ? 'Hồ Sơ GPKD Đang Chờ Admin Duyệt'
-                    : 'Chưa Xác Thực GPKD (Bấm Nộp)'}
+                  {getLegalStatusInfo(companyLegal).title}
                 </span>
               </div>
             </div>
@@ -903,23 +1402,21 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                       type="button"
                       onClick={() => setActiveTab('legal')}
                       className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border transition-all cursor-pointer ${
-                        companyLegal.status === 'VERIFIED'
+                        getLegalStatusInfo(companyLegal).type === 'VERIFIED'
                           ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 shadow-xs'
-                          : companyLegal.status === 'PENDING'
+                          : getLegalStatusInfo(companyLegal).type === 'PENDING'
                           ? 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100 animate-pulse'
-                          : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                          : getLegalStatusInfo(companyLegal).type === 'REJECTED'
+                          ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                          : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                       }`}
                       title="Nhấp để xem hồ sơ xác thực pháp lý & giấy phép kinh doanh"
                     >
                       <span className="material-symbols-outlined text-[15px]">
-                        {companyLegal.status === 'VERIFIED' ? 'verified' : companyLegal.status === 'PENDING' ? 'hourglass_top' : 'warning'}
+                        {getLegalStatusInfo(companyLegal).icon}
                       </span>
                       <span>
-                        {companyLegal.status === 'VERIFIED'
-                          ? 'Doanh Nghiệp Đã Xác Thực'
-                          : companyLegal.status === 'PENDING'
-                          ? 'Đang Chờ Admin Duyệt GPKD'
-                          : 'Chưa Xác Thực GPKD'}
+                        {getLegalStatusInfo(companyLegal).title}
                       </span>
                     </button>
                   </div>
@@ -1104,6 +1601,18 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                     </p>
                   </div>
                 </div>
+
+                {hrRepresentative.branchName && (
+                  <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/60 flex items-start gap-3">
+                    <span className="material-symbols-outlined text-emerald-600 text-lg mt-0.5">business</span>
+                    <div className="min-w-0 flex-1">
+                      <span className="text-[10px] uppercase text-slate-400 font-bold">Chi nhánh / Văn phòng</span>
+                      <p className="text-xs font-semibold text-slate-700 mt-0.5">
+                        {hrRepresentative.branchName}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Action Button: Edit HR Profile */}
@@ -1115,6 +1624,9 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                       name: hrRepresentative.name,
                       title: hrRepresentative.title,
                       division: hrRepresentative.division,
+                      position: hrRepresentative.position || hrRepresentative.title,
+                      department: hrRepresentative.department || hrRepresentative.division,
+                      branchName: hrRepresentative.branchName || '',
                       email: hrRepresentative.email,
                       hotline: hrRepresentative.hotline,
                       avatar: hrRepresentative.avatar,
@@ -1204,12 +1716,14 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
               >
                 <span className="material-symbols-outlined text-base">verified_user</span>
                 <span>Pháp Lý &amp; GPKD</span>
-                {companyLegal.status === 'VERIFIED' ? (
+                {getLegalStatusInfo(companyLegal).type === 'VERIFIED' ? (
                   <span className="w-2 h-2 rounded-full bg-emerald-400" title="Đã duyệt GPKD" />
-                ) : companyLegal.status === 'PENDING' ? (
+                ) : getLegalStatusInfo(companyLegal).type === 'PENDING' ? (
                   <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" title="Đang chờ duyệt" />
+                ) : getLegalStatusInfo(companyLegal).type === 'REJECTED' ? (
+                  <span className="w-2 h-2 rounded-full bg-rose-400" title="Bị từ chối" />
                 ) : (
-                  <span className="w-2 h-2 rounded-full bg-rose-400" title="Chưa xác thực" />
+                  <span className="w-2 h-2 rounded-full bg-slate-400" title="Chưa nộp hồ sơ" />
                 )}
               </button>
 
@@ -1237,6 +1751,27 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
               >
                 <span className="material-symbols-outlined text-base">apartment</span>
                 <span>Địa Điểm &amp; Chi Nhánh</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('billing');
+                  fetchBillingData();
+                }}
+                className={`py-2.5 px-3.5 rounded-full text-xs font-bold tracking-wide transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0 ${
+                  activeTab === 'billing'
+                    ? 'bg-[#5b48bd] text-white shadow-sm'
+                    : 'text-slate-600 hover:text-[#5b48bd] hover:bg-purple-50/60'
+                }`}
+              >
+                <span className="material-symbols-outlined text-base">receipt_long</span>
+                <span>Gói Dịch Vụ &amp; Hóa Đơn</span>
+                {myOrders.length > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full bg-purple-100 text-[#5b48bd] text-[10px] font-bold">
+                    {myOrders.length}
+                  </span>
+                )}
               </button>
             </div>
 
@@ -1479,16 +2014,25 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                       className="p-6 rounded-[28px] bg-white border border-purple-100 shadow-sm space-y-3"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="px-3 py-0.5 rounded-full text-xs font-bold bg-purple-50 text-[#5b48bd] border border-purple-200">
-                          {loc.badge}
+                        <span className={`px-3 py-0.5 rounded-full text-xs font-bold border ${
+                          loc.isHeadquarters || loc.badge === 'Trụ Sở Chính'
+                            ? 'bg-purple-50 text-[#5b48bd] border-purple-200'
+                            : 'bg-blue-50 text-blue-700 border-blue-200'
+                        }`}>
+                          {loc.badge || (loc.isHeadquarters ? 'Trụ Sở Chính' : 'Chi Nhánh')}
                         </span>
-                        <span className="material-symbols-outlined text-xl text-[#5b48bd]">{loc.icon}</span>
+                        <span className="material-symbols-outlined text-xl text-[#5b48bd]">
+                          {loc.isHeadquarters ? 'corporate_fare' : (loc.icon || 'apartment')}
+                        </span>
                       </div>
-                      <h4 className="text-sm font-bold text-[#221d47]">{loc.name}</h4>
+                      <h4 className="text-sm font-bold text-[#221d47]">{loc.name || loc.branchName}</h4>
                       <p className="text-xs text-slate-600 leading-relaxed">{loc.address}</p>
                       <div className="pt-2 border-t border-slate-100 text-xs text-slate-500 space-y-1">
-                        <div>&bull; {loc.scale}</div>
-                        <div>&bull; Hotline: <span className="text-[#221d47] font-bold">{loc.hotline}</span></div>
+                        <div>&bull; {loc.scale || 'Quy mô chi nhánh tiêu chuẩn'}</div>
+                        <div>&bull; Hotline: <span className="text-[#221d47] font-bold">{loc.hotline || 'hiremate.ai'}</span></div>
+                        {loc.managerName && (
+                          <div className="text-blue-700 font-semibold">&bull; Quản lý chi nhánh: <span>{loc.managerName}</span></div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -1504,53 +2048,27 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
               <div className="space-y-6 animate-fade-in font-sans">
                 
                 {/* 1. Trạng Thái Thẩm Định Pháp Lý Doanh Nghiệp */}
-                <div className={`p-5 sm:p-6 rounded-[24px] border shadow-xs transition-all ${
-                  companyLegal.status === 'VERIFIED'
-                    ? 'bg-gradient-to-r from-emerald-50/80 via-teal-50/50 to-white border-emerald-200'
-                    : companyLegal.status === 'PENDING'
-                    ? 'bg-gradient-to-r from-amber-50/80 via-yellow-50/40 to-white border-amber-200'
-                    : 'bg-gradient-to-r from-rose-50/80 via-pink-50/40 to-white border-rose-200'
-                }`}>
+                <div className={`p-5 sm:p-6 rounded-[24px] border shadow-xs transition-all ${getLegalStatusInfo(companyLegal).bannerBg}`}>
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-3.5">
-                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${
-                        companyLegal.status === 'VERIFIED'
-                          ? 'bg-emerald-600 text-white'
-                          : companyLegal.status === 'PENDING'
-                          ? 'bg-amber-500 text-white animate-pulse'
-                          : 'bg-rose-600 text-white'
-                      }`}>
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${getLegalStatusInfo(companyLegal).iconBg}`}>
                         <span className="material-symbols-outlined text-2xl">
-                          {companyLegal.status === 'VERIFIED' ? 'verified' : companyLegal.status === 'PENDING' ? 'hourglass_top' : 'error'}
+                          {getLegalStatusInfo(companyLegal).icon}
                         </span>
                       </div>
 
                       <div className="space-y-0.5">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h4 className="text-sm sm:text-base font-extrabold text-[#1e1b4b]">
-                            {companyLegal.status === 'VERIFIED'
-                              ? 'Doanh Nghiệp Đã Được Admin Xác Thực Pháp Nhân Hợp Lệ'
-                              : companyLegal.status === 'PENDING'
-                              ? 'Hồ Sơ Đang Trong Hàng Đợi Xét Duyệt Của Admin'
-                              : 'Hồ Sơ Chưa Được Xác Thực / Cần Bổ Sung'}
+                            {getLegalStatusInfo(companyLegal).title}
                           </h4>
-                          <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
-                            companyLegal.status === 'VERIFIED'
-                              ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                              : companyLegal.status === 'PENDING'
-                              ? 'bg-amber-100 text-amber-800 border-amber-300'
-                              : 'bg-rose-100 text-rose-800 border-rose-300'
-                          }`}>
-                            {companyLegal.status === 'VERIFIED' ? 'Đã duyệt GPKD' : companyLegal.status === 'PENDING' ? 'Chờ Admin duyệt' : 'Cần bổ sung'}
+                          <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${getLegalStatusInfo(companyLegal).badgeClass}`}>
+                            {getLegalStatusInfo(companyLegal).badgeText}
                           </span>
                         </div>
 
                         <p className="text-xs text-slate-600 leading-relaxed max-w-2xl">
-                          {companyLegal.status === 'VERIFIED'
-                            ? `Hồ sơ đã được thẩm định hợp lệ vào ngày ${companyLegal.verifiedAt || '16/03/2026'}. Người đại diện nộp: ${companyLegal.submittedBy}. Ghi chú: ${companyLegal.notes || 'Hồ sơ pháp nhân hợp lệ.'}`
-                            : companyLegal.status === 'PENDING'
-                            ? `Hồ sơ đã được gửi lên hệ thống vào ngày ${companyLegal.submittedAt || new Date().toLocaleDateString('vi-VN')}. Ban Quản Trị HireMate đang kiểm tra đối soát trên Cổng Thông Tin Đăng Ký Doanh Nghiệp Quốc Gia.`
-                            : `Lý do từ Ban Quản Trị: ${companyLegal.rejectionReason || 'Vui lòng cung cấp mã số thuế chính xác và đính kèm bản chụp/scan Giấy phép kinh doanh còn hiệu lực.'}`}
+                          {getLegalStatusInfo(companyLegal).desc}
                         </p>
                       </div>
                     </div>
@@ -1710,7 +2228,7 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                           <div className="flex items-start gap-3">
                             <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-200 shadow-2xs">
                               <span className="material-symbols-outlined text-2xl">
-                                {companyLegal.licenseDocName?.endsWith('.pdf') ? 'picture_as_pdf' : 'image'}
+                                {/\.pdf($|\?)/i.test(companyLegal.licenseDocName || companyLegal.licenseDocUrl) ? 'picture_as_pdf' : 'image'}
                               </span>
                             </div>
                             <div className="min-w-0 flex-1">
@@ -1741,17 +2259,15 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                             </button>
 
                             {/* Nút 2: Tải xuống file */}
-                            <a
-                              href={companyLegal.licenseDocUrl}
-                              download={companyLegal.licenseDocName || 'Giay_Phep_Kinh_Doanh.pdf'}
-                              target="_blank"
-                              rel="noreferrer"
+                            <button
+                              type="button"
+                              onClick={handleDownloadLicense}
                               className="px-2.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold flex items-center justify-center gap-1 border border-emerald-200 transition-colors cursor-pointer text-center"
-                              title="Tải file GPKD về máy"
+                              title="Tải file GPKD về máy qua Blob API"
                             >
                               <span className="material-symbols-outlined text-[15px]">download</span>
                               <span>Tải Xuống</span>
-                            </a>
+                            </button>
 
                             {/* Nút 3: Thay file mới */}
                             <label
@@ -1880,9 +2396,15 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                                 Đại Diện Pháp Luật
                               </span>
                             )}
+                            {member.branchName && (
+                              <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-800 text-[10px] font-bold border border-blue-200 flex items-center gap-1">
+                                <span className="material-symbols-outlined text-[11px]">apartment</span>
+                                <span>{member.branchName}</span>
+                              </span>
+                            )}
                           </div>
-                          <div className="text-xs font-semibold text-[#5b48bd] truncate">{member.role}</div>
-                          <div className="text-[11px] text-slate-400 truncate">{member.department}</div>
+                          <div className="text-xs font-semibold text-[#5b48bd] truncate">{member.role || member.position || 'Chuyên viên Nhân sự'}</div>
+                          <div className="text-[11px] text-slate-500 truncate">{member.department}</div>
                         </div>
                       </div>
 
@@ -1902,6 +2424,173 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* =============================================================== */}
+            {/* TAB 6: GÓI DỊCH VỤ TUYỂN DỤNG & LỊCH SỬ HÓA ĐƠN (BILLING)       */}
+            {/* =============================================================== */}
+            {activeTab === 'billing' && (
+              <div className="space-y-6 animate-fade-in font-sans">
+                {/* 1. Subscription Banner Card */}
+                <div className="p-6 rounded-[28px] bg-gradient-to-br from-slate-900 via-[#1e1b4b] to-[#2e1065] text-white shadow-xl relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-br from-amber-400/15 via-purple-500/10 to-transparent rounded-full blur-3xl pointer-events-none" />
+                  
+                  <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div className="space-y-2.5">
+                      <div className="flex items-center gap-2">
+                        <span className="px-3 py-1 rounded-full bg-amber-400 text-slate-900 text-xs font-black uppercase tracking-wider flex items-center gap-1 shadow-sm">
+                          <span className="material-symbols-outlined text-sm">workspace_premium</span>
+                          <span>{activeSubscription?.planName || 'Gói Tuyển Dụng Doanh Nghiệp'}</span>
+                        </span>
+                        <span className="px-2.5 py-0.5 rounded-full bg-white/10 text-emerald-300 text-xs font-bold border border-emerald-400/30">
+                          {activeSubscription?.active ? 'Đang Hoạt Động' : 'Tiêu Chuẩn'}
+                        </span>
+                      </div>
+                      
+                      <h3 className="text-xl sm:text-2xl font-black text-white">
+                        {activeSubscription?.planName || 'Hiring Solutions Starter'}
+                      </h3>
+                      
+                      <p className="text-xs text-purple-200/80 max-w-xl leading-relaxed">
+                        Hạn mức đăng tin: <strong>{activeSubscription?.quotaLimit || 3} tin tuyển dụng</strong> • Lượt xem &amp; tải CV: <strong>{activeSubscription?.cvViewLimit || 25} hồ sơ</strong> • Hiệu lực đến: <strong>{activeSubscription?.endDate ? new Date(activeSubscription.endDate).toLocaleDateString('vi-VN') : 'Kèm theo chu kỳ tài khoản'}</strong>
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3 flex-wrap shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => { window.location.hash = '#/recruiter-pricing'; }}
+                        className="px-5 py-3 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-lg hover:shadow-amber-400/25 transition-all cursor-pointer hover:scale-105"
+                      >
+                        <span className="material-symbols-outlined text-base font-bold">bolt</span>
+                        <span>Nâng Cấp Gói VIP</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('locations')}
+                        className="px-4 py-3 rounded-2xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold flex items-center gap-2 border border-white/15 transition-all cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-base">apartment</span>
+                        <span>Quản Lý Chi Nhánh</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Billing Orders & Invoices History Table */}
+                <div className="p-6 rounded-[28px] bg-white border border-purple-100 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-4 flex-wrap gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-10 h-10 rounded-2xl bg-purple-50 text-[#5b48bd] flex items-center justify-center font-bold">
+                        <span className="material-symbols-outlined text-xl">receipt_long</span>
+                      </div>
+                      <div>
+                        <h4 className="text-base font-extrabold text-[#1e1b4b]">Lịch Sử Đơn Hàng &amp; Hóa Đơn Dịch Vụ</h4>
+                        <p className="text-xs text-slate-500">Dữ liệu đối soát thực tế được đồng bộ từ cổng thanh toán VietQR &amp; Backend HireMate</p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={fetchBillingData}
+                      disabled={isLoadingBilling}
+                      className="px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-purple-50 text-slate-700 hover:text-[#5b48bd] text-xs font-bold flex items-center gap-1.5 border border-slate-200 transition-colors cursor-pointer"
+                    >
+                      <span className={`material-symbols-outlined text-sm ${isLoadingBilling ? 'animate-spin' : ''}`}>sync</span>
+                      <span>Làm Mới</span>
+                    </button>
+                  </div>
+
+                  {isLoadingBilling ? (
+                    <div className="py-12 flex flex-col items-center justify-center gap-3">
+                      <LoadingSpinner />
+                      <span className="text-xs text-slate-500 font-medium">Đang tải lịch sử giao dịch từ máy chủ...</span>
+                    </div>
+                  ) : myOrders.length === 0 ? (
+                    <div className="py-12 text-center space-y-3">
+                      <div className="w-16 h-16 rounded-full bg-purple-50 text-[#5b48bd] flex items-center justify-center mx-auto">
+                        <span className="material-symbols-outlined text-3xl">receipt</span>
+                      </div>
+                      <div className="space-y-1">
+                        <h5 className="text-sm font-bold text-slate-800">Chưa Phát Sinh Giao Dịch Hóa Đơn</h5>
+                        <p className="text-xs text-slate-500 max-w-md mx-auto">
+                          Doanh nghiệp đang sử dụng gói dịch vụ tiêu chuẩn. Khi bạn nâng cấp gói tuyển dụng VIP, toàn bộ hóa đơn thanh toán và chứng từ sẽ hiển thị tại đây.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => { window.location.hash = '#/recruiter-pricing'; }}
+                        className="px-4 py-2.5 rounded-full bg-[#5b48bd] hover:bg-[#47369f] text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-sm cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-sm">open_in_new</span>
+                        <span>Khám Phá Bảng Giá Dịch Vụ Tuyển Dụng</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto rounded-2xl border border-slate-100">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
+                          <tr>
+                            <th className="py-3 px-4">Mã Đơn Hàng</th>
+                            <th className="py-3 px-4">Gói Tuyển Dụng</th>
+                            <th className="py-3 px-4">Ngày Tạo</th>
+                            <th className="py-3 px-4">Số Tiền</th>
+                            <th className="py-3 px-4">Phương Thức</th>
+                            <th className="py-3 px-4">Trạng Thái</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {myOrders.map((order) => {
+                            const isApproved = order.status === 'APPROVED' || order.status === 'PAID' || order.status === 'SUCCESS';
+                            const isPending = order.status === 'PENDING';
+                            const isRejected = order.status === 'REJECTED' || order.status === 'CANCELLED';
+
+                            return (
+                              <tr key={order.orderId || order.orderCode} className="hover:bg-purple-50/30 transition-colors">
+                                <td className="py-3.5 px-4 font-mono font-bold text-slate-900">
+                                  #{order.orderCode || order.orderId}
+                                </td>
+                                <td className="py-3.5 px-4 font-semibold text-[#1e1b4b]">
+                                  {order.planName || order.subscriptionPlan?.name || 'Gói Dịch Vụ HR'}
+                                </td>
+                                <td className="py-3.5 px-4 text-slate-600">
+                                  {order.createdAt ? new Date(order.createdAt).toLocaleDateString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : 'Gần đây'}
+                                </td>
+                                <td className="py-3.5 px-4 font-bold text-[#5b48bd]">
+                                  {Number(order.finalAmount || order.amount || 0).toLocaleString('vi-VN')} đ
+                                </td>
+                                <td className="py-3.5 px-4 text-slate-600 flex items-center gap-1.5">
+                                  <span className="material-symbols-outlined text-sm text-slate-400">qr_code_2</span>
+                                  <span>{order.paymentMethod || 'VietQR'}</span>
+                                </td>
+                                <td className="py-3.5 px-4">
+                                  {isApproved ? (
+                                    <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-bold border border-emerald-200 flex items-center gap-1 w-fit">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                      <span>Đã Thanh Toán</span>
+                                    </span>
+                                  ) : isPending ? (
+                                    <span className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 text-[11px] font-bold border border-amber-200 flex items-center gap-1 w-fit">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                      <span>Chờ Xác Nhận</span>
+                                    </span>
+                                  ) : (
+                                    <span className="px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 text-[11px] font-bold border border-rose-200 flex items-center gap-1 w-fit">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                                      <span>Đã Hủy / Từ Chối</span>
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -1936,13 +2625,13 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
 
               <div className="flex items-center gap-2">
                 {/* Zoom & rotate controls for images */}
-                {!companyLegal.licenseDocName?.endsWith('.pdf') && (
+                {(previewMimeType?.startsWith('image/') || !/\.pdf($|\?)/i.test(companyLegal.licenseDocName || companyLegal.licenseDocUrl)) && (
                   <div className="hidden sm:flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs">
                     <button
                       type="button"
                       onClick={() => setScanZoom((z) => Math.max(50, z - 25))}
                       className="w-7 h-7 rounded-lg bg-white hover:bg-slate-50 text-slate-700 flex items-center justify-center shadow-2xs cursor-pointer"
-                      title="Thu nhỏ"
+                      title="Thu nhỏ (-)"
                     >
                       <span className="material-symbols-outlined text-sm">zoom_out</span>
                     </button>
@@ -1953,7 +2642,7 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                       type="button"
                       onClick={() => setScanZoom((z) => Math.min(250, z + 25))}
                       className="w-7 h-7 rounded-lg bg-white hover:bg-slate-50 text-slate-700 flex items-center justify-center shadow-2xs cursor-pointer"
-                      title="Phóng to"
+                      title="Phóng to (+)"
                     >
                       <span className="material-symbols-outlined text-sm">zoom_in</span>
                     </button>
@@ -1964,6 +2653,17 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                       title="Xoay 90 độ"
                     >
                       <span className="material-symbols-outlined text-sm">rotate_right</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setScanZoom(100);
+                        setScanRotate(0);
+                      }}
+                      className="px-2 py-1 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-bold shadow-2xs cursor-pointer"
+                      title="Đặt lại 100%"
+                    >
+                      100%
                     </button>
                   </div>
                 )}
@@ -1979,11 +2679,16 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
             </div>
 
             {/* Modal Body Container: Displays Real File (PDF or Image) */}
-            <div className="flex-1 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 min-h-[380px] max-h-[580px] p-2 sm:p-4 flex items-center justify-center">
-              {companyLegal.licenseDocName?.endsWith('.pdf') ? (
+            <div className="flex-1 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 min-h-[380px] max-h-[75vh] p-2 sm:p-4 flex items-center justify-center">
+              {previewLoading ? (
+                <div className="flex flex-col items-center justify-center p-8 space-y-3">
+                  <div className="w-10 h-10 border-4 border-[#5b48bd]/20 border-t-[#5b48bd] rounded-full animate-spin" />
+                  <p className="text-xs text-slate-500 font-medium">Đang tải bản scan tài liệu từ máy chủ...</p>
+                </div>
+              ) : (previewMimeType === 'application/pdf' || (!previewMimeType?.startsWith('image/') && /\.pdf($|\?)/i.test(companyLegal.licenseDocName || companyLegal.licenseDocUrl))) ? (
                 <iframe
-                  src={companyLegal.licenseDocUrl}
-                  className="w-full h-[540px] rounded-xl border border-slate-200 bg-white shadow-xs"
+                  src={previewBlobUrl || getLicensePreviewUrl()}
+                  className="w-full h-[75vh] rounded-xl border border-slate-200 bg-white shadow-xs"
                   title="Tài liệu Giấy phép kinh doanh PDF"
                 />
               ) : (
@@ -1993,12 +2698,12 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                     transformOrigin: 'center center',
                     transition: 'transform 0.2s ease',
                   }}
-                  className="max-w-full flex items-center justify-center"
+                  className="max-w-full flex items-center justify-center overflow-auto p-4"
                 >
                   <img
-                    src={companyLegal.licenseDocUrl}
+                    src={previewBlobUrl || getLicensePreviewUrl()}
                     alt="Bản Scan Giấy Phép Kinh Doanh"
-                    className="max-h-[520px] object-contain rounded-xl shadow-lg border border-slate-300"
+                    className="max-h-[65vh] object-contain rounded-xl shadow-lg border border-slate-300 bg-white"
                   />
                 </div>
               )}
@@ -2012,19 +2717,17 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
-                <a
-                  href={companyLegal.licenseDocUrl}
-                  download={companyLegal.licenseDocName || 'Giay_Phep_Kinh_Doanh.pdf'}
-                  target="_blank"
-                  rel="noreferrer"
+                <button
+                  type="button"
+                  onClick={handleDownloadLicense}
                   className="px-4 py-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-[#5b48bd] text-xs font-bold flex items-center gap-1.5 border border-purple-200 transition-colors cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-sm">download</span>
                   <span>Tải Xuống File Gốc</span>
-                </a>
+                </button>
 
                 <a
-                  href={companyLegal.licenseDocUrl}
+                  href={previewBlobUrl || getLicensePreviewUrl()}
                   target="_blank"
                   rel="noreferrer"
                   className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
@@ -2997,7 +3700,7 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                   <input
                     type="text"
                     value={hrEditForm.title}
-                    onChange={(e) => setHrEditForm({ ...hrEditForm, title: e.target.value })}
+                    onChange={(e) => setHrEditForm({ ...hrEditForm, title: e.target.value, position: e.target.value })}
                     placeholder="VD: Senior Tech Recruiter"
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-[#221d47] font-medium focus:outline-none focus:border-[#5b48bd]"
                   />
@@ -3007,11 +3710,23 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                   <input
                     type="text"
                     value={hrEditForm.division}
-                    onChange={(e) => setHrEditForm({ ...hrEditForm, division: e.target.value })}
+                    onChange={(e) => setHrEditForm({ ...hrEditForm, division: e.target.value, department: e.target.value })}
                     placeholder="VD: Ban Tuyển Dụng & Thu Hút Nhân Tài"
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-[#221d47] font-medium focus:outline-none focus:border-[#5b48bd]"
                   />
                 </div>
+              </div>
+
+              {/* Chi nhánh làm việc */}
+              <div>
+                <label className="text-slate-500 block mb-1 font-bold uppercase">Chi nhánh / Văn phòng làm việc</label>
+                <input
+                  type="text"
+                  value={hrEditForm.branchName || ''}
+                  onChange={(e) => setHrEditForm({ ...hrEditForm, branchName: e.target.value })}
+                  placeholder="VD: Chi nhánh TP. Hồ Chí Minh (Tầng 12, Tòa nhà FPT)"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-[#221d47] font-medium focus:outline-none focus:border-[#5b48bd]"
+                />
               </div>
 
               {/* Email & Hotline */}

@@ -46,15 +46,15 @@ export function exportCandidatesToExcel({ candidates = [], jobDetails = {}, file
     'Chuyên Môn / Vai Trò': c.role || 'Ứng viên',
     'Điểm AI Match (%)': `${c.matchScore ?? 0}%`,
     'Xếp Loại Phù Hợp': c.matchCategory || 'Chưa xếp loại',
-    'Kỹ Năng Đạt Chuẩn (70%)': Array.isArray(c.mandatoryMatched) && c.mandatoryMatched.length > 0
-      ? c.mandatoryMatched.join(', ')
-      : 'Chưa ghi nhận',
-    'Kỹ Năng Ưu Tiên (30%)': Array.isArray(c.preferredMatched) && c.preferredMatched.length > 0
-      ? c.preferredMatched.join(', ')
-      : 'Không có',
-    'Kỹ Năng Chưa Đáp Ứng': Array.isArray(c.mandatoryMissing) && c.mandatoryMissing.length > 0
-      ? c.mandatoryMissing.join(', ')
-      : 'Không',
+    'Kỹ Năng Đạt Chuẩn (70%)': Array.isArray(c.mandatoryMatched)
+      ? (c.mandatoryMatched.length > 0 ? c.mandatoryMatched.join(', ') : 'Chưa ghi nhận')
+      : (typeof c.mandatoryMatched === 'string' && c.mandatoryMatched ? c.mandatoryMatched : 'Chưa ghi nhận'),
+    'Kỹ Năng Ưu Tiên (30%)': Array.isArray(c.preferredMatched)
+      ? (c.preferredMatched.length > 0 ? c.preferredMatched.join(', ') : 'Không có')
+      : (typeof c.preferredMatched === 'string' && c.preferredMatched ? c.preferredMatched : 'Không có'),
+    'Kỹ Năng Chưa Đáp Ứng': Array.isArray(c.mandatoryMissing)
+      ? (c.mandatoryMissing.length > 0 ? c.mandatoryMissing.join(', ') : 'Không')
+      : (typeof c.mandatoryMissing === 'string' && c.mandatoryMissing ? c.mandatoryMissing : 'Không'),
     'Trạng Thái Tuyển Dụng': c.statusLabel || c.stage || 'Mới nộp',
     'Ngày Nộp': c.appliedTime || 'Gần đây',
     'Đánh Giá Từ AI Copilot': c.aiQuote || 'Đã đối soát qua hệ thống HireMate AI ATS',
@@ -109,6 +109,44 @@ export function exportRecruiterReportToExcel({ applications = [], stats = {}, co
 }
 
 /**
+ * 2b. Export Recruiter Dashboard Report to RFC 4180 CSV with UTF-8 BOM
+ */
+export function exportRecruiterReportToCsv({ applications = [], stats = {}, companyName = 'Doanh Nghiệp' }) {
+  const headers = ['STT', 'Mã Đơn', 'Tên Ứng Viên', 'Email', 'Vị Trí Tuyển Dụng', 'Điểm AI Match (%)', 'Trạng Thái', 'Ngày Nộp'];
+  const rows = applications.map((a, idx) => [
+    idx + 1,
+    a.applicationId ? `APP-${a.applicationId}` : `APP-${idx + 1}`,
+    a.candidateName || 'Ứng viên',
+    a.candidateEmail || 'N/A',
+    a.jobTitle || 'N/A',
+    `${a.matchingScore ?? 0}%`,
+    a.status || 'APPLIED',
+    a.createdAt ? new Date(a.createdAt).toLocaleDateString('vi-VN') : 'Gần đây',
+  ]);
+
+  const escapeCsv = (val) => {
+    if (val === null || val === undefined) return '""';
+    const str = String(val).replace(/"/g, '""');
+    return `"${str}"`;
+  };
+
+  const csvContent = '\uFEFF' + [
+    headers.map(escapeCsv).join(','),
+    ...rows.map(row => row.map(escapeCsv).join(','))
+  ].join('\r\n');
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', `Bao_Cao_Tuyen_Dung_${companyName.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+/**
  * 3. Export Admin Companies List to Native Excel (.xlsx)
  */
 export function exportAdminCompaniesToExcel(companies = []) {
@@ -117,11 +155,11 @@ export function exportAdminCompaniesToExcel(companies = []) {
     'Mã Doanh Nghiệp': c.id || `DN-${idx + 1}`,
     'Tên Doanh Nghiệp': c.name || c.companyName || 'N/A',
     'Mã Số Thuế': c.taxCode || c.tax_code || 'Chưa cung cấp',
-    'Email Đại Diện': c.email || 'N/A',
-    'Số Điện Thoại': c.phone || 'N/A',
-    'Địa Chỉ': c.address || 'N/A',
+    'Email Đại Diện': c.recruiterEmail || c.email || 'N/A',
+    'Số Điện Thoại': c.recruiterPhone || c.phone || 'N/A',
+    'Địa Chỉ': c.headquarters || c.address || 'N/A',
     'Website': c.website || 'N/A',
-    'Trạng Thái Xác Minh': c.status === 'APPROVED' ? 'Đã duyệt' : c.status === 'REJECTED' ? 'Từ chối' : 'Chờ duyệt',
+    'Trạng Thái Xác Minh': (c.status === 'VERIFIED' || c.status === 'APPROVED') ? 'Đã duyệt' : (c.status === 'REJECTED' ? 'Từ chối' : 'Chờ duyệt'),
     'Ngày Nộp Hồ Sơ': c.submittedAt || c.createdAt || 'N/A',
   }));
 
@@ -137,16 +175,19 @@ export function exportAdminCompaniesToExcel(companies = []) {
  * 4. Export Admin Users List to Native Excel (.xlsx)
  */
 export function exportAdminUsersToExcel(users = []) {
-  const exportData = users.map((u, idx) => ({
-    'STT': idx + 1,
-    'Mã Người Dùng': u.userId || u.id || `USR-${idx + 1}`,
-    'Họ Và Tên': u.fullName || u.name || 'N/A',
-    'Email': u.email || 'N/A',
-    'Vai Trò (Role)': u.role || 'CANDIDATE',
-    'Số Điện Thoại': u.phone || 'N/A',
-    'Trạng Thái': u.status || 'ACTIVE',
-    'Ngày Tạo': u.createdAt ? new Date(u.createdAt).toLocaleDateString('vi-VN') : 'N/A',
-  }));
+  const exportData = users.map((u, idx) => {
+    const joinDate = u.createdAt || u.joined;
+    return {
+      'STT': idx + 1,
+      'Mã Người Dùng': u.userId || u.id || `USR-${idx + 1}`,
+      'Họ Và Tên': u.fullName || u.name || 'N/A',
+      'Email': u.email || 'N/A',
+      'Vai Trò (Role)': u.role || 'CANDIDATE',
+      'Số Điện Thoại': u.phone || 'N/A',
+      'Trạng Thái': u.status || 'ACTIVE',
+      'Ngày Tạo': joinDate ? new Date(joinDate).toLocaleDateString('vi-VN') : 'N/A',
+    };
+  });
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet(exportData);
@@ -162,15 +203,15 @@ export function exportAdminUsersToExcel(users = []) {
 export function exportJobsToExcel(jobs = [], companyName = 'Doanh Nghiệp') {
   const exportData = jobs.map((j, idx) => ({
     'STT': idx + 1,
-    'Mã Tin Tuyển Dụng': j.code || `JD-${j.id || idx + 1}`,
+    'Mã Tin Tuyển Dụng': j.code || j.id || j.jobId || `JD-${idx + 1}`,
     'Chức Danh Công Việc': j.title || 'N/A',
     'Địa Điểm Làm Việc': j.location || 'N/A',
     'Mức Lương': j.salaryText || j.salary || 'Thương lượng',
-    'Chỉ Tiêu Tuyển Dụng': j.vacanciesCount || 1,
+    'Chỉ Tiêu Tuyển Dụng': j.vacanciesCount ?? j.headcount ?? 1,
     'Số Lượng Ứng Viên Nộp': j.applicantCount ?? j.applicantsCount ?? 0,
     'Trạng Thái Đăng Tuyển': j.statusBadge || j.status || 'Đang mở tuyển',
     'Trạng Thái Phê Duyệt': j.approvalStatus || 'APPROVED',
-    'Hạn Nộp Hồ Sơ': j.deadlineDate || 'Không thời hạn',
+    'Hạn Nộp Hồ Sơ': j.deadlineDate || j.deadline || 'Không thời hạn',
     'Ngày Tạo': j.createdAt ? new Date(j.createdAt).toLocaleDateString('vi-VN') : 'Gần đây',
   }));
 
@@ -181,3 +222,29 @@ export function exportJobsToExcel(jobs = [], companyName = 'Doanh Nghiệp') {
 
   XLSX.writeFile(wb, `DS_Tin_Tuyen_Dung_${companyName.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
+
+/**
+ * 6. Export Admin Orders List to Native Excel (.xlsx)
+ */
+export function exportAdminOrdersToExcel(orders = []) {
+  const exportData = orders.map((o, idx) => ({
+    'STT': idx + 1,
+    'Mã Đơn': o.id || o.orderCode || `#ORD-${idx + 1}`,
+    'Khách Hàng': o.user || o.userName || 'N/A',
+    'Email': o.email || o.userEmail || 'N/A',
+    'Vai Trò': o.role || o.userRole || 'N/A',
+    'Gói Dịch Vụ': o.pkg || o.planName || 'Gói dịch vụ',
+    'Số Tiền (VNĐ)': (Number(o.amount) || 0).toLocaleString('vi-VN') + ' đ',
+    'Phương Thức': o.paymentMethod || 'VietQR - MBBank',
+    'Ngày Giao Dịch': o.timestamp || (o.createdAt ? new Date(o.createdAt).toLocaleString('vi-VN') : 'N/A'),
+    'Trạng Thái': o.status === 'APPROVED' ? 'Đã thanh toán' : o.status === 'REJECTED' ? 'Từ chối' : o.status === 'REFUNDED' ? 'Đã hoàn tiền' : 'Chờ thanh toán',
+  }));
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(exportData);
+  ws['!cols'] = autoFitColumns(exportData);
+  XLSX.utils.book_append_sheet(wb, ws, 'Đơn Hàng');
+
+  XLSX.writeFile(wb, `HireMate_Orders_Report_${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
+

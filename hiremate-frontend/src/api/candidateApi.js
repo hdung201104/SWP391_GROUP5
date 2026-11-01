@@ -8,6 +8,10 @@ export const candidateApi = {
   uploadAvatar: (formData) => axiosClient.post('/users/avatar/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   }),
+  getSavedJobs: () => axiosClient.get('/candidates/saved-jobs'),
+  saveSavedJobs: (savedJobsJson) => axiosClient.post('/candidates/saved-jobs', savedJobsJson, {
+    headers: { 'Content-Type': 'application/json' },
+  }),
 };
 
 export default candidateApi;

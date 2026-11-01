@@ -51,4 +51,20 @@ public class Voucher {
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    // Các trường mở rộng @Transient: Serialize/Deserialize Jackson giữa FE và BE, KHÔNG ảnh hưởng Hibernate SQL
+    @Transient
+    private String targetRole;
+
+    @Transient
+    private BigDecimal minOrderAmount;
+
+    @Transient
+    private String applicableScope;
+
+    @Transient
+    private java.util.List<Long> applicablePlanIds;
+
+    @Transient
+    private String description;
 }

@@ -216,7 +216,7 @@ export default function CareerInsightsPage({ user }) {
                   </div>
 
                   <button
-                    onClick={() => { window.location.hash = '#/'; }}
+                    onClick={() => { window.location.hash = '#/?tab=jobs'; }}
                     className="btn-botanical-secondary !text-xs !py-2.5 !w-full !rounded-full mt-6 flex items-center justify-center gap-1.5 cursor-pointer shadow-soft"
                   >
                     <span>Xem việc làm phù hợp</span>

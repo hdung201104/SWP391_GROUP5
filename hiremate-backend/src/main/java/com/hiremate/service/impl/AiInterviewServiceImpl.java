@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -42,6 +43,8 @@ public class AiInterviewServiceImpl implements AiInterviewService {
     private final com.hiremate.service.FileStorageService fileStorageService;
     private final com.hiremate.repository.CandidateSkillRepository candidateSkillRepository;
     private final com.hiremate.repository.SkillRepository skillRepository;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.hiremate.repository.JobRepository jobRepository;
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.hiremate.repository.SubscriptionRepository subscriptionRepository;
     @org.springframework.beans.factory.annotation.Autowired(required = false)
@@ -280,6 +283,26 @@ public class AiInterviewServiceImpl implements AiInterviewService {
             quotaLimit = isPaid ? 10 : 2;
         }
 
+        // Ưu tiên customQuota của subscription đang kích hoạt nếu Admin đã cấu hình riêng cho ứng viên
+        if (candidate != null && subscriptionRepository != null) {
+            List<com.hiremate.entity.Subscription> activeSubs = subscriptionRepository.findActiveCandidateSubscriptions(
+                    candidate.getUserId(), com.hiremate.enums.SubscriptionStatus.ACTIVE, LocalDateTime.now());
+            if (!activeSubs.isEmpty() && activeSubs.get(0).getCustomQuota() != null && activeSubs.get(0).getCustomQuota() > 0) {
+                quotaLimit = activeSubs.get(0).getCustomQuota();
+            }
+        }
+
+        // Đồng bộ hạn ngạch miễn phí theo cấu hình hệ thống của Admin nếu ứng viên dùng gói miễn phí và chưa ép cứng quota tùy chỉnh
+        if (!isPaid && systemSettingsService != null && systemSettingsService.getSettings() != null) {
+            Integer adminFreeLimit = systemSettingsService.getSettings().getCandidateFreeInterviewsPerDay();
+            if (adminFreeLimit != null && adminFreeLimit > 0) {
+                String customQuotaStr = extractPermFromDescription(desc, "quotaLimit");
+                if (customQuotaStr == null) {
+                    quotaLimit = adminFreeLimit;
+                }
+            }
+        }
+
         int maxQuestions = calculateMaxQuestions(plan);
         int maxDurationSeconds = calculateMaxDurationSeconds(plan);
 
@@ -320,25 +343,35 @@ public class AiInterviewServiceImpl implements AiInterviewService {
         }
 
         LocalDateTime startOfDay = java.time.LocalDate.now().atStartOfDay();
-        long usedToday = sessionRepository.countByCandidate_CandidateIdAndStartedAtAfter(candidate.getUserId(), startOfDay);
-        long remainingToday = quotaLimit >= 999 ? 999 : Math.max(0, quotaLimit - usedToday);
-        boolean isQuotaExceeded = (candidate.getRole() != com.hiremate.enums.UserRole.ADMIN) && (quotaLimit < 999) && (usedToday >= quotaLimit);
-
         String endDateStr = null;
-        if (subscriptionRepository != null) {
-            List<com.hiremate.entity.Subscription> activeSubs = subscriptionRepository.findActiveCandidateSubscriptions(
-                    candidate.getUserId(), com.hiremate.enums.SubscriptionStatus.ACTIVE, LocalDateTime.now());
-            if (!activeSubs.isEmpty() && activeSubs.get(0).getEndDate() != null) {
-                endDateStr = activeSubs.get(0).getEndDate().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
-            }
+        long usedCount;
+
+        List<com.hiremate.entity.Subscription> activeSubs = (candidate != null && subscriptionRepository != null)
+                ? subscriptionRepository.findActiveCandidateSubscriptions(
+                        candidate.getUserId(), com.hiremate.enums.SubscriptionStatus.ACTIVE, LocalDateTime.now())
+                : java.util.Collections.emptyList();
+
+        com.hiremate.entity.Subscription currentSub = activeSubs.isEmpty() ? null : activeSubs.get(0);
+
+        if (isPaid && currentSub != null && currentSub.getStartDate() != null && currentSub.getEndDate() != null) {
+            // Gói trả phí (ví dụ Practice Plus: 10 lượt / 30 ngày): Tính tổng số lượt phỏng vấn đã dùng trong toàn bộ thời hạn gói
+            usedCount = sessionRepository.countSessionsInPeriod(
+                    candidate.getUserId(), currentSub.getStartDate(), currentSub.getEndDate());
+            endDateStr = currentSub.getEndDate().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+        } else {
+            // Gói miễn phí: Tính số lượt phỏng vấn thực hiện trong ngày hôm nay (reset sau 00:00)
+            usedCount = sessionRepository.countActiveOrCompletedSessionsToday(candidate.getUserId(), startOfDay);
         }
+
+        long remainingToday = quotaLimit >= 999 ? 999 : Math.max(0, quotaLimit - usedCount);
+        boolean isQuotaExceeded = (candidate.getRole() != com.hiremate.enums.UserRole.ADMIN) && (quotaLimit < 999) && (usedCount >= quotaLimit);
 
         return com.hiremate.dto.response.InterviewQuotaStatusResponse.builder()
                 .planId(plan != null ? plan.getPlanId() : null)
                 .planName(planName)
                 .price(price)
                 .quotaLimit(quotaLimit)
-                .usedToday(usedToday)
+                .usedToday(usedCount)
                 .remainingToday(remainingToday)
                 .maxQuestions(maxQuestions)
                 .maxDurationSeconds(maxDurationSeconds)
@@ -356,7 +389,7 @@ public class AiInterviewServiceImpl implements AiInterviewService {
     /**
      * Kiểm tra phân quyền và hạn ngạch lượt phỏng vấn AI thực tế của Ứng viên theo dữ liệu thật trên Supabase:
      * - Admin: Không giới hạn.
-     * - Nếu số phiên phỏng vấn hôm nay >= quota_limit của gói: Chặn tạo phiên mới và gợi ý nâng cấp.
+     * - Nếu số phiên phỏng vấn đã dùng >= quota_limit của gói: Chặn tạo phiên mới và gợi ý nâng cấp.
      */
     private void checkCandidateInterviewQuota(User user) {
         if (user == null) return;
@@ -366,9 +399,15 @@ public class AiInterviewServiceImpl implements AiInterviewService {
 
         com.hiremate.dto.response.InterviewQuotaStatusResponse quota = getCandidateQuotaStatus(user);
         if (Boolean.TRUE.equals(quota.getIsQuotaExceeded())) {
-            throw new IllegalArgumentException(String.format(
-                    "Bạn đã sử dụng hết hạn ngạch hôm nay (%d/%d phiên) của gói \"%s\". Vui lòng quay lại vào ngày mai hoặc nâng cấp gói dịch vụ để tiếp tục luyện tập.",
-                    quota.getUsedToday(), quota.getQuotaLimit(), quota.getPlanName()));
+            if (Boolean.TRUE.equals(quota.getIsPaidPlan())) {
+                throw new IllegalArgumentException(String.format(
+                        "Bạn đã sử dụng hết hạn ngạch (%d/%d phiên) của gói dịch vụ \"%s\". Vui lòng gia hạn hoặc nâng cấp gói để tiếp tục luyện tập.",
+                        quota.getUsedToday(), quota.getQuotaLimit(), quota.getPlanName()));
+            } else {
+                throw new IllegalArgumentException(String.format(
+                        "Bạn đã sử dụng hết hạn ngạch hôm nay (%d/%d phiên) của gói \"%s\". Vui lòng quay lại vào ngày mai hoặc nâng cấp gói dịch vụ để tiếp tục luyện tập.",
+                        quota.getUsedToday(), quota.getQuotaLimit(), quota.getPlanName()));
+            }
         }
     }
 
@@ -390,10 +429,15 @@ public class AiInterviewServiceImpl implements AiInterviewService {
                 .orElseThrow(() -> new IllegalStateException(
                         "Candidate profile not found for user: " + user.getUserId()));
 
+        // Tìm Job nếu có jobId được chỉ định
+        com.hiremate.entity.Job job = (jobId != null && jobRepository != null)
+                ? jobRepository.findById(jobId).orElse(null)
+                : null;
+
         InterviewSession session = InterviewSession.builder()
                 .candidate(candidate)
-                // job để null nếu không gắn với job cụ thể (tự do)
-                .targetPosition(targetPosition != null ? targetPosition : "Software Engineer")
+                .job(job)
+                .targetPosition(targetPosition != null ? targetPosition : (job != null ? job.getTitle() : "Software Engineer"))
                 .sessionType(sessionType != null ? sessionType : InterviewSessionType.MOCK)
                 .parentSessionId(parentSessionId)
                 .overallScore(0f)
@@ -412,6 +456,11 @@ public class AiInterviewServiceImpl implements AiInterviewService {
         // Kiểm tra quyền truy cập – candidate_id phải khớp user_id
         if (!session.getCandidate().getCandidateId().equals(user.getUserId())) {
             throw new SecurityException("Unauthorized access to this interview session.");
+        }
+
+        // Chặn gửi câu trả lời nếu phiên phỏng vấn đã kết thúc
+        if (session.getCompletedAt() != null) {
+            throw new IllegalStateException("Phiên phỏng vấn này đã kết thúc, không thể nộp thêm câu trả lời.");
         }
 
         String answerText = request.getCandidateAnswerText();
@@ -478,7 +527,11 @@ public class AiInterviewServiceImpl implements AiInterviewService {
 
         // Kết hợp telemetry âm thanh & camera vào aiFeedback nếu có
         StringBuilder telemetryNote = new StringBuilder();
+        if (request.getWordsPerMinute() != null && request.getWordsPerMinute() > 0) {
+            telemetryNote.append(String.format("Tốc độ nói: %d WPM", Math.round(request.getWordsPerMinute())));
+        }
         if (request.getPitchHz() != null && request.getPitchHz() > 0) {
+            if (telemetryNote.length() > 0) telemetryNote.append(" • ");
             String pitchDesc = request.getPitchHz() < 165 ? "Trầm ấm, đĩnh đạc" : request.getPitchHz() <= 230 ? "Tự tin, chuẩn mực" : "Hơi căng thẳng, tông cao";
             telemetryNote.append(String.format("Tông giọng: %.0f Hz (%s)", request.getPitchHz(), pitchDesc));
         }
@@ -538,17 +591,9 @@ public class AiInterviewServiceImpl implements AiInterviewService {
 
         if (totalAnsweredInSession >= maxQ) {
             res.setIsFinalQuestion(true);
-            try {
-                InterviewSummaryResponse compSummary = completeSession(sessionId, user);
-                res.setIsSessionCompleted(true);
-                res.setOverallScore(compSummary.getOverallScore());
-                res.setOverallFeedback(compSummary.getOverallFeedback());
-                log.info(">> [AiInterviewService] Đã tự động kết thúc phiên #{} sau khi hoàn tất đủ {} câu theo gói \"{}\"",
-                        sessionId, maxQ, quota.getPlanName());
-            } catch (Exception e) {
-                log.warn(">> [AiInterviewService] Tự động completeSession câu cuối gặp lỗi: {}", e.getMessage());
-                res.setIsSessionCompleted(true);
-            }
+            res.setIsSessionCompleted(false);
+            log.info(">> [AiInterviewService] Đã đạt câu cuối ({}/{}) cho phiên #{}. Đợi Frontend gọi completeSession kèm telemetry.",
+                    totalAnsweredInSession, maxQ, sessionId);
         } else {
             res.setIsFinalQuestion(false);
             res.setIsSessionCompleted(false);
@@ -571,6 +616,12 @@ public class AiInterviewServiceImpl implements AiInterviewService {
         // Kiểm tra quyền truy cập
         if (!session.getCandidate().getCandidateId().equals(user.getUserId())) {
             throw new SecurityException("Unauthorized access to this interview session.");
+        }
+
+        // Nếu phiên phỏng vấn đã hoàn tất trước đó, trả về ngay kết quả đã lưu mà không gọi lại Gemini AI
+        if (session.getCompletedAt() != null) {
+            List<InterviewDetail> existingDetails = detailRepository.findBySession_SessionIdOrderByQuestionNumberAsc(sessionId);
+            return mapToSummary(session, existingDetails, null);
         }
 
         // Lấy tất cả chi tiết câu hỏi của phiên này (đã sắp xếp theo questionNumber)
@@ -598,51 +649,115 @@ public class AiInterviewServiceImpl implements AiInterviewService {
 
         session.setOverallFeedback(summary != null ? summary.getOverallFeedback() : "Phiên phỏng vấn hoàn tất.");
         session.setWeaknessSummary(summary != null ? summary.getWeaknessSummary() : "");
-        try {
-            session.setRecommendedTasks(objectMapper.writeValueAsString(summary != null ? summary.getRecommendedTasks() : List.of()));
-        } catch (Exception e) {
-            session.setRecommendedTasks("[\"Review System Design Distributed Caching\", \"Practice behavioral STAR answers for 2 minutes\"]");
+
+        LocalDateTime completedTime = LocalDateTime.now();
+        session.setCompletedAt(completedTime);
+
+        // Tính thời lượng thực tế của phiên
+        int actualDurationSec = 0;
+        if (telemetry != null && telemetry.get("durationSeconds") != null) {
+            try {
+                actualDurationSec = ((Number) telemetry.get("durationSeconds")).intValue();
+            } catch (Exception ignored) {
+                try {
+                    actualDurationSec = Integer.parseInt(telemetry.get("durationSeconds").toString());
+                } catch (Exception ignored2) {}
+            }
         }
-        session.setCompletedAt(LocalDateTime.now());
+        if (actualDurationSec <= 0 && session.getStartedAt() != null) {
+            actualDurationSec = (int) Math.max(0, java.time.Duration.between(session.getStartedAt(), completedTime).getSeconds());
+        }
+
+        // Lấy thông tin gói dịch vụ tại thời điểm hoàn thành phiên
+        com.hiremate.entity.SubscriptionPlan plan = resolveActiveOrFreePlan(user);
+        String sessionPlanName = (plan != null && plan.getPlanName() != null) ? plan.getPlanName() : "Free Candidate";
+        int sessionMaxQuestions = calculateMaxQuestions(plan);
+        int sessionMaxDurationSeconds = calculateMaxDurationSeconds(plan);
+
+        String sessionLevel = "Middle";
+        if (telemetry != null && telemetry.get("level") != null && !telemetry.get("level").toString().isBlank()) {
+            sessionLevel = telemetry.get("level").toString();
+        }
+
+        // Đóng gói an toàn tasks, điểm 4 trụ cột và telemetry vào recommendedTasks mà KHÔNG cần thêm cột DB
+        Map<String, Object> packageData = new HashMap<>();
+        List<String> taskList = (summary != null && summary.getRecommendedTasks() != null)
+                ? summary.getRecommendedTasks()
+                : List.of("Review System Design & Best Practices", "Practice STAR behavioral responses");
+        packageData.put("tasks", taskList);
+        if (summary != null) {
+            packageData.put("domainScore", summary.getDomainKnowledgeScore());
+            packageData.put("problemScore", summary.getProblemSolvingScore());
+            packageData.put("starScore", summary.getStarStructureScore());
+            packageData.put("commScore", summary.getCommunicationScore());
+            packageData.put("deliveryScore", summary.getDeliveryToneScore());
+            packageData.put("deliveryFeedback", summary.getDeliveryFeedback());
+        }
+
+        packageData.put("planName", sessionPlanName);
+        packageData.put("maxQuestions", sessionMaxQuestions);
+        packageData.put("maxDurationSeconds", sessionMaxDurationSeconds);
+        packageData.put("actualDurationSeconds", actualDurationSec);
+        packageData.put("level", sessionLevel);
+
+        if (telemetry != null && !telemetry.isEmpty()) {
+            Map<String, Object> enrichedTel = new HashMap<>(telemetry);
+            enrichedTel.putIfAbsent("actualDurationSeconds", actualDurationSec);
+            enrichedTel.putIfAbsent("level", sessionLevel);
+            if (enrichedTel.containsKey("dominantEmotion") && !enrichedTel.containsKey("emotionSummary")) {
+                enrichedTel.put("emotionSummary", enrichedTel.get("dominantEmotion"));
+            } else if (enrichedTel.containsKey("emotionSummary") && !enrichedTel.containsKey("dominantEmotion")) {
+                enrichedTel.put("dominantEmotion", enrichedTel.get("emotionSummary"));
+            }
+            packageData.put("telemetry", enrichedTel);
+        }
+
+        try {
+            session.setRecommendedTasks(objectMapper.writeValueAsString(packageData));
+        } catch (Exception e) {
+            session.setRecommendedTasks("{\"tasks\": [\"Review System Design Distributed Caching\", \"Practice behavioral STAR answers for 2 minutes\"]}");
+        }
 
         InterviewSession saved = sessionRepository.save(session);
 
-        // Gửi thông báo kết quả phỏng vấn AI cho ứng viên
-        notificationService.createNotification(
-                user.getUserId(),
-                com.hiremate.enums.NotificationType.INTERVIEW_RESULT,
-                "Kết quả phỏng vấn AI đã sẵn sàng!",
-                String.format("Phiên phỏng vấn vị trí %s của bạn đã hoàn thành với điểm số: %.1f/100.",
-                        saved.getTargetPosition(), saved.getOverallScore()),
-                saved.getSessionId(),
-                "interview_sessions"
-        );
-
-        // Tính improvement_delta nếu là phiên retry (PRACTICE_RETRY)
+        // Gửi thông báo kết quả phỏng vấn AI cho ứng viên và tính retry progress (chỉ khi phiên có ít nhất 1 câu trả lời)
         Float improvementDelta = null;
-        if (saved.getSessionType() == InterviewSessionType.PRACTICE_RETRY && saved.getParentSessionId() != null) {
-            Optional<InterviewSession> parentOpt = sessionRepository.findById(saved.getParentSessionId());
-            if (parentOpt.isPresent()) {
-                float scoreBefore = parentOpt.get().getOverallScore() != null
-                        ? parentOpt.get().getOverallScore() : 0f;
-                float scoreAfter = saved.getOverallScore();
-                // improvement_delta = score_after - score_before (per spec)
-                improvementDelta = scoreAfter - scoreBefore;
+        if (!details.isEmpty()) {
+            notificationService.createNotification(
+                    user.getUserId(),
+                    com.hiremate.enums.NotificationType.INTERVIEW_RESULT,
+                    "Kết quả phỏng vấn AI đã sẵn sàng!",
+                    String.format("Phiên phỏng vấn vị trí %s của bạn đã hoàn thành với điểm số: %.1f/100.",
+                            saved.getTargetPosition(), saved.getOverallScore()),
+                    saved.getSessionId(),
+                    "interview_sessions"
+            );
 
-                PracticeProgressLog logEntry = PracticeProgressLog.builder()
-                        .candidateId(user.getUserId())
-                        .originalSessionId(parentOpt.get().getSessionId())
-                        .retrySessionId(saved.getSessionId())
-                        .scoreBefore(scoreBefore)
-                        .scoreAfter(scoreAfter)
-                        .improvementDelta(improvementDelta)
-                        .build();
-                progressLogRepository.save(logEntry);
+            // Tính improvement_delta nếu là phiên retry (PRACTICE_RETRY)
+            if (saved.getSessionType() == InterviewSessionType.PRACTICE_RETRY && saved.getParentSessionId() != null) {
+                Optional<InterviewSession> parentOpt = sessionRepository.findById(saved.getParentSessionId());
+                if (parentOpt.isPresent()) {
+                    float scoreBefore = parentOpt.get().getOverallScore() != null
+                            ? parentOpt.get().getOverallScore() : 0f;
+                    float scoreAfter = saved.getOverallScore();
+                    // improvement_delta = score_after - score_before (per spec)
+                    improvementDelta = scoreAfter - scoreBefore;
+
+                    PracticeProgressLog logEntry = PracticeProgressLog.builder()
+                            .candidateId(user.getUserId())
+                            .originalSessionId(parentOpt.get().getSessionId())
+                            .retrySessionId(saved.getSessionId())
+                            .scoreBefore(scoreBefore)
+                            .scoreAfter(scoreAfter)
+                            .improvementDelta(improvementDelta)
+                            .build();
+                    progressLogRepository.save(logEntry);
+                }
             }
-        }
 
-        // Cập nhật bộ nhớ dài hạn EMA (Exponential Moving Average) dựa trên 16 bảng CSDL sẵn có
-        updateLongTermEmaWeakness(saved, user.getUserId());
+            // Cập nhật bộ nhớ dài hạn EMA (Exponential Moving Average) dựa trên 16 bảng CSDL sẵn có
+            updateLongTermEmaWeakness(saved, user.getUserId());
+        }
 
         // Giải phóng bộ nhớ ngắn hạn của phiên phỏng vấn
         agentMemoryManager.evictMemory(sessionId);
@@ -676,6 +791,48 @@ public class AiInterviewServiceImpl implements AiInterviewService {
         }
 
         return mapToSummary(session, details, delta);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public InterviewSummaryResponse getLatestCompletedCandidateInterview(Long candidateId, Long jobId) {
+        if (candidateId == null) {
+            return null;
+        }
+        List<InterviewSession> sessions = sessionRepository.findByCandidate_CandidateIdOrderByStartedAtDesc(candidateId);
+        if (sessions == null || sessions.isEmpty()) {
+            return null;
+        }
+
+        // 1. Chỉ tìm phiên phỏng vấn hoàn thành gắn ĐÚNG với jobId được chỉ định
+        InterviewSession targetSession = null;
+        if (jobId != null) {
+            for (InterviewSession s : sessions) {
+                if (s.getJob() != null && jobId.equals(s.getJob().getJobId())) {
+                    List<InterviewDetail> det = detailRepository.findBySession_SessionIdOrderByQuestionNumberAsc(s.getSessionId());
+                    if (!det.isEmpty() && (s.getOverallScore() != null || s.getCompletedAt() != null)) {
+                        targetSession = s;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // BẢO MẬT & RIÊNG TƯ: Tuyệt đối không fallback sang các phiên luyện tập cá nhân tại nhà hoặc bài thi công ty khác!
+        if (targetSession == null) {
+            return null;
+        }
+
+        List<InterviewDetail> details = detailRepository.findBySession_SessionIdOrderByQuestionNumberAsc(targetSession.getSessionId());
+        Float delta = null;
+        if (targetSession.getParentSessionId() != null) {
+            java.util.Optional<InterviewSession> parent = sessionRepository.findById(targetSession.getParentSessionId());
+            if (parent.isPresent() && parent.get().getOverallScore() != null && targetSession.getOverallScore() != null) {
+                delta = targetSession.getOverallScore() - parent.get().getOverallScore();
+            }
+        }
+
+        return mapToSummary(targetSession, details, delta);
     }
 
     @Override
@@ -721,6 +878,9 @@ public class AiInterviewServiceImpl implements AiInterviewService {
         List<InterviewSummaryResponse> responses = new ArrayList<>(sessions.size());
         for (InterviewSession s : sessions) {
             List<InterviewDetail> details = detailsBySession.getOrDefault(s.getSessionId(), java.util.Collections.emptyList());
+            if (details.isEmpty()) {
+                continue; // Ẩn hoàn toàn các phiên 0 câu trả lời khỏi lịch sử
+            }
             responses.add(mapToSummary(s, details, null, null, null, precomputedPlanName, precomputedMaxQ, precomputedMaxDur));
         }
 
@@ -791,48 +951,176 @@ public class AiInterviewServiceImpl implements AiInterviewService {
         Float commScore = summary != null ? summary.getCommunicationScore() : null;
         Float deliveryScore = summary != null ? summary.getDeliveryToneScore() : commScore;
         String deliveryFeedback = summary != null ? summary.getDeliveryFeedback() : null;
+        Map<String, Object> extractedTelemetry = null;
 
-        // HIỆU CHUẨN ĐIỂM SỐ: Nếu điểm overallScore trong DB bị 0 do chưa ấn hoàn tất, nhưng phiên có câu trả lời -> tự động tính toán điểm thực tế
+        // Khôi phục dữ liệu đóng gói trong recommendedTasks khi summary == null (Lịch sử / Báo cáo lại)
+        String rawTasksStr = s.getRecommendedTasks();
+        String finalTasksJson = rawTasksStr;
+        String restoredPlanName = null;
+        Integer restoredMaxQ = null;
+        Integer restoredMaxDur = null;
+        Integer restoredActualDur = null;
+        String restoredLevel = null;
+
+        if (rawTasksStr != null && rawTasksStr.trim().startsWith("{")) {
+            try {
+                com.fasterxml.jackson.databind.JsonNode rootNode = objectMapper.readTree(rawTasksStr);
+                if (rootNode.has("tasks")) {
+                    finalTasksJson = objectMapper.writeValueAsString(rootNode.get("tasks"));
+                }
+                if (rootNode.hasNonNull("planName")) {
+                    restoredPlanName = rootNode.get("planName").asText();
+                }
+                if (rootNode.hasNonNull("maxQuestions")) {
+                    restoredMaxQ = rootNode.get("maxQuestions").asInt();
+                }
+                if (rootNode.hasNonNull("maxDurationSeconds")) {
+                    restoredMaxDur = rootNode.get("maxDurationSeconds").asInt();
+                }
+                if (rootNode.hasNonNull("actualDurationSeconds")) {
+                    restoredActualDur = rootNode.get("actualDurationSeconds").asInt();
+                }
+                if (rootNode.hasNonNull("level")) {
+                    restoredLevel = rootNode.get("level").asText();
+                }
+
+                if (summary == null) {
+                    if (rootNode.hasNonNull("domainScore") && domainScore == null) {
+                        domainScore = (float) rootNode.get("domainScore").asDouble();
+                    }
+                    if (rootNode.hasNonNull("problemScore") && problemScore == null) {
+                        problemScore = (float) rootNode.get("problemScore").asDouble();
+                    }
+                    if (rootNode.hasNonNull("starScore") && starScore == null) {
+                        starScore = (float) rootNode.get("starScore").asDouble();
+                    }
+                    if (rootNode.hasNonNull("commScore") && commScore == null) {
+                        commScore = (float) rootNode.get("commScore").asDouble();
+                    }
+                    if (rootNode.hasNonNull("deliveryScore") && deliveryScore == null) {
+                        deliveryScore = (float) rootNode.get("deliveryScore").asDouble();
+                    }
+                    if (rootNode.hasNonNull("deliveryFeedback") && deliveryFeedback == null) {
+                        deliveryFeedback = rootNode.get("deliveryFeedback").asText();
+                    }
+                }
+                if (telemetry == null && rootNode.has("telemetry") && !rootNode.get("telemetry").isNull()) {
+                    extractedTelemetry = objectMapper.convertValue(rootNode.get("telemetry"), Map.class);
+                }
+            } catch (Exception e) {
+                log.warn(">> [AiInterviewService] Không thể phân tích JSON recommendedTasks package: {}", e.getMessage());
+            }
+        }
+        Map<String, Object> finalTelemetryReport = telemetry != null ? new HashMap<>(telemetry) : (extractedTelemetry != null ? new HashMap<>(extractedTelemetry) : new HashMap<>());
+
+        // Đồng bộ và chuẩn hóa telemetry
+        if (finalTelemetryReport.get("dominantEmotion") != null && finalTelemetryReport.get("emotionSummary") == null) {
+            finalTelemetryReport.put("emotionSummary", finalTelemetryReport.get("dominantEmotion"));
+        } else if (finalTelemetryReport.get("emotionSummary") != null && finalTelemetryReport.get("dominantEmotion") == null) {
+            finalTelemetryReport.put("dominantEmotion", finalTelemetryReport.get("emotionSummary"));
+        }
+        if (finalTelemetryReport.get("postureStatus") != null && finalTelemetryReport.get("postureSummary") == null) {
+            finalTelemetryReport.put("postureSummary", finalTelemetryReport.get("postureStatus"));
+        } else if (finalTelemetryReport.get("postureSummary") != null && finalTelemetryReport.get("postureStatus") == null) {
+            finalTelemetryReport.put("postureStatus", finalTelemetryReport.get("postureSummary"));
+        }
+        if (!finalTelemetryReport.containsKey("emotions") || finalTelemetryReport.get("emotions") == null) {
+            Map<String, Object> defaultEmotions = new HashMap<>();
+            defaultEmotions.put("confident", 0);
+            defaultEmotions.put("smiling", 0);
+            defaultEmotions.put("focused", 0);
+            defaultEmotions.put("tense", 0);
+            finalTelemetryReport.put("emotions", defaultEmotions);
+        }
+        if (finalTelemetryReport.get("actualDurationSeconds") == null) {
+            if (restoredActualDur != null) {
+                finalTelemetryReport.put("actualDurationSeconds", restoredActualDur);
+            } else if (s.getStartedAt() != null && s.getCompletedAt() != null) {
+                finalTelemetryReport.put("actualDurationSeconds", java.time.Duration.between(s.getStartedAt(), s.getCompletedAt()).getSeconds());
+            }
+        }
+        if (finalTelemetryReport.get("level") == null && restoredLevel != null) {
+            finalTelemetryReport.put("level", restoredLevel);
+        }
+
+        // HIỆU CHUẨN ĐIỂM SỐ: Nếu phiên chưa có câu trả lời nào (details.isEmpty()), đặt toàn bộ điểm = 0f (không suy diễn điểm giả)
         Float overall = s.getOverallScore();
-        if ((overall == null || overall <= 0f) && !details.isEmpty()) {
-            float sum = 0f;
-            int count = 0;
-            for (InterviewDetail d : details) {
-                if (d.getAiEvaluationScore() != null && d.getAiEvaluationScore() > 0) {
-                    sum += d.getAiEvaluationScore();
-                    count++;
+        if (details.isEmpty()) {
+            overall = 0.0f;
+            domainScore = 0.0f;
+            problemScore = 0.0f;
+            starScore = 0.0f;
+            commScore = 0.0f;
+            deliveryScore = 0.0f;
+        } else {
+            if (overall == null || overall <= 0f) {
+                float sum = 0f;
+                int count = 0;
+                for (InterviewDetail d : details) {
+                    if (d.getAiEvaluationScore() != null && d.getAiEvaluationScore() > 0) {
+                        sum += d.getAiEvaluationScore();
+                        count++;
+                    }
+                }
+                if (count > 0) {
+                    overall = Math.round((sum / count) * 10f) / 10f;
                 }
             }
-            if (count > 0) {
-                overall = Math.round((sum / count) * 10f) / 10f;
-            } else if (qCount > 0) {
-                overall = (float) Math.min(88, 70 + Math.min(qCount, 6) * 3);
+
+            int totalWordsInSession = 0;
+            int meaningfulAnsCount = 0;
+            for (InterviewDetail d : details) {
+                String ans = d.getCandidateAnswerText() != null ? d.getCandidateAnswerText().trim() : "";
+                int w = ans.isBlank() ? 0 : ans.split("\\s+").length;
+                totalWordsInSession += w;
+                if (w >= 5) meaningfulAnsCount++;
+            }
+            boolean sessionTooShort = (totalWordsInSession < 30 || meaningfulAnsCount < 2);
+
+            // Nếu summary chưa có (khi xem lại lịch sử), suy ra các điểm thành phần từ overallScore
+            if (sessionTooShort) {
+                if (overall != null && overall > 35f) overall = 22.0f;
+                if (domainScore == null || domainScore > 30f) domainScore = 20.0f;
+                if (problemScore == null || problemScore > 25f) problemScore = 18.0f;
+                if (starScore == null || starScore > 20f) starScore = 12.0f;
+                if (commScore == null || commScore > 25f) commScore = 18.0f;
+                deliveryScore = commScore;
+            } else if (domainScore == null && overall != null && overall > 0) {
+                float base = overall;
+                domainScore = Math.min(100f, Math.max(0f, base));
+                problemScore = Math.min(100f, Math.max(0f, Math.round(base * 0.95f)));
+                starScore = Math.min(100f, Math.max(0f, Math.round(base * 0.85f)));
+                commScore = Math.min(100f, Math.max(0f, Math.round(base * 0.90f)));
+                deliveryScore = commScore;
             }
         }
 
-        // Nếu summary chưa có (khi xem lại lịch sử), suy ra các điểm thành phần từ overallScore
-        if (domainScore == null && overall != null && overall > 0) {
-            float base = overall;
-            domainScore = Math.min(100f, Math.max(0f, base));
-            problemScore = Math.min(100f, Math.max(0f, base));
-            starScore = Math.min(100f, Math.max(0f, base));
-            commScore = Math.min(100f, Math.max(0f, base));
-            deliveryScore = Math.min(100f, Math.max(0f, base));
+        // Lấy thông số gói dịch vụ: Ưu tiên giá trị đã lưu trong chính phiên đó (rootNode)
+        String planName = restoredPlanName;
+        Integer maxQ = restoredMaxQ;
+        Integer maxDur = restoredMaxDur;
+
+        if (planName == null) {
+            planName = precomputedPlanName;
+        }
+        if (maxQ == null) {
+            maxQ = precomputedMaxQ;
+        }
+        if (maxDur == null) {
+            maxDur = precomputedMaxDur;
         }
 
-        // Lấy thông số gói dịch vụ Supabase của ứng viên
-        String planName = precomputedPlanName != null ? precomputedPlanName : "Free Candidate";
-        int maxQ = precomputedMaxQ != null ? precomputedMaxQ : 3;
-        int maxDur = precomputedMaxDur != null ? precomputedMaxDur : 300;
-
-        if (precomputedPlanName == null && s.getCandidate() != null && s.getCandidate().getUser() != null) {
+        if (planName == null && s.getCandidate() != null && s.getCandidate().getUser() != null) {
             com.hiremate.entity.SubscriptionPlan p = resolveActiveOrFreePlan(s.getCandidate().getUser());
             if (p != null) {
                 planName = p.getPlanName() != null ? p.getPlanName() : "Free Candidate";
-                maxQ = calculateMaxQuestions(p);
-                maxDur = calculateMaxDurationSeconds(p);
+                if (maxQ == null) maxQ = calculateMaxQuestions(p);
+                if (maxDur == null) maxDur = calculateMaxDurationSeconds(p);
             }
         }
+        if (planName == null) planName = "Free Candidate";
+        if (maxQ == null) maxQ = 3;
+        if (maxDur == null) maxDur = 300;
 
         return InterviewSummaryResponse.builder()
                 .sessionId(s.getSessionId())
@@ -848,16 +1136,16 @@ public class AiInterviewServiceImpl implements AiInterviewService {
                 .overallScore(overall)
                 .overallFeedback(s.getOverallFeedback() != null ? s.getOverallFeedback() : "Phiên phỏng vấn hoàn tất trên HireMate.")
                 .weaknessSummary(s.getWeaknessSummary())
-                .recommendedTasks(s.getRecommendedTasks())
+                .recommendedTasks(finalTasksJson)
                 .improvementDelta(delta)
                 .details(detailResponses)
                 .domainKnowledgeScore(domainScore)
                 .problemSolvingScore(problemScore)
                 .starStructureScore(starScore)
                 .communicationScore(commScore)
-                .deliveryToneScore(deliveryScore)
+                .deliveryToneScore(deliveryScore != null ? deliveryScore : commScore)
                 .deliveryFeedback(deliveryFeedback)
-                .telemetryReport(telemetry)
+                .telemetryReport(finalTelemetryReport)
                 .planName(planName)
                 .maxQuestions(maxQ)
                 .maxDurationSeconds(maxDur)

@@ -65,7 +65,7 @@ gemini:
     model: ${GEMINI_MODEL:gemini-3-flash-preview}
     base-url: https://generativelanguage.googleapis.com/v1beta
   voice:
-    api-key: ${GEMINI_VOICE_API_KEY:}
+    api-key: ${GEMINI_VOICE_API_KEY:YOUR_GEMINI_VOICE_API_KEY}
     model: ${GEMINI_VOICE_MODEL:gemini-3-flash-preview}
 
 openai:
@@ -76,7 +76,7 @@ openai:
     base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
 
 elevenlabs:
-  api-key: ${ELEVENLABS_API_KEY:sk_f309c53bc1abbc95fc8104ecc3728f0079082c3feec9f3fe}
+  api-key: ${ELEVENLABS_API_KEY:}
   voice-female: ${ELEVENLABS_VOICE_ID_FEMALE:Xb7hH8MSUJpSbSDYk0k2}
   voice-male: ${ELEVENLABS_VOICE_ID_MALE:JBFqnCBsd6RMkjVDRZzb}
   model-id: ${ELEVENLABS_MODEL_ID:eleven_turbo_v2_5}
@@ -87,23 +87,23 @@ google:
     voice-female: ${GOOGLE_TTS_VOICE_FEMALE:vi-VN-Neural2-A}
     voice-male: ${GOOGLE_TTS_VOICE_MALE:vi-VN-Neural2-D}
   oauth2:
-    client-id: ${GOOGLE_CLIENT_ID:647076772224-84rpqgs802aifka8dpasqp4nr14h7dhv.apps.googleusercontent.com}
+    client-id: ${GOOGLE_CLIENT_ID:}
     client-secret: ${GOOGLE_CLIENT_SECRET:}
 
 github:
   oauth2:
-    client-id: ${GITHUB_CLIENT_ID:Ov23lin7fKu1DTd2VWAB}
+    client-id: ${GITHUB_CLIENT_ID:}
     client-secret: ${GITHUB_CLIENT_SECRET:}
 
 cloudinary:
   cloud-name: ${CLOUDINARY_CLOUD_NAME:mezrtcb7}
-  api-key: ${CLOUDINARY_API_KEY:632312897439654}
+  api-key: ${CLOUDINARY_API_KEY:}
   api-secret: ${CLOUDINARY_API_SECRET:}
 
 payos:
-  client-id: ${PAYOS_CLIENT_ID:e2d0f50b-68aa-4cd9-b83f-72c4b3293db4}
-  api-key: ${PAYOS_API_KEY:425f9314-c0b3-4373-a332-7855f1d9e9d4}
-  checksum-key: ${PAYOS_CHECKSUM_KEY:007567eb3a0cf7565f8c4dca7a780336db04c33ec2fc8e0b7d9312dbe5fa447e}
+  client-id: ${PAYOS_CLIENT_ID:}
+  api-key: ${PAYOS_API_KEY:}
+  checksum-key: ${PAYOS_CHECKSUM_KEY:}
   return-url: ${PAYOS_RETURN_URL:http://localhost:3000/#/payment/success}
   cancel-url: ${PAYOS_CANCEL_URL:http://localhost:3000/#/payment/cancel}
 

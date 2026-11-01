@@ -94,6 +94,12 @@ public class AdminController {
         return ResponseEntity.ok(ApiResponse.ok("Từ chối đơn hàng thành công", response));
     }
 
+    @PutMapping("/orders/{orderId}/refund")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> refundOrder(@PathVariable Long orderId) {
+        Map<String, Object> response = adminService.refundOrder(orderId);
+        return ResponseEntity.ok(ApiResponse.ok("Hoàn tiền đơn hàng thành công", response));
+    }
+
     @GetMapping("/plans")
     public ResponseEntity<ApiResponse<List<SubscriptionPlan>>> getAllPlans() {
         return ResponseEntity.ok(ApiResponse.ok(adminService.getAllPlans()));
@@ -137,9 +143,21 @@ public class AdminController {
         }
         Long planId = Long.valueOf(String.valueOf(planIdObj));
         Integer durationDays = body.get("durationDays") != null ? Integer.valueOf(String.valueOf(body.get("durationDays"))) : null;
+        Integer customQuota = body.get("customQuota") != null ? Integer.valueOf(String.valueOf(body.get("customQuota"))) : null;
+        if (customQuota != null && customQuota <= 0) {
+            customQuota = null;
+        }
 
-        AdminUserResponse response = adminService.assignUserTier(userId, planId, durationDays);
+        AdminUserResponse response = adminService.assignUserTier(userId, planId, durationDays, customQuota);
         return ResponseEntity.ok(ApiResponse.ok("Gán phân hạng mức người dùng thành công", response));
+    }
+
+    @PostMapping("/users/{userId}/assign-tier")
+    public ResponseEntity<ApiResponse<AdminUserResponse>> assignUserTierPost(
+            @PathVariable Long userId,
+            @RequestBody Map<String, Object> body
+    ) {
+        return assignUserTier(userId, body);
     }
 
     @GetMapping("/jobs")
@@ -153,8 +171,12 @@ public class AdminController {
             @RequestBody Map<String, String> body
     ) {
         String statusStr = body.get("status");
+        String reason = body.get("reason");
+        if (reason == null) {
+            reason = body.get("rejectionReason");
+        }
         JobApprovalStatus status = JobApprovalStatus.valueOf(statusStr.toUpperCase());
-        JobResponse updated = adminService.updateJobApproval(jobId, status);
+        JobResponse updated = adminService.updateJobApproval(jobId, status, reason);
         return ResponseEntity.ok(ApiResponse.ok("Cập nhật duyệt tin tuyển dụng thành công", updated));
     }
 
@@ -173,6 +195,12 @@ public class AdminController {
     public ResponseEntity<ApiResponse<com.hiremate.entity.Voucher>> toggleVoucher(@PathVariable Long voucherId) {
         com.hiremate.entity.Voucher toggled = adminService.toggleVoucher(voucherId);
         return ResponseEntity.ok(ApiResponse.ok("Cập nhật trạng thái voucher thành công", toggled));
+    }
+
+    @DeleteMapping("/vouchers/{voucherId}")
+    public ResponseEntity<ApiResponse<Void>> deleteVoucher(@PathVariable Long voucherId) {
+        adminService.deleteVoucher(voucherId);
+        return ResponseEntity.ok(ApiResponse.ok("Xóa voucher thành công", null));
     }
 
     // =========================================================================

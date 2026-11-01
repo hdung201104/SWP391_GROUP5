@@ -232,15 +232,8 @@ export default function JobDetailModal({ job, onClose, onApply, onViewCompanyPro
   // Bóc tách mô tả công việc (LUÔN giữ nguyên dữ liệu người dùng nhập)
   const getDescriptionBullets = () => {
     const userBullets = parseCleanBullets(job.description);
-    if (userBullets.length >= 2) {
+    if (userBullets.length > 0) {
       return userBullets;
-    }
-    if (userBullets.length === 1) {
-      // Giữ nguyên câu người dùng đã nhập làm bullet 1, bổ sung trách nhiệm chuẩn cho vị trí
-      const supplemental = template.descriptions.filter(
-        (d) => !d.toLowerCase().includes(userBullets[0].toLowerCase())
-      );
-      return [userBullets[0], ...supplemental.slice(0, 4)];
     }
     return template.descriptions;
   };
@@ -248,15 +241,8 @@ export default function JobDetailModal({ job, onClose, onApply, onViewCompanyPro
   // Bóc tách yêu cầu công việc (LUÔN giữ nguyên dữ liệu người dùng nhập)
   const getRequirementBullets = () => {
     const userBullets = parseCleanBullets(job.requirements);
-    if (userBullets.length >= 2) {
+    if (userBullets.length > 0) {
       return userBullets;
-    }
-    if (userBullets.length === 1) {
-      // Giữ nguyên yêu cầu người dùng nhập ở vị trí đầu tiên
-      const supplemental = template.requirements.filter(
-        (r) => !r.toLowerCase().includes(userBullets[0].toLowerCase())
-      );
-      return [userBullets[0], ...supplemental.slice(0, 4)];
     }
     return template.requirements;
   };
@@ -286,7 +272,9 @@ export default function JobDetailModal({ job, onClose, onApply, onViewCompanyPro
     if (onViewCompanyProfile) {
       onViewCompanyProfile(job);
     } else {
-      window.location.hash = `#/company-profile?id=${job.companyId || job.company?.companyId || ''}`;
+      const compId = job.companyId || job.company?.companyId || '';
+      if (onClose) onClose();
+      window.location.hash = compId ? `#/?companyId=${compId}` : '#/';
     }
   };
 

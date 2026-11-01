@@ -19,4 +19,13 @@ public class UpdateProfileRequest {
     private String bio;
     private String githubUrl;
     private String headline;
+    private String location;
+    private String experiencesJson;
+    private String educationsJson;
+    private String projectsJson;
+
+    // Optional Recruiter fields
+    private String position;
+    private String department;
+    private String branchName;
 }

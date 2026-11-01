@@ -49,7 +49,7 @@ public class FileStorageServiceImpl implements FileStorageService {
         }
 
         // Validate allowed extensions (Documents, Images, Audio)
-        if (!extension.matches("\\.(pdf|doc|docx|png|jpg|jpeg|webp|mp3|wav|weba|m4a|ogg)")) {
+        if (!extension.matches("\\.(pdf|doc|docx|png|jpg|jpeg|webp|mp3|wav|weba|webm|mp4|m4a|ogg)")) {
             throw new IllegalArgumentException("Định dạng file " + extension + " không được hỗ trợ.");
         }
 
@@ -109,7 +109,7 @@ public class FileStorageServiceImpl implements FileStorageService {
     @Override
     public byte[] loadFileAsBytes(String fileUrlOrName) {
         if (fileUrlOrName == null || fileUrlOrName.isBlank()) {
-            return new byte[0];
+            return null;
         }
 
         // 1. Tra cứu trực tiếp trên ổ cứng cục bộ (Local Vault Storage)
@@ -128,6 +128,16 @@ public class FileStorageServiceImpl implements FileStorageService {
             Path prefixedPath = loadFile("cvs_" + rawFileName);
             if (Files.exists(prefixedPath) && Files.size(prefixedPath) > 0) {
                 return Files.readAllBytes(prefixedPath);
+            }
+
+            // 1.2b Tìm theo tiền tố interview_audio_ hoặc interviews_
+            Path audioPrefixedPath = loadFile("interview_audio_" + rawFileName);
+            if (Files.exists(audioPrefixedPath) && Files.size(audioPrefixedPath) > 0) {
+                return Files.readAllBytes(audioPrefixedPath);
+            }
+            Path interviewPrefixedPath = loadFile("interviews_" + rawFileName);
+            if (Files.exists(interviewPrefixedPath) && Files.size(interviewPrefixedPath) > 0) {
+                return Files.readAllBytes(interviewPrefixedPath);
             }
 
             // 1.3 Tìm duyệt file chứa tên/UUID trong uploadDir
@@ -156,31 +166,23 @@ public class FileStorageServiceImpl implements FileStorageService {
                 }
             } catch (Exception e) {
                 log.warn(">> [FileStorage] Không thể đọc trực tiếp từ Remote URL ({}): {}", fileUrlOrName, e.getMessage());
-            }
-        }
-
-        // 3. Fallback lấy tệp PDF khả dụng từ thư mục lưu trữ nếu là yêu cầu đọc file PDF hoặc khi không tìm thấy file
-        try {
-            Path uploadDirPath = Paths.get(fileStorageConfig.getUploadDir());
-            if (Files.exists(uploadDirPath)) {
-                try (java.util.stream.Stream<Path> stream = Files.list(uploadDirPath)) {
-                    java.util.Optional<Path> anyPdf = stream
-                            .filter(p -> p.getFileName().toString().toLowerCase().endsWith(".pdf")
-                                    && Files.isRegularFile(p)
-                                    && !p.getFileName().toString().contains("fa2379c3")
-                                    && !p.getFileName().toString().contains("5e597ebe"))
-                            .findFirst();
-                    if (anyPdf.isPresent()) {
-                        log.info(">> [FileStorage] Fallback tải tệp PDF mẫu từ thư mục: {}", anyPdf.get().getFileName());
-                        return Files.readAllBytes(anyPdf.get());
+                // Fallback nếu là file PDF trên Cloudinary CDN bị giới hạn ACL 401: Cloudinary cho phép render trực tiếp sang .png nét cao
+                if (fileUrlOrName.contains("res.cloudinary.com") && fileUrlOrName.toLowerCase().endsWith(".pdf")) {
+                    String pngUrl = fileUrlOrName.replaceAll("(?i)\\.pdf$", ".png");
+                    try (java.io.InputStream inPng = java.net.URI.create(pngUrl).toURL().openStream()) {
+                        byte[] pngBytes = inPng.readAllBytes();
+                        if (pngBytes != null && pngBytes.length > 0) {
+                            log.info(">> [FileStorage] Đã tải thành công ảnh xem trước (.png) thay thế cho PDF Cloudinary: {}", pngUrl);
+                            return pngBytes;
+                        }
+                    } catch (Exception exPng) {
+                        log.warn(">> [FileStorage] Thử tải fallback .png từ Cloudinary cũng thất bại: {}", exPng.getMessage());
                     }
                 }
             }
-        } catch (Exception e) {
-            log.warn(">> [FileStorage] Fallback PDF gặp lỗi: {}", e.getMessage());
         }
 
-        return new byte[0];
+        return null;
     }
 
     @Override

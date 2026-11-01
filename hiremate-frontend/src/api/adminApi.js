@@ -20,6 +20,7 @@ export const adminApi = {
   getOrders: () => axiosClient.get('/admin/orders'),
   approveOrder: (orderId, adminNote) => axiosClient.put(`/admin/orders/${orderId}/approve`, { adminNote }),
   rejectOrder: (orderId, adminNote) => axiosClient.put(`/admin/orders/${orderId}/reject`, { adminNote }),
+  refundOrder: (orderId) => axiosClient.put(`/admin/orders/${orderId}/refund`),
 
   // Subscription Plans
   getPlans: () => axiosClient.get('/admin/plans'),
@@ -30,12 +31,13 @@ export const adminApi = {
 
   // Job Moderation
   getJobs: () => axiosClient.get('/admin/jobs'),
-  updateJobApproval: (jobId, status) => axiosClient.put(`/admin/jobs/${jobId}/approval`, { status }),
+  updateJobApproval: (jobId, status, reason) => axiosClient.put(`/admin/jobs/${jobId}/approval`, { status, reason }),
 
   // Vouchers Management
   getVouchers: () => axiosClient.get('/admin/vouchers'),
   createVoucher: (voucher) => axiosClient.post('/admin/vouchers', voucher),
   toggleVoucher: (voucherId) => axiosClient.put(`/admin/vouchers/${voucherId}/toggle`),
+  deleteVoucher: (voucherId) => axiosClient.delete(`/admin/vouchers/${voucherId}`),
 
   // Master Skills Management (Quản Trị Từ Điển Kỹ Năng)
   getSkills: (params) => axiosClient.get('/admin/skills', { params }),

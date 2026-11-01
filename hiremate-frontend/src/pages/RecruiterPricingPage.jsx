@@ -282,6 +282,31 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
     }
   });
   const [pendingOrders, setPendingOrders] = useState([]);
+  const [allOrders, setAllOrders] = useState([]);
+  const [orderFilterTab, setOrderFilterTab] = useState('ALL'); // 'ALL' | 'PENDING' | 'APPROVED' | 'CANCELLED'
+  const [selectedDurationMonths, setSelectedDurationMonths] = useState(1); // 1, 3, 6, 12
+
+  // VAT Invoice Modal States
+  const [showVatModal, setShowVatModal] = useState(false);
+  const [vatTargetOrder, setVatTargetOrder] = useState(null);
+  const [vatForm, setVatForm] = useState({
+    companyName: '',
+    taxCode: '',
+    address: '',
+    email: '',
+    contactPerson: '',
+    phone: '',
+    notes: ''
+  });
+  const [vatErrors, setVatErrors] = useState({});
+  const [vatSuccessOrderCodes, setVatSuccessOrderCodes] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hiremate_vat_requested_codes');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
 
   useEffect(() => {
     const fetchActiveJobsCount = async () => {
@@ -300,7 +325,7 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
     fetchActiveJobsCount();
   }, []);
 
-  const syncSubscriptionState = (sub) => {
+  const syncSubscriptionState = (sub, ordersList = allOrders) => {
     if (!sub || !sub.active) {
       setActiveSubscriptionInfo(null);
       localStorage.removeItem('hiremate_recruiter_subscription');
@@ -319,19 +344,36 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
     const pName = (sub.planName || '').toLowerCase();
     const pId = sub.planId ? `PLAN_${sub.planId}` : '';
 
-    if (pName.includes('enterprise') || pName.includes('elite') || pName.includes('vip') || (sub.quotaLimit && sub.quotaLimit >= 999)) {
+    let baseCredits = 50;
+    if (pName.includes('elite') || pName.includes('enterprise') || pName.includes('vip') || (sub.quotaLimit && sub.quotaLimit >= 999)) {
       setActivePlan('ENTERPRISE');
-      setUserCredits(3000);
-      setUserActiveJobsCount(99);
-    } else if (pName.includes('pro') || pName.includes('professional') || pName.includes('hiring')) {
+      baseCredits = 3000;
+    } else if (pName.includes('pro') || pName.includes('professional')) {
       setActivePlan('PROFESSIONAL');
-      setUserCredits(sub.quotaLimit || 500);
-      setUserActiveJobsCount(15);
+      baseCredits = 500;
+    } else if (pName.includes('starter') || (sub.quotaLimit && sub.quotaLimit >= 10 && sub.quotaLimit < 30)) {
+      setActivePlan('STARTER');
+      baseCredits = 150;
     } else {
       setActivePlan(pId || 'BASIC');
-      setUserCredits(50);
-      setUserActiveJobsCount(3);
+      baseCredits = 50;
     }
+
+    let addonCredits = 0;
+    try {
+      (ordersList || []).forEach((o) => {
+        if (o.status === 'APPROVED') {
+          const note = `${o.adminNote || ''} ${o.pkg || ''} ${o.planName || ''}`.toLowerCase();
+          if (note.includes('500') && (note.includes('credit') || note.includes('addon'))) {
+            addonCredits += 500;
+          } else if (note.includes('100') && (note.includes('credit') || note.includes('addon'))) {
+            addonCredits += 100;
+          }
+        }
+      });
+    } catch {}
+
+    setUserCredits(baseCredits + addonCredits);
   };
 
   const fetchMySubscription = () => {
@@ -354,11 +396,87 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
       .then(res => {
         const orders = res.data?.data || res.data || [];
         if (Array.isArray(orders)) {
+          setAllOrders(orders);
           const pendings = orders.filter(o => o.status === 'PENDING');
           setPendingOrders(pendings);
+          if (activeSubscriptionInfo) {
+            syncSubscriptionState(activeSubscriptionInfo, orders);
+          }
         }
       })
       .catch(err => console.warn('Could not load recruiter orders', err));
+  };
+
+  const triggerToast = (msg) => {
+    setCopyFeedback(msg);
+    setTimeout(() => setCopyFeedback(''), 4000);
+  };
+
+  const handleOpenVatModal = (order) => {
+    setVatTargetOrder(order);
+    let cachedLegal = null;
+    const companyKey = (user?.companyName || 'vng_corporation').toLowerCase().replace(/[^a-z0-9]/g, '_');
+    try {
+      const savedLegal = localStorage.getItem(`hiremate_company_legal_${companyKey}`) || localStorage.getItem('company_legal_dossier_' + companyKey);
+      if (savedLegal) cachedLegal = JSON.parse(savedLegal);
+    } catch {}
+
+    setVatForm({
+      companyName: cachedLegal?.registeredName || cachedLegal?.companyName || user?.companyName || '',
+      taxCode: cachedLegal?.taxCode || '',
+      address: cachedLegal?.registeredAddress || cachedLegal?.address || user?.address || 'Việt Nam',
+      email: user?.email || '',
+      contactPerson: user?.fullName || 'Đại diện tuyển dụng',
+      phone: user?.phone || '',
+      notes: `Yêu cầu xuất hóa đơn điện tử cho đơn hàng #${order.orderCode} - ${order.planName || 'Gói Dịch Vụ HireMate AI'}`
+    });
+    setVatErrors({});
+    setShowVatModal(true);
+  };
+
+  const handleSubmitVatRequest = (e) => {
+    e.preventDefault();
+    if (!vatTargetOrder) return;
+
+    const errors = {};
+    const cleanTax = (vatForm.taxCode || '').trim();
+    const taxRegex = /^(\d{10}|\d{10}-\d{3}|\d{13})$/;
+    if (!cleanTax) {
+      errors.taxCode = 'Vui lòng nhập mã số thuế';
+    } else if (!taxRegex.test(cleanTax)) {
+      errors.taxCode = 'MST Việt Nam không đúng định dạng (phải gồm 10 hoặc 13 chữ số, VD: 0101234567 hoặc 0101234567-001)';
+    }
+
+    const cleanPhone = (vatForm.phone || '').trim();
+    const phoneRegex = /^0\d{9}$/;
+    if (cleanPhone && !phoneRegex.test(cleanPhone)) {
+      errors.phone = 'Số điện thoại không đúng định dạng (phải gồm 10 chữ số bắt đầu bằng số 0, VD: 0912345678)';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setVatErrors(errors);
+      triggerToast('Vui lòng kiểm tra lại định dạng Mã số thuế hoặc Số điện thoại!');
+      return;
+    }
+    setVatErrors({});
+
+    try {
+      const code = vatTargetOrder.orderCode;
+      const updatedCodes = Array.from(new Set([...vatSuccessOrderCodes, code]));
+      setVatSuccessOrderCodes(updatedCodes);
+      localStorage.setItem('hiremate_vat_requested_codes', JSON.stringify(updatedCodes));
+      localStorage.setItem('hiremate_vat_request_detail_' + code, JSON.stringify({
+        ...vatForm,
+        taxCode: cleanTax,
+        phone: cleanPhone,
+        orderCode: code,
+        requestedAt: new Date().toISOString()
+      }));
+      setShowVatModal(false);
+      triggerToast(`Đã gửi yêu cầu xuất hóa đơn VAT cho đơn hàng #${code} thành công! Kế toán sẽ xử lý trong 24h làm việc.`);
+    } catch (err) {
+      triggerToast('Lỗi lưu yêu cầu VAT: ' + err.message);
+    }
   };
 
   // Fetch real plans from Supabase if available
@@ -477,7 +595,8 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
 
     const finalPrice = calculateFinalPrice();
 
-    const matchedPlan = dbPlans.find(p => 
+    const isPurchasingAddon = Boolean(selectedAddonForPurchase);
+    const matchedPlan = isPurchasingAddon ? null : dbPlans.find(p => 
       p.planId === selectedPlanForPurchase?.dbPlanId ||
       p.planName.toLowerCase().includes(planName.toLowerCase()) || 
       planName.toLowerCase().includes(p.planName.toLowerCase())
@@ -486,8 +605,9 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
     const payload = {
       userId: user?.id || user?.userId || null,
       userEmail: user?.email || null,
-      planId: selectedPlanForPurchase?.dbPlanId || matchedPlan?.planId || null,
+      planId: isPurchasingAddon ? null : (selectedPlanForPurchase?.dbPlanId || matchedPlan?.planId || null),
       planName: planName,
+      isAddon: isPurchasingAddon,
       targetRole: 'RECRUITER',
       billingCycle: billingCycle,
       paymentMethod: paymentMethod,
@@ -495,7 +615,9 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
       originalAmount: basePrice,
       discountAmount: voucherDiscountAmount,
       amount: finalPrice,
-      orderNote: `Doanh nghiệp đăng ký ${planName} (${billingCycle === 'YEARLY' ? '12 Tháng' : '1 Tháng'}) - ${paymentMethod}`
+      orderNote: isPurchasingAddon 
+        ? `[ADDON] Doanh nghiệp mua Add-on: ${planName} - ${paymentMethod}`
+        : `Doanh nghiệp đăng ký ${planName} (${billingCycle === 'YEARLY' ? '12 Tháng' : '1 Tháng'}) - ${paymentMethod}`
     };
 
     try {
@@ -750,7 +872,7 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
               <div className="px-4 py-2.5 rounded-2xl bg-white/15 backdrop-blur-md border border-white/20 flex items-center gap-2">
                 <span className="text-purple-200">Gói Hiện Tại:</span>
                 <span className="font-bold text-white uppercase tracking-wide">
-                  {activeSubscriptionInfo?.planName || (activePlan === 'ENTERPRISE' ? 'Enterprise VIP' : activePlan === 'PROFESSIONAL' ? 'Hiring Pro' : 'Basic (Khởi Tạo)')}
+                  {activeSubscriptionInfo?.planName || (activePlan === 'STARTER' ? 'Hiring Starter' : activePlan === 'PROFESSIONAL' ? 'Hiring Pro' : activePlan === 'ENTERPRISE' ? 'Hiring Elite' : 'Gói Cơ Bản (Miễn phí)')}
                 </span>
                 <span className="px-2 py-0.5 rounded-full bg-emerald-500/30 text-emerald-200 text-[10px] font-bold border border-emerald-400/30">
                   ACTIVE {activeSubscriptionInfo?.daysRemaining ? `(${activeSubscriptionInfo.daysRemaining} ngày)` : ''}
@@ -764,7 +886,9 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
 
               <div className="px-4 py-2.5 rounded-2xl bg-white/15 backdrop-blur-md border border-white/20 flex items-center gap-2">
                 <span className="text-purple-200">Tin Đang Đăng:</span>
-                <span className="font-extrabold text-white">{userActiveJobsCount} / {activePlan === 'BASIC' ? '3' : activePlan === 'PROFESSIONAL' ? '15' : '∞'} Tin</span>
+                <span className="font-extrabold text-white">
+                  {userActiveJobsCount} / {(activeSubscriptionInfo?.quotaLimit && activeSubscriptionInfo.quotaLimit >= 999) ? '∞' : (activeSubscriptionInfo?.quotaLimit || (activePlan === 'ENTERPRISE' ? '∞' : activePlan === 'PROFESSIONAL' ? '30' : activePlan === 'STARTER' ? '10' : '3'))} Tin
+                </span>
               </div>
             </div>
           </div>
@@ -854,11 +978,35 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
         </div>
 
         {/* PRICING CARDS GRID: 4 CỘT HIỂN THỊ ĐẦY ĐỦ CẢ 4 GÓI TỪ SUPABASE */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
-          {plansToDisplay.map((plan) => {
-            const planTier = getRecruiterPlanTier(plan.name || plan.id, plan.monthlyPrice);
-            const isSelected = hasActivePaidPlan ? isThisPlanActive(plan) : (plan.monthlyPrice === 0 || plan.id === 'BASIC');
-            const isLowerTier = hasActivePaidPlan && !isSelected && planTier < currentTier;
+        {(() => {
+          const getRecruiterPlanTier = (planNameOrId, price) => {
+            const s = String(planNameOrId || '').toLowerCase();
+            if (s.includes('elite') || s.includes('enterprise') || s.includes('vip') || (price && price >= 1000000)) return 4;
+            if (s.includes('pro') || s.includes('professional') || (price && price >= 400000)) return 3;
+            if (s.includes('starter') || (price && price >= 100000)) return 2;
+            return 1;
+          };
+
+          const getTierFromKey = (tierKey) => {
+            const k = String(tierKey || '').toUpperCase();
+            if (k.includes('ELITE') || k.includes('ENTERPRISE')) return 4;
+            if (k.includes('PRO')) return 3;
+            if (k.includes('STARTER')) return 2;
+            return 1;
+          };
+
+          const currentTier = getTierFromKey(activePlan);
+          const hasActivePaidPlan = Boolean(activePlan && activePlan !== 'BASIC' && activeSubscriptionInfo && activeSubscriptionInfo.status === 'ACTIVE');
+          const isThisPlanActive = (plan) => {
+            return getRecruiterPlanTier(plan.name || plan.id, plan.monthlyPrice) === currentTier;
+          };
+
+          return (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
+              {plansToDisplay.map((plan) => {
+                const planTier = getRecruiterPlanTier(plan.name || plan.id, plan.monthlyPrice);
+                const isSelected = hasActivePaidPlan ? isThisPlanActive(plan) : (plan.monthlyPrice === 0 || plan.id === 'BASIC');
+                const isLowerTier = hasActivePaidPlan && !isSelected && planTier < currentTier;
 
             return (
               <div
@@ -991,6 +1139,8 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
             );
           })}
         </div>
+      );
+    })()}
 
         {/* ADD-ON CREDITS & FEATURED JOBS SECTION */}
         <div className="bg-white rounded-[32px] p-6 sm:p-8 border border-purple-100 shadow-sm space-y-6">
@@ -1093,6 +1243,350 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
             </table>
           </div>
         </div>
+
+        {/* ENTERPRISE TRANSACTION HISTORY & VAT E-INVOICE SECTION */}
+        <div className="bg-white rounded-[32px] p-6 sm:p-8 border border-purple-100 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="p-2 rounded-xl bg-indigo-100 text-[#32247b] material-symbols-outlined text-xl">
+                  receipt_long
+                </span>
+                <h2 className="text-xl sm:text-2xl font-black text-[#1e1b4b]">
+                  Lịch Sử Giao Dịch &amp; Hóa Đơn Doanh Nghiệp
+                </h2>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Theo dõi tất cả các giao dịch thanh toán gói dịch vụ tuyển dụng và yêu cầu xuất hóa đơn điện tử VAT.
+              </p>
+            </div>
+
+            {/* Filter Tabs */}
+            <div className="inline-flex items-center gap-1 bg-slate-100 p-1 rounded-2xl border border-slate-200/80">
+              {[
+                { id: 'ALL', label: 'Tất cả' },
+                { id: 'PENDING', label: 'Chờ thanh toán' },
+                { id: 'APPROVED', label: 'Đã kích hoạt' },
+                { id: 'CANCELLED', label: 'Đã hủy' },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setOrderFilterTab(tab.id)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    orderFilterTab === tab.id
+                      ? 'bg-white text-[#32247b] shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Orders Table */}
+          {(() => {
+            const displayOrders = (allOrders.length > 0 ? allOrders : pendingOrders).filter((ord) => {
+              if (orderFilterTab === 'PENDING') return ord.status === 'PENDING';
+              if (orderFilterTab === 'APPROVED') return ord.status === 'APPROVED' || ord.status === 'COMPLETED';
+              if (orderFilterTab === 'CANCELLED') return ord.status === 'CANCELLED' || ord.status === 'REJECTED';
+              return true;
+            });
+
+            if (displayOrders.length === 0) {
+              return (
+                <div className="py-12 text-center border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50 space-y-2">
+                  <span className="material-symbols-outlined text-4xl text-slate-300">receipt_long</span>
+                  <p className="text-xs font-bold text-slate-500">
+                    Chưa có giao dịch nào trong phân mục này
+                  </p>
+                  <p className="text-[11px] text-slate-400">
+                    Chọn nâng cấp gói dịch vụ ở trên để mở rộng hạn ngạch và tính năng tuyển dụng cao cấp.
+                  </p>
+                </div>
+              );
+            }
+
+            return (
+              <div className="overflow-x-auto border border-slate-100 rounded-2xl">
+                <table className="w-full text-left border-collapse min-w-[700px]">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-[11px] text-slate-500 uppercase font-black bg-slate-50">
+                      <th className="py-3 px-4">Mã Đơn Hàng</th>
+                      <th className="py-3 px-4">Gói Dịch Vụ</th>
+                      <th className="py-3 px-4">Số Tiền</th>
+                      <th className="py-3 px-4">Phương Thức</th>
+                      <th className="py-3 px-4">Thời Gian</th>
+                      <th className="py-3 px-4">Trạng Thái</th>
+                      <th className="py-3 px-4 text-right">Thao Tác</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-xs">
+                    {displayOrders.map((ord) => {
+                      const isVatRequested = vatSuccessOrderCodes.includes(ord.orderCode);
+                      const isApproved = ord.status === 'APPROVED' || ord.status === 'COMPLETED';
+                      const isPending = ord.status === 'PENDING';
+                      const isCancelled = ord.status === 'CANCELLED' || ord.status === 'REJECTED';
+
+                      return (
+                        <tr key={ord.orderCode} className="hover:bg-indigo-50/30 transition-colors">
+                          <td className="py-3.5 px-4 font-mono font-bold text-[#32247b]">
+                            #{ord.orderCode}
+                          </td>
+                          <td className="py-3.5 px-4 font-bold text-slate-800">
+                            {ord.planName || 'Gói Tuyển Dụng'}
+                          </td>
+                          <td className="py-3.5 px-4 font-black text-emerald-600">
+                            {formatVND(ord.amount)}
+                          </td>
+                          <td className="py-3.5 px-4 text-slate-600">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-100 text-[11px] font-semibold text-slate-700">
+                              <span className="material-symbols-outlined text-xs">qr_code_2</span>
+                              <span>VietQR Napas247</span>
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 text-slate-500 text-[11px]">
+                            {ord.createdAt ? new Date(ord.createdAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Vừa xong'}
+                          </td>
+                          <td className="py-3.5 px-4">
+                            {isApproved ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[11px] font-extrabold">
+                                <span className="material-symbols-outlined text-xs font-bold">check_circle</span>
+                                <span>Đã Kích Hoạt</span>
+                              </span>
+                            ) : isPending ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 text-[11px] font-extrabold animate-pulse">
+                                <span className="material-symbols-outlined text-xs">hourglass_top</span>
+                                <span>Chờ Thanh Toán</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 text-[11px] font-bold">
+                                <span className="material-symbols-outlined text-xs">cancel</span>
+                                <span>Đã Hủy</span>
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              {isPending && (
+                                <>
+                                  <button
+                                    onClick={() => handleOpenPendingOrderQr(ord)}
+                                    className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-[#32247b] text-[11px] font-bold transition-all border border-indigo-200 cursor-pointer"
+                                  >
+                                    Mã QR
+                                  </button>
+                                  <button
+                                    onClick={() => handleActivateSpecificOrder(ord.orderCode)}
+                                    disabled={checkingStatus}
+                                    className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold transition-all shadow-xs cursor-pointer"
+                                  >
+                                    Kiểm Tra
+                                  </button>
+                                </>
+                              )}
+
+                              {isApproved && (
+                                isVatRequested ? (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 text-[11px] font-bold border border-blue-200">
+                                    <span className="material-symbols-outlined text-xs">verified</span>
+                                    <span>Đã Yêu Cầu VAT</span>
+                                  </span>
+                                ) : (
+                                  <button
+                                    onClick={() => handleOpenVatModal(ord)}
+                                    className="px-2.5 py-1 rounded-lg bg-purple-50 hover:bg-purple-100 text-[#32247b] text-[11px] font-bold transition-all border border-purple-200 flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <span className="material-symbols-outlined text-xs">description</span>
+                                    <span>Xuất HĐ VAT</span>
+                                  </button>
+                                )
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })()}
+        </div>
+
+        {/* VAT E-INVOICE REQUEST MODAL */}
+        {showVatModal && vatTargetOrder && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-lg rounded-[32px] p-6 sm:p-8 shadow-2xl border border-slate-100 space-y-5 animate-scaleUp max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-2xl text-[#32247b]">receipt</span>
+                  <h3 className="text-lg font-black text-[#1e1b4b]">
+                    Yêu Cầu Xuất Hóa Đơn Điện Tử VAT
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowVatModal(false)}
+                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-sm">close</span>
+                </button>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-indigo-50/70 border border-indigo-100 text-xs text-[#32247b] space-y-1">
+                <p><strong>Mã đơn hàng:</strong> #{vatTargetOrder.orderCode}</p>
+                <p><strong>Dịch vụ:</strong> {vatTargetOrder.planName || 'Gói Dịch Vụ Tuyển Dụng'}</p>
+                <p><strong>Tổng tiền thanh toán (đã gồm VAT):</strong> {formatVND(vatTargetOrder.amount)}</p>
+              </div>
+
+              <form onSubmit={handleSubmitVatRequest} className="space-y-3.5 text-xs">
+                <div>
+                  <label className="text-slate-600 font-bold block mb-1 uppercase text-[10px]">
+                    Tên Doanh Nghiệp Trên Giấy Phép GPKD <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={vatForm.companyName}
+                    onChange={(e) => setVatForm({ ...vatForm, companyName: e.target.value })}
+                    placeholder="VD: CÔNG TY CỔ PHẦN CÔNG NGHỆ..."
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-semibold text-slate-800 focus:outline-none focus:border-[#32247b]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-slate-600 font-bold block mb-1 uppercase text-[10px]">
+                      Mã Số Thuế (MST) <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={vatForm.taxCode}
+                      maxLength={14}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/[^0-9-]/g, '').slice(0, 14);
+                        setVatForm({ ...vatForm, taxCode: val });
+                        if (vatErrors.taxCode) setVatErrors((prev) => ({ ...prev, taxCode: null }));
+                      }}
+                      placeholder="VD: 0101234567 hoặc 0101234567-001"
+                      className={`w-full bg-slate-50 border rounded-xl px-3.5 py-2.5 font-mono font-bold text-slate-800 focus:outline-none transition-all ${
+                        vatErrors.taxCode
+                          ? 'border-rose-400 bg-rose-50/50 text-rose-900 focus:border-rose-500'
+                          : 'border-slate-200 focus:border-[#32247b]'
+                      }`}
+                    />
+                    {vatErrors.taxCode && (
+                      <p className="text-[11px] text-rose-500 font-bold mt-1 flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[13px]">error</span>
+                        <span>{vatErrors.taxCode}</span>
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-slate-600 font-bold block mb-1 uppercase text-[10px]">
+                      Email Nhận Hóa Đơn Điện Tử <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={vatForm.email}
+                      onChange={(e) => setVatForm({ ...vatForm, email: e.target.value })}
+                      placeholder="ketoan@company.com"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-medium text-slate-800 focus:outline-none focus:border-[#32247b]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-slate-600 font-bold block mb-1 uppercase text-[10px]">
+                    Địa Chỉ Đăng Ký Kinh Doanh <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={vatForm.address}
+                    onChange={(e) => setVatForm({ ...vatForm, address: e.target.value })}
+                    placeholder="VD: Tòa nhà FPT, Phố Duy Tân, Cầu Giấy, Hà Nội"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-medium text-slate-800 focus:outline-none focus:border-[#32247b]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-slate-600 font-bold block mb-1 uppercase text-[10px]">
+                      Người Liên Hệ Nhận HĐ
+                    </label>
+                    <input
+                      type="text"
+                      value={vatForm.contactPerson}
+                      onChange={(e) => setVatForm({ ...vatForm, contactPerson: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-medium text-slate-800 focus:outline-none focus:border-[#32247b]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-slate-600 font-bold block mb-1 uppercase text-[10px]">
+                      Số Điện Thoại Liên Hệ
+                    </label>
+                    <input
+                      type="tel"
+                      value={vatForm.phone}
+                      maxLength={10}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
+                        setVatForm({ ...vatForm, phone: val });
+                        if (vatErrors.phone) setVatErrors((prev) => ({ ...prev, phone: null }));
+                      }}
+                      placeholder="VD: 0912345678 (10 số)"
+                      className={`w-full bg-slate-50 border rounded-xl px-3.5 py-2.5 font-medium text-slate-800 focus:outline-none transition-all ${
+                        vatErrors.phone
+                          ? 'border-rose-400 bg-rose-50/50 text-rose-900 focus:border-rose-500'
+                          : 'border-slate-200 focus:border-[#32247b]'
+                      }`}
+                    />
+                    {vatErrors.phone && (
+                      <p className="text-[11px] text-rose-500 font-bold mt-1 flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[13px]">error</span>
+                        <span>{vatErrors.phone}</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-slate-600 font-bold block mb-1 uppercase text-[10px]">
+                    Ghi Chú Kèm Theo (Tùy chọn)
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={vatForm.notes}
+                    onChange={(e) => setVatForm({ ...vatForm, notes: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 font-medium text-slate-800 focus:outline-none focus:border-[#32247b]"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setShowVatModal(false)}
+                    className="px-5 py-2.5 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold cursor-pointer hover:bg-slate-200"
+                  >
+                    Hủy Bỏ
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-6 py-2.5 rounded-full bg-[#32247b] text-white text-xs font-bold uppercase tracking-wider cursor-pointer hover:bg-[#4331a6] shadow-md flex items-center gap-1.5"
+                  >
+                    <span className="material-symbols-outlined text-sm">send</span>
+                    <span>Xác Nhận Gửi Yêu Cầu HĐ VAT</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
         {/* FAQ ACCORDION SECTION */}
         <div className="bg-white rounded-[32px] p-6 sm:p-8 border border-purple-100 shadow-sm space-y-6">
