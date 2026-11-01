@@ -4059,6 +4059,48 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
     return null;
   };
 
+  // Cảnh báo thông minh nếu CV lệch nhóm ngành với vị trí đang chọn
+  const getCvDomainMismatchWarning = () => {
+    if (!selectedCv) return null;
+    const currentTarget = ((contextMode === 'job' || contextMode === 'ai-recommend') && selectedJob)
+      ? selectedJob.title
+      : customPosition;
+
+    const cvHeadline = selectedCv.headline || selectedCv.title || '';
+    const cvSkills = Array.isArray(selectedCv.skills) ? selectedCv.skills.join(' ') : '';
+    const cvText = `${cvHeadline} ${cvSkills}`.toLowerCase();
+    const targetText = (currentTarget || '').toLowerCase();
+
+    const isTargetTester = /\bqa\b|\bqc\b|tester|kiểm thử/i.test(targetText);
+    const isCvTester = /\bqa\b|\bqc\b|tester|kiểm thử/i.test(cvText);
+
+    const isTargetFe = /frontend|front-end|react|vue|angular/i.test(targetText);
+    const isCvFe = /frontend|front-end|react|vue|angular/i.test(cvText);
+
+    const isTargetBe = /backend|back-end|java|spring|golang|node/i.test(targetText);
+    const isCvBe = /backend|back-end|java|spring|golang|node/i.test(cvText);
+
+    const isTargetBa = /business analyst|\bba\b|product owner|product manager/i.test(targetText);
+    const isCvBa = /business analyst|\bba\b|product owner|product manager/i.test(cvText);
+
+    const isTargetBrse = /brse|cầu nối|bridge/i.test(targetText);
+    const isCvBrse = /brse|cầu nối|bridge/i.test(cvText);
+
+    let hasMismatch = false;
+    if (isTargetTester && !isCvTester && (isCvBa || isCvBe || isCvFe)) hasMismatch = true;
+    else if (isTargetBe && !isCvBe && (isCvBa || isCvTester || isCvFe)) hasMismatch = true;
+    else if (isTargetFe && !isCvFe && (isCvBa || isCvTester || isCvBe)) hasMismatch = true;
+    else if (isTargetBa && !isCvBa && (isCvTester || isCvBe || isCvFe)) hasMismatch = true;
+    else if (isTargetBrse && !isCvBrse && (isCvTester || isCvBe || isCvFe)) hasMismatch = true;
+
+    if (hasMismatch) {
+      const headlineDisp = selectedCv.headline || selectedCv.title || 'chuyên môn khác';
+      const targetDisp = formatJobTitle(currentTarget);
+      return `💡 Lưu ý: CV đang chọn thiên về [${headlineDisp}], AI sẽ kết hợp hỏi kỹ năng của vị trí [${targetDisp}] và kinh nghiệm chuyển đổi từ CV của bạn.`;
+    }
+    return null;
+  };
+
   const navTabs = [
     { id: 'setup', icon: 'tune', label: '1. Chọn Bối Cảnh' },
     { id: 'live', icon: 'videocam', label: '2. Phòng Phỏng Vấn' },

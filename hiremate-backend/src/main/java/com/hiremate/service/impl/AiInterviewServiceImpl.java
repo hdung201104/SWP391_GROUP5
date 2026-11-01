@@ -197,6 +197,13 @@ public class AiInterviewServiceImpl implements AiInterviewService {
             return CACHED_FREE_PLAN;
         }
 
+        if (CACHED_FREE_PLAN != null) {
+            if (candidate != null) {
+                USER_PLAN_CACHE.put(candidate.getUserId(), new CachedPlanEntry(CACHED_FREE_PLAN));
+            }
+            return CACHED_FREE_PLAN;
+        }
+
         // Truy vấn gói mặc định Free Candidate từ bảng `subscription_plans` trên Supabase
         if (subscriptionPlanRepository != null) {
             Optional<com.hiremate.entity.SubscriptionPlan> freePlanOpt =

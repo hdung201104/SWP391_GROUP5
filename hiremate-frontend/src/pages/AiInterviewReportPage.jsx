@@ -1155,6 +1155,40 @@ export default function AiInterviewReportPage({
     authenticFlaws.push(
       `Phiên phỏng vấn kết thúc sớm: Mới thực hiện ${totalQ}/${targetMaxQ} câu hỏi, chưa đủ dữ liệu đánh giá đầy đủ các vòng chuyên môn.`
     );
+  } else {
+    if (comps.domainKnowledge >= 70) {
+      authenticStrengths.push(
+        `Nắm bắt tốt các thuật ngữ và nguyên lý ngành ${taxonomy.categoryName}. Thể hiện được kiến thức nền tảng vững vàng.`
+      );
+    }
+    if (comps.problemSolving >= 70) {
+      authenticStrengths.push(
+        'Tư duy giải quyết vấn đề mạch lạc, biết phân tích nguyên nhân gốc rễ và đề xuất phương án xử lý thực tế.'
+      );
+    }
+    if (wpmInfo.isReliable && telemetry.avgWpm >= 100 && telemetry.avgWpm <= 150) {
+      authenticStrengths.push(
+        `Tốc độ trình bày đạt chuẩn tự nhiên (${telemetry.avgWpm} từ/phút), phát âm rõ ràng, nhịp điệu ổn định.`
+      );
+    }
+    if (telemetry.totalFillers <= 2 && totalWords >= 40) {
+      authenticStrengths.push(
+        `Kiểm soát tốt ngôn từ diễn đạt, hạn chế tối đa các từ đệm ngập ngừng (chỉ ${telemetry.totalFillers} lần trong suốt buổi).`
+      );
+    }
+    if (hasCameraUsed && telemetry.avgEyeContact >= 70) {
+      authenticStrengths.push(
+        `Tương tác ánh mắt qua webcam tốt (${telemetry.avgEyeContact}%), duy trì sự tập trung trực diện tạo cảm giác tự tin.`
+      );
+    }
+    if (totalQ >= targetMaxQ && totalScore >= 60) {
+      authenticStrengths.push(
+        `Hoàn thành trọn vẹn ${totalQ} câu hỏi đối thoại chuyên sâu, duy trì sự tập trung và tinh thần cầu thị.`
+      );
+    }
+    if (authenticStrengths.length === 0) {
+      authenticStrengths.push('Đã có nỗ lực phản hồi các câu hỏi phỏng vấn trong buổi đối thoại.');
+    }
   }
   if (cleanedWeakness) {
     authenticFlaws.push(`Lỗ hổng cốt lõi: ${cleanedWeakness}`);
@@ -2438,6 +2472,7 @@ export default function AiInterviewReportPage({
                             <span className="material-symbols-outlined text-base text-amber-600">psychology</span>
                             <span>Nhận xét thẳng thắn từ Giám khảo AI:</span>
                           </div>
+                        )}
 
                           <div className="text-slate-800 leading-relaxed text-xs whitespace-pre-line space-y-1 pl-1 font-normal">
                             {parsedCritique.critique}

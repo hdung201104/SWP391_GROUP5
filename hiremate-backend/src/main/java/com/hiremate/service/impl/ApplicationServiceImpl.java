@@ -282,6 +282,10 @@ public class ApplicationServiceImpl implements ApplicationService {
             }
         }
 
+        if (cv == null) {
+            throw new BadRequestException("Vui lòng tải lên hoặc chọn một CV trước khi ứng tuyển!");
+        }
+
         Application application = Application.builder()
                 .job(job)
                 .candidate(candidate)
