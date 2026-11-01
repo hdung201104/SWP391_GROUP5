@@ -18,6 +18,10 @@ public class ApplicationResponse {
     private Long candidateId;
     private String candidateName;
     private String candidateEmail;
+    private String candidatePhone;
+    private String candidateAvatar;
+    private Boolean withdrawnByCandidate;
+    private Boolean offerDeclinedByCandidate;
     private Long recruiterId;
     private String recruiterName;
     private String recruiterEmail;
@@ -26,7 +30,14 @@ public class ApplicationResponse {
     private ApplicationStatus status;
     private String coverLetter;
     private Float matchingScore;
+    private String evaluationNotes;
+    private String notes;
+    private String rejectionReason;
     private LocalDateTime createdAt;
+
+    public String getNotes() {
+        return notes != null ? notes : evaluationNotes;
+    }
 
     public static ApplicationResponseBuilder builder() {
         return new ApplicationResponseBuilder();
@@ -40,6 +51,10 @@ public class ApplicationResponse {
         private Long candidateId;
         private String candidateName;
         private String candidateEmail;
+        private String candidatePhone;
+        private String candidateAvatar;
+        private Boolean withdrawnByCandidate;
+        private Boolean offerDeclinedByCandidate;
         private Long recruiterId;
         private String recruiterName;
         private String recruiterEmail;
@@ -85,6 +100,26 @@ public class ApplicationResponse {
             return this;
         }
 
+        public ApplicationResponseBuilder candidatePhone(String candidatePhone) {
+            this.candidatePhone = candidatePhone;
+            return this;
+        }
+
+        public ApplicationResponseBuilder candidateAvatar(String candidateAvatar) {
+            this.candidateAvatar = candidateAvatar;
+            return this;
+        }
+
+        public ApplicationResponseBuilder withdrawnByCandidate(Boolean withdrawnByCandidate) {
+            this.withdrawnByCandidate = withdrawnByCandidate;
+            return this;
+        }
+
+        public ApplicationResponseBuilder offerDeclinedByCandidate(Boolean offerDeclinedByCandidate) {
+            this.offerDeclinedByCandidate = offerDeclinedByCandidate;
+            return this;
+        }
+
         public ApplicationResponseBuilder recruiterId(Long recruiterId) {
             this.recruiterId = recruiterId;
             return this;
@@ -125,6 +160,27 @@ public class ApplicationResponse {
             return this;
         }
 
+        private String evaluationNotes;
+        private String notes;
+        private String rejectionReason;
+
+        public ApplicationResponseBuilder evaluationNotes(String evaluationNotes) {
+            this.evaluationNotes = evaluationNotes;
+            this.notes = evaluationNotes;
+            return this;
+        }
+
+        public ApplicationResponseBuilder notes(String notes) {
+            this.notes = notes;
+            this.evaluationNotes = notes;
+            return this;
+        }
+
+        public ApplicationResponseBuilder rejectionReason(String rejectionReason) {
+            this.rejectionReason = rejectionReason;
+            return this;
+        }
+
         public ApplicationResponseBuilder createdAt(LocalDateTime createdAt) {
             this.createdAt = createdAt;
             return this;
@@ -133,8 +189,10 @@ public class ApplicationResponse {
         public ApplicationResponse build() {
             return new ApplicationResponse(
                     applicationId, jobId, jobTitle, companyName, candidateId,
-                    candidateName, candidateEmail, recruiterId, recruiterName, recruiterEmail,
-                    cvId, cvUrl, status, coverLetter, matchingScore, createdAt
+                    candidateName, candidateEmail, candidatePhone, candidateAvatar, withdrawnByCandidate, offerDeclinedByCandidate,
+                    recruiterId, recruiterName, recruiterEmail,
+                    cvId, cvUrl, status, coverLetter, matchingScore,
+                    evaluationNotes, notes, rejectionReason, createdAt
             );
         }
     }

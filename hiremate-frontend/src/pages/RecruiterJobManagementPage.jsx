@@ -4,6 +4,80 @@ import { jobApi, applicationApi, companyApi, skillApi, paymentApi } from '../api
 import { parseSkillList } from '../utils/helpers';
 import { calculateJobDeadline } from '../utils/jobTimeUtils';
 import { exportJobsToExcel } from '../utils/excelExportUtils';
+import { parseSubscriptionPermissions } from '../utils/subscriptionPerms';
+
+// Helper to format salary values nicely for Vietnamese market
+export const formatScannedSalary = (min, max, currencyOrText = 'VND', maybeText = '') => {
+  let currency = 'VND';
+  let text = '';
+  if (typeof currencyOrText === 'string') {
+    const upper = currencyOrText.trim().toUpperCase();
+    if (upper === 'VND' || upper === 'USD') {
+      currency = upper;
+      text = maybeText || '';
+    } else {
+      text = currencyOrText;
+    }
+  }
+
+  const defaultFallback = (text && String(text).trim()) ? String(text).trim() : 'Thỏa thuận';
+  if ((min === null || min === undefined || min === '') && (max === null || max === undefined || max === '')) {
+    return defaultFallback;
+  }
+
+  const rawMin = (min !== null && min !== undefined && min !== '' && !isNaN(Number(min))) ? Number(min) : null;
+  const rawMax = (max !== null && max !== undefined && max !== '' && !isNaN(Number(max))) ? Number(max) : null;
+
+  if (rawMin === null && rawMax === null) return defaultFallback;
+  if ((rawMin !== null && rawMin <= 0) && (rawMax !== null && rawMax <= 0)) return defaultFallback;
+
+  const isUsd = String(currency).toUpperCase() === 'USD' || (text && text.includes('$'));
+
+  if (isUsd) {
+    if (rawMin !== null && rawMax !== null && rawMin > 0 && rawMax > 0) {
+      return `$${rawMin.toLocaleString()} - $${rawMax.toLocaleString()} / tháng`;
+    }
+    if (rawMin !== null && rawMin > 0) return `Từ $${rawMin.toLocaleString()} / tháng`;
+    if (rawMax !== null && rawMax > 0) return `Lên tới $${rawMax.toLocaleString()} / tháng`;
+    return defaultFallback;
+  }
+
+  // VND handling: numbers <= 500 represent millions directly (e.g. 15 -> 15M)
+  const toMillion = (val) => {
+    if (val === null || val <= 0) return null;
+    if (val >= 100000) {
+      return (val / 1000000).toString().replace(/\.0+$/, '');
+    }
+    return val.toString().replace(/\.0+$/, '');
+  };
+
+  const minTr = toMillion(rawMin);
+  const maxTr = toMillion(rawMax);
+
+  if (minTr && maxTr) {
+    return minTr === maxTr ? `${minTr} triệu VNĐ` : `${minTr} - ${maxTr} triệu VNĐ`;
+  }
+  if (minTr) return `Từ ${minTr} triệu VNĐ`;
+  if (maxTr) return `Lên tới ${maxTr} triệu VNĐ`;
+
+  return defaultFallback;
+};
+
+// Helper to strip criteria metadata block and detail header from requirements string
+export const extractCleanRequirements = (raw) => {
+  if (!raw) return '';
+  let str = String(raw).trim();
+  if (str.includes('[TIÊU CHUẨN TUYỂN DỤNG') || str.includes('[YÊU CẦU NĂNG LỰC CHI TIẾT]')) {
+    const parts = str.split(/\[YÊU CẦU NĂNG LỰC CHI TIẾT\]/i);
+    if (parts.length > 1) {
+      str = parts[1].trim();
+    } else {
+      str = str.replace(/\[TIÊU CHUẨN TUYỂN DỤNG[\s\S]*?(?=(\n\n|$))/i, '').trim();
+    }
+  }
+  str = str.replace(/\[YÊU CẦU NĂNG LỰC CHI TIẾT\]/gi, '').trim();
+  return str;
+};
 
 // 6 Enterprise Job Description Templates for HR / Recruiters
 const SAMPLE_JDS = [
@@ -158,6 +232,8 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
   // Category tab: 'ALL' | 'ACTIVE' | 'PAUSED' | 'CLOSED'
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [branchScopeFilter, setBranchScopeFilter] = useState('ALL'); // 'ALL' | 'MY_BRANCH'
+  const [companyInfo, setCompanyInfo] = useState(null);
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -166,13 +242,14 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
   // Auto-reset page when filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedCategory, searchQuery]);
+  }, [selectedCategory, searchQuery, branchScopeFilter]);
   const [notification, setNotification] = useState('');
 
   // Lấy trạng thái xác thực ban đầu đồng bộ từ cache để tránh race-condition khi mount
   const getInitialCompanyStatus = () => {
     try {
-      const companyKey = (user?.companyName || 'vng_corporation').toLowerCase().replace(/[^a-z0-9]/g, '_');
+      if (!user?.companyName) return 'UNVERIFIED';
+      const companyKey = user.companyName.toLowerCase().replace(/[^a-z0-9]/g, '_');
       const saved = localStorage.getItem(`hiremate_company_legal_${companyKey}`);
       if (saved) {
         const parsed = JSON.parse(saved);
@@ -183,13 +260,13 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
       if (adminList) {
         const list = JSON.parse(adminList);
         const comp = list.find((c) =>
-          (c.name || '').toLowerCase() === (user?.companyName || 'vng corporation').toLowerCase() ||
-          (c.shortName || '').toLowerCase() === (user?.companyName || 'vng corporation').toLowerCase()
+          (c.name || '').toLowerCase() === user.companyName.toLowerCase() ||
+          (c.shortName || '').toLowerCase() === user.companyName.toLowerCase()
         );
         if (comp && (comp.status === 'VERIFIED' || comp.status === 'ACTIVE')) return 'VERIFIED';
       }
     } catch {}
-    return 'PENDING';
+    return 'UNVERIFIED';
   };
 
   const [companyStatus, setCompanyStatus] = useState(getInitialCompanyStatus);
@@ -212,9 +289,10 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
   }, []);
 
   const isAdmin = user?.role === 'ADMIN';
+  const subscriptionPerms = parseSubscriptionPermissions(recruiterSubscription, 'RECRUITER');
   const planPrice = Number(recruiterSubscription?.price || 0);
   const planName = recruiterSubscription?.planName || 'Free Recruiter';
-  const isFreeRecruiter = !isAdmin && (!recruiterSubscription || planPrice === 0 || planName.toLowerCase().includes('free'));
+  const isFreeRecruiter = !isAdmin && (!recruiterSubscription || (!subscriptionPerms.aiMatching && (planPrice === 0 || planName.toLowerCase().includes('free'))));
 
   const checkAiJdQuota = () => {
     if (!isFreeRecruiter) return true;
@@ -244,8 +322,11 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
       try {
         const res = await companyApi.getMyCompany();
         const comp = res?.data || res;
-        if (comp && comp.status) {
-          resolvedStatus = (comp.status === 'VERIFIED' || comp.status === 'ACTIVE') ? 'VERIFIED' : comp.status;
+        if (comp) {
+          setCompanyInfo(comp);
+          if (comp.status) {
+            resolvedStatus = (comp.status === 'VERIFIED' || comp.status === 'ACTIVE') ? 'VERIFIED' : comp.status;
+          }
         }
       } catch (err) {
         console.warn('Lỗi lấy thông tin công ty từ backend:', err);
@@ -271,6 +352,11 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
           setShowUnverifiedWarningModal(false);
           if (window.location.hash.includes('action=new')) {
             setShowCreateModal(true);
+          }
+        } else {
+          if (window.location.hash.includes('action=new')) {
+            setShowUnverifiedWarningModal(true);
+            setShowCreateModal(false);
           }
         }
       }
@@ -326,7 +412,9 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
   const [jobToDelete, setJobToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const canDeleteJob = (job) => {
+  const currentRecruiterBranch = user?.branchName || companyInfo?.branchName || 'Trụ sở chính';
+
+  const canEditOrManageJob = (job) => {
     if (!job) return false;
     if (user?.role === 'ADMIN') return true;
     const currentUserId = user?.userId || user?.id;
@@ -345,6 +433,13 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
     if (currentUserName && jobRecruiterName && currentUserName === jobRecruiterName) {
       return true;
     }
+    if (user?.isHeadRecruiter) {
+      return true;
+    }
+    const recruiterBranch = user?.branchName || currentRecruiterBranch;
+    if (recruiterBranch && job.branchName && recruiterBranch.trim().toLowerCase() === job.branchName.trim().toLowerCase()) {
+      return true;
+    }
     try {
       const myCreated = JSON.parse(localStorage.getItem('hiremate_my_created_jobs') || '[]');
       if (Array.isArray(myCreated) && myCreated.some((id) => String(id) === String(job.id))) {
@@ -354,6 +449,8 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
 
     return false;
   };
+
+  const canDeleteJob = (job) => canEditOrManageJob(job);
 
   const handleConfirmDeleteJob = async () => {
     if (!jobToDelete) return;
@@ -383,6 +480,8 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
   // Tag inputs & drag file state
   const [mandSkillTagInput, setMandSkillTagInput] = useState('');
   const [prefSkillTagInput, setPrefSkillTagInput] = useState('');
+  const [showMandSkillDropdown, setShowMandSkillDropdown] = useState(false);
+  const [showPrefSkillDropdown, setShowPrefSkillDropdown] = useState(false);
   const [masterSkillsList, setMasterSkillsList] = useState([]);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
 
@@ -406,25 +505,6 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
   // Jobs state loaded from real database
   const [jobsList, setJobsList] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-
-  // Helper to format scanned salary properly (distinguishing USD vs VND)
-  const formatScannedSalary = (min, max, text) => {
-    if (text && (text.includes('$') || text.includes('triệu') || text.includes('tr') || text.includes('VNĐ') || text.includes('VND'))) {
-      return text;
-    }
-    const minNum = Number(min);
-    const maxNum = Number(max);
-    if (minNum && maxNum) {
-      if (minNum < 10000) {
-        return `$${minNum.toLocaleString()} - $${maxNum.toLocaleString()}/tháng`;
-      }
-      if (minNum >= 1000000) {
-        return `${(minNum / 1000000).toFixed(0)} - ${(maxNum / 1000000).toFixed(0)} triệu VNĐ / tháng`;
-      }
-      return `${minNum.toLocaleString('vi-VN')} - ${maxNum.toLocaleString('vi-VN')} VNĐ`;
-    }
-    return text || '';
-  };
 
   // Initial Clean Form Generator (Không có sẵn dữ liệu mẫu khi chưa nhập/tải file)
   const getInitialCreateForm = () => ({
@@ -543,12 +623,22 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
     setCreateForm(prev => ({ ...prev, preferredSkillsInput: updated.join(', ') }));
   };
 
-  // Gợi ý kỹ năng động 1-click dựa trên tiêu đề công việc thực tế của HR và Master Skills từ Supabase
+  // Gợi ý kỹ năng động 1-click dựa trên tiêu đề công việc, lĩnh vực và Master Skills từ Supabase
   const dynamicMandatorySuggestions = useMemo(() => {
-    const t = (createForm.title || '').toLowerCase();
+    const t = `${createForm.title || ''} ${createForm.domain || ''}`.toLowerCase();
     if (masterSkillsList.length > 0) {
       let matched = [];
-      if (t.includes('frontend') || t.includes('front-end') || t.includes('react') || t.includes('vue') || t.includes('web')) {
+      if (t.includes('kế toán') || t.includes('tài chính') || t.includes('kiểm toán') || t.includes('accounting') || t.includes('finance')) {
+        matched = masterSkillsList.filter((s) => (s.category || '').toUpperCase().includes('FINANCE') || (s.category || '').toUpperCase().includes('ACCOUNTING') || ['kế toán', 'báo cáo tài chính', 'thuế', 'misa', 'excel', 'bctc', 'kiểm toán', 'quyết toán'].some((k) => (s.skillName || '').toLowerCase().includes(k)));
+      } else if (t.includes('marketing') || t.includes('truyền thông') || t.includes('seo') || t.includes('content') || t.includes('copywriting') || t.includes('media')) {
+        matched = masterSkillsList.filter((s) => (s.category || '').toUpperCase().includes('MARKETING') || ['marketing', 'seo', 'content', 'facebook ads', 'google ads', 'copywriting', 'social media', 'crm'].some((k) => (s.skillName || '').toLowerCase().includes(k)));
+      } else if (t.includes('nhân sự') || t.includes('tuyển dụng') || t.includes('hr') || t.includes('c&b') || t.includes('human resource')) {
+        matched = masterSkillsList.filter((s) => (s.category || '').toUpperCase().includes('HR') || ['tuyển dụng', 'c&b', 'bảo hiểm', 'chấm công', 'tiền lương', 'headhunt', 'đào tạo', 'onboarding'].some((k) => (s.skillName || '').toLowerCase().includes(k)));
+      } else if (t.includes('thiết kế') || t.includes('design') || t.includes('ui') || t.includes('ux') || t.includes('đồ họa')) {
+        matched = masterSkillsList.filter((s) => (s.category || '').toUpperCase().includes('DESIGN') || ['figma', 'photoshop', 'illustrator', 'ui/ux', 'canva', 'premiere', 'after effects', 'pts', 'ai'].some((k) => (s.skillName || '').toLowerCase().includes(k)));
+      } else if (t.includes('sales') || t.includes('bán hàng') || t.includes('kinh doanh') || t.includes('telesales')) {
+        matched = masterSkillsList.filter((s) => (s.category || '').toUpperCase().includes('SALES') || ['telesales', 'b2b', 'b2c', 'crm', 'đàm phán', 'chăm sóc khách hàng', 'tìm kiếm khách hàng'].some((k) => (s.skillName || '').toLowerCase().includes(k)));
+      } else if (t.includes('frontend') || t.includes('front-end') || t.includes('react') || t.includes('vue') || t.includes('web')) {
         matched = masterSkillsList.filter((s) => (s.category || '').toUpperCase().includes('FRONT') || ['react', 'vue', 'angular', 'next', 'html', 'css', 'javascript', 'typescript'].some((k) => (s.skillName || '').toLowerCase().includes(k)));
       } else if (t.includes('qa') || t.includes('qc') || t.includes('tester') || t.includes('kiem thu')) {
         matched = masterSkillsList.filter((s) => ['test', 'selenium', 'playwright', 'cypress', 'postman', 'automation'].some((k) => (s.skillName || '').toLowerCase().includes(k)));
@@ -562,6 +652,22 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
       if (matched.length >= 3) {
         return matched.slice(0, 8).map((s) => s.skillName);
       }
+    }
+
+    if (t.includes('kế toán') || t.includes('tài chính') || t.includes('accounting') || t.includes('finance')) {
+      return ['Kế toán tổng hợp', 'Báo cáo tài chính (BCTC)', 'Thuế GTGT & TNDN', 'Phần mềm MISA', 'Excel nâng cao', 'Hóa đơn điện tử', 'Kê khai thuế'];
+    }
+    if (t.includes('marketing') || t.includes('truyền thông') || t.includes('seo') || t.includes('content')) {
+      return ['Digital Marketing', 'Content Marketing', 'SEO Onpage/Offpage', 'Facebook Ads', 'Google Ads', 'Tiktok Marketing', 'Copywriting'];
+    }
+    if (t.includes('nhân sự') || t.includes('tuyển dụng') || t.includes('hr')) {
+      return ['Tuyển dụng nhân sự', 'Chính sách C&B', 'Luật lao động', 'Bảo hiểm xã hội', 'Đánh giá KPI', 'Truyền thông nội bộ', 'Onboarding'];
+    }
+    if (t.includes('thiết kế') || t.includes('design') || t.includes('ui') || t.includes('ux')) {
+      return ['Figma', 'Adobe Photoshop', 'Adobe Illustrator', 'UI/UX Design', 'Design System', 'Wireframing', 'Canva Pro'];
+    }
+    if (t.includes('sales') || t.includes('bán hàng') || t.includes('kinh doanh')) {
+      return ['Kỹ năng đàm phán', 'Khai thác khách hàng B2B', 'Telesales', 'Sử dụng CRM', 'Thuyết trình sản phẩm', 'Chốt hợp đồng'];
     }
     if (t.includes('frontend') || t.includes('front-end') || t.includes('react') || t.includes('vue') || t.includes('web')) {
       return ['React', 'TypeScript', 'JavaScript', 'HTML5 & CSS3', 'Tailwind CSS', 'Next.js', 'Redux', 'Vue.js'];
@@ -579,13 +685,23 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
       return ['React', 'Node.js', 'TypeScript', 'PostgreSQL', 'Docker', 'RESTful API', 'Next.js'];
     }
     return ['Java 21', 'Spring Boot 3', 'PostgreSQL', 'RESTful API', 'Docker', 'Microservices', 'Node.js', 'React'];
-  }, [createForm.title, masterSkillsList]);
+  }, [createForm.title, createForm.domain, masterSkillsList]);
 
   const dynamicPreferredSuggestions = useMemo(() => {
-    const t = (createForm.title || '').toLowerCase();
+    const t = `${createForm.title || ''} ${createForm.domain || ''}`.toLowerCase();
     if (masterSkillsList.length > 0) {
       let matched = [];
-      if (t.includes('frontend') || t.includes('front-end') || t.includes('react') || t.includes('vue') || t.includes('web')) {
+      if (t.includes('kế toán') || t.includes('tài chính') || t.includes('accounting') || t.includes('finance')) {
+        matched = masterSkillsList.filter((s) => ['erp', 'sap', 'fast', 'tiếng anh thương mại', 'phân tích tài chính', 'kiểm toán độc lập', 'power bi'].some((k) => (s.skillName || '').toLowerCase().includes(k)));
+      } else if (t.includes('marketing') || t.includes('content') || t.includes('media')) {
+        matched = masterSkillsList.filter((s) => ['google analytics', 'canva', 'capcut', 'crm', 'email marketing', 'hubspot', 'event planning'].some((k) => (s.skillName || '').toLowerCase().includes(k)));
+      } else if (t.includes('nhân sự') || t.includes('hr')) {
+        matched = masterSkillsList.filter((s) => ['headhunt', 'quản trị nhân tài', 'truyền thông thương hiệu tuyển dụng', 'tiếng anh giao tiếp', 'chứng chỉ hr'].some((k) => (s.skillName || '').toLowerCase().includes(k)));
+      } else if (t.includes('thiết kế') || t.includes('design')) {
+        matched = masterSkillsList.filter((s) => ['after effects', '3d blender', 'motion graphics', 'premiere pro', 'html/css cơ bản'].some((k) => (s.skillName || '').toLowerCase().includes(k)));
+      } else if (t.includes('sales') || t.includes('kinh doanh')) {
+        matched = masterSkillsList.filter((s) => ['tiếng anh giao tiếp', 'hubspot', 'salesforce', 'digital sales', 'quản lý đội nhóm'].some((k) => (s.skillName || '').toLowerCase().includes(k)));
+      } else if (t.includes('frontend') || t.includes('front-end') || t.includes('react') || t.includes('vue') || t.includes('web')) {
         matched = masterSkillsList.filter((s) => ['graphql', 'vite', 'webpack', 'figma', 'jest', 'cypress', 'ci/cd', 'docker', 'responsive'].some((k) => (s.skillName || '').toLowerCase().includes(k)));
       } else if (t.includes('ai') || t.includes('data')) {
         matched = masterSkillsList.filter((s) => ['langchain', 'fastapi', 'docker', 'aws', 'gcp', 'rag', 'fine-tuning', 'hugging face'].some((k) => (s.skillName || '').toLowerCase().includes(k)));
@@ -595,6 +711,21 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
       if (matched.length >= 3) {
         return matched.slice(0, 8).map((s) => s.skillName);
       }
+    }
+    if (t.includes('kế toán') || t.includes('tài chính') || t.includes('accounting') || t.includes('finance')) {
+      return ['Chứng chỉ CPA/ACCA', 'Hệ thống ERP / SAP', 'Phần mềm FAST', 'Phân tích tài chính', 'Power BI'];
+    }
+    if (t.includes('marketing') || t.includes('content') || t.includes('media')) {
+      return ['Google Analytics (GA4)', 'HubSpot CRM', 'CapCut / Premiere', 'Email Marketing', 'Brand Guidelines'];
+    }
+    if (t.includes('nhân sự') || t.includes('hr')) {
+      return ['Headhunting B2B', 'Employer Branding', 'Phần mềm HRM', 'Xây dựng thang bảng lương', 'Tiếng Anh giao tiếp'];
+    }
+    if (t.includes('thiết kế') || t.includes('design')) {
+      return ['Motion Graphics', 'Blender 3D', 'After Effects', 'Design Thinking', 'Micro-interactions'];
+    }
+    if (t.includes('sales') || t.includes('kinh doanh')) {
+      return ['Salesforce CRM', 'Tiếng Anh thương mại', 'Kỹ năng thuyết phục cấp cao', 'Đàm phán hợp đồng lớn'];
     }
     if (t.includes('frontend') || t.includes('front-end') || t.includes('react') || t.includes('vue') || t.includes('web')) {
       return ['GraphQL', 'Vite', 'Webpack', 'Figma', 'Jest / Cypress', 'CI/CD', 'Docker', 'Responsive Design'];
@@ -612,7 +743,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
       return ['Redis', 'AWS', 'Kubernetes', 'CI/CD', 'GraphQL', 'Microservices', 'NestJS'];
     }
     return ['Kafka', 'Redis Cluster', 'AWS', 'Kubernetes', 'CI/CD', 'GraphQL', 'Next.js', 'JMeter'];
-  }, [createForm.title, masterSkillsList]);
+  }, [createForm.title, createForm.domain, masterSkillsList]);
 
   // Tự động quét file JD (PDF, Word DOCX/DOC, TXT, và Ảnh chụp màn hình OCR PNG/JPG/WEBP) bằng AI
   const handleJdFileUpload = async (e) => {
@@ -683,7 +814,22 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
         }));
         setJdScanSuccess(true);
         incrementAiJdQuota();
-        triggerToast(`🎉 AI đã bóc tách dữ liệu từ "${file.name}" và điền kỹ năng vào form!`);
+
+        // Tự động tải lại masterSkillsList để cập nhật các skill mới được lưu trong Supabase
+        if (typeof skillApi?.getAllSkills === 'function') {
+          skillApi.getAllSkills().then(sRes => {
+            const raw = sRes?.data || sRes;
+            const list = Array.isArray(raw) ? raw : (Array.isArray(raw?.data) ? raw.data : []);
+            setMasterSkillsList(list);
+          }).catch(() => {});
+        }
+
+        const newCount = Number(data.newSkillsAddedCount || 0);
+        if (newCount > 0) {
+          triggerToast(`🎉 AI đã bóc tách JD và tự động bổ sung ${newCount} kỹ năng mới vào từ điển hệ thống!`);
+        } else {
+          triggerToast(`🎉 AI đã bóc tách dữ liệu từ "${file.name}" và điền kỹ năng vào form!`);
+        }
       }
     } catch (err) {
       console.error('Lỗi khi quét JD:', err);
@@ -756,7 +902,22 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
         }));
         setJdScanSuccess(true);
         incrementAiJdQuota();
-        triggerToast('🎉 AI đã bóc tách văn bản và tự động điền kỹ năng chuẩn xác vào form!');
+
+        // Tự động tải lại masterSkillsList để cập nhật các skill mới được lưu trong Supabase
+        if (typeof skillApi?.getAllSkills === 'function') {
+          skillApi.getAllSkills().then(sRes => {
+            const raw = sRes?.data || sRes;
+            const list = Array.isArray(raw) ? raw : (Array.isArray(raw?.data) ? raw.data : []);
+            setMasterSkillsList(list);
+          }).catch(() => {});
+        }
+
+        const newCount = Number(data.newSkillsAddedCount || 0);
+        if (newCount > 0) {
+          triggerToast(`🎉 AI đã bóc tách JD và tự động bổ sung ${newCount} kỹ năng mới vào từ điển hệ thống!`);
+        } else {
+          triggerToast('🎉 AI đã bóc tách văn bản và tự động điền kỹ năng chuẩn xác vào form!');
+        }
       }
     } catch (err) {
       console.error('Lỗi khi quét văn bản JD:', err);
@@ -795,13 +956,94 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
       const data = res?.data || res;
       if (data) {
         setAiSuggestedSkillsData(data);
+
+        const newMandatory = Array.isArray(data.mandatorySkills) ? data.mandatorySkills.map(s => (typeof s === 'string' ? s : (s?.skillName || s?.name || ''))).filter(Boolean) : [];
+        const newPreferred = Array.isArray(data.preferredSkills) ? data.preferredSkills.map(s => (typeof s === 'string' ? s : (s?.skillName || s?.name || ''))).filter(Boolean) : [];
+
+        // Tự động tải lại masterSkillsList để cập nhật các skill mới được lưu trong Supabase
+        skillApi.getAllSkills().then(sRes => {
+          const raw = sRes?.data || sRes;
+          const list = Array.isArray(raw) ? raw : (Array.isArray(raw?.data) ? raw.data : []);
+          setMasterSkillsList(list);
+        }).catch(() => {});
+
         incrementAiJdQuota();
+        triggerToast(`🎉 AI đã bóc tách & đề xuất ${newMandatory.length + newPreferred.length} kỹ năng! Vui lòng chọn kỹ năng bên dưới.`);
+      }
+    } catch (err) {
+      console.error('Lỗi khi AI bóc tách kỹ năng từ JD:', err);
+      triggerToast('Không thể phân tích kỹ năng lúc này: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setIsExtractingSkillsAi(false);
+    }
+  };
 
-        const newMandatory = Array.isArray(data.mandatorySkills) ? data.mandatorySkills.map(s => s.name || s) : [];
-        const newPreferred = Array.isArray(data.preferredSkills) ? data.preferredSkills.map(s => s.name || s) : [];
+  const handleAddAllAiSkillsToJob = () => {
+    if (!aiSuggestedSkillsData) return;
+    const newMandatory = Array.isArray(aiSuggestedSkillsData.mandatorySkills) ? aiSuggestedSkillsData.mandatorySkills.map(s => (typeof s === 'string' ? s : (s?.skillName || s?.name || ''))).filter(Boolean) : [];
+    const newPreferred = Array.isArray(aiSuggestedSkillsData.preferredSkills) ? aiSuggestedSkillsData.preferredSkills.map(s => (typeof s === 'string' ? s : (s?.skillName || s?.name || ''))).filter(Boolean) : [];
 
-        // Hợp nhất tag kỹ năng vào createForm (chống duplicate)
-        setCreateForm(prev => {
+    setCreateForm(prev => {
+      const currentMand = (prev.mandatorySkillsInput || '').split(/[,;\n]+/).map(s => s.trim()).filter(Boolean);
+      const currentPref = (prev.preferredSkillsInput || '').split(/[,;\n]+/).map(s => s.trim()).filter(Boolean);
+
+      const mergedMand = [...currentMand];
+      newMandatory.forEach(sk => {
+        if (!mergedMand.some(s => s.toLowerCase() === sk.toLowerCase())) {
+          mergedMand.push(sk);
+        }
+      });
+
+      const mergedPref = [...currentPref];
+      newPreferred.forEach(sk => {
+        if (!mergedPref.some(s => s.toLowerCase() === sk.toLowerCase()) && !mergedMand.some(s => s.toLowerCase() === sk.toLowerCase())) {
+          mergedPref.push(sk);
+        }
+      });
+
+      return {
+        ...prev,
+        mandatorySkillsInput: mergedMand.join(', '),
+        preferredSkillsInput: mergedPref.join(', ')
+      };
+    });
+    triggerToast(`Đã thêm tất cả ${newMandatory.length + newPreferred.length} kỹ năng gợi ý vào bài đăng!`);
+  };
+
+  // Luồng 1.2: AI Tự Động Đọc JD & Bóc Tách Kỹ Năng Cho Modal Sửa Bài Đăng (Edit Job Modal)
+  const handleAiExtractSkillsForEditJob = async () => {
+    if (!editingJob) return;
+    if (!checkAiJdQuota()) return;
+    const title = (editingJob.title || '').trim();
+    const desc = (editingJob.description || '').trim();
+    const req = (editingJob.requirements || '').trim();
+    const fullContent = (desc + '\n' + req).trim();
+
+    if (!title && !fullContent) {
+      triggerToast('⚠️ Vui lòng nhập Tiêu đề và Mô tả hoặc Yêu cầu công việc trước khi phân tích kỹ năng bằng AI!');
+      return;
+    }
+
+    try {
+      setIsExtractingSkillsAi(true);
+      triggerToast('✨ AI Gemini đang phân tích nội dung JD và bóc tách kỹ năng...');
+
+      const res = await skillApi.extractSkillsFromJd({
+        title: title || 'Vị trí Tuyển Dụng',
+        description: fullContent || title,
+        industry: editingJob.domain || ''
+      });
+
+      const data = res?.data || res;
+      if (data) {
+        const newMandatory = Array.isArray(data.mandatorySkills)
+          ? data.mandatorySkills.map(s => (typeof s === 'string' ? s : (s?.skillName || s?.name || ''))).filter(Boolean)
+          : [];
+        const newPreferred = Array.isArray(data.preferredSkills)
+          ? data.preferredSkills.map(s => (typeof s === 'string' ? s : (s?.skillName || s?.name || ''))).filter(Boolean)
+          : [];
+
+        setEditingJob(prev => {
           const currentMand = (prev.mandatorySkillsInput || '').split(/[,;\n]+/).map(s => s.trim()).filter(Boolean);
           const currentPref = (prev.preferredSkillsInput || '').split(/[,;\n]+/).map(s => s.trim()).filter(Boolean);
 
@@ -826,7 +1068,6 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
           };
         });
 
-        // Tự động tải lại masterSkillsList để cập nhật các skill mới được lưu trong Supabase
         skillApi.getAllSkills().then(sRes => {
           const raw = sRes?.data || sRes;
           const list = Array.isArray(raw) ? raw : (Array.isArray(raw?.data) ? raw.data : []);
@@ -834,7 +1075,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
         }).catch(() => {});
 
         incrementAiJdQuota();
-        triggerToast(`🎉 AI đã bóc tách & chuẩn hóa ${newMandatory.length + newPreferred.length} kỹ năng vào bài đăng!`);
+        triggerToast(`🎉 AI đã bóc tách & chuẩn hóa ${newMandatory.length + newPreferred.length} kỹ năng vào form chỉnh sửa!`);
       }
     } catch (err) {
       console.error('Lỗi khi AI bóc tách kỹ năng từ JD:', err);
@@ -846,9 +1087,9 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
 
   // Mở Studio Tạo Tin Tuyển Dụng Mới (Khởi tạo form sạch sẽ, sẵn sàng để tự gõ hoặc tải file AI điền)
   const handleOpenCreateModal = () => {
-    // 🛡️ BẢO VỆ PHÁP LÝ: Doanh nghiệp phải được xác minh GPKD (VERIFIED/ACTIVE) mới được đăng bài
+    // 🛡️ BẢO VỆ PHÁP LÝ: Doanh nghiệp phải được xác minh GPKD (VERIFIED/APPROVED/ACTIVE) mới được đăng bài
     const currentSt = companyStatusRef.current || companyStatus;
-    let isVerified = currentSt === 'VERIFIED' || currentSt === 'ACTIVE' || user?.role === 'ADMIN';
+    let isVerified = currentSt === 'VERIFIED' || currentSt === 'APPROVED' || currentSt === 'ACTIVE' || user?.role === 'ADMIN';
 
     if (!isVerified) {
       // Kiểm tra thêm trong localStorage phòng trường hợp vừa được Admin duyệt
@@ -857,7 +1098,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
         const saved = localStorage.getItem(`hiremate_company_legal_${companyKey}`);
         if (saved) {
           const parsed = JSON.parse(saved);
-          if (parsed.status === 'VERIFIED' || parsed.status === 'ACTIVE') {
+          if (parsed.status === 'VERIFIED' || parsed.status === 'APPROVED' || parsed.status === 'ACTIVE') {
             isVerified = true;
             setCompanyStatus('VERIFIED');
             companyStatusRef.current = 'VERIFIED';
@@ -982,63 +1223,74 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
   const fetchMyJobs = async () => {
     try {
       setIsLoading(true);
-      const res = await jobApi.getMyJobs();
-      const rawList = res?.data || [];
-      if (Array.isArray(rawList)) {
-        // Asynchronously enrich with application counts and AI match metrics
-        const enriched = await Promise.all(
-          rawList.map(async (j) => {
-            let applicantCount = j.vacanciesCount || 0;
-            let aiHigh = 0;
-            let topAvatars = [];
-            try {
-              const appsRes = await applicationApi.getJobApplications(j.jobId);
-              const apps = appsRes?.data || [];
-              if (Array.isArray(apps)) {
-                applicantCount = apps.length;
-                aiHigh = apps.filter((a) => (a.matchingScore || 0) >= 80).length;
-                topAvatars = apps.slice(0, 3).map((a) => a.candidateAvatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80');
-              }
-            } catch (ignored) { }
+      const [jobsRes, allAppsRes] = await Promise.allSettled([
+        jobApi.getMyJobs(),
+        applicationApi.getMyRecruiterApplications(),
+      ]);
+      const rawList = jobsRes.status === 'fulfilled' && Array.isArray(jobsRes.value?.data)
+        ? jobsRes.value.data
+        : [];
+      const allApps = allAppsRes.status === 'fulfilled' && Array.isArray(allAppsRes.value?.data)
+        ? allAppsRes.value.data
+        : [];
 
-            return {
-              id: j.jobId,
-              code: `JD-REQ-${j.jobId}`,
-              badgeText: j.status === 'PUBLISHED' ? 'Đang Đăng Tuyển' : j.status === 'CLOSED' ? 'Đã Đóng' : 'Bản Nháp',
-              badgeType: j.status === 'PUBLISHED' ? 'high-priority' : 'frontend',
-              title: j.title || 'Vị trí Tuyển Dụng',
-              status: j.status === 'PUBLISHED' ? 'ACTIVE' : j.status === 'CLOSED' ? 'CLOSED' : 'PAUSED',
-              approvalStatus: j.approvalStatus || 'APPROVED',
-              domain: j.company?.industry || j.companyName || 'Công Nghệ & Kỹ Thuật',
-              domainIcon: 'work',
-              location: j.location || 'Việt Nam',
-              salary: j.salaryMin && j.salaryMax ? `$${j.salaryMin} - $${j.salaryMax}` : 'Thỏa thuận',
-              salaryMin: j.salaryMin,
-              salaryMax: j.salaryMax,
-              employmentType: j.employmentType || 'FULL_TIME',
-              vacanciesCount: j.vacanciesCount || 1,
-              deadlineDate: j.deadlineDate || '',
-              description: j.description || '',
-              requirements: Array.isArray(j.requirements) ? j.requirements.join('\n') : (j.requirements || ''),
-              benefits: Array.isArray(j.benefits) ? j.benefits.join('\n') : (j.benefits || ''),
-              totalApplicants: applicantCount,
-              aiMatchHighCount: aiHigh,
-              mandatorySkills: Array.isArray(j.mandatorySkills) && j.mandatorySkills.length > 0
-                ? j.mandatorySkills
-                : parseSkillList(j.requirements, ['Yêu cầu chuyên môn']),
-              preferredSkills: Array.isArray(j.preferredSkills) && j.preferredSkills.length > 0
-                ? j.preferredSkills
-                : parseSkillList(j.benefits, ['Đãi ngộ hấp dẫn']),
-              topCandidateAvatars: topAvatars,
-              recruiterId: j.recruiterId || j.raw?.recruiterId || j.recruiter?.recruiterId,
-              recruiterName: j.recruiterName || j.raw?.recruiterName || j.recruiter?.user?.fullName || 'Chuyên viên HR',
-              recruiterEmail: j.recruiterEmail || j.raw?.recruiterEmail || j.recruiter?.user?.email,
-              raw: j,
-            };
-          })
-        );
-        setJobsList(enriched);
+      // Group applications by jobId to eliminate N+1 requests
+      const appsByJobId = {};
+      for (const app of allApps) {
+        if (!app.jobId) continue;
+        if (!appsByJobId[app.jobId]) appsByJobId[app.jobId] = [];
+        appsByJobId[app.jobId].push(app);
       }
+
+      const enriched = rawList.map((j) => {
+        const apps = appsByJobId[j.jobId] || [];
+        const applicantCount = apps.length;
+        const aiHigh = apps.filter((a) => (a.matchingScore || 0) >= 80).length;
+        const topAvatars = apps.slice(0, 3).map((a) => a.candidateAvatar || a.candidateAvatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80');
+
+        return {
+          id: j.jobId,
+          code: `JD-REQ-${j.jobId}`,
+          badgeText: (j.status === 'PUBLISHED' && j.approvalStatus === 'PENDING') ? 'Chờ Admin Duyệt'
+            : (j.approvalStatus === 'REJECTED') ? 'Bị Từ Chối Duyệt'
+            : (j.status === 'PUBLISHED') ? 'Đang Đăng Tuyển'
+            : (j.status === 'CLOSED') ? 'Đã Đóng' : 'Bản Nháp',
+          badgeType: (j.status === 'PUBLISHED' && j.approvalStatus === 'PENDING') ? 'pending'
+            : (j.approvalStatus === 'REJECTED') ? 'rejected'
+            : (j.status === 'PUBLISHED') ? 'high-priority' : 'frontend',
+          title: j.title || 'Vị trí Tuyển Dụng',
+          status: j.status === 'PUBLISHED' ? 'ACTIVE' : j.status === 'CLOSED' ? 'CLOSED' : 'PAUSED',
+          approvalStatus: j.approvalStatus || 'APPROVED',
+          moderationNote: j.moderationNote || j.raw?.moderationNote || '',
+          domain: j.company?.industry || j.companyName || 'Công Nghệ & Kỹ Thuật',
+          domainIcon: 'work',
+          location: j.location || 'Việt Nam',
+          salary: formatScannedSalary(j.salaryMin, j.salaryMax, j.salaryCurrency),
+          salaryMin: j.salaryMin,
+          salaryMax: j.salaryMax,
+          employmentType: j.employmentType || 'FULL_TIME',
+          vacanciesCount: j.vacanciesCount || 1,
+          deadlineDate: j.deadlineDate || '',
+          description: j.description || '',
+          requirements: Array.isArray(j.requirements) ? j.requirements.join('\n') : (j.requirements || ''),
+          benefits: Array.isArray(j.benefits) ? j.benefits.join('\n') : (j.benefits || ''),
+          totalApplicants: applicantCount,
+          aiMatchHighCount: aiHigh,
+          mandatorySkills: Array.isArray(j.mandatorySkills) && j.mandatorySkills.length > 0
+            ? j.mandatorySkills
+            : parseSkillList(j.requirements, ['Yêu cầu chuyên môn']),
+          preferredSkills: Array.isArray(j.preferredSkills) && j.preferredSkills.length > 0
+            ? j.preferredSkills
+            : parseSkillList(j.benefits, ['Đãi ngộ hấp dẫn']),
+          topCandidateAvatars: topAvatars,
+          recruiterId: j.recruiterId || j.raw?.recruiterId || j.recruiter?.recruiterId,
+          recruiterName: j.recruiterName || j.raw?.recruiterName || j.recruiter?.user?.fullName || 'Chuyên viên HR',
+          recruiterEmail: j.recruiterEmail || j.raw?.recruiterEmail || j.recruiter?.user?.email,
+          branchName: j.branchName || j.raw?.branchName || (j.location?.includes('Đà Nẵng') ? 'Chi nhánh Đà Nẵng' : j.location?.includes('Hà Nội') ? 'Chi nhánh Hà Nội' : 'Trụ sở chính'),
+          raw: j,
+        };
+      });
+      setJobsList(enriched);
     } catch (err) {
       console.error('Lỗi tải danh sách job từ Supabase:', err);
       triggerToast('Không thể tải dữ liệu việc làm thực tế từ hệ thống.');
@@ -1058,16 +1310,75 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
       .catch((err) => console.error('Lỗi tải danh mục master skills cho HR:', err));
   }, []);
 
+  const handleOpenEditModal = (job) => {
+    if (!job) return;
+    const reqStr = job.requirements || job.raw?.requirements || '';
+    const levelMatch = reqStr.match(/(?:Cấp bậc|Vị trí)(?:\s+tuyển dụng)?:\s*([^\n\r]+)/i);
+    const eduMatch = reqStr.match(/(?:Yêu cầu bằng cấp|Bằng cấp|Trình độ học vấn|Học vấn):\s*([^\n\r]+)/i);
+    const expMatch = reqStr.match(/(?:Kinh nghiệm làm việc|Kinh nghiệm):\s*([^\n\r]+)/i);
+    const wpMatch = reqStr.match(/(?:Môi trường làm việc|Môi trường|Hình thức làm việc):\s*([^\n\r]+)/i);
+    const genMatch = reqStr.match(/(?:Giới tính|Giới tính yêu cầu):\s*([^\n\r]+)/i);
+
+    const detectedLevel = levelMatch ? levelMatch[1].trim()
+      : (job.title?.toLowerCase().includes('intern') ? 'INTERN' : job.title?.toLowerCase().includes('senior') ? 'SENIOR' : 'MIDDLE');
+
+    setEditingJob({
+      ...job,
+      requirements: extractCleanRequirements(job.requirements || job.raw?.requirements),
+      currency: job.salaryCurrency || job.raw?.salaryCurrency || 'VND',
+      salaryCurrency: job.salaryCurrency || job.raw?.salaryCurrency || 'VND',
+      jobLevel: detectedLevel.includes('Intern') ? 'INTERN' : detectedLevel.includes('Fresher') ? 'FRESHER' : detectedLevel.includes('Senior') ? 'SENIOR' : detectedLevel.includes('Junior') ? 'JUNIOR' : detectedLevel.includes('Lead') ? 'LEAD' : detectedLevel.includes('Manager') ? 'MANAGER' : 'MIDDLE',
+      educationRequirement: eduMatch ? eduMatch[1].trim() : 'Đại học / Cử nhân (Sinh viên năm cuối hoặc mới tốt nghiệp)',
+      experienceRequirement: expMatch ? expMatch[1].trim() : (job.title?.toLowerCase().includes('intern') ? 'Không yêu cầu kinh nghiệm (Intern/Fresher)' : '1 - 2 năm kinh nghiệm'),
+      workplaceType: wpMatch ? wpMatch[1].trim() : (job.location?.toLowerCase().includes('remote') ? 'Remote (100% từ xa)' : 'Hybrid (Linh hoạt)'),
+      genderRequirement: genMatch ? genMatch[1].trim() : 'Không yêu cầu',
+      mandatorySkillsInput: Array.isArray(job.mandatorySkills) && job.mandatorySkills.length > 0
+        ? job.mandatorySkills.join(', ')
+        : (Array.isArray(job.raw?.mandatorySkills) ? job.raw.mandatorySkills.join(', ') : ''),
+      preferredSkillsInput: Array.isArray(job.preferredSkills) && job.preferredSkills.length > 0
+        ? job.preferredSkills.join(', ')
+        : (Array.isArray(job.raw?.preferredSkills) ? job.raw.preferredSkills.join(', ') : ''),
+    });
+    setShowEditModal(true);
+  };
+
   useEffect(() => {
     const handleCheckHash = () => {
-      if (window.location.hash.includes('action=new')) {
+      const rawHash = window.location.hash || '';
+      if (rawHash.includes('action=new')) {
         handleOpenCreateModal();
+        return;
+      }
+      const editMatch = rawHash.match(/edit=(\d+)/i);
+      if (editMatch) {
+        const editId = Number(editMatch[1]);
+        const targetJob = jobsList.find((j) => Number(j.id) === editId || Number(j.raw?.jobId) === editId);
+        if (targetJob) {
+          handleOpenEditModal(targetJob);
+        } else if (!isLoading) {
+          // If not in current jobsList, fetch directly via API
+          jobApi.getJobById(editId).then((res) => {
+            const raw = res?.data || res;
+            if (raw) {
+              handleOpenEditModal({
+                ...raw,
+                id: raw.jobId || raw.id,
+                title: raw.title,
+                mandatorySkills: raw.mandatorySkills || [],
+                preferredSkills: raw.preferredSkills || [],
+                raw,
+              });
+            }
+          }).catch((err) => {
+            console.warn('Không tìm thấy tin tuyển dụng cần sửa:', err);
+          });
+        }
       }
     };
     handleCheckHash();
     window.addEventListener('hashchange', handleCheckHash);
     return () => window.removeEventListener('hashchange', handleCheckHash);
-  }, [companyStatus, user]);
+  }, [companyStatus, user, jobsList, isLoading]);
 
   // Filtered jobs calculation with Expiration & Deadline support
   const filteredJobs = useMemo(() => {
@@ -1078,7 +1389,11 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
       if (selectedCategory === 'ALL') {
         matchCategory = true;
       } else if (selectedCategory === 'ACTIVE') {
-        matchCategory = job.status === 'ACTIVE' && !deadlineInfo.isExpired;
+        matchCategory = (job.status === 'ACTIVE' || job.status === 'PUBLISHED') && job.approvalStatus !== 'REJECTED' && job.status !== 'DRAFT' && !deadlineInfo.isExpired;
+      } else if (selectedCategory === 'PENDING') {
+        matchCategory = job.approvalStatus === 'PENDING';
+      } else if (selectedCategory === 'REJECTED') {
+        matchCategory = job.approvalStatus === 'REJECTED';
       } else if (selectedCategory === 'EXPIRING_SOON') {
         matchCategory = deadlineInfo.isExpiringSoon;
       } else if (selectedCategory === 'EXPIRED') {
@@ -1097,9 +1412,14 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
         job.mandatorySkills.some((s) => s.toLowerCase().includes(searchQuery.toLowerCase())) ||
         job.preferredSkills.some((s) => s.toLowerCase().includes(searchQuery.toLowerCase()));
 
-      return matchCategory && matchQuery;
+      let matchBranch = true;
+      if (branchScopeFilter === 'MY_BRANCH') {
+        matchBranch = canEditOrManageJob(job);
+      }
+
+      return matchCategory && matchQuery && matchBranch;
     });
-  }, [jobsList, selectedCategory, searchQuery]);
+  }, [jobsList, selectedCategory, searchQuery, branchScopeFilter, user, currentRecruiterBranch]);
 
   // Paginated Jobs calculation
   const totalPages = Math.max(1, Math.ceil(filteredJobs.length / PAGE_SIZE));
@@ -1109,7 +1429,9 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
     return filteredJobs.slice(start, start + PAGE_SIZE);
   }, [filteredJobs, validCurrentPage, PAGE_SIZE]);
 
-  const activeCount = useMemo(() => jobsList.filter((j) => j.status === 'ACTIVE' && !calculateJobDeadline(j.deadlineDate).isExpired).length, [jobsList]);
+  const activeCount = useMemo(() => jobsList.filter((j) => (j.status === 'ACTIVE' || j.status === 'PUBLISHED') && j.approvalStatus !== 'REJECTED' && j.status !== 'DRAFT' && !calculateJobDeadline(j.deadlineDate).isExpired).length, [jobsList]);
+  const pendingCount = useMemo(() => jobsList.filter((j) => j.approvalStatus === 'PENDING').length, [jobsList]);
+  const rejectedCount = useMemo(() => jobsList.filter((j) => j.approvalStatus === 'REJECTED').length, [jobsList]);
   const expiringSoonCount = useMemo(() => jobsList.filter((j) => calculateJobDeadline(j.deadlineDate).isExpiringSoon).length, [jobsList]);
   const expiredCount = useMemo(() => jobsList.filter((j) => calculateJobDeadline(j.deadlineDate).isExpired).length, [jobsList]);
   const pausedCount = useMemo(() => jobsList.filter((j) => j.status === 'PAUSED').length, [jobsList]);
@@ -1122,6 +1444,10 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
     try {
       const target = jobsList.find((j) => j.id === jobId);
       if (!target) return;
+      if (!canEditOrManageJob(target)) {
+        triggerToast('⚠️ Bạn chỉ có quyền gia hạn tin tuyển dụng thuộc chi nhánh của mình!');
+        return;
+      }
 
       const baseDate = target.deadlineDate ? new Date(target.deadlineDate) : new Date();
       const newDate = new Date(Math.max(baseDate.getTime(), Date.now()) + daysToAdd * 24 * 60 * 60 * 1000);
@@ -1130,19 +1456,31 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
       await jobApi.updateJob(jobId, {
         title: target.title,
         description: target.description || target.title,
-        requirements: target.requirements || target.mandatorySkills.join(', '),
-        benefits: target.benefits || target.preferredSkills.join(', '),
+        requirements: target.requirements || (Array.isArray(target.mandatorySkills) ? target.mandatorySkills.join(', ') : ''),
+        benefits: target.benefits || (Array.isArray(target.preferredSkills) ? target.preferredSkills.join(', ') : ''),
         location: target.location,
         salaryMin: target.salaryMin,
         salaryMax: target.salaryMax,
-        employmentType: target.employmentType || 'FULL_TIME',
-        vacanciesCount: target.vacanciesCount || 2,
+        salaryCurrency: target.salaryCurrency || target.raw?.salaryCurrency || 'VND',
+        category: target.domain || target.raw?.jobCategory || null,
+        branchName: target.branchName || target.raw?.branchName || user?.branchName || 'Trụ sở chính',
+        mandatorySkills: target.mandatorySkills || target.raw?.mandatorySkills || [],
+        preferredSkills: target.preferredSkills || target.raw?.preferredSkills || [],
+        employmentType: target.employmentType || target.raw?.employmentType || 'FULL_TIME',
+        vacanciesCount: target.vacanciesCount || target.raw?.vacanciesCount || 2,
         deadlineDate: newDeadlineStr,
         status: 'PUBLISHED',
       });
 
+      const canReopen = target.approvalStatus !== 'REJECTED';
       setJobsList((prev) =>
-        prev.map((j) => (j.id === jobId ? { ...j, deadlineDate: newDeadlineStr } : j))
+        prev.map((j) => (j.id === jobId ? {
+          ...j,
+          deadlineDate: newDeadlineStr,
+          status: canReopen ? 'ACTIVE' : j.status,
+          badgeText: canReopen ? 'Đang Đăng Tuyển' : j.badgeText,
+          badgeType: canReopen ? 'high-priority' : j.badgeType,
+        } : j))
       );
       triggerToast(`Đã gia hạn thành công tin "${target.title}" thêm ${daysToAdd} ngày (Hạn mới: ${newDate.toLocaleDateString('vi-VN')})!`);
     } catch (err) {
@@ -1184,15 +1522,21 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
         if (!isNaN(val1)) salaryMax = isTrieu && val1 < 1000 ? val1 * 1000000 : val1;
       }
 
-      salaryMin = salaryMin !== undefined && salaryMin !== null ? Number(salaryMin) : 25000000;
-      salaryMax = salaryMax !== undefined && salaryMax !== null ? Number(salaryMax) : 45000000;
+      salaryMin = salaryMin !== undefined && salaryMin !== null && !isNaN(Number(salaryMin)) ? Number(salaryMin) : null;
+      salaryMax = salaryMax !== undefined && salaryMax !== null && !isNaN(Number(salaryMax)) ? Number(salaryMax) : null;
 
-      if (salaryMin < 0 || salaryMax < 0) {
+      if ((salaryMin !== null && salaryMin < 0) || (salaryMax !== null && salaryMax < 0)) {
         triggerToast('⚠️ Mức lương không được là số âm.');
         return;
       }
-      if (salaryMax < salaryMin) {
-        triggerToast('⚠️ Mức lương tối đa không được nhỏ hơn mức lương tối thiểu.');
+      // Quy đổi ngoại tệ (USD_TO_VND = 25000) trước khi so sánh với sàn lương AI hoặc kiểm tra
+      const USD_TO_VND = 25000;
+      const isUsd = (createForm.salaryCurrency === 'USD') || (createForm.salary || '').toLowerCase().includes('usd') || (salaryMin !== null && salaryMin < 10000);
+      const effectiveVndMin = salaryMin !== null ? (isUsd ? salaryMin * USD_TO_VND : salaryMin) : null;
+      const effectiveVndMax = salaryMax !== null ? (isUsd ? salaryMax * USD_TO_VND : salaryMax) : null;
+
+      if (effectiveVndMin !== null && effectiveVndMax !== null && effectiveVndMax < effectiveVndMin) {
+        triggerToast('⚠️ Mức lương tối đa phải lớn hơn hoặc bằng mức lương tối thiểu!');
         return;
       }
 
@@ -1237,12 +1581,16 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
         benefits: createForm.benefits || '',
         salaryMin: salaryMin,
         salaryMax: salaryMax,
+        salaryCurrency: createForm.salaryCurrency || ((createForm.salary || '').toLowerCase().includes('usd') ? 'USD' : 'VND'),
+        jobCategory: createForm.domain || null,
         location: createForm.location,
+        category: createForm.domain || null,
         employmentType: createForm.employmentType || (createForm.jobLevel === 'INTERN' ? 'INTERNSHIP' : 'FULL_TIME'),
         vacanciesCount: vacancies,
         deadlineDate: createForm.deadlineDate || null,
         mandatorySkills: mandSkills,
         preferredSkills: prefSkills,
+        branchName: createForm.branchName || user?.branchName || 'Trụ sở chính',
         status: 'PUBLISHED',
       };
 
@@ -1276,29 +1624,40 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
       }
 
       // 3. Phân tích mức lương
-      const salaryStr = (editingJob.salary || '').toLowerCase();
-      const isTrieu = salaryStr.includes('triệu') || salaryStr.includes('tr');
-      const nums = salaryStr.replace(/[^\d.,\-]/g, ' ').split('-').map(s => s.trim()).filter(Boolean);
-      let salaryMin = editingJob.salaryMin;
-      let salaryMax = editingJob.salaryMax;
+      const salaryStr = (editingJob.salary || '').toLowerCase().trim();
+      const isNegotiable = !salaryStr || salaryStr.includes('thỏa thuận') || salaryStr.includes('thoa thuan') || salaryStr.includes('thoả thuận') || salaryStr.includes('negotiable');
+      let salaryMin = null;
+      let salaryMax = null;
 
-      if (nums[0]) {
-        const val0 = parseFloat(nums[0].replace(/,/g, '').replace(/\.(?=\d{3})/g, ''));
-        if (!isNaN(val0)) salaryMin = isTrieu && val0 < 1000 ? val0 * 1000000 : val0;
+      if (!isNegotiable) {
+        const isTrieu = salaryStr.includes('triệu') || salaryStr.includes('tr');
+        const nums = salaryStr.replace(/[^\d.,\-]/g, ' ').split('-').map(s => s.trim()).filter(Boolean);
+        if (nums && nums.length > 0) {
+          if (nums[0]) {
+            const val0 = parseFloat(nums[0].replace(/,/g, '').replace(/\.(?=\d{3})/g, ''));
+            if (!isNaN(val0)) salaryMin = isTrieu && val0 < 1000 ? val0 * 1000000 : val0;
+          }
+          if (nums[1]) {
+            const val1 = parseFloat(nums[1].replace(/,/g, '').replace(/\.(?=\d{3})/g, ''));
+            if (!isNaN(val1)) salaryMax = isTrieu && val1 < 1000 ? val1 * 1000000 : val1;
+          }
+        }
       }
-      if (nums[1]) {
-        const val1 = parseFloat(nums[1].replace(/,/g, '').replace(/\.(?=\d{3})/g, ''));
-        if (!isNaN(val1)) salaryMax = isTrieu && val1 < 1000 ? val1 * 1000000 : val1;
-      }
 
-      salaryMin = salaryMin !== undefined && salaryMin !== null ? Number(salaryMin) : 25000000;
-      salaryMax = salaryMax !== undefined && salaryMax !== null ? Number(salaryMax) : 45000000;
+      salaryMin = salaryMin !== undefined && salaryMin !== null && !isNaN(Number(salaryMin)) ? Number(salaryMin) : null;
+      salaryMax = salaryMax !== undefined && salaryMax !== null && !isNaN(Number(salaryMax)) ? Number(salaryMax) : null;
 
-      if (salaryMin < 0 || salaryMax < 0) {
+      if ((salaryMin !== null && salaryMin < 0) || (salaryMax !== null && salaryMax < 0)) {
         triggerToast('⚠️ Mức lương không được là số âm.');
         return;
       }
-      if (salaryMax < salaryMin) {
+      // Quy đổi ngoại tệ (USD_TO_VND = 25000) trước khi so sánh với sàn lương AI hoặc kiểm tra
+      const USD_TO_VND = 25000;
+      const isUsd = (editingJob.salaryCurrency === 'USD') || (editingJob.salary || '').includes('USD') || (salaryMin !== null && salaryMin < 10000);
+      const effectiveVndMin = salaryMin !== null ? (isUsd ? salaryMin * USD_TO_VND : salaryMin) : null;
+      const effectiveVndMax = salaryMax !== null ? (isUsd ? salaryMax * USD_TO_VND : salaryMax) : null;
+
+      if (salaryMin !== null && salaryMax !== null && salaryMax < salaryMin) {
         triggerToast('⚠️ Mức lương tối đa không được nhỏ hơn mức lương tối thiểu.');
         return;
       }
@@ -1312,20 +1671,47 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
         .map(s => s.trim())
         .filter(Boolean);
 
+      const levelMap = {
+        INTERN: 'Thực tập sinh (Intern)',
+        FRESHER: 'Fresher (Dưới 1 năm kinh nghiệm)',
+        JUNIOR: 'Junior (1 - 2 năm kinh nghiệm)',
+        MIDDLE: 'Middle (2 - 4 năm kinh nghiệm)',
+        SENIOR: 'Senior (4 - 6 năm kinh nghiệm)',
+        LEAD: 'Tech Lead / Trưởng nhóm',
+        MANAGER: 'Quản lý / Director'
+      };
+      const formattedLevel = levelMap[editingJob.jobLevel] || editingJob.jobLevel || 'Thực tập sinh (Intern)';
+
+      const criteriaSection = [
+        '[TIÊU CHUẨN TUYỂN DỤNG & ĐIỀU KIỆN]',
+        `- Cấp bậc tuyển dụng: ${formattedLevel}`,
+        `- Yêu cầu bằng cấp / Học vấn: ${editingJob.educationRequirement || 'Đại học / Cử nhân'}`,
+        `- Kinh nghiệm làm việc: ${editingJob.experienceRequirement || 'Không yêu cầu kinh nghiệm'}`,
+        `- Môi trường làm việc: ${editingJob.workplaceType || 'Hybrid (Linh hoạt)'}`,
+        `- Giới tính yêu cầu: ${editingJob.genderRequirement || 'Không yêu cầu'}`
+      ].join('\n');
+
+      let rawReq = extractCleanRequirements(editingJob.requirements);
+      const compiledRequirements = `${criteriaSection}\n\n[YÊU CẦU NĂNG LỰC CHI TIẾT]\n${rawReq || '- Nắm vững kiến thức nền tảng và các kỹ năng chuyên môn yêu cầu bên dưới.\n- Tinh thần chủ động, trách nhiệm và khả năng phối hợp nhóm hiệu quả.'}`;
+
       const payload = {
         title: editingJob.title,
         description: editingJob.description || '',
-        requirements: editingJob.requirements || '',
+        requirements: compiledRequirements,
         benefits: editingJob.benefits || '',
         salaryMin: salaryMin,
         salaryMax: salaryMax,
+        salaryCurrency: editingJob.salaryCurrency || editingJob.currency || 'VND',
+        jobCategory: editingJob.domain || editingJob.category || null,
         location: editingJob.location,
+        category: editingJob.domain || null,
         employmentType: editingJob.employmentType || editingJob.raw?.employmentType || 'FULL_TIME',
         vacanciesCount: vacancies,
         deadlineDate: editingJob.deadlineDate || null,
         mandatorySkills: mandSkills,
         preferredSkills: prefSkills,
-        status: editingJob.status === 'ACTIVE' ? 'PUBLISHED' : editingJob.status === 'CLOSED' ? 'CLOSED' : 'DRAFT',
+        branchName: editingJob.branchName || editingJob.raw?.branchName || user?.branchName || 'Trụ sở chính',
+        status: (editingJob.status === 'ACTIVE' || editingJob.status === 'PUBLISHED') ? 'PUBLISHED' : editingJob.status === 'CLOSED' ? 'CLOSED' : 'DRAFT',
       };
 
       await jobApi.updateJob(editingJob.id, payload);
@@ -1340,6 +1726,19 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
   const handleToggleStatus = async (jobId) => {
     const currentJob = jobsList.find((j) => j.id === jobId);
     if (!currentJob) return;
+    if (!canEditOrManageJob(currentJob)) {
+      triggerToast('⚠️ Bạn chỉ có quyền thay đổi trạng thái tin tuyển dụng thuộc chi nhánh của mình!');
+      return;
+    }
+    if (currentJob.approvalStatus === 'REJECTED') {
+      triggerToast('⚠️ Tin tuyển dụng này đang bị Admin từ chối. Vui lòng bấm "Sửa" để cập nhật nội dung và gửi lại xét duyệt!');
+      handleOpenEditModal(currentJob);
+      return;
+    }
+    if (currentJob.approvalStatus === 'PENDING') {
+      triggerToast('⚠️ Tin tuyển dụng này đang chờ Admin phê duyệt. Không thể tự mở tuyển dụng!');
+      return;
+    }
     const nextStatus = currentJob.status === 'ACTIVE' ? 'CLOSED' : 'PUBLISHED';
     try {
       await jobApi.updateJobStatus(jobId, nextStatus);
@@ -1350,12 +1749,36 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
     }
   };
 
-  const handleCopyLink = (code) => {
+  const handleCopyLink = (jobId, code) => {
+    const targetId = jobId || code;
+    const url = `${window.location.origin}/#/jobs/${targetId}`;
     if (navigator.clipboard) {
-      navigator.clipboard.writeText(`${window.location.origin}/#/jobs?code=${code}`);
-      triggerToast(`Đã sao chép link ứng tuyển vị trí ${code}!`);
+      navigator.clipboard.writeText(url);
+      triggerToast(`Đã sao chép link ứng tuyển: ${url}!`);
     } else {
-      triggerToast(`Link ứng tuyển: ${code}`);
+      triggerToast(`Link ứng tuyển: ${url}`);
+    }
+  };
+
+  const handleCloneJob = async (jobId, jobTitle) => {
+    try {
+      setIsLoading(true);
+      const res = await jobApi.cloneJob(jobId);
+      const cloned = res?.data?.data || res?.data;
+      triggerToast(`🎉 Đã nhân bản thành công tin tuyển dụng "${jobTitle || ''}"! Bản sao mới đang ở trạng thái Bản nháp.`);
+      await fetchMyJobs();
+      if (cloned && (cloned.jobId || cloned.id)) {
+        handleOpenEditModal({
+          ...cloned,
+          id: cloned.jobId || cloned.id,
+        });
+      }
+    } catch (err) {
+      console.error('Lỗi khi nhân bản tin tuyển dụng:', err);
+      const errMsg = err.response?.data?.message || err.message || 'Không thể nhân bản tin tuyển dụng này.';
+      triggerToast(errMsg);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -1429,7 +1852,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
               </div>
             </div>
             <a
-              href="#/recruiter/profile"
+              href="#/recruiter-profile"
               className="px-5 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white rounded-full text-xs font-bold whitespace-nowrap shadow-md flex items-center gap-1.5 self-start sm:self-center shrink-0 cursor-pointer transition-all hover:scale-105"
             >
               <span className="material-symbols-outlined text-sm">verified_user</span>
@@ -1462,7 +1885,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
               <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-[#10b981]" /> {activeCount} Đang tuyển &bull; {pausedCount} Tạm dừng
               </span>
-              <a href="#/recruiter/pricing" className="text-[#5b48bd] hover:underline font-bold text-[11px] flex items-center gap-0.5">
+              <a href="#/recruiter-pricing" className="text-[#5b48bd] hover:underline font-bold text-[11px] flex items-center gap-0.5">
                 <span>Nâng cấp</span>
                 <span className="material-symbols-outlined text-[12px]">chevron_right</span>
               </a>
@@ -1566,6 +1989,34 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
         <div className="relative z-10 flex flex-wrap items-center justify-between gap-3 p-3.5 sm:p-4 rounded-[28px] bg-white border border-purple-100/80 shadow-sm overflow-hidden">
           {/* Search Box & Filter Tabs */}
           <div className="flex flex-wrap items-center gap-3 flex-1 min-w-[280px]">
+            {/* Multi-Branch Scope Switcher */}
+            <div className="flex items-center gap-1 p-1 bg-[#f4f2fd] rounded-full border border-purple-100 shrink-0">
+              <button
+                type="button"
+                onClick={() => setBranchScopeFilter('ALL')}
+                className={`px-3 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  branchScopeFilter === 'ALL'
+                    ? 'bg-[#5b48bd] text-white shadow-xs'
+                    : 'text-[#47369f] hover:bg-white/60'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[15px]">apartment</span>
+                <span>Tất cả chi nhánh ({jobsList.length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setBranchScopeFilter('MY_BRANCH')}
+                className={`px-3 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  branchScopeFilter === 'MY_BRANCH'
+                    ? 'bg-[#5b48bd] text-white shadow-xs'
+                    : 'text-[#47369f] hover:bg-white/60'
+                }`}
+                title={`Lọc tin thuộc chi nhánh: ${currentRecruiterBranch}`}
+              >
+                <span className="material-symbols-outlined text-[15px]">person_pin_circle</span>
+                <span>Chi nhánh của tôi ({jobsList.filter(canEditOrManageJob).length})</span>
+              </button>
+            </div>
             <div className="relative flex-1 min-w-[220px] max-w-sm">
               <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">
                 search
@@ -1645,6 +2096,34 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
 
               <button
                 type="button"
+                onClick={() => setSelectedCategory('PENDING')}
+                className={`px-3.5 py-1.5 rounded-full font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${selectedCategory === 'PENDING'
+                  ? 'bg-amber-500 text-white shadow-md'
+                  : 'text-amber-800 hover:bg-white/60'
+                  }`}
+              >
+                <span className="material-symbols-outlined text-[14px]">hourglass_top</span>
+                <span>Chờ duyệt</span>
+                <span className="text-[10px] opacity-90">({pendingCount})</span>
+              </button>
+
+              {rejectedCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedCategory('REJECTED')}
+                  className={`px-3.5 py-1.5 rounded-full font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${selectedCategory === 'REJECTED'
+                    ? 'bg-rose-700 text-white shadow-md'
+                    : 'text-rose-700 hover:bg-rose-100/70'
+                    }`}
+                >
+                  <span className="material-symbols-outlined text-[14px]">cancel</span>
+                  <span>Bị từ chối</span>
+                  <span className="text-[10px] opacity-90">({rejectedCount})</span>
+                </button>
+              )}
+
+              <button
+                type="button"
                 onClick={() => setSelectedCategory('CLOSED')}
                 className={`px-3.5 py-1.5 rounded-full font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${selectedCategory === 'CLOSED'
                   ? 'bg-[#64748b] text-white shadow-md'
@@ -1670,11 +2149,25 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
 
             <button
               onClick={handleOpenCreateModal}
-              className="flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-[#10b981] hover:bg-[#059669] text-white text-xs font-bold tracking-wide shadow-md hover:shadow-lg transition-all cursor-pointer whitespace-nowrap hover:scale-105"
+              className={`flex items-center gap-1.5 px-5 py-2.5 rounded-full text-white text-xs font-bold tracking-wide shadow-md transition-all whitespace-nowrap ${
+                companyStatus === 'VERIFIED' || companyStatus === 'APPROVED' || companyStatus === 'ACTIVE' || user?.role === 'ADMIN'
+                  ? 'bg-[#10b981] hover:bg-[#059669] hover:shadow-lg cursor-pointer hover:scale-105'
+                  : 'bg-amber-600 hover:bg-amber-700 cursor-pointer'
+              }`}
+              title={
+                companyStatus === 'VERIFIED' || companyStatus === 'APPROVED' || companyStatus === 'ACTIVE' || user?.role === 'ADMIN'
+                  ? 'Đăng tin tuyển dụng mới'
+                  : 'Yêu cầu hoàn tất xác thực giấy phép công ty để đăng tin'
+              }
               type="button"
             >
-              <span className="material-symbols-outlined text-[18px]">add_circle</span>
+              <span className="material-symbols-outlined text-[18px]">
+                {companyStatus === 'VERIFIED' || companyStatus === 'APPROVED' || companyStatus === 'ACTIVE' || user?.role === 'ADMIN' ? 'add_circle' : 'lock'}
+              </span>
               <span>Đăng Tin Mới</span>
+              {!(companyStatus === 'VERIFIED' || companyStatus === 'APPROVED' || companyStatus === 'ACTIVE' || user?.role === 'ADMIN') && (
+                <span className="text-[10px] bg-amber-800/60 px-1.5 py-0.5 rounded-full ml-1">Chờ xác thực</span>
+              )}
             </button>
           </div>
         </div>
@@ -1726,22 +2219,40 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                 <div className="flex items-center justify-between gap-2 flex-wrap min-h-[26px]">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {/* Status Badge */}
-                    <span
-                      className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide border flex items-center gap-1 ${
-                        job.status === 'ACTIVE'
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                          : job.status === 'CLOSED'
-                          ? 'bg-rose-50 text-rose-700 border-rose-200'
-                          : 'bg-slate-100 text-slate-600 border-slate-200'
-                      }`}
-                    >
+                    {job.approvalStatus === 'PENDING' ? (
                       <span
-                        className={`w-1.5 h-1.5 rounded-full ${
-                          job.status === 'ACTIVE' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
+                        className="px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide border flex items-center gap-1 bg-amber-50 text-amber-700 border-amber-200"
+                        title="Tin đang chờ Ban Quản Trị Admin kiểm duyệt trước khi hiển thị công khai trên cổng việc làm"
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                        <span>Chờ Admin Duyệt</span>
+                      </span>
+                    ) : job.approvalStatus === 'REJECTED' ? (
+                      <span
+                        className="px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide border flex items-center gap-1 bg-rose-50 text-rose-700 border-rose-200"
+                        title={`Tin bị từ chối duyệt: ${job.moderationNote || 'Chưa đạt chuẩn nội dung'}`}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                        <span>Bị Từ Chối Duyệt</span>
+                      </span>
+                    ) : (
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide border flex items-center gap-1 ${
+                          job.status === 'ACTIVE'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : job.status === 'CLOSED'
+                            ? 'bg-rose-50 text-rose-700 border-rose-200'
+                            : 'bg-slate-100 text-slate-600 border-slate-200'
                         }`}
-                      />
-                      <span>{job.badgeText}</span>
-                    </span>
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            job.status === 'ACTIVE' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
+                          }`}
+                        />
+                        <span>{job.badgeText}</span>
+                      </span>
+                    )}
 
                     {/* Deadline Badge */}
                     <span
@@ -1762,15 +2273,15 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
 
                   {/* Right Header: Author & Approval Status */}
                   <div className="flex items-center gap-2">
-                    {canDeleteJob(job) ? (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-[#5b48bd] border border-purple-200/80 flex items-center gap-1" title="Tin tuyển dụng do bạn đăng">
-                        <span className="material-symbols-outlined text-[12px] text-[#5b48bd]">person</span>
-                        <span>Bài của tôi</span>
+                    {canEditOrManageJob(job) ? (
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-[#5b48bd] border border-purple-200/80 flex items-center gap-1" title="Tin thuộc chi nhánh hoặc quyền quản lý của bạn">
+                        <span className="material-symbols-outlined text-[12px] text-[#5b48bd]">verified</span>
+                        <span>{String(job.recruiterId) === String(user?.userId || user?.id) ? 'Bài của tôi' : (job.branchName || 'Chi nhánh của tôi')}</span>
                       </span>
                     ) : (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200 flex items-center gap-1" title={`Đăng bởi: ${job.recruiterName || 'Đồng nghiệp'}`}>
-                        <span className="material-symbols-outlined text-[12px] text-slate-400">group</span>
-                        <span className="truncate max-w-[100px]">{job.recruiterName || 'Đồng nghiệp'}</span>
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 text-amber-800 border border-amber-200/80 flex items-center gap-1" title={`Thuộc ${job.branchName || 'chi nhánh khác'} • Phụ trách: ${job.recruiterName || 'Đồng nghiệp'}`}>
+                        <span className="material-symbols-outlined text-[12px] text-amber-600">lock</span>
+                        <span>{job.branchName || 'Chi nhánh khác'} (Chỉ xem)</span>
                       </span>
                     )}
 
@@ -1817,6 +2328,23 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                   </h2>
                 </div>
 
+                {/* Moderation Alert Banner if Pending or Rejected */}
+                {job.approvalStatus === 'REJECTED' && (
+                  <div className="flex items-start gap-2 p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-xs">
+                    <span className="material-symbols-outlined text-rose-600 text-base shrink-0 mt-0.5">error</span>
+                    <div className="min-w-0">
+                      <div className="font-bold text-rose-800">Lý do Ban Quản Trị từ chối duyệt:</div>
+                      <div className="text-rose-700 mt-0.5">{job.moderationNote || 'Nội dung bài đăng chưa đạt chuẩn yêu cầu tuyển dụng. Vui lòng bấm nút Sửa để cập nhật và gửi duyệt lại.'}</div>
+                    </div>
+                  </div>
+                )}
+                {job.approvalStatus === 'PENDING' && (
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-50/70 border border-amber-200 text-amber-900 text-xs">
+                    <span className="material-symbols-outlined text-amber-600 text-[16px] shrink-0">hourglass_top</span>
+                    <span className="truncate">Tin đang chờ Ban Quản Trị duyệt trước khi hiển thị cho ứng viên nộp hồ sơ.</span>
+                  </div>
+                )}
+
                 {/* 3. Primary Meta Row: Salary, Location, Company - Exact same height */}
                 <div className="flex flex-wrap items-center gap-2 min-h-[28px]">
                   {/* Salary */}
@@ -1835,6 +2363,14 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                   <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-purple-50 text-purple-800 border border-purple-100 font-medium text-xs">
                     <span className="material-symbols-outlined text-[15px] text-[#5b48bd]">{job.domainIcon}</span>
                     <span>{job.domain}</span>
+                  </div>
+
+                  {/* Branch & HR in charge badge */}
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-blue-50/80 text-blue-900 border border-blue-200/70 font-semibold text-xs" title={`Chi nhánh: ${job.branchName || 'Trụ sở chính'} • HR phụ trách: ${job.recruiterName || 'Chuyên viên HR'}`}>
+                    <span className="material-symbols-outlined text-[15px] text-blue-600">apartment</span>
+                    <span className="truncate max-w-[120px]">{job.branchName || 'Trụ sở chính'}</span>
+                    <span className="text-blue-300">•</span>
+                    <span className="text-blue-700 font-normal truncate max-w-[90px]">{job.recruiterName || 'HR'}</span>
                   </div>
                 </div>
 
@@ -1973,31 +2509,21 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
 
                     <button
                       onClick={() => {
+                        window.location.hash = '#/recruiter-dashboard';
+                      }}
+                      className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-white hover:bg-purple-50 text-slate-700 hover:text-[#5b48bd] text-xs font-semibold transition-all flex items-center gap-1 border border-slate-200 hover:border-purple-200 cursor-pointer shadow-2xs shrink-0"
+                      type="button"
+                      title="Xem Báo cáo phân tích tuyển dụng"
+                    >
+                      <span className="material-symbols-outlined text-[15px] text-[#5b48bd]">analytics</span>
+                      <span>Báo cáo</span>
+                    </button>
+
+                    {canEditOrManageJob(job) ? (
+                    <button
+                      onClick={() => {
                         const reqStr = String(job.requirements || '');
-                        const levelMatch = reqStr.match(/(?:Cấp bậc|Vị trí)(?:\s+tuyển dụng)?:\s*([^\n\r]+)/i);
-                        const eduMatch = reqStr.match(/(?:Yêu cầu bằng cấp|Bằng cấp|Trình độ học vấn|Học vấn):\s*([^\n\r]+)/i);
-                        const expMatch = reqStr.match(/(?:Kinh nghiệm làm việc|Kinh nghiệm):\s*([^\n\r]+)/i);
-                        const wpMatch = reqStr.match(/(?:Môi trường làm việc|Môi trường|Hình thức làm việc):\s*([^\n\r]+)/i);
-                        const genMatch = reqStr.match(/(?:Giới tính|Giới tính yêu cầu):\s*([^\n\r]+)/i);
-
-                        const detectedLevel = levelMatch ? levelMatch[1].trim()
-                          : (job.title?.toLowerCase().includes('intern') ? 'INTERN' : job.title?.toLowerCase().includes('senior') ? 'SENIOR' : 'MIDDLE');
-
-                        setEditingJob({
-                          ...job,
-                          jobLevel: detectedLevel.includes('Intern') ? 'INTERN' : detectedLevel.includes('Fresher') ? 'FRESHER' : detectedLevel.includes('Senior') ? 'SENIOR' : detectedLevel.includes('Junior') ? 'JUNIOR' : detectedLevel.includes('Lead') ? 'LEAD' : detectedLevel.includes('Manager') ? 'MANAGER' : 'MIDDLE',
-                          educationRequirement: eduMatch ? eduMatch[1].trim() : 'Đại học / Cử nhân (Sinh viên năm cuối hoặc mới tốt nghiệp)',
-                          experienceRequirement: expMatch ? expMatch[1].trim() : (job.title?.toLowerCase().includes('intern') ? 'Không yêu cầu kinh nghiệm (Intern/Fresher)' : '1 - 2 năm kinh nghiệm'),
-                          workplaceType: wpMatch ? wpMatch[1].trim() : (job.location?.toLowerCase().includes('remote') ? 'Remote (100% từ xa)' : 'Hybrid (Linh hoạt)'),
-                          genderRequirement: genMatch ? genMatch[1].trim() : 'Không yêu cầu',
-                          mandatorySkillsInput: Array.isArray(job.mandatorySkills) && job.mandatorySkills.length > 0
-                            ? job.mandatorySkills.join(', ')
-                            : (Array.isArray(job.raw?.mandatorySkills) ? job.raw.mandatorySkills.join(', ') : ''),
-                          preferredSkillsInput: Array.isArray(job.preferredSkills) && job.preferredSkills.length > 0
-                            ? job.preferredSkills.join(', ')
-                            : (Array.isArray(job.raw?.preferredSkills) ? job.raw.preferredSkills.join(', ') : ''),
-                        });
-                        setShowEditModal(true);
+                        handleOpenEditModal(job);
                       }}
                       className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-white hover:bg-purple-50 text-slate-700 hover:text-[#5b48bd] text-xs font-semibold transition-all flex items-center gap-1 border border-slate-200 hover:border-purple-200 cursor-pointer shadow-2xs shrink-0"
                       type="button"
@@ -2005,9 +2531,30 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                       <span className="material-symbols-outlined text-[15px] text-slate-500">edit</span>
                       <span>Sửa</span>
                     </button>
+                    ) : (
+                    <button
+                      type="button"
+                      onClick={() => triggerToast(`Bạn không thể chỉnh sửa tin này. Tin thuộc ${job.branchName || 'chi nhánh khác'} do chuyên viên ${job.recruiterName || 'khác'} phụ trách!`)}
+                      className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-50 text-slate-400 text-xs font-medium flex items-center gap-1 border border-slate-200 cursor-not-allowed shadow-2xs shrink-0 opacity-70"
+                      title={`Chỉ chuyên viên phụ trách hoặc cùng chi nhánh ${job.branchName || ''} mới được chỉnh sửa`}
+                    >
+                      <span className="material-symbols-outlined text-[15px] text-slate-400">lock</span>
+                      <span>Sửa</span>
+                    </button>
+                    )}
 
                     <button
-                      onClick={() => handleCopyLink(job.code)}
+                      onClick={() => handleCloneJob(job.id, job.title)}
+                      className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 text-xs font-semibold transition-all flex items-center gap-1 border border-slate-200 hover:border-emerald-200 cursor-pointer shadow-2xs shrink-0"
+                      type="button"
+                      title="Nhân bản / Tạo bản sao từ tin tuyển dụng này"
+                    >
+                      <span className="material-symbols-outlined text-[15px] text-emerald-600">content_copy</span>
+                      <span>Nhân bản</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleCopyLink(job.id, job.code)}
                       className="p-1.5 rounded-xl bg-white hover:bg-purple-50 text-slate-500 hover:text-[#5b48bd] transition-all border border-slate-200 hover:border-purple-200 cursor-pointer shadow-2xs flex items-center justify-center shrink-0"
                       title="Sao chép link ứng tuyển"
                       type="button"
@@ -2038,17 +2585,29 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
 
                   {/* Primary CTA */}
                   <div className="flex items-center gap-2 ml-auto">
-                    <button
-                      onClick={() => {
-                        window.location.hash = `#/applicants-management?jobId=${job.id}`;
-                      }}
-                      className="px-3.5 sm:px-4 py-1.5 rounded-xl bg-gradient-to-r from-[#5b48bd] to-[#7c66dc] hover:from-[#47369f] hover:to-[#6852ca] text-white text-xs font-bold tracking-wide shadow-sm hover:shadow transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
-                      type="button"
-                    >
-                      <span className="material-symbols-outlined text-[15px]">group</span>
-                      <span>Quản lý {job.totalApplicants} ứng viên</span>
-                      <span className="material-symbols-outlined text-[13px]">arrow_forward</span>
-                    </button>
+                    {canEditOrManageJob(job) ? (
+                      <button
+                        onClick={() => {
+                          window.location.hash = `#/applicants-management?jobId=${job.id}`;
+                        }}
+                        className="px-3.5 sm:px-4 py-1.5 rounded-xl bg-gradient-to-r from-[#5b48bd] to-[#7c66dc] hover:from-[#47369f] hover:to-[#6852ca] text-white text-xs font-bold tracking-wide shadow-sm hover:shadow transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+                        type="button"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">group</span>
+                        <span>Quản lý {job.totalApplicants} ứng viên</span>
+                        <span className="material-symbols-outlined text-[13px]">arrow_forward</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => triggerToast('⚠️ Bài đăng thuộc chi nhánh khác - Chỉ HR cùng chi nhánh hoặc Head HR mới có quyền truy cập danh sách ứng viên')}
+                        className="px-3.5 sm:px-4 py-1.5 rounded-xl bg-slate-100 text-slate-400 border border-slate-200 text-xs font-semibold flex items-center gap-1.5 cursor-not-allowed whitespace-nowrap shrink-0 opacity-70"
+                        title="Bài đăng thuộc chi nhánh khác - Chỉ HR cùng chi nhánh hoặc Head HR mới có quyền truy cập danh sách ứng viên"
+                        type="button"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">lock</span>
+                        <span>Quản lý {job.totalApplicants} ứng viên</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -2169,7 +2728,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                   Để sau
                 </button>
                 <a
-                  href="#/recruiter/pricing"
+                  href="#/recruiter-pricing"
                   onClick={() => setShowQuotaExceededModal(false)}
                   className="w-full sm:w-auto px-6 py-2.5 rounded-full bg-gradient-to-r from-[#5b48bd] to-[#32247b] hover:from-[#4a39a7] hover:to-[#261966] text-white text-xs font-bold shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                 >
@@ -2300,7 +2859,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                   Đã hiểu / Để sau
                 </button>
                 <a
-                  href="#/recruiter/profile"
+                  href="#/recruiter-profile"
                   onClick={() => {
                     setShowUnverifiedWarningModal(false);
                     if (window.location.hash.includes('action=new')) {
@@ -3161,63 +3720,85 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
 
                       {/* AI Extraction Live Banner if Available */}
                       {aiSuggestedSkillsData && (
-                        <div className="p-3.5 rounded-xl bg-gradient-to-r from-indigo-50 via-purple-50 to-pink-50 border border-indigo-200 text-slate-800 space-y-2 animate-fade-in">
-                          <div className="flex items-center justify-between">
+                        <div className="p-3.5 rounded-xl bg-gradient-to-r from-indigo-50 via-purple-50 to-pink-50 border border-indigo-200 text-slate-800 space-y-2 animate-fade-in shadow-2xs">
+                          <div className="flex items-center justify-between flex-wrap gap-2">
                             <span className="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
                               <span className="material-symbols-outlined text-sm text-indigo-600">verified</span>
                               Kỹ năng AI đề xuất theo ngành: <span className="text-purple-700 uppercase">{aiSuggestedSkillsData.detectedIndustry || 'Đa ngành'}</span>
+                              <span className="text-[10px] text-slate-500 font-normal hidden sm:inline">(Bấm vào thẻ để bật/tắt kỹ năng)</span>
                             </span>
-                            <span className="text-[10px] bg-indigo-100 text-indigo-800 font-semibold px-2 py-0.5 rounded-full">
-                              Đã lưu vào Supabase
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={handleAddAllAiSkillsToJob}
+                                className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold cursor-pointer transition-all shadow-2xs"
+                              >
+                                + Thêm Tất Cả Gợi Ý
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setAiSuggestedSkillsData(null)}
+                                className="text-[11px] text-slate-500 hover:text-slate-700 cursor-pointer font-medium"
+                              >
+                                ✕ Đóng
+                              </button>
+                            </div>
                           </div>
                           <div className="flex flex-wrap gap-1.5 pt-1">
-                            {Array.isArray(aiSuggestedSkillsData.mandatorySkills) && aiSuggestedSkillsData.mandatorySkills.map((sk, idx) => (
-                              <button
-                                key={`ai-mand-${idx}`}
-                                type="button"
-                                onClick={() => {
-                                  const name = sk.name || sk;
-                                  if (mandatorySkillsArray.some(s => s.toLowerCase() === name.toLowerCase())) {
-                                    handleRemoveMandatorySkill(name);
-                                  } else {
-                                    handleAddMandatorySkill(name);
-                                  }
-                                }}
-                                className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border transition-all cursor-pointer ${
-                                  mandatorySkillsArray.some(s => s.toLowerCase() === (sk.name || sk).toLowerCase())
-                                    ? 'bg-indigo-600 text-white border-indigo-600'
-                                    : 'bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-50'
-                                }`}
-                                title={`Nhóm ngành: ${sk.category || 'Chung'} - Bấm để bật/tắt`}
-                              >
-                                {mandatorySkillsArray.some(s => s.toLowerCase() === (sk.name || sk).toLowerCase()) ? '✓ ' : '+ '}
-                                {sk.name || sk} <span className="text-[9px] opacity-75">({sk.category || '70%'})</span>
-                              </button>
-                            ))}
-                            {Array.isArray(aiSuggestedSkillsData.preferredSkills) && aiSuggestedSkillsData.preferredSkills.map((sk, idx) => (
-                              <button
-                                key={`ai-pref-${idx}`}
-                                type="button"
-                                onClick={() => {
-                                  const name = sk.name || sk;
-                                  if (preferredSkillsArray.some(s => s.toLowerCase() === name.toLowerCase())) {
-                                    handleRemovePreferredSkill(name);
-                                  } else {
-                                    handleAddPreferredSkill(name);
-                                  }
-                                }}
-                                className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border transition-all cursor-pointer ${
-                                  preferredSkillsArray.some(s => s.toLowerCase() === (sk.name || sk).toLowerCase())
-                                    ? 'bg-emerald-600 text-white border-emerald-600'
-                                    : 'bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50'
-                                }`}
-                                title={`Nhóm ngành: ${sk.category || 'Chung'} - Bấm để bật/tắt`}
-                              >
-                                {preferredSkillsArray.some(s => s.toLowerCase() === (sk.name || sk).toLowerCase()) ? '✓ ' : '+ '}
-                                {sk.name || sk} <span className="text-[9px] opacity-75">({sk.category || '30%'})</span>
-                              </button>
-                            ))}
+                            {Array.isArray(aiSuggestedSkillsData.mandatorySkills) && aiSuggestedSkillsData.mandatorySkills.map((sk, idx) => {
+                              const name = typeof sk === 'string' ? sk : (sk?.skillName || sk?.name || '');
+                              if (!name) return null;
+                              const isAdded = mandatorySkillsArray.some(s => s.toLowerCase() === name.toLowerCase());
+                              return (
+                                <button
+                                  key={`ai-mand-${idx}`}
+                                  type="button"
+                                  onClick={() => {
+                                    if (isAdded) {
+                                      handleRemoveMandatorySkill(name);
+                                    } else {
+                                      handleAddMandatorySkill(name);
+                                    }
+                                  }}
+                                  className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border transition-all cursor-pointer ${
+                                    isAdded
+                                      ? 'bg-indigo-600 text-white border-indigo-600'
+                                      : 'bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-50'
+                                  }`}
+                                  title={`Nhóm ngành: ${sk?.category || 'Chung'} - Bấm để bật/tắt`}
+                                >
+                                  {isAdded ? '✓ ' : '+ '}
+                                  {name} <span className="text-[9px] opacity-75">({sk?.category || '70%'})</span>
+                                </button>
+                              );
+                            })}
+                            {Array.isArray(aiSuggestedSkillsData.preferredSkills) && aiSuggestedSkillsData.preferredSkills.map((sk, idx) => {
+                              const name = typeof sk === 'string' ? sk : (sk?.skillName || sk?.name || '');
+                              if (!name) return null;
+                              const isAdded = preferredSkillsArray.some(s => s.toLowerCase() === name.toLowerCase());
+                              return (
+                                <button
+                                  key={`ai-pref-${idx}`}
+                                  type="button"
+                                  onClick={() => {
+                                    if (isAdded) {
+                                      handleRemovePreferredSkill(name);
+                                    } else {
+                                      handleAddPreferredSkill(name);
+                                    }
+                                  }}
+                                  className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border transition-all cursor-pointer ${
+                                    isAdded
+                                      ? 'bg-emerald-600 text-white border-emerald-600'
+                                      : 'bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50'
+                                  }`}
+                                  title={`Nhóm ngành: ${sk?.category || 'Chung'} - Bấm để bật/tắt`}
+                                >
+                                  {isAdded ? '✓ ' : '+ '}
+                                  {name} <span className="text-[9px] opacity-75">({sk?.category || '30%'})</span>
+                                </button>
+                              );
+                            })}
                           </div>
                         </div>
                       )}
@@ -3269,37 +3850,62 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                           )}
                         </div>
 
-                        {/* Tag Input */}
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="text"
-                            list="master-skills-datalist"
-                            placeholder="Nhập kỹ năng bắt buộc (Gõ để tìm kiếm master skills)..."
-                            value={mandSkillTagInput}
-                            onChange={(e) => setMandSkillTagInput(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
+                        {/* Tag Input with live Autocomplete Dropdown */}
+                        <div className="relative">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              placeholder="Nhập kỹ năng bắt buộc (Gõ để tìm kiếm master skills)..."
+                              value={mandSkillTagInput}
+                              onFocus={() => setShowMandSkillDropdown(true)}
+                              onChange={(e) => {
+                                setMandSkillTagInput(e.target.value);
+                                setShowMandSkillDropdown(true);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  handleAddMandatorySkill();
+                                  setShowMandSkillDropdown(false);
+                                }
+                              }}
+                              className="flex-1 bg-white border border-slate-200 rounded-xl p-2.5 text-slate-800 text-xs font-sans focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
                                 handleAddMandatorySkill();
-                              }
-                            }}
-                            className="flex-1 bg-white border border-slate-200 rounded-xl p-2.5 text-slate-800 text-xs font-sans focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600"
-                          />
-                          <datalist id="master-skills-datalist">
-                            {masterSkillsList.map((s) => (
-                              <option key={s.skillId} value={s.skillName}>
-                                {s.category ? `(${s.category})` : ''}
-                              </option>
-                            ))}
-                          </datalist>
-                          <button
-                            type="button"
-                            onClick={() => handleAddMandatorySkill()}
-                            className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1 transition-all cursor-pointer shadow-xs shrink-0"
-                          >
-                            <span className="material-symbols-outlined text-xs">add</span>
-                            <span>Thêm</span>
-                          </button>
+                                setShowMandSkillDropdown(false);
+                              }}
+                              className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1 transition-all cursor-pointer shadow-xs shrink-0"
+                            >
+                              <span className="material-symbols-outlined text-xs">add</span>
+                              <span>Thêm</span>
+                            </button>
+                          </div>
+
+                          {showMandSkillDropdown && mandSkillTagInput.trim().length > 0 && (
+                            <div className="absolute left-0 top-full mt-1 w-full max-h-48 overflow-y-auto bg-white border border-indigo-200 rounded-xl shadow-xl z-50 p-1 space-y-0.5">
+                              {masterSkillsList
+                                .filter(s => (s.skillName || '').toLowerCase().includes(mandSkillTagInput.toLowerCase()))
+                                .slice(0, 8)
+                                .map(s => (
+                                  <div
+                                    key={s.skillId}
+                                    onMouseDown={() => {
+                                      handleAddMandatorySkill(s.skillName);
+                                      setShowMandSkillDropdown(false);
+                                    }}
+                                    className="px-3 py-1.5 hover:bg-indigo-50 rounded-lg cursor-pointer flex items-center justify-between text-xs transition-colors"
+                                  >
+                                    <span className="font-semibold text-slate-800">{s.skillName}</span>
+                                    <span className="text-[10px] text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded font-mono">
+                                      {s.category || 'SKILL'}
+                                    </span>
+                                  </div>
+                                ))}
+                            </div>
+                          )}
                         </div>
 
                         {/* Quick Suggestions */}
@@ -3353,30 +3959,62 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                           )}
                         </div>
 
-                        {/* Tag Input */}
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="text"
-                            list="master-skills-datalist"
-                            placeholder="Nhập kỹ năng ưu tiên (Gõ để tìm kiếm master skills)..."
-                            value={prefSkillTagInput}
-                            onChange={(e) => setPrefSkillTagInput(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
+                        {/* Tag Input with live Autocomplete Dropdown */}
+                        <div className="relative">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              placeholder="Nhập kỹ năng ưu tiên (Gõ để tìm kiếm master skills)..."
+                              value={prefSkillTagInput}
+                              onFocus={() => setShowPrefSkillDropdown(true)}
+                              onChange={(e) => {
+                                setPrefSkillTagInput(e.target.value);
+                                setShowPrefSkillDropdown(true);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  handleAddPreferredSkill();
+                                  setShowPrefSkillDropdown(false);
+                                }
+                              }}
+                              className="flex-1 bg-white border border-slate-200 rounded-xl p-2.5 text-slate-800 text-xs font-sans focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
                                 handleAddPreferredSkill();
-                              }
-                            }}
-                            className="flex-1 bg-white border border-slate-200 rounded-xl p-2.5 text-slate-800 text-xs font-sans focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleAddPreferredSkill()}
-                            className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1 transition-all cursor-pointer shadow-xs shrink-0"
-                          >
-                            <span className="material-symbols-outlined text-xs">add</span>
-                            <span>Thêm</span>
-                          </button>
+                                setShowPrefSkillDropdown(false);
+                              }}
+                              className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1 transition-all cursor-pointer shadow-xs shrink-0"
+                            >
+                              <span className="material-symbols-outlined text-xs">add</span>
+                              <span>Thêm</span>
+                            </button>
+                          </div>
+
+                          {showPrefSkillDropdown && prefSkillTagInput.trim().length > 0 && (
+                            <div className="absolute left-0 top-full mt-1 w-full max-h-48 overflow-y-auto bg-white border border-emerald-200 rounded-xl shadow-xl z-50 p-1 space-y-0.5">
+                              {masterSkillsList
+                                .filter(s => (s.skillName || '').toLowerCase().includes(prefSkillTagInput.toLowerCase()))
+                                .slice(0, 8)
+                                .map(s => (
+                                  <div
+                                    key={s.skillId}
+                                    onMouseDown={() => {
+                                      handleAddPreferredSkill(s.skillName);
+                                      setShowPrefSkillDropdown(false);
+                                    }}
+                                    className="px-3 py-1.5 hover:bg-emerald-50 rounded-lg cursor-pointer flex items-center justify-between text-xs transition-colors"
+                                  >
+                                    <span className="font-semibold text-slate-800">{s.skillName}</span>
+                                    <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded font-mono">
+                                      {s.category || 'SKILL'}
+                                    </span>
+                                  </div>
+                                ))}
+                            </div>
+                          )}
                         </div>
 
                         {/* Quick Suggestions */}
@@ -3988,10 +4626,31 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
 
                 {/* 70% Mandatory Skills */}
                 <div>
-                  <label className="block text-[#5b48bd] mb-1 font-bold uppercase text-xs flex items-center justify-between">
-                    <span>Kỹ Năng Bắt Buộc (Mandatory - 70% Trọng Số AI Match)</span>
-                    <span className="text-[10px] font-mono text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full">Trọng số 70%</span>
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5 flex-wrap gap-2">
+                    <label className="text-[#5b48bd] font-bold uppercase text-xs flex items-center gap-1.5">
+                      <span>Kỹ Năng Bắt Buộc (Mandatory - 70% Trọng Số AI Match)</span>
+                      <span className="text-[10px] font-mono text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full">Trọng số 70%</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleAiExtractSkillsForEditJob}
+                      disabled={isExtractingSkillsAi}
+                      className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white text-xs font-bold shadow-xs hover:shadow transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02]"
+                      title="AI tự động đọc tiêu đề và mô tả JD để trích xuất kỹ năng chuẩn hóa vào bài đăng"
+                    >
+                      {isExtractingSkillsAi ? (
+                        <>
+                          <span className="material-symbols-outlined text-xs animate-spin">sync</span>
+                          <span>Đang Phân Tích...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="material-symbols-outlined text-xs text-yellow-300">auto_awesome</span>
+                          <span>✨ AI Tự Động Đọc JD &amp; Đề Xuất Kỹ Năng</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                   <input
                     type="text"
                     placeholder="Ví dụ: Java 21, Spring Boot, PostgreSQL, Docker"

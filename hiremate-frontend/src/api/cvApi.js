@@ -25,6 +25,7 @@ export const cvApi = {
     axiosClient.get(`/cvs/${id}/preview`, {
       responseType: 'blob',
     }),
+  rewriteSummary: (data) => axiosClient.post('/cvs/rewrite-summary', data),
 };
 
 export default cvApi;

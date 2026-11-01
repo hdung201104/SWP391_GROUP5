@@ -38,14 +38,20 @@ public class RegisterRequest {
     private String githubUrl;
 
     // Recruiter specific fields (Company & Legal)
+    private Long companyId;
     private String companyName;
     private String website;
     private String companySize;
     private String companyAddress;
+    private String branchName;
+    private String branchAddress;
+    private String position;
+    private String department;
     private String taxCode;
     private String licenseNumber;
     private String licenseDocUrl;
     private String licenseDocName;
     private String legalRepresentative;
+    private String otp;
 }
 

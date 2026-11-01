@@ -1,5 +1,6 @@
 package com.hiremate.service.impl;
 
+import com.hiremate.dto.VoucherRuleMeta;
 import com.hiremate.dto.request.CreatePaymentOrderRequest;
 import com.hiremate.dto.request.ValidateVoucherRequest;
 import com.hiremate.dto.response.PaymentOrderResponse;
@@ -11,6 +12,7 @@ import com.hiremate.entity.User;
 import com.hiremate.entity.Voucher;
 import com.hiremate.enums.PaymentOrderStatus;
 import com.hiremate.enums.SubscriptionStatus;
+import com.hiremate.exception.BadRequestException;
 import com.hiremate.exception.ResourceNotFoundException;
 import com.hiremate.repository.PaymentOrderRepository;
 import com.hiremate.repository.SubscriptionPlanRepository;
@@ -39,6 +41,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final SubscriptionRepository subscriptionRepository;
     private final VoucherRepository voucherRepository;
     private final UserRepository userRepository;
+    private final com.hiremate.repository.RecruiterRepository recruiterRepository;
     private final com.hiremate.util.PayOSClient payOSClient;
     private final com.hiremate.service.NotificationService notificationService;
     private final com.hiremate.service.SystemSettingsService systemSettingsService;
@@ -153,21 +156,84 @@ public class PaymentServiceImpl implements PaymentService {
                     .build();
         }
 
-        // Kiểm tra vai trò áp dụng của mã giảm giá
+        // Đọc cấu hình quy tắc mở rộng (VoucherRuleMeta) từ Cấu hình Hệ thống bền vững
+        VoucherRuleMeta meta = null;
+        if (systemSettingsService != null && systemSettingsService.getSettings() != null
+                && systemSettingsService.getSettings().getVoucherRules() != null) {
+            meta = systemSettingsService.getSettings().getVoucherRules().get(code);
+        }
+
+        // 1. Kiểm tra vai trò áp dụng của mã giảm giá (Ưu tiên targetRole trong meta, fallback tiền tố cũ)
         if (request.getUserRole() != null && !request.getUserRole().isBlank()) {
             String role = request.getUserRole().trim().toUpperCase();
-            if ("CANDIDATE".equals(role) && (code.startsWith("RECRUITER") || code.startsWith("PROHR") || code.startsWith("HRBOOST"))) {
+            if (meta != null && meta.getTargetRole() != null && !"ALL".equalsIgnoreCase(meta.getTargetRole())) {
+                String targetRole = meta.getTargetRole().trim().toUpperCase();
+                if ("RECRUITER".equals(targetRole) && "CANDIDATE".equals(role)) {
+                    return VoucherValidationResponse.builder()
+                            .valid(false)
+                            .code(code)
+                            .message("Mã ưu đãi '" + code + "' chỉ dành riêng cho tài khoản Nhà tuyển dụng.")
+                            .build();
+                }
+                if ("CANDIDATE".equals(targetRole) && "RECRUITER".equals(role)) {
+                    return VoucherValidationResponse.builder()
+                            .valid(false)
+                            .code(code)
+                            .message("Mã ưu đãi '" + code + "' chỉ dành riêng cho tài khoản Ứng viên.")
+                            .build();
+                }
+            } else {
+                if ("CANDIDATE".equals(role) && (code.startsWith("RECRUITER") || code.startsWith("PROHR") || code.startsWith("HRBOOST"))) {
+                    return VoucherValidationResponse.builder()
+                            .valid(false)
+                            .code(code)
+                            .message("Mã ưu đãi '" + code + "' chỉ dành riêng cho tài khoản Nhà tuyển dụng.")
+                            .build();
+                }
+                if ("RECRUITER".equals(role) && (code.startsWith("CANDIDATE") || code.startsWith("FPTTALENT"))) {
+                    return VoucherValidationResponse.builder()
+                            .valid(false)
+                            .code(code)
+                            .message("Mã ưu đãi '" + code + "' chỉ dành riêng cho tài khoản Ứng viên.")
+                            .build();
+                }
+            }
+        }
+
+        // 2. Kiểm tra giá trị đơn hàng tối thiểu (minOrderAmount)
+        if (meta != null && meta.getMinOrderAmount() != null && meta.getMinOrderAmount().compareTo(BigDecimal.ZERO) > 0) {
+            if (originalAmount.compareTo(meta.getMinOrderAmount()) < 0) {
                 return VoucherValidationResponse.builder()
                         .valid(false)
                         .code(code)
-                        .message("Mã ưu đãi '" + code + "' chỉ dành riêng cho tài khoản Nhà tuyển dụng.")
+                        .message("Đơn hàng chưa đạt giá trị tối thiểu " + formatCurrency(meta.getMinOrderAmount()) + " để áp dụng mã ưu đãi này.")
                         .build();
             }
-            if ("RECRUITER".equals(role) && (code.startsWith("CANDIDATE") || code.startsWith("FPTTALENT"))) {
+        }
+
+        // 3. Kiểm tra phạm vi áp dụng gói dịch vụ (applicableScope == SPECIFIC)
+        if (meta != null && "SPECIFIC".equalsIgnoreCase(meta.getApplicableScope())
+                && meta.getApplicablePlanIds() != null && !meta.getApplicablePlanIds().isEmpty()) {
+            if (request.getPlanId() == null || !meta.getApplicablePlanIds().contains(request.getPlanId())) {
                 return VoucherValidationResponse.builder()
                         .valid(false)
                         .code(code)
-                        .message("Mã ưu đãi '" + code + "' chỉ dành riêng cho tài khoản Ứng viên.")
+                        .message("Mã giảm giá '" + code + "' không áp dụng cho gói dịch vụ này.")
+                        .build();
+            }
+        }
+
+        // 4. Chống spam: Mỗi tài khoản chỉ được sử dụng 1 mã thành công 1 lần
+        if (request.getUserId() != null) {
+            List<PaymentOrder> userOrders = paymentOrderRepository.findByUser_UserIdOrderByCreatedAtDesc(request.getUserId());
+            boolean alreadyUsed = userOrders.stream()
+                    .anyMatch(o -> o.getStatus() == PaymentOrderStatus.APPROVED && o.getVoucher() != null
+                            && (voucher.getVoucherId().equals(o.getVoucher().getVoucherId()) || code.equalsIgnoreCase(o.getVoucher().getCode())));
+            if (alreadyUsed) {
+                return VoucherValidationResponse.builder()
+                        .valid(false)
+                        .code(code)
+                        .message("Bạn đã sử dụng mã ưu đãi này cho một giao dịch trước đó (Mỗi tài khoản chỉ được áp dụng 1 lần).")
                         .build();
             }
         }
@@ -246,9 +312,7 @@ public class PaymentServiceImpl implements PaymentService {
             }
         }
         if (effectiveUser == null) {
-            // Fallback lấy người dùng đầu tiên nếu đang chạy môi trường test/demo
-            effectiveUser = userRepository.findAll().stream().findFirst()
-                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông tin người dùng thực hiện thanh toán."));
+            throw new BadRequestException("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để thực hiện thanh toán.");
         }
 
         // 1. Tìm hoặc xác định SubscriptionPlan
@@ -268,7 +332,9 @@ public class PaymentServiceImpl implements PaymentService {
             }
         }
 
-        String role = request.getTargetRole() != null ? request.getTargetRole() : "CANDIDATE";
+        String role = (request.getTargetRole() != null && !request.getTargetRole().isBlank())
+                ? request.getTargetRole().trim().toUpperCase()
+                : ((user != null && user.getRole() != null) ? user.getRole().name() : "CANDIDATE");
         // Nếu chưa khớp theo tên chính xác, khớp theo từ khóa đặc trưng (Pro, VIP, Ace, Plus, Starter)
         if (plan == null && request.getPlanName() != null) {
             String pLower = request.getPlanName().toLowerCase();
@@ -284,8 +350,23 @@ public class PaymentServiceImpl implements PaymentService {
             }
         }
 
-        // Nếu vẫn chưa tìm thấy và đơn hàng có giá trị tiền > 0, chọn gói có giá gần nhất
-        if (plan == null) {
+        boolean isAddon = Boolean.TRUE.equals(request.getIsAddon()) || (request.getPlanName() != null && (
+                request.getPlanName().toLowerCase().contains("addon") ||
+                request.getPlanName().toLowerCase().contains("add-on") ||
+                request.getPlanName().toLowerCase().contains("credits") ||
+                request.getPlanName().toLowerCase().contains("đẩy tin") ||
+                request.getPlanName().toLowerCase().contains("nổi bật") ||
+                request.getPlanName().toLowerCase().contains("huy hiệu")
+        )) || (request.getPlanId() == null && request.getOrderNote() != null && (
+                request.getOrderNote().toLowerCase().contains("addon") ||
+                request.getOrderNote().toLowerCase().contains("credits") ||
+                request.getOrderNote().toLowerCase().contains("đẩy tin") ||
+                request.getOrderNote().toLowerCase().contains("nổi bật") ||
+                request.getOrderNote().toLowerCase().contains("huy hiệu")
+        ));
+
+        // Nếu vẫn chưa tìm thấy và không phải là đơn hàng Add-on
+        if (plan == null && !isAddon) {
             List<SubscriptionPlan> rolePlans = subscriptionPlanRepository.findByTargetRoleAndIsActiveTrueOrderByPriceAsc(role);
             BigDecimal reqAmt = request.getOriginalAmount() != null ? request.getOriginalAmount() : request.getAmount();
             if (reqAmt != null && reqAmt.compareTo(BigDecimal.ZERO) > 0) {
@@ -305,19 +386,26 @@ public class PaymentServiceImpl implements PaymentService {
 
         // 2. Xử lý Voucher nếu có
         Voucher voucher = null;
-        BigDecimal originalAmount = request.getOriginalAmount() != null ? request.getOriginalAmount() : plan.getPrice();
+        BigDecimal originalAmount = request.getOriginalAmount() != null ? request.getOriginalAmount() : (plan != null ? plan.getPrice() : request.getAmount());
         BigDecimal discountAmount = BigDecimal.ZERO;
 
         if (request.getVoucherCode() != null && !request.getVoucherCode().isBlank()) {
-            VoucherValidationResponse vRes = validateVoucher(new ValidateVoucherRequest(
-                    request.getVoucherCode(),
-                    originalAmount));
+            String targetUserRole = effectiveUser.getRole() != null ? effectiveUser.getRole().name() : null;
+            ValidateVoucherRequest valReq = ValidateVoucherRequest.builder()
+                    .code(request.getVoucherCode())
+                    .amount(originalAmount)
+                    .userRole(targetUserRole)
+                    .userId(effectiveUser.getUserId())
+                    .planId(plan != null ? plan.getPlanId() : null)
+                    .planName(plan != null ? plan.getPlanName() : null)
+                    .build();
+            VoucherValidationResponse vRes = validateVoucher(valReq);
             if (Boolean.TRUE.equals(vRes.getValid())) {
                 voucher = voucherRepository.findByCode(vRes.getCode()).orElse(null);
                 discountAmount = vRes.getDiscountAmount();
+            } else {
+                throw new BadRequestException(vRes.getMessage() != null ? vRes.getMessage() : "Mã giảm giá không hợp lệ hoặc không áp dụng cho tài khoản của bạn.");
             }
-        } else if (request.getDiscountAmount() != null) {
-            discountAmount = request.getDiscountAmount();
         }
 
         BigDecimal finalAmount = originalAmount.subtract(discountAmount);
@@ -338,7 +426,9 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         String orderNote = request.getOrderNote() != null ? request.getOrderNote().trim() : "";
-        if ("YEARLY".equalsIgnoreCase(request.getBillingCycle())) {
+        if (request.getDurationMonths() != null && request.getDurationMonths() > 0) {
+            orderNote = ("[Chu kỳ: " + request.getDurationMonths() + " THÁNG] " + orderNote).trim();
+        } else if ("YEARLY".equalsIgnoreCase(request.getBillingCycle())) {
             orderNote = ("[Chu kỳ: YEARLY] " + orderNote).trim();
         }
 
@@ -357,53 +447,20 @@ public class PaymentServiceImpl implements PaymentService {
         order = paymentOrderRepository.save(order);
         log.info("Đã tạo đơn hàng mới trên Supabase: orderCode={}, user={}, amount={}", orderCode, effectiveUser.getEmail(), finalAmount);
 
-        // 5. Nếu duyệt tự động (0đ) => Kích hoạt subscription ngay
+        // 5. Nếu duyệt tự động (0đ hoặc đã APPROVED) => Kích hoạt subscription ngay
         if (status == PaymentOrderStatus.APPROVED) {
-            int durationDays = (plan.getDurationDays() != null && plan.getDurationDays() > 0) ? plan.getDurationDays() : 30;
-            if ("YEARLY".equalsIgnoreCase(request.getBillingCycle())) {
-                durationDays = 365;
-            }
-
-            // Hết hạn các gói cũ đang active của người dùng
-            List<Subscription> oldSubs = subscriptionRepository.findByUser_UserIdAndStatus(effectiveUser.getUserId(), SubscriptionStatus.ACTIVE);
-            for (Subscription oldSub : oldSubs) {
-                oldSub.setStatus(SubscriptionStatus.EXPIRED);
-                subscriptionRepository.save(oldSub);
-            }
-
-            Subscription subscription = Subscription.builder()
-                    .user(effectiveUser)
-                    .plan(plan)
-                    .order(order)
-                    .startDate(LocalDateTime.now())
-                    .endDate(LocalDateTime.now().plusDays(durationDays))
-                    .status(SubscriptionStatus.ACTIVE)
-                    .build();
-            subscriptionRepository.save(subscription);
-
+            activateApprovedOrder(order, "Tự động kích hoạt đơn hàng miễn phí");
             if (voucher != null) {
                 voucher.setUsedCount((voucher.getUsedCount() != null ? voucher.getUsedCount() : 0) + 1);
                 voucherRepository.save(voucher);
             }
-
-            try {
-                notificationService.createNotification(
-                        effectiveUser.getUserId(),
-                        com.hiremate.enums.NotificationType.SYSTEM_ALERT,
-                        "🎉 Nâng cấp tài khoản thành công!",
-                        "Chúc mừng bạn đã nâng cấp thành công gói " + plan.getPlanName() + " (" + durationDays + " ngày). Toàn bộ đặc quyền AI cao cấp đã được mở khóa!",
-                        order.getOrderId(),
-                        "payment_orders"
-                );
-            } catch (Exception notifEx) {
-                log.warn("Không thể gửi thông báo nâng cấp gói: {}", notifEx.getMessage());
-            }
         } else if (status == PaymentOrderStatus.PENDING && finalAmount.compareTo(BigDecimal.ZERO) > 0) {
             try {
+                String itemTitle = plan != null ? plan.getPlanName() : (request.getPlanName() != null ? request.getPlanName() : "Gói Add-on");
                 notificationService.notifyAdmins(
                         com.hiremate.enums.NotificationType.SYSTEM_ALERT,
                         "Đơn thanh toán mới chờ xác nhận",
-                        "Người dùng " + effectiveUser.getFullName() + " vừa tạo đơn thanh toán gói \"" + plan.getPlanName() + "\" (Mã GD: " + orderCode + ", " + String.format("%,d", finalAmount.longValue()) + "đ).",
+                        "Người dùng " + effectiveUser.getFullName() + " vừa tạo đơn thanh toán gói \"" + itemTitle + "\" (Mã GD: " + orderCode + ", " + String.format("%,d", finalAmount.longValue()) + "đ).",
                         order.getOrderId(),
                         "payment_orders"
                 );
@@ -551,13 +608,16 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         SubscriptionPlan plan = sub.getPlan();
-        return com.hiremate.dto.response.SubscriptionResponse.of(
+        int effectiveQuota = (sub.getCustomQuota() != null && sub.getCustomQuota() > 0)
+                ? sub.getCustomQuota()
+                : (plan != null && plan.getQuotaLimit() != null ? plan.getQuotaLimit() : 0);
+        com.hiremate.dto.response.SubscriptionResponse resp = com.hiremate.dto.response.SubscriptionResponse.of(
                 sub.getSubscriptionId(),
                 plan != null ? plan.getPlanId() : null,
                 plan != null ? plan.getPlanName() : "Gói dịch vụ kích hoạt",
                 plan != null ? plan.getPlanType() : "COMBO",
                 plan != null ? plan.getTargetRole() : (user.getRole() != null ? user.getRole().name() : null),
-                plan != null ? plan.getQuotaLimit() : 0,
+                effectiveQuota,
                 plan != null ? plan.getPrice() : java.math.BigDecimal.ZERO,
                 sub.getStartDate(),
                 sub.getEndDate(),
@@ -565,6 +625,9 @@ public class PaymentServiceImpl implements PaymentService {
                 daysRemaining,
                 true
         );
+        resp.setPlanDescription(plan != null ? plan.getDescription() : null);
+        resp.setCustomQuota(sub.getCustomQuota());
+        return resp;
     }
 
     @Override
@@ -621,13 +684,28 @@ public class PaymentServiceImpl implements PaymentService {
     private void activateApprovedOrder(PaymentOrder order, String adminNote) {
         order.setStatus(PaymentOrderStatus.APPROVED);
         order.setApprovedAt(LocalDateTime.now());
+
+        // Kiểm tra xem đơn hàng có phải là Add-on trước khi cập nhật note
+        boolean isAddonOrder = (order.getPlan() != null && "ADDON".equalsIgnoreCase(order.getPlan().getPlanType()))
+                || (order.getAdminNote() != null && (
+                order.getAdminNote().toLowerCase().contains("addon") ||
+                order.getAdminNote().toLowerCase().contains("credits") ||
+                order.getAdminNote().toLowerCase().contains("đẩy tin") ||
+                order.getAdminNote().toLowerCase().contains("nổi bật") ||
+                order.getAdminNote().toLowerCase().contains("huy hiệu")
+        ));
+
         if (adminNote != null && !adminNote.isBlank()) {
-            order.setAdminNote(adminNote);
+            if (order.getAdminNote() != null && !order.getAdminNote().isBlank()) {
+                order.setAdminNote(order.getAdminNote() + " [" + adminNote + "]");
+            } else {
+                order.setAdminNote(adminNote);
+            }
         }
 
-        // Đảm bảo đơn hàng được gán gói trả phí chính xác nếu trước đó bị gán nhầm Free Plan
+        // Đảm bảo đơn hàng được gán gói trả phí chính xác nếu trước đó bị gán nhầm Free Plan (TUYỆT ĐỐI KHÔNG gán cho Add-on)
         SubscriptionPlan plan = order.getPlan();
-        if ((plan == null || (plan.getPrice() != null && plan.getPrice().compareTo(BigDecimal.ZERO) == 0))
+        if (!isAddonOrder && (plan == null || (plan.getPrice() != null && plan.getPrice().compareTo(BigDecimal.ZERO) == 0))
                 && order.getAmount() != null && order.getAmount().compareTo(BigDecimal.ZERO) > 0) {
             String role = (order.getUser() != null && order.getUser().getRole() != null)
                     ? order.getUser().getRole().name() : "CANDIDATE";
@@ -649,12 +727,89 @@ public class PaymentServiceImpl implements PaymentService {
 
         paymentOrderRepository.save(order);
 
-        // Kích hoạt Subscription tự động ngay lập tức
-        if (order.getUser() != null && plan != null) {
+        if (isAddonOrder && order.getUser() != null) {
+            // Đơn hàng Add-on: TUYỆT ĐỐI KHÔNG làm hết hạn gói subscription hiện tại!
+            Subscription activeSub = subscriptionRepository
+                    .findFirstByUser_UserIdAndStatusOrderByCreatedAtDesc(order.getUser().getUserId(), SubscriptionStatus.ACTIVE)
+                    .orElse(null);
+
+            int addedCredits = 100;
+            if (order.getAdminNote() != null && order.getAdminNote().contains("500")) {
+                addedCredits = 500;
+            } else if (order.getAdminNote() != null && order.getAdminNote().contains("100")) {
+                addedCredits = 100;
+            } else if (order.getPlan() != null && order.getPlan().getQuotaLimit() != null && order.getPlan().getQuotaLimit() > 0) {
+                addedCredits = order.getPlan().getQuotaLimit();
+            }
+
+            // Lưu số dư Credits AI trực tiếp vào CSDL Recruiter
+            if (recruiterRepository != null) {
+                var recOpt = recruiterRepository.findById(order.getUser().getUserId());
+                if (recOpt.isPresent()) {
+                    var rec = recOpt.get();
+                    int cur = rec.getAiCredits() != null ? rec.getAiCredits() : 0;
+                    rec.setAiCredits(cur + addedCredits);
+                    recruiterRepository.save(rec);
+                    log.info(">> [PaymentService] Đã cộng {} AI credits vào tài khoản Recruiter ID #{} (tổng hiện tại: {})",
+                            addedCredits, rec.getRecruiterId(), rec.getAiCredits());
+                }
+            }
+
+            if (activeSub != null) {
+                int curSubCredits = activeSub.getRemainingAiTests() != null ? activeSub.getRemainingAiTests() : 0;
+                activeSub.setRemainingAiTests(curSubCredits + addedCredits);
+                subscriptionRepository.save(activeSub);
+                log.info(">> [PaymentService] Kích hoạt đơn Add-on {} ({} credits) thành công cho Recruiter {} (Gói: {})",
+                        order.getOrderCode(), addedCredits, order.getUser().getEmail(), activeSub.getPlan().getPlanName());
+            } else {
+                SubscriptionPlan basicPlan = subscriptionPlanRepository.findByTargetRoleAndIsActiveTrueOrderByPriceAsc("RECRUITER").stream()
+                        .findFirst().orElse(null);
+                if (basicPlan != null) {
+                    Subscription newSub = Subscription.builder()
+                            .user(order.getUser())
+                            .plan(basicPlan)
+                            .order(order)
+                            .startDate(LocalDateTime.now())
+                            .endDate(LocalDateTime.now().plusDays(365))
+                            .status(SubscriptionStatus.ACTIVE)
+                            .customQuota(basicPlan.getQuotaLimit() != null ? basicPlan.getQuotaLimit() : 3)
+                            .remainingJobPosts(basicPlan.getQuotaLimit() != null ? basicPlan.getQuotaLimit() : 3)
+                            .remainingAiTests(addedCredits)
+                            .build();
+                    subscriptionRepository.save(newSub);
+                }
+            }
+
+            try {
+                notificationService.createNotification(
+                        order.getUser().getUserId(),
+                        com.hiremate.enums.NotificationType.SYSTEM_ALERT,
+                        "🎉 Kích hoạt Add-on thành công!",
+                        "Bạn đã kích hoạt thành công gói tiện ích Add-on. Tài khoản của bạn đã được cộng thêm quyền lợi/credits tương ứng mà không làm gián đoạn gói đăng ký chính!",
+                        order.getOrderId(),
+                        "payment_orders"
+                );
+            } catch (Exception notifEx) {
+                log.warn("Không thể gửi thông báo Add-on cho user {}: {}", order.getUser().getUserId(), notifEx.getMessage());
+            }
+        } else if (order.getUser() != null && plan != null) {
             int durationDays = (plan.getDurationDays() != null && plan.getDurationDays() > 0) ? plan.getDurationDays() : 30;
-            if (order.getAdminNote() != null && order.getAdminNote().contains("YEARLY")) {
+            boolean isWeeklyOrShortTerm = durationDays <= 7 || (plan.getPlanName() != null && plan.getPlanName().toLowerCase().contains("plus"));
+            if (order.getAdminNote() != null) {
+                String note = order.getAdminNote().toUpperCase();
+                if (note.contains("12 THÁNG") || note.contains("YEARLY") || note.contains("1 NĂM")) {
+                    durationDays = 365;
+                } else if (note.contains("6 THÁNG")) {
+                    durationDays = 180;
+                } else if (note.contains("3 THÁNG")) {
+                    durationDays = 90;
+                } else if (note.contains("1 THÁNG")) {
+                    durationDays = 30;
+                }
+            } else if (!isWeeklyOrShortTerm && "YEARLY".equalsIgnoreCase(plan.getPlanType())) {
                 durationDays = 365;
             }
+
 
             // Hết hạn các gói cũ đang active của người dùng
             List<Subscription> oldSubs = subscriptionRepository.findByUser_UserIdAndStatus(order.getUser().getUserId(), SubscriptionStatus.ACTIVE);

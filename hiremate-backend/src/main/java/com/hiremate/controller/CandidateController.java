@@ -17,6 +17,23 @@ public class CandidateController {
 
     private final CandidateService candidateService;
 
+    @GetMapping("/saved-jobs")
+    @PreAuthorize("hasRole('CANDIDATE')")
+    public ResponseEntity<ApiResponse<String>> getSavedJobs(@AuthenticationPrincipal User user) {
+        String savedJobs = candidateService.getSavedJobs(user.getUserId());
+        return ResponseEntity.ok(ApiResponse.ok("Lấy danh sách việc làm đã lưu thành công", savedJobs));
+    }
+
+    @PostMapping("/saved-jobs")
+    @PreAuthorize("hasRole('CANDIDATE')")
+    public ResponseEntity<ApiResponse<Void>> updateSavedJobs(
+            @RequestBody(required = false) String savedJobsJson,
+            @AuthenticationPrincipal User user
+    ) {
+        candidateService.updateSavedJobs(user.getUserId(), savedJobsJson);
+        return ResponseEntity.ok(ApiResponse.ok("Lưu danh sách việc làm thành công", null));
+    }
+
     @GetMapping("/{candidateId}")
     @PreAuthorize("hasAnyRole('RECRUITER', 'ADMIN', 'CANDIDATE')")
     public ResponseEntity<ApiResponse<CandidateProfileResponse>> getCandidateProfile(

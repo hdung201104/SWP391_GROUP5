@@ -27,6 +27,27 @@ export default function CvViewModal({
   const [downloading, setDownloading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
+  const getMimeType = (fName, respType) => {
+    if (respType && typeof respType === 'string' && respType.includes('/')) {
+      if (!respType.includes('json') && !respType.includes('octet-stream')) {
+        return respType;
+      }
+    }
+    const name = String(fName || '').toLowerCase();
+    if (name.endsWith('.docx')) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    if (name.endsWith('.doc')) return 'application/msword';
+    if (name.endsWith('.png')) return 'image/png';
+    if (name.endsWith('.jpg') || name.endsWith('.jpeg')) return 'image/jpeg';
+    return 'application/pdf';
+  };
+
+  const getDocType = (fName) => {
+    const name = String(fName || '').toLowerCase();
+    if (name.endsWith('.docx') || name.endsWith('.doc')) return 'word';
+    if (name.endsWith('.png') || name.endsWith('.jpg') || name.endsWith('.jpeg')) return 'image';
+    return 'pdf';
+  };
+
   // Helper kiểm tra blob có phải là dữ liệu PDF thực sự hay JSON báo lỗi
   const isValidPdfBlob = async (blob) => {
     if (!blob || blob.size < 200) return false;
@@ -73,15 +94,17 @@ export default function CvViewModal({
 
         // 1. Tải blob preview từ backend endpoint nếu có resolvedCvId
         if (resolvedCvId) {
+          const expectedDocType = getDocType(fileName);
           try {
             const previewRes = await cvApi.previewCv(resolvedCvId);
-            const blob = extractBlob(previewRes, 'application/pdf');
+            const mime = getMimeType(fileName, previewRes?.headers?.['content-type']);
+            const blob = extractBlob(previewRes, mime);
             if (await isValidPdfBlob(blob)) {
               const url = window.URL.createObjectURL(blob);
               currentBlob = url;
               if (isMounted) {
                 setBlobUrl(url);
-                setPreviewType('pdf');
+                setPreviewType(expectedDocType);
               }
               loaded = true;
             }
@@ -92,13 +115,14 @@ export default function CvViewModal({
           if (!loaded) {
             try {
               const dlRes = await cvApi.downloadCv(resolvedCvId);
-              const dlBlob = extractBlob(dlRes, 'application/pdf');
+              const mime = getMimeType(fileName, dlRes?.headers?.['content-type']);
+              const dlBlob = extractBlob(dlRes, mime);
               if (await isValidPdfBlob(dlBlob)) {
                 const url = window.URL.createObjectURL(dlBlob);
                 currentBlob = url;
                 if (isMounted) {
                   setBlobUrl(url);
-                  setPreviewType('pdf');
+                  setPreviewType(expectedDocType);
                 }
                 loaded = true;
               }
@@ -187,24 +211,25 @@ export default function CvViewModal({
   const handleDownload = async () => {
     try {
       setDownloading(true);
-      const safeDownloadName = (fileName || `CV_${candidateName || 'Ung_Vien'}.pdf`).replace(/[\s/\\?%*:|"<>]+/g, '_');
+      const rawName = (fileName || `CV_${candidateName || 'Ung_Vien'}`).replace(/[\s/\\?%*:|"<>]+/g, '_');
+      const hasKnownExt = /\.(pdf|docx|doc|png|jpg|jpeg|webp)$/i.test(rawName);
+      const safeDownloadName = hasKnownExt ? rawName : `${rawName}.pdf`;
       const targetCvId = cvId || cvDetail?.cvId || (candidateId ? 1 : null);
 
       if (targetCvId) {
         try {
           const response = await cvApi.downloadCv(targetCvId);
-          const blob = extractBlob(response, 'application/pdf');
-          if (await isValidPdfBlob(blob)) {
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', safeDownloadName.endsWith('.pdf') ? safeDownloadName : `${safeDownloadName}.pdf`);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            window.URL.revokeObjectURL(url);
-            return;
-          }
+          const mime = getMimeType(safeDownloadName, response?.headers?.['content-type']);
+          const blob = extractBlob(response, mime);
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.setAttribute('download', safeDownloadName);
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          window.URL.revokeObjectURL(url);
+          return;
         } catch (apiErr) {
           console.warn('downloadCv API error, falling back to direct link:', apiErr);
         }
@@ -213,7 +238,7 @@ export default function CvViewModal({
       if (blobUrl && blobUrl.startsWith('blob:')) {
         const link = document.createElement('a');
         link.href = blobUrl;
-        link.setAttribute('download', safeDownloadName.endsWith('.pdf') ? safeDownloadName : `${safeDownloadName}.pdf`);
+        link.setAttribute('download', safeDownloadName);
         document.body.appendChild(link);
         link.click();
         link.remove();
@@ -317,7 +342,31 @@ export default function CvViewModal({
               <p className="text-xs text-slate-500 font-semibold">Đang tải và đồng bộ tệp CV gốc...</p>
             </div>
           ) : blobUrl ? (
-            previewType === 'image' ? (
+            previewType === 'word' ? (
+              <div className="w-full h-[640px] bg-white rounded-2xl border border-blue-200 shadow-xs flex flex-col items-center justify-center p-8 space-y-4 text-center">
+                <div className="w-20 h-20 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto shadow-inner">
+                  <span className="material-symbols-outlined text-4xl">description</span>
+                </div>
+                <div>
+                  <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200 uppercase">
+                    Tài Liệu Microsoft Word (.docx)
+                  </span>
+                  <h4 className="font-bold text-base text-[#1e1b4b] mt-3">{fileName}</h4>
+                  <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto leading-relaxed">
+                    Tệp CV gốc được ứng viên nộp dưới định dạng Word. Nhấn nút bên dưới để tải tệp về máy tính và xem nội dung chi tiết.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDownload}
+                  disabled={downloading}
+                  className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md transition-all flex items-center gap-2 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-base">download</span>
+                  <span>{downloading ? 'Đang tải...' : 'Tải File Word Về Máy'}</span>
+                </button>
+              </div>
+            ) : previewType === 'image' ? (
               <div className="w-full h-[640px] bg-slate-900/5 rounded-2xl border border-purple-100 shadow-xs overflow-auto flex flex-col items-center justify-start p-3 sm:p-4">
                 <div className="w-full flex items-center justify-between p-2.5 mb-3 bg-purple-50/90 rounded-xl border border-purple-200 text-xs shrink-0">
                   <span className="font-bold text-purple-900 flex items-center gap-1.5">

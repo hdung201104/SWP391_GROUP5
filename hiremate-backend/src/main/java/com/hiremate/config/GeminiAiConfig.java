@@ -19,7 +19,7 @@ public class GeminiAiConfig {
     @Value("${gemini.api.base-url:https://generativelanguage.googleapis.com/v1beta}")
     private String baseUrl;
 
-    @Value("${gemini.voice.api-key:}")
+    @Value("${gemini.voice.api-key:YOUR_GEMINI_VOICE_API_KEY}")
     private String voiceApiKey;
 
     @Value("${gemini.voice.model:gemini-3-flash-preview}")
@@ -57,7 +57,8 @@ public class GeminiAiConfig {
         java.util.List<String> list = new java.util.ArrayList<>();
         for (String t : tokens) {
             String clean = t.trim();
-            if (!clean.isEmpty() && !clean.contains("YOUR_GEMINI_API_KEY")) {
+            String upper = clean.toUpperCase();
+            if (!clean.isEmpty() && !upper.contains("YOUR_GEMINI_API_KEY") && !upper.contains("YOUR_GEMINI_API_KEY_HERE") && clean.length() >= 15) {
                 list.add(clean);
             }
         }

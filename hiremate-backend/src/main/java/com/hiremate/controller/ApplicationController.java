@@ -61,6 +61,16 @@ public class ApplicationController {
         return ResponseEntity.ok(ApiResponse.ok(apps));
     }
 
+    @GetMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<ApplicationResponse>> getApplicationById(
+            @PathVariable Long id,
+            @AuthenticationPrincipal User user
+    ) {
+        ApplicationResponse response = applicationService.getApplicationById(id, user);
+        return ResponseEntity.ok(ApiResponse.ok("Lấy chi tiết đơn ứng tuyển thành công", response));
+    }
+
     @GetMapping("/recruiter/my")
     @PreAuthorize("hasRole('RECRUITER')")
     public ResponseEntity<ApiResponse<List<ApplicationResponse>>> getMyRecruiterApplications(@AuthenticationPrincipal User user) {
@@ -122,5 +132,19 @@ public class ApplicationController {
                 .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"candidates_job_" + jobId + ".csv\"")
                 .contentType(org.springframework.http.MediaType.parseMediaType("text/csv; charset=UTF-8"))
                 .body(csvData);
+    }
+
+    @RequestMapping(value = "/{id}/respond-offer", method = {RequestMethod.PATCH, RequestMethod.PUT, RequestMethod.POST})
+    @PreAuthorize("hasRole('CANDIDATE')")
+    public ResponseEntity<ApiResponse<ApplicationResponse>> respondOffer(
+            @PathVariable Long id,
+            @RequestBody com.hiremate.dto.request.RespondOfferRequest request,
+            @AuthenticationPrincipal User user
+    ) {
+        ApplicationResponse response = applicationService.respondOffer(id, request, user);
+        return ResponseEntity.ok(ApiResponse.ok(
+                (request != null && request.isAccepted()) ? "Xác nhận nhận việc thành công" : "Từ chối đề nghị nhận việc thành công",
+                response
+        ));
     }
 }

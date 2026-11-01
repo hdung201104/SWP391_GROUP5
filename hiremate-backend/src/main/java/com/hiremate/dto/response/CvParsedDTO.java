@@ -40,6 +40,10 @@ public class CvParsedDTO {
     @JsonAlias({"bio", "objective", "about"})
     private String summary;
 
+    @JsonProperty("years_of_experience")
+    @JsonAlias({"yearsOfExperience", "experience_years", "experienceYears"})
+    private Integer yearsOfExperience;
+
     @JsonProperty("skills")
     @JsonAlias({"top_skills", "topSkills", "detected_skills", "detectedSkills"})
     private List<String> skills;

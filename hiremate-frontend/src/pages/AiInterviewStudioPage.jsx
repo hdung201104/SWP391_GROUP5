@@ -28,75 +28,75 @@ const fmt = (s) => String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s 
 const VOICE_PRESETS = [
   {
     id: 'vi-native',
-    name: 'Thu Hà (Native Studio VN)',
+    name: 'Giọng Nữ Chuẩn Mực',
     gender: 'Nữ',
-    tone: '100% Tiếng Việt Bản Xứ Chuẩn Mực',
-    badge: 'Khuyên Dùng',
+    tone: 'Miền Bắc - Khuyên dùng',
+    badge: 'Phản Hồi Tức Thì',
     minTier: 'FREE',
     tierLabel: 'Mọi Gói',
     color: 'from-emerald-500 to-teal-600',
-    desc: 'Động cơ giọng đọc phát thanh viên tiếng Việt bản xứ: phát âm tròn vành rõ chữ, chuẩn từng thanh điệu, ngữ điệu tự nhiên, tuyệt đối không bị lai giọng Tây hay bập bẹ.',
-    sampleText: 'Chào bạn, tôi là trợ lý phỏng vấn AI HireMate. Rất vui được đồng hành cùng bạn trong buổi trao đổi hôm nay.'
+    desc: 'Phát âm tiếng Việt rõ chữ, chuẩn từng thanh điệu, ngữ điệu tự nhiên và tốc độ phản hồi tức thì.',
+    sampleText: 'Chào bạn, tôi là người phỏng vấn từ HireMate AI. Rất vui được đồng hành cùng bạn trong buổi phỏng vấn hôm nay.'
   },
   {
     id: 'eleven-alice',
-    name: 'Alice (ElevenLabs Turbo AI)',
+    name: 'Giọng Nữ Truyền Cảm',
     gender: 'Nữ',
-    tone: 'Tự nhiên, có hơi thở',
-    badge: 'Generative AI',
+    tone: 'Song ngữ Việt - Anh',
+    badge: 'Song Ngữ Chuẩn',
     minTier: 'PLUS',
     tierLabel: 'Practice Plus+',
     color: 'from-pink-500 to-rose-500',
-    desc: 'Mô hình ElevenLabs Turbo v2.5 thế hệ mới: giọng nói có hơi thở, ngữ điệu phong phú, phát âm tiếng Anh cực chuẩn và hỗ trợ song ngữ linh hoạt.',
-    sampleText: 'Hello! I am HireMate AI interviewer, excited to evaluate your system design and engineering skills.'
+    desc: 'Giọng nữ truyền cảm, ngữ điệu phong phú, phát âm mượt mà, phù hợp khi phỏng vấn có nhiều thuật ngữ tiếng Anh.',
+    sampleText: 'Chào bạn, tôi là người phỏng vấn AI. Chúng ta sẽ cùng nhau thảo luận sâu về kiến thức chuyên môn và kinh nghiệm dự án nhé.'
   },
   {
     id: 'eleven-george',
-    name: 'George (Tech Lead AI)',
+    name: 'Giọng Nam Trầm Ấm',
     gender: 'Nam',
-    tone: 'Trầm ấm, đĩnh đạc',
-    badge: 'Chuyên Gia Kỹ Thuật',
+    tone: 'Phong thái điềm tĩnh',
+    badge: 'Chuyên Nghiệp',
     minTier: 'PRO',
     tierLabel: 'Practice Pro VIP',
     color: 'from-blue-600 to-indigo-600',
-    desc: 'Giọng đọc nam trầm ấm ElevenLabs Turbo v2.5, phong thái phỏng vấn kỹ thuật đĩnh đạc, chuẩn xác thuật ngữ công nghệ.',
-    sampleText: 'Chào bạn, tôi là người phỏng vấn kỹ thuật từ HireMate AI. Hãy cùng bắt đầu câu hỏi chuyên môn nhé.'
+    desc: 'Giọng nam trầm, đĩnh đạc, phát âm rõ ràng, phong thái phỏng vấn kỹ thuật và chuyên môn điềm tĩnh.',
+    sampleText: 'Chào bạn, tôi là người phỏng vấn từ HireMate AI. Chúng ta hãy bắt đầu các câu hỏi chuyên môn trong buổi phỏng vấn nhé.'
   }
 ];
 
 // ============================================================================
-// HỆ THỐNG PHONG CÁCH NGƯỜI PHỎNG VẤN (INTERVIEWER PERSONAS) PHÂN QUYỀN THEO GÓI
+// HỆ THỐNG CHẾ ĐỘ & ÁP LỰC PHỎNG VẤN (INTERVIEW MODES) PHÂN QUYỀN THEO GÓI
 // ============================================================================
 const INTERVIEWER_PERSONAS = [
   {
     id: 'HR_MANAGER',
-    title: 'Giám Đốc Tuyển Dụng & Nhân Sự',
-    subtitle: 'HR Talent Partner & Culture Fit',
-    icon: 'groups',
+    title: 'Chuyên Gia Tuyển Dụng & Nhân Sự (HR Partner)',
+    subtitle: 'Culture Fit, Teamwork & STAR Method',
+    icon: 'assignment_turned_in',
     minTier: 'FREE',
     tierLabel: 'Mọi Gói',
     color: 'from-blue-500 to-indigo-600',
-    desc: 'Phong cách lịch thiệp, sâu sắc, quan tâm đến văn hóa doanh nghiệp, kỹ năng làm việc nhóm, giải quyết xung đột và phương pháp STAR.',
+    desc: 'Phong cách lịch thiệp, khai thác sâu thái độ làm việc, sự phù hợp văn hóa doanh nghiệp, kỹ năng phối hợp đội nhóm và cấu trúc trả lời STAR.',
   },
   {
     id: 'TECH_LEAD',
-    title: 'Trưởng Nhóm Kỹ Thuật (Tech Lead)',
-    subtitle: 'Engineering Lead & Architect',
-    icon: 'terminal',
+    title: 'Trưởng Bộ Phận Chuyên Môn (Domain / Tech Lead)',
+    subtitle: 'Core Knowledge & Troubleshooting',
+    icon: 'psychology_alt',
     minTier: 'PLUS',
     tierLabel: 'Practice Plus+',
     color: 'from-purple-600 to-indigo-700',
-    desc: 'Tập trung cao độ vào tư duy kiến trúc hệ thống, chất lượng mã nguồn, xử lý đồng thời, tối ưu cơ sở dữ liệu và đánh đổi kỹ thuật (Trade-offs).',
+    desc: 'Tập trung xoáy sâu vào kiến thức nghiệp vụ cốt lõi, kỹ năng thực chiến, tư duy xử lý sự cố và phương án tối ưu trong công việc.',
   },
   {
     id: 'STRICT_DIRECTOR',
-    title: 'Giám Đốc Khắt Khe & Chiến Lược',
-    subtitle: 'Managing Director & Board Member',
-    icon: 'workspace_premium',
+    title: 'Giám Đốc Điều Hành Khắt Khe (Executive Director)',
+    subtitle: 'High Pressure & Quantitative Challenge',
+    icon: 'crisis_alert',
     minTier: 'PRO',
     tierLabel: 'Practice Pro VIP',
     color: 'from-amber-500 to-rose-600',
-    desc: 'Khắt khe và thực tế. Luôn chất vấn về các chỉ số định lượng cụ thể (Metrics, ROI, Latency, KPIs), cách ứng viên chịu áp lực và bài học đắt giá từ thất bại.',
+    desc: 'Phản biện trực diện và thực tế. Luôn chất vấn về số liệu chứng minh kết quả (KPIs, ROI, Metrics), khả năng chịu áp lực và bài học từ thất bại.',
   },
 ];
 
@@ -513,6 +513,17 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
   const [selectedFocusSkills, setSelectedFocusSkills] = useState([]);
   const [customSkillInput, setCustomSkillInput] = useState('');
   const [customFocusNotes, setCustomFocusNotes] = useState('');
+  const [retryParentSessionId, setRetryParentSessionId] = useState(null);
+
+  const handleRetrySession = (sess) => {
+    const parentId = sess?.sessionId || sess?.id;
+    if (parentId) {
+      setRetryParentSessionId(parentId);
+      showToast('🔄 Đã kích hoạt chế độ luyện tập lại (PRACTICE_RETRY). Phiên mới sẽ so sánh độ tiến bộ với lần thi trước!');
+    }
+    setView('setup');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // Live Interview State
   const [interviewConfig, setInterviewConfig] = useState(null);
@@ -561,6 +572,7 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
     wpmSamples: [],
     eyeContactSamples: [],
     emotions: { confident: 0, smiling: 0, focused: 0, tense: 0 },
+    postures: { good: 0, bowing: 0, profile: 0, lookingUp: 0 },
     totalFillers: 0,
     hasCameraEverBeenOn: false,
   });
@@ -569,6 +581,8 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
   const audioContextRef = useRef(null);
   const analyserRef = useRef(null);
   const micMediaStreamRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
   const audioAnimFrameRef = useRef(null);
   const speechTurnStartTimeRef = useRef(0);
 
@@ -683,8 +697,14 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
     if (cv.yearsOfExperience) parts.push(`Kinh nghiệm: ${cv.yearsOfExperience} năm`);
     if (cv.skills && Array.isArray(cv.skills) && cv.skills.length > 0) {
       parts.push(`Kỹ năng CV: ${cv.skills.slice(0, 12).join(', ')}`);
+    } else if (cv.detectedSkills && Array.isArray(cv.detectedSkills) && cv.detectedSkills.length > 0) {
+      parts.push(`Kỹ năng CV: ${cv.detectedSkills.slice(0, 12).join(', ')}`);
     }
-    if (cv.summary) parts.push(`Tóm tắt: ${cv.summary.slice(0, 300)}`);
+    if (cv.summary) {
+      parts.push(`Tóm tắt: ${cv.summary.slice(0, 300)}`);
+    } else if (cv.parsedText) {
+      parts.push(`Nội dung trích xuất CV: ${cv.parsedText.slice(0, 600)}`);
+    }
     if (cv.projects) {
       const p = typeof cv.projects === 'string' ? cv.projects : JSON.stringify(cv.projects);
       parts.push(`Dự án thực tế: ${p.slice(0, 400)}`);
@@ -1068,9 +1088,25 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
 
   // Fetch real jobs, candidate CVs and history on mount
   useEffect(() => {
+    // Đọc tham số jobId từ URL hash (ví dụ #/ai-interview?jobId=15)
+    const getUrlJobId = () => {
+      try {
+        const hash = window.location.hash || '';
+        const search = window.location.search || '';
+        let match = hash.match(/[?&]jobId=([^&#]+)/);
+        if (!match && search) {
+          match = search.match(/[?&]jobId=([^&#]+)/);
+        }
+        return match ? decodeURIComponent(match[1]) : null;
+      } catch {
+        return null;
+      }
+    };
+    const targetJobId = getUrlJobId();
+
     // 1. Load real jobs from HireMate
-    jobApi.getJobs({ page: 0, size: 20 })
-      .then((res) => {
+    jobApi.getJobs({ page: 0, size: 50 })
+      .then(async (res) => {
         const list = res?.data?.content || res?.data || [];
         if (Array.isArray(list) && list.length > 0) {
           const mapped = list.map((j) => ({
@@ -1078,7 +1114,48 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
             salaryText: formatSalary(j.salaryMin, j.salaryMax),
           }));
           setAvailableJobs(mapped);
+
+          if (targetJobId) {
+            const foundJob = mapped.find(
+              (j) => String(j.jobId || j.id) === String(targetJobId)
+            );
+            if (foundJob) {
+              setSelectedJob(foundJob);
+              return;
+            }
+            // Nếu chưa có trong danh sách 50 tin, fetch trực tiếp getJobById
+            try {
+              const singleRes = await jobApi.getJobById(targetJobId);
+              const singleJob = singleRes?.data || singleRes;
+              if (singleJob && (singleJob.id || singleJob.jobId)) {
+                const formatted = {
+                  ...singleJob,
+                  salaryText: formatSalary(singleJob.salaryMin, singleJob.salaryMax),
+                };
+                setAvailableJobs((prev) => [formatted, ...prev]);
+                setSelectedJob(formatted);
+                return;
+              }
+            } catch (singleErr) {
+              console.warn('Could not load target job from URL:', singleErr);
+            }
+          }
           setSelectedJob(mapped[0]);
+        } else if (targetJobId) {
+          try {
+            const singleRes = await jobApi.getJobById(targetJobId);
+            const singleJob = singleRes?.data || singleRes;
+            if (singleJob && (singleJob.id || singleJob.jobId)) {
+              const formatted = {
+                ...singleJob,
+                salaryText: formatSalary(singleJob.salaryMin, singleJob.salaryMax),
+              };
+              setAvailableJobs([formatted]);
+              setSelectedJob(formatted);
+            }
+          } catch (singleErr) {
+            console.warn('Could not load target job from URL:', singleErr);
+          }
         }
       })
       .catch((err) => console.warn('Could not load jobs:', err));
@@ -1102,8 +1179,7 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
       const cached = JSON.parse(localStorage.getItem(userHistoryCacheKey) || '[]');
       const sanitized = Array.isArray(cached) ? cached.map((item) => {
         const rawScore = item.totalScore != null ? Math.round(item.totalScore) : 0;
-        const qCount = item.questionsCount || item.questions?.length || 0;
-        const finalScore = rawScore > 0 ? rawScore : (qCount > 0 ? Math.min(88, 70 + qCount * 3) : 0);
+        const finalScore = rawScore;
         const grade = finalScore >= 85 ? 'Xuất Sắc' : finalScore >= 70 ? 'Đạt Yêu Cầu' : finalScore >= 50 ? 'Cần Rèn Luyện Thêm' : 'Chưa Hoàn Tất';
         return { ...item, totalScore: finalScore, grade };
       }) : [];
@@ -1146,7 +1222,7 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
     }
   }, [view]);
 
-  // Phân tích sâu CV bằng AI logic để may đo các vị trí phỏng vấn mục tiêu (AI Tailored Practice Tracks)
+  // Phân tích sâu CV bằng AI logic để may đo các vị trí phỏng vấn mục tiêu đa ngành nghề (AI Tailored Practice Tracks)
   const generateAiTracksFromCv = (cv) => {
     if (!cv) return [];
 
@@ -1171,9 +1247,145 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
 
     const uniqueSkills = Array.from(new Set(rawSkills.map((s) => String(s).trim()))).filter(Boolean);
     const skillsLower = uniqueSkills.map((s) => s.toLowerCase());
+    const fullCvText = [
+      cv.parsedText || '',
+      cv.headline || '',
+      cv.title || '',
+      cv.summary || '',
+      cv.content || '',
+      ...uniqueSkills,
+    ].join(' ').toLowerCase();
 
     const tracks = [];
 
+    // Nhận diện các ngành nghề kinh tế / phi kỹ thuật (Non-Tech Domains)
+    const hasFinance = fullCvText.includes('kế toán') || fullCvText.includes('kiểm toán') || fullCvText.includes('tài chính') ||
+      fullCvText.includes('bctc') || fullCvText.includes('thuế') || fullCvText.includes('vat') || fullCvText.includes('tndn') ||
+      fullCvText.includes('vas') || fullCvText.includes('ifrs') || fullCvText.includes('misa') || fullCvText.includes('công nợ') ||
+      fullCvText.includes('ngân hàng') || fullCvText.includes('accounting') || fullCvText.includes('finance') || fullCvText.includes('audit');
+
+    const hasMarketing = fullCvText.includes('marketing') || fullCvText.includes('seo') || fullCvText.includes('sem') ||
+      fullCvText.includes('content') || fullCvText.includes('truyền thông') || fullCvText.includes('digital marketing') ||
+      fullCvText.includes('facebook ads') || fullCvText.includes('google ads') || fullCvText.includes('tiktok') ||
+      fullCvText.includes('roas') || fullCvText.includes('brand') || fullCvText.includes('chiến dịch') || fullCvText.includes('quảng cáo');
+
+    const hasSales = fullCvText.includes('sales') || fullCvText.includes('kinh doanh') || fullCvText.includes('bán hàng') ||
+      fullCvText.includes('phát triển thị trường') || fullCvText.includes('business development') || fullCvText.includes('b2b') ||
+      fullCvText.includes('b2c') || fullCvText.includes('crm') || fullCvText.includes('chốt đơn') || fullCvText.includes('đàm phán') ||
+      fullCvText.includes('doanh số') || fullCvText.includes('kpi sales') || fullCvText.includes('khách hàng mục tiêu');
+
+    const hasHr = fullCvText.includes('nhân sự') || fullCvText.includes('hr') || fullCvText.includes('tuyển dụng') ||
+      fullCvText.includes('c&b') || fullCvText.includes('talent acquisition') || fullCvText.includes('headhunt') ||
+      fullCvText.includes('tiền lương') || fullCvText.includes('phúc lợi') || fullCvText.includes('bhxh') ||
+      fullCvText.includes('luật lao động') || fullCvText.includes('onboarding') || fullCvText.includes('văn hóa doanh nghiệp');
+
+    const hasBA = fullCvText.includes('business analyst') || fullCvText.includes('product owner') || fullCvText.includes('product manager') ||
+      fullCvText.includes('scrum master') || fullCvText.includes('brd') || fullCvText.includes('srs') || fullCvText.includes('user story') ||
+      fullCvText.includes('use case') || fullCvText.includes('bpmn') || fullCvText.includes('phân tích nghiệp vụ') || fullCvText.includes('backlog');
+
+    const hasQA = fullCvText.includes('tester') || fullCvText.includes('test case') || fullCvText.includes('test plan') ||
+      fullCvText.includes('selenium') || fullCvText.includes('postman') || fullCvText.includes('jmeter') || fullCvText.includes('automation test') ||
+      fullCvText.includes('manual test') || fullCvText.includes('kiểm thử') || fullCvText.includes('quality assurance') || fullCvText.includes('qa/qc');
+
+    const hasLogistics = fullCvText.includes('logistics') || fullCvText.includes('chuỗi cung ứng') || fullCvText.includes('supply chain') ||
+      fullCvText.includes('xuất nhập khẩu') || fullCvText.includes('hải quan') || fullCvText.includes('incoterms') || fullCvText.includes('tờ khai') ||
+      fullCvText.includes('vnaccs') || fullCvText.includes('kho bãi') || fullCvText.includes('wms') || fullCvText.includes('forwarder');
+
+    const isNonTechCv = (hasFinance || hasMarketing || hasSales || hasHr || hasLogistics) &&
+      !skillsLower.some((s) => s.includes('java') || s.includes('python') || s.includes('react') || s.includes('docker') || s.includes('kubernetes'));
+
+    // 1. Phân nhánh Kế toán / Kiểm toán / Tài chính
+    if (hasFinance) {
+      tracks.push({
+        id: 'track-finance-accounting',
+        title: 'Chuyên viên Kế toán & Quản trị Tài chính Doanh nghiệp',
+        domain: 'Tài chính, Kế toán & Kiểm toán',
+        matchScore: 95,
+        focusSkills: ['Báo cáo tài chính (BCTC)', 'Chuẩn mực VAS / IFRS', 'Quyết toán thuế & Hóa đơn', 'Phần mềm MISA / SAP', 'Quản trị dòng tiền'],
+        reasoning: 'Hồ sơ thể hiện nền tảng vững vàng về nghiệp vụ kế toán, đối chiếu chứng từ và tuân thủ thuế. AI sẽ đào sâu vào kiểm soát rủi ro tài chính, cân đối dòng tiền và lập báo cáo quản trị.',
+        interviewFocus: 'Kiểm soát nội bộ, tối ưu thuế TNDN/GTGT, lập báo cáo lưu chuyển tiền tệ và phản biện số liệu chi phí.',
+      });
+    }
+
+    // 2. Phân nhánh Marketing / Truyền thông / SEO
+    if (hasMarketing) {
+      tracks.push({
+        id: 'track-digital-marketing',
+        title: 'Digital Marketing & Performance Campaign Specialist',
+        domain: 'Digital Marketing & Brand Growth',
+        matchScore: 94,
+        focusSkills: ['Chiến dịch Performance (Ads)', 'Chiến lược Content & SEO', 'Phễu chuyển đổi & CVR', 'Phân tích chỉ số ROAS/CAC', 'Quản trị thương hiệu'],
+        reasoning: 'CV có thế mạnh nổi bật về truyền thông số và tối ưu chiến dịch đa kênh. AI sẽ tập trung vào tư duy phân tích tệp khách hàng mục tiêu, tối ưu chi phí quảng cáo và xử lý khủng hoảng truyền thông.',
+        interviewFocus: 'Tối ưu chỉ số ROAS/CAC, lập kế hoạch chiến dịch ra mắt sản phẩm mới, xây dựng content viral và A/B testing.',
+      });
+    }
+
+    // 3. Phân nhánh Kinh doanh / Sales / BD
+    if (hasSales) {
+      tracks.push({
+        id: 'track-sales-bd',
+        title: 'Chuyên viên Phát triển Kinh doanh & Bán hàng B2B/B2C (Sales / BD)',
+        domain: 'Bán hàng, Đàm phán & Phát triển Đối tác',
+        matchScore: 93,
+        focusSkills: ['Quy trình Sales Pipeline & CRM', 'Kỹ năng Đàm phán & Thuyết phục', 'Xử lý từ chối (Objection Handling)', 'Chăm sóc & Mở rộng khách hàng', 'Vượt chỉ tiêu doanh số (KPI/Quota)'],
+        reasoning: 'Hồ sơ nổi bật với năng lực khai phá thị trường và kỹ năng tương tác khách hàng. AI sẽ thử thách khả năng xử lý từ chối của khách hàng khó tính, nghệ thuật chốt hợp đồng và chiến lược quản lý phễu khách hàng.',
+        interviewFocus: 'Chiến thuật SPIN selling, đàm phán hợp đồng giá trị cao, phục hồi khách hàng rời bỏ và vượt quota doanh số.',
+      });
+    }
+
+    // 4. Phân nhánh Nhân sự (HR / C&B / Tuyển dụng)
+    if (hasHr) {
+      tracks.push({
+        id: 'track-hr-talent',
+        title: 'Chuyên viên Nhân sự Tổng hợp & Tuyển dụng (HR / Talent Acquisition)',
+        domain: 'Quản trị Nguồn nhân lực & Văn hóa Doanh nghiệp',
+        matchScore: 92,
+        focusSkills: ['Tuyển dụng & Headhunting', 'Chế độ C&B & Luật Lao động', 'Đánh giá năng lực (KPI/OKR)', 'Đào tạo & Onboarding', 'Giữ chân nhân tài (Retention)'],
+        reasoning: 'CV thể hiện kỹ năng toàn diện về quản trị nhân sự và quy trình tuyển chọn ứng viên. AI sẽ khảo sát khả năng phỏng vấn sàng lọc, xử lý tranh chấp lao động và xây dựng chính sách phúc lợi giữ chân nhân viên.',
+        interviewFocus: 'Xây dựng thương hiệu nhà tuyển dụng, giải quyết xung đột nội bộ, tuân thủ Luật Lao động và tối ưu tỷ lệ turnover.',
+      });
+    }
+
+    // 5. Phân nhánh BA / Product Manager
+    if (hasBA) {
+      tracks.push({
+        id: 'track-business-analyst',
+        title: 'Business Analyst & Product Specialist (Chuyên viên Phân tích Nghiệp vụ)',
+        domain: 'Phân tích Nghiệp vụ & Quản lý Sản phẩm',
+        matchScore: 94,
+        focusSkills: ['Khảo sát & Đặc tả yêu cầu (BRD/SRS)', 'Vẽ luồng nghiệp vụ (BPMN/UML)', 'User Story & Acceptance Criteria', 'Quản trị Scope & Backlog', 'Phối hợp Stakeholders & UAT'],
+        reasoning: 'Hồ sơ có năng lực cầu nối xuất sắc giữa nghiệp vụ kinh doanh và đội ngũ công nghệ. AI sẽ kiểm tra khả năng bóc tách yêu cầu phức tạp, giải quyết xung đột phạm vi dự án và tối ưu quy trình vận hành.',
+        interviewFocus: 'Khai thác Requirement từ Stakeholders khó tính, xử lý Scope Creep, thiết kế Use Case và nghiệm thu UAT.',
+      });
+    }
+
+    // 6. Phân nhánh QA / QC / Kiểm thử phần mềm
+    if (hasQA) {
+      tracks.push({
+        id: 'track-qa-tester',
+        title: 'Software Quality Assurance & Automation Test Engineer (QA/QC)',
+        domain: 'Software Quality Assurance & Testing',
+        matchScore: 95,
+        focusSkills: ['Thiết kế Test Cases & Test Scenarios', 'Kiểm thử Hướng biên & Bảng quyết định', 'API Testing (Postman/RestAssured)', 'Automation Testing', 'Quản lý Bug & UAT'],
+        reasoning: 'Hồ sơ có thế mạnh rõ nét về kiểm soát chất lượng phần mềm. AI sẽ tập trung khai thác tư duy tìm bắt lỗi tiềm ẩn, phương pháp thiết kế ca kiểm thử tối ưu và kinh nghiệm kiểm thử hồi quy/tải cao.',
+        interviewFocus: 'Kỹ thuật phân vùng tương đương, kiểm thử biên, API testing, viết automation script và quản trị vòng đời bug.',
+      });
+    }
+
+    // 7. Phân nhánh Logistics & Xuất nhập khẩu
+    if (hasLogistics) {
+      tracks.push({
+        id: 'track-logistics-supplychain',
+        title: 'Chuyên viên Logistics & Xuất Nhập Khẩu (Supply Chain Specialist)',
+        domain: 'Chuỗi Cung Ứng & Thủ Tục Ngoại Thương',
+        matchScore: 93,
+        focusSkills: ['Thủ tục Hải quan & Tờ khai VNACCS', 'Quy chuẩn Incoterms', 'Quản trị Kho vận (WMS/Inventory)', 'Vận tải Quốc tế & Forwarder', 'Tối ưu hóa Chi phí Chuỗi cung ứng'],
+        reasoning: 'CV thể hiện kiến thức chuyên sâu về nghiệp vụ xuất nhập khẩu và điều phối hàng hóa. AI sẽ đặt ra các bài toán giải quyết sự cố thông quan, lựa chọn điều kiện Incoterms và tối ưu tồn kho.',
+        interviewFocus: 'Xử lý vướng mắc tờ khai hải quan, đàm phán cước tàu forwarder, áp dụng Incoterms 2020 và kiểm soát lead time.',
+      });
+    }
+
+    // 8. Nhận diện các ngành Công nghệ Phần mềm (Tech Tracks)
     const hasJava = skillsLower.some((s) => s.includes('java') || s.includes('spring'));
     const hasReact = skillsLower.some((s) => s.includes('react') || s.includes('typescript') || s.includes('frontend') || s.includes('next'));
     const hasPython = skillsLower.some((s) => s.includes('python') || s.includes('django') || s.includes('fastapi') || s.includes('ai') || s.includes('machine learning'));
@@ -1229,7 +1441,8 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
       });
     }
 
-    if (hasDevOps || tracks.length < 2) {
+    // TUYỆT ĐỐI CHỈ gợi ý DevOps khi có kỹ năng DevOps VÀ KHÔNG PHẢI ngành phi kỹ thuật
+    if (hasDevOps && !isNonTechCv) {
       tracks.push({
         id: 'track-devops-cloud',
         title: 'Cloud DevOps & CI/CD Platform Engineer',
@@ -1253,17 +1466,30 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
       });
     }
 
+    // Fallback thông minh: nếu chưa nhận diện được track cụ thể nào
     if (tracks.length === 0) {
-      const topSkills = uniqueSkills.slice(0, 4);
-      tracks.push({
-        id: 'track-general-tech',
-        title: cv.headline || 'Software Engineer (Kỹ Sư Phần Mềm)',
-        domain: 'Software Engineering & System Fundamentals',
-        matchScore: 85,
-        focusSkills: topSkills.length > 0 ? topSkills : ['OOP', 'Data Structures', 'RESTful API', 'SQL'],
-        reasoning: `Dựa trên hồ sơ CV ${cv.title || cv.fileName || ''}, AI đã tổng hợp các kỹ năng cốt lõi để xây dựng kịch bản phỏng vấn bám sát kinh nghiệm thực tế của bạn.`,
-        interviewFocus: 'Tư duy giải quyết vấn đề, thuật toán, thiết kế cơ sở dữ liệu và làm việc nhóm trong môi trường Agile.',
-      });
+      if (isNonTechCv) {
+        tracks.push({
+          id: 'track-general-business',
+          title: cv.headline || 'Chuyên viên Nghiệp vụ & Vận hành Doanh nghiệp',
+          domain: 'Nghiệp vụ Doanh nghiệp & Vận hành',
+          matchScore: 88,
+          focusSkills: ['Kỹ năng giao tiếp & đàm phán', 'Giải quyết vấn đề nghiệp vụ', 'Lập kế hoạch & báo cáo', 'Quy trình vận hành'],
+          reasoning: `Dựa trên hồ sơ CV ${cv.title || cv.fileName || ''}, AI đã may đo lộ trình phỏng vấn nghiệp vụ chuyên sâu bám sát kinh nghiệm thực tế của bạn.`,
+          interviewFocus: 'Tư duy xử lý tình huống nghiệp vụ, phối hợp liên phòng ban và tối ưu hóa hiệu quả công việc.',
+        });
+      } else {
+        const topSkills = uniqueSkills.slice(0, 4);
+        tracks.push({
+          id: 'track-general-tech',
+          title: cv.headline || 'Software Engineer (Kỹ Sư Phần Mềm)',
+          domain: 'Software Engineering & System Fundamentals',
+          matchScore: 85,
+          focusSkills: topSkills.length > 0 ? topSkills : ['OOP', 'Data Structures', 'RESTful API', 'SQL'],
+          reasoning: `Dựa trên hồ sơ CV ${cv.title || cv.fileName || ''}, AI đã tổng hợp các kỹ năng cốt lõi để xây dựng kịch bản phỏng vấn bám sát kinh nghiệm thực tế của bạn.`,
+          interviewFocus: 'Tư duy giải quyết vấn đề, thuật toán, thiết kế cơ sở dữ liệu và làm việc nhóm trong môi trường Agile.',
+        });
+      }
     }
 
     return tracks;
@@ -1576,6 +1802,9 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
 
       telemetryHistoryRef.current.eyeContactSamples.push(eyeContact);
       telemetryHistoryRef.current.emotions.confident++;
+      if (telemetryHistoryRef.current.postures) {
+        telemetryHistoryRef.current.postures.good++;
+      }
     }, 1200);
   };
 
@@ -1656,6 +1885,7 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
         startAcousticAnalysis().then(() => {
           if (!isAiSpeakingRef.current && !isSpeakingRef.current && !currentAudioRef.current) {
             startSpeechRecognizer();
+            startTurnAudioRecording();
           }
         });
       }
@@ -1720,7 +1950,7 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
       setTurnFillerCount(0);
       return;
     }
-    const words = currentAnswer.trim().split(/\s+/).filter((w) => w.length > 0);
+    const words = currentAnswer.trim().split(/\s+/).filter(Boolean);
     const wordCount = words.length;
 
     if (!speechTurnStartTimeRef.current) {
@@ -1729,15 +1959,12 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
     const durationMin = Math.max(0.04, (Date.now() - speechTurnStartTimeRef.current) / 60000);
     const wpm = Math.min(220, Math.max(60, Math.round(wordCount / durationMin)));
     setLiveWpm(wpm);
-    telemetryHistoryRef.current.wpmSamples.push(wpm);
 
-    // Bộ lọc từ đệm
+    // Bộ lọc từ đệm hiển thị trực tiếp trên giao diện
     const { count, lastWord } = detectFillerWords(currentAnswer);
     setTurnFillerCount(count);
     if (lastWord && lastWord !== lastFillerAlert) {
       setLastFillerAlert(lastWord);
-      setSessionFillerCount((prev) => prev + 1);
-      telemetryHistoryRef.current.totalFillers += 1;
     }
   }, [currentAnswer]);
 
@@ -1865,6 +2092,73 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
     }
   };
 
+  // Bắt đầu thu âm lượt nói của ứng viên (MediaRecorder WebM/MP4 chuẩn trình duyệt)
+  const startTurnAudioRecording = () => {
+    try {
+      if (!micMediaStreamRef.current || typeof window === 'undefined' || !window.MediaRecorder) return;
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        try { mediaRecorderRef.current.stop(); } catch (e) {}
+      }
+
+      audioChunksRef.current = [];
+      const mimeTypes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'];
+      const supportedMime = mimeTypes.find((m) => MediaRecorder.isTypeSupported(m)) || '';
+
+      const recorder = supportedMime
+        ? new MediaRecorder(micMediaStreamRef.current, { mimeType: supportedMime })
+        : new MediaRecorder(micMediaStreamRef.current);
+
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
+
+      recorder.start(250);
+      mediaRecorderRef.current = recorder;
+    } catch (recErr) {
+      console.warn('Cannot start MediaRecorder turn recording:', recErr);
+    }
+  };
+
+  // Dừng thu âm và gom toàn bộ audio chunks thành một Blob hoàn chỉnh
+  const stopAndCollectTurnAudioBlob = () => {
+    return new Promise((resolve) => {
+      const recorder = mediaRecorderRef.current;
+      if (!recorder || recorder.state === 'inactive') {
+        if (audioChunksRef.current.length > 0) {
+          const blob = new Blob(audioChunksRef.current, { type: recorder?.mimeType || 'audio/webm' });
+          audioChunksRef.current = [];
+          resolve(blob);
+        } else {
+          resolve(null);
+        }
+        return;
+      }
+
+      recorder.onstop = () => {
+        try {
+          if (audioChunksRef.current.length > 0) {
+            const blob = new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+            audioChunksRef.current = [];
+            resolve(blob);
+          } else {
+            resolve(null);
+          }
+        } catch (err) {
+          console.warn('Error packing audio blob:', err);
+          resolve(null);
+        }
+      };
+
+      try {
+        recorder.stop();
+      } catch (e) {
+        resolve(null);
+      }
+    });
+  };
+
   // Phân tích hình ảnh camera bằng Google MediaPipe Face Landmarker thực tế (Theo dõi con ngươi, độ mở mắt, tư thế 3D & biểu cảm thật)
   const startVisionAnalysis = () => {
     if (visionIntervalRef.current) clearInterval(visionIntervalRef.current);
@@ -1915,6 +2209,18 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
               telemetryHistoryRef.current.emotions.focused++;
             } else {
               telemetryHistoryRef.current.emotions.confident++;
+            }
+
+            if (telemetryHistoryRef.current.postures) {
+              if (mpResult.posture?.includes('Cúi đầu') || mpResult.isBowing) {
+                telemetryHistoryRef.current.postures.bowing++;
+              } else if (mpResult.posture?.includes('Quay mặt') || mpResult.isProfile) {
+                telemetryHistoryRef.current.postures.profile++;
+              } else if (mpResult.posture?.includes('Ngửa đầu') || mpResult.isLookingUp) {
+                telemetryHistoryRef.current.postures.lookingUp++;
+              } else {
+                telemetryHistoryRef.current.postures.good++;
+              }
             }
             return;
           } else {
@@ -2043,21 +2349,25 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
           contact = 25;
           emotion = 'Mất tập trung • Cần nhìn vào camera ⚠️';
           telemetryHistoryRef.current.emotions.tense++;
+          if (telemetryHistoryRef.current.postures) telemetryHistoryRef.current.postures.profile++;
         } else if (isBowing) {
           posture = 'Cúi đầu • Chưa tự tin';
           contact = 40;
           emotion = 'Đang suy nghĩ 🤔';
           telemetryHistoryRef.current.emotions.tense++;
+          if (telemetryHistoryRef.current.postures) telemetryHistoryRef.current.postures.bowing++;
         } else if (isLookingUp) {
           posture = 'Ngửa đầu lên cao';
           contact = 55;
           emotion = 'Hơi phân tâm';
           telemetryHistoryRef.current.emotions.confident++;
+          if (telemetryHistoryRef.current.postures) telemetryHistoryRef.current.postures.lookingUp++;
         } else {
           posture = 'Cân đối • Nhìn thẳng camera';
           contact = 92;
           emotion = 'Tập trung cao độ 🧐';
           telemetryHistoryRef.current.emotions.focused++;
+          if (telemetryHistoryRef.current.postures) telemetryHistoryRef.current.postures.good++;
         }
 
         setLivePostureStatus(posture);
@@ -2089,6 +2399,10 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
     stopSpeaking();
     stopAcousticAnalysis();
     stopVisionAnalysis();
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      try { mediaRecorderRef.current.stop(); } catch (e) {}
+    }
+    audioChunksRef.current = [];
   };
 
   const stopSpeaking = () => {
@@ -2375,6 +2689,7 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
           // Chỉ mở lại micro nếu ứng viên mong muốn bật mic và phiên vẫn đang diễn ra
           if (isMicDesiredRef.current && isLiveSessionRef.current) {
             startSpeechRecognizer();
+            startTurnAudioRecording();
           }
         }, 500);
       };
@@ -2438,6 +2753,9 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
       isMicDesiredRef.current = false;
       stopSpeechRecognizer();
       stopAcousticAnalysis();
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        try { mediaRecorderRef.current.stop(); } catch (e) {}
+      }
       showToast('Đã tắt micro.');
     } else {
       setIsMicOn(true);
@@ -2445,6 +2763,7 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
       showToast('🎤 Micro đang lắng nghe... Bạn cứ nói tự nhiên.');
       await startAcousticAnalysis();
       startSpeechRecognizer();
+      startTurnAudioRecording();
     }
   };
 
@@ -2459,9 +2778,9 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
       if (Array.isArray(cached)) {
         const sanitized = cached.map((item) => {
           const rawScore = item.totalScore != null ? Math.round(item.totalScore) : 0;
-          const qCount = item.questionsCount || item.questions?.length || 0;
-          const finalScore = rawScore > 0 ? rawScore : (qCount > 0 ? Math.min(88, 70 + qCount * 3) : 0);
-          const grade = finalScore >= 85 ? 'Xuất Sắc' : finalScore >= 70 ? 'Đạt Yêu Cầu' : finalScore >= 50 ? 'Cần Rèn Luyện Thêm' : 'Chưa Hoàn Tất';
+          const finalScore = rawScore;
+          const qCount = item.questionsCount ?? item.questions?.length ?? 0;
+          const grade = qCount === 0 ? 'Chưa Hoàn Tất' : finalScore >= 85 ? 'Xuất Sắc' : finalScore >= 70 ? 'Đạt Yêu Cầu' : finalScore >= 50 ? 'Cần Rèn Luyện Thêm' : 'Không Đạt Yêu Cầu';
           return { ...item, totalScore: finalScore, grade };
         });
         setHistoryList(sanitized);
@@ -2481,28 +2800,68 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
             const mapped = data.map((item) => {
               const rawScore = item.overallScore != null ? Math.round(item.overallScore) : 0;
               const qCount = item.details?.length || item.questionCount || 0;
-              // Nếu điểm 0 nhưng phiên có câu hỏi đáp thực tế -> gán điểm chuẩn thực chiến theo số câu (72-88đ)
-              const finalScore = rawScore > 0 ? rawScore : (qCount > 0 ? Math.min(88, 70 + qCount * 3) : 0);
-              const grade = finalScore >= 85 ? 'Xuất Sắc' : finalScore >= 70 ? 'Đạt Yêu Cầu' : finalScore >= 50 ? 'Cần Rèn Luyện Thêm' : 'Chưa Hoàn Tất';
+              const finalScore = rawScore;
+              const grade = qCount === 0 ? 'Chưa Hoàn Tất' : finalScore >= 85 ? 'Xuất Sắc' : finalScore >= 70 ? 'Đạt Yêu Cầu' : finalScore >= 50 ? 'Cần Rèn Luyện Thêm' : 'Không Đạt Yêu Cầu';
+
+              const rawTel = item.telemetryReport || item.telemetry || {};
+              const sessionLevel = rawTel.level || item.level || 'Middle';
+
+              let sessionDuration = rawTel.durationFormatted;
+              if (!sessionDuration && item.startedAt && item.completedAt) {
+                const start = new Date(item.startedAt).getTime();
+                const end = new Date(item.completedAt).getTime();
+                if (!isNaN(start) && !isNaN(end) && end > start) {
+                  const diffSec = Math.round((end - start) / 1000);
+                  sessionDuration = fmt(diffSec);
+                }
+              }
+              if (!sessionDuration && rawTel.actualDurationSeconds) {
+                sessionDuration = fmt(Number(rawTel.actualDurationSeconds));
+              }
+              if (!sessionDuration) {
+                sessionDuration = '5 phút';
+              }
+
+              const mappedTelemetry = {
+                isCameraUsed: Boolean(rawTel.isCameraUsed),
+                isMicrophoneUsed: Boolean(rawTel.isMicrophoneUsed || (rawTel.avgWpm && Number(rawTel.avgWpm) > 0)),
+                avgEyeContact: rawTel.avgEyeContact ?? null,
+                avgPitchHz: rawTel.avgPitchHz ?? null,
+                avgWpm: rawTel.avgWpm ?? null,
+                totalFillers: rawTel.totalFillers ?? 0,
+                emotionSummary: rawTel.emotionSummary || rawTel.dominantEmotion || 'Chưa bật camera',
+                dominantEmotion: rawTel.dominantEmotion || rawTel.emotionSummary || 'Chưa bật camera',
+                postureStatus: rawTel.postureStatus || rawTel.postureSummary || 'Chưa bật camera',
+                postureSummary: rawTel.postureSummary || rawTel.postureStatus || 'Chưa bật camera',
+                emotions: rawTel.emotions || { confident: 0, smiling: 0, focused: 0, tense: 0 },
+                level: sessionLevel,
+                durationSeconds: rawTel.actualDurationSeconds ?? rawTel.durationSeconds ?? null,
+                durationFormatted: sessionDuration,
+              };
 
               return {
                 id: 'HM-' + item.sessionId,
                 sessionId: item.sessionId,
                 date: item.startedAt ? item.startedAt.split('T')[0] : new Date().toISOString().split('T')[0],
                 topic: cleanTopicName(item.targetPosition || 'Chuyên viên Công nghệ'),
-                level: 'Middle',
-                duration: '15 phút',
+                level: sessionLevel,
+                duration: sessionDuration,
+                planName: item.planName || 'Free Candidate',
+                maxQuestions: item.maxQuestions || 3,
+                maxDurationSeconds: item.maxDurationSeconds || 300,
+                isIncomplete: qCount === 0 || qCount < (item.maxQuestions || 3),
                 totalScore: finalScore,
                 grade: grade,
                 questionsCount: qCount,
                 aiSummary: item.overallFeedback || 'Đã hoàn thành phiên phỏng vấn trên HireMate.',
                 weaknessSummary: item.weaknessSummary || 'Cần bổ sung thêm các số liệu định lượng và đào sâu giải pháp công nghệ theo mô hình STAR.',
                 competencies: {
-                  domainKnowledge: Math.round(item.domainKnowledgeScore || finalScore || 70),
-                  problemSolving: Math.round(item.problemSolvingScore || finalScore || 65),
-                  structureSTAR: Math.round(item.starStructureScore || 60),
-                  deliveryTone: Math.round(item.deliveryToneScore || item.communicationScore || 75),
+                  domainKnowledge: Math.round(item.domainKnowledgeScore ?? finalScore ?? 0),
+                  problemSolving: Math.round(item.problemSolvingScore ?? finalScore ?? 0),
+                  structureSTAR: Math.round(item.starStructureScore ?? (finalScore > 0 ? Math.round(finalScore * 0.85) : 0)),
+                  deliveryTone: Math.round(item.deliveryToneScore ?? item.communicationScore ?? (finalScore > 0 ? finalScore : 0)),
                 },
+                deliveryFeedback: item.deliveryFeedback || null,
                 strengths: finalScore >= 70 ? [
                   'Phản xạ hội thoại tự nhiên, hiểu rõ giải pháp công nghệ và quy trình triển khai.',
                   'Tác phong phỏng vấn nghiêm túc, thẳng thắn và bám sát câu hỏi tuyển dụng.',
@@ -2521,30 +2880,45 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
                     'Đào sâu vào các kịch bản sự cố thực tế và các giải pháp tối ưu hệ thống.',
                     'Ôn tập thêm các thuật ngữ kỹ thuật cốt lõi trước khi phỏng vấn chính thức.',
                   ],
-                telemetryReport: item.telemetryReport || {
-                  isCameraUsed: Boolean(item.telemetry?.isCameraUsed),
-                  isMicrophoneUsed: Boolean(item.telemetry?.avgWpm && Number(item.telemetry.avgWpm) > 0),
-                  avgEyeContact: item.telemetry?.avgEyeContact || null,
-                  avgPitchHz: item.telemetry?.avgPitchHz || null,
-                  avgWpm: item.telemetry?.avgWpm || null,
-                  totalFillers: item.telemetry?.totalFillers || 0,
-                  emotionSummary: item.telemetry?.dominantEmotion || 'Chưa bật camera',
-                  postureStatus: item.telemetry?.postureStatus || 'Chưa bật camera',
-                },
-                questions: (item.details || []).map((d) => ({
-                  q: d.questionText,
-                  score: Math.round(d.aiEvaluationScore || 0),
-                  domainScore: Math.round(d.aiEvaluationScore || 0),
-                  problemScore: Math.round(d.aiEvaluationScore || 0),
-                  starScore: Math.round((d.aiEvaluationScore || 0) * 0.9),
-                  deliveryScore: 80,
-                  answer: d.candidateAnswerText || '(Ứng viên đã trả lời)',
-                  criticalFeedback: {
-                    flaws: d.aiFeedback || 'Cần bổ sung ví dụ thực tế.',
-                    interviewerImpression: d.tone || 'Ứng viên nghiêm túc thực hiện phỏng vấn.'
-                  },
-                  modelAnswer: d.aiSuggestedAnswer || 'Gợi ý câu trả lời chuẩn theo mô hình STAR.',
-                }))
+                telemetryReport: mappedTelemetry,
+                questions: (item.details || []).map((d) => {
+                  const ans = d.candidateAnswerText || '';
+                  const words = ans.trim() ? ans.trim().split(/\s+/).filter(Boolean).length : 0;
+                  const feedbackStr = d.aiFeedback || '';
+
+                  let qWpm = mappedTelemetry.avgWpm;
+                  let qPitch = mappedTelemetry.avgPitchHz;
+                  let qEye = mappedTelemetry.avgEyeContact;
+
+                  const wpmMatch = feedbackStr.match(/Tốc độ nói:\s*(\d+)\s*WPM/i) || feedbackStr.match(/WPM:\s*(\d+)/i);
+                  if (wpmMatch) qWpm = Number(wpmMatch[1]);
+
+                  const pitchMatch = feedbackStr.match(/Pitch\):\s*(\d+)\s*Hz/i) || feedbackStr.match(/(?:Tông giọng|Pitch):\s*(\d+)\s*Hz/i);
+                  if (pitchMatch) qPitch = Number(pitchMatch[1]);
+
+                  const eyeMatch = feedbackStr.match(/Eye Contact\):\s*(\d+)%/i) || feedbackStr.match(/(?:Giao tiếp mắt|Eye Contact):\s*(\d+)%/i);
+                  if (eyeMatch) qEye = Number(eyeMatch[1]);
+
+                  return {
+                    q: d.questionText,
+                    audioUrl: d.audioUrl || null,
+                    score: Math.round(d.aiEvaluationScore || 0),
+                    domainScore: Math.round(d.aiEvaluationScore || 0),
+                    problemScore: Math.round(d.aiEvaluationScore || 0),
+                    starScore: Math.round((d.aiEvaluationScore || 0) * 0.9),
+                    deliveryScore: Math.round(item.deliveryToneScore ?? item.communicationScore ?? d.aiEvaluationScore ?? 20),
+                    answer: ans || '(Ứng viên đã trả lời)',
+                    words: words,
+                    wpm: qWpm,
+                    pitchHz: qPitch,
+                    eyeContact: qEye,
+                    criticalFeedback: {
+                      flaws: d.aiFeedback || 'Cần bổ sung ví dụ thực tế.',
+                      interviewerImpression: d.tone || 'Ứng viên nghiêm túc thực hiện phỏng vấn.'
+                    },
+                    modelAnswer: d.aiSuggestedAnswer || 'Gợi ý câu trả lời chuẩn theo mô hình STAR.',
+                  };
+                })
               };
             });
             setHistoryList(mapped);
@@ -2621,7 +2995,7 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
     if (!checkPersonaPermission(persona)) {
       setQuotaExceededMessage(`${persona.title} (${persona.tierLabel})`);
       setIsQuotaModalOpen(true);
-      showToast(`🔒 Người phỏng vấn "${persona.title}" chưa được cấp quyền trong gói hiện tại. Vui lòng nâng cấp gói dịch vụ!`);
+      showToast(`🔒 Chế độ "${persona.title}" chưa được mở khóa trong gói hiện tại. Vui lòng nâng cấp gói dịch vụ!`);
       return;
     }
     setSelectedPersona(persona.id);
@@ -2681,16 +3055,20 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
     // Khởi tạo phiên phỏng vấn thật trên Supabase (kiểm tra subscription và trừ lượt)
     let sid = null;
     try {
+      const isRetry = Boolean(retryParentSessionId);
       const res = await interviewApi.startSession({
         targetPosition: targetPos,
         jobId: validJobId,
         level: levelLabel,
         interviewType: isBiz ? 'BEHAVIORAL' : 'TECHNICAL',
+        sessionType: isRetry ? 'PRACTICE_RETRY' : 'MOCK',
+        parentSessionId: isRetry ? retryParentSessionId : null,
       });
       sid = res?.data?.sessionId || res?.sessionId || res?.data?.data?.sessionId;
       if (sid) {
         setCurrentSessionId(sid);
       }
+      setRetryParentSessionId(null);
     } catch (err) {
       const errMsg = err?.response?.data?.message || err?.message || '';
       if (errMsg.includes('hạn ngạch') || errMsg.includes('miễn phí') || errMsg.includes('nâng cấp') || errMsg.includes('gói')) {
@@ -2722,6 +3100,7 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
       wpmSamples: [],
       eyeContactSamples: [],
       emotions: { confident: 0, smiling: 0, focused: 0, tense: 0 },
+      postures: { good: 0, bowing: 0, profile: 0, lookingUp: 0 },
       totalFillers: 0,
       hasCameraEverBeenOn: isCameraOn || isSimulatedCamera,
     };
@@ -2732,26 +3111,23 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
     }
 
     // 3. Trích xuất ngữ cảnh chi tiết từ Bản tin tuyển dụng (JD) và CV ứng viên
-    const jobSnippet = selectedJob 
-      ? `Vị trí JD: ${selectedJob.title}. Doanh nghiệp: ${selectedJob.companyName || ''}. Mô tả công việc & Yêu cầu kỹ năng: ${selectedJob.description || ''} ${selectedJob.requirements || ''}`
-      : '';
-    const cvSnippet = selectedCv 
-      ? `Kỹ năng ứng viên: ${(selectedCv.skills || []).join(', ')}. Tóm tắt kinh nghiệm: ${selectedCv.summary || selectedCv.content || ''}`
-      : '';
-
+    const jobSnippet = selectedJob ? getJobSnippet(selectedJob) : '';
+    const cvSnippet = selectedCv ? getCvSnippet(selectedCv) : '';
+    const computedDifficulty = (selectedLevel === 'intern' || selectedLevel === 'junior') ? 'EASY' : (selectedLevel === 'senior' || selectedLevel === 'lead') ? 'HARD' : 'STANDARD';
+    const fullTargetPosition = `${levelLabel} - ${targetPos}`;
 
     // 4. Sinh câu hỏi mở đầu 100% ĐỘNG từ Gemini AI Agent dựa trên đúng bảng tin tuyển dụng và CV đã chọn
     let dynamicGreeting = openingGreetingFallback;
     try {
       const voiceTurnPromise = interviewApi.processVoiceTurnStandalone({
-        targetPosition: targetPos,
-        userSpeech: `Xin chào ban phỏng vấn, tôi là ${candidateName}, đã sẵn sàng cho buổi phỏng vấn vị trí ${targetPos}${selectedJob?.companyName ? ' tại ' + selectedJob.companyName : ''}.`,
+        targetPosition: fullTargetPosition,
+        userSpeech: `Xin chào ban phỏng vấn, tôi là ${candidateName}, đã sẵn sàng cho buổi phỏng vấn vị trí ${fullTargetPosition}${selectedJob?.companyName ? ' tại ' + selectedJob.companyName : ''}.`,
         history: [],
         focusNotes: focusPrompt,
         cvSnippet,
         jobSnippet,
         persona: selectedPersona || interviewConfig?.interviewerPersona || 'HR_MANAGER',
-        difficulty: (selectedLevel === 'senior' || selectedLevel === 'lead') ? 'HARD' : 'STANDARD',
+        difficulty: computedDifficulty,
         maxQuestions: quotaStatus?.maxQuestions || 3,
         planName: quotaStatus?.planName || 'Free Candidate',
       });
@@ -2859,11 +3235,46 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
     currentAnswerRef.current = '';
     setCurrentAnswer('');
 
+    // Đo lường thống kê lời thoại cho lượt này
+    const turnSpeechStart = speechTurnStartTimeRef.current;
+    const turnWords = ansText.trim().split(/\s+/).filter(Boolean).length;
+    const turnDurationMin = turnSpeechStart > 0
+      ? Math.max(0.04, (Date.now() - turnSpeechStart) / 60000)
+      : Math.max(0.04, turnWords / 130);
+    const calculatedTurnWpm = Math.min(220, Math.max(60, Math.round(turnWords / turnDurationMin)));
+
+    // Chỉ lưu sample WPM vào thống kê phiên nếu câu trả lời thực tế được nói qua micro (từ 4 từ trở lên)
+    if (turnWords >= 4 && isMicOn && turnSpeechStart > 0) {
+      telemetryHistoryRef.current.wpmSamples.push(calculatedTurnWpm);
+    }
+
+    // Đếm chính xác số từ đệm trong câu trả lời hoàn chỉnh của lượt này
+    const { count: finalTurnFillers } = detectFillerWords(ansText);
+    if (finalTurnFillers > 0) {
+      telemetryHistoryRef.current.totalFillers += finalTurnFillers;
+      setSessionFillerCount((prev) => prev + finalTurnFillers);
+    }
+
+    // Thu thập file ghi âm lượt nói của ứng viên nếu micro đang hoạt động
+    let recordedBlob = null;
+    let localBlobUrl = null;
+    if (isMicOn) {
+      try {
+        recordedBlob = await stopAndCollectTurnAudioBlob();
+        if (recordedBlob && recordedBlob.size > 500) {
+          localBlobUrl = URL.createObjectURL(recordedBlob);
+        }
+      } catch (recErr) {
+        console.warn('Collect audio blob error:', recErr);
+      }
+    }
+
     const userTurn = {
       id: `cand-${Date.now()}`,
       sender: 'candidate',
       speakerName: user?.fullName || 'Bạn',
       text: ansText,
+      audioUrl: localBlobUrl || null,
       timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
     };
     setDialogueHistory((prev) => [...prev, userTurn]);
@@ -2879,9 +3290,11 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
     const historySnapshot = dialogueHistoryRef.current.filter((d) => d.id !== 'ai-init-loading' && d.id !== userTurn.id);
     const lastAiTurnBefore = [...historySnapshot].reverse().find((d) => d.sender === 'ai');
     const questionTextBefore = lastAiTurnBefore?.text || 'Câu hỏi chuyên môn';
+    const isAskToRepeat = /^(nhắc lại|lặp lại|nói lại|bạn có thể nhắc lại|cho mình nghe lại|mình chưa nghe rõ|xin nhắc lại|xin lặp lại|phiền bạn nói lại)/i.test(ansText.trim()) && ansText.trim().split(/\s+/).length < 18;
+
     const candidateTurnCount = historySnapshot.filter((d) => d.sender === 'candidate').length;
     const maxQ = quotaStatus?.maxQuestions || 3;
-    const isFinalTurn = (candidateTurnCount + 1) >= maxQ;
+    const isFinalTurn = !isAskToRepeat && ((candidateTurnCount + 1) >= maxQ);
 
     try {
       // Gửi tối đa 16 dòng hội thoại gần nhất (câu trả lời hiện tại gửi riêng qua userSpeech, không lặp lại)
@@ -2893,15 +3306,19 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
         ? ` [LƯU Ý CUỐI PHIÊN: Đây là câu trả lời thứ ${candidateTurnCount + 1}/${maxQ} - câu hỏi cuối cùng của gói ${quotaStatus?.planName || 'Free Candidate'}. Bạn hãy đưa ra nhận xét ngắn gọn về câu trả lời vừa rồi, gửi lời cảm ơn và chào tạm biệt ứng viên để kết thúc buổi phỏng vấn. TUYỆT ĐỐI KHÔNG ĐẶT THÊM CÂU HỎI MỚI NÀO NỮA!]`
         : '';
 
+      const levelLabel = LEVELS.find((l) => l.id === selectedLevel)?.label || 'Middle';
+      const computedDifficulty = (selectedLevel === 'intern' || selectedLevel === 'junior') ? 'EASY' : (selectedLevel === 'senior' || selectedLevel === 'lead') ? 'HARD' : 'STANDARD';
+      const fullTargetPosition = `${levelLabel} - ${targetPos}`;
+
       const payload = {
-        targetPosition: targetPos,
+        targetPosition: fullTargetPosition,
         userSpeech: ansText,
         history: historyStrings,
         focusNotes: (focusPrompt || '') + endingDirective,
         cvSnippet,
         jobSnippet,
         persona: selectedPersona || interviewConfig?.interviewerPersona || 'HR_MANAGER',
-        difficulty: (selectedLevel === 'senior' || selectedLevel === 'lead') ? 'HARD' : 'STANDARD',
+        difficulty: computedDifficulty,
         maxQuestions: maxQ,
         planName: quotaStatus?.planName || 'Free Candidate',
       };
@@ -2936,20 +3353,37 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
 
       const questionText = questionTextBefore;
 
-      if (currentSessionId) {
-        const hasSpokenAudio = Boolean(speechTurnStartTimeRef.current > 0 && liveWpm > 0 && livePitchHz > 0);
+      if (currentSessionId && !isAskToRepeat) {
+        const hasSpokenAudio = Boolean(isMicOn && (turnSpeechStart > 0 || liveWpm > 0 || livePitchHz > 0));
         const hasCameraActive = Boolean(isCameraOn || isSimulatedCamera);
-        const savePromise = interviewApi.submitAnswer(currentSessionId, {
-          questionNumber: historySnapshot.filter((d) => d.sender === 'ai').length,
-          questionText: questionText,
-          candidateAnswerText: ansText,
-          wordsPerMinute: hasSpokenAudio ? liveWpm : null,
-          clarityScore: Math.max(50, Math.min(98, 92 - turnFillerCount * 4)),
-          pitchHz: hasSpokenAudio ? livePitchHz : null,
-          eyeContactPercent: hasCameraActive ? liveEyeContactPercent : null,
-          facialEmotion: hasCameraActive ? liveFacialEmotion : null,
-          fillerCount: turnFillerCount,
-        }).catch((err) => console.warn('Submit answer background save:', err));
+
+        const savePromise = (async () => {
+          let cloudAudioUrl = null;
+          if (recordedBlob && recordedBlob.size > 500) {
+            try {
+              const upRes = await interviewApi.uploadAudio(recordedBlob);
+              cloudAudioUrl = upRes?.data?.audioUrl || upRes?.audioUrl || upRes?.data?.data?.audioUrl || null;
+              if (cloudAudioUrl) {
+                userTurn.audioUrl = cloudAudioUrl;
+              }
+            } catch (upErr) {
+              console.warn('Upload candidate audio to Cloud CDN failed, using local fallback:', upErr);
+            }
+          }
+
+          return interviewApi.submitAnswer(currentSessionId, {
+            questionNumber: historySnapshot.filter((d) => d.sender === 'ai').length,
+            questionText: questionText,
+            candidateAnswerText: ansText,
+            audioUrl: cloudAudioUrl || null,
+            wordsPerMinute: hasSpokenAudio ? (calculatedTurnWpm || liveWpm) : null,
+            clarityScore: Math.max(50, Math.min(98, 92 - finalTurnFillers * 4)),
+            pitchHz: (hasSpokenAudio && livePitchHz > 0) ? livePitchHz : null,
+            eyeContactPercent: hasCameraActive ? liveEyeContactPercent : null,
+            facialEmotion: hasCameraActive ? liveFacialEmotion : null,
+            fillerCount: finalTurnFillers,
+          });
+        })().catch((err) => console.warn('Submit answer background save:', err));
 
         pendingAnswerSavesRef.current.push(savePromise);
       }
@@ -3106,6 +3540,32 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
       ? Math.round(telemetryHistoryRef.current.wpmSamples.reduce((a, b) => a + b, 0) / telemetryHistoryRef.current.wpmSamples.length)
       : (liveWpm > 0 ? liveWpm : null);
 
+    // Xác định dominantEmotion từ thống kê toàn phiên
+    let sessionDominantEmotion = 'Chưa bật camera';
+    if (hasCamera && telemetryHistoryRef.current.emotions) {
+      const em = telemetryHistoryRef.current.emotions;
+      const sortedEmotions = [
+        { name: 'Tự tin & Thân thiện 😊', count: em.confident || 0 },
+        { name: 'Mỉm cười tích cực 😄', count: em.smiling || 0 },
+        { name: 'Tập trung cao độ 🧐', count: em.focused || 0 },
+        { name: 'Căng thẳng • Hơi lo lắng 😟', count: em.tense || 0 },
+      ].sort((a, b) => b.count - a.count);
+      sessionDominantEmotion = (sortedEmotions[0]?.count > 0) ? sortedEmotions[0].name : (liveFacialEmotion || 'Tập trung cao độ 🧐');
+    }
+
+    // Xác định dominantPosture từ thống kê toàn phiên
+    let sessionDominantPosture = 'Chưa bật camera';
+    if (hasCamera && telemetryHistoryRef.current.postures) {
+      const pos = telemetryHistoryRef.current.postures;
+      const sortedPostures = [
+        { name: 'Cân đối • Nhìn thẳng camera', count: pos.good || 0 },
+        { name: 'Cúi đầu • Chưa tự tin', count: pos.bowing || 0 },
+        { name: 'Quay mặt sang bên • Không nhìn camera', count: pos.profile || 0 },
+        { name: 'Ngửa đầu lên cao', count: pos.lookingUp || 0 },
+      ].sort((a, b) => b.count - a.count);
+      sessionDominantPosture = (sortedPostures[0]?.count > 0) ? sortedPostures[0].name : (livePostureStatus || 'Cân đối • Nhìn thẳng camera');
+    }
+
     const telemetryPayload = {
       isCameraUsed: hasCamera,
       isMicrophoneUsed: Boolean(hasAudio || (avgWpm && avgWpm > 0)),
@@ -3113,12 +3573,26 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
       avgPitchHz: avgPitch,
       avgWpm: avgWpm,
       totalFillers: sessionFillerCount,
-      dominantEmotion: hasCamera ? liveFacialEmotion : 'Chưa bật camera',
-      postureStatus: hasCamera ? livePostureStatus : 'Chưa bật camera',
+      emotionSummary: sessionDominantEmotion,
+      dominantEmotion: sessionDominantEmotion,
+      postureStatus: sessionDominantPosture,
+      postureSummary: sessionDominantPosture,
+      emotions: hasCamera ? telemetryHistoryRef.current.emotions : { confident: 0, smiling: 0, focused: 0, tense: 0 },
+      durationSeconds: timerSec,
+      durationFormatted: fmt(timerSec),
+      level: LEVELS.find((l) => l.id === selectedLevel)?.label || 'Middle',
     };
 
+    setIsFinishing(false);
+    const isJob = contextMode === 'job' || contextMode === 'ai-recommend';
+    const targetPos = cleanTopicName((isJob && selectedJob ? selectedJob.title : customPosition) || 'Chuyên viên Kỹ thuật Phần mềm');
+    const compName = (isJob && selectedJob?.companyName) ? selectedJob.companyName : 'Doanh nghiệp Tuyển dụng';
+
+    // Tiêu chuẩn đánh giá: Phải có ít nhất 1 câu trả lời từ ứng viên
+    const isIncomplete = candidateTurns.length === 0;
+
     let backendResult = null;
-    if (currentSessionId) {
+    if (!isIncomplete && currentSessionId) {
       try {
         const compRes = await interviewApi.completeSession(currentSessionId, telemetryPayload);
         if (compRes?.data) {
@@ -3128,14 +3602,6 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
         console.warn('Backend completeSession failed, building evaluation summary:', err);
       }
     }
-
-    setIsFinishing(false);
-    const isJob = contextMode === 'job' || contextMode === 'ai-recommend';
-    const targetPos = cleanTopicName((isJob && selectedJob ? selectedJob.title : customPosition) || 'Chuyên viên Kỹ thuật Phần mềm');
-    const compName = (isJob && selectedJob?.companyName) ? selectedJob.companyName : 'Doanh nghiệp Tuyển dụng';
-
-    // Tiêu chuẩn đánh giá: Phải có ít nhất 1 câu trả lời từ ứng viên
-    const isIncomplete = candidateTurns.length === 0;
 
     if (isIncomplete) {
       const incompleteResult = {
@@ -3183,21 +3649,35 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
 
     // Trường hợp có câu trả lời thực tế (candidateTurns.length >= 1)
     let scoredQuestions = [];
+    const deliveryScoreVal = Math.round(
+      backendResult?.deliveryToneScore ||
+      backendResult?.communicationScore ||
+      (hasCamera && avgEye >= 70 ? 80 : 65)
+    );
+
     if (backendResult?.details && backendResult.details.length > 0) {
-      scoredQuestions = backendResult.details.map((d, idx) => ({
-        q: d.questionText || dialogueHistory[idx * 2]?.text || `Câu hỏi số ${idx + 1}`,
-        score: Math.round(d.aiEvaluationScore != null ? d.aiEvaluationScore : 20),
-        domainScore: Math.round(d.aiEvaluationScore != null ? d.aiEvaluationScore : 20),
-        problemScore: Math.round(d.aiEvaluationScore != null ? d.aiEvaluationScore : 15),
-        starScore: Math.round((d.aiEvaluationScore != null ? d.aiEvaluationScore : 20) * 0.8),
-        deliveryScore: hasCamera ? 75 : 45,
-        answer: d.candidateAnswerText || '(Ứng viên đã trả lời)',
-        criticalFeedback: {
-          flaws: d.aiFeedback || 'Cần bổ sung thêm ví dụ thực tế và số liệu định lượng theo mô hình STAR.',
-          interviewerImpression: d.tone || (d.aiEvaluationScore >= 60 ? 'Ứng viên có phản xạ đối đáp chuyên môn.' : 'Chưa đáp ứng tiêu chuẩn tuyển dụng, câu trả lời còn sơ sài.')
-        },
-        modelAnswer: d.aiSuggestedAnswer || `Gợi ý câu trả lời mẫu chuẩn điểm 10 cho vị trí ${targetPos}`,
-      }));
+      scoredQuestions = backendResult.details.map((d, idx) => {
+        const words = (d.candidateAnswerText || '').trim().split(/\s+/).filter(Boolean).length;
+        return {
+          q: d.questionText || dialogueHistory[idx * 2]?.text || `Câu hỏi số ${idx + 1}`,
+          audioUrl: d.audioUrl || candidateTurns[idx]?.audioUrl || null,
+          score: Math.round(d.aiEvaluationScore != null ? d.aiEvaluationScore : 20),
+          domainScore: Math.round(d.aiEvaluationScore != null ? d.aiEvaluationScore : 20),
+          problemScore: Math.round(d.aiEvaluationScore != null ? d.aiEvaluationScore : 15),
+          starScore: Math.round((d.aiEvaluationScore != null ? d.aiEvaluationScore : 20) * 0.8),
+          deliveryScore: deliveryScoreVal,
+          wpm: d.wordsPerMinute || avgWpm,
+          pitchHz: d.pitchHz || avgPitch,
+          eyeContact: d.eyeContactPercent != null ? d.eyeContactPercent : (hasCamera ? avgEye : null),
+          words: words,
+          answer: d.candidateAnswerText || '(Ứng viên đã trả lời)',
+          criticalFeedback: {
+            flaws: d.aiFeedback || 'Cần bổ sung thêm ví dụ thực tế và số liệu định lượng theo mô hình STAR.',
+            interviewerImpression: d.tone || (d.aiEvaluationScore >= 60 ? 'Ứng viên có phản xạ đối đáp chuyên môn.' : 'Chưa đáp ứng tiêu chuẩn tuyển dụng, câu trả lời còn sơ sài.')
+          },
+          modelAnswer: d.aiSuggestedAnswer || `Gợi ý câu trả lời mẫu chuẩn điểm 10 cho vị trí ${targetPos}`,
+        };
+      });
     } else {
       // Đánh giá NLP thời gian thực sâu sắc từng câu đối đáp
       const techTerms = [
@@ -3314,6 +3794,7 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
 
         return {
           q: dialogueHistory[idx * 2]?.text || `Câu hỏi trao đổi số ${idx + 1}`,
+          audioUrl: candidateTurns[idx]?.audioUrl || null,
           score: realScore,
           domainScore: qDomain,
           problemScore: qProblem,
@@ -3450,14 +3931,19 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
       ],
       telemetryReport: {
         isCameraUsed: hasCamera,
+        isMicrophoneUsed: Boolean(hasAudio || (avgWpm && avgWpm > 0)),
         avgEyeContact: hasCamera ? avgEye : null,
         avgPitchHz: avgPitch,
         avgWpm: avgWpm,
         totalFillers: sessionFillerCount,
-        emotionSummary: hasCamera ? liveFacialEmotion : 'Chưa bật camera',
-        postureStatus: hasCamera ? livePostureStatus : 'Chưa bật camera',
-        postureSummary: hasCamera ? livePostureStatus : 'Chưa bật camera',
+        emotionSummary: sessionDominantEmotion,
+        dominantEmotion: sessionDominantEmotion,
+        postureStatus: sessionDominantPosture,
+        postureSummary: sessionDominantPosture,
         emotions: hasCamera ? telemetryHistoryRef.current.emotions : { confident: 0, smiling: 0, focused: 0, tense: 0 },
+        durationSeconds: timerSec,
+        durationFormatted: fmt(timerSec),
+        level: LEVELS.find((l) => l.id === selectedLevel)?.label || 'Middle',
       },
       questions: scoredQuestions,
     };
@@ -3530,6 +4016,48 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
 
     return filtered;
   })();
+
+  // Cảnh báo thông minh nếu CV lệch nhóm ngành với vị trí đang chọn
+  const getCvDomainMismatchWarning = () => {
+    if (!selectedCv) return null;
+    const currentTarget = ((contextMode === 'job' || contextMode === 'ai-recommend') && selectedJob)
+      ? selectedJob.title
+      : customPosition;
+
+    const cvHeadline = selectedCv.headline || selectedCv.title || '';
+    const cvSkills = Array.isArray(selectedCv.skills) ? selectedCv.skills.join(' ') : '';
+    const cvText = `${cvHeadline} ${cvSkills}`.toLowerCase();
+    const targetText = (currentTarget || '').toLowerCase();
+
+    const isTargetTester = /\bqa\b|\bqc\b|tester|kiểm thử/i.test(targetText);
+    const isCvTester = /\bqa\b|\bqc\b|tester|kiểm thử/i.test(cvText);
+
+    const isTargetFe = /frontend|front-end|react|vue|angular/i.test(targetText);
+    const isCvFe = /frontend|front-end|react|vue|angular/i.test(cvText);
+
+    const isTargetBe = /backend|back-end|java|spring|golang|node/i.test(targetText);
+    const isCvBe = /backend|back-end|java|spring|golang|node/i.test(cvText);
+
+    const isTargetBa = /business analyst|\bba\b|product owner|product manager/i.test(targetText);
+    const isCvBa = /business analyst|\bba\b|product owner|product manager/i.test(cvText);
+
+    const isTargetBrse = /brse|cầu nối|bridge/i.test(targetText);
+    const isCvBrse = /brse|cầu nối|bridge/i.test(cvText);
+
+    let hasMismatch = false;
+    if (isTargetTester && !isCvTester && (isCvBa || isCvBe || isCvFe)) hasMismatch = true;
+    else if (isTargetBe && !isCvBe && (isCvBa || isCvTester || isCvFe)) hasMismatch = true;
+    else if (isTargetFe && !isCvFe && (isCvBa || isCvTester || isCvBe)) hasMismatch = true;
+    else if (isTargetBa && !isCvBa && (isCvTester || isCvBe || isCvFe)) hasMismatch = true;
+    else if (isTargetBrse && !isCvBrse && (isCvTester || isCvBe || isCvFe)) hasMismatch = true;
+
+    if (hasMismatch) {
+      const headlineDisp = selectedCv.headline || selectedCv.title || 'chuyên môn khác';
+      const targetDisp = formatJobTitle(currentTarget);
+      return `💡 Lưu ý: CV đang chọn thiên về [${headlineDisp}], AI sẽ kết hợp hỏi kỹ năng của vị trí [${targetDisp}] và kinh nghiệm chuyển đổi từ CV của bạn.`;
+    }
+    return null;
+  };
 
   // Cảnh báo thông minh nếu CV lệch nhóm ngành với vị trí đang chọn
   const getCvDomainMismatchWarning = () => {
@@ -3768,7 +4296,7 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
               <div className="flex items-center p-1.5 bg-[#f8f7ff] rounded-full text-xs font-semibold border border-purple-100 self-start sm:self-auto gap-1">
                 <button
                   type="button"
-                  onClick={() => setContextMode('job')}
+                  onClick={() => { setContextMode('job'); setSelectedFocusSkills([]); }}
                   className={`px-4 py-2 rounded-full transition-all cursor-pointer flex items-center gap-1.5 ${
                     contextMode === 'job'
                       ? 'bg-[#32247b] text-white shadow-xs font-bold'
@@ -3792,7 +4320,7 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setContextMode('custom')}
+                  onClick={() => { setContextMode('custom'); setSelectedFocusSkills([]); }}
                   className={`px-4 py-2 rounded-full transition-all cursor-pointer flex items-center gap-1.5 ${
                     contextMode === 'custom'
                       ? 'bg-[#32247b] text-white shadow-xs font-bold'
@@ -3868,7 +4396,7 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
                       </a>
                       <button
                         type="button"
-                        onClick={() => setContextMode('job')}
+                        onClick={() => { setContextMode('job'); setSelectedFocusSkills([]); }}
                         className="px-4 py-2.5 rounded-xl bg-white hover:bg-purple-50 text-[#32247b] border border-purple-200 text-xs font-bold transition-all cursor-pointer"
                       >
                         Xem Việc Làm Tuyển Dụng
@@ -4010,7 +4538,7 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
                             return (
                               <div
                                 key={job.jobId}
-                                onClick={() => setSelectedJob(job)}
+                                onClick={() => { setSelectedJob(job); setSelectedFocusSkills([]); }}
                                 className={`p-4.5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between gap-3 relative overflow-hidden ${
                                   isSel
                                     ? 'bg-gradient-to-br from-purple-50/90 via-white to-indigo-50/60 border-2 border-[#5b48bd] ring-2 ring-[#5b48bd]/20 shadow-lg shadow-purple-950/10'
@@ -4131,7 +4659,7 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
                       return (
                         <div
                           key={job.jobId}
-                          onClick={() => setSelectedJob(job)}
+                          onClick={() => { setSelectedJob(job); setSelectedFocusSkills([]); }}
                           className={`p-4.5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between gap-3 relative overflow-hidden ${
                             isSel
                               ? 'bg-gradient-to-br from-purple-50/90 via-white to-indigo-50/60 border-2 border-[#5b48bd] ring-2 ring-[#5b48bd]/20 shadow-lg shadow-purple-950/10'
@@ -4632,7 +5160,7 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
             )}
           </section>
 
-          {/* BƯỚC 4: CHỌN GIÁM KHẢO AI & GIỌNG ĐỌC PHÒNG THU */}
+          {/* BƯỚC 4: CHỌN HỘI ĐỒNG GIÁM KHẢO AI (PHONG CÁCH PHỎNG VẤN) */}
           <section className="bg-white rounded-3xl border border-purple-100 p-6 sm:p-8 shadow-sm space-y-7 font-sans">
             <div className="flex items-center justify-between border-b border-purple-100 pb-5">
               <div className="flex items-center gap-2.5">
@@ -4640,26 +5168,26 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
                   4
                 </span>
                 <div>
-                  <h2 className="text-base sm:text-lg font-extrabold text-[#1e1b4b]">Giám Khảo AI &amp; Âm Sắc Phòng Thu</h2>
+                  <h2 className="text-base sm:text-lg font-extrabold text-[#1e1b4b]">Hội Đồng Giám Khảo AI (Phong Cách Phỏng Vấn)</h2>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Lựa chọn phong cách người phỏng vấn và âm sắc giọng đọc AI phù hợp với cấp độ tài khoản của bạn.
+                    Lựa chọn phong cách và hội đồng phỏng vấn phù hợp với mục tiêu rèn luyện. AI luôn đóng vai Hội đồng phỏng vấn chuyên nghiệp bám sát vị trí bạn ứng tuyển.
                   </p>
                 </div>
               </div>
               <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-50 text-[#32247b] border border-purple-200 text-xs font-bold">
-                <span className="material-symbols-outlined text-sm">psychology</span>
-                <span>AI Persona &amp; Voice</span>
+                <span className="material-symbols-outlined text-sm">groups</span>
+                <span>Hội Đồng Giám Khảo AI</span>
               </div>
             </div>
 
-            {/* 4A. Chọn Người Phỏng Vấn (Interviewer Persona) */}
+            {/* Chọn Phong Cách Hội Đồng Phỏng Vấn (Interviewer Persona) */}
             <div className="space-y-3">
               <label className="text-xs font-bold text-[#1e1b4b] flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-sm text-[#32247b]">person_search</span>
-                  <span>4A. Phong cách người phỏng vấn (Persona):</span>
+                  <span className="material-symbols-outlined text-sm text-[#32247b]">tune</span>
+                  <span>Phong cách hội đồng phỏng vấn (Interviewer Persona):</span>
                 </span>
-                <span className="text-[11px] text-[#5b48bd] font-semibold">Quyết định góc nhìn và chiều sâu câu hỏi</span>
+                <span className="text-[11px] text-[#5b48bd] font-semibold">AI luôn hỏi chuyên môn đúng theo Vị trí &amp; Kỹ năng bạn đã chọn</span>
               </label>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -4724,28 +5252,28 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
               </div>
             </div>
 
-            {/* 4B. Tùy Chọn Giọng Nói Phỏng Vấn Chuẩn Phòng Thu */}
+            {/* Chọn Giọng Đọc Người Phỏng Vấn AI (Voice Presets) */}
             <div className="space-y-3 pt-4 border-t border-purple-100">
               <label className="text-xs font-bold text-[#1e1b4b] flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
                   <span className="material-symbols-outlined text-sm text-[#32247b]">record_voice_over</span>
-                  <span>4B. Âm sắc giọng đọc AI:</span>
+                  <span>Giọng đọc người phỏng vấn AI (Voice Preset):</span>
                 </span>
-                <span className="text-[11px] text-[#5b48bd] font-semibold">Công nghệ Neural Voice AI chuẩn studio</span>
+                <span className="text-[11px] text-[#5b48bd] font-semibold">Giọng đọc phòng thu chất lượng cao, phản xạ tự nhiên</span>
               </label>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {VOICE_PRESETS.map((vp) => {
-                  const isSelected = selectedVoicePreset === vp.id;
-                  const isLocked = !checkVoicePermission(vp);
+                {VOICE_PRESETS.map((v) => {
+                  const isSelected = selectedVoicePreset === v.id;
+                  const isLocked = !checkVoicePermission(v);
 
                   return (
                     <div
-                      key={vp.id}
-                      onClick={() => handleSelectVoice(vp)}
+                      key={v.id}
+                      onClick={() => handleSelectVoice(v)}
                       className={`p-5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between gap-4 relative overflow-hidden ${
                         isSelected
-                          ? 'bg-gradient-to-b from-[#f8f7ff] to-purple-50/60 border-[#32247b] ring-2 ring-[#32247b]/20 shadow-lg shadow-purple-900/10'
+                          ? 'bg-gradient-to-b from-[#f8f7ff] to-purple-50/70 border-[#32247b] ring-2 ring-[#32247b]/20 shadow-lg shadow-purple-900/10'
                           : isLocked
                           ? 'bg-slate-50/80 border-slate-200 hover:border-amber-300'
                           : 'bg-white border-purple-100 hover:border-purple-300 hover:shadow-md'
@@ -4753,26 +5281,23 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-3">
-                          <div className={`w-11 h-11 rounded-xl bg-gradient-to-tr ${vp.color} text-white flex items-center justify-center shadow-md shrink-0`}>
+                          <div className={`w-11 h-11 rounded-xl bg-gradient-to-tr ${v.color} text-white flex items-center justify-center shadow-md shrink-0`}>
                             <span className="material-symbols-outlined text-xl">
-                              {vp.id === 'vi-native' ? 'record_voice_over' : vp.id === 'eleven-alice' ? 'spatial_audio' : 'support_agent'}
+                              {v.gender === 'Nữ' ? 'female' : 'male'}
                             </span>
                           </div>
                           <div>
                             <div className="flex items-center gap-1.5">
-                              <h3 className="text-sm font-extrabold text-[#1e1b4b]">{vp.name}</h3>
-                              <span className="px-1.5 py-0.2 rounded-md bg-purple-100 text-[#32247b] text-[10px] font-bold">
-                                {vp.gender}
-                              </span>
+                              <h3 className="text-sm font-extrabold text-[#1e1b4b]">{v.name}</h3>
                             </div>
-                            <p className="text-xs font-semibold text-[#5b48bd] mt-0.5">{vp.tone}</p>
+                            <p className="text-xs font-semibold text-[#5b48bd] mt-0.5">{v.tone}</p>
                           </div>
                         </div>
 
                         {isLocked ? (
                           <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-bold flex items-center gap-1 shrink-0 shadow-xs">
                             <span className="material-symbols-outlined text-xs">lock</span>
-                            <span>{vp.tierLabel}</span>
+                            <span>{v.tierLabel}</span>
                           </span>
                         ) : isSelected ? (
                           <span className="w-6 h-6 rounded-full bg-[#32247b] text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-sm">
@@ -4784,27 +5309,24 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
                       </div>
 
                       <p className="text-xs text-slate-500 leading-relaxed font-normal">
-                        {vp.desc}
+                        {v.desc}
                       </p>
 
-                      <div className="pt-2 border-t border-purple-100/70 flex items-center justify-between">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                          {vp.badge}
-                        </span>
+                      <div className="pt-2 border-t border-purple-100/70 flex items-center justify-between text-[11px]">
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handlePreviewVoice(vp.id);
+                            handlePreviewVoice(v.id);
                           }}
-                          disabled={isPreviewingVoice}
-                          className="px-3 py-1.5 rounded-xl bg-purple-100 hover:bg-[#32247b] text-[#32247b] hover:text-white transition-all text-xs font-bold flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                          className="px-2.5 py-1 rounded-lg bg-purple-50 text-[#32247b] hover:bg-purple-100 font-bold flex items-center gap-1 border border-purple-200 transition-colors cursor-pointer"
                         >
-                          <span className="material-symbols-outlined text-sm">
-                            {isPreviewingVoice ? 'volume_up' : 'play_circle'}
-                          </span>
-                          <span>{isPreviewingVoice ? 'Đang phát...' : 'Nghe Thử'}</span>
+                          <span className="material-symbols-outlined text-xs">volume_up</span>
+                          <span>Nghe thử</span>
                         </button>
+                        <span className={`font-bold ${isLocked ? 'text-amber-700' : 'text-emerald-700'}`}>
+                          {isLocked ? `🔒 ${v.tierLabel}` : isSelected ? 'Đang chọn' : 'Bấm để chọn'}
+                        </span>
                       </div>
                     </div>
                   );
@@ -4950,17 +5472,23 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
               <button
                 type="button"
                 onClick={() => {
-                  const nextPreset = selectedVoicePreset === 'vi-native' ? 'eleven-alice' : selectedVoicePreset === 'eleven-alice' ? 'eleven-george' : 'vi-native';
-                  setSelectedVoicePreset(nextPreset);
-                  const p = VOICE_PRESETS.find((x) => x.id === nextPreset);
-                  showToast(`🎙️ Đã chuyển sang giọng đọc: ${p?.name} (${p?.tone})`);
+                  const allowedVoices = VOICE_PRESETS.filter((v) => checkVoicePermission(v));
+                  if (allowedVoices.length <= 1) {
+                    showToast('🔒 Gói dịch vụ hiện tại chỉ hỗ trợ Giọng Nữ Chuẩn Mực. Vui lòng nâng cấp Practice Plus/Pro để mở khóa thêm giọng đọc!');
+                    return;
+                  }
+                  const currentIndex = allowedVoices.findIndex((v) => v.id === selectedVoicePreset);
+                  const nextIndex = (currentIndex + 1) % allowedVoices.length;
+                  const nextPreset = allowedVoices[nextIndex];
+                  setSelectedVoicePreset(nextPreset.id);
+                  showToast(`🎙️ Đã chuyển sang giọng đọc: ${nextPreset.name} (${nextPreset.tone})`);
                 }}
                 className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-500/40 text-[11px] font-semibold text-indigo-200 transition-all cursor-pointer shadow-sm"
-                title="Bấm để chuyển đổi giọng đọc AI (Thu Hà Bản Xứ / Alice ElevenLabs / George Tech Lead)"
+                title="Bấm để chuyển đổi giọng đọc AI"
               >
                 <span className="material-symbols-outlined text-xs text-purple-400">record_voice_over</span>
                 <span className="truncate max-w-[150px]">
-                  {selectedVoicePreset === 'vi-native' ? '🇻🇳 Thu Hà (Bản Xứ VN)' : selectedVoicePreset === 'eleven-alice' ? '🇺🇸 Alice (ElevenLabs)' : '👨 George (Tech Lead)'}
+                  {VOICE_PRESETS.find((v) => v.id === selectedVoicePreset)?.name || 'Giọng Đọc AI'}
                 </span>
                 <span className="material-symbols-outlined text-xs text-slate-400">swap_horiz</span>
               </button>
@@ -5001,22 +5529,15 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
                   <div>
                     <div className="flex items-center gap-1.5">
                       <span className="text-sm font-bold text-white tracking-wide">
-                        {interviewConfig?.interviewerPersona === 'HR_MANAGER' ? 'Senior HR Director AI' :
-                         interviewConfig?.interviewerPersona === 'STRICT_DIRECTOR' ? 'Director of Engineering AI' :
-                         interviewConfig?.interviewerPersona === 'FRIENDLY_PEER' ? 'Senior Peer Engineer AI' :
-                         'Tech Lead Interviewer AI'}
+                        {INTERVIEWER_PERSONAS.find((p) => p.id === selectedPersona)?.title || 'Hội Đồng Phỏng Vấn Chuyên Môn AI'}
                       </span>
                       <span className="px-1.5 py-0.2 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 text-[9px] font-extrabold">AI</span>
                       <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[9px] font-bold">
-                        {interviewConfig?.aiInterviewDifficulty === 'HARD' ? 'Chuyên Sâu' :
-                         interviewConfig?.aiInterviewDifficulty === 'EASY' ? 'Cơ Bản' : 'Tiêu Chuẩn'}
+                        {LEVELS.find((l) => l.id === selectedLevel)?.label || 'Tiêu Chuẩn'}
                       </span>
                     </div>
                     <span className="text-[11px] text-slate-400">
-                      {interviewConfig?.interviewerPersona === 'HR_MANAGER' ? 'Giám Đốc Tuyển Dụng & Đánh Giá Văn Hóa' :
-                       interviewConfig?.interviewerPersona === 'STRICT_DIRECTOR' ? 'Trực Tiếp Khảo Sát Năng Lực & Áp Lực Dự Án' :
-                       interviewConfig?.interviewerPersona === 'FRIENDLY_PEER' ? 'Đàm Thoại Kỹ Thuật & Tinh Thần Đồng Đội' :
-                       'Chuyên Gia Phỏng Vấn Kiến Trúc & Kỹ Thuật'}
+                      {INTERVIEWER_PERSONAS.find((p) => p.id === selectedPersona)?.subtitle || 'Đánh Giá Năng Lực Chuyên Môn Thực Chiến'}
                     </span>
                   </div>
                 </div>
@@ -5685,9 +6206,10 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
                             }`}
                           >
                             <p className="whitespace-pre-line font-normal">{turn.text}</p>
-                            {isAi && (
+                            {isAi ? (
                               <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
                                 <button
+                                  type="button"
                                   onClick={() => speakWithSentenceChunking(turn.text)}
                                   className="text-indigo-600 hover:text-indigo-800 flex items-center gap-1 font-semibold cursor-pointer"
                                   title="Nghe lại câu hỏi này"
@@ -5695,6 +6217,34 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
                                   <span className="material-symbols-outlined text-sm">volume_up</span>
                                   <span>Nghe lại</span>
                                 </button>
+                              </div>
+                            ) : (
+                              <div className="mt-2 pt-2 border-t border-indigo-400/30 flex items-center justify-between text-[11px]">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (turn.audioUrl) {
+                                      showToast('🎧 Đang phát lại bản ghi âm giọng nói của bạn...');
+                                      const audio = new Audio(interviewApi.getAudioPlaybackUrl(turn.audioUrl));
+                                      audio.play().catch(() => {
+                                        speakWithSentenceChunking(turn.text);
+                                      });
+                                    } else {
+                                      showToast('🔊 Đang đọc lại câu trả lời của bạn...');
+                                      speakWithSentenceChunking(turn.text);
+                                    }
+                                  }}
+                                  className="text-indigo-100 hover:text-white flex items-center gap-1 font-semibold cursor-pointer"
+                                  title="Nghe lại bài nói của bạn"
+                                >
+                                  <span className="material-symbols-outlined text-sm">headphones</span>
+                                  <span>{turn.audioUrl ? '🎧 Nghe lại bài nói của bạn' : '🔊 Đọc lại câu trả lời'}</span>
+                                </button>
+                                {turn.audioUrl && (
+                                  <span className="text-[9px] bg-indigo-500/40 text-indigo-100 px-1.5 py-0.2 rounded font-mono">
+                                    Cloud Audio
+                                  </span>
+                                )}
                               </div>
                             )}
                           </div>
@@ -5730,11 +6280,14 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
                     <span>Nhắc lại câu hỏi</span>
                   </button>
                   <button
-                    onClick={() => handleSendCandidateTurn('Dạ cho tôi xin phép 10 giây để sắp xếp lại ý và trả lời câu hỏi này ạ.')}
-                    className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-medium shrink-0 transition-all cursor-pointer flex items-center gap-1"
+                    onClick={() => {
+                      setCurrentAnswer('Theo kinh nghiệm của tôi trong dự án thực tế, để giải quyết vấn đề này tôi đã thực hiện theo các bước: ');
+                      showToast('💡 Đã nạp khung mở đầu trả lời STAR vào ô nhập liệu!');
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-purple-50 hover:bg-purple-100 text-[#32247b] text-[11px] font-semibold shrink-0 transition-all cursor-pointer flex items-center gap-1 border border-purple-200"
                   >
-                    <span className="material-symbols-outlined text-xs">timer</span>
-                    <span>Xin 10s chuẩn bị</span>
+                    <span className="material-symbols-outlined text-xs">format_quote</span>
+                    <span>Mở đầu STAR</span>
                   </button>
                   <button
                     onClick={() => {
@@ -5804,6 +6357,7 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
             setView('setup');
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
+          onRetry={handleRetrySession}
         />
       )}
 
@@ -5872,6 +6426,7 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
             setSelectedHistorySession(null);
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
+          onRetry={handleRetrySession}
         />
       )}
 
@@ -5907,10 +6462,18 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
 
             <div className="text-center space-y-2">
               <h3 className="text-xl sm:text-2xl font-black text-white">
-                Hôm Nay Bạn Đã Hết Lượt!
+                {quotaStatus?.isQuotaExceeded ? 'Hôm Nay Bạn Đã Hết Lượt!' : 'Mở Khóa Tính Năng Cao Cấp'}
               </h3>
               <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-md mx-auto">
-                Bạn đã sử dụng hết <span className="font-bold text-amber-400 font-mono">{quotaStatus?.usedToday ?? 0}/{quotaStatus?.quotaLimit ?? 2} lượt phỏng vấn</span> hôm nay của gói <strong className="text-purple-300 font-bold">{quotaStatus?.planName || 'Free Candidate'}</strong>.
+                {quotaStatus?.isQuotaExceeded ? (
+                  <>
+                    Bạn đã sử dụng hết <span className="font-bold text-amber-400 font-mono">{quotaStatus?.usedToday ?? 0}/{quotaStatus?.quotaLimit ?? 2} lượt phỏng vấn</span> hôm nay của gói <strong className="text-purple-300 font-bold">{quotaStatus?.planName || 'Free Candidate'}</strong>.
+                  </>
+                ) : (
+                  <>
+                    Tính năng &quot;<span className="font-bold text-amber-400">{quotaExceededMessage}</span>&quot; thuộc đặc quyền của gói nâng cao. Hiện tại bạn đang sử dụng gói <strong className="text-purple-300 font-bold">{quotaStatus?.planName || 'Free Candidate'}</strong>. Hãy nâng cấp gói để trải nghiệm đầy đủ!
+                  </>
+                )}
               </p>
             </div>
 

@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { PageTransition, MotionProvider, EASE_CINEMATIC } from './components/motion/MotionSystem';
+import { installSharedElementCapture } from './components/motion/sharedElement';
 import Header from './components/common/Header';
 import Footer from './components/common/Footer';
 import ProtectedRoute from './components/common/ProtectedRoute';
@@ -20,6 +23,7 @@ import AccountSettingsPage from './pages/AccountSettingsPage';
 import CareerInsightsPage from './pages/CareerInsightsPage';
 import RecruiterPricingPage from './pages/RecruiterPricingPage';
 import CandidatePricingPage from './pages/CandidatePricingPage';
+import CompanyDetailPage from './pages/CompanyDetailPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import NotFoundPage from './pages/NotFoundPage';
 import LoginPage from './pages/auth/LoginPage';
@@ -67,6 +71,8 @@ class ErrorBoundary extends React.Component {
 function AppContent() {
   const [user, setUser] = useState(() => {
     try {
+      const token = localStorage.getItem('token');
+      if (!token) return null;
       const stored = localStorage.getItem('user') || localStorage.getItem('hiremate_user');
       if (stored) return JSON.parse(stored);
       const hrStored = localStorage.getItem('hiremate_hr_profile');
@@ -87,6 +93,7 @@ function AppContent() {
   const { variant, luminosity, theme } = useLivingTheme();
 
   useEffect(() => {
+    installSharedElementCapture();
     // 1. Intercept GitHub OAuth Callback if redirected to root URL
     const searchParams = new URLSearchParams(window.location.search);
     const code = searchParams.get('code');
@@ -111,33 +118,69 @@ function AppContent() {
     window.addEventListener('hashchange', handleHashChange);
     window.addEventListener('popstate', handleHashChange);
 
-    // Cross-tab / popup login sync
+    // Cross-tab / popup login sync & live profile synchronization
     const handleStorage = (e) => {
-      if (e.key === 'token' || e.key === 'user') {
+      if (!e || !e.key || e.key === 'token' || e.key === 'user') {
         try {
           const stored = localStorage.getItem('user');
           if (stored) {
             setUser(JSON.parse(stored));
-            window.location.hash = '#/';
           }
         } catch (err) {}
       }
     };
+
+    const handleUserUpdate = (e) => {
+      if (e?.detail) {
+        setUser(e.detail);
+      } else {
+        try {
+          const stored = localStorage.getItem('user');
+          if (stored) setUser(JSON.parse(stored));
+        } catch (err) {}
+      }
+    };
+
     window.addEventListener('storage', handleStorage);
+    window.addEventListener('hiremate_user_updated', handleUserUpdate);
 
     return () => {
       window.removeEventListener('hashchange', handleHashChange);
       window.removeEventListener('popstate', handleHashChange);
       window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('hiremate_user_updated', handleUserUpdate);
     };
   }, []);
+
+  const handleNavigate = (route) => {
+    if (route) {
+      if (window.location.hash !== route) {
+        window.location.hash = route;
+      }
+      setCurrentRoute(route);
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
+    localStorage.removeItem('hiremate_user');
+    localStorage.removeItem('hiremate_hr_profile');
+    localStorage.removeItem('hiremate_recruiter_subscription');
     localStorage.removeItem('hiremate_interview_history');
     localStorage.removeItem('hiremate_candidate_subscription');
+    try {
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('hiremate_company_') || key.startsWith('hiremate_recruiter_') || key.startsWith('hiremate_workplace_'))) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach((k) => localStorage.removeItem(k));
+      sessionStorage.clear();
+    } catch (e) {}
     setUser(null);
     window.location.hash = '#/';
   };
@@ -145,10 +188,24 @@ function AppContent() {
   const handleSwitchDemoRole = (role) => {
     if (!role) {
       localStorage.removeItem('user');
+      localStorage.removeItem('hiremate_user');
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
+      localStorage.removeItem('hiremate_hr_profile');
+      localStorage.removeItem('hiremate_recruiter_subscription');
       localStorage.removeItem('hiremate_interview_history');
       localStorage.removeItem('hiremate_candidate_subscription');
+      try {
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith('hiremate_company_') || key.startsWith('hiremate_recruiter_') || key.startsWith('hiremate_workplace_'))) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach((k) => localStorage.removeItem(k));
+        sessionStorage.clear();
+      } catch (e) {}
       setUser(null);
       window.location.hash = '#/';
       return;
@@ -169,6 +226,15 @@ function AppContent() {
       avatarUrl: authData.avatarUrl,
       companyId: authData.companyId,
       companyName: authData.companyName,
+      companyLogo: authData.companyLogo,
+      phone: authData.phone,
+      position: authData.position,
+      department: authData.department,
+      branchName: authData.branchName,
+      isHeadRecruiter: authData.isHeadRecruiter,
+      taxCode: authData.taxCode,
+      bio: authData.bio,
+      address: authData.address,
     };
     localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
@@ -246,7 +312,7 @@ function AppContent() {
     if (route.includes('candidate-pricing') || route.includes('candidate-subscription') || route.includes('goi-ung-vien') || route.includes('mua-goi-candidate') || (route.includes('pricing') && user?.role === 'CANDIDATE')) {
       return (
         <ProtectedRoute user={user} requiredRole="CANDIDATE">
-          <CandidatePricingPage user={user} onNavigate={(r) => setCurrentRoute(r)} />
+          <CandidatePricingPage user={user} onNavigate={handleNavigate} />
         </ProtectedRoute>
       );
     }
@@ -254,7 +320,7 @@ function AppContent() {
     if (route.includes('recruiter-profile') || route.includes('company-profile') || route.includes('ho-so-doanh-nghiep')) {
       return (
         <ProtectedRoute user={user} requiredRole="RECRUITER">
-          <RecruiterProfilePage user={user} onNavigate={(r) => setCurrentRoute(r)} />
+          <RecruiterProfilePage user={user} onNavigate={handleNavigate} />
         </ProtectedRoute>
       );
     }
@@ -282,13 +348,13 @@ function AppContent() {
       route.includes('hm-9082')
     ) {
       const candIdMatch = route.match(/candidateid=(\d+)/i);
-      const candId = candIdMatch ? Number(candIdMatch[1]) : 1;
       const jobIdMatch = route.match(/jobid=(\d+)/i);
       const jobId = jobIdMatch ? Number(jobIdMatch[1]) : null;
       const cvIdMatch = route.match(/cvid=(\d+)/i);
       const cvId = cvIdMatch ? Number(cvIdMatch[1]) : null;
       const appIdMatch = route.match(/appid=(\d+)/i) || route.match(/applicationid=(\d+)/i);
       const appId = appIdMatch ? Number(appIdMatch[1]) : null;
+      const candId = candIdMatch ? Number(candIdMatch[1]) : (appId ? null : 1);
       return (
         <ProtectedRoute user={user} requiredRole="RECRUITER">
           <CandidateEvaluationPage
@@ -298,7 +364,7 @@ function AppContent() {
             cvId={cvId}
             applicationId={appId}
             onBack={() => {
-              window.location.hash = jobId ? `#/applicants-management?jobId=${jobId}` : '#/recruiter-jobs';
+              window.location.hash = jobId ? `#/job-applicants-roster?jobId=${jobId}` : '#/job-dashboard';
             }}
           />
         </ProtectedRoute>
@@ -309,7 +375,7 @@ function AppContent() {
       if (route.includes('recruiter-profile') || route.includes('company-profile') || (user?.role === 'RECRUITER' && !route.includes('candidate'))) {
         return (
           <ProtectedRoute user={user} requiredRole="RECRUITER">
-            <RecruiterProfilePage user={user} onNavigate={(r) => setCurrentRoute(r)} />
+            <RecruiterProfilePage user={user} onNavigate={handleNavigate} />
           </ProtectedRoute>
         );
       }
@@ -336,20 +402,20 @@ function AppContent() {
       );
     }
 
-    if (route.includes('job-dashboard') || route.includes('recruiter-jobs') || route.includes('quan-ly-tin')) {
+    if (route.includes('job-dashboard') || route.includes('recruiter-jobs') || route.includes('quan-ly-tin') || route.includes('job-management')) {
       return (
         <ProtectedRoute user={user} requiredRole="RECRUITER">
           <RecruiterJobManagementPage
             user={user}
             onNavigateToPipeline={(jobId) => {
-              window.location.hash = `#/applicants-management?jobId=${jobId}`;
+              window.location.hash = `#/job-applicants-roster?jobId=${jobId}`;
             }}
           />
         </ProtectedRoute>
       );
     }
 
-    if (route.includes('applicants-management') || route.includes('job-applicants') || route.includes('recruiter-applicants')) {
+    if (route.includes('applicants-management') || route.includes('job-applicants') || route.includes('recruiter-applicants') || route.includes('job-applicants-roster')) {
       const rawHash = window.location.hash;
       const urlJobIdMatch = rawHash.match(/jobid=(\d+)/i) || rawHash.match(/jobId=(\d+)/);
       const parsedJobId = urlJobIdMatch ? Number(urlJobIdMatch[1]) : 101;
@@ -359,7 +425,7 @@ function AppContent() {
             user={user}
             jobId={parsedJobId}
             onBackToJobs={() => {
-              window.location.hash = '#/recruiter-jobs';
+              window.location.hash = '#/job-dashboard';
             }}
           />
         </ProtectedRoute>
@@ -369,7 +435,7 @@ function AppContent() {
     if (route.includes('recruiter-pricing') || route.includes('pricing') || route.includes('subscription') || route.includes('goi-dich-vu') || route.includes('mua-goi')) {
       return (
         <ProtectedRoute user={user} requiredRole="RECRUITER">
-          <RecruiterPricingPage user={user} onNavigate={(r) => setCurrentRoute(r)} />
+          <RecruiterPricingPage user={user} onNavigate={handleNavigate} />
         </ProtectedRoute>
       );
     }
@@ -390,14 +456,28 @@ function AppContent() {
       return <JobDetailPage user={user} jobId={jobId} />;
     }
 
-    // Public: Home Page & Job Search / Discovery
+    // Public: Company Detail Page
+    if (
+      route.startsWith('#/companies/') ||
+      route.startsWith('#/company/') ||
+      (route.includes('company') && (route.includes('id=') || route.includes('companyid=')))
+    ) {
+      const match = route.match(/compan(?:y|ies)\/([a-zA-Z0-9_-]+)/i) ||
+                    route.match(/companyid=([a-zA-Z0-9_-]+)/i) ||
+                    route.match(/id=([a-zA-Z0-9_-]+)/i);
+      const targetCompanyId = match ? match[1] : 1;
+      return <CompanyDetailPage user={user} companyId={targetCompanyId} />;
+    }
+
+    // Public: Home Page & Job Search / Discovery / Company Profile & Jobs
     if (
       route === '#/' ||
       route === '' ||
       route === '#' ||
       route.includes('job-search') ||
-      route === '#/jobs' ||
-      route === '#/jobs/' ||
+      route.startsWith('#/jobs') ||
+      route.startsWith('#/companies') ||
+      route.startsWith('#/company') ||
       route.includes('tim-viec')
     ) {
       return <HomePage user={user} />;
@@ -436,30 +516,42 @@ function AppContent() {
   const hideGlobalLayout = isAuthPage;
 
   return (
-    <div className="min-h-screen relative font-sans text-[#1e1b4b] bg-[#3b2b8e] p-2 sm:p-4 md:p-6 flex flex-col justify-between">
+    <div className="min-h-screen relative font-sans text-[#1e1b4b] bg-[#f8f9fe] p-2 sm:p-4 md:p-6 flex flex-col justify-between overflow-x-hidden">
         
-        {/* Ambient Radial Lights */}
-        <BotanicalBackground />
+        {/* Living Ambient Background Mesh */}
+        <div aria-hidden="true">
+          <BotanicalBackground />
+        </div>
 
-        {/* Outer Mindskills Canvas Container */}
-        <div className="relative z-10 flex flex-col min-h-[calc(100vh-2rem)] md:min-h-[calc(100vh-3rem)] justify-between bg-[#f4f2fd] rounded-2xl md:rounded-3xl shadow-2xl overflow-hidden border border-white/20">
+        {/* Outer Mindskills Glass Canvas Container - Crisp, clean, luminous light surface */}
+        <div className="relative z-10 flex flex-col min-h-[calc(100vh-2rem)] md:min-h-[calc(100vh-3rem)] justify-between bg-white/95 backdrop-blur-xl rounded-2xl md:rounded-[32px] shadow-[0_20px_50px_-10px_rgba(40,25,90,0.07)] overflow-hidden border border-purple-100/70">
           {!hideGlobalLayout && (
-            <Header
-              user={user}
-              currentRoute={currentRoute}
-              onLogout={handleLogout}
-              onNavigate={(r) => {
-                setCurrentRoute(r);
-                window.location.hash = r;
-              }}
-              onSwitchDemoRole={handleSwitchDemoRole}
-            />
+            <motion.div
+              initial={{ opacity: 0, y: -14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.12, ease: EASE_CINEMATIC }}
+              className="sticky top-0 z-50"
+            >
+              <Header
+                user={user}
+                currentRoute={currentRoute}
+                onLogout={handleLogout}
+                onNavigate={(r) => {
+                  setCurrentRoute(r);
+                  window.location.hash = r;
+                }}
+                onSwitchDemoRole={handleSwitchDemoRole}
+              />
+            </motion.div>
           )}
 
-          <main className="flex-1 p-3 sm:p-6">
-            {renderContent()}
+          <main className="flex-1 p-3 sm:p-6 relative">
+            <AnimatePresence mode="wait" initial={false}>
+              <PageTransition key={currentRoute.split('?')[0] || currentRoute} routeKey={currentRoute}>
+                {renderContent()}
+              </PageTransition>
+            </AnimatePresence>
           </main>
-
 
           {!hideGlobalLayout && <Footer />}
         </div>
@@ -471,9 +563,11 @@ function AppContent() {
 export default function App() {
   return (
     <ErrorBoundary>
-      <LivingThemeProvider>
-        <AppContent />
-      </LivingThemeProvider>
+      <MotionProvider>
+        <LivingThemeProvider>
+          <AppContent />
+        </LivingThemeProvider>
+      </MotionProvider>
     </ErrorBoundary>
   );
 }

@@ -43,6 +43,15 @@ public class Subscription {
     @Builder.Default
     private SubscriptionStatus status = SubscriptionStatus.ACTIVE;
 
+    @Column(name = "remaining_ai_tests")
+    private Integer remainingAiTests;
+
+    @Column(name = "remaining_job_posts")
+    private Integer remainingJobPosts;
+
+    @Column(name = "custom_quota")
+    private Integer customQuota;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

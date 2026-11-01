@@ -14,10 +14,12 @@ public class CreatePaymentOrderRequest {
     private String planName;
     private String targetRole; // CANDIDATE or RECRUITER
     private String billingCycle; // MONTHLY or YEARLY
+    private Integer durationMonths;
     private String paymentMethod; // VIETQR, MOMO, CARD
     private String voucherCode;
     private BigDecimal originalAmount;
     private BigDecimal discountAmount;
     private BigDecimal amount;
     private String orderNote;
+    private Boolean isAddon;
 }

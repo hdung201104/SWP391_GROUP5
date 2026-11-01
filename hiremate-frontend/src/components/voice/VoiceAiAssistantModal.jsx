@@ -733,11 +733,21 @@ export default function VoiceAiAssistantModal({ isOpen, onClose, user, initialCo
               )}
             </div>
 
-            {/* Error Message Alert */}
+            {/* Error Message Alert with Retry */}
             {errorMessage && (
-              <div className="mt-4 p-3 rounded-xl bg-rose-950/60 border border-rose-500/40 text-rose-200 text-xs text-center max-w-xs flex items-center gap-2">
-                <span className="material-symbols-outlined text-base text-rose-400 shrink-0">warning</span>
-                <span>{errorMessage}</span>
+              <div className="mt-4 p-3 rounded-xl bg-rose-950/60 border border-rose-500/40 text-rose-200 text-xs text-center max-w-xs flex flex-col items-center gap-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-base text-rose-400 shrink-0">warning</span>
+                  <span>{errorMessage}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleStartCall}
+                  className="px-3 py-1 bg-rose-500/30 hover:bg-rose-500/50 border border-rose-400/50 text-white rounded-lg text-[11px] font-semibold transition-all flex items-center gap-1 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-xs">refresh</span>
+                  <span>Thử lại kết nối</span>
+                </button>
               </div>
             )}
           </div>

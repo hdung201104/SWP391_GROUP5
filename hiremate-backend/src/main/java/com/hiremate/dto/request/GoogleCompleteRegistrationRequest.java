@@ -41,6 +41,18 @@ public class GoogleCompleteRegistrationRequest {
     private String githubUrl;
 
     // Trường bổ sung cho Nhà tuyển dụng (RECRUITER)
+    private Long companyId;
     private String companyName;
     private String position;
+    private String department;
+    private String branchName;
+    private String branchAddress;
+    private String companyAddress;
+    private String taxCode;
+    private String website;
+    private String companySize;
+    private String licenseNumber;
+    private String licenseDocUrl;
+    private String licenseDocName;
+    private String legalRepresentative;
 }

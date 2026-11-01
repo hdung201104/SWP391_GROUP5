@@ -97,7 +97,14 @@ public class AgentReflectionEngine {
             isInjection = true;
         }
 
-        // 2.2 Đánh giá mật độ chuyên môn kỹ thuật (Technical Density & Semantic Substance)
+        // 2.2 Đánh giá mật độ chuyên môn & từ điển thuật ngữ đa ngành nghề (Multi-domain Keyword Density)
+        String lowerQuestion = (question != null) ? question.toLowerCase() : "";
+        boolean isBehavioralOrIntro = lowerQuestion.contains("giới thiệu") || lowerQuestion.contains("bản thân")
+                || lowerQuestion.contains("chia sẻ") || lowerQuestion.contains("mở đầu")
+                || lowerQuestion.contains("định hướng") || lowerQuestion.contains("mục tiêu")
+                || lowerQuestion.contains("xung đột") || lowerQuestion.contains("áp lực")
+                || lowerQuestion.contains("thất bại") || lowerQuestion.contains("thách thức");
+
         int techKeywordCount = 0;
         List<String> detectedTechTerms = new ArrayList<>();
         String[] coreTechKeywords = {
@@ -106,13 +113,37 @@ public class AgentReflectionEngine {
                 "regression", "smoke test", "sanity test", "selenium", "postman", "jmeter", "cypress", "playwright",
                 "testng", "junit", "mock", "bug", "defect", "severity", "priority", "uat", "automation", "manual",
                 "api test", "performance test", "load test", "stress test", "black-box", "white-box", "ci/cd",
-                // Backend & Architecture
+                // Backend, Cloud & Architecture
                 "b-tree", "index", "cluster", "acid", "mutex", "lock", "thread", "concurrency",
                 "kafka", "rabbitmq", "redis", "postgres", "sql", "nosql", "sharding", "replication",
                 "spring", "docker", "kubernetes", "k8s", "microservices", "rest", "grpc", "websocket",
                 "memory leak", "garbage collection", "jvm", "event-driven", "async", "cache", "circuit breaker", "transaction",
-                // Frontend & Web
-                "react", "vue", "angular", "javascript", "typescript", "css", "html", "dom", "redux", "state", "hook", "component", "vite", "nextjs"
+                // Frontend, Mobile & AI
+                "react", "vue", "angular", "javascript", "typescript", "css", "html", "dom", "redux", "state", "hook", "component", "vite", "nextjs",
+                "flutter", "dart", "react native", "python", "fastapi", "django", "llm", "genai", "prompt", "machine learning",
+                // Kế toán, Kiểm toán, Tài chính & Ngân hàng
+                "báo cáo tài chính", "bctc", "cân đối kế toán", "dòng tiền", "cashflow", "thuế", "gtgt", "vat", "tndn", "tncn",
+                "vas", "ifrs", "kiểm toán", "công nợ", "tồn kho", "khấu hao", "misa", "sap", "chứng từ", "hóa đơn", "quyết toán",
+                "kiểm soát nội bộ", "biên lợi nhuận", "npv", "irr", "roi", "ebitda", "tín dụng", "thanh khoản", "ngân sách", "chi phí",
+                // Marketing, Truyền thông, SEO & Content
+                "marketing", "seo", "sem", "content", "brand", "thương hiệu", "chiến dịch", "campaign", "roas", "cac", "ltv",
+                "ctr", "cvr", "cpc", "cpm", "chuyển đổi", "conversion", "phễu", "funnel", "khách hàng mục tiêu", "target audience",
+                "insight", "a/b testing", "google analytics", "facebook ads", "tiktok", "truyền thông", "khủng hoảng", "định vị", "organic", "traffic",
+                // Kinh doanh & Bán hàng (Sales & BD)
+                "kinh doanh", "bán hàng", "sales", "doanh số", "doanh thu", "kpi", "quota", "chốt đơn", "closing", "đàm phán",
+                "thương lượng", "từ chối", "objection", "b2b", "b2c", "crm", "khách hàng", "lead", "pipeline", "phễu bán hàng",
+                "hợp đồng", "chiết khấu", "thị trường", "giữ chân", "retention", "upsell", "cross-sell", "spin selling",
+                // Nhân sự & Tuyển dụng (HR & C&B)
+                "nhân sự", "tuyển dụng", "headhunt", "c&b", "lương", "thưởng", "phúc lợi", "bảo hiểm", "bhxh", "luật lao động",
+                "đánh giá năng lực", "okr", "onboarding", "đào tạo", "turnover", "văn hóa doanh nghiệp", "quan hệ lao động", "kỷ luật", "jd", "phỏng vấn",
+                // Logistics, Xuất nhập khẩu & Chuỗi cung ứng
+                "logistics", "chuỗi cung ứng", "supply chain", "xuất nhập khẩu", "hải quan", "tờ khai", "vnaccs", "incoterms",
+                "vận chuyển", "kho bãi", "wms", "bill of lading", "c/o", "forwarder", "cảng", "giao nhận", "lead time", "nhà cung ứng", "vendor",
+                // Business Analyst, Quản lý dự án & BrSE
+                "srs", "brd", "user story", "acceptance criteria", "use case", "bpmn", "uml", "stakeholder", "yêu cầu", "nghiệp vụ",
+                "scope", "agile", "scrum", "sprint", "backlog", "kihon sekkei", "shosai sekkei", "hou-ren-so", "tiến độ", "rủi ro", "phân bổ nguồn lực",
+                // Chăm sóc khách hàng, Vận hành & Đa ngành
+                "sla", "csat", "nps", "khiếu nại", "phản hồi", "quy trình", "sop", "giải pháp", "kế hoạch", "mục tiêu", "tối ưu", "hiệu quả", "dự án", "phối hợp"
         };
 
         for (String kw : coreTechKeywords) {
@@ -128,25 +159,50 @@ public class AgentReflectionEngine {
             }
         }
 
-        // 2.3 Phân loại câu trả lời: Súc tích chuyên môn vs Sáo rỗng / Lạc đề / Sơ sài
-        boolean isConciseTechnical = (cleanAnswer.length() < 45 && techKeywordCount >= 2);
-        boolean isVagueOrTrivial = (cleanAnswer.length() < 35 && techKeywordCount == 0);
-        boolean isLackingTechSubstance = (techKeywordCount == 0);
+        // 2.3 Phân loại câu trả lời & Hiệu chuẩn điểm (Multi-dimensional Calibration)
+        int wordCount = cleanAnswer.isEmpty() ? 0 : cleanAnswer.split("\\s+").length;
+        boolean isTooShort = wordCount < 8;
+        boolean isConciseTechnical = (cleanAnswer.length() < 50 && techKeywordCount >= 2);
 
-        if (isConciseTechnical && !isInjection) {
-            critique.append("NHẬN DIỆN CÂU TRẢ LỜI SÚC TÍCH CHUẨN XÁC: Ứng viên trả lời cô đọng nhưng trúng trọng tâm kỹ thuật (")
-                    .append(String.join(", ", detectedTechTerms))
-                    .append("). ");
-            calibratedScore = Math.max(calibratedScore, 70.0f);
-        } else if (isVagueOrTrivial && !isInjection) {
-            critique.append("CẢNH BÁO THIẾU DỮ LIỆU CHUYÊN MÔN: Câu trả lời quá ngắn và không chứa thuật ngữ hay giải pháp kỹ thuật nào. ");
-            calibratedScore = Math.min(calibratedScore, 18.0f);
-        } else if (isLackingTechSubstance && !isInjection) {
-            critique.append("CẢNH BÁO LẠC ĐỀ / SÁO RỖNG: Câu trả lời diễn giải nhưng hoàn toàn thiếu vắng thuật ngữ, công cụ và nguyên lý kỹ thuật của vị trí chuyên môn. Phạt nặng điểm số. ");
-            calibratedScore = Math.min(calibratedScore, 30.0f);
-        } else if (techKeywordCount == 1 && !isInjection) {
-            critique.append("CẢNH BÁO KIẾN THỨC NÔNG: Mới chỉ nêu được 1 từ khóa kỹ thuật đơn lẻ, chưa đi vào chiều sâu nguyên lý hay giải pháp kiến trúc. ");
-            calibratedScore = Math.min(calibratedScore, 50.0f);
+        if (!isInjection) {
+            if (isTooShort) {
+                critique.append("CẢNH BÁO CÂU TRẢ LỜI QUÁ NGẮN: Dưới 8 từ, không đủ nội dung để đánh giá chuyên môn. ");
+                calibratedScore = Math.min(calibratedScore, 20.0f);
+            } else if (isConciseTechnical) {
+                critique.append("NHẬN DIỆN CÂU TRẢ LỜI SÚC TÍCH CHUẨN XÁC: Ứng viên trả lời cô đọng nhưng trúng trọng tâm chuyên môn (")
+                        .append(String.join(", ", detectedTechTerms))
+                        .append("). ");
+                calibratedScore = Math.max(calibratedScore, 70.0f);
+            } else if (isBehavioralOrIntro) {
+                // Câu hỏi giới thiệu bản thân / hành vi STAR: Tôn trọng đánh giá ngữ nghĩa của Gemini AI
+                critique.append("CÂU HỎI HÀNH VI / GIỚI THIỆU BẢN THÂN: Đánh giá dựa trên phong thái, độ lưu loát và kinh nghiệm thực tế. ");
+                if (wordCount >= 20 && draftScore >= 60.0f) {
+                    calibratedScore = draftScore;
+                }
+            } else {
+                // Câu hỏi chuyên môn kỹ thuật hoặc nghiệp vụ
+                if (techKeywordCount >= 2) {
+                    critique.append("MẬT ĐỘ THUẬT NGỮ CHUYÊN MÔN CAO: Ứng viên vận dụng tốt các khái niệm chuyên ngành (")
+                            .append(String.join(", ", detectedTechTerms))
+                            .append("). ");
+                    calibratedScore = Math.min(100.0f, calibratedScore + 3.0f);
+                } else if (techKeywordCount == 1) {
+                    critique.append("CÓ ĐỀ CẬP THUẬT NGỮ CHUYÊN NGÀNH: Đã nêu thuật ngữ cốt lõi, khuyến khích đào sâu thêm giải pháp. ");
+                    if (wordCount < 20) {
+                        calibratedScore = Math.min(calibratedScore, 55.0f);
+                    }
+                } else {
+                    // techKeywordCount == 0
+                    if (wordCount < 20) {
+                        critique.append("CẢNH BÁO THIẾU DỮ LIỆU CHUYÊN MÔN: Câu trả lời ngắn và thiếu vắng thuật ngữ ngành. ");
+                        calibratedScore = Math.min(calibratedScore, 30.0f);
+                    } else {
+                        // Trả lời dài, diễn giải bằng lời văn riêng: tôn trọng điểm ngữ nghĩa của Gemini, chỉ trừ nhẹ 5đ
+                        critique.append("CÂU TRẢ LỜI DIỄN GIẢI THỰC TẾ: Ứng viên diễn đạt bằng văn phong cá nhân, cần bổ sung thêm thuật ngữ chuẩn. ");
+                        calibratedScore = Math.max(calibratedScore - 5.0f, 40.0f);
+                    }
+                }
+            }
         }
 
         // 2.4 Kiểm định phương pháp STAR & Phòng chống Nhồi nhét từ khóa sáo rỗng (Anti-Keyword Stuffing)
@@ -155,16 +211,16 @@ public class AgentReflectionEngine {
                 && (lowerAns.contains("hành động") || lowerAns.contains("action") || lowerAns.contains("triển khai") || lowerAns.contains("giải pháp"))
                 && (lowerAns.contains("kết quả") || lowerAns.contains("result") || lowerAns.contains("đạt được"));
 
-        boolean hasConcreteMetrics = lowerAns.matches(".*\\d+(\\.\\d+)?(%|ms|rps|tps|kb|mb|gb|req/s|usd|triệu|lần).*");
+        boolean hasConcreteMetrics = lowerAns.matches(".*\\d+(\\.\\d+)?(%|ms|rps|tps|kb|mb|gb|req/s|usd|triệu|tỷ|k|lần|người|h|tháng|năm).*");
 
         if (hasStarKeywords && !isInjection) {
-            if (techKeywordCount >= 1 || hasConcreteMetrics) {
-                // STAR thật sự có gắn liền giải pháp kỹ thuật hoặc số liệu định lượng
-                critique.append("ỨNG VIÊN ÁP DỤNG STAR CHUẨN MỰC: Có dẫn chứng hành động kỹ thuật và kết quả đo lường rõ ràng (+5 điểm). ");
+            if (techKeywordCount >= 1 || hasConcreteMetrics || isBehavioralOrIntro) {
+                // STAR thật sự có gắn liền giải pháp kỹ thuật, số liệu định lượng hoặc câu hỏi hành vi
+                critique.append("ỨNG VIÊN ÁP DỤNG STAR CHUẨN MỰC: Có dẫn chứng hành động và kết quả đo lường rõ ràng (+5 điểm). ");
                 calibratedScore = Math.min(100.0f, calibratedScore + 5.0f);
             } else {
-                // Nhồi nhét từ khóa STAR nhưng rỗng ruột kỹ thuật
-                critique.append("CẢNH BÁO NHỒI NHÉT TỪ KHÓA (KEYWORD STUFFING): Ứng viên dùng khung STAR nhưng thiếu giải pháp kỹ thuật và số liệu minh chứng cụ thể. Giữ nguyên điểm cơ sở, không cộng điểm khuyến khích. ");
+                // Nhồi nhét từ khóa STAR nhưng rỗng ruột
+                critique.append("CẢNH BÁO NHỒI NHÉT TỪ KHÓA (KEYWORD STUFFING): Ứng viên dùng khung STAR nhưng thiếu giải pháp và số liệu minh chứng cụ thể. Giữ nguyên điểm cơ sở, không cộng điểm khuyến khích. ");
             }
         }
 
@@ -184,10 +240,10 @@ public class AgentReflectionEngine {
             confidenceLevel = "LOW";
             requiresHumanReview = true;
             confidenceReason = "Nghi vấn gian lận Prompt Injection nhằm thao túng hệ thống chấm điểm.";
-        } else if (isVagueOrTrivial) {
+        } else if (isTooShort) {
             confidenceLevel = "LOW";
             requiresHumanReview = true;
-            confidenceReason = "Câu trả lời sơ sài, thiếu dữ liệu chuyên môn để AI kết luận chắc chắn.";
+            confidenceReason = "Câu trả lời quá ngắn, thiếu dữ liệu để AI kết luận chắc chắn.";
         } else if (isConciseTechnical) {
             confidenceLevel = "HIGH";
             requiresHumanReview = false;
@@ -199,7 +255,7 @@ public class AgentReflectionEngine {
         } else {
             confidenceLevel = "HIGH";
             requiresHumanReview = false;
-            confidenceReason = "Câu trả lời đầy đủ, có ngữ cảnh và đối chiếu thành công với từ điển kỹ năng 3NF.";
+            confidenceReason = "Câu trả lời đầy đủ, có ngữ cảnh và đối chiếu thành công với từ điển chuyên môn.";
         }
 
         log.info(">> [AgentReflection] Hoàn tất 3-Phase Calibration: Điểm gốc=%.1f -> Sau phản biện=%.1f, Confidence={}, HumanReview={}",

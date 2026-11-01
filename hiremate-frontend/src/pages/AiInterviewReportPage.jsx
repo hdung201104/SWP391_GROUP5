@@ -606,6 +606,7 @@ export default function AiInterviewReportPage({
   sessionData = null,
   sessionIdProp = null,
   onBack = null,
+  onRetry = null,
 }) {
   const [session, setSession] = useState(sessionData);
   const [loading, setLoading] = useState(!sessionData);
@@ -613,6 +614,8 @@ export default function AiInterviewReportPage({
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'biometrics' | 'questions'
   const [questionFilter, setQuestionFilter] = useState('all'); // 'all' | 'high' | 'low'
   const [playingQuestionIdx, setPlayingQuestionIdx] = useState(null);
+  const [playingCandidateIdx, setPlayingCandidateIdx] = useState(null);
+  const candidateAudioRef = useRef(null);
   const [toast, setToast] = useState('');
 
   const showToast = (msg) => {
@@ -663,60 +666,102 @@ export default function AiInterviewReportPage({
         const raw = res?.data || res;
         const d = raw?.data || raw;
         if (d) {
+          const rawTel = d.telemetryReport || d.telemetry || {};
+          const sessionLevel = rawTel.level || d.level || 'Middle';
+
+          let sessionDuration = rawTel.durationFormatted;
+          if (!sessionDuration && d.startedAt && d.completedAt) {
+            const start = new Date(d.startedAt).getTime();
+            const end = new Date(d.completedAt).getTime();
+            if (!isNaN(start) && !isNaN(end) && end > start) {
+              const diffSec = Math.round((end - start) / 1000);
+              sessionDuration = String(Math.floor(diffSec / 60)).padStart(2, '0') + ':' + String(diffSec % 60).padStart(2, '0');
+            }
+          }
+          if (!sessionDuration && rawTel.actualDurationSeconds) {
+            const diffSec = Number(rawTel.actualDurationSeconds);
+            sessionDuration = String(Math.floor(diffSec / 60)).padStart(2, '0') + ':' + String(diffSec % 60).padStart(2, '0');
+          }
+          if (!sessionDuration) {
+            sessionDuration = '5 phút';
+          }
+
+          const qCount = d.details?.length || d.questionCount || 0;
+          const finalScore = Math.round(d.overallScore || 0);
+          const grade = qCount === 0 ? 'Chưa Hoàn Tất' : finalScore >= 85 ? 'Xuất Sắc' : finalScore >= 70 ? 'Đạt Yêu Cầu' : finalScore >= 50 ? 'Cần Rèn Luyện Thêm' : 'Không Đạt Yêu Cầu';
+
+          const mappedTelemetry = {
+            isCameraUsed: Boolean(rawTel.isCameraUsed),
+            isMicrophoneUsed: Boolean(rawTel.isMicrophoneUsed || (rawTel.avgWpm && Number(rawTel.avgWpm) > 0)),
+            avgEyeContact: rawTel.avgEyeContact ?? null,
+            avgPitchHz: rawTel.avgPitchHz ?? null,
+            avgWpm: rawTel.avgWpm ?? null,
+            totalFillers: rawTel.totalFillers ?? 0,
+            emotionSummary: rawTel.emotionSummary || rawTel.dominantEmotion || 'Chưa bật camera',
+            dominantEmotion: rawTel.dominantEmotion || rawTel.emotionSummary || 'Chưa bật camera',
+            postureStatus: rawTel.postureStatus || rawTel.postureSummary || 'Chưa bật camera',
+            postureSummary: rawTel.postureSummary || rawTel.postureStatus || 'Chưa bật camera',
+            emotions: rawTel.emotions || { confident: 0, smiling: 0, focused: 0, tense: 0 },
+            level: sessionLevel,
+            durationSeconds: rawTel.actualDurationSeconds ?? rawTel.durationSeconds ?? null,
+            durationFormatted: sessionDuration,
+          };
+
           const mapped = {
             id: 'HM-' + (d.sessionId || sid),
             sessionId: d.sessionId || sid,
             date: d.startedAt ? d.startedAt.split('T')[0] : new Date().toISOString().split('T')[0],
-            topic: d.targetPosition || 'Chuyên viên',
-            level: 'Middle',
-            duration: '15 phút',
-            totalScore: Math.round(d.overallScore || 0),
-            grade:
-              (d.overallScore || 0) >= 85
-                ? 'Xuất Sắc'
-                : (d.overallScore || 0) >= 70
-                  ? 'Đạt Yêu Cầu'
-                  : (d.overallScore || 0) >= 50
-                    ? 'Cần Rèn Luyện Thêm'
-                    : 'Không Đạt Yêu Cầu',
-            questionsCount: d.details?.length || 0,
+            topic: cleanTopicName(d.targetPosition || 'Chuyên viên'),
+            level: sessionLevel,
+            duration: sessionDuration,
+            totalScore: finalScore,
+            grade: grade,
+            questionsCount: qCount,
             planName: d.planName || 'Free Candidate',
             maxQuestions: d.maxQuestions || 3,
             maxDurationSeconds: d.maxDurationSeconds || 300,
+            isIncomplete: qCount === 0 || qCount < (d.maxQuestions || 3),
             aiSummary: d.overallFeedback || 'Đã hoàn thành phiên phỏng vấn với HireMate AI.',
             weaknessSummary: d.weaknessSummary || '',
             competencies: {
-              domainKnowledge: Math.round(d.domainKnowledgeScore || d.overallScore || 20),
-              problemSolving: Math.round(d.problemSolvingScore || d.overallScore || 20),
-              structureSTAR: Math.round(d.starStructureScore || 20),
-              deliveryTone: Math.round(d.deliveryToneScore || d.communicationScore || 20),
+              domainKnowledge: Math.round(d.domainKnowledgeScore ?? finalScore ?? 0),
+              problemSolving: Math.round(d.problemSolvingScore ?? finalScore ?? 0),
+              structureSTAR: Math.round(d.starStructureScore ?? (finalScore > 0 ? Math.round(finalScore * 0.85) : 0)),
+              deliveryTone: Math.round(d.deliveryToneScore ?? d.communicationScore ?? (finalScore > 0 ? finalScore : 0)),
             },
-            telemetryReport: d.telemetryReport || {
-              isCameraUsed: Boolean(d.telemetry?.isCameraUsed),
-              isMicrophoneUsed: Boolean(d.telemetry?.avgWpm && Number(d.telemetry.avgWpm) > 0),
-              avgEyeContact: d.telemetry?.avgEyeContact || null,
-              avgPitchHz: d.telemetry?.avgPitchHz || null,
-              avgWpm: d.telemetry?.avgWpm || null,
-              totalFillers: d.telemetry?.totalFillers || 0,
-              emotionSummary: d.telemetry?.dominantEmotion || 'Chưa bật camera',
-              postureStatus: d.telemetry?.postureStatus || 'Chưa bật camera',
-              emotions: d.telemetry?.emotions || { confident: 0, smiling: 0, focused: 0, tense: 0 },
-            },
+            deliveryFeedback: d.deliveryFeedback || null,
+            telemetryReport: mappedTelemetry,
             questions: (d.details || []).map((detail, idx) => {
               const ans = detail.candidateAnswerText || '';
-              const wCount = ans.trim().split(/\s+/).filter(Boolean).length;
+              const wCount = ans.trim() ? ans.trim().split(/\s+/).filter(Boolean).length : 0;
+              const feedbackStr = detail.aiFeedback || '';
+
+              let qWpm = mappedTelemetry.avgWpm;
+              let qPitch = mappedTelemetry.avgPitchHz;
+              let qEye = mappedTelemetry.avgEyeContact;
+
+              const wpmMatch = feedbackStr.match(/Tốc độ nói:\s*(\d+)\s*WPM/i) || feedbackStr.match(/WPM:\s*(\d+)/i);
+              if (wpmMatch) qWpm = Number(wpmMatch[1]);
+
+              const pitchMatch = feedbackStr.match(/Pitch\):\s*(\d+)\s*Hz/i) || feedbackStr.match(/(?:Tông giọng|Pitch):\s*(\d+)\s*Hz/i);
+              if (pitchMatch) qPitch = Number(pitchMatch[1]);
+
+              const eyeMatch = feedbackStr.match(/Eye Contact\):\s*(\d+)%/i) || feedbackStr.match(/(?:Giao tiếp mắt|Eye Contact):\s*(\d+)%/i);
+              if (eyeMatch) qEye = Number(eyeMatch[1]);
+
               return {
                 q: detail.questionText || `Lượt đối đáp #${idx + 1}`,
+                audioUrl: detail.audioUrl || null,
                 score: Math.round(detail.aiEvaluationScore || 0),
                 domainScore: Math.round(detail.aiEvaluationScore || 0),
                 problemScore: Math.round(detail.aiEvaluationScore || 0),
                 starScore: Math.round((detail.aiEvaluationScore || 0) * 0.85),
-                deliveryScore: Math.round(d.deliveryToneScore || 20),
-                answer: ans,
+                deliveryScore: Math.round(d.deliveryToneScore ?? d.communicationScore ?? detail.aiEvaluationScore ?? 20),
+                answer: ans || '(Ứng viên đã trả lời)',
                 words: wCount,
-                wpm: d.telemetry?.avgWpm || null,
-                pitchHz: d.telemetry?.avgPitchHz || null,
-                eyeContact: d.telemetry?.isCameraUsed ? (d.telemetry?.avgEyeContact || null) : null,
+                wpm: qWpm,
+                pitchHz: qPitch,
+                eyeContact: qEye,
                 criticalFeedback: {
                   flaws: detail.aiFeedback || '',
                   interviewerImpression: detail.tone || '',
@@ -780,6 +825,85 @@ export default function AiInterviewReportPage({
     } catch (e) {
       console.warn('TTS error:', e);
       setPlayingQuestionIdx(null);
+    }
+  };
+
+  // Phát lại bài trả lời / file ghi âm giọng thật của ứng viên
+  const playCandidateAnswer = (item, qIdx) => {
+    // 1. Nếu đang phát đúng câu này -> Dừng lại
+    if (playingCandidateIdx === qIdx) {
+      if (candidateAudioRef.current) {
+        try { candidateAudioRef.current.pause(); } catch (e) {}
+        candidateAudioRef.current = null;
+      }
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+      setPlayingCandidateIdx(null);
+      return;
+    }
+
+    // 2. Dừng mọi âm thanh khác đang phát (bao gồm câu mẫu)
+    if (candidateAudioRef.current) {
+      try { candidateAudioRef.current.pause(); } catch (e) {}
+      candidateAudioRef.current = null;
+    }
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    setPlayingQuestionIdx(null);
+
+    // 3. Ưu tiên 1: Phát file ghi âm giọng thật của ứng viên (Cloudinary CDN / Local)
+    if (item.audioUrl) {
+      setPlayingCandidateIdx(qIdx);
+      try {
+        const playbackUrl = interviewApi.getAudioPlaybackUrl(item.audioUrl);
+        const audio = new Audio(playbackUrl);
+        candidateAudioRef.current = audio;
+        audio.onended = () => {
+          setPlayingCandidateIdx(null);
+          candidateAudioRef.current = null;
+        };
+        audio.onerror = (err) => {
+          console.warn('Cannot play cloud audio, fallback to TTS:', err);
+          candidateAudioRef.current = null;
+          fallbackCandidateTts(item.answer, qIdx);
+        };
+        audio.play().then(() => {
+          showToast('🎧 Đang phát lại bản ghi âm giọng nói thật của bạn...');
+        }).catch((err) => {
+          console.warn('Audio play prevented or failed:', err);
+          fallbackCandidateTts(item.answer, qIdx);
+        });
+      } catch (err) {
+        fallbackCandidateTts(item.answer, qIdx);
+      }
+      return;
+    }
+
+    // 4. Ưu tiên 2: Đọc lại văn bản câu trả lời bằng TTS nếu không có file âm thanh
+    fallbackCandidateTts(item.answer, qIdx);
+  };
+
+  const fallbackCandidateTts = (text, qIdx) => {
+    if (!text) {
+      setPlayingCandidateIdx(null);
+      return;
+    }
+    setPlayingCandidateIdx(qIdx);
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'vi-VN';
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      utterance.onend = () => setPlayingCandidateIdx(null);
+      utterance.onerror = () => setPlayingCandidateIdx(null);
+      window.speechSynthesis.speak(utterance);
+      showToast('🔊 Đang đọc lại câu trả lời của bạn...');
+    } else {
+      showToast('Trình duyệt chưa hỗ trợ phát âm thanh.');
+      setPlayingCandidateIdx(null);
     }
   };
 
@@ -954,17 +1078,36 @@ export default function AiInterviewReportPage({
   // Xử lý phân bổ cảm xúc
   const rawEmotions = telemetry.emotions || { confident: 0, smiling: 0, focused: 0, tense: 0 };
   const totalEmotionCounts = (rawEmotions.confident || 0) + (rawEmotions.smiling || 0) + (rawEmotions.focused || 0) + (rawEmotions.tense || 0);
-  const emotionPcts = totalEmotionCounts > 0 ? {
-    confident: Math.round(((rawEmotions.confident || 0) / totalEmotionCounts) * 100),
-    focused: Math.round(((rawEmotions.focused || 0) / totalEmotionCounts) * 100),
-    smiling: Math.round(((rawEmotions.smiling || 0) / totalEmotionCounts) * 100),
-    tense: Math.round(((rawEmotions.tense || 0) / totalEmotionCounts) * 100),
-  } : {
-    confident: hasCameraUsed ? 45 : 0,
-    focused: hasCameraUsed ? 35 : 0,
-    smiling: hasCameraUsed ? 15 : 0,
-    tense: hasCameraUsed ? 5 : 0,
-  };
+
+  let emotionPcts;
+  if (totalEmotionCounts > 0) {
+    emotionPcts = {
+      confident: Math.round(((rawEmotions.confident || 0) / totalEmotionCounts) * 100),
+      focused: Math.round(((rawEmotions.focused || 0) / totalEmotionCounts) * 100),
+      smiling: Math.round(((rawEmotions.smiling || 0) / totalEmotionCounts) * 100),
+      tense: Math.round(((rawEmotions.tense || 0) / totalEmotionCounts) * 100),
+    };
+  } else if (hasCameraUsed) {
+    const emoSummary = (telemetry.emotionSummary || telemetry.dominantEmotion || '').toLowerCase();
+    if (emoSummary.includes('mỉm cười') || emoSummary.includes('smiling') || emoSummary.includes('vui vẻ') || emoSummary.includes('tích cực')) {
+      emotionPcts = { smiling: 55, confident: 30, focused: 15, tense: 0 };
+    } else if (emoSummary.includes('căng thẳng') || emoSummary.includes('tense') || emoSummary.includes('lo lắng') || emoSummary.includes('bối rối')) {
+      emotionPcts = { tense: 55, focused: 25, confident: 15, smiling: 5 };
+    } else if (emoSummary.includes('tập trung') || emoSummary.includes('focused') || emoSummary.includes('nghiêm túc')) {
+      emotionPcts = { focused: 55, confident: 30, smiling: 10, tense: 5 };
+    } else if (emoSummary.includes('tự tin') || emoSummary.includes('confident')) {
+      emotionPcts = { confident: 55, focused: 25, smiling: 15, tense: 5 };
+    } else {
+      emotionPcts = { confident: 45, focused: 35, smiling: 15, tense: 5 };
+    }
+  } else {
+    emotionPcts = {
+      confident: 0,
+      focused: 0,
+      smiling: 0,
+      tense: 0,
+    };
+  }
 
   const authenticStrengths = [];
   if (isVeryShortSession || totalScore < 40) {
@@ -1012,6 +1155,40 @@ export default function AiInterviewReportPage({
     authenticFlaws.push(
       `Phiên phỏng vấn kết thúc sớm: Mới thực hiện ${totalQ}/${targetMaxQ} câu hỏi, chưa đủ dữ liệu đánh giá đầy đủ các vòng chuyên môn.`
     );
+  } else {
+    if (comps.domainKnowledge >= 70) {
+      authenticStrengths.push(
+        `Nắm bắt tốt các thuật ngữ và nguyên lý ngành ${taxonomy.categoryName}. Thể hiện được kiến thức nền tảng vững vàng.`
+      );
+    }
+    if (comps.problemSolving >= 70) {
+      authenticStrengths.push(
+        'Tư duy giải quyết vấn đề mạch lạc, biết phân tích nguyên nhân gốc rễ và đề xuất phương án xử lý thực tế.'
+      );
+    }
+    if (wpmInfo.isReliable && telemetry.avgWpm >= 100 && telemetry.avgWpm <= 150) {
+      authenticStrengths.push(
+        `Tốc độ trình bày đạt chuẩn tự nhiên (${telemetry.avgWpm} từ/phút), phát âm rõ ràng, nhịp điệu ổn định.`
+      );
+    }
+    if (telemetry.totalFillers <= 2 && totalWords >= 40) {
+      authenticStrengths.push(
+        `Kiểm soát tốt ngôn từ diễn đạt, hạn chế tối đa các từ đệm ngập ngừng (chỉ ${telemetry.totalFillers} lần trong suốt buổi).`
+      );
+    }
+    if (hasCameraUsed && telemetry.avgEyeContact >= 70) {
+      authenticStrengths.push(
+        `Tương tác ánh mắt qua webcam tốt (${telemetry.avgEyeContact}%), duy trì sự tập trung trực diện tạo cảm giác tự tin.`
+      );
+    }
+    if (totalQ >= targetMaxQ && totalScore >= 60) {
+      authenticStrengths.push(
+        `Hoàn thành trọn vẹn ${totalQ} câu hỏi đối thoại chuyên sâu, duy trì sự tập trung và tinh thần cầu thị.`
+      );
+    }
+    if (authenticStrengths.length === 0) {
+      authenticStrengths.push('Đã có nỗ lực phản hồi các câu hỏi phỏng vấn trong buổi đối thoại.');
+    }
   }
   if (cleanedWeakness) {
     authenticFlaws.push(`Lỗ hổng cốt lõi: ${cleanedWeakness}`);
@@ -2189,28 +2366,73 @@ export default function AiInterviewReportPage({
                               <span>Lời đáp thực tế của bạn:</span>
                             </span>
 
-                            {wordCount === 0 ? (
-                              <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[10px] font-bold">
-                                Không có câu trả lời
-                              </span>
-                            ) : wordCount < 15 ? (
-                              <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[10px] font-bold">
-                                Quá ngắn ({wordCount} từ)
-                              </span>
-                            ) : wordCount < 40 ? (
-                              <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-medium">
-                                {wordCount} từ • Hơi vắn tắt
-                              </span>
-                            ) : (
-                              <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-medium">
-                                {wordCount} từ • Chi tiết
-                              </span>
-                            )}
+                            <div className="flex items-center gap-2">
+                              {/* Nút bấm nghe lại giọng nói thật hoặc TTS */}
+                              {ansText && (
+                                <button
+                                  type="button"
+                                  onClick={() => playCandidateAnswer(item, idx)}
+                                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer shadow-xs ${
+                                    playingCandidateIdx === idx
+                                      ? 'bg-rose-500 text-white animate-pulse ring-2 ring-rose-400'
+                                      : item.audioUrl
+                                      ? 'bg-indigo-50 hover:bg-indigo-100 text-[#32247b] border border-indigo-200'
+                                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+                                  }`}
+                                  title={item.audioUrl ? 'Nghe lại file ghi âm giọng nói thật của bạn' : 'Nghe AI đọc lại câu trả lời'}
+                                >
+                                  <span className="material-symbols-outlined text-xs">
+                                    {playingCandidateIdx === idx ? 'stop' : item.audioUrl ? 'headphones' : 'volume_up'}
+                                  </span>
+                                  <span>
+                                    {playingCandidateIdx === idx
+                                      ? '⏹ Dừng Nghe'
+                                      : item.audioUrl
+                                      ? '🎧 Nghe Giọng Của Bạn'
+                                      : '🔊 Nghe Lại'}
+                                  </span>
+                                  {item.audioUrl && (
+                                    <span className="text-[9px] bg-indigo-600 text-white px-1 rounded-sm ml-0.5">
+                                      Cloud Audio
+                                    </span>
+                                  )}
+                                </button>
+                              )}
+
+                              {wordCount === 0 ? (
+                                <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[10px] font-bold">
+                                  Không có câu trả lời
+                                </span>
+                              ) : wordCount < 15 ? (
+                                <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[10px] font-bold">
+                                  Quá ngắn ({wordCount} từ)
+                                </span>
+                              ) : wordCount < 40 ? (
+                                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-medium">
+                                  {wordCount} từ • Hơi vắn tắt
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-medium">
+                                  {wordCount} từ • Chi tiết
+                                </span>
+                              )}
+                            </div>
                           </div>
 
                           <p className="text-xs sm:text-sm text-slate-800 italic leading-relaxed pl-1 font-medium">
                             {ansText ? `"${ansText}"` : '(Ứng viên không nói hoặc nội dung thu âm quá ngắn)'}
                           </p>
+
+                          {/* Trình phát Audio Player cho giọng thật trên đám mây */}
+                          {item.audioUrl && (
+                            <div className="pt-2">
+                              <audio
+                                controls
+                                src={interviewApi.getAudioPlaybackUrl(item.audioUrl)}
+                                className="w-full h-8 rounded-lg outline-none"
+                              />
+                            </div>
+                          )}
 
                           {/* DẢI BADGE TELEMETRY SINH TRẮC HỌC CHO TỪNG CÂU HỎI */}
                           <div className="pt-2 border-t border-slate-200/70 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-600">
@@ -2250,6 +2472,7 @@ export default function AiInterviewReportPage({
                             <span className="material-symbols-outlined text-base text-amber-600">psychology</span>
                             <span>Nhận xét thẳng thắn từ Giám khảo AI:</span>
                           </div>
+                        )}
 
                           <div className="text-slate-800 leading-relaxed text-xs whitespace-pre-line space-y-1 pl-1 font-normal">
                             {parsedCritique.critique}
@@ -2560,6 +2783,17 @@ export default function AiInterviewReportPage({
             >
               Quay Lại Studio
             </button>
+            {onRetry && (
+              <button
+                type="button"
+                onClick={() => onRetry(session)}
+                className="px-4 py-2 rounded-xl bg-purple-50 hover:bg-purple-100 border border-purple-300 text-[#32247b] text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
+                title="Luyện tập lại vị trí này để AI so sánh và tính toán độ tiến bộ so với lần thi này"
+              >
+                <span className="material-symbols-outlined text-sm text-[#32247b]">replay</span>
+                <span>Luyện Tập Lại Vị Trí Này</span>
+              </button>
+            )}
             <button
               onClick={() => { window.location.hash = '#/ai-interview'; }}
               className="px-5 py-2.5 rounded-xl bg-[#32247b] hover:bg-[#251963] text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-md cursor-pointer"

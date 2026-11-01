@@ -53,4 +53,9 @@ public interface AiJobMatchService {
      * Hỗ trợ cờ forceRefresh: nếu false thì đọc từ Cache DB (0 token, tức thì); nếu true thì chạy lại AI và lưu mới.
      */
     com.hiremate.dto.response.AiDetailedEvaluationReport getDetailedCandidateEvaluation(Long jobId, Long candidateId, boolean forceRefresh);
+
+    /**
+     * Báo cáo đánh giá chuyên sâu độc lập có kiểm tra quyền sở hữu (Chống lỗ hổng IDOR).
+     */
+    com.hiremate.dto.response.AiDetailedEvaluationReport getDetailedCandidateEvaluation(Long jobId, Long candidateId, boolean forceRefresh, User currentUser);
 }

@@ -32,6 +32,7 @@ public interface JobService {
     JobResponse cloneJob(Long jobId, User recruiter);
     List<JobResponse> getAllJobsForAdmin();
     JobResponse updateJobApproval(Long jobId, com.hiremate.enums.JobApprovalStatus status);
+    JobResponse updateJobApproval(Long jobId, com.hiremate.enums.JobApprovalStatus status, String reason);
     List<JobResponse> mapToResponses(List<com.hiremate.entity.Job> jobs);
     JobResponse mapToResponse(com.hiremate.entity.Job job);
     java.util.Map<String, Object> parseJdFile(org.springframework.web.multipart.MultipartFile file, String rawText);

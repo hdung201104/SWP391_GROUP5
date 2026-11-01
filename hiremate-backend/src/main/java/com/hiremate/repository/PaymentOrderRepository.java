@@ -18,4 +18,7 @@ public interface PaymentOrderRepository extends JpaRepository<PaymentOrder, Long
 
     @org.springframework.data.jpa.repository.Query("SELECT COALESCE(SUM(p.amount), 0) FROM PaymentOrder p WHERE p.status = com.hiremate.enums.PaymentOrderStatus.APPROVED")
     java.math.BigDecimal sumTotalRevenue();
+
+    boolean existsByPlan_PlanId(Long planId);
+    boolean existsByVoucher_VoucherId(Long voucherId);
 }

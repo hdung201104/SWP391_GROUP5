@@ -334,6 +334,12 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
       return;
     }
 
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    if (isRoleCandidate && dob && dob > todayStr) {
+      triggerToast('Ngày sinh không thể là ngày trong tương lai');
+      return;
+    }
+
     try {
       await authApi.updateProfile({
         fullName: fullName.trim(),
@@ -750,7 +756,7 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
           <div className="flex items-center gap-2 flex-wrap shrink-0">
             {isRoleAdmin ? (
               <button
-                onClick={() => { window.location.hash = '#/admin-jobs'; }}
+                onClick={() => { window.location.hash = '#/admin-dashboard?tab=JOBS'; }}
                 className="bg-white hover:bg-rose-50 border border-rose-200 text-rose-700 text-xs py-2.5 px-4 rounded-2xl flex items-center gap-1.5 shadow-sm transition-all font-bold cursor-pointer"
               >
                 <span className="material-symbols-outlined text-base">dashboard_customize</span>
@@ -1152,10 +1158,10 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                       <input
                         type="email"
                         value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
+                        readOnly
+                        disabled
                         placeholder="hr@vng.com.vn"
-                        className="w-full pl-11 pr-4 py-2.5 bg-[#f8f7ff] border border-purple-100 rounded-2xl text-xs sm:text-sm text-[#1e1b4b] focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 focus:outline-none transition-all font-sans font-medium"
+                        className="w-full pl-11 pr-4 py-2.5 bg-slate-100 border border-slate-200 rounded-2xl text-xs sm:text-sm text-slate-500 cursor-not-allowed font-sans font-medium"
                       />
                     </div>
                   </div>
@@ -1198,17 +1204,27 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
 
                   {/* Doanh nghiệp công tác */}
                   <div className="space-y-2">
-                    <label className="text-xs font-sans font-bold text-[#1e1b4b] flex items-center gap-1.5">
-                      <span>Doanh Nghiệp / Tổ Chức Đang Công Tác</span>
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-sans font-bold text-[#1e1b4b] flex items-center gap-1.5">
+                        <span>Doanh Nghiệp / Tổ Chức Đang Công Tác</span>
+                      </label>
+                      <a
+                        href="#/recruiter-profile"
+                        className="text-[11px] text-[#5b48bd] hover:underline font-bold flex items-center gap-0.5 cursor-pointer"
+                      >
+                        <span>Sửa hồ sơ công ty</span>
+                        <span className="material-symbols-outlined text-[13px]">arrow_forward</span>
+                      </a>
+                    </div>
                     <div className="relative">
                       <span className="material-symbols-outlined absolute left-4 top-3 text-base text-slate-400">business</span>
                       <input
                         type="text"
                         value={companyName}
-                        onChange={(e) => setCompanyName(e.target.value)}
+                        readOnly
+                        disabled
                         placeholder="Ví dụ: VNG Corporation"
-                        className="w-full pl-11 pr-4 py-2.5 bg-[#f8f7ff] border border-purple-100 rounded-2xl text-xs sm:text-sm text-[#1e1b4b] focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 focus:outline-none transition-all font-sans font-medium"
+                        className="w-full pl-11 pr-4 py-2.5 bg-slate-100 border border-slate-200 rounded-2xl text-xs sm:text-sm text-slate-500 cursor-not-allowed font-sans font-medium"
                       />
                     </div>
                   </div>
@@ -1512,11 +1528,29 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                       <span className="material-symbols-outlined absolute left-4 top-3 text-base text-slate-400">cake</span>
                       <input
                         type="date"
+                        max={new Date().toLocaleDateString('en-CA')}
                         value={dob || ''}
-                        onChange={(e) => setDob(e.target.value)}
-                        className="w-full pl-11 pr-4 py-2.5 bg-[#f8f7ff] border border-purple-100 rounded-2xl text-xs sm:text-sm text-[#1e1b4b] focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 focus:outline-none transition-all font-sans font-medium"
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const todayStr = new Date().toLocaleDateString('en-CA');
+                          if (val && val > todayStr) {
+                            triggerToast('Ngày sinh không thể lớn hơn ngày hiện tại');
+                            return;
+                          }
+                          setDob(val);
+                        }}
+                        className={`w-full pl-11 pr-4 py-2.5 bg-[#f8f7ff] border ${
+                          dob && dob > new Date().toLocaleDateString('en-CA')
+                            ? 'border-red-400 focus:border-red-500 focus:ring-red-200'
+                            : 'border-purple-100 focus:border-[#5b48bd] focus:ring-[#5b48bd]/20'
+                        } rounded-2xl text-xs sm:text-sm text-[#1e1b4b] focus:ring-2 focus:outline-none transition-all font-sans font-medium`}
                       />
                     </div>
+                    {dob && dob > new Date().toLocaleDateString('en-CA') && (
+                      <p className="text-[11px] text-red-500 font-medium mt-1">
+                        Ngày sinh không hợp lệ (không thể chọn ngày trong tương lai).
+                      </p>
+                    )}
                   </div>
 
                   {/* Giới tính */}

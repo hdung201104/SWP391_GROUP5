@@ -5,6 +5,7 @@ import com.hiremate.enums.JobStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -61,6 +62,16 @@ public class Job {
     @Column(name = "location", length = 200)
     private String location;
 
+    @Column(name = "branch_name", length = 200)
+    private String branchName;
+
+    @Column(name = "salary_currency", length = 10)
+    @Builder.Default
+    private String salaryCurrency = "VND";
+
+    @Column(name = "job_category", length = 100)
+    private String jobCategory;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "employment_type", length = 20)
     private EmploymentType employmentType;
@@ -86,7 +97,14 @@ public class Job {
     @Column(name = "deadline_date")
     private LocalDate deadlineDate;
 
+    @Column(name = "moderation_note", columnDefinition = "TEXT")
+    private String moderationNote;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 }

@@ -102,6 +102,7 @@ CREATE TABLE companies (
     license_doc_url     TEXT,
     license_doc_name    VARCHAR(255),
     legal_representative VARCHAR(150),
+    branches_json       TEXT,           -- JSON Array: [{id, branchName, address, scale, hotline, managerRecruiterId, managerName, isHeadquarters}]
     rejection_reason    TEXT,
     verified_at         TIMESTAMPTZ,
     status              VARCHAR(20)     DEFAULT 'PENDING',
@@ -118,6 +119,9 @@ CREATE TABLE recruiters (
     company_id          BIGINT          REFERENCES companies(company_id) ON DELETE SET NULL,
     position            VARCHAR(200),
     department          VARCHAR(150),
+    branch_name         VARCHAR(200),
+    branch_address      VARCHAR(300),
+    is_head_recruiter   BOOLEAN         DEFAULT FALSE,
     updated_at          TIMESTAMPTZ     DEFAULT NOW(),
     CONSTRAINT fk_recruiters_user FOREIGN KEY (recruiter_id) REFERENCES users(user_id) ON DELETE CASCADE
 );
@@ -173,6 +177,7 @@ CREATE TABLE jobs (
     salary_min          NUMERIC(15,2),
     salary_max          NUMERIC(15,2),
     location            VARCHAR(200),
+    branch_name         VARCHAR(200),
     employment_type     VARCHAR(20),
     status              VARCHAR(20)     NOT NULL DEFAULT 'DRAFT',
     approval_status     VARCHAR(20)     NOT NULL DEFAULT 'PENDING',
@@ -222,6 +227,7 @@ CREATE TABLE applications (
     cover_letter        TEXT,
     status              VARCHAR(20)     NOT NULL DEFAULT 'APPLIED',
     rejection_reason    TEXT,
+    evaluation_notes    TEXT,
     created_at          TIMESTAMPTZ     DEFAULT NOW(),
     updated_at          TIMESTAMPTZ     DEFAULT NOW(),
     CONSTRAINT uq_application UNIQUE (job_id, candidate_id)

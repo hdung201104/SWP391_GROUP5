@@ -1,13 +1,28 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { calculateJobDeadline } from '../../utils/jobTimeUtils';
+import { isJobSaved, toggleSaveJob } from '../../utils/savedJobsStorage';
 
-export default function JobCard({ job, user, onSelectJob, onApplyJob, onPracticeInterview }) {
+export default function JobCard({ job, user, onSelectJob, onApplyJob, onPracticeInterview, onHoverChange }) {
   const isRecruiter = user?.role === 'RECRUITER';
   const isCandidate = user?.role === 'CANDIDATE' || user?.role === 'ROLE_CANDIDATE';
   const isGuest = !user;
   const isMyJob = isRecruiter && user?.userId && job.recruiterId === user.userId;
   const deadlineInfo = calculateJobDeadline(job.deadlineDate || job.deadline);
-  const [bookmarked, setBookmarked] = useState(false);
+  const jobId = job.jobId || job.id;
+  const [bookmarked, setBookmarked] = useState(() => isJobSaved(jobId));
+
+  useEffect(() => {
+    setBookmarked(isJobSaved(jobId));
+    const handleSync = () => {
+      setBookmarked(isJobSaved(jobId));
+    };
+    window.addEventListener('hiremate_saved_jobs_updated', handleSync);
+    return () => {
+      window.removeEventListener('hiremate_saved_jobs_updated', handleSync);
+    };
+  }, [jobId]);
+
   const [isHovered, setIsHovered] = useState(false);
   const hoverTimeoutRef = useRef(null);
 
@@ -15,21 +30,42 @@ export default function JobCard({ job, user, onSelectJob, onApplyJob, onPractice
     if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
     hoverTimeoutRef.current = setTimeout(() => {
       setIsHovered(true);
-    }, 110);
+      if (onHoverChange) onHoverChange(true);
+    }, 200);
   };
 
   const handleMouseLeave = () => {
     if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
     hoverTimeoutRef.current = setTimeout(() => {
       setIsHovered(false);
-    }, 140);
+      if (onHoverChange) onHoverChange(false);
+    }, 120);
   };
 
   useEffect(() => {
     return () => {
       if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+      if (onHoverChange) onHoverChange(false);
     };
   }, []);
+
+  // Close hover popover immediately on scroll or Escape key to prevent blocking the viewport
+  useEffect(() => {
+    if (!isHovered) return;
+    const handleClose = () => {
+      setIsHovered(false);
+      if (onHoverChange) onHoverChange(false);
+    };
+    window.addEventListener('scroll', handleClose, { passive: true });
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') handleClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('scroll', handleClose);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isHovered, onHoverChange]);
 
   // Helper for company initials
   const getInitials = (name) => {
@@ -56,7 +92,9 @@ export default function JobCard({ job, user, onSelectJob, onApplyJob, onPractice
   };
 
   const aiMatchScore = job.aiMatchScore != null ? job.aiMatchScore : (job.matchingScore != null ? Math.round(job.matchingScore) : null);
-  const skillsList = job.skills || job.mandatorySkills || ['Java 17', 'Spring Boot', 'Apache Kafka', 'K8s'];
+  const skillsList = (Array.isArray(job.skills) && job.skills.length > 0)
+    ? job.skills
+    : ((Array.isArray(job.mandatorySkills) && job.mandatorySkills.length > 0) ? job.mandatorySkills : []);
 
   // Parse or synthesize structured details for hover popup
   const getJobDetailsData = () => {
@@ -107,13 +145,19 @@ export default function JobCard({ job, user, onSelectJob, onApplyJob, onPractice
   };
 
   return (
-    <article
+    <motion.article
+      data-shared-card="job"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className={`bg-white border border-purple-100/90 rounded-[24px] p-5 sm:p-6 shadow-sm hover:shadow-md hover:border-purple-200 transition-all duration-300 flex flex-col sm:flex-row justify-between gap-5 font-sans text-[#221d47] relative group ${
+      whileHover={{ y: -5, scale: 1.008 }}
+      transition={{ type: 'spring', stiffness: 320, damping: 25 }}
+      className={`bg-white/80 backdrop-blur-xl border border-white/85 rounded-[28px] p-5 sm:p-6 shadow-[0_10px_35px_-5px_rgba(59,43,142,0.07)] hover:shadow-[0_22px_45px_-8px_rgba(59,43,142,0.16)] hover:border-white transition-all duration-300 flex flex-col sm:flex-row justify-between gap-5 font-sans text-[#221d47] relative group overflow-visible ${
         isHovered ? 'z-50' : 'z-10'
       }`}
     >
+      {/* Specular Top Sheen Highlight */}
+      <div className="pointer-events-none absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/90 to-transparent rounded-t-[28px]" aria-hidden="true" />
+
       {/* LEFT COLUMN: Main Info */}
       <div className="flex-1 space-y-2.5">
         {/* Row 1: Logo & Title + Company */}
@@ -139,10 +183,32 @@ export default function JobCard({ job, user, onSelectJob, onApplyJob, onPractice
               >
                 {job.title}
               </h3>
-              <span className="px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 text-white font-extrabold text-[10px] tracking-wider uppercase shrink-0 shadow-2xs flex items-center gap-1">
-                <span className="material-symbols-outlined text-[11px] leading-none">local_fire_department</span>
-                TOP
-              </span>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 text-white font-extrabold text-[10px] tracking-wider uppercase shadow-2xs flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[11px] leading-none">local_fire_department</span>
+                  TOP
+                </span>
+                {(isCandidate || isGuest) && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const newState = toggleSaveJob(job);
+                      setBookmarked(newState);
+                    }}
+                    className={`p-1 rounded-full transition-all cursor-pointer flex items-center justify-center ${
+                      bookmarked
+                        ? 'text-[#5b48bd] bg-purple-100 hover:bg-purple-200 shadow-2xs'
+                        : 'text-slate-400 hover:text-[#5b48bd] hover:bg-purple-50'
+                    }`}
+                    title={bookmarked ? 'Bỏ lưu việc làm này' : 'Lưu việc làm này'}
+                  >
+                    <span className="material-symbols-outlined text-[19px]">
+                      {bookmarked ? 'bookmark' : 'bookmark_border'}
+                    </span>
+                  </button>
+                )}
+              </div>
             </div>
             <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium flex-wrap">
               <span className="font-semibold text-slate-700">{job.companyName || 'VNG Cloud Platform'}</span>
@@ -317,9 +383,9 @@ export default function JobCard({ job, user, onSelectJob, onApplyJob, onPractice
         <div
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
-          className="hidden sm:block absolute -top-3 -left-3 w-[calc(100%+24px)] max-w-[540px] z-50 bg-white rounded-[24px] p-5 sm:p-6 shadow-[0_22px_55px_rgba(59,43,142,0.18)] border border-purple-200/90 font-sans text-[#221d47] animate-popover-in"
+          className="hidden sm:block absolute -top-3 -left-3 w-[calc(100%+24px)] z-50 bg-white rounded-[24px] p-5 sm:p-6 shadow-[0_25px_60px_-10px_rgba(59,43,142,0.28)] border border-purple-200 font-sans text-[#221d47] animate-popover-in"
         >
-          {/* 1. Header: Logo, Company Name, Job Title & Match Pill */}
+          {/* 1. Header: Logo, Company Name, Job Title & Match Pill + Close Button */}
           <div className="flex items-start gap-3.5 mb-3.5">
             <div
               onClick={handleOpenJobDetail}
@@ -348,20 +414,34 @@ export default function JobCard({ job, user, onSelectJob, onApplyJob, onPractice
                 </span>
               </div>
             </div>
-            <div className="shrink-0 text-right">
-              {isRecruiter ? (
-                <div className="px-2.5 py-1 rounded-xl bg-purple-50 border border-purple-200 text-[#5b48bd] font-extrabold text-xs shadow-2xs">
-                  {job.employmentType || 'FULL TIME'}
-                </div>
-              ) : isGuest ? (
-                <div className="px-2.5 py-1 rounded-xl bg-slate-100 border border-slate-200 text-slate-600 font-extrabold text-xs shadow-2xs">
-                  {job.employmentType || 'FULL TIME'}
-                </div>
-              ) : (
-                <div className="px-2.5 py-1 rounded-xl bg-orange-50 border border-orange-200/80 text-[#f97316] font-extrabold text-xs shadow-2xs">
-                  {isCandidate && aiMatchScore != null ? `${aiMatchScore}% MATCH` : 'ĐANG TUYỂN'}
-                </div>
-              )}
+            <div className="shrink-0 flex items-center gap-2">
+              <div className="text-right">
+                {isRecruiter ? (
+                  <div className="px-2.5 py-1 rounded-xl bg-purple-50 border border-purple-200 text-[#5b48bd] font-extrabold text-xs shadow-2xs">
+                    {job.employmentType || 'FULL TIME'}
+                  </div>
+                ) : isGuest ? (
+                  <div className="px-2.5 py-1 rounded-xl bg-slate-100 border border-slate-200 text-slate-600 font-extrabold text-xs shadow-2xs">
+                    {job.employmentType || 'FULL TIME'}
+                  </div>
+                ) : (
+                  <div className="px-2.5 py-1 rounded-xl bg-orange-50 border border-orange-200/80 text-[#f97316] font-extrabold text-xs shadow-2xs">
+                    {isCandidate && aiMatchScore != null ? `${aiMatchScore}% MATCH` : 'ĐANG TUYỂN'}
+                  </div>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsHovered(false);
+                  if (onHoverChange) onHoverChange(false);
+                }}
+                className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-colors cursor-pointer"
+                title="Đóng xem nhanh"
+              >
+                <span className="material-symbols-outlined text-sm">close</span>
+              </button>
             </div>
           </div>
 
@@ -383,7 +463,7 @@ export default function JobCard({ job, user, onSelectJob, onApplyJob, onPractice
             <div className="space-y-1.5 min-w-0">
               <div className="flex items-center gap-2 text-slate-500 font-medium text-[11px] truncate">
                 <span className="material-symbols-outlined text-[15px] text-slate-400 leading-none shrink-0">schedule</span>
-                <span className="truncate">Cập nhật: {job.updatedDate || '12/10/2026'}</span>
+                <span className="truncate">Cập nhật: {job.updatedDate || job.postedTime || 'Mới cập nhật'}</span>
               </div>
               <div className="flex items-center gap-2 text-slate-500 font-medium text-[11px] truncate">
                 <span className={`material-symbols-outlined text-[15px] leading-none shrink-0 ${deadlineInfo.isExpired ? 'text-rose-600' : deadlineInfo.isExpiringSoon ? 'text-amber-600' : 'text-slate-400'}`}>
@@ -486,21 +566,26 @@ export default function JobCard({ job, user, onSelectJob, onApplyJob, onPractice
               {!isRecruiter && (
                 <button
                   type="button"
+                  disabled={deadlineInfo.isExpired}
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (onApplyJob) onApplyJob(job);
+                    if (!deadlineInfo.isExpired && onApplyJob) onApplyJob(job);
                   }}
-                  className="px-5 py-2 rounded-xl bg-[#5b48bd] hover:bg-[#47369f] text-white font-bold text-xs transition-all cursor-pointer shadow-md hover:scale-[1.02] flex items-center gap-1.5"
+                  className={`px-5 py-2 rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 ${
+                    deadlineInfo.isExpired
+                      ? 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed opacity-70'
+                      : 'bg-[#5b48bd] hover:bg-[#47369f] text-white cursor-pointer shadow-md hover:scale-[1.02]'
+                  }`}
                 >
-                  <span>Ứng tuyển ngay</span>
-                  <span className="material-symbols-outlined text-sm">send</span>
+                  <span>{deadlineInfo.isExpired ? 'Đã hết hạn nộp' : 'Ứng tuyển ngay'}</span>
+                  <span className="material-symbols-outlined text-sm">{deadlineInfo.isExpired ? 'event_busy' : 'send'}</span>
                 </button>
               )}
             </div>
           </div>
         </div>
       )}
-    </article>
+    </motion.article>
   );
 }
 

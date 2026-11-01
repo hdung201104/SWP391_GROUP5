@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import ApplyJobModal from '../components/jobs/ApplyJobModal';
-import { jobApi, companyApi } from '../api';
+import { jobApi, companyApi, applicationApi } from '../api';
 import { isJobSaved, toggleSaveJob } from '../utils/savedJobsStorage';
 import { calculateJobDeadline } from '../utils/jobTimeUtils';
 import { createCandidateToHrMailto } from '../utils/emailUtils';
+import { StaggerContainer, StaggerItem, GlassCard, GlassPanel, BlurReveal, CinematicTitle } from '../components/motion/MotionSystem';
 
 // Helper for corporate brand logos
 const getBrandLogo = (companyName = '', logoUrl = null) => {
@@ -147,23 +148,21 @@ const getRoleTemplate = (title = '') => {
     };
   }
 
-  // Mặc định Backend / Software Engineer
+  // Mặc định chung cho các vị trí công việc
   return {
     descriptions: [
-      'Intern backend',
-      'Thiết kế, xây dựng các dịch vụ RESTful API và module chịu tải lớn, đảm bảo tính sẵn sàng cao (High Availability).',
-      'Tối ưu hóa cơ sở dữ liệu quan hệ và phân tán, thiết lập giải pháp bộ nhớ đệm và xử lý luồng nghiệp vụ mượt mà.',
-      'Phối hợp chặt chẽ cùng Technical Lead, Solution Architect và Product Owner trong mô hình phát triển Agile/Scrum.',
-      'Thực hiện Code Review, viết Unit Test & Integration Test, bảo đảm chất lượng mã nguồn.',
+      'Chủ động tiếp nhận và triển khai các nhiệm vụ chuyên môn theo phân công từ Trưởng bộ phận.',
+      'Phối hợp chặt chẽ với các thành viên trong nhóm để đạt được mục tiêu công việc chung của dự án.',
+      'Đề xuất các giải pháp cải tiến quy trình nhằm nâng cao năng suất và hiệu quả công việc.',
+      'Báo cáo tiến độ và kết quả công việc định kỳ một cách trung thực, rõ ràng.',
     ],
     requirements: [
-      'Java 21',
-      'Spring Boot 3',
-      'PostgreSQL',
-      'Có kinh nghiệm thực tập hoặc dự án liên quan là một lợi thế.',
+      'Có tinh thần trách nhiệm cao, chủ động trong công việc và ham học hỏi kiến thức mới.',
+      'Kỹ năng giao tiếp tốt, khả năng làm việc độc lập và làm việc nhóm hiệu quả.',
+      'Có kinh nghiệm hoặc định hướng phát triển phù hợp với vị trí ứng tuyển.',
     ],
-    recommendedMandatory: ['Java 21', 'Spring Boot 3', 'PostgreSQL'],
-    recommendedPreferred: ['Microservices'],
+    recommendedMandatory: ['Kỹ năng chuyên môn', 'Làm việc nhóm', 'Giao tiếp'],
+    recommendedPreferred: ['Tiếng Anh', 'Tư duy phản biện'],
   };
 };
 
@@ -207,6 +206,29 @@ export default function JobDetailPage({ user: propUser, jobId }) {
   const [copiedLink, setCopiedLink] = useState(false);
   const [relatedJobs, setRelatedJobs] = useState([]);
   const [myCompany, setMyCompany] = useState(null);
+  const [myApplication, setMyApplication] = useState(null);
+
+  const fetchCandidateApplication = () => {
+    if (isCandidate && applicationApi?.getMyApplications && currentId) {
+      applicationApi.getMyApplications()
+        .then((res) => {
+          const list = res?.data || res || [];
+          if (Array.isArray(list)) {
+            const existing = list.find((app) => {
+              const targetJobId = app.job?.jobId || app.jobId;
+              const isWithdrawn = app.status === 'WITHDRAWN' || app.status === 'WITHDRAWN_BY_CANDIDATE' || app.rejectionReason?.includes('WITHDRAWN_BY_CANDIDATE');
+              return String(targetJobId) === String(currentId) && !isWithdrawn;
+            });
+            setMyApplication(existing || null);
+          }
+        })
+        .catch(() => {});
+    }
+  };
+
+  useEffect(() => {
+    fetchCandidateApplication();
+  }, [isCandidate, currentId]);
 
   useEffect(() => {
     if (isRecruiter && companyApi?.getMyCompany) {
@@ -369,7 +391,7 @@ export default function JobDetailPage({ user: propUser, jobId }) {
     if (minNum && maxNum) {
       return `$${minNum.toLocaleString()} – $${maxNum.toLocaleString()}/tháng`;
     }
-    return '$1,500 – $2,000/tháng';
+    return 'Lương thỏa thuận';
   };
 
   useEffect(() => {
@@ -384,7 +406,7 @@ export default function JobDetailPage({ user: propUser, jobId }) {
         .then((res) => {
           if (mounted && res?.data) {
             const apiData = res.data;
-            const compName = apiData.companyName || apiData.company?.companyName || 'FPT Software';
+            const compName = apiData.companyName || apiData.company?.companyName || 'Doanh Nghiệp Tuyển Dụng';
             const template = getRoleTemplate(apiData.title || '');
 
             // Skills breakdown
@@ -407,17 +429,17 @@ export default function JobDetailPage({ user: propUser, jobId }) {
             setJob({
               jobId: apiData.jobId || currentId,
               code: apiData.code || `JD-IT-${apiData.jobId || currentId}`,
-              title: apiData.title || 'Intern Backend',
+              title: apiData.title || 'Vị trí Tuyển Dụng',
               companyName: compName,
               companyId: apiData.companyId || apiData.company?.companyId,
               companyLogo: getBrandLogo(compName, apiData.companyLogo || apiData.company?.logoUrl),
               companyCover: getBrandCover(compName),
               companyIndustry: apiData.domain || apiData.company?.industry || 'Công nghệ thông tin',
-              companyAddress: apiData.companyAddress || apiData.company?.address || 'Đà Nẵng, Việt Nam',
-              companySize: apiData.companySize || '5000+ nhân viên',
-              companyWebsite: apiData.companyWebsite || 'https://fptsoftware.com',
-              companyDesc: apiData.companyDescription || 'FPT Software là công ty thành viên của Tập đoàn FPT, tiên phong trong lĩnh vực công nghệ thông tin, cung cấp các giải pháp phần mềm, chuyển đổi số và dịch vụ IT outsourcing cho khách hàng toàn cầu.',
-              location: apiData.location || 'Đà Nẵng',
+              companyAddress: apiData.companyAddress || apiData.company?.address || 'Việt Nam',
+              companySize: apiData.companySize || '100 - 500 nhân sự',
+              companyWebsite: apiData.companyWebsite || apiData.company?.website || '',
+              companyDesc: apiData.companyDescription || apiData.company?.description || 'Đang cập nhật giới thiệu công ty.',
+              location: apiData.location || 'Việt Nam',
               employmentType: apiData.employmentType === 'FULL_TIME' ? 'Toàn thời gian (Full-time)' : (apiData.employmentType || 'Toàn thời gian (Full-time)'),
               salaryMin: apiData.salaryMin,
               salaryMax: apiData.salaryMax,
@@ -425,10 +447,10 @@ export default function JobDetailPage({ user: propUser, jobId }) {
               vacanciesCount: apiData.vacanciesCount || 1,
               deadlineDate: apiData.deadlineDate || null,
               deadline: apiData.deadlineDate ? new Date(apiData.deadlineDate).toLocaleDateString('vi-VN') : 'Không thời hạn',
-              postedTime: apiData.createdAt ? new Date(apiData.createdAt).toLocaleDateString('vi-VN') : '14/10/2026',
+              postedTime: apiData.createdAt ? new Date(apiData.createdAt).toLocaleDateString('vi-VN') : 'Mới đăng',
               recruiterId: apiData.recruiterId || apiData.recruiter?.userId || apiData.recruiter?.user_id,
               recruiterEmail: apiData.recruiterEmail || apiData.recruiter?.email,
-              recruiterName: apiData.recruiterName || apiData.recruiter?.fullName || 'Trần Thị Thu Hà',
+              recruiterName: apiData.recruiterName || apiData.recruiter?.fullName || 'Bộ phận Tuyển dụng (HR)',
               applicantCount: apiData.applicantCount != null ? apiData.applicantCount : 0,
               skills: Array.isArray(apiData.skills) ? apiData.skills : [],
               mandatorySkills: mand,
@@ -513,7 +535,7 @@ export default function JobDetailPage({ user: propUser, jobId }) {
         </p>
         <div>
           <a
-            href={isRecruiter ? '#/recruiter-jobs' : isAdmin ? '#/admin-jobs' : '#/'}
+            href={isRecruiter ? '#/recruiter-jobs' : isAdmin ? '#/admin-dashboard?tab=JOBS' : '#/'}
             className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#5b48bd] text-white text-xs font-bold hover:bg-[#47369f] transition-all shadow-md"
           >
             <span className="material-symbols-outlined text-sm">arrow_back</span>
@@ -529,31 +551,37 @@ export default function JobDetailPage({ user: propUser, jobId }) {
   // Extract descriptions without losing user input
   const getDescriptionBullets = () => {
     const userBullets = parseCleanBullets(job.description);
-    if (userBullets.length >= 2) return userBullets;
-    if (userBullets.length === 1) {
-      const supplemental = template.descriptions.filter(
-        (d) => !d.toLowerCase().includes(userBullets[0].toLowerCase())
-      );
-      return [userBullets[0], ...supplemental.slice(0, 4)];
-    }
+    if (userBullets.length >= 1) return userBullets;
     return template.descriptions;
   };
 
   // Extract requirements without losing user input
   const getRequirementBullets = () => {
     const userBullets = parseCleanBullets(job.requirements);
-    if (userBullets.length >= 2) return userBullets;
-    if (userBullets.length === 1) {
-      const supplemental = template.requirements.filter(
-        (r) => !r.toLowerCase().includes(userBullets[0].toLowerCase())
-      );
-      return [userBullets[0], ...supplemental.slice(0, 3)];
-    }
+    if (userBullets.length >= 1) return userBullets;
     return template.requirements;
+  };
+
+  // Extract benefits entered by HR (split by newline or semicolon)
+  const getBenefitBullets = () => {
+    if (!job.benefits) return [];
+    let raw = String(job.benefits).replaceAll('\\n', '\n');
+    let items = [];
+    if (raw.includes('\n')) {
+      items = raw.split('\n');
+    } else if (raw.includes(';')) {
+      items = raw.split(';');
+    } else {
+      items = [raw];
+    }
+    return items
+      .map((item) => item.trim().replace(/^[-*•\d+.]\s*/, ''))
+      .filter((item) => item.length > 0);
   };
 
   const descriptionBullets = getDescriptionBullets();
   const requirementBullets = getRequirementBullets();
+  const benefitBullets = getBenefitBullets();
   const deadlineInfo = calculateJobDeadline(job.deadlineDate);
   const jobCriteria = extractJobCriteria(job);
 
@@ -575,14 +603,14 @@ export default function JobDetailPage({ user: propUser, jobId }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-5 pb-3">
         <nav className="flex items-center gap-2 text-xs text-slate-500 font-medium">
           <a
-            href={isRecruiter ? '#/recruiter-jobs' : isAdmin ? '#/admin-jobs' : '#/'}
+            href={isRecruiter ? '#/recruiter-jobs' : isAdmin ? '#/admin-dashboard?tab=JOBS' : '#/'}
             className="hover:text-[#5b48bd] flex items-center gap-1 transition-colors"
           >
             <span className="material-symbols-outlined text-[17px]">home</span>
           </a>
           <span className="text-slate-300">&gt;</span>
           <a
-            href={isRecruiter ? '#/recruiter-jobs' : isAdmin ? '#/admin-jobs' : '#/'}
+            href={isRecruiter ? '#/recruiter-jobs' : isAdmin ? '#/admin-dashboard?tab=JOBS' : '#/'}
             className="hover:text-[#5b48bd] transition-colors"
           >
             {isRecruiter 
@@ -597,7 +625,7 @@ export default function JobDetailPage({ user: propUser, jobId }) {
       </div>
 
       {/* ============================================================ */}
-      {/* 2-COLUMN MAIN LAYOUT (EXACTLY MATCHING USER MOCKUP)          */}
+      {/* 2-COLUMN MAIN LAYOUT (CINEMATIC GLASSY DASHBOARD V2)          */}
       {/* ============================================================ */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 
@@ -607,7 +635,9 @@ export default function JobDetailPage({ user: propUser, jobId }) {
         <div className="lg:col-span-8 space-y-5">
 
           {/* 1. HERO HEADER CARD */}
-          <section className="rounded-2xl bg-white border border-slate-100 p-6 sm:p-7 shadow-xs">
+          <section className="rounded-3xl bg-white/80 backdrop-blur-xl border border-white/85 p-6 sm:p-7 shadow-[0_10px_35px_-5px_rgba(59,43,142,0.07)] relative overflow-hidden">
+            {/* Top Specular Sheen Highlight */}
+            <div className="pointer-events-none absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/90 to-transparent" aria-hidden="true" />
             <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
               
               {/* Left: Avatar & Metadata */}
@@ -827,7 +857,7 @@ export default function JobDetailPage({ user: propUser, jobId }) {
                     <button
                       type="button"
                       onClick={() => {
-                        window.location.hash = '#/admin-jobs';
+                        window.location.hash = '#/admin-dashboard?tab=JOBS';
                       }}
                       className="w-full md:w-auto px-6 py-2.5 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white font-extrabold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
                     >
@@ -839,7 +869,7 @@ export default function JobDetailPage({ user: propUser, jobId }) {
                     <button
                       type="button"
                       onClick={() => {
-                        window.location.hash = '#/admin-jobs';
+                        window.location.hash = '#/admin-dashboard?tab=JOBS';
                       }}
                       className="w-full md:w-auto px-6 py-2 rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer border border-indigo-200 text-indigo-700 bg-white hover:bg-indigo-50"
                     >
@@ -863,14 +893,22 @@ export default function JobDetailPage({ user: propUser, jobId }) {
                     )}
 
                     {/* Primary Button */}
-                    {deadlineInfo.isExpired ? (
+                    {myApplication ? (
+                      <a
+                        href="#/applications"
+                        className="w-full md:w-auto px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-sm">task_alt</span>
+                        <span>Đã Ứng Tuyển (Xem tiến trình)</span>
+                      </a>
+                    ) : (deadlineInfo.isExpired || (job.status && job.status !== 'ACTIVE' && job.status !== 'OPEN' && job.status !== 'PUBLISHED')) ? (
                       <button
                         type="button"
                         disabled
                         className="w-full md:w-auto px-6 py-2.5 rounded-xl bg-slate-200 text-slate-500 font-bold text-xs cursor-not-allowed flex items-center justify-center gap-1.5"
                       >
                         <span className="material-symbols-outlined text-sm">event_busy</span>
-                        <span>Đã Hết Hạn Nộp</span>
+                        <span>{deadlineInfo.isExpired ? 'Đã Hết Hạn Nộp' : 'Đã Đóng Tuyển'}</span>
                       </button>
                     ) : (
                       <button
@@ -1263,36 +1301,55 @@ export default function JobDetailPage({ user: propUser, jobId }) {
                   <span className="material-symbols-outlined text-base text-emerald-600">card_giftcard</span>
                   Quyền Lợi &amp; Chế Độ Đãi Ngộ
                 </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-1">
-                  <div className="p-3.5 rounded-xl bg-[#f8f7ff] border border-purple-100 flex items-start gap-2.5">
-                    <span className="material-symbols-outlined text-emerald-600 text-lg shrink-0">monetization_on</span>
-                    <div>
-                      <strong className="text-slate-900 block mb-0.5">Thu nhập cạnh tranh</strong>
-                      <span>Mức lương {job.salaryFormatted} kèm thưởng dự án và xét tăng lương định kỳ.</span>
+                {benefitBullets.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-1">
+                    {benefitBullets.map((b, idx) => {
+                      const icons = ['monetization_on', 'shield_with_heart', 'devices', 'flight', 'workspace_premium', 'redeem', 'trending_up', 'verified'];
+                      const colors = ['text-emerald-600', 'text-blue-600', 'text-[#5b48bd]', 'text-amber-600', 'text-indigo-600', 'text-purple-600', 'text-teal-600'];
+                      const icon = icons[idx % icons.length];
+                      const color = colors[idx % colors.length];
+                      return (
+                        <div key={idx} className="p-3.5 rounded-xl bg-[#f8f7ff] border border-purple-100 flex items-start gap-2.5">
+                          <span className={`material-symbols-outlined ${color} text-lg shrink-0`}>{icon}</span>
+                          <div>
+                            <span className="text-slate-800 font-medium leading-relaxed">{b}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-1">
+                    <div className="p-3.5 rounded-xl bg-[#f8f7ff] border border-purple-100 flex items-start gap-2.5">
+                      <span className="material-symbols-outlined text-emerald-600 text-lg shrink-0">monetization_on</span>
+                      <div>
+                        <strong className="text-slate-900 block mb-0.5">Thu nhập cạnh tranh</strong>
+                        <span>Mức lương {job.salaryFormatted} kèm thưởng dự án và xét tăng lương định kỳ.</span>
+                      </div>
+                    </div>
+                    <div className="p-3.5 rounded-xl bg-[#f8f7ff] border border-purple-100 flex items-start gap-2.5">
+                      <span className="material-symbols-outlined text-blue-600 text-lg shrink-0">shield_with_heart</span>
+                      <div>
+                        <strong className="text-slate-900 block mb-0.5">Bảo hiểm sức khỏe toàn diện</strong>
+                        <span>Đầy đủ BHXH/BHYT theo luật và gói chăm sóc y tế cao cấp cho nhân viên.</span>
+                      </div>
+                    </div>
+                    <div className="p-3.5 rounded-xl bg-[#f8f7ff] border border-purple-100 flex items-start gap-2.5">
+                      <span className="material-symbols-outlined text-[#5b48bd] text-lg shrink-0">devices</span>
+                      <div>
+                        <strong className="text-slate-900 block mb-0.5">Trang thiết bị hiện đại</strong>
+                        <span>Cung cấp máy tính xách tay cấu hình cao chuyên dụng và màn hình ngoài làm việc.</span>
+                      </div>
+                    </div>
+                    <div className="p-3.5 rounded-xl bg-[#f8f7ff] border border-purple-100 flex items-start gap-2.5">
+                      <span className="material-symbols-outlined text-amber-600 text-lg shrink-0">flight</span>
+                      <div>
+                        <strong className="text-slate-900 block mb-0.5">Nghỉ phép &amp; Teambuilding</strong>
+                        <span>15 ngày phép năm có lương, hoạt động du lịch dã ngoại và gắn kết đội ngũ hàng năm.</span>
+                      </div>
                     </div>
                   </div>
-                  <div className="p-3.5 rounded-xl bg-[#f8f7ff] border border-purple-100 flex items-start gap-2.5">
-                    <span className="material-symbols-outlined text-blue-600 text-lg shrink-0">shield_with_heart</span>
-                    <div>
-                      <strong className="text-slate-900 block mb-0.5">Bảo hiểm sức khỏe toàn diện</strong>
-                      <span>Đầy đủ BHXH/BHYT theo luật và gói chăm sóc y tế cao cấp cho nhân viên.</span>
-                    </div>
-                  </div>
-                  <div className="p-3.5 rounded-xl bg-[#f8f7ff] border border-purple-100 flex items-start gap-2.5">
-                    <span className="material-symbols-outlined text-[#5b48bd] text-lg shrink-0">devices</span>
-                    <div>
-                      <strong className="text-slate-900 block mb-0.5">Trang thiết bị hiện đại</strong>
-                      <span>Cung cấp máy tính xách tay cấu hình cao chuyên dụng và màn hình ngoài làm việc.</span>
-                    </div>
-                  </div>
-                  <div className="p-3.5 rounded-xl bg-[#f8f7ff] border border-purple-100 flex items-start gap-2.5">
-                    <span className="material-symbols-outlined text-amber-600 text-lg shrink-0">flight</span>
-                    <div>
-                      <strong className="text-slate-900 block mb-0.5">Nghỉ phép &amp; Teambuilding</strong>
-                      <span>15 ngày phép năm có lương, hoạt động du lịch dã ngoại và gắn kết đội ngũ hàng năm.</span>
-                    </div>
-                  </div>
-                </div>
+                )}
               </section>
             )}
 
@@ -1444,7 +1501,7 @@ export default function JobDetailPage({ user: propUser, jobId }) {
               <button
                 type="button"
                 onClick={() => {
-                  window.location.hash = '#/admin-jobs';
+                  window.location.hash = '#/admin-dashboard?tab=JOBS';
                 }}
                 className="px-6 py-2.5 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white font-extrabold text-xs shadow-md transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
               >
@@ -1468,16 +1525,35 @@ export default function JobDetailPage({ user: propUser, jobId }) {
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setIsApplying(true);
-                }}
-                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#5b48bd] to-[#7c66dc] hover:from-[#4938a5] hover:to-[#6a54cb] text-white font-extrabold text-xs shadow-md transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
-              >
-                <span>Ứng tuyển ngay</span>
-                <span className="material-symbols-outlined text-sm">send</span>
-              </button>
+              {myApplication ? (
+                <a
+                  href="#/applications"
+                  className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+                >
+                  <span className="material-symbols-outlined text-sm">task_alt</span>
+                  <span>Đã Ứng Tuyển (Xem tiến trình)</span>
+                </a>
+              ) : (deadlineInfo.isExpired || (job.status && job.status !== 'ACTIVE' && job.status !== 'OPEN' && job.status !== 'PUBLISHED')) ? (
+                <button
+                  type="button"
+                  disabled
+                  className="px-6 py-2.5 rounded-xl bg-slate-200 text-slate-500 font-bold text-xs cursor-not-allowed flex items-center gap-1.5 shrink-0"
+                >
+                  <span className="material-symbols-outlined text-sm">event_busy</span>
+                  <span>{deadlineInfo.isExpired ? 'Đã Hết Hạn Nộp' : 'Đã Đóng Tuyển'}</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsApplying(true);
+                  }}
+                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#5b48bd] to-[#7c66dc] hover:from-[#4938a5] hover:to-[#6a54cb] text-white font-extrabold text-xs shadow-md transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+                >
+                  <span>Ứng tuyển ngay</span>
+                  <span className="material-symbols-outlined text-sm">send</span>
+                </button>
+              )}
             </div>
           ) : (
             /* GUEST */
@@ -1517,13 +1593,15 @@ export default function JobDetailPage({ user: propUser, jobId }) {
         <div className="lg:col-span-4 space-y-5">
 
           {/* WIDGET 1: COMPANY OVERVIEW CARD */}
-          <div className="rounded-2xl bg-white border border-purple-100 shadow-xs overflow-hidden">
+          <div className="rounded-3xl bg-white/80 backdrop-blur-xl border border-white/85 shadow-[0_10px_35px_-5px_rgba(59,43,142,0.07)] overflow-hidden relative">
+            {/* Top Specular Sheen */}
+            <div className="pointer-events-none absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/90 to-transparent" aria-hidden="true" />
             {/* Building Photo Cover */}
             <div className="h-32 sm:h-36 w-full relative overflow-hidden bg-slate-100">
               <img
                 src={job.companyCover}
                 alt={job.companyName}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover transition-transform duration-700 hover:scale-105"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
             </div>
@@ -1546,8 +1624,21 @@ export default function JobDetailPage({ user: propUser, jobId }) {
               <div className="pt-3 space-y-2.5">
                 <div>
                   <div className="flex items-center gap-1.5 font-black text-base text-[#1e1b4b]">
-                    <span>{job.companyName}</span>
-                    <span className="material-symbols-outlined text-emerald-500 text-[18px]">verified</span>
+                    {job.companyId ? (
+                      <a
+                        href={`#/companies/${job.companyId}`}
+                        className="hover:text-[#5b48bd] transition-colors hover:underline cursor-pointer flex items-center gap-1.5"
+                        title="Xem trang chi tiết doanh nghiệp"
+                      >
+                        <span>{job.companyName}</span>
+                        <span className="material-symbols-outlined text-emerald-500 text-[18px]">verified</span>
+                      </a>
+                    ) : (
+                      <>
+                        <span>{job.companyName}</span>
+                        <span className="material-symbols-outlined text-emerald-500 text-[18px]">verified</span>
+                      </>
+                    )}
                   </div>
                   <p className="text-[11px] text-slate-500 italic mt-0.5">
                     Kiến tạo giá trị số, kiến tạo tương lai
@@ -1563,18 +1654,20 @@ export default function JobDetailPage({ user: propUser, jobId }) {
                     <span className="material-symbols-outlined text-slate-400 text-[16px]">location_on</span>
                     <span>{job.companyAddress}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-slate-400 text-[16px]">language</span>
-                    <a
-                      href={job.companyWebsite}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[#5b48bd] hover:underline flex items-center gap-1"
-                    >
-                      <span>Website công ty</span>
-                      <span className="material-symbols-outlined text-[13px]">open_in_new</span>
-                    </a>
-                  </div>
+                  {job.companyWebsite ? (
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-slate-400 text-[16px]">language</span>
+                      <a
+                        href={job.companyWebsite.startsWith('http') ? job.companyWebsite : `https://${job.companyWebsite}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[#5b48bd] hover:underline flex items-center gap-1"
+                      >
+                        <span>Website công ty</span>
+                        <span className="material-symbols-outlined text-[13px]">open_in_new</span>
+                      </a>
+                    </div>
+                  ) : null}
                 </div>
 
                 {/* Về chúng tôi Box */}
@@ -1639,7 +1732,7 @@ export default function JobDetailPage({ user: propUser, jobId }) {
                   : (isRecruiter ? 'Các vị trí tuyển dụng khác' : 'Việc làm liên quan')}
               </h3>
               <a
-                href={isRecruiter ? '#/recruiter-jobs' : isAdmin ? '#/admin-jobs' : '#/'}
+                href={isRecruiter ? '#/recruiter-jobs' : isAdmin ? '#/admin-dashboard?tab=JOBS' : '#/'}
                 className="text-xs font-bold text-[#5b48bd] hover:underline flex items-center gap-1 cursor-pointer"
               >
                 <span>Xem tất cả</span>
@@ -1722,6 +1815,7 @@ export default function JobDetailPage({ user: propUser, jobId }) {
           onClose={() => setIsApplying(false)}
           onSuccess={() => {
             setIsApplying(false);
+            if (fetchCandidateApplication) fetchCandidateApplication();
             alert('🎉 Nộp hồ sơ ứng tuyển bằng AI CV thành công!');
           }}
         />

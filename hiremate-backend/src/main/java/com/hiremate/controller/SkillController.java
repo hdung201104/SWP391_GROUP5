@@ -45,7 +45,7 @@ public class SkillController {
         return ResponseEntity.ok(ApiResponse.ok(skillService.getSkillCategoriesSummary()));
     }
 
-    @PostMapping("/ai-extract-jd")
+    @PostMapping({"/ai-extract-jd", "/extract-jd"})
     public ResponseEntity<ApiResponse<com.hiremate.dto.response.AiJdSkillExtractResponse>> extractSkillsFromJd(
             @RequestBody @Valid com.hiremate.dto.request.AiJdSkillExtractRequest request
     ) {
@@ -53,7 +53,7 @@ public class SkillController {
         return ResponseEntity.ok(ApiResponse.ok("Trích xuất và chuẩn hóa kỹ năng từ JD thành công", response));
     }
 
-    @PostMapping("/ai-generate-industry")
+    @PostMapping({"/ai-generate-industry", "/generate-industry"})
     public ResponseEntity<ApiResponse<com.hiremate.dto.response.AiIndustrySkillGenerateResponse>> generateSkillsForIndustry(
             @RequestBody @Valid com.hiremate.dto.request.AiIndustrySkillGenerateRequest request
     ) {

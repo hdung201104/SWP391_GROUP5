@@ -23,6 +23,9 @@ public class AiInterviewController {
 
     private final AiInterviewService aiInterviewService;
     private final com.hiremate.service.GeminiAiService geminiAiService;
+    private final com.hiremate.service.FileStorageService fileStorageService;
+    private final com.hiremate.repository.ApplicationRepository applicationRepository;
+    private final com.hiremate.repository.InterviewDetailRepository interviewDetailRepository;
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.hiremate.service.SystemSettingsService systemSettingsService;
 
@@ -267,6 +270,49 @@ public class AiInterviewController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
+    @GetMapping("/candidate/{candidateId}/latest")
+    @PreAuthorize("hasAnyRole('CANDIDATE', 'ADMIN')")
+    public ResponseEntity<ApiResponse<InterviewSummaryResponse>> getLatestCandidateInterview(
+            @PathVariable Long candidateId,
+            @RequestParam(required = false) Long jobId,
+            @AuthenticationPrincipal User user
+    ) {
+        // Bảo vệ quyền riêng tư: Chỉ chính ứng viên đó hoặc Admin mới có quyền truy cập dữ liệu luyện tập
+        if (user.getRole() != com.hiremate.enums.UserRole.ADMIN && !candidateId.equals(user.getUserId())) {
+            throw new SecurityException("Không có quyền truy cập dữ liệu luyện tập phỏng vấn của ứng viên khác");
+        }
+        InterviewSummaryResponse response = aiInterviewService.getLatestCompletedCandidateInterview(candidateId, jobId);
+        if (response == null) {
+            return ResponseEntity.ok(ApiResponse.ok("Ứng viên chưa thực hiện bài phỏng vấn giả lập AI Voice nào.", null));
+        }
+        return ResponseEntity.ok(ApiResponse.ok("Báo cáo phỏng vấn AI mới nhất của ứng viên", response));
+    }
+
+    @GetMapping("/application/{applicationId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<InterviewSummaryResponse>> getInterviewByApplication(
+            @PathVariable Long applicationId
+    ) {
+        if (applicationRepository == null) {
+            return ResponseEntity.ok(ApiResponse.ok("Không tìm thấy thông tin đơn ứng tuyển", null));
+        }
+        var appOpt = applicationRepository.findById(applicationId);
+        if (appOpt.isEmpty()) {
+            return ResponseEntity.ok(ApiResponse.ok("Không tìm thấy đơn ứng tuyển ID: " + applicationId, null));
+        }
+        var app = appOpt.get();
+        Long candidateId = app.getCandidate() != null ? app.getCandidate().getCandidateId() : null;
+        Long jobId = app.getJob() != null ? app.getJob().getJobId() : null;
+        if (candidateId == null) {
+            return ResponseEntity.ok(ApiResponse.ok("Đơn ứng tuyển chưa có ứng viên hợp lệ", null));
+        }
+        InterviewSummaryResponse response = aiInterviewService.getLatestCompletedCandidateInterview(candidateId, jobId);
+        if (response == null) {
+            return ResponseEntity.ok(ApiResponse.ok("Ứng viên chưa thực hiện bài phỏng vấn giả lập AI Voice cho vị trí này.", null));
+        }
+        return ResponseEntity.ok(ApiResponse.ok("Báo cáo phỏng vấn AI theo đơn ứng tuyển", response));
+    }
+
     @GetMapping("/history")
     @PreAuthorize("hasRole('CANDIDATE')")
     public ResponseEntity<ApiResponse<List<InterviewSummaryResponse>>> getHistory(@AuthenticationPrincipal User user) {
@@ -292,5 +338,49 @@ public class AiInterviewController {
                 .header(org.springframework.http.HttpHeaders.CONTENT_TYPE, "audio/mpeg")
                 .header(org.springframework.http.HttpHeaders.CACHE_CONTROL, "public, max-age=86400")
                 .body(audio);
+    }
+
+    @PostMapping(value = "/upload-audio", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('CANDIDATE')")
+    public ResponseEntity<ApiResponse<java.util.Map<String, String>>> uploadCandidateAudio(
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file
+    ) {
+        String cloudAudioUrl = fileStorageService.storeFile(file, "interview_audio");
+        return ResponseEntity.ok(ApiResponse.ok("Đã tải file ghi âm giọng nói lên đám mây", java.util.Map.of("audioUrl", cloudAudioUrl)));
+    }
+
+    @GetMapping("/audio-playback")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<byte[]> streamCandidateAudio(
+            @RequestParam("url") String audioUrl,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal User user
+    ) {
+        if (audioUrl == null || audioUrl.isBlank() || audioUrl.contains("..") || audioUrl.contains("\\")) {
+            return ResponseEntity.badRequest().build();
+        }
+        if (user == null) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+        }
+        // Kiểm tra bảo mật: Chỉ ADMIN hoặc chính ứng viên sở hữu buổi phỏng vấn mới được nghe lại
+        if (user.getRole() != com.hiremate.enums.UserRole.ADMIN) {
+            boolean isOwner = interviewDetailRepository.existsByAudioUrlAndCandidateId(audioUrl.trim(), user.getUserId());
+            if (!isOwner) {
+                return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).build();
+            }
+        }
+        byte[] audioBytes = fileStorageService.loadFileAsBytes(audioUrl);
+        if (audioBytes == null || audioBytes.length == 0) {
+            return ResponseEntity.notFound().build();
+        }
+        String lower = audioUrl.toLowerCase();
+        String contentType = lower.endsWith(".mp3") ? "audio/mpeg"
+                : lower.endsWith(".wav") ? "audio/wav"
+                : lower.endsWith(".ogg") ? "audio/ogg"
+                : lower.endsWith(".m4a") || lower.endsWith(".mp4") ? "audio/mp4"
+                : "audio/webm";
+        return ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_TYPE, contentType)
+                .header(org.springframework.http.HttpHeaders.CACHE_CONTROL, "public, max-age=86400")
+                .body(audioBytes);
     }
 }

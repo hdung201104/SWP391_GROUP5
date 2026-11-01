@@ -67,6 +67,9 @@ axiosClient.interceptors.response.use(
         localStorage.removeItem('token');
         localStorage.removeItem('refreshToken');
         localStorage.removeItem('user');
+        localStorage.removeItem('hiremate_user');
+        localStorage.removeItem('hiremate_hr_profile');
+        localStorage.removeItem('hiremate_recruiter_subscription');
         window.location.hash = '#/login';
       }
     }
