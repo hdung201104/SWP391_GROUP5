@@ -305,6 +305,10 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
     }
 
     if (role === 'CANDIDATE') {
+      if (dateOfBirth && dateOfBirth > new Date().toLocaleDateString('en-CA')) {
+        setErrorMessage('Ngày sinh không thể là ngày trong tương lai.');
+        return;
+      }
       if (!headline.trim()) {
         setErrorMessage('Vui lòng nhập vị trí mong muốn hoặc định hướng nghề nghiệp (Ví dụ: Frontend Developer).');
         return;
@@ -697,6 +701,7 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
                       <Calendar className="w-4 h-4 text-[#5b48bd] absolute left-3.5 pointer-events-none" />
                       <input
                         type="date"
+                        max={new Date().toLocaleDateString('en-CA')}
                         value={dateOfBirth}
                         onChange={(e) => setDateOfBirth(e.target.value)}
                         className="w-full pl-10 pr-3 py-2.5 bg-white border border-purple-100 focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] placeholder-slate-400 focus:outline-none transition-all font-sans"

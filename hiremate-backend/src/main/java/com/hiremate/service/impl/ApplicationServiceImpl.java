@@ -116,6 +116,13 @@ public class ApplicationServiceImpl implements ApplicationService {
             throw new BadRequestException("Doanh nghiệp này chưa hoàn tất thẩm định Giấy phép kinh doanh (GPKD) hoặc đang bị tạm ngưng hoạt động. Hiện không thể tiếp nhận hồ sơ ứng tuyển.");
         }
 
+        // Kiểm tra trạng thái của Công ty: không cho phép nộp vào công ty BANNED / REJECTED / SUSPENDED
+        if (job.getCompany() != null && (job.getCompany().getStatus() == com.hiremate.enums.CompanyStatus.BANNED
+                || job.getCompany().getStatus() == com.hiremate.enums.CompanyStatus.REJECTED
+                || job.getCompany().getStatus() == com.hiremate.enums.CompanyStatus.SUSPENDED)) {
+            throw new BadRequestException("Doanh nghiệp tuyển dụng vị trí này hiện đang tạm ngưng tiếp nhận hồ sơ.");
+        }
+
         // Kiểm tra hạn chót nộp hồ sơ
         if (job.getDeadlineDate() != null && job.getDeadlineDate().isBefore(java.time.LocalDate.now())) {
             throw new BadRequestException("Tin tuyển dụng này đã hết hạn nộp hồ sơ.");

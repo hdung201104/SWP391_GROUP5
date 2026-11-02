@@ -3210,6 +3210,14 @@ export default function AdminDashboardPage({ user, onLogout }) {
     }
   };
 
+  const handleVerifyCompany = handleApproveCompany;
+  const openRejectModal = (type, id, name) => {
+    if (type === 'COMPANY') {
+      const comp = companies.find((c) => c.id === id) || { id, name };
+      handleOpenRejectCompany(comp);
+    }
+  };
+
   const handleToggleSelectCompany = (id) => {
     setSelectedCompanyIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]

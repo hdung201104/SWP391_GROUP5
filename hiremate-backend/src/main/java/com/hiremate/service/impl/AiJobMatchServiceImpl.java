@@ -559,6 +559,24 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
         return calculateAndSaveMatch(candidate, job, defaultCv, false);
     }
 
+    private boolean isAuthorizedRecruiterForJob(Job job, User user) {
+        if (user == null || job == null) return false;
+        if (user.getRole() == com.hiremate.enums.UserRole.ADMIN) {
+            return true;
+        }
+        if (job.getRecruiter() != null && job.getRecruiter().getRecruiterId().equals(user.getUserId())) {
+            return true;
+        }
+        if (job.getCompany() != null && recruiterRepository != null) {
+            Optional<Recruiter> recOpt = recruiterRepository.findById(user.getUserId());
+            if (recOpt.isPresent() && recOpt.get().getCompany() != null
+                    && recOpt.get().getCompany().getCompanyId().equals(job.getCompany().getCompanyId())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     @Transactional
     public AiJobMatchResponse evaluateJobWithCv(Long jobId, Long cvId, User candidateUser) {
