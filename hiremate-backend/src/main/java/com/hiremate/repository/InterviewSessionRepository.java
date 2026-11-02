@@ -44,4 +44,12 @@ public interface InterviewSessionRepository extends JpaRepository<InterviewSessi
 
     /** Đếm số phiên phỏng vấn bắt đầu từ một thời điểm (kiểm tra hạn ngạch hàng ngày của gói dịch vụ) */
     long countByCandidate_CandidateIdAndStartedAtAfter(Long candidateId, java.time.LocalDateTime startedAt);
+
+    /** Đếm số phiên phỏng vấn thực sự có phát sinh câu trả lời trong ngày (chống mất lượt oan khi 0 câu) */
+    @Query("SELECT COUNT(DISTINCT s.sessionId) FROM InterviewSession s WHERE s.candidate.candidateId = :candidateId AND s.startedAt >= :startOfDay AND EXISTS (SELECT 1 FROM InterviewDetail d WHERE d.session.sessionId = s.sessionId)")
+    long countActiveOrCompletedSessionsToday(@Param("candidateId") Long candidateId, @Param("startOfDay") java.time.LocalDateTime startOfDay);
+
+    /** Đếm số phiên phỏng vấn thực sự có phát sinh câu trả lời trong khoảng thời gian hiệu lực gói trả phí */
+    @Query("SELECT COUNT(DISTINCT s.sessionId) FROM InterviewSession s WHERE s.candidate.candidateId = :candidateId AND s.startedAt >= :startDate AND s.startedAt <= :endDate AND EXISTS (SELECT 1 FROM InterviewDetail d WHERE d.session.sessionId = s.sessionId)")
+    long countSessionsInPeriod(@Param("candidateId") Long candidateId, @Param("startDate") java.time.LocalDateTime startDate, @Param("endDate") java.time.LocalDateTime endDate);
 }

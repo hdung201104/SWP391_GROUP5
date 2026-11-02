@@ -24,7 +24,11 @@ public class CvController {
     private final FileStorageService fileStorageService;
 
     @GetMapping("/{id}/preview")
-    public ResponseEntity<byte[]> previewCv(@PathVariable Long id) {
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<byte[]> previewCv(@PathVariable Long id, @AuthenticationPrincipal User user) {
+        if (!cvService.isAuthorizedToAccessCv(id, user)) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).build();
+        }
         CvResponse cv = cvService.getCvById(id);
         byte[] bytes = fileStorageService.loadFileAsBytes(cv != null ? cv.getFileUrl() : null);
         if (bytes == null || bytes.length == 0) {
@@ -34,17 +38,34 @@ public class CvController {
             return ResponseEntity.notFound().build();
         }
         String fn = (cv != null && cv.getFileName() != null) ? cv.getFileName() : "cv.pdf";
-        if (cv != null && cv.getFileUrl() != null && cv.getFileUrl().toLowerCase().endsWith(".docx") && !fn.toLowerCase().endsWith(".docx")) {
+        String lowerUrl = (cv != null && cv.getFileUrl() != null) ? cv.getFileUrl().toLowerCase() : "";
+        String lowerFn = fn.toLowerCase();
+
+        if (lowerUrl.endsWith(".docx") && !lowerFn.endsWith(".docx")) {
             fn = fn + ".docx";
-        } else if (cv != null && cv.getFileUrl() != null && cv.getFileUrl().toLowerCase().endsWith(".pdf") && !fn.toLowerCase().endsWith(".pdf")) {
+        } else if (lowerUrl.endsWith(".pdf") && !lowerFn.endsWith(".pdf")) {
             fn = fn + ".pdf";
+        } else if (lowerUrl.endsWith(".png") && !lowerFn.endsWith(".png")) {
+            fn = fn + ".png";
+        } else if ((lowerUrl.endsWith(".jpg") || lowerUrl.endsWith(".jpeg")) && !lowerFn.endsWith(".jpg") && !lowerFn.endsWith(".jpeg")) {
+            fn = fn + ".jpg";
         }
+
         String contentType = "application/pdf";
-        if (fn.toLowerCase().endsWith(".docx")) {
+        if (bytes.length >= 4 && (bytes[0] & 0xFF) == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47) {
+            contentType = "image/png";
+        } else if (bytes.length >= 3 && (bytes[0] & 0xFF) == 0xFF && (bytes[1] & 0xFF) == 0xD8 && (bytes[2] & 0xFF) == 0xFF) {
+            contentType = "image/jpeg";
+        } else if (fn.toLowerCase().endsWith(".png")) {
+            contentType = "image/png";
+        } else if (fn.toLowerCase().endsWith(".jpg") || fn.toLowerCase().endsWith(".jpeg")) {
+            contentType = "image/jpeg";
+        } else if (fn.toLowerCase().endsWith(".docx")) {
             contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
         } else if (fn.toLowerCase().endsWith(".doc")) {
             contentType = "application/msword";
         }
+
         String contentDisposition = org.springframework.http.ContentDisposition.inline()
                 .filename(fn, java.nio.charset.StandardCharsets.UTF_8)
                 .build().toString();
@@ -55,7 +76,11 @@ public class CvController {
     }
 
     @GetMapping("/{id}/download")
-    public ResponseEntity<byte[]> downloadCv(@PathVariable Long id) {
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<byte[]> downloadCv(@PathVariable Long id, @AuthenticationPrincipal User user) {
+        if (!cvService.isAuthorizedToAccessCv(id, user)) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).build();
+        }
         CvResponse cv = cvService.getCvById(id);
         byte[] bytes = fileStorageService.loadFileAsBytes(cv != null ? cv.getFileUrl() : null);
         if (bytes == null || bytes.length == 0) {
@@ -65,19 +90,36 @@ public class CvController {
             return ResponseEntity.notFound().build();
         }
         String fn = cv.getFileName() != null ? cv.getFileName() : "cv.pdf";
-        if (cv.getFileUrl() != null && cv.getFileUrl().toLowerCase().endsWith(".docx") && !fn.toLowerCase().endsWith(".docx")) {
+        String lowerUrl = (cv != null && cv.getFileUrl() != null) ? cv.getFileUrl().toLowerCase() : "";
+        String lowerFn = fn.toLowerCase();
+
+        if (lowerUrl.endsWith(".docx") && !lowerFn.endsWith(".docx")) {
             fn = fn + ".docx";
-        } else if (cv.getFileUrl() != null && cv.getFileUrl().toLowerCase().endsWith(".pdf") && !fn.toLowerCase().endsWith(".pdf")) {
+        } else if (lowerUrl.endsWith(".pdf") && !lowerFn.endsWith(".pdf")) {
             fn = fn + ".pdf";
+        } else if (lowerUrl.endsWith(".png") && !lowerFn.endsWith(".png")) {
+            fn = fn + ".png";
+        } else if ((lowerUrl.endsWith(".jpg") || lowerUrl.endsWith(".jpeg")) && !lowerFn.endsWith(".jpg") && !lowerFn.endsWith(".jpeg")) {
+            fn = fn + ".jpg";
         }
+
         String contentType = "application/octet-stream";
-        if (fn.toLowerCase().endsWith(".pdf")) {
+        if (bytes.length >= 4 && (bytes[0] & 0xFF) == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47) {
+            contentType = "image/png";
+        } else if (bytes.length >= 3 && (bytes[0] & 0xFF) == 0xFF && (bytes[1] & 0xFF) == 0xD8 && (bytes[2] & 0xFF) == 0xFF) {
+            contentType = "image/jpeg";
+        } else if (fn.toLowerCase().endsWith(".png")) {
+            contentType = "image/png";
+        } else if (fn.toLowerCase().endsWith(".jpg") || fn.toLowerCase().endsWith(".jpeg")) {
+            contentType = "image/jpeg";
+        } else if (fn.toLowerCase().endsWith(".pdf")) {
             contentType = "application/pdf";
         } else if (fn.toLowerCase().endsWith(".docx")) {
             contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
         } else if (fn.toLowerCase().endsWith(".doc")) {
             contentType = "application/msword";
         }
+
         String contentDisposition = org.springframework.http.ContentDisposition.attachment()
                 .filename(fn, java.nio.charset.StandardCharsets.UTF_8)
                 .build().toString();
@@ -105,7 +147,11 @@ public class CvController {
     }
 
     @GetMapping("/{id:[0-9]+}")
-    public ResponseEntity<ApiResponse<CvResponse>> getCvById(@PathVariable Long id) {
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<CvResponse>> getCvById(@PathVariable Long id, @AuthenticationPrincipal User user) {
+        if (!cvService.isAuthorizedToAccessCv(id, user)) {
+            throw new SecurityException("Bạn không có quyền xem thông tin chi tiết của CV này.");
+        }
         CvResponse cv = cvService.getCvById(id);
         return ResponseEntity.ok(ApiResponse.ok(cv));
     }
@@ -164,5 +210,15 @@ public class CvController {
     ) {
         cvService.deleteCv(id, user);
         return ResponseEntity.ok(ApiResponse.ok("CV deleted successfully", null));
+    }
+
+    @PostMapping("/rewrite-summary")
+    @PreAuthorize("hasRole('CANDIDATE')")
+    public ResponseEntity<ApiResponse<java.util.Map<String, String>>> rewriteSummary(
+            @RequestBody com.hiremate.dto.request.RewriteSummaryRequest request,
+            @AuthenticationPrincipal User user
+    ) {
+        String summary = cvService.rewriteSummary(request, user);
+        return ResponseEntity.ok(ApiResponse.ok("Summary rewritten successfully", java.util.Map.of("summary", summary)));
     }
 }

@@ -39,6 +39,7 @@ public class UserServiceImpl implements UserService {
     private final RecruiterRepository recruiterRepository;   // Thay thế CompanyRepository (cho lookup)
     private final CandidateSkillRepository candidateSkillRepository;
     private final SkillRepository skillRepository;
+    private final com.hiremate.repository.AiJobMatchRepository aiJobMatchRepository;
     private final com.hiremate.service.FileStorageService fileStorageService;
     private final com.hiremate.service.UserCacheService userCacheService;
 
@@ -60,7 +61,17 @@ public class UserServiceImpl implements UserService {
         user.setFullName(request.getFullName().trim());
         if (request.getPhone() != null) user.setPhone(request.getPhone().trim());
         if (request.getDateOfBirth() != null) user.setDateOfBirth(request.getDateOfBirth().trim());
-        if (request.getAddress() != null) user.setAddress(request.getAddress().trim());
+
+        String effectiveAddress = null;
+        if (request.getAddress() != null && !request.getAddress().trim().isEmpty()) {
+            effectiveAddress = request.getAddress().trim();
+        } else if (request.getLocation() != null && !request.getLocation().trim().isEmpty()) {
+            effectiveAddress = request.getLocation().trim();
+        }
+        if (effectiveAddress != null) {
+            user.setAddress(effectiveAddress);
+        }
+
         if (request.getBio() != null) user.setBio(request.getBio().trim());
         if (request.getGithubUrl() != null) user.setGithubUrl(request.getGithubUrl().trim());
 
@@ -75,16 +86,36 @@ public class UserServiceImpl implements UserService {
             Optional<Candidate> candidateOpt = candidateRepository.findById(userId);
             if (candidateOpt.isPresent()) {
                 Candidate candidate = candidateOpt.get();
-                if (request.getHeadline() != null) candidate.setHeadline(request.getHeadline());
-                if (request.getAddress() != null) candidate.setLocation(request.getAddress());
-                if (request.getBio() != null) candidate.setBio(request.getBio());
+                if (request.getHeadline() != null) candidate.setHeadline(request.getHeadline().trim());
+                if (effectiveAddress != null) candidate.setLocation(effectiveAddress);
+                if (request.getBio() != null) candidate.setBio(request.getBio().trim());
+                if (request.getExperiencesJson() != null) candidate.setExperiencesJson(request.getExperiencesJson().trim());
+                if (request.getEducationsJson() != null) candidate.setEducationsJson(request.getEducationsJson().trim());
+                if (request.getProjectsJson() != null) candidate.setProjectsJson(request.getProjectsJson().trim());
                 candidateRepository.save(candidate);
+            }
+        } else if (savedUser.getRole() == UserRole.RECRUITER) {
+            // Cập nhật subclass-specific fields nếu là RECRUITER
+            Optional<Recruiter> recruiterOpt = recruiterRepository.findById(userId);
+            if (recruiterOpt.isPresent()) {
+                Recruiter recruiter = recruiterOpt.get();
+                if (request.getPosition() != null && !request.getPosition().isBlank()) {
+                    recruiter.setPosition(request.getPosition().trim());
+                }
+                if (request.getDepartment() != null && !request.getDepartment().isBlank()) {
+                    recruiter.setDepartment(request.getDepartment().trim());
+                }
+                if (request.getBranchName() != null && !request.getBranchName().isBlank()) {
+                    recruiter.setBranchName(request.getBranchName().trim());
+                }
+                recruiterRepository.save(recruiter);
             }
         }
 
         log.info(">> [UserService] Profile updated successfully for userId: {}", userId);
         return buildProfileResponse(savedUser);
     }
+
 
     @Override
     @Transactional
@@ -182,6 +213,14 @@ public class UserServiceImpl implements UserService {
 
         CandidateSkill saved = candidateSkillRepository.save(candidateSkill);
 
+        // Xóa cache AI matching để tính lại điểm tương thích khi kỹ năng ứng viên thay đổi
+        try {
+            aiJobMatchRepository.deleteByCandidate_CandidateId(userId);
+            log.info(">> [UserService] Đã làm mới cache AI matching cho candidate #{}", userId);
+        } catch (Exception ex) {
+            log.warn("Không thể xóa cache AI matching: {}", ex.getMessage());
+        }
+
         return CandidateSkillResponse.builder()
                 .candidateSkillId(saved.getCandidateSkillId())
                 .profileId(saved.getProfileId())
@@ -208,7 +247,10 @@ public class UserServiceImpl implements UserService {
         Optional<CandidateSkill> bySkillId = candidateSkillRepository.findByProfileIdAndSkillId(userId, skillId);
         if (bySkillId.isPresent()) {
             candidateSkillRepository.delete(bySkillId.get());
-            log.info(">> [UserService] Đã xóa skillId {} khỏi candidateId {}", skillId, userId);
+            try {
+                aiJobMatchRepository.deleteByCandidate_CandidateId(userId);
+            } catch (Exception ignored) {}
+            log.info(">> [UserService] Đã xóa skillId {} và làm mới cache AI matching cho candidateId {}", skillId, userId);
             return;
         }
 
@@ -216,7 +258,10 @@ public class UserServiceImpl implements UserService {
         Optional<CandidateSkill> byRowId = candidateSkillRepository.findById(skillId);
         if (byRowId.isPresent() && byRowId.get().getProfileId().equals(userId)) {
             candidateSkillRepository.delete(byRowId.get());
-            log.info(">> [UserService] Đã xóa candidateSkillId {} khỏi candidateId {}", skillId, userId);
+            try {
+                aiJobMatchRepository.deleteByCandidate_CandidateId(userId);
+            } catch (Exception ignored) {}
+            log.info(">> [UserService] Đã xóa candidateSkillId {} và làm mới cache AI matching cho candidateId {}", skillId, userId);
             return;
         }
 
@@ -266,12 +311,21 @@ public class UserServiceImpl implements UserService {
         String headline = null;
         String location = null;
         Integer experienceYears = null;
+        String experiencesJson = null;
+        String educationsJson = null;
+        String projectsJson = null;
         List<CandidateSkillResponse> skills = null;
 
         // Recruiter / Company-specific fields
         Long companyId = null;
         String companyName = null;
         String companyWebsite = null;
+        String position = null;
+        String department = null;
+        String branchName = null;
+        Boolean isHeadRecruiter = null;
+        String taxCode = null;
+        Integer aiCredits = null;
 
         if (user.getRole() == UserRole.CANDIDATE) {
             // Candidate.candidateId = user.userId (Shared PK – lookup by same ID)
@@ -283,17 +337,27 @@ public class UserServiceImpl implements UserService {
                 headline = c.getHeadline();
                 location = c.getLocation();
                 experienceYears = c.getExperienceYears();
+                experiencesJson = c.getExperiencesJson();
+                educationsJson = c.getEducationsJson();
+                projectsJson = c.getProjectsJson();
             }
             skills = loadCandidateSkills(user.getUserId());
         } else if (user.getRole() == UserRole.RECRUITER) {
             // Recruiter.recruiterId = user.userId (Shared PK – lookup by same ID)
             Optional<Recruiter> recruiterOpt = recruiterRepository.findById(user.getUserId());
             if (recruiterOpt.isPresent()) {
-                Company company = recruiterOpt.get().getCompany();
+                Recruiter r = recruiterOpt.get();
+                position = r.getPosition();
+                department = r.getDepartment();
+                branchName = r.getBranchName();
+                isHeadRecruiter = r.getIsHeadRecruiter();
+                aiCredits = r.getAiCredits();
+                Company company = r.getCompany();
                 if (company != null) {
                     companyId = company.getCompanyId();
                     companyName = company.getCompanyName();
                     companyWebsite = company.getWebsite();
+                    taxCode = company.getTaxCode();
                 }
             }
         }
@@ -316,10 +380,19 @@ public class UserServiceImpl implements UserService {
                 .headline(headline)
                 .location(location)
                 .experienceYears(experienceYears)
+                .experiencesJson(experiencesJson)
+                .educationsJson(educationsJson)
+                .projectsJson(projectsJson)
                 .skills(skills)
                 .companyId(companyId)
                 .companyName(companyName)
                 .companyWebsite(companyWebsite)
+                .position(position)
+                .department(department)
+                .branchName(branchName)
+                .isHeadRecruiter(isHeadRecruiter)
+                .taxCode(taxCode)
+                .aiCredits(aiCredits)
                 .build();
     }
 }

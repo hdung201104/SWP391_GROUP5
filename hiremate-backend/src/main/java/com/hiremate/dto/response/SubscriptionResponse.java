@@ -24,6 +24,8 @@ public class SubscriptionResponse {
     private String status;
     private Long daysRemaining;
     private boolean active;
+    private String planDescription;
+    private Integer customQuota;
 
     public static SubscriptionResponse inactive() {
         SubscriptionResponse res = new SubscriptionResponse();

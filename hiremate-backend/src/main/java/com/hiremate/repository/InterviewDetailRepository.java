@@ -29,4 +29,8 @@ public interface InterviewDetailRepository extends JpaRepository<InterviewDetail
     /** Đếm số câu hỏi theo danh sách phiên phỏng vấn (Batch count để loại bỏ N+1 queries) */
     @Query("SELECT d.session.sessionId, COUNT(d.detailId) FROM InterviewDetail d WHERE d.session.sessionId IN :sessionIds GROUP BY d.session.sessionId")
     List<Object[]> countDetailsBySessionIds(@Param("sessionIds") java.util.Collection<Long> sessionIds);
+
+    /** Xác thực quyền sở hữu file ghi âm audio của ứng viên */
+    @Query("SELECT COUNT(d) > 0 FROM InterviewDetail d WHERE d.audioUrl = :audioUrl AND d.session.candidate.candidateId = :candidateId")
+    boolean existsByAudioUrlAndCandidateId(@Param("audioUrl") String audioUrl, @Param("candidateId") Long candidateId);
 }

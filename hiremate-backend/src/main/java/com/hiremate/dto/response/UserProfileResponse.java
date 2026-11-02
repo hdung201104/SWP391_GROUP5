@@ -33,10 +33,19 @@ public class UserProfileResponse {
     private String headline;
     private String location;
     private Integer experienceYears;
+    private String experiencesJson;
+    private String educationsJson;
+    private String projectsJson;
     private java.util.List<CandidateSkillResponse> skills;
 
     // Optional Recruiter fields
     private Long companyId;
     private String companyName;
     private String companyWebsite;
+    private String position;
+    private String department;
+    private String branchName;
+    private Boolean isHeadRecruiter;
+    private String taxCode;
+    private Integer aiCredits;
 }

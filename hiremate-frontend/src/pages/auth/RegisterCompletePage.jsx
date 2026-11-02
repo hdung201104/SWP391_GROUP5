@@ -1,3 +1,4 @@
+import { HIREMATE_LOGO_URL } from '../../constants/branding';
 import React, { useState, useEffect } from 'react';
 import { 
   User, 
@@ -20,9 +21,16 @@ import {
   Calendar,
   MapPin,
   Github,
-  GraduationCap
+  GraduationCap,
+  Search,
+  Check,
+  X,
+  Building,
+  UploadCloud,
+  FileText
 } from 'lucide-react';
 import authApi from '../../api/authApi';
+import companyApi from '../../api/companyApi';
 import { useLivingTheme } from '../../context/LivingThemeContext';
 import { EDUCATION_LEVELS } from '../../utils/locationData';
 import VietnameseLocationPicker from '../../components/common/VietnameseLocationPicker';
@@ -60,6 +68,7 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [devOtpHint, setDevOtpHint] = useState('');
 
   // Candidate-specific fields
   const [headline, setHeadline] = useState('');
@@ -68,9 +77,31 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
   const [location, setLocation] = useState('');
   const [githubUrl, setGithubUrl] = useState(googleData?.githubUrl || '');
 
-  // Recruiter-specific fields
+  // Recruiter-specific fields & Company/Branch selection
   const [companyName, setCompanyName] = useState('');
-  const [position, setPosition] = useState('');
+  const [position, setPosition] = useState('Chuyên viên tuyển dụng');
+  const [department, setDepartment] = useState('Phòng Tuyển dụng & Nhân sự');
+  const [taxCode, setTaxCode] = useState('');
+  const [companySize, setCompanySize] = useState('100 - 500 nhân sự');
+  const [companyWebsite, setCompanyWebsite] = useState('');
+  const [companyLocation, setCompanyLocation] = useState('');
+  const [branchName, setBranchName] = useState('Trụ sở chính');
+  const [branchAddress, setBranchAddress] = useState('');
+  const [licenseNumber, setLicenseNumber] = useState('');
+  const [legalRepresentative, setLegalRepresentative] = useState('');
+  const [licenseFileName, setLicenseFileName] = useState('');
+  const [licenseFileUrl, setLicenseFileUrl] = useState('');
+  const [isUploadingDoc, setIsUploadingDoc] = useState(false);
+
+  // Company Lookup Autocomplete & Branch selection
+  const [selectedCompany, setSelectedCompany] = useState(null);
+  const [companySuggestions, setCompanySuggestions] = useState([]);
+  const [isSearchingCompany, setIsSearchingCompany] = useState(false);
+  const [dismissedSuggestions, setDismissedSuggestions] = useState(false);
+  const [branchMode, setBranchMode] = useState('EXISTING'); // 'EXISTING' | 'NEW'
+  const [selectedBranchId, setSelectedBranchId] = useState('');
+  const [companyHrPin, setCompanyHrPin] = useState('');
+  const [bypassPinRequest, setBypassPinRequest] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -92,14 +123,143 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
     }
   }, [email, googleData]);
 
+  // Debounce lookup companies when typing companyName or taxCode
+  useEffect(() => {
+    if (role !== 'RECRUITER' || selectedCompany || dismissedSuggestions) {
+      setCompanySuggestions([]);
+      return;
+    }
+    const cleanName = companyName.trim();
+    const cleanTax = taxCode.trim();
+
+    if (cleanName.length < 2 && cleanTax.length < 3) {
+      setCompanySuggestions([]);
+      return;
+    }
+
+    const handler = setTimeout(async () => {
+      try {
+        setIsSearchingCompany(true);
+        const res = await companyApi.lookupCompanies({
+          keyword: cleanName || undefined,
+          taxCode: cleanTax || undefined,
+        });
+        const list = res?.data?.data || res?.data || [];
+        setCompanySuggestions(Array.isArray(list) ? list : []);
+      } catch (err) {
+        console.warn('Lookup companies error in RegisterComplete:', err);
+      } finally {
+        setIsSearchingCompany(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(handler);
+  }, [companyName, taxCode, role, selectedCompany, dismissedSuggestions]);
+
+  const handleSelectSuggestedCompany = (comp) => {
+    setSelectedCompany(comp);
+    setCompanyName(comp.companyName || '');
+    if (comp.taxCode) setTaxCode(comp.taxCode);
+    if (comp.companySize) setCompanySize(comp.companySize);
+    if (comp.website) setCompanyWebsite(comp.website);
+    if (comp.address) setCompanyLocation(comp.address);
+    setCompanySuggestions([]);
+    setDismissedSuggestions(false);
+
+    const branches = comp.branches || [];
+    if (branches.length > 0) {
+      setSelectedBranchId(branches[0].id || 'headquarters');
+      setBranchName(branches[0].branchName || 'Trụ sở chính');
+      setBranchAddress(branches[0].address || comp.address || '');
+      setBranchMode('EXISTING');
+    } else {
+      setSelectedBranchId('headquarters');
+      setBranchName('Trụ sở chính');
+      setBranchAddress(comp.address || '');
+      setBranchMode('EXISTING');
+    }
+  };
+
+  const handleDismissSuggestions = () => {
+    setCompanySuggestions([]);
+    setDismissedSuggestions(true);
+  };
+
+  const handleClearSelectedCompany = () => {
+    setSelectedCompany(null);
+    setCompanyName('');
+    setTaxCode('');
+    setCompanyWebsite('');
+    setCompanyLocation('');
+    setCompanyHrPin('');
+    setBranchMode('EXISTING');
+    setBranchName('Trụ sở chính');
+    setBranchAddress('');
+    setCompanySuggestions([]);
+    setDismissedSuggestions(false);
+  };
+
+  const handleBranchSelectChange = (bId) => {
+    setSelectedBranchId(bId);
+    if (bId === '__NEW__') {
+      setBranchMode('NEW');
+      setBranchName('');
+      setBranchAddress('');
+    } else {
+      setBranchMode('EXISTING');
+      const b = (selectedCompany?.branches || []).find((x) => String(x.id) === String(bId));
+      if (b) {
+        setBranchName(b.branchName || 'Trụ sở chính');
+        setBranchAddress(b.address || selectedCompany?.address || '');
+      }
+    }
+  };
+
+  const handleLicenseDocChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setLicenseFileName(file.name);
+      try {
+        setIsUploadingDoc(true);
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await companyApi.uploadPublicLicenseDoc(formData);
+        const uploadedUrl = res?.data?.data?.url || res?.data?.url;
+        const uploadedName = res?.data?.data?.fileName || res?.data?.fileName || file.name;
+        if (uploadedUrl) {
+          setLicenseFileUrl(uploadedUrl);
+          setLicenseFileName(uploadedName);
+        }
+      } catch (uploadErr) {
+        console.warn('Doc upload fallback:', uploadErr);
+        setLicenseFileUrl(URL.createObjectURL(file));
+      } finally {
+        setIsUploadingDoc(false);
+      }
+    }
+  };
+
   const handleSendOtp = async () => {
     if (!email.trim() || resendCooldown > 0 || isSendingOtp) return;
     setIsSendingOtp(true);
     setErrorMessage('');
     try {
-      await authApi.sendOtp({ email: email.trim(), purpose: 'REGISTER' });
+      // 1. Kiểm tra xem email đã được đăng ký tài khoản chưa
+      const checkRes = await authApi.checkEmail(email.trim());
+      const isExisted = checkRes?.data?.data?.exists || checkRes?.data?.exists;
+      if (isExisted) {
+        setErrorMessage(`Email "${email.trim()}" đã được đăng ký tài khoản trong hệ thống. Vui lòng đăng nhập hoặc sử dụng email khác!`);
+        setIsSendingOtp(false);
+        return;
+      }
+
+      const res = await authApi.sendOtp({ email: email.trim(), purpose: 'REGISTER' });
       setOtpSent(true);
       setResendCooldown(60);
+      const hint = res?.data?.data?.otpDevHint || res?.data?.otpDevHint || res?.otpDevHint;
+      if (hint) {
+        setDevOtpHint(hint);
+      }
       setSuccessMessage(`Đã gửi mã xác thực OTP 6 số đến email ${email}. Vui lòng kiểm tra hộp thư (cả mục Spam)!`);
     } catch (err) {
       setErrorMessage(err.message || 'Không thể gửi mã OTP. Vui lòng thử lại sau giây lát.');
@@ -150,13 +310,38 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
         return;
       }
     } else {
-      if (!companyName.trim()) {
-        setErrorMessage('Vui lòng nhập tên công ty hoặc tổ chức tuyển dụng.');
-        return;
+      if (!selectedCompany) {
+        if (!companyName.trim()) {
+          setErrorMessage('Vui lòng nhập tên công ty hoặc chọn từ danh sách công ty đã có.');
+          return;
+        }
+        if (!taxCode.trim()) {
+          setErrorMessage('Vui lòng nhập Mã số thuế doanh nghiệp (MST).');
+          return;
+        }
+        if (!companyLocation.trim()) {
+          setErrorMessage('Vui lòng chọn địa chỉ Trụ sở chính của công ty.');
+          return;
+        }
+      } else {
+        if (!companyHrPin.trim() && !bypassPinRequest) {
+          setErrorMessage(`Vui lòng nhập Mã số xác nhận từ HR của ${selectedCompany.companyName} (hoặc chọn "Chưa có mã? Gửi duyệt") để liên kết vào tổ chức.`);
+          return;
+        }
       }
       if (!position.trim()) {
         setErrorMessage('Vui lòng nhập chức danh hoặc vị trí công tác của bạn tại doanh nghiệp.');
         return;
+      }
+      if (selectedCompany && branchMode === 'NEW') {
+        if (!branchName.trim()) {
+          setErrorMessage('Vui lòng nhập tên chi nhánh / cơ sở mới trực thuộc công ty.');
+          return;
+        }
+        if (!branchAddress.trim()) {
+          setErrorMessage('Vui lòng chọn địa chỉ chi nhánh mới.');
+          return;
+        }
       }
     }
 
@@ -173,12 +358,24 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
         otp: otpCode.trim(),
         headline: role === 'CANDIDATE' ? headline.trim() : undefined,
         dateOfBirth: role === 'CANDIDATE' && dateOfBirth ? dateOfBirth : undefined,
-        address: location || undefined,
+        address: role === 'CANDIDATE' ? location : undefined,
         githubUrl: role === 'CANDIDATE' && githubUrl ? githubUrl.trim() : undefined,
-        bio: EDUCATION_LEVELS.find((e) => e.value === education)?.label || education,
-        companyName: role === 'RECRUITER' ? companyName.trim() : undefined,
+        bio: role === 'CANDIDATE' ? (EDUCATION_LEVELS.find((e) => e.value === education)?.label || education) : undefined,
+        companyId: role === 'RECRUITER' ? (selectedCompany?.companyId || selectedCompany?.id || undefined) : undefined,
+        companyName: role === 'RECRUITER' ? (selectedCompany ? selectedCompany.companyName : companyName.trim()) : undefined,
         position: role === 'RECRUITER' ? position.trim() : undefined,
-        companyAddress: role === 'RECRUITER' ? location : undefined,
+        department: role === 'RECRUITER' ? department.trim() : undefined,
+        companyAddress: role === 'RECRUITER' ? (selectedCompany ? selectedCompany.address : (companyLocation || location)) : undefined,
+        taxCode: role === 'RECRUITER' ? (selectedCompany ? selectedCompany.taxCode : taxCode.trim()) : undefined,
+        companySize: role === 'RECRUITER' ? (selectedCompany ? selectedCompany.companySize : companySize.trim()) : undefined,
+        branchName: role === 'RECRUITER' ? (branchName ? branchName.trim() : 'Trụ sở chính') : undefined,
+        branchAddress: role === 'RECRUITER' ? (branchAddress ? branchAddress.trim() : (companyLocation || location)) : undefined,
+        website: role === 'RECRUITER' ? (selectedCompany ? selectedCompany.website : (companyWebsite ? companyWebsite.trim() : undefined)) : undefined,
+        licenseNumber: role === 'RECRUITER' && licenseNumber ? licenseNumber.trim() : undefined,
+        licenseDocUrl: role === 'RECRUITER' && licenseFileUrl ? licenseFileUrl : undefined,
+        licenseDocName: role === 'RECRUITER' && licenseFileName ? licenseFileName : undefined,
+        legalRepresentative: role === 'RECRUITER' && legalRepresentative ? legalRepresentative.trim() : undefined,
+        companyHrPin: role === 'RECRUITER' && companyHrPin ? companyHrPin.trim() : undefined,
       };
 
       const res = await authApi.completeGoogleRegistration(payload);
@@ -213,230 +410,277 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#161233] via-[#241a54] to-[#120f29] text-white flex flex-col justify-center items-center p-4 sm:p-6 md:p-10 relative overflow-hidden">
-      {/* Decorative background glows */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#7c3aed]/20 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#6366f1]/20 rounded-full blur-3xl pointer-events-none" />
+    <div className="w-full min-h-screen relative flex items-center justify-center p-3 sm:p-6 lg:p-8 bg-[#f8fafc] text-[#1e1b4b] font-sans selection:bg-[#5b48bd] selection:text-white">
+      {/* Decorative Organic Ambient Glows */}
+      <div className="absolute top-10 right-10 w-96 h-96 rounded-full bg-[#5b48bd]/10 blur-3xl pointer-events-none" />
+      <div className="absolute bottom-10 left-10 w-96 h-96 rounded-full bg-[#10b981]/10 blur-3xl pointer-events-none" />
 
-      <div className="w-full max-w-2xl bg-white/10 backdrop-blur-xl border border-white/15 rounded-3xl p-6 sm:p-8 md:p-10 shadow-2xl relative z-10">
+      {/* Main Split-Screen Card (Billage Reference Style) */}
+      <div className="w-full max-w-[1120px] bg-white border border-purple-100 rounded-[32px] shadow-2xl shadow-purple-950/10 overflow-hidden grid grid-cols-1 lg:grid-cols-12 relative z-10 min-h-[700px] my-4">
         
-        {/* Header Tag */}
-        <div className="flex items-center justify-between gap-3 mb-6 border-b border-white/10 pb-5">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#7c3aed] to-[#38bdf8] flex items-center justify-center shadow-lg">
-              <Sparkles className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
-                  <ShieldCheck className="w-3 h-3" /> Xác thực {providerName} thành công
-                </span>
+        {/* ============================================================
+            LEFT PANEL (5 cols): Skyscraper Backdrop + Profile Showcase
+        ============================================================ */}
+        <div className="lg:col-span-5 relative p-7 sm:p-9 flex flex-col justify-between overflow-hidden min-h-[360px] lg:min-h-full">
+          {/* Skyscraper Backdrop */}
+          <img
+            src="/assets/auth-bg.jpg"
+            alt="HireMate AI Corporate Architecture"
+            className="absolute inset-0 w-full h-full object-cover filter blur-[1.5px] scale-105"
+          />
+          {/* Deep Indigo Glass Gradient Overlay */}
+          <div className="absolute inset-0 bg-gradient-to-br from-[#1e1b4b]/90 via-[#32247b]/85 to-[#47369f]/90 backdrop-blur-[2px]" />
+
+          {/* Top Logo */}
+          <div className="relative z-10">
+            <button
+              type="button"
+              onClick={() => { window.location.hash = '#/'; }}
+              className="inline-flex items-center gap-3 group text-left cursor-pointer"
+            >
+              <div className="w-11 h-11 rounded-2xl bg-white/10 backdrop-blur-md text-white border border-white/20 shadow-lg flex items-center justify-center group-hover:scale-105 transition-transform duration-300 p-1 overflow-hidden shrink-0">
+                <img src={HIREMATE_LOGO_URL} alt="HireMate AI Logo" className="w-full h-full object-contain rounded-xl drop-shadow" />
               </div>
-              <h1 className="text-xl sm:text-2xl font-black text-white mt-1">
-                Hoàn tất thiết lập tài khoản
-              </h1>
+              <div className="flex items-baseline">
+                <span className="text-2xl font-bold tracking-tight text-white">HireMate</span>
+                <span className="text-2xl font-bold text-[#10b981] ml-1">.AI</span>
+              </div>
+            </button>
+          </div>
+
+          {/* Center User Showcase */}
+          <div className="relative z-10 my-auto flex flex-col items-center text-center py-6">
+            <div className="relative mb-3.5">
+              {avatarUrl ? (
+                <img 
+                  src={avatarUrl} 
+                  alt={`${providerName} Avatar`} 
+                  className="w-20 h-20 rounded-2xl border-2 border-white/40 shadow-2xl object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="w-20 h-20 rounded-2xl bg-white/15 border border-white/30 backdrop-blur-md flex items-center justify-center text-white text-2xl font-black shadow-xl">
+                  {fullName?.charAt(0) || email?.charAt(0) || 'U'}
+                </div>
+              )}
+              <div className="absolute -bottom-1.5 -right-1.5 w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center border-2 border-[#1e1b4b] shadow">
+                <ShieldCheck className="w-3.5 h-3.5" />
+              </div>
+            </div>
+
+            <h3 className="text-white font-bold text-lg">{fullName || 'Người dùng mới'}</h3>
+            <p className="text-purple-200 text-xs font-mono mt-0.5">{email}</p>
+            
+            <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-xs font-semibold">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Xác thực {providerName} thành công</span>
+            </div>
+
+            {/* Feature Highlights */}
+            <div className="w-full mt-6 space-y-2 text-left">
+              <div className="p-3 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 text-white text-xs flex items-center gap-2.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>Kế thừa định danh bảo mật từ {providerName}</span>
+              </div>
+              <div className="p-3 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 text-white text-xs flex items-center gap-2.5">
+                <Sparkles className="w-4 h-4 text-purple-300 shrink-0" />
+                <span>Đồng bộ hồ sơ thông minh cùng AI Matcher</span>
+              </div>
             </div>
           </div>
 
-          {avatarUrl && (
-            <img 
-              src={avatarUrl} 
-              alt={`${providerName} Avatar`} 
-              className="w-12 h-12 rounded-full border-2 border-purple-400 shadow-md object-cover"
-              referrerPolicy="no-referrer"
-            />
-          )}
+          {/* Bottom Footer */}
+          <div className="relative z-10 pt-4 border-t border-white/10 flex items-center justify-between text-xs text-purple-200">
+            <span>© 2026 HireMate AI</span>
+            <span>v2.0 Executive Edition</span>
+          </div>
         </div>
 
-        <p className="text-slate-300 text-xs sm:text-sm mb-6 leading-relaxed">
-          Chào mừng bạn đến với hệ sinh thái tuyển dụng thông minh <strong>HireMate AI</strong>. Hãy xác nhận các thông tin dưới đây và chọn vai trò của bạn để chúng tôi cá nhân hóa trải nghiệm tốt nhất.
-        </p>
+        {/* ============================================================
+            RIGHT PANEL (7 cols): Clean Executive Humanist Form
+        ============================================================ */}
+        <div className="lg:col-span-7 p-6 sm:p-8 xl:p-10 flex flex-col justify-between space-y-5 bg-white relative z-10 max-h-[88vh] overflow-y-auto">
+          
+          {/* Top Navigation */}
+          <div className="flex items-center justify-between pb-3 border-b border-purple-100">
+            <button
+              type="button"
+              onClick={() => {
+                sessionStorage.removeItem('hiremate_google_onboarding');
+                if (onNavigateLogin) onNavigateLogin();
+                else window.location.hash = '#/login';
+              }}
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-[#221d47] px-3.5 py-1.5 rounded-full bg-purple-50/60 hover:bg-purple-100/80 border border-purple-100 transition-all duration-300 cursor-pointer group"
+              title="Quay lại Đăng nhập"
+            >
+              <ArrowRight className="w-3.5 h-3.5 rotate-180 text-[#5b48bd] group-hover:-translate-x-0.5 transition-transform" />
+              <span>Đăng nhập</span>
+            </button>
 
-        {/* Alerts */}
-        {errorMessage && (
-          <div className="mb-6 p-4 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs sm:text-sm flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 shrink-0 text-rose-400" />
-            <span>{errorMessage}</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full flex items-center gap-1">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Đã liên kết {providerName}</span>
+            </span>
           </div>
-        )}
 
-        {successMessage && (
-          <div className="mb-6 p-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs sm:text-sm flex items-center gap-3">
-            <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-400" />
-            <span>{successMessage}</span>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} autoComplete="off" className="space-y-6">
-
-          {/* 1. ROLE SELECTION */}
+          {/* Form Header */}
           <div>
-            <label className="text-xs font-bold uppercase tracking-wider text-purple-200 block mb-3">
-              1. Bạn tham gia HireMate với tư cách là ai? <span className="text-rose-400">*</span>
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              
-              {/* Option CANDIDATE */}
-              <div 
-                onClick={() => setRole('CANDIDATE')}
-                className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-start gap-3.5 ${
-                  role === 'CANDIDATE' 
-                    ? 'bg-gradient-to-r from-[#7c3aed]/30 to-[#6366f1]/20 border-purple-400 shadow-lg shadow-purple-900/30 ring-2 ring-purple-400/40' 
-                    : 'bg-white/5 border-white/10 hover:bg-white/10 text-slate-300'
-                }`}
-              >
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                  role === 'CANDIDATE' ? 'bg-purple-500 text-white' : 'bg-white/10 text-slate-400'
-                }`}>
-                  <UserCheck className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="font-bold text-sm text-white flex items-center gap-1.5">
-                    Tôi là Ứng viên
-                    {role === 'CANDIDATE' && <CheckCircle2 className="w-4 h-4 text-purple-400 ml-auto" />}
-                  </div>
-                  <p className="text-[11px] text-slate-300 mt-1 leading-snug">
-                    Tìm việc làm IT & phỏng vấn thử AI với phản hồi thời gian thực
-                  </p>
-                </div>
-              </div>
+            <h2 className="text-xl sm:text-2xl font-black text-[#221d47]">
+              Hoàn tất thiết lập tài khoản
+            </h2>
+            <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+              Chào mừng bạn đến với hệ sinh thái <strong>HireMate AI</strong>. Hãy chọn vai trò và bổ sung thông tin dưới đây để kích hoạt tài khoản ngay.
+            </p>
+          </div>
 
-              {/* Option RECRUITER */}
-              <div 
-                onClick={() => setRole('RECRUITER')}
-                className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-start gap-3.5 ${
-                  role === 'RECRUITER' 
-                    ? 'bg-gradient-to-r from-[#0284c7]/30 to-[#38bdf8]/20 border-cyan-400 shadow-lg shadow-cyan-900/30 ring-2 ring-cyan-400/40' 
-                    : 'bg-white/5 border-white/10 hover:bg-white/10 text-slate-300'
-                }`}
-              >
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                  role === 'RECRUITER' ? 'bg-cyan-500 text-white' : 'bg-white/10 text-slate-400'
-                }`}>
-                  <Building2 className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="font-bold text-sm text-white flex items-center gap-1.5">
-                    Tôi là Nhà tuyển dụng
-                    {role === 'RECRUITER' && <CheckCircle2 className="w-4 h-4 text-cyan-400 ml-auto" />}
-                  </div>
-                  <p className="text-[11px] text-slate-300 mt-1 leading-snug">
-                    Đăng tin tuyển dụng, lọc CV tự động & đánh giá ứng viên bằng AI
-                  </p>
-                </div>
-              </div>
+          {/* Role Switcher Pill */}
+          <div className="p-1 rounded-full bg-purple-50/80 border border-purple-100 grid grid-cols-2 gap-1">
+            <button
+              type="button"
+              onClick={() => setRole('CANDIDATE')}
+              className={`py-2 px-3 rounded-full text-xs font-bold flex items-center justify-center gap-2 transition-all duration-300 cursor-pointer ${
+                role === 'CANDIDATE'
+                  ? 'bg-[#5b48bd] text-white shadow-md'
+                  : 'text-slate-600 hover:text-[#221d47]'
+              }`}
+            >
+              <UserCheck className="w-4 h-4" />
+              <span>Tôi là Ứng Viên</span>
+            </button>
 
+            <button
+              type="button"
+              onClick={() => setRole('RECRUITER')}
+              className={`py-2 px-3 rounded-full text-xs font-bold flex items-center justify-center gap-2 transition-all duration-300 cursor-pointer ${
+                role === 'RECRUITER'
+                  ? 'bg-[#5b48bd] text-white shadow-md'
+                  : 'text-slate-600 hover:text-[#221d47]'
+              }`}
+            >
+              <Building2 className="w-4 h-4" />
+              <span>Tôi là Nhà Tuyển Dụng</span>
+            </button>
+          </div>
+
+          {/* Alerts */}
+          {errorMessage && (
+            <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2.5 animate-fadeIn">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
+              <span>{errorMessage}</span>
             </div>
-          </div>
+          )}
 
-          {/* 2. PROFILE FIELDS */}
-          <div>
-            <label className="text-xs font-bold uppercase tracking-wider text-purple-200 block mb-3">
-              2. Thông tin xác thực từ {providerName}
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
-              {/* Email (Read-Only) */}
-              <div className="space-y-1 sm:col-span-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-300 font-medium">Địa chỉ Email xác thực</span>
-                  <span className="text-[10px] text-emerald-400 flex items-center gap-1 font-semibold">
-                    <CheckCircle2 className="w-3 h-3" /> Đã bảo mật qua {providerName}
-                  </span>
-                </div>
-                <div className="relative flex items-center">
-                  <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 pointer-events-none" />
-                  <input
-                    type="email"
-                    name="readonly_google_email"
-                    value={email}
-                    disabled
-                    readOnly
-                    autoComplete="off"
-                    className="w-full pl-10 pr-4 py-2.5 bg-black/30 border border-white/15 rounded-xl text-sm text-slate-300 font-medium cursor-not-allowed select-none opacity-80"
-                  />
-                </div>
-              </div>
-
-              {/* Full Name */}
-              <div className="space-y-1">
-                <span className="text-xs text-slate-300 font-medium">Họ và tên <span className="text-rose-400">*</span></span>
-                <div className="relative flex items-center">
-                  <User className="w-4 h-4 text-purple-300 absolute left-3.5 pointer-events-none" />
-                  <input
-                    type="text"
-                    name="onboarding_user_fullname"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="Ví dụ: Nguyễn Văn A"
-                    autoComplete="off"
-                    required
-                    className="w-full pl-10 pr-4 py-2.5 bg-white/10 border border-white/20 focus:border-purple-400 focus:bg-white/15 rounded-xl text-sm text-white placeholder-slate-400 focus:outline-none transition-all"
-                  />
-                </div>
-              </div>
-
-              {/* Phone */}
-              <div className="space-y-1">
-                <span className="text-xs text-slate-300 font-medium">Số điện thoại liên hệ <span className="text-rose-400">*</span></span>
-                <div className="relative flex items-center">
-                  <Phone className="w-4 h-4 text-purple-300 absolute left-3.5 pointer-events-none" />
-                  <input
-                    type="tel"
-                    name="onboarding_user_phone"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="Ví dụ: 0912 xxx xxx"
-                    autoComplete="off"
-                    required
-                    className="w-full pl-10 pr-4 py-2.5 bg-white/10 border border-white/20 focus:border-purple-400 focus:bg-white/15 rounded-xl text-sm text-white placeholder-slate-400 focus:outline-none transition-all"
-                  />
-                </div>
-              </div>
-
+          {successMessage && (
+            <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2.5 animate-fadeIn">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+              <span>{successMessage}</span>
             </div>
-          </div>
+          )}
 
-          {/* 3. ROLE-SPECIFIC FIELDS */}
-          <div>
-            <label className="text-xs font-bold uppercase tracking-wider text-purple-200 block mb-3">
-              3. Thông tin chuyên biệt cho {role === 'CANDIDATE' ? 'Ứng viên' : 'Doanh nghiệp'}
-            </label>
+          <form onSubmit={handleSubmit} autoComplete="off" className="space-y-4">
 
-            {role === 'CANDIDATE' ? (
-              <div className="space-y-3 bg-purple-950/30 border border-purple-500/20 p-4 rounded-2xl">
-                <div className="space-y-1">
-                  <span className="text-xs text-slate-200 font-medium">
-                    Vị trí mong muốn / Tiêu đề nghề nghiệp (Headline) <span className="text-rose-400">*</span>
-                  </span>
+            {/* 1. GENERAL INFORMATION */}
+            <div className="space-y-3 p-4 rounded-2xl bg-purple-50/30 border border-purple-100">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-[#5b48bd] flex items-center gap-1.5">
+                <User className="w-3.5 h-3.5" />
+                <span>1. Thông tin cá nhân &amp; Liên hệ</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Email Readonly */}
+                <div className="space-y-1 sm:col-span-2">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block flex items-center justify-between">
+                    <span>Email đăng ký (Bảo mật qua {providerName})</span>
+                    <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-0.5">
+                      <CheckCircle2 className="w-3 h-3" /> Đã xác thực
+                    </span>
+                  </label>
                   <div className="relative flex items-center">
-                    <Briefcase className="w-4 h-4 text-purple-300 absolute left-3.5 pointer-events-none" />
+                    <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 pointer-events-none" />
+                    <input
+                      type="email"
+                      value={email}
+                      disabled
+                      readOnly
+                      className="w-full pl-10 pr-3 py-2 bg-slate-100 border border-slate-200 rounded-full text-xs font-mono font-bold text-slate-600 cursor-not-allowed select-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Full Name */}
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
+                    Họ và tên *
+                  </label>
+                  <div className="relative flex items-center">
+                    <User className="w-4 h-4 text-[#5b48bd] absolute left-3.5 pointer-events-none" />
                     <input
                       type="text"
-                      name="onboarding_candidate_headline"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="Ví dụ: Nguyễn Văn A"
+                      required
+                      className="w-full pl-10 pr-3 py-2.5 bg-white border border-purple-100 focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] placeholder-slate-400 focus:outline-none transition-all font-sans"
+                    />
+                  </div>
+                </div>
+
+                {/* Phone */}
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
+                    Số điện thoại liên hệ *
+                  </label>
+                  <div className="relative flex items-center">
+                    <Phone className="w-4 h-4 text-[#5b48bd] absolute left-3.5 pointer-events-none" />
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="Ví dụ: 0912 xxx xxx"
+                      required
+                      className="w-full pl-10 pr-3 py-2.5 bg-white border border-purple-100 focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] placeholder-slate-400 focus:outline-none transition-all font-sans"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. ROLE-SPECIFIC INFORMATION */}
+            {role === 'CANDIDATE' ? (
+              <div className="space-y-3.5 p-4 rounded-2xl bg-purple-50/40 border border-purple-100 animate-fadeIn">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-[#5b48bd] flex items-center gap-1.5">
+                  <Briefcase className="w-3.5 h-3.5" />
+                  <span>2. Hồ sơ nghề nghiệp Ứng viên</span>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
+                    Vị trí mong muốn / Tiêu đề nghề nghiệp *
+                  </label>
+                  <div className="relative flex items-center">
+                    <Briefcase className="w-4 h-4 text-[#5b48bd] absolute left-3.5 pointer-events-none" />
+                    <input
+                      type="text"
                       value={headline}
                       onChange={(e) => setHeadline(e.target.value)}
                       placeholder="Ví dụ: Frontend React Developer / Backend Java"
-                      autoComplete="off"
                       required
-                      className="w-full pl-10 pr-4 py-2.5 bg-white/10 border border-white/20 focus:border-purple-400 focus:bg-white/15 rounded-xl text-sm text-white placeholder-slate-400 focus:outline-none transition-all"
+                      className="w-full pl-10 pr-3 py-2.5 bg-white border border-purple-100 focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] placeholder-slate-400 focus:outline-none transition-all font-sans"
                     />
                   </div>
-                  <p className="text-[11px] text-slate-400 mt-1">
-                    Tiêu đề này giúp thuật toán AI Matching gợi ý việc làm chính xác cho bạn.
-                  </p>
                 </div>
 
-                {/* Additional Candidate Profile Fields: Education, DOB, Cascading Location, GitHub */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <span className="text-xs text-slate-200 font-medium">Trình độ học vấn</span>
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
+                      Trình độ học vấn
+                    </label>
                     <div className="relative flex items-center">
-                      <GraduationCap className="w-4 h-4 text-purple-300 absolute left-3.5 pointer-events-none" />
+                      <GraduationCap className="w-4 h-4 text-[#5b48bd] absolute left-3.5 pointer-events-none" />
                       <select
                         value={education}
                         onChange={(e) => setEducation(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 bg-white/10 border border-white/20 focus:border-purple-400 focus:bg-white/15 rounded-xl text-sm text-white focus:outline-none transition-all cursor-pointer font-sans [&>option]:bg-slate-900 [&>option]:text-white"
+                        className="w-full pl-10 pr-3 py-2.5 bg-white border border-purple-100 focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] focus:outline-none transition-all cursor-pointer font-sans"
                       >
                         {EDUCATION_LEVELS.map((edu) => (
                           <option key={edu.value} value={edu.value}>{edu.label}</option>
@@ -446,251 +690,668 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
                   </div>
 
                   <div className="space-y-1">
-                    <span className="text-xs text-slate-200 font-medium">Ngày sinh</span>
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
+                      Ngày sinh
+                    </label>
                     <div className="relative flex items-center">
-                      <Calendar className="w-4 h-4 text-purple-300 absolute left-3.5 pointer-events-none" />
+                      <Calendar className="w-4 h-4 text-[#5b48bd] absolute left-3.5 pointer-events-none" />
                       <input
                         type="date"
                         value={dateOfBirth}
                         onChange={(e) => setDateOfBirth(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 bg-white/10 border border-white/20 focus:border-purple-400 focus:bg-white/15 rounded-xl text-sm text-white placeholder-slate-400 focus:outline-none transition-all"
+                        className="w-full pl-10 pr-3 py-2.5 bg-white border border-purple-100 focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] placeholder-slate-400 focus:outline-none transition-all font-sans"
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* 1 Single Location Picker Field */}
-                <div className="space-y-1 pt-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-slate-200 font-medium">
-                      Nơi cư trú (Tỉnh / TP • Quận / Huyện • Xã / Phường)
-                    </span>
-                    <span className="text-[11px] text-purple-300">Chọn 1 lần phân tầng tự động</span>
-                  </div>
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
+                    Nơi cư trú (Tỉnh / TP • Quận / Huyện • Xã / Phường)
+                  </label>
                   <VietnameseLocationPicker
                     value={location}
                     onChange={(val) => setLocation(val)}
                     placeholder="Bấm chọn Tỉnh/TP → Quận/Huyện → Phường/Xã..."
-                    theme="dark"
+                    theme="light"
                   />
                 </div>
 
-                <div className="pt-1">
-                  <div className="space-y-1">
-                    <span className="text-xs text-slate-200 font-medium">Tài khoản GitHub (URL)</span>
-                    <div className="relative flex items-center">
-                      <Github className="w-4 h-4 text-purple-300 absolute left-3.5 pointer-events-none" />
-                      <input
-                        type="url"
-                        value={githubUrl}
-                        onChange={(e) => setGithubUrl(e.target.value)}
-                        placeholder="https://github.com/username"
-                        className="w-full pl-10 pr-4 py-2.5 bg-white/10 border border-white/20 focus:border-purple-400 focus:bg-white/15 rounded-xl text-sm text-white placeholder-slate-400 focus:outline-none transition-all"
-                      />
-                    </div>
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
+                    Tài khoản GitHub (URL)
+                  </label>
+                  <div className="relative flex items-center">
+                    <Github className="w-4 h-4 text-[#5b48bd] absolute left-3.5 pointer-events-none" />
+                    <input
+                      type="url"
+                      value={githubUrl}
+                      onChange={(e) => setGithubUrl(e.target.value)}
+                      placeholder="https://github.com/username"
+                      className="w-full pl-10 pr-3 py-2.5 bg-white border border-purple-100 focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] placeholder-slate-400 focus:outline-none transition-all font-sans"
+                    />
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="space-y-3 bg-cyan-950/30 border border-cyan-500/20 p-4 rounded-2xl">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  <div className="space-y-1">
-                    <span className="text-xs text-slate-200 font-medium">
-                      Tên công ty / Doanh nghiệp <span className="text-rose-400">*</span>
-                    </span>
-                    <div className="relative flex items-center">
-                      <Building2 className="w-4 h-4 text-cyan-300 absolute left-3.5 pointer-events-none" />
-                      <input
-                        type="text"
-                        name="onboarding_company_name"
-                        value={companyName}
-                        onChange={(e) => setCompanyName(e.target.value)}
-                        placeholder="Ví dụ: Tập đoàn Công nghệ ABC"
-                        autoComplete="off"
-                        required
-                        className="w-full pl-10 pr-4 py-2.5 bg-white/10 border border-white/20 focus:border-cyan-400 focus:bg-white/15 rounded-xl text-sm text-white placeholder-slate-400 focus:outline-none transition-all"
-                      />
-                    </div>
-                  </div>
+              <div className="space-y-3.5 p-4 rounded-2xl bg-purple-50/40 border border-purple-100 animate-fadeIn">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-[#5b48bd] flex items-center gap-1.5">
+                  <Building2 className="w-3.5 h-3.5" />
+                  <span>2. Thông tin Doanh nghiệp &amp; Nhân sự</span>
+                </div>
 
+                {/* Recruiter Position & Department */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <span className="text-xs text-slate-200 font-medium">
-                      Chức vụ / Vị trí công tác <span className="text-rose-400">*</span>
-                    </span>
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
+                      Chức vụ / Vị trí công tác *
+                    </label>
                     <div className="relative flex items-center">
-                      <Briefcase className="w-4 h-4 text-cyan-300 absolute left-3.5 pointer-events-none" />
+                      <Briefcase className="w-4 h-4 text-[#5b48bd] absolute left-3.5 pointer-events-none" />
                       <input
                         type="text"
-                        name="onboarding_recruiter_position"
                         value={position}
                         onChange={(e) => setPosition(e.target.value)}
                         placeholder="Ví dụ: HR Manager / Talent Acquisition"
-                        autoComplete="off"
                         required
-                        className="w-full pl-10 pr-4 py-2.5 bg-white/10 border border-white/20 focus:border-cyan-400 focus:bg-white/15 rounded-xl text-sm text-white placeholder-slate-400 focus:outline-none transition-all"
+                        className="w-full pl-10 pr-3 py-2.5 bg-white border border-purple-100 focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] placeholder-slate-400 focus:outline-none transition-all font-sans"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
+                      Phòng ban làm việc
+                    </label>
+                    <div className="relative flex items-center">
+                      <Building2 className="w-4 h-4 text-[#5b48bd] absolute left-3.5 pointer-events-none" />
+                      <input
+                        type="text"
+                        value={department}
+                        onChange={(e) => setDepartment(e.target.value)}
+                        placeholder="Ví dụ: Phòng Tuyển dụng &amp; Nhân sự"
+                        className="w-full pl-10 pr-3 py-2.5 bg-white border border-purple-100 focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] placeholder-slate-400 focus:outline-none transition-all font-sans"
                       />
                     </div>
                   </div>
                 </div>
 
-                <div className="space-y-1 pt-1">
-                  <span className="text-xs text-slate-200 font-medium">
-                    Trụ sở chính công ty (Tỉnh / TP • Quận / Huyện • Xã / Phường)
-                  </span>
-                  <VietnameseLocationPicker
-                    value={location}
-                    onChange={(val) => setLocation(val)}
-                    placeholder="Bấm chọn Trụ sở chính công ty..."
-                    theme="dark"
-                  />
-                </div>
+                {/* Company Search / Input */}
+                <div className="space-y-2 pt-1 border-t border-purple-100">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block flex items-center justify-between">
+                    <span>Doanh nghiệp / Tổ chức tuyển dụng *</span>
+                    {isSearchingCompany && (
+                      <span className="text-[10px] text-[#5b48bd] flex items-center gap-1 font-semibold">
+                        <span className="w-3 h-3 border-2 border-[#5b48bd] border-t-transparent rounded-full animate-spin" />
+                        Đang tra cứu...
+                      </span>
+                    )}
+                  </label>
 
-                <p className="text-[11px] text-slate-400 mt-1">
-                  Thông tin công ty giúp bạn quản lý bài đăng tuyển dụng và hồ sơ doanh nghiệp.
-                </p>
+                  {!selectedCompany && (
+                    <div className="relative">
+                      <div className="relative flex items-center">
+                        <Search className="w-4 h-4 text-[#5b48bd] absolute left-3.5 pointer-events-none" />
+                        <input
+                          type="text"
+                          value={companyName}
+                          onChange={(e) => {
+                            setCompanyName(e.target.value);
+                            setDismissedSuggestions(false);
+                          }}
+                          placeholder="Gõ tên công ty hoặc Mã số thuế để tra cứu..."
+                          className="w-full pl-10 pr-10 py-2.5 bg-white border border-purple-100 focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] placeholder-slate-400 focus:outline-none transition-all font-sans"
+                        />
+                        {companyName && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCompanyName('');
+                              setCompanySuggestions([]);
+                              setDismissedSuggestions(false);
+                            }}
+                            className="absolute right-3.5 text-slate-400 hover:text-rose-600 p-1 rounded-full hover:bg-slate-100 transition-colors cursor-pointer flex items-center justify-center"
+                            title="Xóa tên công ty"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Suggestions Card */}
+                      {!dismissedSuggestions && companySuggestions.length > 0 && (
+                        <div className="mt-2 p-3.5 rounded-2xl bg-gradient-to-br from-indigo-50/95 via-purple-50/90 to-white border-2 border-indigo-200 shadow-lg space-y-2.5 animate-fadeIn">
+                          <div className="flex items-center gap-2 text-indigo-900 font-bold text-xs uppercase tracking-wider">
+                            <span className="material-symbols-outlined text-indigo-600 text-base animate-pulse">domain_verification</span>
+                            <span>Phát hiện doanh nghiệp đã có trên hệ thống</span>
+                            <span className="text-[10px] bg-indigo-600 text-white font-extrabold px-2 py-0.5 rounded-full">
+                              {companySuggestions.length} gợi ý
+                            </span>
+                            <button
+                              type="button"
+                              onClick={handleDismissSuggestions}
+                              className="p-1 rounded-lg bg-white/90 hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-slate-200 transition-colors flex items-center justify-center cursor-pointer ml-auto shadow-xs"
+                              title="Đóng / Bỏ qua gợi ý"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                          
+                          <p className="text-[11px] text-slate-600">
+                            Bấm chọn để gia nhập tổ chức &amp; kế thừa pháp lý đã duyệt:
+                          </p>
+
+                          <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                            {companySuggestions.map((comp) => {
+                              const isVerified = comp.status === 'VERIFIED';
+                              const branchCount = comp.branches ? comp.branches.length : 1;
+                              return (
+                                <div
+                                  key={comp.companyId || comp.id}
+                                  onClick={() => handleSelectSuggestedCompany(comp)}
+                                  className="p-2.5 rounded-xl bg-white border border-indigo-100 hover:border-indigo-400 hover:shadow-md transition-all cursor-pointer flex items-center justify-between gap-3 group"
+                                >
+                                  <div className="flex items-center gap-2.5 min-w-0">
+                                    <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-700 font-black text-xs shrink-0 overflow-hidden">
+                                      {comp.logoUrl ? (
+                                        <img src={comp.logoUrl} alt={comp.companyName} className="w-full h-full object-cover" />
+                                      ) : (
+                                        comp.companyName?.charAt(0) || 'C'
+                                      )}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <div className="text-xs font-bold text-slate-900 truncate group-hover:text-indigo-600 transition-colors">
+                                        {comp.companyName}
+                                      </div>
+                                      <div className="text-[10px] text-slate-500 truncate flex items-center gap-1.5">
+                                        <span>MST: <strong>{comp.taxCode || 'Chưa cập nhật'}</strong></span>
+                                        <span>•</span>
+                                        <span>{branchCount} chi nhánh</span>
+                                        <span>•</span>
+                                        <span className="truncate">{comp.address || 'Toàn quốc'}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    {isVerified ? (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">
+                                        <Check className="w-3 h-3" /> Đã duyệt
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 text-[10px] font-bold border border-amber-200">
+                                        Chờ duyệt
+                                      </span>
+                                    )}
+                                    <button
+                                      type="button"
+                                      className="px-2.5 py-1 bg-[#5b48bd] hover:bg-[#47369f] text-white text-[11px] font-bold rounded-lg transition-all"
+                                    >
+                                      Chọn
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          <div className="pt-2 border-t border-indigo-100 flex items-center justify-between text-[11px]">
+                            <span className="text-slate-500">Không phải công ty của bạn?</span>
+                            <button
+                              type="button"
+                              onClick={handleDismissSuggestions}
+                              className="text-indigo-600 hover:text-rose-600 font-bold hover:underline transition-colors cursor-pointer flex items-center gap-1"
+                            >
+                              <span>Bỏ qua gợi ý &amp; Đăng ký mới</span>
+                              <ArrowRight className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Selected Company Card */}
+                  {selectedCompany ? (
+                    <div className="p-3.5 rounded-2xl bg-indigo-50/70 border-2 border-indigo-300 space-y-3 animate-fadeIn">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <Building className="w-4 h-4 text-indigo-700" />
+                          <span className="text-xs font-extrabold text-indigo-950 uppercase tracking-wide">Doanh nghiệp công tác:</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleClearSelectedCompany}
+                          className="text-[11px] font-bold text-rose-600 hover:text-rose-800 underline flex items-center gap-1 cursor-pointer"
+                        >
+                          <X className="w-3.5 h-3.5" /> Đổi công ty khác
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-3 bg-white p-3 rounded-xl border border-indigo-100">
+                        <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white font-black text-sm flex items-center justify-center shrink-0 overflow-hidden shadow-sm">
+                          {selectedCompany.logoUrl ? (
+                            <img src={selectedCompany.logoUrl} alt={selectedCompany.companyName} className="w-full h-full object-cover" />
+                          ) : (
+                            selectedCompany.companyName?.charAt(0) || 'C'
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs font-extrabold text-slate-900 truncate">{selectedCompany.companyName}</div>
+                          <div className="text-[11px] text-slate-500 truncate flex items-center gap-2 mt-0.5">
+                            <span>MST: <strong className="font-mono text-indigo-700">{selectedCompany.taxCode || 'Chưa cập nhật'}</strong></span>
+                            <span>•</span>
+                            <span>Quy mô: {selectedCompany.companySize || '50 - 200 nhân sự'}</span>
+                          </div>
+                        </div>
+                        {selectedCompany.status === 'VERIFIED' && (
+                          <div className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold rounded-lg flex items-center gap-1 shrink-0">
+                            <Check className="w-3 h-3 text-emerald-600" /> ĐÃ XÁC THỰC
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Branch Selection */}
+                      <div className="pt-2 border-t border-indigo-100 space-y-2">
+                        <label className="text-[11px] font-bold uppercase tracking-wider text-indigo-950 flex items-center gap-1.5">
+                          <MapPin className="w-3.5 h-3.5 text-indigo-600" />
+                          <span>Chi nhánh / Cơ sở công tác *</span>
+                        </label>
+                        <select
+                          value={selectedBranchId}
+                          onChange={(e) => handleBranchSelectChange(e.target.value)}
+                          className="w-full px-3 py-2.5 bg-white border border-indigo-200 focus:border-[#5b48bd] rounded-full text-xs font-semibold text-[#221d47] focus:outline-none cursor-pointer"
+                        >
+                          {(selectedCompany.branches || []).map((b) => (
+                            <option key={b.id || b.branchName} value={b.id || b.branchName}>
+                              📍 {b.branchName} {b.isHeadquarters ? '(Trụ sở chính)' : ''} — {b.address || selectedCompany.address || ''}
+                            </option>
+                          ))}
+                          <option value="__NEW__" className="font-bold text-[#5b48bd]">
+                            + Đăng ký Cơ sở / Chi nhánh mới trực thuộc công ty
+                          </option>
+                        </select>
+
+                        {branchMode === 'NEW' && (
+                          <div className="p-3 bg-white rounded-xl border border-indigo-200 space-y-2.5 animate-fadeIn">
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold uppercase tracking-wider text-[#221d47] block">
+                                Tên Chi nhánh / Cơ sở mới *
+                              </label>
+                              <input
+                                type="text"
+                                value={branchName}
+                                onChange={(e) => setBranchName(e.target.value)}
+                                placeholder="Ví dụ: Chi nhánh Đà Nẵng, Cơ sở Cần Thơ..."
+                                required
+                                className="w-full px-3 py-2 bg-purple-50/40 border border-purple-100 focus:border-[#5b48bd] rounded-lg text-xs font-semibold text-[#221d47] focus:outline-none"
+                              />
+                            </div>
+
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold uppercase tracking-wider text-[#221d47] block">
+                                Địa chỉ Chi nhánh mới *
+                              </label>
+                              <VietnameseLocationPicker
+                                value={branchAddress}
+                                onChange={(val) => setBranchAddress(val)}
+                                placeholder="Bấm chọn địa chỉ Chi nhánh mới..."
+                                theme="light"
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* HR Verification PIN */}
+                      <div className="pt-2 border-t border-indigo-100 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[11px] font-bold uppercase tracking-wider text-indigo-950 flex items-center gap-1.5">
+                            <KeyRound className="w-3.5 h-3.5 text-amber-600" />
+                            <span>Mã xác nhận HR Doanh nghiệp *</span>
+                          </label>
+                          <span className="text-[10px] text-amber-700 font-bold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                            Bảo vệ pháp nhân
+                          </span>
+                        </div>
+
+                        <input
+                          type="text"
+                          value={companyHrPin}
+                          onChange={(e) => {
+                            setCompanyHrPin(e.target.value.toUpperCase());
+                            setBypassPinRequest(false);
+                          }}
+                          disabled={bypassPinRequest}
+                          placeholder={`Nhập mã HR do ${selectedCompany.companyName} cấp (VD: HM-VNG-8899 hoặc MST)...`}
+                          className={`w-full px-3.5 py-2.5 bg-white border rounded-full text-xs font-mono font-bold text-[#221d47] placeholder-slate-400 focus:outline-none transition-all uppercase ${
+                            bypassPinRequest 
+                              ? 'opacity-50 border-slate-200' 
+                              : 'border-indigo-200 focus:border-amber-500'
+                          }`}
+                        />
+
+                        <div className="flex items-center justify-between text-[11px] text-slate-500 pt-0.5">
+                          <span>💡 Nhập mã PIN do Head HR cấp hoặc nhập MST công ty.</span>
+                          <button
+                            type="button"
+                            onClick={() => setBypassPinRequest(!bypassPinRequest)}
+                            className="text-[#5b48bd] hover:underline font-bold cursor-pointer"
+                          >
+                            {bypassPinRequest ? 'Nhập mã trực tiếp' : 'Chưa có mã? Gửi duyệt'}
+                          </button>
+                        </div>
+
+                        {bypassPinRequest && (
+                          <div className="p-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-[11px] flex items-center gap-1.5 animate-fadeIn">
+                            <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                            <span>Tài khoản sẽ được gửi vào danh sách chờ duyệt của Trụ sở chính công ty.</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    /* NẾU LÀ CÔNG TY MỚI TOÀN BỘ */
+                    <div className="space-y-3 pt-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block flex items-center justify-between">
+                            <span>Mã số thuế doanh nghiệp (MST) *</span>
+                          </label>
+                          <div className="relative flex items-center">
+                            <input
+                              type="text"
+                              value={taxCode}
+                              onChange={(e) => setTaxCode(e.target.value.replace(/\s+/g, ''))}
+                              placeholder="Ví dụ: 0303987654"
+                              required
+                              className="w-full px-3 py-2 bg-white border border-purple-100 focus:border-[#5b48bd] rounded-full text-xs font-mono font-bold text-[#221d47] placeholder-slate-400 focus:outline-none"
+                            />
+                            {taxCode && (
+                              <button
+                                type="button"
+                                onClick={() => setTaxCode('')}
+                                className="absolute right-3 text-slate-400 hover:text-rose-600 p-0.5 rounded-full hover:bg-slate-100 transition-colors cursor-pointer"
+                                title="Xóa mã số thuế"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
+                            Quy mô nhân sự
+                          </label>
+                          <select
+                            value={companySize}
+                            onChange={(e) => setCompanySize(e.target.value)}
+                            className="w-full px-3 py-2 bg-white border border-purple-100 focus:border-[#5b48bd] rounded-full text-xs text-[#221d47] focus:outline-none cursor-pointer"
+                          >
+                            <option value="10 - 50 nhân sự">10 - 50 nhân sự (Startup)</option>
+                            <option value="50 - 100 nhân sự">50 - 100 nhân sự (SME)</option>
+                            <option value="100 - 500 nhân sự">100 - 500 nhân sự</option>
+                            <option value="500+ nhân sự">500+ nhân sự (Enterprise)</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
+                          Trụ sở chính công ty *
+                        </label>
+                        <VietnameseLocationPicker
+                          value={companyLocation}
+                          onChange={(val) => {
+                            setCompanyLocation(val);
+                            if (!branchAddress) setBranchAddress(val);
+                          }}
+                          placeholder="Bấm chọn Trụ sở chính công ty..."
+                          theme="light"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
+                            Tên cơ sở / Chi nhánh làm việc
+                          </label>
+                          <input
+                            type="text"
+                            value={branchName}
+                            onChange={(e) => setBranchName(e.target.value)}
+                            placeholder="Mặc định: Trụ sở chính"
+                            className="w-full px-3 py-2 bg-white border border-purple-100 focus:border-[#5b48bd] rounded-full text-xs text-[#221d47] focus:outline-none"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
+                            Website doanh nghiệp
+                          </label>
+                          <input
+                            type="url"
+                            value={companyWebsite}
+                            onChange={(e) => setCompanyWebsite(e.target.value)}
+                            placeholder="https://company.com"
+                            className="w-full px-3 py-2 bg-white border border-purple-100 focus:border-[#5b48bd] rounded-full text-xs text-[#221d47] focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
+                            Số Giấy phép KD / ĐKKD
+                          </label>
+                          <input
+                            type="text"
+                            value={licenseNumber}
+                            onChange={(e) => setLicenseNumber(e.target.value)}
+                            placeholder="Ví dụ: GPKD-2024-HCM"
+                            className="w-full px-3 py-2 bg-white border border-purple-100 focus:border-[#5b48bd] rounded-full text-xs text-[#221d47] focus:outline-none"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
+                            Người đại diện pháp luật
+                          </label>
+                          <input
+                            type="text"
+                            value={legalRepresentative}
+                            onChange={(e) => setLegalRepresentative(e.target.value)}
+                            placeholder="Họ và tên người đại diện"
+                            className="w-full px-3 py-2 bg-white border border-purple-100 focus:border-[#5b48bd] rounded-full text-xs text-[#221d47] focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Upload GPKD */}
+                      <div className="space-y-1 pt-1">
+                        <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
+                          Tải lên bản scan Giấy phép kinh doanh (PDF / Ảnh)
+                        </label>
+                        <div className="flex items-center gap-3">
+                          <label className="px-3.5 py-2 bg-purple-50 hover:bg-purple-100 border border-purple-200 text-[#5b48bd] text-xs font-semibold rounded-full flex items-center gap-1.5 cursor-pointer transition-all">
+                            <UploadCloud className="w-4 h-4" />
+                            <span>{isUploadingDoc ? 'Đang tải file...' : 'Chọn file GPKD'}</span>
+                            <input
+                              type="file"
+                              accept=".pdf,image/png,image/jpeg"
+                              onChange={handleLicenseDocChange}
+                              className="hidden"
+                            />
+                          </label>
+                          {licenseFileName && (
+                            <span className="text-xs text-emerald-700 font-medium truncate flex items-center gap-1">
+                              <FileText className="w-3.5 h-3.5" /> {licenseFileName}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
-          </div>
 
-          {/* 4. MẬT KHẨU & MÃ OTP XÁC THỰC EMAIL */}
-          <div className="space-y-4 bg-white/5 border border-white/10 p-5 rounded-2xl">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold uppercase tracking-wider text-purple-200 block">
-                4. Thiết lập mật khẩu đăng nhập & Xác thực OTP <span className="text-rose-400">*</span>
-              </label>
-              <span className="text-[11px] text-slate-300">Dùng để đăng nhập trực tiếp sau này</span>
-            </div>
+            {/* 3. PASSWORD & EMAIL OTP VERIFICATION */}
+            <div className="space-y-3.5 p-4 rounded-2xl bg-purple-50/50 border border-purple-100">
+              <div className="flex items-center justify-between">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-[#5b48bd] flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>3. Thiết lập mật khẩu &amp; Xác thực OTP</span>
+                </div>
+                <span className="text-[10px] text-slate-500">Dùng đăng nhập trực tiếp sau này</span>
+              </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Password */}
-              <div className="space-y-1">
-                <span className="text-xs text-slate-300 font-medium">Mật khẩu mới <span className="text-rose-400">*</span></span>
-                <div className="relative flex items-center">
-                  <Lock className="w-4 h-4 text-purple-300 absolute left-3.5 pointer-events-none" />
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    name="onboarding_user_password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Nhập mật khẩu (tối thiểu 6 ký tự)"
-                    autoComplete="new-password"
-                    required
-                    minLength={6}
-                    className="w-full pl-10 pr-10 py-2.5 bg-white/10 border border-white/20 focus:border-purple-400 focus:bg-white/15 rounded-xl text-sm text-white placeholder-slate-400 focus:outline-none transition-all"
-                  />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Password */}
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
+                    Mật khẩu mới *
+                  </label>
+                  <div className="relative flex items-center">
+                    <Lock className="w-4 h-4 text-[#5b48bd] absolute left-3.5 pointer-events-none" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Tối thiểu 6 ký tự"
+                      autoComplete="new-password"
+                      required
+                      minLength={6}
+                      className="w-full pl-10 pr-10 py-2.5 bg-white border border-purple-100 focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] placeholder-slate-400 focus:outline-none transition-all font-sans"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Confirm Password */}
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block">
+                    Xác nhận mật khẩu *
+                  </label>
+                  <div className="relative flex items-center">
+                    <Lock className="w-4 h-4 text-[#5b48bd] absolute left-3.5 pointer-events-none" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Nhập lại mật khẩu..."
+                      autoComplete="new-password"
+                      required
+                      minLength={6}
+                      className="w-full pl-10 pr-10 py-2.5 bg-white border border-purple-100 focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] placeholder-slate-400 focus:outline-none transition-all font-sans"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* OTP Input & Send Button */}
+              <div className="pt-2 border-t border-purple-100 space-y-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47]">
+                    Mã OTP 6 số (gửi về <strong className="text-[#5b48bd] font-mono">{email}</strong>) *
+                  </label>
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 text-slate-400 hover:text-white cursor-pointer"
+                    onClick={handleSendOtp}
+                    disabled={isSendingOtp || resendCooldown > 0}
+                    className="px-3.5 py-1.5 bg-[#5b48bd]/10 hover:bg-[#5b48bd]/20 border border-[#5b48bd]/30 text-[#5b48bd] text-xs font-bold rounded-full flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed self-start sm:self-auto"
                   >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {isSendingOtp ? (
+                      <>
+                        <div className="w-3 h-3 border-2 border-[#5b48bd] border-t-transparent rounded-full animate-spin" />
+                        <span>Đang gửi mã...</span>
+                      </>
+                    ) : resendCooldown > 0 ? (
+                      <span>Gửi lại sau ({resendCooldown}s)</span>
+                    ) : (
+                      <>
+                        <Send className="w-3.5 h-3.5" />
+                        <span>{otpSent ? 'Gửi lại mã OTP' : 'Gửi mã OTP qua Email'}</span>
+                      </>
+                    )}
                   </button>
                 </div>
-              </div>
 
-              {/* Confirm Password */}
-              <div className="space-y-1">
-                <span className="text-xs text-slate-300 font-medium">Xác nhận mật khẩu <span className="text-rose-400">*</span></span>
                 <div className="relative flex items-center">
-                  <Lock className="w-4 h-4 text-purple-300 absolute left-3.5 pointer-events-none" />
+                  <KeyRound className="w-4 h-4 text-[#5b48bd] absolute left-3.5 pointer-events-none" />
                   <input
-                    type={showPassword ? 'text' : 'password'}
-                    name="onboarding_user_confirm_password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Nhập lại mật khẩu..."
-                    autoComplete="new-password"
+                    type="text"
+                    maxLength={6}
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                    placeholder="Nhập 6 số OTP (Ví dụ: 123456)"
+                    autoComplete="one-time-code"
                     required
-                    minLength={6}
-                    className="w-full pl-10 pr-10 py-2.5 bg-white/10 border border-white/20 focus:border-purple-400 focus:bg-white/15 rounded-xl text-sm text-white placeholder-slate-400 focus:outline-none transition-all"
+                    className="w-full pl-10 pr-24 py-2.5 bg-white border border-purple-100 focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] tracking-widest font-mono placeholder:tracking-normal placeholder-slate-400 focus:outline-none transition-all"
                   />
+                  {devOtpHint && (
+                    <button
+                      type="button"
+                      onClick={() => setOtpCode(devOtpHint)}
+                      className="absolute right-2 px-2.5 py-1 bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-900 text-xs font-bold rounded-full transition-all cursor-pointer"
+                    >
+                      Điền {devOtpHint}
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-1 text-[11px] text-slate-500">
+                  <span>Mã OTP tự động gửi đến email của bạn. Mã test demo: <span className="text-[#5b48bd] font-mono font-bold">123456</span> hoặc <span className="text-[#5b48bd] font-mono font-bold">888888</span>.</span>
+                  {devOtpHint && (
+                    <span className="text-amber-700 font-medium">Mã vừa tạo: <strong className="font-mono">{devOtpHint}</strong></span>
+                  )}
                 </div>
               </div>
             </div>
 
-            {/* OTP Section */}
-            <div className="pt-2 border-t border-white/10 space-y-2">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <span className="text-xs text-slate-300 font-medium">
-                  Mã OTP xác thực 6 số (gửi về <strong className="text-purple-300">{email}</strong>) <span className="text-rose-400">*</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={handleSendOtp}
-                  disabled={isSendingOtp || resendCooldown > 0}
-                  className="px-3.5 py-1.5 bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 text-purple-200 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed self-start sm:self-auto"
-                >
-                  {isSendingOtp ? (
-                    <>
-                      <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>Đang gửi mã...</span>
-                    </>
-                  ) : resendCooldown > 0 ? (
-                    <span>Gửi lại sau ({resendCooldown}s)</span>
-                  ) : (
-                    <>
-                      <Send className="w-3.5 h-3.5" />
-                      <span>{otpSent ? 'Gửi lại mã OTP' : 'Gửi mã OTP qua Email'}</span>
-                    </>
-                  )}
-                </button>
-              </div>
+            {/* Action Buttons */}
+            <div className="pt-3 border-t border-purple-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  sessionStorage.removeItem('hiremate_google_onboarding');
+                  if (onNavigateLogin) onNavigateLogin();
+                  else window.location.hash = '#/login';
+                }}
+                className="text-xs text-slate-500 hover:text-[#221d47] transition-colors cursor-pointer"
+              >
+                ← Quay lại trang Đăng nhập
+              </button>
 
-              <div className="relative flex items-center">
-                <KeyRound className="w-4 h-4 text-purple-300 absolute left-3.5 pointer-events-none" />
-                <input
-                  type="text"
-                  maxLength={6}
-                  name="onboarding_user_otp_code"
-                  value={otpCode}
-                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                  placeholder="Nhập 6 số OTP (Ví dụ: 123456)"
-                  autoComplete="one-time-code"
-                  required
-                  className="w-full pl-10 pr-4 py-2.5 bg-white/10 border border-white/20 focus:border-purple-400 focus:bg-white/15 rounded-xl text-sm text-white tracking-widest font-mono placeholder:tracking-normal placeholder-slate-400 focus:outline-none transition-all"
-                />
-              </div>
-              <p className="text-[11px] text-slate-400">
-                Mã xác thực được gửi tự động đến Gmail của bạn. (Mã kiểm thử test demo: <span className="text-purple-300 font-mono">123456</span> hoặc <span className="text-purple-300 font-mono">888888</span>).
-              </p>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full sm:w-auto px-8 py-3.5 bg-[#5b48bd] hover:bg-[#47369f] text-white font-bold text-sm rounded-full shadow-lg shadow-[#5b48bd]/25 flex items-center justify-center gap-2 transition-all hover:scale-[1.01] cursor-pointer disabled:opacity-50"
+              >
+                {isLoading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Đang khởi tạo tài khoản...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Hoàn tất thiết lập &amp; Đăng nhập</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
             </div>
-          </div>
 
-          {/* Action buttons */}
-          <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-white/10">
-            <button
-              type="button"
-              onClick={() => {
-                sessionStorage.removeItem('hiremate_google_onboarding');
-                if (onNavigateLogin) onNavigateLogin();
-                else window.location.hash = '#/login';
-              }}
-              className="text-xs text-slate-400 hover:text-white transition-colors cursor-pointer"
-            >
-              ← Quay lại trang Đăng nhập
-            </button>
+          </form>
 
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-[#7c3aed] to-[#4f46e5] hover:from-[#6d28d9] hover:to-[#4338ca] text-white font-bold text-sm rounded-xl shadow-lg shadow-purple-600/30 flex items-center justify-center gap-2 transition-all hover:scale-[1.02] cursor-pointer disabled:opacity-50"
-            >
-              {isLoading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Đang khởi tạo tài khoản...</span>
-                </>
-              ) : (
-                <>
-                  <span>Hoàn tất đăng ký & Đăng nhập</span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-          </div>
-
-        </form>
-
+        </div>
       </div>
     </div>
   );

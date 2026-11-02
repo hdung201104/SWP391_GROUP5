@@ -16,5 +16,7 @@ public interface CvService {
     CvResponse analyzeCv(Long cvId, User candidate);
     CvResponse renameCv(Long cvId, String newName, User candidate);
     CvResponse updateCv(Long cvId, CvParsedDTO updateDto, User candidate);
+    String rewriteSummary(com.hiremate.dto.request.RewriteSummaryRequest request, User candidate);
+    boolean isAuthorizedToAccessCv(Long cvId, User user);
 }
 

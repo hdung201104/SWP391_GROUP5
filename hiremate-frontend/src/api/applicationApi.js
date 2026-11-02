@@ -2,6 +2,7 @@ import axiosClient from './axiosClient';
 
 export const applicationApi = {
   applyJob: (data) => axiosClient.post('/applications', data),
+  getApplicationById: (id) => axiosClient.get(`/applications/${id}`),
   getMyApplications: () => axiosClient.get('/applications/my'),
   getMyRecruiterApplications: () => axiosClient.get('/applications/recruiter/my'),
   getJobApplications: (jobId, status) => axiosClient.get(`/applications/job/${jobId}`, {
@@ -15,6 +16,7 @@ export const applicationApi = {
     responseType: 'blob',
   }),
   withdrawApplication: (applicationId) => axiosClient.put(`/applications/${applicationId}/withdraw`),
+  respondOffer: (applicationId, data) => axiosClient.patch(`/applications/${applicationId}/respond-offer`, data),
 };
 
 export default applicationApi;

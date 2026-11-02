@@ -93,4 +93,7 @@ public class AdminSettingsDTO {
 
     @Builder.Default
     private Boolean payosAutoApproveEnabled = true;
+
+    @Builder.Default
+    private java.util.Map<String, com.hiremate.dto.VoucherRuleMeta> voucherRules = new java.util.HashMap<>();
 }

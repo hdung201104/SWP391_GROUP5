@@ -10,5 +10,6 @@ import java.util.Optional;
 @Repository
 public interface CvRepository extends JpaRepository<Cv, Long> {
     List<Cv> findByCandidateId(Long candidateId);
+    List<Cv> findByCandidateIdOrderByCreatedAtDesc(Long candidateId);
     Optional<Cv> findByCandidateIdAndIsDefaultTrue(Long candidateId);
 }

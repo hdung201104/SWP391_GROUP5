@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { applicationApi, aiMatchApi, jobApi } from '../api';
+import { applicationApi, aiMatchApi, jobApi, interviewApi, paymentApi } from '../api';
 import { cvApi } from '../api/cvApi';
 import LoadingSpinner from '../components/common/LoadingSpinner';
-import { parseSkillList } from '../utils/helpers';
+import { parseSkillList, sanitizeEvidenceText } from '../utils/helpers';
+import { parseSubscriptionPermissions } from '../utils/subscriptionPerms';
 import { createHrToCandidateMailto } from '../utils/emailUtils';
 import { extractBlob } from '../utils/excelExportUtils';
 import OnlineCvRenderer from '../components/common/OnlineCvRenderer';
@@ -15,7 +16,7 @@ import OnlineCvRenderer from '../components/common/OnlineCvRenderer';
  */
 export default function CandidateEvaluationPage({
   user,
-  candidateId = 1,
+  candidateId = null,
   jobId = null,
   cvId = null,
   applicationId = null,
@@ -23,32 +24,68 @@ export default function CandidateEvaluationPage({
 }) {
   // 1. Phân tích tham số từ props hoặc URL Hash
   const hash = window.location.hash || '';
-  const parsedCandId = candidateId || (hash.match(/candidateid=(\d+)/i) ? Number(hash.match(/candidateid=(\d+)/i)[1]) : 1);
+  const parsedCandId = candidateId || (hash.match(/candidateid=(\d+)/i) ? Number(hash.match(/candidateid=(\d+)/i)[1]) : null);
   const parsedJobId = jobId || (hash.match(/jobid=(\d+)/i) ? Number(hash.match(/jobid=(\d+)/i)[1]) : null);
   const parsedCvId = cvId || (hash.match(/cvid=(\d+)/i) ? Number(hash.match(/cvid=(\d+)/i)[1]) : null);
   const parsedAppId = applicationId || (hash.match(/appid=(\d+)/i) ? Number(hash.match(/appid=(\d+)/i)[1]) : null);
 
   const [isLoading, setIsLoading] = useState(true);
 
-  // Candidate Data State
+  // Recruiter Subscription State for feature gating
+  const [recruiterSubscription, setRecruiterSubscription] = useState(null);
+
+  useEffect(() => {
+    paymentApi.getMySubscription()
+      .then((res) => {
+        const sub = res?.data?.data || res?.data;
+        if (sub && sub.active) {
+          setRecruiterSubscription(sub);
+        }
+      })
+      .catch((e) => console.warn('Could not load recruiter subscription in evaluation', e));
+  }, []);
+
+  const isAdmin = user?.role === 'ADMIN';
+  const subscriptionPerms = parseSubscriptionPermissions(recruiterSubscription, 'RECRUITER');
+  const planPrice = Number(recruiterSubscription?.price || 0);
+  const quotaLimit = Number(recruiterSubscription?.quotaLimit || 0);
+  const isPaidRecruiter = recruiterSubscription && recruiterSubscription.active && planPrice > 0;
+  const pName = (recruiterSubscription?.planName || '').toLowerCase();
+
+  let recruiterTier = 'BASIC';
+  if (pName.includes('elite') || pName.includes('enterprise') || pName.includes('vip') || (quotaLimit >= 999)) {
+    recruiterTier = 'ENTERPRISE';
+  } else if (pName.includes('pro') || pName.includes('professional')) {
+    recruiterTier = 'PROFESSIONAL';
+  } else if (pName.includes('starter') || (quotaLimit >= 10 && quotaLimit < 30)) {
+    recruiterTier = 'STARTER';
+  } else {
+    recruiterTier = 'BASIC';
+  }
+
+  const isProOrHigher = isAdmin || ['PROFESSIONAL', 'ENTERPRISE'].includes(recruiterTier) || (isPaidRecruiter && (planPrice > 250000 || quotaLimit >= 30));
+  const canSeeAiAnalysis = isAdmin || Boolean(subscriptionPerms.canSeeAiAnalysis) || Boolean(subscriptionPerms.aiMatching);
+  const canDownloadCv = isAdmin || Boolean(subscriptionPerms.canDownloadCv) || Boolean(subscriptionPerms.unlockDirectContact);
+
   const [cand, setCand] = useState({
     id: parsedCandId,
     applicationId: parsedAppId,
-    name: 'Đang tải thông tin...',
-    title: 'Ứng viên tiềm năng',
+    name: 'Đang tải hồ sơ...',
+    title: 'Hồ sơ ứng viên',
     roleSummary: 'HỒ SƠ ĐANG ĐƯỢC ĐỐI SOÁT VỚI TIÊU CHÍ JD',
-    matchScore: 85,
-    mandatoryScore: 88,
-    preferredScore: 78,
+    matchScore: 0,
+    mandatoryScore: 0,
+    preferredScore: 0,
     avatar: null,
     location: 'Việt Nam',
-    experience: 'Kinh nghiệm thực chiến',
-    yearsOfExperience: 2,
+    experience: 'Đang tải kinh nghiệm...',
+    yearsOfExperience: 0,
     salary: 'Thỏa thuận',
-    email: 'ungvien@email.com',
-    phone: 'Chưa cập nhật',
-    status: 'Đã nộp hồ sơ',
-    aiFitAssessment: 'ƯU TÚ • ĐẠT TIÊU CHÍ CỐT LÕI',
+    email: '',
+    phone: '',
+    status: 'REVIEWING',
+    isWithdrawn: false,
+    aiFitAssessment: 'ĐANG ĐỐI SOÁT AI MATCH',
     summary: 'Hồ sơ đã được đồng bộ hóa và thẩm định trên nền tảng HireMate AI.',
     company: user?.companyName || 'Doanh Nghiệp Tuyển Dụng',
     jobCode: parsedJobId ? `JD-${parsedJobId}` : 'JD-GENERAL',
@@ -70,8 +107,10 @@ export default function CandidateEvaluationPage({
   // Chế độ xem CV: 'pdf' (Xem file gốc PDF/Word) | 'parsed' (Dữ liệu trích xuất ATS)
   const [cvViewMode, setCvViewMode] = useState('pdf');
   const [pdfBlobUrl, setPdfBlobUrl] = useState(null);
+  const [cvMimeType, setCvMimeType] = useState('application/pdf');
   const [isPdfLoading, setIsPdfLoading] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(100);
+  const [layoutRatio, setLayoutRatio] = useState('wide-cv'); // 'wide-cv' (4:8) | 'balanced' (5:7)
 
   // Modals state
   const [showInterviewModal, setShowInterviewModal] = useState(false);
@@ -94,16 +133,47 @@ export default function CandidateEvaluationPage({
   const [interviewType, setInterviewType] = useState('Technical Deep-dive');
   const [meetLink] = useState(`https://meet.google.com/hm-${Math.floor(1000 + Math.random() * 9000)}-eval`);
 
-  // HR internal notes
-  const [hrNotes, setHrNotes] = useState([
-    {
-      id: 1,
-      author: user?.fullName || 'Bộ phận Tuyển Dụng',
-      time: 'Hệ thống lưu',
-      tag: 'Ưu tiên',
-      text: 'Hồ sơ đã được thẩm định tự động qua bộ lọc AI ATS HireMate.',
-    },
-  ]);
+  // HR internal notes (Được lưu bền vững vào localStorage theo đơn ứng tuyển)
+  const getInitialHrNotes = () => {
+    try {
+      const candidatesKeys = [parsedAppId, parsedCandId].filter(Boolean);
+      for (const k of candidatesKeys) {
+        const saved = localStorage.getItem(`hiremate_hr_notes_${k}`) || localStorage.getItem(`hiremate_hr_notes_app_${k}`);
+        if (saved) return JSON.parse(saved);
+      }
+    } catch {}
+    return [
+      {
+        id: 1,
+        author: user?.fullName || 'Bộ phận Tuyển Dụng',
+        time: 'Hệ thống lưu',
+        tag: 'Ưu tiên',
+        text: 'Hồ sơ đã được thẩm định tự động qua bộ lọc AI ATS HireMate.',
+      },
+    ];
+  };
+
+  const [hrNotes, setHrNotes] = useState(getInitialHrNotes);
+
+  const saveHrNotes = async (newNotes) => {
+    setHrNotes(newNotes);
+    const targetKeys = [cand.applicationId, parsedAppId, cand.id, parsedCandId].filter(Boolean);
+    try {
+      targetKeys.forEach((k) => {
+        localStorage.setItem(`hiremate_hr_notes_${k}`, JSON.stringify(newNotes));
+        localStorage.setItem(`hiremate_hr_notes_app_${k}`, JSON.stringify(newNotes));
+      });
+    } catch (e) {
+      console.warn('Lỗi lưu hrNotes vào localStorage', e);
+    }
+
+    // Ghi chú nội bộ HR được lưu trữ an toàn trong LocalStorage theo appId/candId để đảm bảo tính bảo mật và không kích hoạt thông báo trạng thái nhầm cho ứng viên
+    const appId = cand.applicationId || parsedAppId;
+    if (appId) {
+      console.log(`>> [HR Note] Đã lưu an toàn ghi chú nội bộ cho đơn ứng tuyển #${appId}`);
+    }
+  };
+
   const [newNoteText, setNewNoteText] = useState('');
   const [newNoteTag, setNewNoteTag] = useState('Ưu tiên cao');
   const [rejectionReason, setRejectionReason] = useState('Khác định hướng tech stack');
@@ -124,11 +194,25 @@ export default function CandidateEvaluationPage({
       const data = res?.data?.data || res?.data || res;
       if (data?.matchingScore != null) {
         const freshScore = Math.round(data.matchingScore);
+        const freshTier = data.matchTier || (freshScore >= 85 ? '⭐ Phù Hợp Xuất Sắc' : freshScore >= 70 ? '✨ Phù Hợp Tốt' : freshScore >= 50 ? '💡 Tiềm Năng' : 'Trau Dồi Kỹ Năng');
+        const freshSkillsScore = data.skillsScore != null ? Math.round(data.skillsScore) : freshScore;
+        const freshExpScore = data.experienceScore != null ? Math.round(data.experienceScore) : freshScore;
+        const freshEduScore = data.educationScore != null ? Math.round(data.educationScore) : freshScore;
+        const freshSemScore = data.semanticScore != null ? Math.round(data.semanticScore) : freshScore;
+
         setCand((prev) => ({
           ...prev,
           matchScore: freshScore,
-          aiFitAssessment: data.matchTier || prev.aiFitAssessment,
-          aiReasoning: data.overallVerdict || prev.aiReasoning,
+          skillsScore: freshSkillsScore,
+          experienceScore: freshExpScore,
+          educationScore: freshEduScore,
+          semanticScore: freshSemScore,
+          aiFitAssessment: freshTier,
+          aiReasoning: data.overallVerdict || data.executiveRecommendation || prev.aiReasoning,
+          matchedMandatorySkills: Array.isArray(data.matchedMandatorySkills) ? data.matchedMandatorySkills : prev.matchedMandatorySkills,
+          missingMandatorySkills: Array.isArray(data.missingMandatorySkills) ? data.missingMandatorySkills : prev.missingMandatorySkills,
+          matchedPreferredSkills: Array.isArray(data.matchedPreferredSkills) ? data.matchedPreferredSkills : prev.matchedPreferredSkills,
+          missingPreferredSkills: Array.isArray(data.missingPreferredSkills) ? data.missingPreferredSkills : prev.missingPreferredSkills,
         }));
         triggerToast(`Đã hoàn tất chấm lại bằng AI cho ứng viên ${cand.name}: ${freshScore}% AI Match!`);
       } else {
@@ -147,20 +231,91 @@ export default function CandidateEvaluationPage({
     let isMounted = true;
     let createdBlobUrl = null;
 
+    // Tải trước file PDF/Word bất đồng bộ, không khóa giao diện đánh giá
+    const loadPdfPreview = async (targetCvId, targetCvUrl, targetCvMeta) => {
+      if (!isMounted) return;
+      setIsPdfLoading(true);
+
+      const fn = targetCvMeta?.fileName?.toLowerCase() || '';
+      const isWord = fn.endsWith('.docx') || fn.endsWith('.doc') || targetCvMeta?.fileType?.includes('word');
+      if (isWord) {
+        if (isMounted) {
+          setCvMimeType('application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+          setCvViewMode('pdf');
+          setIsPdfLoading(false);
+        }
+        return;
+      }
+
+      if (targetCvId) {
+        try {
+          const previewRes = await cvApi.previewCv(targetCvId).catch(() => null);
+          let detectedMime = previewRes?.headers?.['content-type']
+            || (fn.endsWith('.png') ? 'image/png'
+            : fn.endsWith('.jpg') || fn.endsWith('.jpeg') ? 'image/jpeg'
+            : 'application/pdf');
+
+          const blob = extractBlob(previewRes, detectedMime);
+          if (blob && blob.size > 200) {
+            createdBlobUrl = window.URL.createObjectURL(blob);
+            if (isMounted) {
+              setPdfBlobUrl(createdBlobUrl);
+              setCvMimeType(detectedMime);
+              setCvViewMode('pdf');
+              setIsPdfLoading(false);
+              return;
+            }
+          } else {
+            const dlRes = await cvApi.downloadCv(targetCvId).catch(() => null);
+            const dlBlob = extractBlob(dlRes, detectedMime);
+            if (dlBlob && dlBlob.size > 200) {
+              createdBlobUrl = window.URL.createObjectURL(dlBlob);
+              if (isMounted) {
+                setPdfBlobUrl(createdBlobUrl);
+                setCvMimeType(detectedMime);
+                setCvViewMode('pdf');
+                setIsPdfLoading(false);
+                return;
+              }
+            }
+          }
+        } catch (cvErr) {
+          console.warn('Lỗi tải preview blob:', cvErr);
+        }
+      }
+
+      // Fallback: nếu targetCvUrl là link http/https trực tiếp
+      if (targetCvUrl && (targetCvUrl.startsWith('http://') || targetCvUrl.startsWith('https://'))) {
+        if (isMounted) {
+          setPdfBlobUrl(targetCvUrl);
+          setCvViewMode('pdf');
+          setIsPdfLoading(false);
+          return;
+        }
+      }
+
+      // Nếu chưa có file PDF hợp lệ, tự động hiển thị tab CV Online ngay tức thì
+      if (isMounted) {
+        setCvViewMode('parsed');
+        setIsPdfLoading(false);
+      }
+    };
+
     const fetchCandidateData = async () => {
       setIsLoading(true);
 
-      let candidateName = 'Nguyễn Hoàng Nam';
-      let candidateEmail = 'nam.nguyen@email.com';
-      let candidatePhone = '(+84) 090.123.4567';
+      let candidateName = '';
+      let candidateEmail = '';
+      let candidatePhone = '';
       let candidateAvatar = null;
-      let jobTitle = 'Chuyên viên Công Nghệ';
-      let matchScore = 85;
+      let jobTitle = '';
+      let matchScore = 0;
       let effectiveJobId = parsedJobId || null;
       let effectiveCvId = parsedCvId || null;
       let cvUrl = '#';
       let appStatus = 'REVIEWING';
       let effectiveAppId = parsedAppId || null;
+      let resolvedCandId = parsedCandId || null;
 
       let profileData = null;
       let jobData = null;
@@ -168,145 +323,268 @@ export default function CandidateEvaluationPage({
       let cvData = null;
       let candMatch = null;
 
-      // 2.1 Gọi song song các API backend
       try {
-        const promises = [];
-        if (parsedCandId) promises.push(applicationApi.getCandidateProfile(parsedCandId).catch(() => null));
-        else promises.push(Promise.resolve(null));
-
-        if (effectiveJobId) {
-          promises.push(jobApi.getJobById(effectiveJobId).catch(() => null));
-          promises.push(applicationApi.getJobApplications(effectiveJobId).catch(() => null));
-          promises.push(aiMatchApi.getJobMatchesForRecruiter(effectiveJobId).catch(() => null));
-        } else {
-          promises.push(Promise.resolve(null));
-          promises.push(Promise.resolve(null));
-          promises.push(Promise.resolve(null));
-        }
-
-        const [profRes, jRes, appsRes, matchesRes] = await Promise.all(promises);
-
-        profileData = profRes?.data || profRes;
-        jobData = jRes?.data || jRes;
-        const appsList = Array.isArray(appsRes?.data) ? appsRes.data : (Array.isArray(appsRes) ? appsRes : []);
-        const matchesList = Array.isArray(matchesRes?.data) ? matchesRes.data : (Array.isArray(matchesRes) ? matchesRes : []);
-
-        // Tìm candidate match từ AI Job Matches
-        if (matchesList.length > 0) {
-          candMatch = matchesList.find(
-            (m) => parsedCandId && Number(m.candidateId) === Number(parsedCandId)
-          ) || null;
-        }
-
-        // Tìm application
-        if (appsList.length > 0) {
-          appData = appsList.find(
-            (a) =>
-              (effectiveAppId && Number(a.applicationId) === Number(effectiveAppId)) ||
-              (parsedCandId && Number(a.candidateId) === Number(parsedCandId))
-          ) || appsList[0];
-        }
-
-        // Cập nhật từ profile API nếu có
-        if (profileData) {
-          candidateName = profileData.fullName || candidateName;
-          candidateEmail = profileData.email || candidateEmail;
-          candidatePhone = profileData.phone || candidatePhone;
-          candidateAvatar = profileData.avatarUrl || candidateAvatar;
-        }
-
-        // Cập nhật từ job API nếu có
-        if (jobData) {
-          jobTitle = jobData.title || jobTitle;
-        }
-
-        // Cập nhật từ appData nếu có
-        if (appData) {
-          effectiveAppId = appData.applicationId;
-          candidateName = appData.candidateName || candidateName;
-          candidateEmail = appData.candidateEmail || candidateEmail;
-          jobTitle = appData.jobTitle || jobTitle;
-          matchScore = appData.matchingScore || matchScore;
-          appStatus = appData.status || appStatus;
-          if (appData.cvId) effectiveCvId = appData.cvId;
-          if (appData.cvUrl) cvUrl = appData.cvUrl;
-        }
-
-        // Xác định CV mục tiêu từ danh sách CV của ứng viên
-        if (!effectiveCvId && profileData?.cvs && profileData.cvs.length > 0) {
-          const defaultCv = profileData.cvs.find((c) => c.isDefault) || profileData.cvs[0];
-          if (defaultCv) {
-            effectiveCvId = defaultCv.cvId;
-            cvUrl = defaultCv.fileUrl || cvUrl;
-          }
-        }
-      } catch (err) {
-        console.warn('Lỗi tải dữ liệu ứng viên từ API, dùng dữ liệu thread/cache an toàn:', err);
-      }
-
-      // 2.2 Tải bản xem trước CV (PDF Blob) nếu có effectiveCvId
-      if (effectiveCvId) {
-        setIsPdfLoading(true);
-        try {
-          // Lấy chi tiết metadata của CV
-          const detailRes = await cvApi.getCvById(effectiveCvId).catch(() => null);
-          cvData = detailRes?.data?.data || detailRes?.data || null;
-
-          // Lấy file nhị phân PDF để preview
-          const previewRes = await cvApi.previewCv(effectiveCvId).catch(() => null);
-          const blob = extractBlob(previewRes, 'application/pdf');
-          if (blob && blob.size > 200) {
-            createdBlobUrl = window.URL.createObjectURL(blob);
-            if (isMounted) {
-              setPdfBlobUrl(createdBlobUrl);
-              setCvViewMode('pdf'); // Tự động mở ngay file PDF gốc
+        // Khi có appId, tự động gọi API lấy chi tiết đơn để lấy jobId, cvId, candidateId chính xác
+        if (effectiveAppId) {
+          try {
+            const singleAppRes = await applicationApi.getApplicationById(effectiveAppId);
+            const singleApp = singleAppRes?.data?.data || singleAppRes?.data;
+            if (singleApp) {
+              appData = singleApp;
+              if (singleApp.jobId) effectiveJobId = singleApp.jobId;
+              if (singleApp.cvId) effectiveCvId = singleApp.cvId;
+              if (singleApp.candidateId) resolvedCandId = singleApp.candidateId;
             }
-          } else {
-            // Fallback sang downloadCv
-            const dlRes = await cvApi.downloadCv(effectiveCvId).catch(() => null);
-            const dlBlob = extractBlob(dlRes, 'application/pdf');
-            if (dlBlob && dlBlob.size > 200) {
-              createdBlobUrl = window.URL.createObjectURL(dlBlob);
-              if (isMounted) {
-                setPdfBlobUrl(createdBlobUrl);
-                setCvViewMode('pdf');
+          } catch (e) {
+            console.warn('Could not load application by ID directly:', e);
+          }
+
+          if (!effectiveJobId || !resolvedCandId) {
+            try {
+              const myAppsRes = await applicationApi.getMyRecruiterApplications();
+              const list = myAppsRes?.data?.data || myAppsRes?.data || [];
+              if (Array.isArray(list)) {
+                const found = list.find(a => Number(a.applicationId) === Number(effectiveAppId));
+                if (found) {
+                  appData = found;
+                  if (found.jobId) effectiveJobId = found.jobId;
+                  if (found.cvId) effectiveCvId = found.cvId;
+                  if (found.candidateId) resolvedCandId = found.candidateId;
+                }
               }
-            } else if (isMounted) {
-              // Không có binary PDF, tự động mở dữ liệu trích xuất ATS
-              setCvViewMode('parsed');
+            } catch (err) {
+              console.warn('Fallback getMyRecruiterApplications failed:', err);
             }
           }
-        } catch (cvErr) {
-          console.warn('Không thể tạo PDF Blob preview:', cvErr);
-          if (isMounted) setCvViewMode('parsed');
-        } finally {
-          if (isMounted) setIsPdfLoading(false);
         }
-      } else if (cvUrl && cvUrl !== '#') {
-        if (isMounted) {
-          setPdfBlobUrl(cvUrl);
-          setCvViewMode('pdf');
-        }
-      } else if (isMounted) {
-        setCvViewMode('parsed');
-      }
 
-      // 2.3 Phân tích dữ liệu trích xuất (Parsed JSON / Structured Profile)
-      let parsedJson = null;
-      try {
-        if (cvData?.parsedJson) {
-          parsedJson = typeof cvData.parsedJson === 'string' ? JSON.parse(cvData.parsedJson) : cvData.parsedJson;
+        // 2. Nếu có CV ID nhưng chưa có candidateId
+        if (effectiveCvId && !resolvedCandId) {
+          try {
+            const initialCvRes = await cvApi.getCvById(effectiveCvId).catch(() => null);
+            const initCv = initialCvRes?.data?.data || initialCvRes?.data;
+            if (initCv) {
+              cvData = initCv;
+              if (initCv.candidateId) resolvedCandId = initCv.candidateId;
+            }
+          } catch (e) {
+            console.warn('Error fetching initial CV by ID:', e);
+          }
         }
-      } catch (ignored) {}
 
-      // Lấy danh sách kỹ năng
+        // 2.1 Gọi song song các API backend để lấy thông tin hồ sơ & vị trí
+        try {
+          const promises = [];
+          if (resolvedCandId) promises.push(applicationApi.getCandidateProfile(resolvedCandId).catch(() => null));
+          else promises.push(Promise.resolve(null));
+
+          if (effectiveJobId) {
+            promises.push(jobApi.getJobById(effectiveJobId).catch(() => null));
+            promises.push(applicationApi.getJobApplications(effectiveJobId).catch(() => null));
+            promises.push(aiMatchApi.getJobMatchesForRecruiter(effectiveJobId).catch(() => null));
+          } else {
+            promises.push(Promise.resolve(null));
+            promises.push(Promise.resolve(null));
+            promises.push(Promise.resolve(null));
+          }
+
+          if (effectiveCvId && !cvData) {
+            promises.push(cvApi.getCvById(effectiveCvId).catch(() => null));
+          } else {
+            promises.push(Promise.resolve(null));
+          }
+
+          const [profRes, jRes, appsRes, matchesRes, cvDetailRes] = await Promise.all(promises);
+
+          profileData = profRes?.data?.data || profRes?.data || null;
+          jobData = jRes?.data?.data || jRes?.data || null;
+          if (cvDetailRes) {
+            cvData = cvDetailRes?.data?.data || cvDetailRes?.data || cvData;
+          }
+
+          const appsList = Array.isArray(appsRes?.data?.data)
+            ? appsRes.data.data
+            : Array.isArray(appsRes?.data)
+            ? appsRes.data
+            : Array.isArray(appsRes)
+            ? appsRes
+            : [];
+
+          const matchesList = Array.isArray(matchesRes?.data?.data)
+            ? matchesRes.data.data
+            : Array.isArray(matchesRes?.data)
+            ? matchesRes.data
+            : Array.isArray(matchesRes)
+            ? matchesRes
+            : [];
+
+          // Cập nhật candidateId nếu phát hiện từ CV
+          if (!resolvedCandId && cvData?.candidateId) {
+            resolvedCandId = cvData.candidateId;
+          }
+
+          // Tìm candidate match từ AI Job Matches
+          if (matchesList.length > 0) {
+            candMatch = matchesList.find(
+              (m) => (resolvedCandId && Number(m.candidateId) === Number(resolvedCandId)) ||
+                     (parsedCandId && Number(m.candidateId) === Number(parsedCandId))
+            ) || null;
+          }
+
+          // Tìm application
+          if (appsList.length > 0) {
+            appData = appsList.find(
+              (a) =>
+                (effectiveAppId && Number(a.applicationId) === Number(effectiveAppId)) ||
+                (resolvedCandId && Number(a.candidateId) === Number(resolvedCandId)) ||
+                (parsedCandId && Number(a.candidateId) === Number(parsedCandId))
+            ) || appData || appsList[0];
+          }
+
+          // Lấy jobId hoặc candidateId từ appData nếu chưa có
+          if (appData) {
+            if (!effectiveJobId && appData.jobId) effectiveJobId = appData.jobId;
+            if (!resolvedCandId && appData.candidateId) resolvedCandId = appData.candidateId;
+            if (!effectiveCvId && appData.cvId) effectiveCvId = appData.cvId;
+          }
+
+          // Gọi chi tiết đánh giá AI đa chiều trực tiếp nếu có JobId và CandidateId
+          const targetEvalCandId = resolvedCandId || parsedCandId || appData?.candidateId;
+          const targetEvalJobId = effectiveJobId || appData?.jobId;
+          if (targetEvalJobId && targetEvalCandId) {
+            try {
+              const directEvalRes = await aiMatchApi.getDetailedCandidateEvaluation(targetEvalJobId, targetEvalCandId).catch(() => null);
+              const directEval = directEvalRes?.data?.data || directEvalRes?.data;
+              if (directEval && directEval.matchingScore != null) {
+                candMatch = {
+                  ...candMatch,
+                  ...directEval,
+                  skillsScore: directEval.skillsScore != null ? directEval.skillsScore : directEval.matchingScore,
+                  experienceScore: directEval.experienceScore != null ? directEval.experienceScore : directEval.matchingScore,
+                  educationScore: directEval.educationScore != null ? directEval.educationScore : directEval.matchingScore,
+                  semanticScore: directEval.semanticScore != null ? directEval.semanticScore : directEval.matchingScore,
+                };
+                matchScore = Math.round(directEval.matchingScore);
+              }
+            } catch (evalErr) {
+              console.warn('Could not load detailed AI evaluation directly:', evalErr);
+            }
+          }
+
+          // Nếu trước đó chưa load được profileData mà giờ đã có resolvedCandId
+          if (!profileData && resolvedCandId) {
+            try {
+              const extraProfRes = await applicationApi.getCandidateProfile(resolvedCandId).catch(() => null);
+              profileData = extraProfRes?.data?.data || extraProfRes?.data || null;
+            } catch (e) {}
+          }
+
+          // Cập nhật từ profile API nếu có
+          if (profileData) {
+            candidateName = profileData.fullName || candidateName;
+            candidateEmail = profileData.email || candidateEmail;
+            candidatePhone = profileData.phone || candidatePhone;
+            candidateAvatar = profileData.avatarUrl || candidateAvatar;
+          }
+
+          // Cập nhật từ job API nếu có
+          if (jobData) {
+            jobTitle = jobData.title || jobTitle;
+          }
+
+          // Cập nhật từ appData nếu có
+          let isWithdrawn = false;
+          if (appData) {
+            effectiveAppId = appData.applicationId;
+            candidateName = appData.candidateName || candidateName;
+            candidateEmail = appData.candidateEmail || candidateEmail;
+            jobTitle = appData.jobTitle || jobTitle;
+            if (candMatch?.matchingScore != null) {
+              matchScore = Math.round(candMatch.matchingScore);
+            } else if (appData.matchingScore != null) {
+              matchScore = Math.round(appData.matchingScore);
+            }
+            appStatus = appData.status || appStatus;
+
+            // Khôi phục ghi chú đánh giá từ Backend nếu có
+            if (appData.evaluationNotes || appData.notes) {
+              try {
+                const parsedNotes = JSON.parse(appData.evaluationNotes || appData.notes);
+                if (Array.isArray(parsedNotes) && parsedNotes.length > 0) {
+                  setHrNotes(parsedNotes);
+                }
+              } catch {
+                const rawNote = appData.evaluationNotes || appData.notes;
+                if (rawNote) {
+                  setHrNotes([{
+                    id: 1,
+                    author: user?.fullName || 'Bộ phận Tuyển Dụng',
+                    time: 'Hệ thống lưu',
+                    tag: 'Đánh giá HR',
+                    text: rawNote,
+                  }]);
+                }
+              }
+            }
+            if (appData.cvId) effectiveCvId = appData.cvId;
+            if (appData.cvUrl) cvUrl = appData.cvUrl;
+            isWithdrawn = Boolean(
+              appData.withdrawnByCandidate ||
+              (appData.status === 'REJECTED' && (
+                (appData.rejectionReason && appData.rejectionReason.includes('WITHDRAWN_BY_CANDIDATE')) ||
+                (appData.rejectReason && appData.rejectReason.includes('WITHDRAWN_BY_CANDIDATE')) ||
+                (appData.rejectionReason && appData.rejectionReason.toLowerCase().includes('rút đơn')) ||
+                (appData.rejectReason && appData.rejectReason.toLowerCase().includes('rút đơn'))
+              ))
+            );
+          }
+
+          // Xác định CV mục tiêu từ danh sách CV của ứng viên nếu chưa có
+          if (!effectiveCvId && profileData?.cvs && profileData.cvs.length > 0) {
+            const defaultCv = profileData.cvs.find((c) => c.isDefault) || profileData.cvs[0];
+            if (defaultCv) {
+              effectiveCvId = defaultCv.cvId;
+              cvUrl = defaultCv.fileUrl || cvUrl;
+            }
+          }
+
+          // Nếu có effectiveCvId nhưng chưa tải cvData metadata
+          if (effectiveCvId && !cvData) {
+            const extraCvRes = await cvApi.getCvById(effectiveCvId).catch(() => null);
+            cvData = extraCvRes?.data?.data || extraCvRes?.data || null;
+          }
+        } catch (err) {
+          console.warn('Lỗi tải dữ liệu ứng viên từ API:', err);
+        }
+
+        // 2.2 Kích hoạt tải PDF Blob bất đồng bộ (HOÀN TOÀN KHÔNG CHẶN HIỂN THỊ HỒ SƠ ỨNG VIÊN)
+        loadPdfPreview(effectiveCvId, cvUrl, cvData);
+
+        // 2.3 Phân tích dữ liệu trích xuất (Parsed JSON / Structured Profile)
+        let parsedJson = null;
+        try {
+          if (cvData?.parsedJson) {
+            parsedJson = typeof cvData.parsedJson === 'string' ? JSON.parse(cvData.parsedJson) : cvData.parsedJson;
+          }
+        } catch (ignored) {}
+
+        // Trích xuất thông tin cơ bản của ứng viên với đa tầng fallback an toàn
+        candidateName = candidateName || profileData?.fullName || appData?.candidateName || cvData?.fullName || cvData?.candidateName || parsedJson?.fullName || parsedJson?.name || parsedJson?.contact?.name;
+        if (!candidateName || candidateName === 'Đang tải hồ sơ...') {
+          candidateName = cvData?.fileName ? cvData.fileName.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ') : 'Ứng viên';
+        }
+
+        candidateEmail = candidateEmail || profileData?.email || appData?.candidateEmail || cvData?.email || parsedJson?.email || parsedJson?.contact?.email || '';
+        candidatePhone = candidatePhone || profileData?.phone || appData?.candidatePhone || cvData?.phone || parsedJson?.phone || parsedJson?.contact?.phone || '';
+        candidateAvatar = candidateAvatar || profileData?.avatarUrl || appData?.candidateAvatar;
+        jobTitle = jobTitle || jobData?.title || appData?.jobTitle || (effectiveJobId ? `Vị trí Tuyển Dụng #${effectiveJobId}` : 'Vị trí Tuyển Dụng');
+
+        // Lấy danh sách kỹ năng thực tế
       let cleanSkills = [];
       if (parsedJson?.skills && Array.isArray(parsedJson.skills) && parsedJson.skills.length > 0) {
         cleanSkills = parsedJson.skills.filter((s) => typeof s === 'string' && s.trim().length > 1);
       } else if (profileData?.skills && Array.isArray(profileData.skills) && profileData.skills.length > 0) {
         cleanSkills = profileData.skills.map((s) => s.skillName || s.name || s).filter(Boolean);
-      } else {
-        cleanSkills = ['Node.js', 'Golang', 'Java', 'React', 'TypeScript', 'PostgreSQL', 'Redis', 'Docker', 'Kubernetes', 'CI/CD'];
       }
 
       // Lấy ma trận kỹ năng phân loại theo nhóm (Skills Matrix)
@@ -315,28 +593,16 @@ export default function CandidateEvaluationPage({
         skillCategories = parsedJson.skillCategories;
       } else if (parsedJson?.skill_categories && Array.isArray(parsedJson.skill_categories) && parsedJson.skill_categories.length > 0) {
         skillCategories = parsedJson.skill_categories;
-      } else {
+      } else if (cleanSkills.length > 0) {
         skillCategories = [
           {
-            category: 'Phát Triển Phần Mềm & Kiến Trúc',
-            items: ['gRPC', 'RESTful', 'Microservices', 'System Design']
-          },
-          {
-            category: 'Ngôn Ngữ Lập Trình & Framework',
-            items: ['Node.js', 'Golang', 'Java', 'React', 'TypeScript']
-          },
-          {
-            category: 'Cơ Sở Dữ Liệu & Hạ Tầng Mạng',
-            items: ['TCP', 'IP', 'PostgreSQL', 'Redis', 'Docker', 'Kubernetes']
-          },
-          {
-            category: 'Kỹ Năng Kỹ Thuật Bổ Trợ',
-            items: ['API Gateway', 'CI/CD Pipeline', 'Security', 'Kafka']
+            category: 'Kỹ Năng Chuyên Môn Trích Xuất',
+            items: cleanSkills
           }
         ];
       }
 
-      // Lấy kinh nghiệm làm việc
+      // Lấy kinh nghiệm làm việc thực tế của ứng viên
       let experiences = [];
       if (parsedJson?.experiences && Array.isArray(parsedJson.experiences) && parsedJson.experiences.length > 0) {
         experiences = parsedJson.experiences;
@@ -346,37 +612,8 @@ export default function CandidateEvaluationPage({
           if (Array.isArray(expArr)) experiences = expArr;
         } catch (ignored) {}
       }
-      if (experiences.length === 0) {
-        experiences = [
-          {
-            role: 'Senior Full-Stack Developer (Dự án Khách hàng Nhật & APAC)',
-            company: 'FPT Software',
-            period: '06/2022 — Hiện tại',
-            location: 'Hà Nội • Toàn thời gian',
-            bullets: [
-              "Thành tích: Vinh danh 'Kỹ Sư Xuất Sắc Của Năm 2023' tại FPT Software.",
-              'Thiết kế và triển khai kiến trúc Microservices xử lý dữ liệu giao dịch tài chính cho đối tác Nhật Bản bằng Node.js (NestJS), Golang và React.',
-              'Tối ưu hóa cấu hình mạng nội bộ, định tuyến WebSocket và cân bằng tải giúp giảm 35% độ trễ mạng (latency) trong hệ thống truyền tải thời gian thực.',
-              'Làm việc trực tiếp với khách hàng và kỹ sư Nhật Bản bằng tiếng Nhật (N2), quản lý sprint backlog và review code cho nhóm 6 thành viên.'
-            ],
-            tags: ['Node.js', 'Golang', 'React', 'Microservices', 'N2']
-          },
-          {
-            role: 'Backend & Network Systems Engineer',
-            company: 'VNG Corporation',
-            period: '08/2020 — 05/2022',
-            location: 'Hà Nội • Toàn thời gian',
-            bullets: [
-              'Phát triển hệ thống API Gateway tích hợp giao thức bảo mật mạng (SSL/TLS, OAuth2, Rate Limiting), chịu tải hơn 30.000 yêu cầu/giây.',
-              'Xây dựng quy trình tự động hóa kiểm thử và triển khai liên tục (CI/CD Pipeline) trên cụm máy chủ AWS và Docker containers.',
-              'Giám sát lưu lượng mạng, phân tích gói tin mạng và phối hợp xử lý sự cố kết nối máy chủ 24/7.'
-            ],
-            tags: ['API Gateway', 'AWS', 'Docker', 'CI/CD', 'Security']
-          }
-        ];
-      }
 
-      // Lấy học vấn
+      // Lấy học vấn thực tế của ứng viên
       let educations = [];
       if (parsedJson?.educations && Array.isArray(parsedJson.educations) && parsedJson.educations.length > 0) {
         educations = parsedJson.educations;
@@ -386,19 +623,8 @@ export default function CandidateEvaluationPage({
           if (Array.isArray(eduArr)) educations = eduArr;
         } catch (ignored) {}
       }
-      if (educations.length === 0) {
-        educations = [
-          {
-            school: 'Đại học Bách Khoa Hà Nội',
-            degree: 'Kỹ Sư Công Nghệ Thông Tin & Mạng Máy Tính',
-            period: '2014 — 2019',
-            grade: 'Tốt nghiệp loại Giỏi (GPA: 3.6 / 4.0)',
-            highlight: 'Đề tài tốt nghiệp: Tối ưu định tuyến mạng diện rộng trên nền tảng SDN.'
-          }
-        ];
-      }
 
-      // Lấy chứng chỉ quốc tế
+      // Lấy chứng chỉ quốc tế thực tế của ứng viên
       let certifications = [];
       if (parsedJson?.certifications && Array.isArray(parsedJson.certifications) && parsedJson.certifications.length > 0) {
         certifications = parsedJson.certifications;
@@ -408,26 +634,8 @@ export default function CandidateEvaluationPage({
           if (Array.isArray(certArr)) certifications = certArr;
         } catch (ignored) {}
       }
-      if (certifications.length === 0) {
-        certifications = [
-          {
-            id: 1,
-            name: 'Cisco CCNA (Routing & Switching)',
-            issuer: 'Cisco Systems',
-            year: '2023',
-            code: 'CS-98214'
-          },
-          {
-            id: 2,
-            name: 'AWS Certified Solutions Architect',
-            issuer: 'Amazon Web Services',
-            year: '2023',
-            code: 'Associate'
-          }
-        ];
-      }
 
-      // Lấy ngoại ngữ thành thạo
+      // Lấy ngoại ngữ thành thạo thực tế của ứng viên
       let languages = [];
       if (parsedJson?.languages && Array.isArray(parsedJson.languages) && parsedJson.languages.length > 0) {
         languages = parsedJson.languages;
@@ -437,15 +645,8 @@ export default function CandidateEvaluationPage({
           if (Array.isArray(langArr)) languages = langArr;
         } catch (ignored) {}
       }
-      if (languages.length === 0) {
-        languages = [
-          { name: 'Tiếng Anh (IELTS 7.5)', score: 'IELTS 7.5' },
-          { name: 'Tiếng Nhật (JLPT N2)', score: 'JLPT N2' },
-          { name: 'Tiếng Việt', score: 'Bản ngữ' }
-        ];
-      }
 
-      // Lấy dự án trọng điểm
+      // Lấy dự án trọng điểm thực tế của ứng viên
       let projects = [];
       if (parsedJson?.projects && Array.isArray(parsedJson.projects) && parsedJson.projects.length > 0) {
         projects = parsedJson.projects;
@@ -455,30 +656,25 @@ export default function CandidateEvaluationPage({
           if (Array.isArray(projArr)) projects = projArr;
         } catch (ignored) {}
       }
-      if (projects.length === 0) {
-        projects = [
-          {
-            name: 'High-Performance Financial Core',
-            period: '2022 — 2023',
-            role: 'Backend & Core Systems Engineer',
-            summary: 'Xây dựng module khớp lệnh phân tán và lưu trữ dữ liệu an toàn theo tiêu chuẩn ngân hàng số. Đảm bảo thời gian phản hồi dưới 25ms cho 99% các giao dịch, tính sẵn sàng đạt 99.99%.',
-            tags: ['Golang', 'gRPC', 'Kafka', 'AWS']
-          },
-          {
-            name: 'Enterprise Network Monitoring & Portal',
-            period: '2021 — 2022',
-            role: 'Fullstack & Network Systems Engineer',
-            summary: 'Ứng dụng dashboard giám sát trạng thái thiết bị mạng viễn thông (Switch, Router Cisco) qua SNMP. Tự động cảnh báo sự cố mạng theo thời gian thực, rút ngắn 50% thời gian chẩn đoán lỗi.',
-            tags: ['TypeScript', 'React', 'Python', 'SNMP']
-          }
-        ];
-      }
 
-      // 4 Trụ cột ATS từ kết quả AI Match thực tế
-      const skillsScore = candMatch?.skillsScore != null ? Number(candMatch.skillsScore) : (parsedJson?.skillsScore || Math.min(Math.round(matchScore * 1.02), 98));
-      const experienceScore = candMatch?.experienceScore != null ? Number(candMatch.experienceScore) : (parsedJson?.experienceScore || Math.max(Math.round(matchScore * 0.95), 75));
-      const educationScore = candMatch?.educationScore != null ? Number(candMatch.educationScore) : (parsedJson?.educationScore || Math.min(Math.round(matchScore * 1.08), 100));
-      const semanticScore = candMatch?.semanticScore != null ? Number(candMatch.semanticScore) : (parsedJson?.semanticScore || Math.max(Math.round(matchScore * 0.98), 82));
+      // 4 Trụ cột ATS từ kết quả AI Match thực tế (tuyệt đối không biến 0 thành số giả)
+      const skillsScore = appData?.skillsScore != null ? Number(appData.skillsScore) : (candMatch?.skillsScore != null ? Number(candMatch.skillsScore) : (parsedJson?.skillsScore ?? Math.round(matchScore)));
+      const experienceScore = appData?.experienceScore != null ? Number(appData.experienceScore) : (candMatch?.experienceScore != null ? Number(candMatch.experienceScore) : (parsedJson?.experienceScore ?? Math.round(matchScore)));
+      const educationScore = appData?.educationScore != null ? Number(appData.educationScore) : (candMatch?.educationScore != null ? Number(candMatch.educationScore) : (parsedJson?.educationScore ?? Math.round(matchScore)));
+      const semanticScore = appData?.semanticScore != null ? Number(appData.semanticScore) : (candMatch?.semanticScore != null ? Number(candMatch.semanticScore) : (parsedJson?.semanticScore ?? Math.round(matchScore)));
+
+      // Đồng bộ ghi chú HR bền vững theo applicationId thực tế
+      if (effectiveAppId) {
+        try {
+          const savedNotes = localStorage.getItem(`hiremate_hr_notes_${effectiveAppId}`) || localStorage.getItem(`hiremate_hr_notes_app_${effectiveAppId}`);
+          if (savedNotes) {
+            const parsed = JSON.parse(savedNotes);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setHrNotes(parsed);
+            }
+          }
+        } catch (e) {}
+      }
 
       const mandatorySkills = candMatch?.matchedMandatorySkills 
         ? parseSkillList(candMatch.matchedMandatorySkills, [])
@@ -516,23 +712,17 @@ export default function CandidateEvaluationPage({
         }
       }
 
-      // Kiểm tra thêm từ cache đã nộp nếu đơn vừa nộp xong
-      try {
-        const storedJobTpl = localStorage.getItem(`candidate_applied_template_${parsedJobId || ''}`);
-        const storedCandTpl = localStorage.getItem(`candidate_applied_template_candidate_${parsedCandId || ''}`);
-        const latestTpl = localStorage.getItem('candidate_latest_applied_template');
-        if (storedJobTpl) initialTpl = storedJobTpl;
-        else if (storedCandTpl) initialTpl = storedCandTpl;
-        else if (latestTpl && (!appData?.coverLetter || !appData.coverLetter.includes('CV_TEMPLATE'))) initialTpl = latestTpl;
-      } catch (ignored) {}
+      // Mẫu CV được đồng bộ chuẩn xác từ database (appData.coverLetter [CV_TEMPLATE:...]),
+      // không đọc chéo localStorage của máy người duyệt để tránh sai lệch mẫu CV giữa Candidate và HR.
 
       if (isMounted) {
         setCand({
           id: parsedCandId,
           applicationId: effectiveAppId,
+          isWithdrawn,
           initialTemplate: initialTpl,
           name: candidateName,
-          title: parsedJson?.headline || profileData?.headline || `${jobTitle} • KỸ SƯ PHẦN MỀM • FULL-STACK DEVELOPER`,
+          title: parsedJson?.headline || profileData?.headline || (jobTitle ? `${jobTitle} • Ứng viên` : 'Chuyên viên'),
           roleSummary: `${jobTitle.toUpperCase()} • ĐÃ NỘP HỒ SƠ`,
           matchScore,
           skillsScore,
@@ -542,24 +732,24 @@ export default function CandidateEvaluationPage({
           mandatoryScore: skillsScore,
           preferredScore: experienceScore,
           avatar: candidateAvatar,
-          location: profileData?.location || profileData?.address || 'Cầu Giấy, Hà Nội',
-          dob: parsedJson?.dob || profileData?.dob || '2004-11-20',
-          linkedin: parsedJson?.linkedin || profileData?.linkedin || 'linkedin.com/in/dunghoang',
-          portfolio: parsedJson?.portfolio || profileData?.portfolio || 'hiremate.ai/cv/dunghoang',
-          experience: `${experiences.length * 2}+ năm kinh nghiệm thực chiến`,
-          yearsOfExperience: profileData?.experienceYears || 3,
+          location: profileData?.location || profileData?.address || parsedJson?.address || 'Chưa cập nhật địa chỉ',
+          dob: parsedJson?.dob || profileData?.dob || '',
+          linkedin: parsedJson?.linkedin || profileData?.linkedin || '',
+          portfolio: parsedJson?.portfolio || profileData?.portfolio || '',
+          experience: profileData?.experienceYears ? `${profileData.experienceYears} năm kinh nghiệm` : (experiences.length > 0 ? `${experiences.length}+ năm kinh nghiệm` : 'Chưa cập nhật kinh nghiệm / Mới tốt nghiệp'),
+          yearsOfExperience: profileData?.experienceYears || (experiences.length > 0 ? experiences.length : 0),
           salary: profileData?.desiredSalaryMax ? `${profileData.desiredSalaryMin || 15} - ${profileData.desiredSalaryMax} Triệu` : 'Thỏa thuận',
           email: candidateEmail,
           phone: candidatePhone,
           status: appStatus,
           aiFitAssessment: assessmentLabel,
-          summary: parsedJson?.summary || cvData?.summary || profileData?.bio || 'Ứng viên chuyên môn cao với bề dày kinh nghiệm thực chiến trong các dự án công nghệ và giải pháp trọng điểm.',
-          company: user?.companyName || 'FPT Software',
+          summary: parsedJson?.summary || cvData?.summary || profileData?.bio || 'Chưa có thông tin tóm tắt nghề nghiệp.',
+          company: user?.companyName || 'Doanh nghiệp tuyển dụng',
           jobCode: effectiveJobId ? `JD-${effectiveJobId}` : 'JD-GENERAL',
           jobTitle,
           cvId: effectiveCvId,
           cvUrl: cvUrl || cvData?.fileUrl || '#',
-          cvFileName: cvData?.fileName || `CV_${candidateName.replace(/\s+/g, '_')}.pdf`,
+          cvFileName: cvData?.fileName || `CV_${(candidateName || 'Ung_Vien').replace(/\s+/g, '_')}.pdf`,
           matchedMandatorySkills: mandatorySkills,
           missingMandatorySkills: missingMandatorySkills,
           matchedPreferredSkills: preferredSkills,
@@ -575,12 +765,17 @@ export default function CandidateEvaluationPage({
         });
 
         setAiRejectionEmail(
-          `Kính gửi bạn ${candidateName},\n\nCảm ơn bạn đã quan tâm và ứng tuyển vào vị trí ${jobTitle} tại ${user?.companyName || 'công ty chúng tôi'} qua nền tảng HireMate AI.\n\nSau khi thẩm định kỹ lưỡng hồ sơ, hội đồng tuyển dụng nhận thấy định hướng đợt này cần ưu tiên các tiêu chí đặc thù khác. Do đó, chúng tôi xin phép lưu lại thông tin của bạn vào Talent Pool và sẽ chủ động kết nối khi có cơ hội phù hợp hơn.\n\nChúc bạn luôn thành công trên con đường sự nghiệp!\n\nTrân trọng,\n${user?.fullName || 'Bộ Phận Nhân Sự'}`
+          `Kính gửi bạn ${candidateName || 'Ứng viên'},\n\nCảm ơn bạn đã quan tâm và ứng tuyển vào vị trí ${jobTitle || 'công việc'} tại ${user?.companyName || 'công ty chúng tôi'} qua nền tảng HireMate AI.\n\nSau khi thẩm định kỹ lưỡng hồ sơ, hội đồng tuyển dụng nhận thấy định hướng đợt này cần ưu tiên các tiêu chí đặc thù khác. Do đó, chúng tôi xin phép lưu lại thông tin của bạn vào Talent Pool và sẽ chủ động kết nối khi có cơ hội phù hợp hơn.\n\nChúc bạn luôn thành công trên con đường sự nghiệp!\n\nTrân trọng,\n${user?.fullName || 'Bộ Phận Nhân Sự'}`
         );
-
+      }
+    } catch (masterErr) {
+      console.error('Lỗi khi tải thông tin ứng viên:', masterErr);
+    } finally {
+      if (isMounted) {
         setIsLoading(false);
       }
-    };
+    }
+  };
 
     fetchCandidateData();
 
@@ -596,11 +791,11 @@ export default function CandidateEvaluationPage({
   const handleZoomIn = () => setZoomLevel((prev) => Math.min(prev + 15, 160));
   const handleZoomOut = () => setZoomLevel((prev) => Math.max(prev - 15, 75));
 
-  // Thêm ghi chú nội bộ
+  // Thêm ghi chú nội bộ (Lưu vào localStorage và state)
   const handleAddNote = () => {
     if (!newNoteText.trim()) return;
-    setHrNotes((prev) => [
-      ...prev,
+    const updatedNotes = [
+      ...hrNotes,
       {
         id: Date.now(),
         author: user?.fullName || 'Nhà Tuyển Dụng',
@@ -608,7 +803,8 @@ export default function CandidateEvaluationPage({
         tag: newNoteTag,
         text: newNoteText.trim(),
       },
-    ]);
+    ];
+    saveHrNotes(updatedNotes);
     setNewNoteText('');
     setShowNoteModal(false);
     triggerToast('Đã lưu ghi chú nội bộ HR thành công!');
@@ -616,83 +812,122 @@ export default function CandidateEvaluationPage({
 
   // Duyệt CV sang vòng Đang Xét Duyệt (SCREENING)
   const handleApproveCv = async () => {
+    if (cand.isWithdrawn) {
+      triggerToast('⚠️ Ứng viên đã chủ động rút hồ sơ ứng tuyển này, không thể thay đổi trạng thái!');
+      return;
+    }
     try {
       if (cand.applicationId) {
         await applicationApi.updateStatus(cand.applicationId, {
           newStatus: 'SCREENING',
           note: 'Hồ sơ đã vượt qua thẩm định CV và được chuyển sang vòng xét duyệt năng lực',
-        }).catch(() => null);
+        });
       }
       setCand((prev) => ({ ...prev, status: 'SCREENING' }));
       window.dispatchEvent(new CustomEvent('hiremate-notification-sync'));
       triggerToast('Đã duyệt CV thành công! Đã tự động gửi chuông thông báo và email cho ứng viên.');
-    } catch {
-      setCand((prev) => ({ ...prev, status: 'SCREENING' }));
-      triggerToast('Đã cập nhật trạng thái Duyệt CV!');
+    } catch (err) {
+      triggerToast('Lỗi khi duyệt CV: ' + (err.response?.data?.message || err.message || 'Không thể cập nhật trạng thái hồ sơ'));
     }
   };
 
   // Gửi Thư Mời Nhận Việc (OFFERED)
   const handleSendOffer = async () => {
+    if (cand.isWithdrawn) {
+      triggerToast('⚠️ Ứng viên đã chủ động rút hồ sơ ứng tuyển này, không thể thay đổi trạng thái!');
+      return;
+    }
     try {
       if (cand.applicationId) {
         await applicationApi.updateStatus(cand.applicationId, {
           newStatus: 'OFFERED',
           note: 'Chúc mừng bạn! Nhà tuyển dụng gửi lời mời nhận việc chính thức (Offer).',
-        }).catch(() => null);
+        });
       }
       setCand((prev) => ({ ...prev, status: 'OFFERED' }));
       window.dispatchEvent(new CustomEvent('hiremate-notification-sync'));
       triggerToast('Đã gửi Offer thành công! Đã tự động gửi chuông thông báo và email cho ứng viên.');
-    } catch {
-      setCand((prev) => ({ ...prev, status: 'OFFERED' }));
-      triggerToast('Đã cập nhật trạng thái Offer!');
+    } catch (err) {
+      triggerToast('Lỗi khi gửi Offer: ' + (err.response?.data?.message || err.message || 'Không thể cập nhật trạng thái hồ sơ'));
     }
   };
 
-  // Xác nhận từ chối
-  const handleConfirmRejection = async () => {
+  // Xác Nhận Nhận Việc (HIRED)
+  const handleConfirmHired = async () => {
+    if (cand.isWithdrawn) {
+      triggerToast('⚠️ Ứng viên đã chủ động rút hồ sơ ứng tuyển này, không thể thay đổi trạng thái!');
+      return;
+    }
     try {
       if (cand.applicationId) {
         await applicationApi.updateStatus(cand.applicationId, {
+          newStatus: 'HIRED',
+          note: 'Chúc mừng! Ứng viên đã chính thức trúng tuyển và nhận việc (HIRED).',
+        });
+      }
+      setCand((prev) => ({ ...prev, status: 'HIRED' }));
+      window.dispatchEvent(new CustomEvent('hiremate-notification-sync'));
+      triggerToast('🎉 Chúc mừng! Đã chuyển trạng thái ứng viên sang TRÚNG TUYỂN (HIRED) thành công!');
+    } catch (err) {
+      triggerToast('Lỗi cập nhật trạng thái Trúng Tuyển: ' + (err.response?.data?.message || err.message || 'Không thể cập nhật trạng thái hồ sơ'));
+    }
+  };
+
+  // Xác nhận từ chối (Bảo toàn nội dung email AI viết vào note)
+  const handleConfirmRejection = async () => {
+    if (cand.isWithdrawn) {
+      triggerToast('⚠️ Ứng viên đã chủ động rút hồ sơ ứng tuyển này, không thể thay đổi trạng thái!');
+      return;
+    }
+    try {
+      if (cand.applicationId) {
+        const fullRejectNote = aiRejectionEmail ? `${rejectionReason}\n\n[Nội dung thư phản hồi]:\n${aiRejectionEmail}` : rejectionReason;
+        await applicationApi.updateStatus(cand.applicationId, {
           newStatus: 'REJECTED',
-          note: rejectionReason,
+          note: fullRejectNote,
           reason: rejectionReason,
-        }).catch(() => null);
+        });
       }
       setShowRejectModal(false);
       setCand((prev) => ({ ...prev, status: 'REJECTED' }));
       window.dispatchEvent(new CustomEvent('hiremate-notification-sync'));
       triggerToast('Đã chuyển trạng thái sang Chưa Phù Hợp & gửi thông báo chuông + email cho ứng viên!');
-    } catch {
+    } catch (err) {
       setShowRejectModal(false);
-      setCand((prev) => ({ ...prev, status: 'REJECTED' }));
-      triggerToast('Đã cập nhật trạng thái hồ sơ!');
+      triggerToast('Lỗi khi từ chối hồ sơ: ' + (err.response?.data?.message || err.message || 'Không thể cập nhật trạng thái hồ sơ'));
     }
   };
 
-  // Xác nhận lên lịch phỏng vấn
+  // Xác nhận lên lịch phỏng vấn (Bảo toàn Link Google Meet vào note)
   const handleConfirmInterview = async () => {
+    if (cand.isWithdrawn) {
+      triggerToast('⚠️ Ứng viên đã chủ động rút hồ sơ ứng tuyển này, không thể thay đổi trạng thái!');
+      return;
+    }
     try {
       if (cand.applicationId) {
+        const interviewNote = `Lịch phỏng vấn ngày ${interviewDate} lúc ${interviewTime} (${interviewType}). Link Google Meet: ${meetLink}`;
         await applicationApi.updateStatus(cand.applicationId, {
           newStatus: 'INTERVIEWING',
-          note: `Lịch phỏng vấn ${interviewDate} lúc ${interviewTime} (${interviewType})`,
-        }).catch(() => null);
+          note: interviewNote,
+        });
       }
       setShowInterviewModal(false);
       setCand((prev) => ({ ...prev, status: 'INTERVIEWING' }));
       window.dispatchEvent(new CustomEvent('hiremate-notification-sync'));
       triggerToast(`Đã gửi thư mời phỏng vấn & tự động gửi thông báo chuông + email cho ứng viên!`);
-    } catch {
+    } catch (err) {
       setShowInterviewModal(false);
-      setCand((prev) => ({ ...prev, status: 'INTERVIEWING' }));
-      triggerToast('Đã lưu lịch phỏng vấn thành công!');
+      triggerToast('Lỗi khi gửi lịch phỏng vấn: ' + (err.response?.data?.message || err.message || 'Không thể cập nhật trạng thái hồ sơ'));
     }
   };
 
   // Tải file CV về máy
   const handleDownloadCv = async () => {
+    if (!canDownloadCv) {
+      triggerToast('Gói dịch vụ hiện tại không hỗ trợ tải trực tiếp CV gốc. Vui lòng nâng cấp lên gói Hiring Starter hoặc Pro!');
+      return;
+    }
     try {
       if (cand.cvId) {
         try {
@@ -759,6 +994,13 @@ export default function CandidateEvaluationPage({
       case 'OFFERED':
       case 'PASSED':
         return <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Đã Gửi Offer</span>;
+      case 'HIRED':
+        return (
+          <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-900 border border-emerald-300 flex items-center gap-1 shadow-2xs">
+            <span className="material-symbols-outlined text-sm text-emerald-700">task_alt</span>
+            <span>Đã Trúng Tuyển Chính Thức</span>
+          </span>
+        );
       case 'REJECTED':
         return <span className="px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">Chưa Phù Hợp</span>;
       default:
@@ -797,7 +1039,10 @@ export default function CandidateEvaluationPage({
             <button
               onClick={() => {
                 if (onBack) onBack();
-                else window.location.hash = parsedJobId ? `#/applicants-management?jobId=${parsedJobId}` : '#/recruiter-jobs';
+                else {
+                  const targetJobId = parsedJobId || cand.jobId;
+                  window.location.hash = targetJobId ? `#/job-applicants-roster?jobId=${targetJobId}` : '#/job-dashboard';
+                }
               }}
               className="hover:text-[#5b48bd] transition-colors flex items-center gap-1 cursor-pointer font-bold"
             >
@@ -856,9 +1101,9 @@ export default function CandidateEvaluationPage({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         
         {/* --------------------------------------------------------------- */}
-        {/* CỘT TRÁI (5/12): ĐÁNH GIÁ NĂNG LỰC, TIÊU CHÍ JD & QUYẾT ĐỊNH HR   */}
+        {/* CỘT TRÁI: ĐÁNH GIÁ NĂNG LỰC, TIÊU CHÍ JD & QUYẾT ĐỊNH HR        */}
         {/* --------------------------------------------------------------- */}
-        <div className="lg:col-span-5 space-y-5">
+        <div className={`${layoutRatio === 'wide-cv' ? 'lg:col-span-5 xl:col-span-4' : 'lg:col-span-5'} space-y-5 transition-all`}>
           
           {/* Card A: Candidate Identification Card */}
           <div className="bg-white border border-slate-200/80 rounded-3xl p-5 sm:p-6 shadow-xs space-y-5">
@@ -872,8 +1117,9 @@ export default function CandidateEvaluationPage({
                   />
                 ) : (
                   <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-[#1e1548] to-[#5b48bd] text-white flex items-center justify-center font-extrabold text-2xl shadow-sm">
-                    {cand.name
+                    {(cand.name || 'UV')
                       .split(' ')
+                      .filter(Boolean)
                       .map((n) => n[0])
                       .slice(-2)
                       .join('')
@@ -980,12 +1226,12 @@ export default function CandidateEvaluationPage({
                     <span className="w-2 h-2 rounded-full bg-emerald-500" />
                     Kỹ Năng Chuyên Môn (40% trọng số)
                   </span>
-                  <span className="text-emerald-700">{cand.skillsScore || 85}%</span>
+                  <span className="text-emerald-700">{cand.skillsScore ?? 0}%</span>
                 </div>
                 <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all duration-700"
-                    style={{ width: `${cand.skillsScore || 85}%` }}
+                    style={{ width: `${cand.skillsScore ?? 0}%` }}
                   />
                 </div>
               </div>
@@ -996,12 +1242,12 @@ export default function CandidateEvaluationPage({
                     <span className="w-2 h-2 rounded-full bg-indigo-500" />
                     Kinh Nghiệm Thực Chiến (30% trọng số)
                   </span>
-                  <span className="text-indigo-700">{cand.experienceScore || 80}%</span>
+                  <span className="text-indigo-700">{cand.experienceScore ?? 0}%</span>
                 </div>
                 <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-700"
-                    style={{ width: `${cand.experienceScore || 80}%` }}
+                    style={{ width: `${cand.experienceScore ?? 0}%` }}
                   />
                 </div>
               </div>
@@ -1012,12 +1258,12 @@ export default function CandidateEvaluationPage({
                     <span className="w-2 h-2 rounded-full bg-amber-500" />
                     Học Vấn &amp; Bằng Cấp (15% trọng số)
                   </span>
-                  <span className="text-amber-700">{cand.educationScore || 90}%</span>
+                  <span className="text-amber-700">{cand.educationScore ?? 0}%</span>
                 </div>
                 <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full transition-all duration-700"
-                    style={{ width: `${cand.educationScore || 90}%` }}
+                    style={{ width: `${cand.educationScore ?? 0}%` }}
                   />
                 </div>
               </div>
@@ -1028,12 +1274,12 @@ export default function CandidateEvaluationPage({
                     <span className="w-2 h-2 rounded-full bg-purple-500" />
                     Dự Án &amp; Công Nghệ Thực Chiến (15% trọng số)
                   </span>
-                  <span className="text-purple-700">{cand.semanticScore || 82}%</span>
+                  <span className="text-purple-700">{cand.semanticScore ?? 0}%</span>
                 </div>
                 <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full transition-all duration-700"
-                    style={{ width: `${cand.semanticScore || 82}%` }}
+                    style={{ width: `${cand.semanticScore ?? 0}%` }}
                   />
                 </div>
               </div>
@@ -1084,7 +1330,7 @@ export default function CandidateEvaluationPage({
                   Đánh giá phân tích ngữ nghĩa AI:
                 </span>
                 <p className="text-slate-700 leading-relaxed">
-                  {cand.aiReasoning}
+                  {sanitizeEvidenceText(cand.aiReasoning)}
                 </p>
               </div>
             </div>
@@ -1097,70 +1343,114 @@ export default function CandidateEvaluationPage({
               <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">Auto Email + Chuông</span>
             </h4>
 
-            {/* 2 Nút Hành Động Quyết Định Cốt Lõi */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs font-bold">
-              <button
-                type="button"
-                onClick={() => setShowInterviewModal(true)}
-                className="py-3 px-4 rounded-2xl bg-[#5b48bd] hover:bg-[#47369f] text-white flex items-center justify-center gap-2 transition-all shadow-xs hover:shadow-md cursor-pointer group"
-                title="Duyệt hồ sơ và gửi email lên lịch phỏng vấn cho ứng viên"
-              >
-                <span className="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">event_available</span>
-                <span className="font-extrabold">Duyệt &amp; Mời Phỏng Vấn</span>
-              </button>
+            {(cand.isWithdrawn || cand.status === 'WITHDRAWN') ? (
+              <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 space-y-2">
+                <div className="flex items-center gap-2 font-bold text-sm text-amber-800">
+                  <span className="material-symbols-outlined text-base">warning</span>
+                  <span>Ứng viên đã chủ động rút hồ sơ ứng tuyển này</span>
+                </div>
+                <p className="text-xs text-amber-700 leading-relaxed">
+                  Ứng viên đã hủy đơn ứng tuyển cho vị trí này. Toàn bộ các thao tác thay đổi trạng thái (Duyệt nhanh CV, Duyệt &amp; Mời phỏng vấn, Gửi Offer, Từ chối) đã bị vô hiệu hóa để bảo vệ tính toàn vẹn dữ liệu.
+                </p>
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowNoteModal(true)}
+                    className="py-1.5 px-3 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold flex items-center gap-1.5 transition-all cursor-pointer text-xs"
+                    title="Xem hoặc viết ghi chú đánh giá nội bộ của HR"
+                  >
+                    <span className="material-symbols-outlined text-sm text-slate-500">edit_note</span>
+                    <span>Ghi Chú HR ({hrNotes.length})</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* 2 Nút Hành Động Quyết Định Cốt Lõi */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setShowInterviewModal(true)}
+                    className="py-3 px-4 rounded-2xl bg-[#5b48bd] hover:bg-[#47369f] text-white flex items-center justify-center gap-2 transition-all shadow-xs hover:shadow-md cursor-pointer group"
+                    title="Duyệt hồ sơ và gửi email lên lịch phỏng vấn cho ứng viên"
+                  >
+                    <span className="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">event_available</span>
+                    <span className="font-extrabold">Duyệt &amp; Mời Phỏng Vấn</span>
+                  </button>
 
-              <button
-                type="button"
-                onClick={() => setShowRejectModal(true)}
-                className="py-3 px-4 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 flex items-center justify-center gap-2 transition-all cursor-pointer group"
-                title="Từ chối hồ sơ chưa phù hợp và gửi email phản hồi lịch sự"
-              >
-                <span className="material-symbols-outlined text-lg text-rose-500 group-hover:scale-110 transition-transform">cancel</span>
-                <span>Từ Chối Hồ Sơ</span>
-              </button>
-            </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowRejectModal(true)}
+                    className="py-3 px-4 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 flex items-center justify-center gap-2 transition-all cursor-pointer group"
+                    title="Từ chối hồ sơ chưa phù hợp và gửi email phản hồi lịch sự"
+                  >
+                    <span className="material-symbols-outlined text-lg text-rose-500 group-hover:scale-110 transition-transform">cancel</span>
+                    <span>Từ Chối Hồ Sơ</span>
+                  </button>
+                </div>
 
-            {/* Thao tác phụ tinh gọn: Duyệt Nhanh / Gửi Offer / Ghi Chú HR */}
-            <div className="pt-2.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs">
-              <button
-                type="button"
-                onClick={handleApproveCv}
-                className="py-1.5 px-3 rounded-xl bg-slate-50 hover:bg-blue-50 text-slate-700 hover:text-blue-700 border border-slate-200 hover:border-blue-200 font-bold flex items-center gap-1.5 transition-all cursor-pointer"
-                title="Duyệt nhanh hồ sơ (Chuyển trạng thái Đã Duyệt nếu chưa cần xếp lịch phỏng vấn ngay)"
-              >
-                <span className="material-symbols-outlined text-sm text-blue-600">check_circle</span>
-                <span>Duyệt nhanh CV</span>
-              </button>
+                {/* Thao tác phụ tinh gọn: Duyệt Nhanh / Gửi Offer / Ghi Chú HR */}
+                <div className="pt-2.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={handleApproveCv}
+                    className="py-1.5 px-3 rounded-xl bg-slate-50 hover:bg-blue-50 text-slate-700 hover:text-blue-700 border border-slate-200 hover:border-blue-200 font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                    title="Duyệt nhanh hồ sơ (Chuyển trạng thái Đã Duyệt nếu chưa cần xếp lịch phỏng vấn ngay)"
+                  >
+                    <span className="material-symbols-outlined text-sm text-blue-600">check_circle</span>
+                    <span>Duyệt nhanh CV</span>
+                  </button>
 
-              <button
-                type="button"
-                onClick={() => setShowNoteModal(true)}
-                className="py-1.5 px-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 font-bold flex items-center gap-1.5 transition-all cursor-pointer"
-                title="Xem hoặc viết ghi chú đánh giá nội bộ của HR"
-              >
-                <span className="material-symbols-outlined text-sm text-slate-500">edit_note</span>
-                <span>Ghi Chú ({hrNotes.length})</span>
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowNoteModal(true)}
+                    className="py-1.5 px-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                    title="Xem hoặc viết ghi chú đánh giá nội bộ của HR"
+                  >
+                    <span className="material-symbols-outlined text-sm text-slate-500">edit_note</span>
+                    <span>Ghi Chú ({hrNotes.length})</span>
+                  </button>
 
-              {cand.status === 'INTERVIEWING' && (
-                <button
-                  type="button"
-                  onClick={handleSendOffer}
-                  className="py-1.5 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white border border-emerald-200 font-bold flex items-center gap-1.5 transition-all cursor-pointer"
-                  title="Gửi thư mời nhận việc chính thức (Offer) sau khi phỏng vấn đạt"
-                >
-                  <span className="material-symbols-outlined text-sm">verified</span>
-                  <span>Gửi Offer</span>
-                </button>
-              )}
-            </div>
+                  {cand.status === 'INTERVIEWING' && (
+                    <button
+                      type="button"
+                      onClick={handleSendOffer}
+                      className="py-1.5 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white border border-emerald-200 font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                      title="Gửi thư mời nhận việc chính thức (Offer) sau khi phỏng vấn đạt"
+                    >
+                      <span className="material-symbols-outlined text-sm">verified</span>
+                      <span>Gửi Offer</span>
+                    </button>
+                  )}
+
+                  {(cand.status === 'OFFERED' || cand.status === 'INTERVIEWING') && (
+                    <button
+                      type="button"
+                      onClick={handleConfirmHired}
+                      className="py-1.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                      title="Xác nhận ứng viên đã trúng tuyển &amp; nhận việc chính thức (HIRED)"
+                    >
+                      <span className="material-symbols-outlined text-sm">celebration</span>
+                      <span>Xác Nhận Nhận Việc (HIRED)</span>
+                    </button>
+                  )}
+
+                  {cand.status === 'HIRED' && (
+                    <span className="py-1.5 px-3 rounded-xl bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-sm text-emerald-600">task_alt</span>
+                      <span>Đã Trúng Tuyển (HIRED)</span>
+                    </span>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
 
         {/* --------------------------------------------------------------- */}
-        {/* CỘT PHẢI (7/12): XEM FILE CV NGUYÊN BẢN (PDF) & CHI TIẾT ATS     */}
+        {/* CỘT PHẢI: XEM FILE CV NGUYÊN BẢN (PDF) & CHI TIẾT ATS           */}
         {/* --------------------------------------------------------------- */}
-        <div className="lg:col-span-7 bg-white border border-slate-200/80 rounded-3xl shadow-xs overflow-hidden flex flex-col min-h-[750px]">
+        <div className={`${layoutRatio === 'wide-cv' ? 'lg:col-span-7 xl:col-span-8' : 'lg:col-span-7'} bg-white border border-slate-200/80 rounded-3xl shadow-xs overflow-hidden flex flex-col min-h-[750px] transition-all`}>
           
           {/* Header công cụ trên đầu hồ sơ */}
           <div className="px-5 py-3.5 bg-gradient-to-r from-purple-50/60 via-slate-50/40 to-white border-b border-slate-200/80 flex items-center justify-between gap-3 shrink-0 flex-wrap">
@@ -1189,10 +1479,66 @@ export default function CandidateEvaluationPage({
                 <span className="material-symbols-outlined text-sm">web</span>
                 <span>CV Online</span>
               </button>
+
+              {/* Bộ chuyển tỷ lệ chia cột màn hình */}
+              <div className="hidden sm:flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-0.5 ml-2 shadow-2xs text-[11px] font-bold">
+                <button
+                  type="button"
+                  onClick={() => setLayoutRatio('balanced')}
+                  className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                    layoutRatio === 'balanced' ? 'bg-[#5b48bd] text-white' : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                  title="Bố cục cân đối (5:7)"
+                >
+                  Cân đối
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLayoutRatio('wide-cv')}
+                  className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                    layoutRatio === 'wide-cv' ? 'bg-[#5b48bd] text-white' : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                  title="Mở rộng khung xem CV (4:8)"
+                >
+                  Mở rộng CV
+                </button>
+              </div>
             </div>
 
-            {/* Quick Actions (Download, Open New Tab, Zoom) */}
+            {/* Quick Actions (Zoom controls, Download, Open New Tab) */}
             <div className="flex items-center gap-2">
+              {cvViewMode === 'pdf' && pdfBlobUrl && (
+                <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl px-2 py-1 shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => setZoomLevel((prev) => Math.max(prev - 10, 50))}
+                    className="w-6 h-6 rounded-lg text-slate-600 hover:bg-slate-100 flex items-center justify-center font-bold text-sm cursor-pointer"
+                    title="Thu nhỏ CV (-)"
+                  >
+                    -
+                  </button>
+                  <span className="text-[11px] font-bold text-slate-700 min-w-[36px] text-center">
+                    {zoomLevel}%
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setZoomLevel((prev) => Math.min(prev + 10, 160))}
+                    className="w-6 h-6 rounded-lg text-slate-600 hover:bg-slate-100 flex items-center justify-center font-bold text-sm cursor-pointer"
+                    title="Phóng to CV (+)"
+                  >
+                    +
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setZoomLevel(100)}
+                    className="ml-1 px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] font-bold cursor-pointer"
+                    title="Vừa chiều rộng chuẩn (Fit to Width)"
+                  >
+                    Fit
+                  </button>
+                </div>
+              )}
+
               <button
                 type="button"
                 onClick={handleDownloadCv}
@@ -1219,7 +1565,7 @@ export default function CandidateEvaluationPage({
           </div>
 
           {/* Nội dung hồ sơ */}
-          <div className="flex-1 p-5 sm:p-6 overflow-y-auto max-h-[820px] bg-[#fafafc]">
+          <div className="flex-1 p-4 sm:p-5 overflow-y-auto max-h-[840px] bg-[#fafafc]">
             {cvViewMode === 'pdf' ? (
               /* ======================================================= */
               /* TAB 1: XEM FILE PDF NGUYÊN BẢN CỦA ỨNG VIÊN             */
@@ -1233,11 +1579,71 @@ export default function CandidateEvaluationPage({
                     </div>
                   </div>
                 ) : pdfBlobUrl ? (
-                  <iframe
-                    src={pdfBlobUrl}
-                    title={`CV - ${cand.name}`}
-                    className="w-full h-[720px] rounded-2xl border border-slate-200/90 shadow-xs bg-white"
-                  />
+                  cvMimeType.startsWith('image/') ? (
+                    <div className="w-full min-h-[500px] max-h-[760px] overflow-auto p-4 flex items-center justify-center bg-slate-100 rounded-2xl border border-slate-200">
+                      <img
+                        src={pdfBlobUrl}
+                        alt={`CV - ${cand.name}`}
+                        className="max-w-full h-auto rounded-xl shadow-md border border-slate-200 object-contain"
+                      />
+                    </div>
+                  ) : (cvMimeType.includes('word') || cvMimeType.includes('document') || cand.cvFileName?.toLowerCase().endsWith('.docx') || cand.cvFileName?.toLowerCase().endsWith('.doc')) ? (
+                    <div className="bg-white rounded-3xl p-10 text-center border border-purple-100 shadow-sm max-w-lg mx-auto my-auto space-y-4">
+                      <div className="w-16 h-16 rounded-3xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center mx-auto">
+                        <span className="material-symbols-outlined text-3xl">article</span>
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-base text-[#1e1b4b]">{cand.cvFileName || 'File CV Word (.docx)'}</h4>
+                        <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                          Định dạng tài liệu là file Word (.docx / .doc). Trình duyệt không hỗ trợ hiển thị trực tiếp file Word trong iframe. Bạn có thể tải file về máy hoặc xem trực tiếp qua tab <strong>"Xem CV Online"</strong>.
+                        </p>
+                      </div>
+                      <div className="flex items-center justify-center gap-3 pt-2">
+                        <button
+                          type="button"
+                          onClick={handleDownloadCv}
+                          className="px-5 py-2.5 rounded-2xl bg-[#5b48bd] hover:bg-[#47369f] text-white font-bold text-xs shadow-md cursor-pointer flex items-center gap-1.5"
+                        >
+                          <span className="material-symbols-outlined text-base">download</span>
+                          <span>Tải File Word (.docx) Về Máy</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCvViewMode('parsed')}
+                          className="px-4 py-2.5 rounded-2xl bg-purple-50 text-[#5b48bd] border border-purple-200 font-bold text-xs hover:bg-purple-100 cursor-pointer"
+                        >
+                          Xem CV Online →
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="w-full flex-1 flex flex-col items-center justify-start overflow-auto p-2 sm:p-4 bg-slate-200/70 rounded-2xl min-h-[750px]">
+                      <div
+                        style={{
+                          width: `${Math.max(320, Math.round(720 * (zoomLevel / 100)))}px`,
+                          maxWidth: '100%',
+                          transition: 'width 0.15s ease-out',
+                        }}
+                        className="mx-auto rounded-2xl shadow-xl border border-slate-300 overflow-hidden bg-white flex flex-col"
+                      >
+                        <iframe
+                          key={`${pdfBlobUrl}-${zoomLevel}`}
+                          src={
+                            pdfBlobUrl.includes('#')
+                              ? pdfBlobUrl.replace(/#.*$/, `#page=1&view=Fit&zoom=${zoomLevel}&toolbar=1&navpanes=0`)
+                              : `${pdfBlobUrl}#page=1&view=Fit&zoom=${zoomLevel}&toolbar=1&navpanes=0`
+                          }
+                          title={`CV - ${cand.name}`}
+                          style={{
+                            width: '100%',
+                            height: '860px',
+                            border: 'none',
+                          }}
+                          className="bg-white"
+                        />
+                      </div>
+                    </div>
+                  )
                 ) : (
                   /* THÔNG BÁO KHI CHƯA CÓ PDF BLOB */
                   <div className="bg-white rounded-3xl p-10 text-center border border-purple-100 shadow-sm max-w-md mx-auto my-auto space-y-4">

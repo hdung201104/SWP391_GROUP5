@@ -104,6 +104,21 @@ export default function JobFilterSidebar({
 
   const [selectedCategory, setSelectedCategory] = useState('ALL');
 
+  const normalizeCategory = (cat) => {
+    if (!cat) return 'GENERAL';
+    const c = cat.toUpperCase().trim();
+    if (['BACKEND', 'FRONTEND', 'DATABASE', 'DEVOPS_CLOUD', 'MOBILE', 'AI_DATA', 'TECHNICAL', 'IT'].includes(c)) {
+      return 'IT_SOFTWARE';
+    }
+    if (['BUSINESS_BA', 'BUSINESS', 'BA_PM'].includes(c)) {
+      return 'BUSINESS_MANAGEMENT';
+    }
+    if (['SOFT_SKILL', 'SOFTSKILL'].includes(c)) {
+      return 'SOFT_SKILLS';
+    }
+    return c;
+  };
+
   const normalizedSkills = React.useMemo(() => {
     if (!availableSkills || availableSkills.length === 0) {
       return [
@@ -121,11 +136,12 @@ export default function JobFilterSidebar({
     }
     return availableSkills.map(s => {
       if (typeof s === 'string') {
-        return { name: s, category: 'GENERAL' };
+        return { name: s, category: 'IT_SOFTWARE' };
       }
       return {
         name: s.name || s.skillName || '',
-        category: (s.category || 'GENERAL').toUpperCase()
+        category: normalizeCategory(s.category),
+        aliases: s.aliases || ''
       };
     }).filter(s => s.name);
   }, [availableSkills]);
@@ -430,10 +446,19 @@ export default function JobFilterSidebar({
               filteredSkills = filteredSkills.filter(s => s.category === selectedCategory);
             }
 
-            // Lọc theo từ khóa tìm kiếm
+            // Lọc theo từ khóa tìm kiếm (hỗ trợ cả tên kỹ năng và từ đồng nghĩa/viết tắt aliases như bctc, fb ads, pts, k8s, ba)
             if (skillSearch.trim()) {
               const kw = skillSearch.toLowerCase().trim();
-              filteredSkills = filteredSkills.filter(s => s.name.toLowerCase().includes(kw));
+              filteredSkills = filteredSkills.filter(s => {
+                const nameMatch = s.name && s.name.toLowerCase().includes(kw);
+                let aliasMatch = false;
+                if (typeof s.aliases === 'string' && s.aliases.trim()) {
+                  aliasMatch = s.aliases.toLowerCase().includes(kw) || s.aliases.toLowerCase().split(/[,;]+/).some(a => a.trim().includes(kw));
+                } else if (Array.isArray(s.aliases)) {
+                  aliasMatch = s.aliases.some(a => String(a).toLowerCase().includes(kw));
+                }
+                return Boolean(nameMatch || aliasMatch);
+              });
             }
 
             const displayedSkills = skillSearch.trim() || showAllSkills

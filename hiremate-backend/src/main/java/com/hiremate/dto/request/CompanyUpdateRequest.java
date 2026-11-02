@@ -20,6 +20,9 @@ public class CompanyUpdateRequest {
     private String licenseDocUrl;
     private String licenseDocName;
     private String legalRepresentative;
+    private String branchesJson;
+    private String benefitsJson;
+    private java.util.List<Object> benefits;
     private com.hiremate.enums.CompanyStatus status;
 }
 

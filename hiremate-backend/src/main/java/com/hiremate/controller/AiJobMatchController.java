@@ -29,6 +29,17 @@ public class AiJobMatchController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
+    @PostMapping("/job/{jobId}/evaluate")
+    @PreAuthorize("hasRole('CANDIDATE')")
+    public ResponseEntity<ApiResponse<AiJobMatchResponse>> evaluateJobWithCv(
+            @PathVariable Long jobId,
+            @RequestParam(required = false) Long cvId,
+            @AuthenticationPrincipal User user
+    ) {
+        AiJobMatchResponse response = aiJobMatchService.evaluateJobWithCv(jobId, cvId, user);
+        return ResponseEntity.ok(ApiResponse.ok("AI đã hoàn thành phân tích và đối soát độ phù hợp theo yêu cầu", response));
+    }
+
     @GetMapping("/my")
     @PreAuthorize("hasRole('CANDIDATE')")
     public ResponseEntity<ApiResponse<List<AiJobMatchResponse>>> getMyJobMatches(
@@ -74,9 +85,10 @@ public class AiJobMatchController {
     public ResponseEntity<ApiResponse<com.hiremate.dto.response.AiDetailedEvaluationReport>> getDetailedCandidateEvaluation(
             @PathVariable Long jobId,
             @PathVariable Long candidateId,
-            @RequestParam(name = "forceRefresh", defaultValue = "false") boolean forceRefresh
+            @RequestParam(name = "forceRefresh", defaultValue = "false") boolean forceRefresh,
+            @AuthenticationPrincipal User user
     ) {
-        com.hiremate.dto.response.AiDetailedEvaluationReport report = aiJobMatchService.getDetailedCandidateEvaluation(jobId, candidateId, forceRefresh);
+        com.hiremate.dto.response.AiDetailedEvaluationReport report = aiJobMatchService.getDetailedCandidateEvaluation(jobId, candidateId, forceRefresh, user);
         return ResponseEntity.ok(ApiResponse.ok("Đã đối soát chi tiết hồ sơ CV ứng viên với bài đăng tuyển dụng thành công", report));
     }
 }

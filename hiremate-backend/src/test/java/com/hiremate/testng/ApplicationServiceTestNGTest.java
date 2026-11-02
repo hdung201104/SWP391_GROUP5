@@ -53,6 +53,8 @@ public class ApplicationServiceTestNGTest {
     private NotificationService notificationService;
     private AiJobMatchService aiJobMatchService;
     private com.hiremate.service.EmailService emailService;
+    private RecruiterRepository recruiterRepository;
+    private CompanyRepository companyRepository;
 
     private ApplicationServiceImpl applicationService;
 
@@ -74,6 +76,8 @@ public class ApplicationServiceTestNGTest {
         aiJobMatchRepository = mock(AiJobMatchRepository.class);
         candidateRepository = mock(CandidateRepository.class);
         userRepository = mock(UserRepository.class);
+        recruiterRepository = mock(RecruiterRepository.class);
+        companyRepository = mock(CompanyRepository.class);
         notificationService = mock(NotificationService.class);
         aiJobMatchService = mock(AiJobMatchService.class);
         emailService = mock(com.hiremate.service.EmailService.class);
@@ -86,6 +90,8 @@ public class ApplicationServiceTestNGTest {
                 aiJobMatchRepository,
                 candidateRepository,
                 userRepository,
+                recruiterRepository,
+                companyRepository,
                 notificationService,
                 aiJobMatchService,
                 emailService

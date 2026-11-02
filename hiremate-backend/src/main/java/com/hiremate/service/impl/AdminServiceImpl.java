@@ -1,5 +1,6 @@
 package com.hiremate.service.impl;
 
+import com.hiremate.dto.VoucherRuleMeta;
 import com.hiremate.dto.response.*;
 import com.hiremate.entity.*;
 import com.hiremate.enums.*;
@@ -39,6 +40,11 @@ public class AdminServiceImpl implements AdminService {
     private final com.hiremate.service.AiJobMatchService aiJobMatchService;
     private final com.hiremate.service.JobService jobService;
     private final com.hiremate.service.NotificationService notificationService;
+    private final com.hiremate.service.SystemSettingsService systemSettingsService;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.hiremate.repository.RecruiterRepository recruiterRepository;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.hiremate.service.UserCacheService userCacheService;
 
     @Override
     @Transactional(readOnly = true)
@@ -97,12 +103,29 @@ public class AdminServiceImpl implements AdminService {
 
         // 1. Batch load companies for all recruiters in 1 single query (loại bỏ N+1)
         Map<Long, String> recruiterCompanyMap = new HashMap<>();
+        Map<Long, String> companyIdToNameMap = new HashMap<>();
         try {
             companyRepository.findAll().forEach(comp -> {
+                if (comp.getCompanyId() != null && comp.getCompanyName() != null) {
+                    companyIdToNameMap.put(comp.getCompanyId(), comp.getCompanyName());
+                }
                 if (comp.getRecruiterId() != null && comp.getCompanyName() != null) {
                     recruiterCompanyMap.put(comp.getRecruiterId(), comp.getCompanyName());
                 }
             });
+            if (recruiterRepository != null) {
+                recruiterRepository.findAll().forEach(rec -> {
+                    if (rec.getCompany() != null && rec.getCompany().getCompanyId() != null) {
+                        String compName = companyIdToNameMap.get(rec.getCompany().getCompanyId());
+                        if (compName == null && rec.getCompany().getCompanyName() != null) {
+                            compName = rec.getCompany().getCompanyName();
+                        }
+                        if (compName != null && rec.getRecruiterId() != null) {
+                            recruiterCompanyMap.put(rec.getRecruiterId(), compName);
+                        }
+                    }
+                });
+            }
         } catch (Exception e) {
             log.warn("Batch load companies error: {}", e.getMessage());
         }
@@ -155,7 +178,9 @@ public class AdminServiceImpl implements AdminService {
                         resp.setCurrentPlanId(activeSub.getPlan() != null ? activeSub.getPlan().getPlanId() : null);
                         resp.setSubscriptionStatus("ACTIVE");
                         resp.setSubscriptionEndDate(activeSub.getEndDate());
-                        resp.setQuotaLimit(activeSub.getPlan() != null ? activeSub.getPlan().getQuotaLimit() : null);
+                        resp.setQuotaLimit((activeSub.getCustomQuota() != null && activeSub.getCustomQuota() > 0)
+                                ? activeSub.getCustomQuota()
+                                : (activeSub.getPlan() != null ? activeSub.getPlan().getQuotaLimit() : null));
                     } else {
                         resp.setCurrentTier("Starter (Free)");
                         resp.setSubscriptionStatus("NONE");
@@ -171,10 +196,44 @@ public class AdminServiceImpl implements AdminService {
     public AdminUserResponse updateUserStatus(Long userId, UserStatus status) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng với ID: " + userId));
+
+        if (user.getRole() == UserRole.ADMIN && status != UserStatus.ACTIVE) {
+            throw new IllegalArgumentException("Không thể khóa tài khoản Quản trị viên (ADMIN).");
+        }
+
         user.setStatus(status);
         userRepository.save(user);
 
+        if (userCacheService != null) {
+            userCacheService.evict(user.getEmail(), user.getUserId());
+        }
+
+        // Nếu khóa tài khoản Recruiter, tự động đóng toàn bộ tin tuyển dụng đang PUBLISHED của Recruiter đó
+        if (user.getRole() == UserRole.RECRUITER && status != UserStatus.ACTIVE) {
+            List<Job> recruiterJobs = jobRepository.findByRecruiter_RecruiterId(user.getUserId());
+            for (Job j : recruiterJobs) {
+                if (j.getStatus() == JobStatus.PUBLISHED) {
+                    j.setStatus(JobStatus.CLOSED);
+                    jobRepository.save(j);
+                    log.info(">> [AdminService] Tự động đóng Job #{} ({}) do tài khoản Recruiter {} bị khóa ({})",
+                            j.getJobId(), j.getTitle(), user.getEmail(), status);
+                }
+            }
+        }
+
         String authProvider = (user.getPasswordHash() != null && user.getPasswordHash().contains("GoogleOAuth2_")) ? "GOOGLE" : "LOCAL";
+
+        String companyName = null;
+        if (user.getRole() == UserRole.RECRUITER) {
+            companyName = companyRepository.findByRecruiterId(user.getUserId())
+                    .map(Company::getCompanyName)
+                    .orElse(null);
+            if (companyName == null && recruiterRepository != null) {
+                companyName = recruiterRepository.findById(user.getUserId())
+                        .map(r -> r.getCompany() != null ? r.getCompany().getCompanyName() : null)
+                        .orElse(null);
+            }
+        }
 
         AdminUserResponse resp = new AdminUserResponse();
         resp.setId(user.getUserId());
@@ -182,13 +241,56 @@ public class AdminServiceImpl implements AdminService {
         resp.setEmail(user.getEmail());
         resp.setPhone(user.getPhone());
         resp.setRole(user.getRole());
+        resp.setCompany(companyName != null ? companyName : "-");
         resp.setStatus(user.getStatus());
         resp.setJoined(user.getCreatedAt());
         resp.setIsEmailVerified(user.getIsEmailVerified());
         resp.setAuthProvider(authProvider);
         resp.setAvatarUrl(user.getAvatarUrl());
         resp.setLastActiveAt(user.getUpdatedAt() != null ? user.getUpdatedAt() : user.getCreatedAt());
+
+        Subscription activeSub = subscriptionRepository.findFirstByUser_UserIdAndStatusOrderByCreatedAtDesc(
+                user.getUserId(), SubscriptionStatus.ACTIVE).orElse(null);
+        if (activeSub != null) {
+            resp.setCurrentTier(activeSub.getPlan() != null ? activeSub.getPlan().getPlanName() : "Gói Trả Phí");
+            resp.setCurrentPlanId(activeSub.getPlan() != null ? activeSub.getPlan().getPlanId() : null);
+            resp.setSubscriptionStatus("ACTIVE");
+            resp.setSubscriptionEndDate(activeSub.getEndDate());
+            resp.setQuotaLimit((activeSub.getCustomQuota() != null && activeSub.getCustomQuota() > 0)
+                    ? activeSub.getCustomQuota()
+                    : (activeSub.getPlan() != null ? activeSub.getPlan().getQuotaLimit() : null));
+        } else {
+            resp.setCurrentTier("Starter (Free)");
+            resp.setSubscriptionStatus("NONE");
+            resp.setQuotaLimit(user.getRole() == UserRole.RECRUITER ? 3 : 2);
+        }
         return resp;
+    }
+
+    private String resolveDocName(String originalDocName, String docUrl) {
+        if (originalDocName != null && !originalDocName.isBlank()
+                && !originalDocName.equalsIgnoreCase("Giay_Phep_Kinh_Doanh.pdf")
+                && !originalDocName.equalsIgnoreCase("GPKD_Doanh_Nghiep.pdf")) {
+            return originalDocName;
+        }
+        if (docUrl == null || docUrl.isBlank()) {
+            return "GPKD_Doanh_Nghiep.pdf";
+        }
+        String cleanUrl = docUrl.split("\\?")[0];
+        String lower = cleanUrl.toLowerCase();
+        String ext = ".pdf";
+        if (lower.endsWith(".png")) ext = ".png";
+        else if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) ext = ".jpg";
+        else if (lower.endsWith(".webp")) ext = ".webp";
+
+        int lastSlash = cleanUrl.lastIndexOf('/');
+        if (lastSlash >= 0 && lastSlash < cleanUrl.length() - 1) {
+            String extracted = cleanUrl.substring(lastSlash + 1);
+            if (extracted.contains(".")) {
+                return extracted;
+            }
+        }
+        return "GPKD_Doanh_Nghiep" + ext;
     }
 
     @Override
@@ -227,6 +329,17 @@ public class AdminServiceImpl implements AdminService {
                             recruiterEmail = r.getEmail();
                             recruiterPhone = r.getPhone();
                         }
+                    } else if (recruiterRepository != null) {
+                        List<Recruiter> recs = recruiterRepository.findAllByCompany_CompanyId(comp.getCompanyId());
+                        if (!recs.isEmpty()) {
+                            Recruiter firstRec = recs.get(0);
+                            User u = firstRec.getUser();
+                            if (u != null) {
+                                recruiterName = u.getFullName();
+                                recruiterEmail = u.getEmail();
+                                recruiterPhone = u.getPhone();
+                            }
+                        }
                     }
 
                     AdminCompanyResponse resp = new AdminCompanyResponse();
@@ -246,10 +359,12 @@ public class AdminServiceImpl implements AdminService {
                     resp.setStatus(comp.getStatus() != null ? comp.getStatus() : CompanyStatus.PENDING);
                     resp.setCreatedAt(comp.getCreatedAt());
 
-                    // Chỉ trả về docUrl và docName khi Recruiter thực sự đã tải lên file GPKD
-                    if (comp.getLicenseDocUrl() != null && !comp.getLicenseDocUrl().isBlank()) {
+                    // Chỉ trả về docUrl và docName khi Recruiter thực sự đã tải lên file GPKD hợp lệ
+                    boolean hasDoc = CompanyServiceImpl.isValidLicenseDocUrl(comp.getLicenseDocUrl());
+                    resp.setHasLicenseDoc(hasDoc);
+                    if (hasDoc) {
                         resp.setDocUrl(comp.getLicenseDocUrl());
-                        resp.setDocName(comp.getLicenseDocName() != null ? comp.getLicenseDocName() : "Giay_Phep_Kinh_Doanh.pdf");
+                        resp.setDocName(resolveDocName(comp.getLicenseDocName(), comp.getLicenseDocUrl()));
                     } else {
                         resp.setDocUrl(null);
                         resp.setDocName(null);
@@ -277,45 +392,78 @@ public class AdminServiceImpl implements AdminService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy công ty với ID: " + companyId));
 
         if (status == CompanyStatus.VERIFIED || status == CompanyStatus.ACTIVE) {
-            // Chặn phê duyệt nếu công ty chưa nộp file GPKD
-            if (company.getLicenseDocUrl() == null || company.getLicenseDocUrl().isBlank()) {
-                throw new BadRequestException("Nhà tuyển dụng này chưa tải lên Giấy phép kinh doanh (GPKD), không thể phê duyệt!");
+            // Chặn phê duyệt nếu công ty chưa nộp file GPKD hợp lệ
+            if (!CompanyServiceImpl.isValidLicenseDocUrl(company.getLicenseDocUrl())) {
+                throw new BadRequestException("Doanh nghiệp này chưa tải lên tệp Giấy phép kinh doanh hợp lệ, không thể xác nhận!");
             }
             company.setStatus(status);
             company.setVerifiedAt(LocalDateTime.now());
             company.setRejectionReason(null);
-            if (company.getRecruiterId() != null && notificationService != null) {
-                try {
-                    notificationService.createNotification(
-                            company.getRecruiterId(),
-                            NotificationType.SYSTEM_ALERT,
-                            "Hồ sơ Doanh nghiệp đã được xác minh thành công!",
-                            "Ban Quản Trị HireMate đã phê duyệt Giấy phép kinh doanh của " + company.getCompanyName() + ". Doanh nghiệp hiện đã được cấp quyền xuất bản tin tuyển dụng.",
-                            company.getCompanyId(),
-                            "companies"
-                    );
-                } catch (Exception e) {
-                    log.warn("Không thể gửi thông báo duyệt DN: {}", e.getMessage());
+            // Gửi thông báo tới toàn bộ HR của công ty
+            if (notificationService != null) {
+                Set<Long> targetRecruiterIds = new HashSet<>();
+                if (company.getRecruiterId() != null) targetRecruiterIds.add(company.getRecruiterId());
+                if (recruiterRepository != null) {
+                    List<Recruiter> companyRecs = recruiterRepository.findAllByCompany_CompanyId(company.getCompanyId());
+                    for (Recruiter r : companyRecs) {
+                        if (r.getRecruiterId() != null) targetRecruiterIds.add(r.getRecruiterId());
+                    }
+                }
+                for (Long rId : targetRecruiterIds) {
+                    try {
+                        notificationService.createNotification(
+                                rId,
+                                NotificationType.SYSTEM_ALERT,
+                                "Hồ sơ Doanh nghiệp đã được xác minh thành công!",
+                                "Ban Quản Trị HireMate đã phê duyệt Giấy phép kinh doanh của " + company.getCompanyName() + ". Doanh nghiệp hiện đã được cấp quyền xuất bản tin tuyển dụng.",
+                                company.getCompanyId(),
+                                "companies"
+                        );
+                    } catch (Exception e) {
+                        log.warn("Không thể gửi thông báo duyệt DN tới recruiter {}: {}", rId, e.getMessage());
+                    }
                 }
             }
-        } else if (status == CompanyStatus.REJECTED || status == CompanyStatus.BANNED) {
+        } else if (status == CompanyStatus.REJECTED || status == CompanyStatus.BANNED || status == CompanyStatus.SUSPENDED) {
             company.setStatus(status);
+            if (status == CompanyStatus.REJECTED && (notes == null || notes.isBlank())) {
+                throw new BadRequestException("Vui lòng cung cấp lý do từ chối hồ sơ Giấy phép kinh doanh của Doanh nghiệp!");
+            }
             company.setVerifiedAt(null);
             if (notes != null && !notes.isBlank()) {
                 company.setRejectionReason(notes);
             }
-            if (company.getRecruiterId() != null && notificationService != null) {
-                try {
-                    notificationService.createNotification(
-                            company.getRecruiterId(),
-                            NotificationType.SYSTEM_ALERT,
-                            "Hồ sơ Doanh nghiệp bị từ chối phê duyệt",
-                            "Ban Quản Trị đã từ chối hồ sơ pháp lý của " + company.getCompanyName() + ". Lý do: " + (notes != null ? notes : "Thông tin chưa khớp với Cổng DKKD quốc gia") + ". Vui lòng cập nhật lại hồ sơ.",
-                            company.getCompanyId(),
-                            "companies"
-                    );
-                } catch (Exception e) {
-                    log.warn("Không thể gửi thông báo từ chối DN: {}", e.getMessage());
+            // Tự động đóng các tin tuyển dụng đang PUBLISHED của công ty này
+            List<Job> companyJobs = jobRepository.findByCompany_CompanyId(companyId);
+            for (Job j : companyJobs) {
+                if (j.getStatus() == JobStatus.PUBLISHED) {
+                    j.setStatus(JobStatus.CLOSED);
+                    jobRepository.save(j);
+                    log.info(">> [AdminService] Tự động đóng Job #{} ({}) do công ty chuyển sang {}", j.getJobId(), j.getTitle(), status);
+                }
+            }
+            if (notificationService != null) {
+                Set<Long> targetRecruiterIds = new HashSet<>();
+                if (company.getRecruiterId() != null) targetRecruiterIds.add(company.getRecruiterId());
+                if (recruiterRepository != null) {
+                    List<Recruiter> companyRecs = recruiterRepository.findAllByCompany_CompanyId(company.getCompanyId());
+                    for (Recruiter r : companyRecs) {
+                        if (r.getRecruiterId() != null) targetRecruiterIds.add(r.getRecruiterId());
+                    }
+                }
+                for (Long rId : targetRecruiterIds) {
+                    try {
+                        notificationService.createNotification(
+                                rId,
+                                NotificationType.SYSTEM_ALERT,
+                                "Hồ sơ Doanh nghiệp bị tạm ngưng / từ chối phê duyệt",
+                                "Ban Quản Trị đã chuyển trạng thái công ty " + company.getCompanyName() + " sang " + status + ". Lý do: " + (notes != null ? notes : "Thông tin chưa đạt yêu cầu pháp lý") + ". Toàn bộ tin tuyển dụng đang đăng đã được tự động tạm đóng.",
+                                company.getCompanyId(),
+                                "companies"
+                        );
+                    } catch (Exception e) {
+                        log.warn("Không thể gửi thông báo từ chối DN tới recruiter {}: {}", rId, e.getMessage());
+                    }
                 }
             }
         }
@@ -330,6 +478,17 @@ public class AdminServiceImpl implements AdminService {
                 recruiterName = r.getFullName();
                 recruiterEmail = r.getEmail();
                 recruiterPhone = r.getPhone();
+            }
+        } else if (recruiterRepository != null) {
+            List<Recruiter> recs = recruiterRepository.findAllByCompany_CompanyId(company.getCompanyId());
+            if (!recs.isEmpty()) {
+                Recruiter firstRec = recs.get(0);
+                User u = firstRec.getUser();
+                if (u != null) {
+                    recruiterName = u.getFullName();
+                    recruiterEmail = u.getEmail();
+                    recruiterPhone = u.getPhone();
+                }
             }
         }
 
@@ -349,8 +508,15 @@ public class AdminServiceImpl implements AdminService {
         resp.setLogoUrl(company.getLogoUrl());
         resp.setStatus(company.getStatus());
         resp.setCreatedAt(company.getCreatedAt());
-        resp.setDocUrl(company.getLicenseDocUrl());
-        resp.setDocName(company.getLicenseDocName() != null ? company.getLicenseDocName() : "GPKD_Doanh_Nghiep.pdf");
+        boolean hasDoc = CompanyServiceImpl.isValidLicenseDocUrl(company.getLicenseDocUrl());
+        resp.setHasLicenseDoc(hasDoc);
+        if (hasDoc) {
+            resp.setDocUrl(company.getLicenseDocUrl());
+            resp.setDocName(resolveDocName(company.getLicenseDocName(), company.getLicenseDocUrl()));
+        } else {
+            resp.setDocUrl(null);
+            resp.setDocName(null);
+        }
         resp.setLicenseNumber(company.getLicenseNumber());
         resp.setLegalRepresentative(company.getLegalRepresentative());
         resp.setVerifiedAt(company.getVerifiedAt());
@@ -372,10 +538,27 @@ public class AdminServiceImpl implements AdminService {
         PaymentOrder order = paymentOrderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng ID: " + orderId));
 
+        // Tránh kích hoạt lặp lại nếu đơn đã được duyệt trước đó
+        if (order.getStatus() == PaymentOrderStatus.APPROVED) {
+            log.info(">> [AdminService] Đơn hàng ID {} đã được duyệt trước đó, bỏ qua kích hoạt lặp lại.", orderId);
+            return mapToPaymentOrderResponse(order);
+        }
+
+        if (order.getStatus() == PaymentOrderStatus.REFUNDED) {
+            throw new BadRequestException("Đơn hàng này đã được hoàn tiền trước đó, không thể phê duyệt lại!");
+        }
+        if (order.getStatus() == PaymentOrderStatus.REJECTED) {
+            throw new BadRequestException("Đơn hàng này đã bị từ chối trước đó, không thể phê duyệt!");
+        }
+
         order.setStatus(PaymentOrderStatus.APPROVED);
         order.setApprovedAt(LocalDateTime.now());
         if (adminNote != null && !adminNote.isBlank()) {
-            order.setAdminNote(adminNote);
+            if (order.getAdminNote() != null && order.getAdminNote().contains("YEARLY") && !adminNote.contains("YEARLY")) {
+                order.setAdminNote(order.getAdminNote() + " | " + adminNote);
+            } else {
+                order.setAdminNote(adminNote);
+            }
         }
         // Đảm bảo đơn hàng được gán gói trả phí chính xác nếu trước đó bị gán Free Plan
         SubscriptionPlan plan = order.getPlan();
@@ -401,10 +584,78 @@ public class AdminServiceImpl implements AdminService {
 
         paymentOrderRepository.save(order);
 
-        // Kích hoạt hoặc gia hạn Subscription
-        if (order.getUser() != null && plan != null) {
-            int durationDays = (plan.getDurationDays() != null && plan.getDurationDays() > 0) ? plan.getDurationDays() : 30;
+        // Kích hoạt hoặc gia hạn Subscription / Add-on
+        boolean isAddonOrder = (order.getPlan() == null && order.getAdminNote() != null && order.getAdminNote().contains("ADDON"))
+                || (order.getAdminNote() != null && order.getAdminNote().contains("AI_CREDITS"))
+                || (plan != null && plan.getPlanName() != null && plan.getPlanName().toUpperCase().contains("ADDON"));
 
+        if (isAddonOrder && order.getUser() != null) {
+            // Đơn hàng Add-on: TUYỆT ĐỐI KHÔNG làm hết hạn gói subscription chính hiện tại của khách hàng!
+            Subscription activeSub = subscriptionRepository
+                    .findFirstByUser_UserIdAndStatusOrderByCreatedAtDesc(order.getUser().getUserId(), SubscriptionStatus.ACTIVE)
+                    .orElse(null);
+
+            int addedCredits = 100;
+            if (order.getAdminNote() != null && order.getAdminNote().contains("500")) {
+                addedCredits = 500;
+            } else if (order.getAdminNote() != null && order.getAdminNote().contains("100")) {
+                addedCredits = 100;
+            } else if (plan != null && plan.getQuotaLimit() != null && plan.getQuotaLimit() > 0) {
+                addedCredits = plan.getQuotaLimit();
+            }
+
+            // Lưu số dư Credits AI trực tiếp vào CSDL Recruiter
+            if (recruiterRepository != null) {
+                var recOpt = recruiterRepository.findById(order.getUser().getUserId());
+                if (recOpt.isPresent()) {
+                    var rec = recOpt.get();
+                    int cur = rec.getAiCredits() != null ? rec.getAiCredits() : 0;
+                    rec.setAiCredits(cur + addedCredits);
+                    recruiterRepository.save(rec);
+                    log.info(">> [AdminService] Đã cộng {} AI credits vào tài khoản Recruiter ID #{} (tổng: {})",
+                            addedCredits, rec.getRecruiterId(), rec.getAiCredits());
+                }
+            }
+
+            if (activeSub != null) {
+                int curCredits = activeSub.getRemainingAiTests() != null ? activeSub.getRemainingAiTests() : 0;
+                activeSub.setRemainingAiTests(curCredits + addedCredits);
+                subscriptionRepository.save(activeSub);
+                log.info(">> [AdminService] Duyệt đơn Add-on {} ({} credits) an toàn cho User {} mà không làm gián đoạn gói chính.",
+                        order.getOrderCode(), addedCredits, order.getUser().getEmail());
+            } else {
+                String targetRole = (order.getUser().getRole() != null) ? order.getUser().getRole().name() : "RECRUITER";
+                SubscriptionPlan basicPlan = subscriptionPlanRepository.findByTargetRoleAndIsActiveTrueOrderByPriceAsc(targetRole).stream()
+                        .findFirst().orElse(null);
+                if (basicPlan != null) {
+                    Subscription newSub = Subscription.builder()
+                            .user(order.getUser())
+                            .plan(basicPlan)
+                            .order(order)
+                            .startDate(LocalDateTime.now())
+                            .endDate(LocalDateTime.now().plusDays(365))
+                            .status(SubscriptionStatus.ACTIVE)
+                            .customQuota(basicPlan.getQuotaLimit() != null ? basicPlan.getQuotaLimit() : 3)
+                            .remainingJobPosts(basicPlan.getQuotaLimit() != null ? basicPlan.getQuotaLimit() : 3)
+                            .remainingAiTests(basicPlan.getQuotaLimit() != null ? basicPlan.getQuotaLimit() : 3)
+                            .build();
+                    subscriptionRepository.save(newSub);
+                }
+            }
+        } else if (order.getUser() != null && plan != null) {
+            int durationDays = (plan.getDurationDays() != null && plan.getDurationDays() > 0) ? plan.getDurationDays() : 30;
+            if (order.getAdminNote() != null && order.getAdminNote().contains("YEARLY")) {
+                durationDays = 365;
+            }
+
+            // Hết hạn các gói cũ đang active của người dùng
+            List<Subscription> oldSubs = subscriptionRepository.findByUser_UserIdAndStatus(order.getUser().getUserId(), SubscriptionStatus.ACTIVE);
+            for (Subscription oldSub : oldSubs) {
+                oldSub.setStatus(SubscriptionStatus.EXPIRED);
+                subscriptionRepository.save(oldSub);
+            }
+
+            int defaultQuota = (plan.getQuotaLimit() != null && plan.getQuotaLimit() > 0) ? plan.getQuotaLimit() : 3;
             Subscription subscription = Subscription.builder()
                     .user(order.getUser())
                     .plan(plan)
@@ -412,10 +663,14 @@ public class AdminServiceImpl implements AdminService {
                     .startDate(LocalDateTime.now())
                     .endDate(LocalDateTime.now().plusDays(durationDays))
                     .status(SubscriptionStatus.ACTIVE)
+                    .customQuota(defaultQuota)
+                    .remainingJobPosts(defaultQuota)
+                    .remainingAiTests(defaultQuota)
                     .build();
 
             subscriptionRepository.save(subscription);
-            log.info("Kích hoạt subscription cho user: {}, gói: {}", order.getUser().getEmail(), plan.getPlanName());
+            log.info(">> [AdminService] Kích hoạt subscription cho user: {}, gói: {} (Hạn dùng: {} ngày, Quota: {})",
+                    order.getUser().getEmail(), plan.getPlanName(), durationDays, defaultQuota);
         }
 
         // Cập nhật lượt dùng voucher
@@ -452,6 +707,10 @@ public class AdminServiceImpl implements AdminService {
         PaymentOrder order = paymentOrderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng ID: " + orderId));
 
+        if (order.getStatus() != PaymentOrderStatus.PENDING) {
+            throw new BadRequestException("Chỉ có thể từ chối đơn hàng đang ở trạng thái Chờ xử lý (PENDING). Đơn hàng hiện tại đang là " + order.getStatus() + ". Nếu muốn hủy đơn đã duyệt, vui lòng sử dụng tính năng Hoàn tiền (Refund)!");
+        }
+
         order.setStatus(PaymentOrderStatus.REJECTED);
         if (adminNote != null && !adminNote.isBlank()) {
             order.setAdminNote(adminNote);
@@ -480,6 +739,77 @@ public class AdminServiceImpl implements AdminService {
     }
 
     @Override
+    @Transactional
+    public Map<String, Object> refundOrder(Long orderId) {
+        PaymentOrder order = paymentOrderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng ID: " + orderId));
+
+        if (order.getStatus() != PaymentOrderStatus.APPROVED) {
+            throw new IllegalArgumentException("Chỉ có thể hoàn tiền đơn hàng đã được phê duyệt (APPROVED). Trạng thái hiện tại: " + order.getStatus());
+        }
+
+        order.setStatus(PaymentOrderStatus.REFUNDED);
+        boolean isAddonOrder = (order.getPlan() == null && order.getAdminNote() != null && order.getAdminNote().contains("ADDON"))
+                || (order.getAdminNote() != null && order.getAdminNote().contains("AI_CREDITS"))
+                || (order.getPlan() != null && order.getPlan().getPlanName() != null && order.getPlan().getPlanName().toUpperCase().contains("ADDON"));
+        if (isAddonOrder && order.getUser() != null) {
+            int addedCredits = 100;
+            if (order.getAdminNote() != null && order.getAdminNote().contains("500")) addedCredits = 500;
+            else if (order.getAdminNote() != null && order.getAdminNote().contains("100")) addedCredits = 100;
+            else if (order.getPlan() != null && order.getPlan().getQuotaLimit() != null && order.getPlan().getQuotaLimit() > 0) addedCredits = order.getPlan().getQuotaLimit();
+            if (recruiterRepository != null) {
+                var recOpt = recruiterRepository.findById(order.getUser().getUserId());
+                if (recOpt.isPresent()) {
+                    var rec = recOpt.get();
+                    int cur = rec.getAiCredits() != null ? rec.getAiCredits() : 0;
+                    rec.setAiCredits(Math.max(0, cur - addedCredits));
+                    recruiterRepository.save(rec);
+                    log.info(">> [AdminService] Hoan tien don Add-on: Da thu hoi {} AI credits tu Recruiter #{}", addedCredits, rec.getRecruiterId());
+                }
+            }
+        }
+        paymentOrderRepository.save(order);
+
+        // Thu hồi quyền lợi gói cước: Hủy subscription ACTIVE tương ứng của user
+        if (order.getUser() != null) {
+            List<Subscription> activeSubs = subscriptionRepository.findByUser_UserIdAndStatus(order.getUser().getUserId(), SubscriptionStatus.ACTIVE);
+            for (Subscription sub : activeSubs) {
+                if (order.getPlan() != null && sub.getPlan() != null && sub.getPlan().getPlanId().equals(order.getPlan().getPlanId())) {
+                    sub.setStatus(SubscriptionStatus.EXPIRED);
+                    sub.setEndDate(LocalDateTime.now());
+                    subscriptionRepository.save(sub);
+                    log.info(">> [AdminService] Đã thu hồi subscription ID {} của user {} do hoàn tiền đơn hàng {}",
+                            sub.getSubscriptionId(), order.getUser().getEmail(), order.getOrderId());
+                }
+            }
+
+            // Gửi thông báo đến user
+            if (notificationService != null) {
+                try {
+                    String orderDisplay = order.getOrderCode() != null ? order.getOrderCode() : ("#ORD-" + order.getOrderId());
+                    notificationService.createNotification(
+                            order.getUser().getUserId(),
+                            NotificationType.SYSTEM_ALERT,
+                            "Đơn hàng đã được hoàn tiền & thu hồi gói cước",
+                            "Đơn hàng " + orderDisplay + " đã được Ban Quản Trị hoàn tiền thành công. Quyền lợi gói dịch vụ liên quan đã được thu hồi.",
+                            order.getOrderId(),
+                            "payment_orders"
+                    );
+                } catch (Exception ex) {
+                    log.warn("Không thể gửi thông báo hoàn tiền đơn hàng: {}", ex.getMessage());
+                }
+            }
+        }
+
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("orderId", order.getOrderId());
+        resp.put("orderCode", order.getOrderCode());
+        resp.put("status", "REFUNDED");
+        resp.put("message", "Đã hoàn tiền đơn hàng và thu hồi gói cước thành công.");
+        return resp;
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public List<SubscriptionPlan> getAllPlans() {
         return subscriptionPlanRepository.findAll();
@@ -502,7 +832,11 @@ public class AdminServiceImpl implements AdminService {
         if (plan.getTargetRole() == null || plan.getTargetRole().isBlank()) {
             plan.setTargetRole("RECRUITER");
         } else {
-            plan.setTargetRole(plan.getTargetRole().trim().toUpperCase());
+            String roleUpper = plan.getTargetRole().trim().toUpperCase();
+            if (!"RECRUITER".equals(roleUpper) && !"CANDIDATE".equals(roleUpper)) {
+                throw new BadRequestException("Đối tượng áp dụng gói dịch vụ chỉ có thể là 'RECRUITER' hoặc 'CANDIDATE'!");
+            }
+            plan.setTargetRole(roleUpper);
         }
         if (plan.getPlanType() == null || plan.getPlanType().isBlank()) {
             plan.setPlanType("COMBO");
@@ -536,7 +870,11 @@ public class AdminServiceImpl implements AdminService {
             plan.setPlanName(updated.getPlanName().trim());
         }
         if (updated.getTargetRole() != null && !updated.getTargetRole().isBlank()) {
-            plan.setTargetRole(updated.getTargetRole().trim().toUpperCase());
+            String roleUpper = updated.getTargetRole().trim().toUpperCase();
+            if (!"RECRUITER".equals(roleUpper) && !"CANDIDATE".equals(roleUpper)) {
+                throw new BadRequestException("Đối tượng áp dụng gói dịch vụ chỉ có thể là 'RECRUITER' hoặc 'CANDIDATE'!");
+            }
+            plan.setTargetRole(roleUpper);
         }
         if (updated.getPlanType() != null && !updated.getPlanType().isBlank()) {
             plan.setPlanType(updated.getPlanType().trim().toUpperCase());
@@ -568,10 +906,19 @@ public class AdminServiceImpl implements AdminService {
     public void deletePlan(Long planId) {
         SubscriptionPlan plan = subscriptionPlanRepository.findById(planId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy gói dịch vụ với ID: " + planId));
-        // Soft delete bằng cách tắt isActive
-        plan.setIsActive(false);
-        subscriptionPlanRepository.save(plan);
-        log.info(">> [AdminService] Admin đã vô hiệu hóa gói dịch vụ ID #{}", planId);
+        
+        boolean hasOrders = paymentOrderRepository.existsByPlan_PlanId(planId);
+        boolean hasSubs = subscriptionRepository.existsByPlan_PlanId(planId);
+
+        if (!hasOrders && !hasSubs) {
+            subscriptionPlanRepository.delete(plan);
+            log.info(">> [AdminService] Gói dịch vụ ID #{} chưa có phát sinh giao dịch, đã xóa vĩnh viễn khỏi hệ thống.", planId);
+        } else {
+            // Đã có dữ liệu lịch sử phát sinh -> chuyển sang lưu trữ ẩn (Soft Archive)
+            plan.setIsActive(false);
+            subscriptionPlanRepository.save(plan);
+            log.info(">> [AdminService] Gói dịch vụ ID #{} đã có lịch sử đơn hàng/đăng ký. Hệ thống đã tự động chuyển sang trạng thái Tạm ẩn (Lưu trữ).", planId);
+        }
     }
 
     @Override
@@ -589,11 +936,26 @@ public class AdminServiceImpl implements AdminService {
     @Override
     @Transactional
     public AdminUserResponse assignUserTier(Long userId, Long planId, Integer customDurationDays) {
+        return assignUserTier(userId, planId, customDurationDays, null);
+    }
+
+    @Override
+    @Transactional
+    public AdminUserResponse assignUserTier(Long userId, Long planId, Integer customDurationDays, Integer customQuota) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng ID: " + userId));
 
         SubscriptionPlan plan = subscriptionPlanRepository.findById(planId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy gói dịch vụ ID: " + planId));
+
+        // Kiểm tra tính tương thích giữa vai trò người dùng và gói dịch vụ
+        String userRole = user.getRole() != null ? user.getRole().name() : "";
+        String planTarget = plan.getTargetRole() != null ? plan.getTargetRole().trim().toUpperCase() : "";
+        if (!planTarget.isBlank() && !userRole.isBlank() && !planTarget.equalsIgnoreCase(userRole)) {
+            throw new IllegalArgumentException(String.format(
+                    "Không thể gán gói cước '%s' (dành cho %s) cho tài khoản mang vai trò %s!",
+                    plan.getPlanName(), planTarget, userRole));
+        }
 
         int duration = (customDurationDays != null && customDurationDays > 0)
                 ? customDurationDays
@@ -606,18 +968,40 @@ public class AdminServiceImpl implements AdminService {
             subscriptionRepository.save(s);
         }
 
-        // Tạo Subscription mới
+        int effectiveQuota = (customQuota != null && customQuota > 0)
+                ? customQuota
+                : (plan.getQuotaLimit() != null ? plan.getQuotaLimit() : 0);
+
         Subscription newSub = Subscription.builder()
                 .user(user)
                 .plan(plan)
                 .startDate(LocalDateTime.now())
                 .endDate(LocalDateTime.now().plusDays(duration))
                 .status(SubscriptionStatus.ACTIVE)
+                .remainingAiTests(effectiveQuota)
+                .remainingJobPosts(effectiveQuota)
+                .customQuota(effectiveQuota)
                 .build();
+
         subscriptionRepository.save(newSub);
 
-        log.info(">> [AdminService] Admin đã gán trực tiếp hạng mức '{}' cho user {} ({}) trong {} ngày.",
-                plan.getPlanName(), user.getEmail(), user.getUserId(), duration);
+        log.info(">> [AdminService] Admin đã gán trực tiếp hạng mức '{}' cho user {} ({}) trong {} ngày, customQuota={}.",
+                plan.getPlanName(), user.getEmail(), user.getUserId(), duration, customQuota);
+
+        if (user.getRole() == UserRole.RECRUITER && recruiterRepository != null) {
+            var recOpt = recruiterRepository.findById(user.getUserId());
+            if (recOpt.isPresent()) {
+                var rec = recOpt.get();
+                int curCredits = rec.getAiCredits() != null ? rec.getAiCredits() : 0;
+                rec.setAiCredits(curCredits + effectiveQuota);
+                recruiterRepository.save(rec);
+                log.info(">> [AdminService] Da cong {} AI credits vao bang Recruiter ID #{} khi Admin gan Tier", effectiveQuota, rec.getRecruiterId());
+            }
+        }
+
+        if (userCacheService != null) {
+            userCacheService.evict(user.getEmail(), user.getUserId());
+        }
 
         // Gửi thông báo đến user
         if (notificationService != null) {
@@ -640,6 +1024,11 @@ public class AdminServiceImpl implements AdminService {
             companyName = companyRepository.findByRecruiterId(user.getUserId())
                     .map(Company::getCompanyName)
                     .orElse(null);
+            if (companyName == null && recruiterRepository != null) {
+                companyName = recruiterRepository.findById(user.getUserId())
+                        .map(r -> r.getCompany() != null ? r.getCompany().getCompanyName() : null)
+                        .orElse(null);
+            }
         }
         String authProvider = (user.getPasswordHash() != null && user.getPasswordHash().contains("GoogleOAuth2_")) ? "GOOGLE" : "LOCAL";
 
@@ -660,7 +1049,7 @@ public class AdminServiceImpl implements AdminService {
         resp.setCurrentPlanId(plan.getPlanId());
         resp.setSubscriptionStatus("ACTIVE");
         resp.setSubscriptionEndDate(newSub.getEndDate());
-        resp.setQuotaLimit(plan.getQuotaLimit());
+        resp.setQuotaLimit((customQuota != null && customQuota > 0) ? customQuota : plan.getQuotaLimit());
         return resp;
     }
 
@@ -673,13 +1062,37 @@ public class AdminServiceImpl implements AdminService {
     @Override
     @Transactional
     public JobResponse updateJobApproval(Long jobId, JobApprovalStatus status) {
-        return jobService.updateJobApproval(jobId, status);
+        return updateJobApproval(jobId, status, null);
+    }
+
+    @Override
+    @Transactional
+    public JobResponse updateJobApproval(Long jobId, JobApprovalStatus status, String reason) {
+        return jobService.updateJobApproval(jobId, status, reason);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<Voucher> getAllVouchers() {
-        return voucherRepository.findAllByOrderByCreatedAtDesc();
+        List<Voucher> list = voucherRepository.findAllByOrderByCreatedAtDesc();
+        if (systemSettingsService != null && systemSettingsService.getSettings() != null) {
+            Map<String, VoucherRuleMeta> rules = systemSettingsService.getSettings().getVoucherRules();
+            if (rules != null) {
+                for (Voucher v : list) {
+                    if (v.getCode() != null) {
+                        VoucherRuleMeta m = rules.get(v.getCode().trim().toUpperCase());
+                        if (m != null) {
+                            v.setTargetRole(m.getTargetRole());
+                            v.setMinOrderAmount(m.getMinOrderAmount());
+                            v.setApplicableScope(m.getApplicableScope());
+                            v.setApplicablePlanIds(m.getApplicablePlanIds());
+                            v.setDescription(m.getDescription());
+                        }
+                    }
+                }
+            }
+        }
+        return list;
     }
 
     @Override
@@ -694,11 +1107,20 @@ public class AdminServiceImpl implements AdminService {
     @Override
     @Transactional
     public Voucher saveVoucher(Voucher voucher) {
+        if (voucher.getDiscountPercent() == null || voucher.getDiscountPercent() <= 0 || voucher.getDiscountPercent() > 100) {
+            throw new BadRequestException("Tỷ lệ giảm giá của voucher phải từ 1% đến 100%!");
+        }
+        if (voucher.getUsageLimit() != null && voucher.getUsageLimit() <= 0) {
+            throw new BadRequestException("Giới hạn lượt dùng của voucher phải lớn hơn 0!");
+        }
         if (voucher.getValidFrom() == null) {
             voucher.setValidFrom(LocalDateTime.now());
         }
         if (voucher.getValidTo() == null) {
             voucher.setValidTo(LocalDateTime.now().plusDays(30));
+        }
+        if (voucher.getValidTo().isBefore(voucher.getValidFrom())) {
+            throw new BadRequestException("Ngày hết hạn của voucher không được trước ngày bắt đầu có hiệu lực!");
         }
         if (voucher.getIsActive() == null) {
             voucher.setIsActive(true);
@@ -709,7 +1131,68 @@ public class AdminServiceImpl implements AdminService {
         if (voucher.getUsageLimit() == null) {
             voucher.setUsageLimit(100);
         }
-        return voucherRepository.save(voucher);
+        String cleanCode = voucher.getCode() != null ? voucher.getCode().trim().toUpperCase() : "VOUCHER";
+        voucher.setCode(cleanCode);
+
+        // Lưu quy tắc mở rộng VoucherRuleMeta vào SystemSettingsService bền vững
+        if (systemSettingsService != null) {
+            AdminSettingsDTO settings = systemSettingsService.getSettings();
+            if (settings == null) settings = AdminSettingsDTO.builder().build();
+            if (settings.getVoucherRules() == null) settings.setVoucherRules(new HashMap<>());
+
+            VoucherRuleMeta meta = settings.getVoucherRules().getOrDefault(cleanCode, new VoucherRuleMeta());
+            if (voucher.getTargetRole() != null) meta.setTargetRole(voucher.getTargetRole());
+            if (voucher.getMinOrderAmount() != null) meta.setMinOrderAmount(voucher.getMinOrderAmount());
+            if (voucher.getApplicableScope() != null) meta.setApplicableScope(voucher.getApplicableScope());
+            if (voucher.getApplicablePlanIds() != null) meta.setApplicablePlanIds(voucher.getApplicablePlanIds());
+            if (voucher.getDescription() != null) meta.setDescription(voucher.getDescription());
+
+            settings.getVoucherRules().put(cleanCode, meta);
+            systemSettingsService.updateSettings(settings);
+            log.info(">> [AdminService] Đã lưu VoucherRuleMeta bền vững cho voucher: {}", cleanCode);
+        }
+
+        Voucher saved = voucherRepository.save(voucher);
+
+        // Gắn lại các trường @Transient để trả về trọn vẹn cho Frontend
+        if (systemSettingsService != null && systemSettingsService.getSettings() != null) {
+            Map<String, VoucherRuleMeta> rules = systemSettingsService.getSettings().getVoucherRules();
+            if (rules != null) {
+                VoucherRuleMeta m = rules.get(cleanCode);
+                if (m != null) {
+                    saved.setTargetRole(m.getTargetRole());
+                    saved.setMinOrderAmount(m.getMinOrderAmount());
+                    saved.setApplicableScope(m.getApplicableScope());
+                    saved.setApplicablePlanIds(m.getApplicablePlanIds());
+                    saved.setDescription(m.getDescription());
+                }
+            }
+        }
+        return saved;
+    }
+
+    @Override
+    @Transactional
+    public void deleteVoucher(Long voucherId) {
+        Voucher voucher = voucherRepository.findById(voucherId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy voucher ID: " + voucherId));
+        if (systemSettingsService != null && voucher.getCode() != null) {
+            AdminSettingsDTO settings = systemSettingsService.getSettings();
+            if (settings != null && settings.getVoucherRules() != null) {
+                settings.getVoucherRules().remove(voucher.getCode().toUpperCase().trim());
+                systemSettingsService.updateSettings(settings);
+            }
+        }
+
+        boolean hasOrders = paymentOrderRepository.existsByVoucher_VoucherId(voucherId) || (voucher.getUsedCount() != null && voucher.getUsedCount() > 0);
+        if (!hasOrders) {
+            voucherRepository.delete(voucher);
+            log.info(">> [AdminService] Voucher ID #{} ({}) chưa từng được áp dụng, đã xóa vĩnh viễn khỏi CSDL.", voucherId, voucher.getCode());
+        } else {
+            voucher.setIsActive(false);
+            voucherRepository.save(voucher);
+            log.info(">> [AdminService] Voucher ID #{} ({}) đã có dữ liệu đơn hàng liên kết. Hệ thống chuyển sang trạng thái Vô hiệu hóa (Soft Delete) an toàn.", voucherId, voucher.getCode());
+        }
     }
 
     private PaymentOrderResponse mapToPaymentOrderResponse(PaymentOrder order) {
@@ -875,16 +1358,23 @@ public class AdminServiceImpl implements AdminService {
         } catch (Exception ignored) {}
 
         if (cv == null) {
-            // Nếu ứng viên chưa upload CV (hoặc tài khoản test mới tạo), khởi tạo dữ liệu mô phỏng kỹ năng chuẩn cho Demo Admin
-            String candName = candidate.getUser() != null ? candidate.getUser().getFullName() : "Ứng viên";
-            String title = job.getTitle() != null ? job.getTitle() : "Software Engineer";
-            cv = Cv.builder()
-                    .cvId(999000L + cid)
-                    .candidateId(cid)
-                    .fileName("CV_" + candName.replaceAll("\\s+", "_") + ".pdf")
-                    .summary("Kỹ sư phần mềm tài năng với định hướng chuyên sâu " + title + ", thành thạo các kiến trúc dịch vụ hiện đại và quy trình phát triển Agile/Scrum.")
-                    .parsedText("Họ tên: " + candName + ". Vị trí mục tiêu: " + title + ". Kỹ năng chuyên môn chính: Java, Spring Boot, SQL, PostgreSQL, RESTful API, Docker, Git, Cấu trúc dữ liệu & Thuật toán, React.js, JavaScript, TypeScript, Manual Testing, Postman API, Microservices.")
-                    .build();
+            // Tìm xem ứng viên đã có CV nào trong CSDL chưa
+            cv = cvRepository.findByCandidateId(cid).stream().findFirst().orElse(null);
+            if (cv == null) {
+                // Khởi tạo và lưu một bản CV mô phỏng hợp lệ vào CSDL để thỏa mãn ràng buộc khóa ngoại fk_ai_job_matches_cv
+                String candName = candidate.getUser() != null ? candidate.getUser().getFullName() : "Ứng viên";
+                String title = job.getTitle() != null ? job.getTitle() : "Software Engineer";
+                cv = Cv.builder()
+                        .candidateId(cid)
+                        .fileName("CV_Demo_" + candName.replaceAll("\\s+", "_") + ".pdf")
+                        .fileUrl("https://hiremate.vn/assets/demo-cv.pdf")
+                        .isDefault(true)
+                        .summary("Kỹ sư phần mềm tài năng với định hướng chuyên sâu " + title + ", thành thạo các kiến trúc dịch vụ hiện đại và quy trình phát triển Agile/Scrum.")
+                        .parsedText("Họ tên: " + candName + ". Vị trí mục tiêu: " + title + ". Kỹ năng chuyên môn chính: Java, Spring Boot, SQL, PostgreSQL, RESTful API, Docker, Git, Cấu trúc dữ liệu & Thuật toán, React.js, JavaScript, TypeScript, Manual Testing, Postman API, Microservices.")
+                        .build();
+                cv = cvRepository.save(cv);
+                log.info(">> [AdminService] Đã lưu CV mô phỏng ID #{} cho candidate ID #{} để so khớp AI an toàn.", cv.getCvId(), cid);
+            }
         }
 
         return aiJobMatchService.calculateAndSaveMatch(candidate, job, cv);

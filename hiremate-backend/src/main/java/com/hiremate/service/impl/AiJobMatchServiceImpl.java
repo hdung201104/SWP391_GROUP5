@@ -41,6 +41,13 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
     @org.springframework.context.annotation.Lazy
     private com.hiremate.service.JobService jobService;
 
+    @org.springframework.beans.factory.annotation.Autowired
+    @org.springframework.context.annotation.Lazy
+    private com.hiremate.service.SkillService skillService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private RecruiterRepository recruiterRepository;
+
     private final Map<Long, Skill> skillCache = new java.util.concurrent.ConcurrentHashMap<>();
 
     @jakarta.annotation.PostConstruct
@@ -53,6 +60,21 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
             });
             log.info(">> [AiJobMatchService] Preloaded {} skills into cache", skillCache.size());
         } catch (Exception ignored) {}
+    }
+
+    public Map<Long, Skill> getActiveSkillCache() {
+        try {
+            long count = skillRepository.count();
+            if (count != skillCache.size()) {
+                skillRepository.findAll().forEach(s -> {
+                    if (s.getSkillId() != null) {
+                        skillCache.put(s.getSkillId(), s);
+                    }
+                });
+                log.info(">> [AiJobMatchService] Synchronized dynamic skillCache (total: {})", skillCache.size());
+            }
+        } catch (Exception ignored) {}
+        return skillCache;
     }
 
     @Override
@@ -72,15 +94,17 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
             // Nếu ứng viên có CV mà bản ghi cũ chưa gắn CV, hoặc đổi sang CV khác: bắt buộc hủy cache tính lại
             boolean cvChanged = (cv != null && existing.get().getCv() == null)
                     || (cv != null && existing.get().getCv() != null && !cv.getCvId().equals(existing.get().getCv().getCvId()));
-            // Nếu bản ghi cũ bị kẹt điểm 70.0% phẳng hoặc chưa có cấu trúc 4 trụ cột multi-pillar: bắt buộc tính lại
-            boolean isStaleFlatScore = existing.get().getMatchingScore() == 70.0f;
+            // Nếu bản ghi cũ bị kẹt điểm 70.0% phẳng hoặc điểm ảo >= 99.0% hoặc chưa có cấu trúc 4 trụ cột multi-pillar hoặc chứa chuỗi raw JSON: bắt buộc tính lại
+            boolean isStaleFlatScore = existing.get().getMatchingScore() == 70.0f || existing.get().getMatchingScore() >= 99.0f;
             boolean isMissingMultiPillar = existing.get().getSkillGapJson() == null || !existing.get().getSkillGapJson().contains("skillsScore");
+            boolean hasRawJsonInGap = existing.get().getSkillGapJson() != null && 
+                    (existing.get().getSkillGapJson().contains("[{\"school") || existing.get().getSkillGapJson().contains("[{\"highlight"));
 
-            if (!cvChanged && !isStaleFlatScore && !isMissingMultiPillar && !enableGemini) {
+            if (!cvChanged && !isStaleFlatScore && !isMissingMultiPillar && !hasRawJsonInGap && !enableGemini) {
                 return mapToResponse(existing.get());
             }
-            log.info(">> [AiJobMatchService] Invalidate cache điểm cũ cho ứng viên {} và Job {} (cvChanged={}, isStaleFlat={}, isMissingMultiPillar={})",
-                    candidate.getCandidateId(), job.getJobId(), cvChanged, isStaleFlatScore, isMissingMultiPillar);
+            log.info(">> [AiJobMatchService] Invalidate cache điểm cũ cho ứng viên {} và Job {} (cvChanged={}, isStaleFlat={}, isMissingMultiPillar={}, hasRawJson={})",
+                    candidate.getCandidateId(), job.getJobId(), cvChanged, isStaleFlatScore, isMissingMultiPillar, hasRawJsonInGap);
         }
 
         // 1. Gather Candidate text/keywords from profile, skills, and CV
@@ -89,14 +113,19 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
         if (candidate.getBio() != null) candText.append(" ").append(candidate.getBio());
         if (candidate.getExperiencesJson() != null) candText.append(" ").append(candidate.getExperiencesJson());
         if (candidate.getEducationsJson() != null) candText.append(" ").append(candidate.getEducationsJson());
+        if (candidate.getProjectsJson() != null) candText.append(" ").append(candidate.getProjectsJson());
+        if (candidate.getCareerGoals() != null) candText.append(" ").append(candidate.getCareerGoals());
 
         // Bổ sung kỹ năng từ bảng candidate_skills
         try {
             List<CandidateSkill> candSkills = candidateSkillRepository.findByProfileId(candidate.getCandidateId());
             for (CandidateSkill cs : candSkills) {
-                Skill s = skillCache.computeIfAbsent(cs.getSkillId(), id -> skillRepository.findById(id).orElse(null));
+                Skill s = getActiveSkillCache().computeIfAbsent(cs.getSkillId(), id -> skillRepository.findById(id).orElse(null));
                 if (s != null && s.getSkillName() != null) {
                     candText.append(" ").append(s.getSkillName());
+                    if (s.getAliases() != null && !s.getAliases().isBlank()) {
+                        candText.append(" ").append(s.getAliases());
+                    }
                 }
             }
         } catch (Exception ignored) {}
@@ -123,7 +152,7 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
 
         if (jobSkills != null && !jobSkills.isEmpty()) {
             for (JobSkill js : jobSkills) {
-                Skill s = skillCache.computeIfAbsent(js.getSkillId(), id -> skillRepository.findById(id).orElse(null));
+                Skill s = getActiveSkillCache().computeIfAbsent(js.getSkillId(), id -> skillRepository.findById(id).orElse(null));
                 String name = s != null ? s.getSkillName() : ("Skill #" + js.getSkillId());
                 if (js.getImportance() == SkillImportance.MANDATORY) {
                     mandatorySkillNames.add(name);
@@ -133,10 +162,10 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
             }
         } else {
             // TUYỆT ĐỐI KHÔNG bóc tách văn bản tự do hay benefits làm kỹ năng!
-            // Quét text của Job (title, requirements, description) đối chiếu với kho từ điển kỹ năng chuẩn (skillCache)
+            // Quét text của Job (title, requirements, description) đối chiếu với kho từ điển kỹ năng chuẩn (getActiveSkillCache)
             String combinedJobText = (job.getTitle() + " " + (job.getRequirements() != null ? job.getRequirements() : "") + " " + (job.getDescription() != null ? job.getDescription() : "")).toLowerCase();
-            for (Skill s : skillCache.values()) {
-                if (s.getSkillName() != null && isSkillPresentInText(combinedJobText, s.getSkillName().toLowerCase())) {
+            for (Skill s : getActiveSkillCache().values()) {
+                if (s.getSkillName() != null && isSkillPresentInText(combinedJobText, s.getSkillName(), s.getAliases())) {
                     if (!mandatorySkillNames.contains(s.getSkillName()) && !preferredSkillNames.contains(s.getSkillName())) {
                         if (mandatorySkillNames.size() < 4) {
                             mandatorySkillNames.add(s.getSkillName());
@@ -150,7 +179,29 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
             // Nếu tin tuyển dụng sơ sài chưa gắn tag trong DB, suy luận danh mục kỹ năng chuẩn theo vị trí tuyển dụng (Domain Inference)
             if (mandatorySkillNames.isEmpty()) {
                 String titleLower = (job.getTitle() != null ? job.getTitle() : "").toLowerCase();
-                if (titleLower.contains("backend") || titleLower.contains("java") || titleLower.contains("spring") || titleLower.contains("intern backend")) {
+                String descLower = (job.getDescription() != null ? job.getDescription() : "").toLowerCase();
+                if (titleLower.contains("marketing") || descLower.contains("marketing") || titleLower.contains("seo") || titleLower.contains("content")) {
+                    mandatorySkillNames.addAll(List.of("Digital Marketing", "Content Creation", "SEO"));
+                    preferredSkillNames.addAll(List.of("Google Analytics", "Facebook Ads", "Canva"));
+                } else if (titleLower.contains("sales") || titleLower.contains("kinh doanh") || descLower.contains("bán hàng")) {
+                    mandatorySkillNames.addAll(List.of("B2B Sales", "Đàm phán thương lượng", "Kỹ năng giao tiếp"));
+                    preferredSkillNames.addAll(List.of("CRM", "Lead Generation", "Chăm sóc khách hàng"));
+                } else if (titleLower.contains("kế toán") || titleLower.contains("kiểm toán") || titleLower.contains("tài chính") || titleLower.contains("accountant")) {
+                    mandatorySkillNames.addAll(List.of("Kế toán tổng hợp", "Báo cáo tài chính", "MISA / FAST"));
+                    preferredSkillNames.addAll(List.of("Kê khai thuế", "Excel nâng cao", "Hóa đơn điện tử"));
+                } else if (titleLower.contains("nhân sự") || titleLower.contains("tuyển dụng") || titleLower.contains("hr") || titleLower.contains("c&b")) {
+                    mandatorySkillNames.addAll(List.of("Tuyển dụng & Đào tạo", "Luật Lao động", "Quản lý hồ sơ nhân sự"));
+                    preferredSkillNames.addAll(List.of("C&B", "BHXH", "Phỏng vấn & Đánh giá"));
+                } else if (titleLower.contains("thiết kế") || titleLower.contains("designer") || titleLower.contains("graphic") || titleLower.contains("ui/ux")) {
+                    mandatorySkillNames.addAll(List.of("Figma", "Adobe Photoshop", "Adobe Illustrator"));
+                    preferredSkillNames.addAll(List.of("UI/UX Design", "Tư duy thẩm mỹ", "Typography"));
+                } else if (titleLower.contains("business analyst") || titleLower.contains("ba") || descLower.contains("business analyst")) {
+                    mandatorySkillNames.addAll(List.of("Phân tích nghiệp vụ", "SRS / User Stories", "UML & BPMN"));
+                    preferredSkillNames.addAll(List.of("SQL cơ bản", "Jira", "Figma wireframe"));
+                } else if (titleLower.contains("logistics") || titleLower.contains("xuất nhập khẩu") || titleLower.contains("kho vận")) {
+                    mandatorySkillNames.addAll(List.of("Thủ tục Hải quan", "Chứng từ Xuất nhập khẩu", "Quản lý Kho vận"));
+                    preferredSkillNames.addAll(List.of("Incoterms", "Tiếng Anh thương mại", "Đàm phán cước tàu"));
+                } else if (titleLower.contains("backend") || titleLower.contains("java") || titleLower.contains("spring") || titleLower.contains("intern backend")) {
                     mandatorySkillNames.addAll(List.of("Java", "Spring Boot", "SQL / Database", "RESTful API"));
                     preferredSkillNames.addAll(List.of("Docker", "Git", "Cấu trúc dữ liệu"));
                 } else if (titleLower.contains("frontend") || titleLower.contains("react") || titleLower.contains("web")) {
@@ -165,17 +216,19 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
                 } else if (titleLower.contains("ai") || titleLower.contains("data") || titleLower.contains("python")) {
                     mandatorySkillNames.addAll(List.of("Python", "SQL", "Cấu trúc dữ liệu & Thuật toán", "Data Analysis"));
                     preferredSkillNames.addAll(List.of("Machine Learning", "Docker", "Git"));
-                } else {
-                    mandatorySkillNames.addAll(List.of("Lập trình cốt lõi (Java / Python / JS)", "Cơ sở dữ liệu (SQL)", "RESTful API"));
+                } else if (titleLower.contains("lập trình") || titleLower.contains("kỹ sư phần mềm") || titleLower.contains("kỹ sư cntt") || titleLower.contains("kỹ sư hệ thống") || titleLower.contains("developer") || titleLower.contains("engineer")) {
+                    mandatorySkillNames.addAll(List.of("Lập trình cốt lõi", "Cơ sở dữ liệu (SQL)", "RESTful API"));
                     preferredSkillNames.addAll(List.of("Git & Version Control", "Docker cơ bản"));
+                } else {
+                    mandatorySkillNames.addAll(List.of("Kỹ năng giao tiếp", "Giải quyết vấn đề", "Làm việc nhóm"));
+                    preferredSkillNames.addAll(List.of("Tin học văn phòng", "Tiếng Anh giao tiếp"));
                 }
             }
         }
 
         if (mandatorySkillNames.isEmpty() && preferredSkillNames.isEmpty()) {
-            mandatorySkillNames.add("Java");
-            mandatorySkillNames.add("SQL");
-            preferredSkillNames.add("Git");
+            mandatorySkillNames.addAll(List.of("Kỹ năng chuyên môn", "Giải quyết vấn đề"));
+            preferredSkillNames.add("Làm việc nhóm");
         }
 
         // 3. Đánh giá đối soát kỹ năng
@@ -186,7 +239,14 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
                 missingMandatory.add(skillName);
                 continue;
             }
-            if (isSkillPresentInText(candProfileStr, skillName.toLowerCase())) {
+            String aliases = null;
+            for (Skill s : getActiveSkillCache().values()) {
+                if (s.getSkillName() != null && s.getSkillName().equalsIgnoreCase(skillName.trim())) {
+                    aliases = s.getAliases();
+                    break;
+                }
+            }
+            if (isSkillPresentInText(candProfileStr, skillName, aliases)) {
                 matchedMandatory.add(skillName);
             } else {
                 missingMandatory.add(skillName);
@@ -200,10 +260,57 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
                 missingPreferred.add(skillName);
                 continue;
             }
-            if (isSkillPresentInText(candProfileStr, skillName.toLowerCase())) {
+            String aliases = null;
+            for (Skill s : getActiveSkillCache().values()) {
+                if (s.getSkillName() != null && s.getSkillName().equalsIgnoreCase(skillName.trim())) {
+                    aliases = s.getAliases();
+                    break;
+                }
+            }
+            if (isSkillPresentInText(candProfileStr, skillName, aliases)) {
                 matchedPreferred.add(skillName);
             } else {
                 missingPreferred.add(skillName);
+            }
+        }
+
+        // Semantic Skill Evaluation qua Gemini AI nếu còn kỹ năng chưa khớp bằng từ khóa
+        if (enableGemini && geminiAiService != null && (!missingMandatory.isEmpty() || !missingPreferred.isEmpty()) && !candProfileStr.isBlank()) {
+            try {
+                List<String> allMissing = new ArrayList<>();
+                allMissing.addAll(missingMandatory);
+                allMissing.addAll(missingPreferred);
+                Map<String, String> semanticMatches = geminiAiService.evaluateSemanticSkillMatches(job.getTitle(), candProfileStr, allMissing);
+                if (semanticMatches != null && !semanticMatches.isEmpty()) {
+                    List<String> newlyMatchedMand = new ArrayList<>();
+                    for (String m : missingMandatory) {
+                        for (String k : semanticMatches.keySet()) {
+                            if (k.equalsIgnoreCase(m)) {
+                                newlyMatchedMand.add(m);
+                                if (!matchedMandatory.contains(m)) matchedMandatory.add(m);
+                                break;
+                            }
+                        }
+                    }
+                    missingMandatory.removeAll(newlyMatchedMand);
+
+                    List<String> newlyMatchedPref = new ArrayList<>();
+                    for (String p : missingPreferred) {
+                        for (String k : semanticMatches.keySet()) {
+                            if (k.equalsIgnoreCase(p)) {
+                                newlyMatchedPref.add(p);
+                                if (!matchedPreferred.contains(p)) matchedPreferred.add(p);
+                                break;
+                            }
+                        }
+                    }
+                    missingPreferred.removeAll(newlyMatchedPref);
+
+                    log.info(">> [AiJobMatch] Semantic matching chuyển đổi thành công {} kỹ năng bắt buộc và {} kỹ năng ưu tiên",
+                            newlyMatchedMand.size(), newlyMatchedPref.size());
+                }
+            } catch (Exception ex) {
+                log.warn(">> [AiJobMatch] Semantic skill matching failed: {}", ex.getMessage());
             }
         }
 
@@ -218,33 +325,36 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
         boolean isInternOrFresher = titleLower.contains("intern") || titleLower.contains("thực tập") || titleLower.contains("fresher") || titleLower.contains("mới tốt nghiệp");
         boolean isSeniorOrLead = titleLower.contains("senior") || titleLower.contains("lead") || titleLower.contains("trưởng") || titleLower.contains("quản lý") || titleLower.contains("manager") || titleLower.contains("architect");
 
-        // Trọng số thích ứng theo cấp bậc (Adaptive Multi-Criteria Weights)
+        // Đọc cấu hình trọng số từ SystemSettingsService
+        com.hiremate.dto.response.AdminSettingsDTO settings = systemSettingsService != null ? systemSettingsService.getSettings() : null;
+        boolean enableAdaptive = settings == null || Boolean.TRUE.equals(settings.getAdaptiveRoleWeighting());
+
+        // Trọng số thích ứng theo cấp bậc (Adaptive Multi-Criteria Weights) hoặc Cấu hình Hệ thống
         int wSkills = 40;
         int wExp = 30;
         int wEdu = 15;
         int wSem = 15;
         String formulaName = "Chuẩn ATS Doanh Nghiệp (40% Kỹ năng - 30% Kinh nghiệm - 15% Học vấn - 15% AI Dự án)";
 
-        if (isInternOrFresher) {
+        if (enableAdaptive && isInternOrFresher) {
             wSkills = 45;
             wExp = 10;
             wEdu = 30;
             wSem = 15;
             formulaName = "Cấp bậc Thực tập & Mới tốt nghiệp (45% Kỹ năng - 10% Kinh nghiệm - 30% Học vấn - 15% Tiềm năng)";
-        } else if (isSeniorOrLead) {
+        } else if (enableAdaptive && isSeniorOrLead) {
             wSkills = 35;
             wExp = 45;
             wEdu = 5;
             wSem = 15;
             formulaName = "Cấp bậc Senior & Tech Lead (45% Kinh nghiệm - 35% Kỹ năng - 15% Dự án - 5% Bằng cấp)";
-        } else if (systemSettingsService != null && systemSettingsService.getSettings() != null) {
-            com.hiremate.dto.response.AdminSettingsDTO settings = systemSettingsService.getSettings();
+        } else if (settings != null) {
             if (settings.getSkillsWeight() != null && settings.getExperienceWeight() != null) {
                 wSkills = settings.getSkillsWeight();
                 wExp = settings.getExperienceWeight();
                 wEdu = settings.getEducationWeight() != null ? settings.getEducationWeight() : 15;
                 wSem = settings.getSemanticWeight() != null ? settings.getSemanticWeight() : Math.max(0, 100 - wSkills - wExp - wEdu);
-                formulaName = settings.getMatchingPreset() != null ? settings.getMatchingPreset() : "Tùy biến trọng số ATS";
+                formulaName = settings.getMatchingPreset() != null ? settings.getMatchingPreset() : "Cấu hình trọng số do Admin thiết lập";
             }
         }
 
@@ -254,40 +364,54 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
             // Trụ Cột 1: Kỹ Năng Chuyên Môn (Core & Preferred Skills)
             float scoreMandatory = mandatorySkillNames.isEmpty() ? 100.0f : ((float) matchedMandatory.size() / mandatorySkillNames.size()) * 100.0f;
             float scorePreferred = preferredSkillNames.isEmpty() ? 100.0f : ((float) matchedPreferred.size() / preferredSkillNames.size()) * 100.0f;
-            skillsScore = (scoreMandatory * 0.70f) + (scorePreferred * 0.30f);
+            float mandW = (settings != null && settings.getMandatoryWeight() != null) ? settings.getMandatoryWeight() / 100.0f : 0.70f;
+            float prefW = 1.0f - mandW;
+            skillsScore = (scoreMandatory * mandW) + (scorePreferred * prefW);
             if (scoreMandatory == 100.0f && (preferredSkillNames.isEmpty() || scorePreferred == 100.0f)) {
                 skillsScore = 100.0f;
             }
 
-            // Trụ Cột 2: Kinh Nghiệm Thực Tế & Cấp Bậc
-            float requiredYears = isInternOrFresher ? 0.0f : (isSeniorOrLead ? 4.0f : 2.0f);
-            float candYears = candidate.getExperienceYears() != null ? candidate.getExperienceYears().floatValue() : 0.0f;
-            if (candYears == 0.0f && cv != null && cv.getParsedText() != null) {
+            // Trụ Cột 2: Kinh Nghiệm Thực Tế & Cấp Bậc (Realistic Seniority & Years)
+            String jobTitleLower = (job.getTitle() != null ? job.getTitle() : "").toLowerCase();
+            boolean isSeniorOrLeadRole = jobTitleLower.contains("senior") || jobTitleLower.contains("lead") || jobTitleLower.contains("principal") || jobTitleLower.contains("trưởng nhóm");
+            boolean isInternOrFresherRole = jobTitleLower.contains("intern") || jobTitleLower.contains("fresher") || jobTitleLower.contains("thực tập");
+
+            boolean candIsIntern = candProfileStr.contains("intern") || candProfileStr.contains("thực tập") || candProfileStr.contains("fresher") || candProfileStr.contains("sinh viên") || candProfileStr.contains("student");
+
+            float candYears = 0.0f;
+            if (candidate.getExperienceYears() != null && candidate.getExperienceYears() > 0) {
+                candYears = candidate.getExperienceYears().floatValue();
+            } else if (candIsIntern) {
+                candYears = 0.5f;
+            } else if (cv != null && cv.getParsedText() != null) {
                 String cvLower = cv.getParsedText().toLowerCase();
-                if (cvLower.contains("senior") || cvLower.contains("lead")) candYears = 4.0f;
+                if (cvLower.contains("senior") && !candIsIntern) candYears = 4.0f;
                 else if (cvLower.contains("middle") || cvLower.contains("2 năm")) candYears = 2.0f;
                 else if (cvLower.contains("junior") || cvLower.contains("1 năm")) candYears = 1.0f;
+                else candYears = 0.8f;
             }
-            if (isInternOrFresher) {
-                experienceScore = candYears > 0 ? 100.0f : 88.0f;
+
+            float requiredYears = isInternOrFresherRole ? 0.0f : (isSeniorOrLeadRole ? 4.0f : 2.0f);
+            if (isInternOrFresherRole) {
+                experienceScore = candYears >= 0.5f ? 95.0f : 85.0f;
             } else if (requiredYears == 0.0f || candYears >= requiredYears) {
                 experienceScore = 100.0f;
             } else {
-                experienceScore = Math.max(40.0f, (candYears / requiredYears) * 100.0f);
+                experienceScore = Math.max(25.0f, (candYears / requiredYears) * 100.0f);
             }
 
             // Trụ Cột 3: Học Vấn & Bằng Cấp / Chứng Chỉ
             educationScore = 85.0f;
             String eduText = ((candidate.getEducationsJson() != null ? candidate.getEducationsJson() : "") + " " + candProfileStr).toLowerCase();
             if (eduText.contains("đại học") || eduText.contains("university") || eduText.contains("cử nhân") || eduText.contains("bachelor") || eduText.contains("kỹ sư")) {
-                educationScore = 95.0f;
+                educationScore = 92.0f;
             } else if (eduText.contains("thạc sĩ") || eduText.contains("master") || eduText.contains("tiến sĩ")) {
-                educationScore = 100.0f;
+                educationScore = 98.0f;
             } else if (eduText.contains("cao đẳng")) {
                 educationScore = 80.0f;
             }
             if (eduText.contains("aws") || eduText.contains("istqb") || eduText.contains("ielts") || eduText.contains("toeic") || eduText.contains("chứng chỉ")) {
-                educationScore = Math.min(100.0f, educationScore + 5.0f);
+                educationScore = Math.min(100.0f, educationScore + 4.0f);
             }
 
             // Trụ Cột 4: Dự Án & Ngữ Nghĩa Toàn Diện (AI Semantic Relevance)
@@ -296,11 +420,45 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
             for (String kw : keywords) {
                 if (candProfileStr.contains(kw)) kwHits++;
             }
-            semanticScore = Math.min(100.0f, 65.0f + (kwHits * 3.0f));
+            semanticScore = Math.min(90.0f, 60.0f + (kwHits * 2.5f));
+
+            // Domain & Role Specialization Alignment
+            float roleMultiplier = 1.0f;
+            boolean jobIsTester = jobTitleLower.contains("test") || jobTitleLower.contains("qa") || jobTitleLower.contains("qc") || jobTitleLower.contains("kiểm thử");
+            if (jobIsTester) {
+                boolean candHasTesting = candProfileStr.contains("tester") || candProfileStr.contains("test case") || candProfileStr.contains("kiểm thử") || candProfileStr.contains("qa") || candProfileStr.contains("qc") || candProfileStr.contains("selenium") || candProfileStr.contains("cypress") || candProfileStr.contains("junit");
+                if (!candHasTesting) {
+                    roleMultiplier = Math.min(roleMultiplier, 0.48f); // Candidate has no testing skills -> reduce to ~45-48%
+                }
+            }
+
+            boolean jobIsFrontend = jobTitleLower.contains("frontend") || jobTitleLower.contains("front-end") || jobTitleLower.contains("react") || jobTitleLower.contains("vue") || jobTitleLower.contains("angular");
+            if (jobIsFrontend) {
+                boolean candHasFrontend = candProfileStr.contains("frontend") || candProfileStr.contains("front-end") || candProfileStr.contains("react") || candProfileStr.contains("vue") || candProfileStr.contains("angular") || candProfileStr.contains("html") || candProfileStr.contains("css");
+                if (!candHasFrontend) {
+                    roleMultiplier = Math.min(roleMultiplier, 0.52f);
+                }
+            }
+
+            boolean jobIsBackend = jobTitleLower.contains("backend") || jobTitleLower.contains("back-end") || jobTitleLower.contains("java") || jobTitleLower.contains("spring");
+            if (jobIsBackend) {
+                boolean candHasBackend = candProfileStr.contains("backend") || candProfileStr.contains("back-end") || candProfileStr.contains("java") || candProfileStr.contains("spring") || candProfileStr.contains("database") || candProfileStr.contains("sql") || candProfileStr.contains("api");
+                if (!candHasBackend) {
+                    roleMultiplier = Math.min(roleMultiplier, 0.52f);
+                }
+            }
+
+            // Seniority Level Multiplier
+            float levelMultiplier = 1.0f;
+            if (isSeniorOrLeadRole && candIsIntern) {
+                levelMultiplier = 0.72f; // Intern applying for Senior role
+            }
 
             // Tổng điểm có trọng số
-            float weightedTotal = (skillsScore * wSkills + experienceScore * wExp + educationScore * wEdu + semanticScore * wSem) / 100.0f;
-            finalMatchingScore = Math.round(Math.min(100.0f, Math.max(0.0f, weightedTotal)) * 10.0f) / 10.0f;
+            float rawWeighted = (skillsScore * wSkills + experienceScore * wExp + educationScore * wEdu + semanticScore * wSem) / 100.0f;
+            float adjustedTotal = rawWeighted * roleMultiplier * levelMultiplier;
+            // Cap at 95.0f max so matches look realistic and natural
+            finalMatchingScore = Math.round(Math.min(95.0f, Math.max(15.0f, adjustedTotal)) * 10.0f) / 10.0f;
         }
 
         // 5. Construct JSON Gap & Reasoning
@@ -402,11 +560,57 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
     }
 
     @Override
+    @Transactional
+    public AiJobMatchResponse evaluateJobWithCv(Long jobId, Long cvId, User candidateUser) {
+        Job job = jobRepository.findById(jobId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy tin tuyển dụng: " + jobId));
+
+        Candidate candidate = candidateRepository.findById(candidateUser.getUserId())
+                .orElseThrow(() -> new IllegalStateException("Không tìm thấy hồ sơ ứng viên: " + candidateUser.getUserId()));
+
+        Cv targetCv;
+        if (cvId != null) {
+            targetCv = cvRepository.findById(cvId)
+                    .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy CV: " + cvId));
+            if (!targetCv.getCandidateId().equals(candidate.getCandidateId())) {
+                throw new org.springframework.security.access.AccessDeniedException("Bạn không có quyền đánh giá bằng CV của người khác");
+            }
+        } else {
+            targetCv = cvRepository.findByCandidateIdAndIsDefaultTrue(candidate.getCandidateId())
+                    .orElseGet(() -> {
+                        List<Cv> cvs = cvRepository.findByCandidateId(candidate.getCandidateId());
+                        return cvs.isEmpty() ? null : cvs.get(0);
+                    });
+        }
+
+        // Chấm điểm tức thì (force AI compute = true, lưu vào cache ai_job_matches)
+        return calculateAndSaveMatch(candidate, job, targetCv, true);
+    }
+
+    private boolean isAuthorizedRecruiterForJob(Job job, User user) {
+        if (user == null || job == null) return false;
+        if (user.getRole() == com.hiremate.enums.UserRole.ADMIN) {
+            return true;
+        }
+        if (job.getRecruiter() != null && job.getRecruiter().getRecruiterId().equals(user.getUserId())) {
+            return true;
+        }
+        if (job.getCompany() != null && recruiterRepository != null) {
+            Optional<Recruiter> recOpt = recruiterRepository.findById(user.getUserId());
+            if (recOpt.isPresent() && recOpt.get().getCompany() != null
+                    && recOpt.get().getCompany().getCompanyId().equals(job.getCompany().getCompanyId())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
     public List<AiJobMatchResponse> getMatchesForJob(Long jobId, User recruiterUser) {
         Job job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new IllegalArgumentException("Job not found: " + jobId));
 
-        if (!job.getRecruiter().getRecruiterId().equals(recruiterUser.getUserId())) {
+        if (!isAuthorizedRecruiterForJob(job, recruiterUser)) {
             throw new SecurityException("Unauthorized to view matches for this job");
         }
 
@@ -427,8 +631,8 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
     @Override
     @Transactional
     public List<com.hiremate.dto.response.JobResponse> getIndustrialJobRecommendations(User candidateUser, Float minScore, Integer limit) {
-        float effectiveMinScore = (minScore != null) ? minScore : 0.0f;
-        int effectiveLimit = (limit != null && limit > 0) ? Math.min(50, limit) : 20;
+        float effectiveMinScore = (minScore != null) ? minScore : 50.0f;
+        int effectiveLimit = (limit != null && limit > 0) ? Math.min(10, limit) : 10;
         Long candidateId = candidateUser.getUserId();
 
         Candidate candidate = candidateRepository.findById(candidateId).orElse(null);
@@ -441,6 +645,35 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
         // 1. KIỂM TRA BẢNG LƯU SẴN (ai_job_matches):
         // Nếu đã có kết quả tính toán trước đó, đọc và trả về tức thì (0ms compute, không chặn request)
         List<AiJobMatch> cachedMatches = aiJobMatchRepository.findRecommendations(candidateId, effectiveMinScore);
+
+        if (!cachedMatches.isEmpty()) {
+            // Kiểm tra xem các bản ghi trong cachedMatches có gắn đúng defaultCv hiện tại không
+            boolean cvChanged = false;
+            if (defaultCv != null) {
+                for (AiJobMatch m : cachedMatches) {
+                    if (m.getCv() == null || !defaultCv.getCvId().equals(m.getCv().getCvId())) {
+                        cvChanged = true;
+                        break;
+                    }
+                }
+            }
+            boolean hasStaleFlatScore = false;
+            for (AiJobMatch m : cachedMatches) {
+                if (m.getMatchingScore() != null && m.getMatchingScore() >= 99.0f) {
+                    hasStaleFlatScore = true;
+                    break;
+                }
+            }
+            if (cvChanged || hasStaleFlatScore) {
+                log.info(">> [AiJobMatch] Phát hiện cache AI Job Matches cũ (cvChanged={}, hasStaleFlatScore={}). Hủy cache và tính toán lại.", cvChanged, hasStaleFlatScore);
+                try {
+                    aiJobMatchRepository.deleteByCandidate_CandidateId(candidateId);
+                } catch (Exception ex) {
+                    log.warn(">> [AiJobMatch] Lỗi khi dọn cache: {}", ex.getMessage());
+                }
+                cachedMatches = Collections.emptyList();
+            }
+        }
 
         if (!cachedMatches.isEmpty()) {
             List<Job> matchedJobs = cachedMatches.stream()
@@ -555,7 +788,7 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
         Long candidateId = candidateUser.getUserId();
         log.info(">> [AiJobMatchService] Ứng viên {} yêu cầu Làm mới gợi ý AI (Re-Match). Xóa cache cũ...", candidateId);
         aiJobMatchRepository.deleteByCandidate_CandidateId(candidateId);
-        return getIndustrialJobRecommendations(candidateUser, 50.0f, 20);
+        return getIndustrialJobRecommendations(candidateUser, 50.0f, 10);
     }
 
     @Override
@@ -662,7 +895,7 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
         Job job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new IllegalArgumentException("Job not found: " + jobId));
 
-        if (!job.getRecruiter().getRecruiterId().equals(recruiterUser.getUserId())) {
+        if (!isAuthorizedRecruiterForJob(job, recruiterUser)) {
             throw new SecurityException("Unauthorized to run batch matching for this job");
         }
 
@@ -806,37 +1039,178 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
     }
 
     private boolean isSkillPresentInText(String text, String skillName) {
-        if (text == null || skillName == null || skillName.isBlank()) return false;
-        String cleanSkill = skillName.trim();
-
-        return hasRegexMatchWithNegation(text, cleanSkill);
+        return isSkillPresentInText(text, skillName, null);
     }
 
-    private static final Map<String, List<String>> COMMON_TECH_SYNONYMS = Map.ofEntries(
-            Map.entry("kubernetes", List.of("k8s")),
-            Map.entry("k8s", List.of("kubernetes")),
-            Map.entry("javascript", List.of("js", "ecmascript")),
-            Map.entry("typescript", List.of("ts")),
-            Map.entry("postgresql", List.of("postgres", "psql")),
-            Map.entry("react", List.of("reactjs", "react.js")),
-            Map.entry("reactjs", List.of("react", "react.js")),
-            Map.entry("vue", List.of("vuejs", "vue.js")),
-            Map.entry("vuejs", List.of("vue", "vue.js")),
-            Map.entry("node", List.of("nodejs", "node.js")),
-            Map.entry("nodejs", List.of("node", "node.js")),
-            Map.entry("ci/cd", List.of("cicd", "continuous integration", "jenkins", "github actions", "gitlab ci")),
-            Map.entry("message queue", List.of("kafka", "rabbitmq", "activemq")),
-            Map.entry("docker", List.of("containerization", "containers")),
-            Map.entry("aws", List.of("amazon web services")),
-            Map.entry("gcp", List.of("google cloud"))
-    );
+    private boolean isSkillPresentInText(String text, String skillName, String directAliases) {
+        if (text == null || skillName == null || skillName.isBlank()) return false;
+        String cleanSkill = skillName.trim();
+        String lowerSkill = cleanSkill.toLowerCase();
+
+        // 1. Kiểm tra chính tên kỹ năng
+        if (hasRegexMatchWithNegation(text, cleanSkill)) {
+            return true;
+        }
+
+        // 2. Nếu tên kỹ năng là dạng ghép (chứa '/', '|', '&', 'hoặc', 'or')
+        // Ví dụ: "Kiểm Thử API / Postman", "HTML5 / CSS3", "Flutter / Dart", "Git & Version Control", "SQL / Database"
+        if (cleanSkill.contains("/") || cleanSkill.contains("|") || cleanSkill.contains("&") 
+                || lowerSkill.contains(" hoặc ") || lowerSkill.contains(" or ")) {
+            String[] parts = cleanSkill.split("[/|&]|(?i)\\s+(hoặc|or)\\s+");
+            for (String p : parts) {
+                String sub = p.trim();
+                if (!sub.isBlank() && sub.length() >= 2) {
+                    if (isSkillPresentInText(text, sub, null)) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        // 3. Tách tiền tố phổ biến như "Frontend React.js" -> "React.js", "Lập trình Java" -> "Java"
+        String[] prefixKeywords = {"frontend", "backend", "fullstack", "lập trình", "chuyên viên", "kỹ sư", "nhân viên", "kỹ năng", "thành thạo", "hiểu biết"};
+        for (String pref : prefixKeywords) {
+            if (lowerSkill.startsWith(pref + " ") && lowerSkill.length() > pref.length() + 2) {
+                String stripped = cleanSkill.substring(pref.length() + 1).trim();
+                if (!stripped.isBlank() && isSkillPresentInText(text, stripped, null)) {
+                    return true;
+                }
+            }
+        }
+
+        // 4. Tách hậu tố phổ biến như "Developer", "Engineer", "Dev"
+        String[] suffixKeywords = {"developer", "engineer", "dev", "lập trình viên"};
+        for (String suff : suffixKeywords) {
+            if (lowerSkill.endsWith(" " + suff) && lowerSkill.length() > suff.length() + 2) {
+                String stripped = cleanSkill.substring(0, cleanSkill.length() - suff.length() - 1).trim();
+                if (!stripped.isBlank() && isSkillPresentInText(text, stripped, null)) {
+                    return true;
+                }
+            }
+        }
+
+        // 5. Kiểm tra directAliases được truyền vào
+        if (directAliases != null && !directAliases.isBlank()) {
+            String[] aliasArr = directAliases.split("[,;]");
+            for (String a : aliasArr) {
+                String trimmed = a.trim();
+                if (!trimmed.isBlank() && (hasRegexMatchWithNegation(text, trimmed) || hasRegexMatchDirect(text, trimmed))) {
+                    return true;
+                }
+            }
+        }
+
+        // 6. Tra cứu từ đồng nghĩa (aliases) trong kho từ điển động getActiveSkillCache()
+        for (Skill s : getActiveSkillCache().values()) {
+            if (s.getSkillName() != null && s.getSkillName().equalsIgnoreCase(cleanSkill)) {
+                if (s.getAliases() != null && !s.getAliases().isBlank()) {
+                    String[] aliasArr = s.getAliases().split("[,;]");
+                    for (String a : aliasArr) {
+                        String trimmed = a.trim();
+                        if (!trimmed.isBlank() && (hasRegexMatchWithNegation(text, trimmed) || hasRegexMatchDirect(text, trimmed))) {
+                            return true;
+                        }
+                    }
+                }
+                break;
+            }
+        }
+
+        // 7. Tra cứu từ điển COMMON_TECH_SYNONYMS
+        List<String> synonyms = COMMON_TECH_SYNONYMS.get(lowerSkill);
+        if (synonyms != null) {
+            for (String syn : synonyms) {
+                if (hasRegexMatchDirect(text, syn)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static final Map<String, List<String>> COMMON_TECH_SYNONYMS = new HashMap<>();
+
+    private static void putSyn(String key, List<String> syns) {
+        COMMON_TECH_SYNONYMS.put(key.toLowerCase(), syns);
+    }
+
+    static {
+        // React & Frontend Ecosystem
+        putSyn("react", List.of("reactjs", "react.js", "react js", "frontend react", "react frontend", "react native"));
+        putSyn("react.js", List.of("react", "reactjs", "react js", "frontend react", "react frontend"));
+        putSyn("reactjs", List.of("react", "react.js", "react js", "frontend react", "react frontend"));
+        putSyn("frontend react.js", List.of("react", "reactjs", "react.js", "react js", "frontend react", "react developer"));
+        putSyn("frontend react", List.of("react", "reactjs", "react.js", "react js", "frontend"));
+        putSyn("javascript", List.of("js", "ecmascript", "es6", "es6+", "vanilla js"));
+        putSyn("typescript", List.of("ts"));
+        putSyn("html5 / css3", List.of("html", "html5", "css", "css3", "tailwind", "tailwindcss", "bootstrap", "sass", "scss"));
+        putSyn("html", List.of("html5", "css", "css3", "web markup"));
+        putSyn("css", List.of("css3", "html", "html5", "tailwind", "bootstrap", "sass", "scss"));
+        putSyn("tailwind", List.of("tailwindcss", "css"));
+        putSyn("tailwindcss", List.of("tailwind", "css"));
+
+        // API & Postman & Web Services
+        putSyn("postman", List.of("kiểm thử api", "api testing", "postman api", "test api", "rest api testing", "api test"));
+        putSyn("kiểm thử api / postman", List.of("postman", "kiểm thử api", "api testing", "test api", "postman api", "api test"));
+        putSyn("kiểm thử api", List.of("postman", "api testing", "test api", "kiểm thử", "api test"));
+        putSyn("postman api", List.of("postman", "kiểm thử api", "api testing", "test api"));
+        putSyn("rest api", List.of("restful api", "restful", "rest", "api", "web api", "http api", "postman"));
+        putSyn("restful api", List.of("rest api", "restful", "rest", "api", "web api", "http api"));
+        putSyn("api", List.of("rest api", "restful api", "rest", "web api", "postman"));
+
+        // Backend & Java / Spring
+        putSyn("java", List.of("spring", "spring boot", "springboot", "java core", "j2ee", "jpa", "hibernate"));
+        putSyn("spring boot", List.of("spring", "springboot", "spring mvc", "java spring"));
+        putSyn("sql / database", List.of("sql", "mysql", "postgresql", "postgres", "sql server", "database", "rdbms", "cơ sở dữ liệu", "db"));
+        putSyn("cơ sở dữ liệu (sql)", List.of("sql", "mysql", "postgresql", "database", "rdbms", "cơ sở dữ liệu", "db"));
+        putSyn("sql", List.of("mysql", "postgresql", "postgres", "sql server", "database", "rdbms", "cơ sở dữ liệu", "db"));
+        putSyn("postgresql", List.of("postgres", "psql", "sql"));
+        putSyn("mysql", List.of("sql", "database"));
+
+        // Git & DevOps
+        putSyn("git", List.of("github", "gitlab", "bitbucket", "version control", "git & version control"));
+        putSyn("git & version control", List.of("git", "github", "gitlab", "bitbucket", "version control"));
+        putSyn("docker", List.of("container", "containers", "containerization", "docker compose"));
+        putSyn("kubernetes", List.of("k8s"));
+        putSyn("k8s", List.of("kubernetes"));
+        putSyn("ci/cd", List.of("cicd", "continuous integration", "jenkins", "github actions", "gitlab ci"));
+
+        // Testing & QA
+        putSyn("manual testing", List.of("manual test", "kiểm thử thủ công", "test case", "test design", "qa tester", "tester"));
+        putSyn("automation testing", List.of("automation test", "selenium", "cypress", "playwright", "appium"));
+
+        // Mobile
+        putSyn("flutter / dart", List.of("flutter", "dart", "mobile flutter"));
+        putSyn("flutter", List.of("dart", "flutter / dart", "mobile development"));
+        putSyn("dart", List.of("flutter", "flutter / dart"));
+
+        // Python & Data / AI
+        putSyn("python", List.of("python3", "django", "fastapi", "flask", "pandas", "numpy"));
+        putSyn("cấu trúc dữ liệu & thuật toán", List.of("cấu trúc dữ liệu", "thuật toán", "dsa", "data structures", "algorithms"));
+
+        // Node & Vue
+        putSyn("node", List.of("nodejs", "node.js", "express", "expressjs", "nest", "nestjs"));
+        putSyn("nodejs", List.of("node", "node.js", "express", "expressjs", "nest", "nestjs"));
+        putSyn("node.js", List.of("node", "nodejs", "express", "expressjs", "nest", "nestjs"));
+        putSyn("vue", List.of("vuejs", "vue.js", "vue 3", "vuex", "pinia"));
+        putSyn("vuejs", List.of("vue", "vue.js", "vue 3"));
+        putSyn("vue.js", List.of("vue", "vuejs", "vue 3"));
+    }
 
     private boolean hasRegexMatchWithNegation(String text, String cleanSkill) {
-        String quotedSkill = java.util.regex.Pattern.quote(cleanSkill);
-        String regex = "(?<=^|[^a-zA-Z0-9])" + quotedSkill + "(?![a-zA-Z0-9+#])";
+        if (text == null || cleanSkill == null || cleanSkill.isBlank()) return false;
+        String[] tokens = cleanSkill.trim().split("\\s+");
+        StringBuilder patternBuilder = new StringBuilder();
+        patternBuilder.append("(?<=^|[^\\p{L}\\p{N}])");
+        for (int i = 0; i < tokens.length; i++) {
+            if (i > 0) patternBuilder.append("\\s+");
+            patternBuilder.append(java.util.regex.Pattern.quote(tokens[i]));
+        }
+        patternBuilder.append("(?![\\p{L}\\p{N}+#])");
 
         java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(
-                regex,
+                patternBuilder.toString(),
                 java.util.regex.Pattern.CASE_INSENSITIVE
         );
         java.util.regex.Matcher matcher = pattern.matcher(text);
@@ -883,10 +1257,58 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
     }
 
     private boolean hasRegexMatchDirect(String text, String synonym) {
-        String quoted = java.util.regex.Pattern.quote(synonym);
-        String regex = "(?<=^|[^a-zA-Z0-9])" + quoted + "(?![a-zA-Z0-9+#])";
-        java.util.regex.Matcher m = java.util.regex.Pattern.compile(regex, java.util.regex.Pattern.CASE_INSENSITIVE).matcher(text);
+        if (text == null || synonym == null || synonym.isBlank()) return false;
+        String[] tokens = synonym.trim().split("\\s+");
+        StringBuilder patternBuilder = new StringBuilder();
+        patternBuilder.append("(?<=^|[^\\p{L}\\p{N}])");
+        for (int i = 0; i < tokens.length; i++) {
+            if (i > 0) patternBuilder.append("\\s+");
+            patternBuilder.append(java.util.regex.Pattern.quote(tokens[i]));
+        }
+        patternBuilder.append("(?![\\p{L}\\p{N}+#])");
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile(patternBuilder.toString(), java.util.regex.Pattern.CASE_INSENSITIVE).matcher(text);
         return m.find();
+    }
+
+    private String formatEducationSummary(String educationsJson) {
+        if (educationsJson == null || educationsJson.isBlank() || "[]".equals(educationsJson.trim())) {
+            return "Được đào tạo bài bản nền tảng kỹ thuật phần mềm";
+        }
+        try {
+            JsonNode root = objectMapper.readTree(educationsJson);
+            if (root.isArray() && !root.isEmpty()) {
+                List<String> formattedItems = new ArrayList<>();
+                for (JsonNode edu : root) {
+                    String school = edu.hasNonNull("school") ? edu.get("school").asText().trim() : "";
+                    String degree = edu.hasNonNull("degree") ? edu.get("degree").asText().trim() 
+                            : (edu.hasNonNull("major") ? edu.get("major").asText().trim() : "");
+                    String grade = edu.hasNonNull("grade") ? edu.get("grade").asText().trim() : "";
+                    String period = edu.hasNonNull("period") ? edu.get("period").asText().trim() 
+                            : (edu.hasNonNull("year") ? edu.get("year").asText().trim() : "");
+
+                    StringBuilder sb = new StringBuilder();
+                    if (!school.isBlank()) sb.append(school);
+                    if (!degree.isBlank()) {
+                        if (sb.length() > 0) sb.append(" - ");
+                        sb.append(degree);
+                    }
+                    if (!grade.isBlank()) {
+                        sb.append(" (").append(grade).append(")");
+                    }
+                    if (!period.isBlank()) {
+                        sb.append(" [Niên khóa: ").append(period).append("]");
+                    }
+                    if (sb.length() > 0) formattedItems.add(sb.toString());
+                }
+                if (!formattedItems.isEmpty()) {
+                    return "Hồ sơ ghi nhận: " + String.join(" | ", formattedItems);
+                }
+            }
+        } catch (Exception ignored) {}
+        if (!educationsJson.startsWith("[") && !educationsJson.startsWith("{")) {
+            return "Hồ sơ ghi nhận: " + educationsJson;
+        }
+        return "Được đào tạo bài bản nền tảng kỹ thuật phần mềm";
     }
 
     private com.hiremate.dto.response.AiDetailedEvaluationReport buildDefaultEvaluationReport(
@@ -942,7 +1364,7 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
                     .category("Bằng cấp & Học vấn")
                     .title("Nền tảng đào tạo chính quy chuyên ngành Công nghệ thông tin")
                     .cvEvidence(candidate != null && candidate.getEducationsJson() != null && !candidate.getEducationsJson().isBlank()
-                            ? "Hồ sơ ghi nhận bằng cấp/chuyên ngành: " + candidate.getEducationsJson()
+                            ? formatEducationSummary(candidate.getEducationsJson())
                             : "Được đào tạo bài bản nền tảng kỹ thuật phần mềm")
                     .jobMatch("Yêu cầu trình độ học vấn của doanh nghiệp")
                     .assessment("Đạt chuẩn")
@@ -1009,8 +1431,18 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
     @Override
     @Transactional
     public com.hiremate.dto.response.AiDetailedEvaluationReport getDetailedCandidateEvaluation(Long jobId, Long candidateId, boolean forceRefresh) {
+        return getDetailedCandidateEvaluation(jobId, candidateId, forceRefresh, null);
+    }
+
+    @Override
+    @Transactional
+    public com.hiremate.dto.response.AiDetailedEvaluationReport getDetailedCandidateEvaluation(Long jobId, Long candidateId, boolean forceRefresh, User currentUser) {
         Job job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new IllegalArgumentException("Job không tồn tại: " + jobId));
+
+        if (currentUser != null && !isAuthorizedRecruiterForJob(job, currentUser)) {
+            throw new SecurityException("Unauthorized: Bạn không có quyền truy cập báo cáo đánh giá ứng viên của tin tuyển dụng này.");
+        }
 
         Candidate candidate = candidateRepository.findById(candidateId)
                 .orElseThrow(() -> new IllegalArgumentException("Ứng viên không tồn tại: " + candidateId));
@@ -1024,15 +1456,19 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
                     try {
                         JsonNode root = objectMapper.readTree(m.getSkillGapJson());
                         if (root.has("detailedReport") && !root.get("detailedReport").isNull()) {
-                            com.hiremate.dto.response.AiDetailedEvaluationReport cachedReport = objectMapper.treeToValue(
-                                    root.get("detailedReport"), com.hiremate.dto.response.AiDetailedEvaluationReport.class
-                            );
-                            if (cachedReport != null && cachedReport.getMatchingScore() != null
-                                    && cachedReport.getAdvantages() != null && !cachedReport.getAdvantages().isEmpty()
-                                    && cachedReport.getDisadvantages() != null && !cachedReport.getDisadvantages().isEmpty()) {
-                                log.info(">> [AiJobMatchService] Trả về báo cáo AI từ DB CACHE cho candidateId={} jobId={} (0ms, 0 AI token)",
-                                        candidateId, jobId);
-                                return cachedReport;
+                            String detailedStr = root.get("detailedReport").toString();
+                            boolean hasRawJsonDump = detailedStr.contains("[{\\\"school") || detailedStr.contains("[{\\\"highlight") || detailedStr.contains("[{\\\"period");
+                            if (!hasRawJsonDump) {
+                                com.hiremate.dto.response.AiDetailedEvaluationReport cachedReport = objectMapper.treeToValue(
+                                        root.get("detailedReport"), com.hiremate.dto.response.AiDetailedEvaluationReport.class
+                                );
+                                if (cachedReport != null && cachedReport.getMatchingScore() != null) {
+                                    log.info(">> [AiJobMatchService] Trả về báo cáo AI từ DB CACHE cho candidateId={} jobId={} (0ms, 0 AI token)",
+                                            candidateId, jobId);
+                                    return cachedReport;
+                                }
+                            } else {
+                                log.info(">> [AiJobMatchService] Invalidate cache detailedReport do chứa raw JSON cũ cho candidateId={} jobId={}", candidateId, jobId);
                             }
                         }
                     } catch (Exception ex) {
@@ -1128,7 +1564,9 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
         String candidateEmail = candidate.getUser() != null ? candidate.getUser().getEmail() : "";
 
         com.hiremate.dto.response.AiDetailedEvaluationReport report = null;
-        if (geminiAiService != null && geminiAiService.isAvailable()) {
+        // TUYỆT ĐỐI CHỈ GỌI GEMINI AI KHI NGƯỜI DÙNG THỰC SỰ ẤN NÚT "CHẤM LẠI" (forceRefresh == true)
+        // Xem báo cáo bình thường, reload hoặc quay lại trang KHÔNG BAO GIỜ tốn token Gemini
+        if (forceRefresh && geminiAiService != null && geminiAiService.isAvailable()) {
             try {
                 report = geminiAiService.evaluateCandidateCvAgainstJob(
                         job.getTitle(),
@@ -1158,22 +1596,18 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
             );
         }
 
-        // Ưu tiên điểm số và xếp loại do chính Gemini AI đánh giá trực tiếp từ CV và JD
-        if (report.getMatchingScore() == null || report.getMatchingScore() <= 0) {
-            if (matchRes != null && matchRes.getMatchingScore() != null && matchRes.getMatchingScore() > 0) {
-                Float officialScore = matchRes.getMatchingScore();
-                report.setMatchingScore(officialScore);
-            } else {
-                report.setMatchingScore(75.0f);
-            }
+        // Đồng bộ điểm số và xếp loại thống nhất với Ma trận 4 Trụ Cột ATS (calculateAndSaveMatch)
+        if (matchRes != null && matchRes.getMatchingScore() != null && matchRes.getMatchingScore() > 0) {
+            report.setMatchingScore(matchRes.getMatchingScore());
+        } else if (report.getMatchingScore() == null || report.getMatchingScore() <= 0) {
+            report.setMatchingScore(75.0f);
         }
-        if (report.getMatchTier() == null || report.getMatchTier().isBlank()) {
-            float s = report.getMatchingScore();
-            report.setMatchTier(s >= 85 ? "⭐ Phù Hợp Xuất Sắc"
-                    : s >= 70 ? "✨ Phù Hợp Tốt (Khuyên Mời Phỏng Vấn)"
-                    : s >= 50 ? "💡 Tiềm Năng (Có Thể Cân Nhắc)"
-                    : "⚠️ Trau Dồi Kỹ Năng");
-        }
+
+        float s = report.getMatchingScore();
+        report.setMatchTier(s >= 85 ? "⭐ Phù Hợp Xuất Sắc"
+                : s >= 70 ? "✨ Phù Hợp Tốt (Khuyên Mời Phỏng Vấn)"
+                : s >= 50 ? "💡 Tiềm Năng (Có Thể Cân Nhắc)"
+                : "⚠️ Trau Dồi Kỹ Năng");
 
         // Bóc tách & Đồng bộ toàn diện danh sách tiêu chí còn thiếu từ bảng tuyển dụng vào báo cáo HR
         enrichAndSynchronizeReportDisadvantages(report, job, candidate, cv, matchRes);

@@ -12,4 +12,5 @@ public interface EmailService {
             com.hiremate.enums.ApplicationStatus status,
             String notes
     );
+    void sendCustomEmail(String toEmail, String candidateName, String subject, String bodyHtml);
 }

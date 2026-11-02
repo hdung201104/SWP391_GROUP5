@@ -25,6 +25,12 @@ axiosClient.interceptors.request.use(
     if (token && !isPublicAuth) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // If uploading FormData, delete Content-Type so Axios/browser sets boundary automatically
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+    }
+
     return config;
   },
   (error) => Promise.reject(error)
@@ -67,6 +73,9 @@ axiosClient.interceptors.response.use(
         localStorage.removeItem('token');
         localStorage.removeItem('refreshToken');
         localStorage.removeItem('user');
+        localStorage.removeItem('hiremate_user');
+        localStorage.removeItem('hiremate_hr_profile');
+        localStorage.removeItem('hiremate_recruiter_subscription');
         window.location.hash = '#/login';
       }
     }

@@ -17,5 +17,7 @@ public interface ApplicationService {
     List<com.hiremate.dto.response.PipelineLogResponse> getApplicationTimeline(Long applicationId, User user);
     ApplicationResponse withdrawApplication(Long applicationId, User candidate);
     List<ApplicationResponse> getRecruiterApplications(User recruiter);
+    ApplicationResponse getApplicationById(Long applicationId, User user);
     byte[] exportJobApplicationsCsv(Long jobId, User recruiter);
+    ApplicationResponse respondOffer(Long applicationId, com.hiremate.dto.request.RespondOfferRequest request, User candidate);
 }

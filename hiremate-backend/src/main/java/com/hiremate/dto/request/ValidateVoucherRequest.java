@@ -15,6 +15,7 @@ public class ValidateVoucherRequest {
     @com.fasterxml.jackson.annotation.JsonAlias({"orderAmount", "totalAmount"})
     private BigDecimal amount;
     private String userRole;
+    private Long userId;
     private Long planId;
     private String planName;
 

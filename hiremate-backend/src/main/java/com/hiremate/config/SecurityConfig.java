@@ -41,6 +41,7 @@ public class SecurityConfig {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .csrf(AbstractHttpConfigurer::disable)
+                .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         // CORS Preflight requests
@@ -50,8 +51,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/jobs/recommendations", "/api/v1/jobs/re-match").hasRole("CANDIDATE")
                         .requestMatchers(HttpMethod.GET, "/api/v1/jobs/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/skills", "/api/v1/skills/**").permitAll()
+                        .requestMatchers("/api/v1/companies/public/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/companies/*/license/preview", "/api/v1/companies/*/license/download", "/api/v1/companies/my/license/preview", "/api/v1/companies/my/license/download").hasAnyRole("ADMIN", "RECRUITER")
                         .requestMatchers(HttpMethod.GET, "/api/v1/companies", "/api/v1/companies/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/cvs/*/download", "/api/v1/cvs/*/preview").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/cvs/*/download", "/api/v1/cvs/*/preview").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/ai-interviews/config").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/ai-interviews/tts").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/ai-interviews/voice-turn", "/api/v1/ai-interviews/*/voice-turn", "/api/v1/ai-interviews/turn-complete", "/api/v1/ai-interviews/coach").permitAll()

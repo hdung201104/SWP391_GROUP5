@@ -19,6 +19,8 @@ public interface SkillService {
     void deleteSkill(Long skillId);
 
     // AI Self-Evolving Skill Taxonomy methods
+    String normalizeSkillName(String raw);
+    String detectCategory(String skillName, String fallback);
     AiJdSkillExtractResponse extractSkillsFromJd(AiJdSkillExtractRequest request);
     AiIndustrySkillGenerateResponse generateSkillsForIndustry(AiIndustrySkillGenerateRequest request);
     Skill findOrCreateNormalizedSkill(String rawName, String suggestedCategory, String aliases);

@@ -26,6 +26,7 @@ public class JwtTokenFilter extends OncePerRequestFilter {
     private final JwtUtil jwtUtil;
     private final com.hiremate.service.UserCacheService userCacheService;
     private final com.hiremate.service.TokenBlacklistService tokenBlacklistService;
+    private final com.hiremate.service.UserSessionService userSessionService;
 
     @Override
     protected void doFilterInternal(
@@ -34,14 +35,25 @@ public class JwtTokenFilter extends OncePerRequestFilter {
             @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
 
+        String token = null;
         final String authHeader = request.getHeader("Authorization");
 
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            token = authHeader.substring(7).trim();
+        } else {
+            String paramToken = request.getParameter("token");
+            if (paramToken == null || paramToken.isBlank()) {
+                paramToken = request.getParameter("access_token");
+            }
+            if (paramToken != null && !paramToken.isBlank()) {
+                token = paramToken.trim();
+            }
+        }
+
+        if (token == null || token.isBlank()) {
             filterChain.doFilter(request, response);
             return;
         }
-
-        final String token = authHeader.substring(7);
 
         // Kiểm tra Token Blacklist (ngăn chặn token đã logout)
         if (tokenBlacklistService.isBlacklisted(token)) {
@@ -85,6 +97,10 @@ public class JwtTokenFilter extends OncePerRequestFilter {
                     );
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
+
+                    if (userSessionService != null) {
+                        userSessionService.recordOrTouchSession(user.getUserId(), token, request);
+                    }
                 }
             }
         } catch (Exception ex) {

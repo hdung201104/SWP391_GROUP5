@@ -26,13 +26,54 @@ public class DataInitializer implements CommandLineRunner {
     private final com.hiremate.repository.PaymentOrderRepository paymentOrderRepository;
     private final com.hiremate.repository.SubscriptionPlanRepository subscriptionPlanRepository;
     private final PasswordEncoder passwordEncoder;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     @Override
     public void run(String... args) {
+        initDatabaseSchema();
         initAdminUser();
         initDefaultSubscriptionPlans();
         initPendingJobsForModeration();
         initPaymentOrders();
+    }
+
+    private void initDatabaseSchema() {
+        try {
+            log.info("Checking & updating schema for multi-branch enterprise & quota credits support...");
+            jdbcTemplate.execute("ALTER TABLE companies ADD COLUMN IF NOT EXISTS branches_json TEXT;");
+            jdbcTemplate.execute("ALTER TABLE companies ADD COLUMN IF NOT EXISTS benefits_json TEXT;");
+            jdbcTemplate.execute("ALTER TABLE companies ADD COLUMN IF NOT EXISTS license_number VARCHAR(100);");
+            jdbcTemplate.execute("ALTER TABLE companies ADD COLUMN IF NOT EXISTS license_doc_url TEXT;");
+            jdbcTemplate.execute("ALTER TABLE companies ADD COLUMN IF NOT EXISTS license_doc_name VARCHAR(255);");
+            jdbcTemplate.execute("ALTER TABLE companies ADD COLUMN IF NOT EXISTS legal_representative VARCHAR(150);");
+            jdbcTemplate.execute("ALTER TABLE companies ADD COLUMN IF NOT EXISTS rejection_reason TEXT;");
+            jdbcTemplate.execute("ALTER TABLE companies ADD COLUMN IF NOT EXISTS verified_at TIMESTAMP;");
+
+            jdbcTemplate.execute("ALTER TABLE recruiters ADD COLUMN IF NOT EXISTS branch_name VARCHAR(200);");
+            jdbcTemplate.execute("ALTER TABLE recruiters ADD COLUMN IF NOT EXISTS branch_address VARCHAR(300);");
+            jdbcTemplate.execute("ALTER TABLE recruiters ADD COLUMN IF NOT EXISTS is_head_recruiter BOOLEAN DEFAULT FALSE;");
+            jdbcTemplate.execute("ALTER TABLE recruiters ADD COLUMN IF NOT EXISTS ai_credits INT DEFAULT 0;");
+
+            jdbcTemplate.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS branch_name VARCHAR(200);");
+            jdbcTemplate.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS salary_currency VARCHAR(10) DEFAULT 'VND';");
+            jdbcTemplate.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS approval_status VARCHAR(20) DEFAULT 'PENDING';");
+            jdbcTemplate.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS vacancies_count INT DEFAULT 1;");
+            jdbcTemplate.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS total_views INT DEFAULT 0;");
+            jdbcTemplate.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS moderation_note TEXT;");
+            jdbcTemplate.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP;");
+
+            jdbcTemplate.execute("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS custom_quota INT;");
+            jdbcTemplate.execute("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS remaining_ai_tests INT;");
+            jdbcTemplate.execute("ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS remaining_job_posts INT;");
+            try {
+                jdbcTemplate.execute("DO $ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_applications_job_candidate') THEN ALTER TABLE applications ADD CONSTRAINT uq_applications_job_candidate UNIQUE (job_id, candidate_id); END IF; END $;");
+            } catch (Exception ex) {
+                log.warn("Could not add uq_applications_job_candidate unique constraint: {}", ex.getMessage());
+            }
+            log.info("Schema updated successfully for multi-branch enterprise & quota credits.");
+        } catch (Exception e) {
+            log.warn("Could not execute multi-branch schema migrations: {}", e.getMessage());
+        }
     }
 
     private void initDefaultSubscriptionPlans() {
@@ -71,40 +112,50 @@ public class DataInitializer implements CommandLineRunner {
                                 .isActive(true)
                                 .build(),
 
-                        // 2. Recruiter Plans
+                        // 2. Recruiter Plans (Basic, Starter, Professional, Enterprise)
                         com.hiremate.entity.SubscriptionPlan.builder()
-                                .planName("Nhà tuyển dụng Khởi đầu (Recruiter Starter)")
+                                .planName("Nhà tuyển dụng Cơ bản (Recruiter Basic)")
                                 .targetRole("RECRUITER")
-                                .planType("JOB_POSTING")
+                                .planType("BASIC")
                                 .price(java.math.BigDecimal.ZERO)
                                 .durationDays(30)
                                 .quotaLimit(3)
-                                .description("Dành cho doanh nghiệp trải nghiệm đăng tin tuyển dụng miễn phí [PERMS:{\"jobLimit\":3,\"cvViewLimit\":15,\"aiFilter\":false,\"badge\":\"Tiêu chuẩn\"}]")
+                                .description("Dành cho doanh nghiệp trải nghiệm đăng tin tuyển dụng cơ bản [PERMS:{\"jobLimit\":3,\"jobQuota\":3,\"jobPostingQuota\":3,\"cvViewLimit\":5,\"aiFilter\":false,\"aiMatching\":true,\"exportReport\":false,\"batchAction\":false,\"aiMockInterview\":false,\"badge\":\"Cơ bản\"}]")
                                 .isActive(true)
                                 .build(),
                         com.hiremate.entity.SubscriptionPlan.builder()
-                                .planName("Doanh nghiệp Tăng trưởng (Recruiter Business)")
+                                .planName("Nhà tuyển dụng Khởi nghiệp (Hiring Starter)")
+                                .targetRole("RECRUITER")
+                                .planType("JOB_POSTING")
+                                .price(new java.math.BigDecimal("199000"))
+                                .durationDays(30)
+                                .quotaLimit(10)
+                                .description("Đăng 10 tin tuyển dụng chất lượng cao, mở 25 hồ sơ ứng viên và lọc cơ bản [PERMS:{\"jobLimit\":10,\"jobQuota\":10,\"jobPostingQuota\":10,\"cvViewLimit\":25,\"aiFilter\":true,\"aiMatching\":true,\"exportReport\":true,\"batchAction\":false,\"aiMockInterview\":false,\"badge\":\"Khởi nghiệp\"}]")
+                                .isActive(true)
+                                .build(),
+                        com.hiremate.entity.SubscriptionPlan.builder()
+                                .planName("Doanh nghiệp Chuyên nghiệp (Hiring Professional)")
                                 .targetRole("RECRUITER")
                                 .planType("JOB_POSTING")
                                 .price(new java.math.BigDecimal("499000"))
                                 .durationDays(30)
-                                .quotaLimit(15)
-                                .description("Đăng 15 tin tuyển dụng chất lượng cao, AI gợi ý ứng viên tự động [PERMS:{\"jobLimit\":15,\"cvViewLimit\":100,\"aiFilter\":true,\"badge\":\"Doanh nghiệp xác thực\"}]")
+                                .quotaLimit(30)
+                                .description("Đăng 30 tin tuyển dụng chất lượng cao, mở 100 CV, AI gợi ý ứng viên tự động [PERMS:{\"jobLimit\":30,\"jobQuota\":30,\"jobPostingQuota\":30,\"cvViewLimit\":100,\"aiFilter\":true,\"aiMatching\":true,\"exportReport\":true,\"batchAction\":true,\"aiMockInterview\":true,\"badge\":\"Doanh nghiệp xác thực\"}]")
                                 .isActive(true)
                                 .build(),
                         com.hiremate.entity.SubscriptionPlan.builder()
-                                .planName("Tập đoàn Cao cấp (Recruiter Enterprise)")
+                                .planName("Tập đoàn Cao cấp (Hiring Enterprise VIP)")
                                 .targetRole("RECRUITER")
                                 .planType("COMBO")
-                                .price(new java.math.BigDecimal("1499000"))
+                                .price(new java.math.BigDecimal("1199000"))
                                 .durationDays(90)
-                                .quotaLimit(50)
-                                .description("Tuyển dụng không giới hạn, Top tin tuyển dụng nổi bật và AI Matching nâng cao [PERMS:{\"jobLimit\":50,\"cvViewLimit\":500,\"aiFilter\":true,\"badge\":\"Doanh nghiệp VIP\"}]")
+                                .quotaLimit(999)
+                                .description("Tuyển dụng không giới hạn (999 tin), Top tin nổi bật và AI Matching nâng cao [PERMS:{\"jobLimit\":999,\"jobQuota\":999,\"jobPostingQuota\":999,\"cvViewLimit\":9999,\"aiFilter\":true,\"aiMatching\":true,\"exportReport\":true,\"batchAction\":true,\"aiMockInterview\":true,\"badge\":\"Doanh nghiệp VIP\",\"featuredJobBadge\":true}]")
                                 .isActive(true)
                                 .build()
                 );
                 subscriptionPlanRepository.saveAll(defaultPlans);
-                log.info(">> [DataInitializer] Đã khởi tạo thành công 6 gói dịch vụ phân hạng chuẩn cho Ứng viên & Nhà tuyển dụng.");
+                log.info(">> [DataInitializer] Đã khởi tạo thành công 7 gói dịch vụ phân hạng chuẩn cho Ứng viên & Nhà tuyển dụng.");
             }
         } catch (Exception e) {
             log.warn(">> [DataInitializer] Lỗi khởi tạo gói dịch vụ mặc định: {}", e.getMessage());

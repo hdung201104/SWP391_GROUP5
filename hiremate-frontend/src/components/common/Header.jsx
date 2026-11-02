@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useLivingTheme } from '../../context/LivingThemeContext';
 import { getSavedJobs } from '../../utils/savedJobsStorage';
 import { HIREMATE_LOGO_URL } from '../../constants/branding';
@@ -215,7 +216,12 @@ export default function Header({
               targetRoute = '#/admin-dashboard';
             }
           } else if (isRoleRecruiter) {
-            if (n.refTable === 'companies' || (n.title && (n.title.includes('Doanh nghiệp') || n.title.includes('GPKD')))) {
+            if (n.refTable === 'applications' && n.refId) {
+              icon = 'group';
+              color = 'secondary';
+              targetRoute = '#/candidate-evaluation?appId=' + n.refId;
+              category = 'RECRUITMENT';
+            } else if (n.refTable === 'companies' || (n.title && (n.title.includes('Doanh nghiệp') || n.title.includes('GPKD')))) {
               icon = 'verified_user';
               color = 'primary';
               targetRoute = '#/recruiter-profile';
@@ -233,7 +239,9 @@ export default function Header({
             } else if (n.refTable === 'applications' || n.type === 'APPLICATION_STATUS') {
               icon = 'group';
               color = 'secondary';
-              targetRoute = '#/recruiter-jobs';
+              targetRoute = (n.refId && (n.refTable === 'applications' || n.type === 'APPLICATION_STATUS'))
+                ? '#/candidate-evaluation?appId=' + n.refId
+                : '#/recruiter-jobs';
               category = 'RECRUITMENT';
             }
           } else {
@@ -433,7 +441,9 @@ export default function Header({
     : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80');
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-[#32247b] text-white shadow-xl transition-all duration-500 rounded-t-2xl md:rounded-t-3xl border-b border-indigo-900/50">
+    <header className="sticky top-0 z-50 w-full bg-[#20145f]/80 backdrop-blur-2xl text-white shadow-[0_12px_40px_-5px_rgba(15,10,45,0.4)] transition-all duration-500 rounded-t-2xl md:rounded-t-[32px] border-b border-white/10 relative overflow-visible">
+      {/* Specular Top Sheen Highlight */}
+      <div className="pointer-events-none absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-white/40 to-transparent" aria-hidden="true" />
       <div className="w-full max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
         {/* Left: Brand Logo & Status Indicator */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
@@ -673,10 +683,10 @@ export default function Header({
                     ? 'mindskills-active-pill'
                     : 'mindskills-inactive-pill'
                   }`}
-                title="Mạng lưới đối tác doanh nghiệp trong hệ sinh thái HireMate"
+                title="Bảng tin khám phá các cơ hội việc làm trên thị trường"
               >
-                <span className="material-symbols-outlined text-[16px]">apartment</span>
-                <span>MẠNG LƯỚI DOANH NGHIỆP</span>
+                <span className="material-symbols-outlined text-[16px]">travel_explore</span>
+                <span>BẢNG TIN VIỆC LÀM</span>
               </button>
 
               <button
@@ -783,10 +793,43 @@ export default function Header({
 
               <button
                 onClick={() => {
+                  let isVerified = user?.role === 'ADMIN';
+                  if (!isVerified) {
+                    const companyKey = (user?.companyName || 'vng_corporation').toLowerCase().replace(/[^a-z0-9]/g, '_');
+                    try {
+                      const saved = localStorage.getItem(`hiremate_company_legal_${companyKey}`);
+                      if (saved) {
+                        const parsed = JSON.parse(saved);
+                        if (parsed.status === 'VERIFIED' || parsed.status === 'APPROVED' || parsed.status === 'ACTIVE') {
+                          isVerified = true;
+                        }
+                      }
+                      if (!isVerified) {
+                        const adminList = localStorage.getItem('hiremate_admin_companies_list');
+                        if (adminList) {
+                          const list = JSON.parse(adminList);
+                          const comp = list.find((c) =>
+                            (c.name || '').toLowerCase() === (user?.companyName || 'vng corporation').toLowerCase() ||
+                            (c.shortName || '').toLowerCase() === (user?.companyName || 'vng corporation').toLowerCase()
+                          );
+                          if (comp && (comp.status === 'VERIFIED' || comp.status === 'ACTIVE')) {
+                            isVerified = true;
+                          }
+                        }
+                      }
+                    } catch {}
+                  }
+
+                  if (!isVerified) {
+                    handleNav('#/company-profile?verify=required');
+                    return;
+                  }
+
                   const targetHash = `#/recruiter-jobs?action=new&t=${Date.now()}`;
                   handleNav(targetHash);
                 }}
                 className="px-2.5 py-1.5 rounded-full bg-[#10b981] hover:bg-[#059669] text-white text-[11px] font-bold tracking-wider flex items-center gap-1 cursor-pointer shadow-md transition-all hover:scale-105"
+                title="Đăng bài tuyển dụng mới"
               >
                 <span className="material-symbols-outlined text-xs font-bold">add_circle</span>
                 <span>ĐĂNG TIN MỚI</span>
@@ -1151,6 +1194,13 @@ export default function Header({
                       >
                         <span className="material-symbols-outlined text-sm text-[#34D399]">analytics</span>
                         <span>Báo cáo hiệu quả tuyển dụng</span>
+                      </button>
+                      <button
+                        onClick={() => { setShowProfileMenu(false); handleNav('#/settings?tab=security'); }}
+                        className="w-full text-left px-4 py-2 text-xs text-[#64748B] hover:text-[#1E293B] hover:bg-[#F1F5F9] flex items-center gap-2.5 transition-colors cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-sm text-[#F472B6]">lock_reset</span>
+                        <span>Đổi mật khẩu &amp; Bảo mật</span>
                       </button>
                     </div>
                   )}

@@ -84,8 +84,32 @@ public class SystemSettingsServiceImpl implements SystemSettingsService {
         if (newSettings.getPayosWebhookUrl() == null || newSettings.getPayosWebhookUrl().isBlank()) {
             newSettings.setPayosWebhookUrl("http://localhost:8088/api/v1/payment/payos-webhook");
         }
-        if (newSettings.getPayosAutoApproveEnabled() == null) {
-            newSettings.setPayosAutoApproveEnabled(true);
+        // Kiểm tra trọng số ATS nếu ở chế độ CUSTOM
+        if ("CUSTOM".equalsIgnoreCase(newSettings.getMatchingPreset())) {
+            int fourPillars = (newSettings.getSkillsWeight() != null ? newSettings.getSkillsWeight() : 0)
+                    + (newSettings.getExperienceWeight() != null ? newSettings.getExperienceWeight() : 0)
+                    + (newSettings.getEducationWeight() != null ? newSettings.getEducationWeight() : 0)
+                    + (newSettings.getSemanticWeight() != null ? newSettings.getSemanticWeight() : 0);
+            if (fourPillars != 100) {
+                throw new com.hiremate.exception.BadRequestException(
+                        "Tổng 4 trụ cột đánh giá ATS (Kỹ năng + Kinh nghiệm + Học vấn + Semantic) phải bằng chính xác 100%. Hiện tại: " + fourPillars + "%.");
+            }
+            int mandateAndPref = (newSettings.getMandatoryWeight() != null ? newSettings.getMandatoryWeight() : 0)
+                    + (newSettings.getPreferredWeight() != null ? newSettings.getPreferredWeight() : 0);
+            if (mandateAndPref != 100) {
+                throw new com.hiremate.exception.BadRequestException(
+                        "Tổng tỷ trọng Kỹ năng bắt buộc và Kỹ năng ưu tiên phải bằng 100%. Hiện tại: " + mandateAndPref + "%.");
+            }
+        }
+
+        // Bảo toàn voucherRules khi lưu cấu hình nếu newSettings không truyền hoặc rỗng
+        if (newSettings.getVoucherRules() == null || newSettings.getVoucherRules().isEmpty()) {
+            AdminSettingsDTO current = settingsRef.get();
+            if (current != null && current.getVoucherRules() != null && !current.getVoucherRules().isEmpty()) {
+                newSettings.setVoucherRules(new java.util.HashMap<>(current.getVoucherRules()));
+            } else {
+                newSettings.setVoucherRules(new java.util.HashMap<>());
+            }
         }
 
         settingsRef.set(newSettings);

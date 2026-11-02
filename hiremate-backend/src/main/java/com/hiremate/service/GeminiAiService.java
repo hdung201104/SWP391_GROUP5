@@ -46,6 +46,11 @@ public interface GeminiAiService {
     AiCvAnalysis analyzeCvImage(byte[] imageBytes, String mimeType);
 
     /**
+     * Parse chuỗi JSON phân tích CV đã được trích xuất thành đối tượng AiCvAnalysis.
+     */
+    AiCvAnalysis parseCvAnalysisJson(String jsonText, String fallbackContext);
+
+    /**
      * Tự động sinh danh sách câu hỏi phỏng vấn theo vị trí và cấp bậc (Junior, Middle, Senior).
      */
     List<String> generateInterviewQuestions(String targetPosition, String level, int count);
@@ -146,6 +151,12 @@ public interface GeminiAiService {
     java.util.Map<String, Object> parseJobDescriptionImage(byte[] imageBytes, String mimeType);
 
     /**
+     * Tự động đọc thông tin chức danh, cấp bậc, đãi ngộ và ma trận kỹ năng 70/30 để soạn thảo trọn bộ JD
+     * gồm Mô Tả Công Việc (Description), Yêu Cầu Ứng Viên (Requirements), Quyền Lợi (Benefits).
+     */
+    java.util.Map<String, Object> generateJobContent(java.util.Map<String, Object> jobParams);
+
+    /**
      * Đối soát chuyên sâu bằng Gemini AI giữa Hồ sơ CV thực tế của Ứng viên và Bài tuyển dụng (JD).
      * Phân tích rõ: Điểm tương thích, Năng lực phù hợp (kèm bằng chứng CV), Điểm yếu chưa phù hợp (lỗ hổng),
      * Nhận định chuyên gia và Bộ câu hỏi phỏng vấn thực tế.
@@ -169,5 +180,11 @@ public interface GeminiAiService {
      * Tự động thiết kế và sinh 10 - 15 kỹ năng cốt lõi theo tên ngành nghề bất kỳ.
      */
     java.util.List<com.hiremate.dto.response.SkillItemDTO> generateSkillsForIndustryWithAi(String industryName);
+
+    /**
+     * Tinh chỉnh & viết lại đoạn giới thiệu bản thân (Summary / Bio) chuẩn ATS
+     * dựa trên vị trí mục tiêu, kỹ năng, kinh nghiệm và tóm tắt hiện tại của ứng viên.
+     */
+    String rewriteCandidateSummary(String targetTitle, String currentSummary, java.util.List<String> skills, java.util.List<String> experiences, java.util.List<String> educations);
 }
 

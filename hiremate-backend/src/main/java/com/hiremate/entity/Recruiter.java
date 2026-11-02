@@ -64,6 +64,20 @@ public class Recruiter implements Persistable<Long> {
     @Column(name = "department", length = 150)
     private String department;
 
+    @Column(name = "branch_name", length = 200)
+    private String branchName;
+
+    @Column(name = "branch_address", length = 300)
+    private String branchAddress;
+
+    @Column(name = "is_head_recruiter")
+    @Builder.Default
+    private Boolean isHeadRecruiter = false;
+
+    @Column(name = "ai_credits")
+    @Builder.Default
+    private Integer aiCredits = 0;
+
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;

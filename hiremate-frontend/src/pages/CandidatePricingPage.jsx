@@ -392,7 +392,9 @@ export default function CandidatePricingPage({ user, onNavigate }) {
     setValidatingVoucher(true);
     let basePrice = 0;
     if (selectedPlanForPurchase) {
-      basePrice = billingCycle === 'YEARLY' 
+      const is7DaysPlan = selectedPlanForPurchase.durationDays === 7 || 
+        (selectedPlanForPurchase.name && selectedPlanForPurchase.name.toLowerCase().includes('plus'));
+      basePrice = (billingCycle === 'YEARLY' && !is7DaysPlan) 
         ? (selectedPlanForPurchase.yearlyTotal || selectedPlanForPurchase.yearlyPrice * 12) 
         : selectedPlanForPurchase.monthlyPrice;
     } else if (selectedAddonForPurchase) {
@@ -449,11 +451,23 @@ export default function CandidatePricingPage({ user, onNavigate }) {
   const applyPlanBenefits = () => {
     if (selectedPlanForPurchase) {
       setActivePlan(selectedPlanForPurchase.id);
-      if (selectedPlanForPurchase.id === 'CANDIDATE_PRO') {
+      if (
+        selectedPlanForPurchase.id === 'CANDIDATE_PLUS' ||
+        selectedPlanForPurchase.id === 'PLAN_PLUS' ||
+        (selectedPlanForPurchase.name && selectedPlanForPurchase.name.toLowerCase().includes('plus'))
+      ) {
+        setMockInterviewPasses(10);
+        setAtsCheckPasses(10);
+      } else if (
+        selectedPlanForPurchase.id === 'CANDIDATE_PRO' ||
+        selectedPlanForPurchase.id === 'PLAN_PRO'
+      ) {
         setMockInterviewPasses(30);
         setAtsCheckPasses(999);
-      }
-      if (selectedPlanForPurchase.id === 'CANDIDATE_VIP') {
+      } else if (
+        selectedPlanForPurchase.id === 'CANDIDATE_VIP' ||
+        selectedPlanForPurchase.id === 'PLAN_VIP'
+      ) {
         setMockInterviewPasses(9999);
         setAtsCheckPasses(9999);
       }
@@ -471,8 +485,11 @@ export default function CandidatePricingPage({ user, onNavigate }) {
     let basePrice = 0;
     let planName = '';
 
+    const is7DaysPlan = selectedPlanForPurchase?.durationDays === 7 || 
+      (selectedPlanForPurchase?.name && selectedPlanForPurchase?.name.toLowerCase().includes('plus'));
+
     if (selectedPlanForPurchase) {
-      basePrice = billingCycle === 'YEARLY' 
+      basePrice = (billingCycle === 'YEARLY' && !is7DaysPlan) 
         ? (selectedPlanForPurchase.yearlyTotal || selectedPlanForPurchase.yearlyPrice * 12) 
         : selectedPlanForPurchase.monthlyPrice;
       planName = selectedPlanForPurchase.name;
@@ -482,6 +499,8 @@ export default function CandidatePricingPage({ user, onNavigate }) {
     }
 
     const finalPrice = calculateFinalPrice();
+
+    const effectiveBillingCycle = is7DaysPlan ? 'WEEKLY' : billingCycle;
 
     // Map matched DB Plan ID
     const matchedPlan = dbPlans.find(p => 
@@ -496,13 +515,13 @@ export default function CandidatePricingPage({ user, onNavigate }) {
       planId: selectedPlanForPurchase?.dbPlanId || matchedPlan?.planId || null,
       planName: planName,
       targetRole: 'CANDIDATE',
-      billingCycle: billingCycle,
+      billingCycle: effectiveBillingCycle,
       paymentMethod: paymentMethod,
       voucherCode: appliedDiscount > 0 ? promoCode.trim().toUpperCase() : null,
       originalAmount: basePrice,
       discountAmount: voucherDiscountAmount,
       amount: finalPrice,
-      orderNote: `Thanh toán ${planName} (${billingCycle === 'YEARLY' ? '12 Tháng' : '1 Tháng'}) - ${paymentMethod}`
+      orderNote: `Thanh toán ${planName} (${is7DaysPlan ? '7 Ngày' : billingCycle === 'YEARLY' ? '12 Tháng' : '1 Tháng'}) - ${paymentMethod}`
     };
 
     try {
@@ -674,7 +693,9 @@ export default function CandidatePricingPage({ user, onNavigate }) {
   const calculateFinalPrice = () => {
     let basePrice = 0;
     if (selectedPlanForPurchase) {
-      basePrice = billingCycle === 'YEARLY' 
+      const is7DaysPlan = selectedPlanForPurchase.durationDays === 7 || 
+        (selectedPlanForPurchase.name && selectedPlanForPurchase.name.toLowerCase().includes('plus'));
+      basePrice = (billingCycle === 'YEARLY' && !is7DaysPlan) 
         ? (selectedPlanForPurchase.yearlyTotal || selectedPlanForPurchase.yearlyPrice * 12) 
         : selectedPlanForPurchase.monthlyPrice;
     } else if (selectedAddonForPurchase) {
@@ -696,8 +717,9 @@ export default function CandidatePricingPage({ user, onNavigate }) {
 
     return rawList.map((db, idx) => {
       const dbMonthly = Number(db.price !== undefined ? db.price : db.monthlyPrice) || 0;
-      const dbYearlyTotal = Math.round(dbMonthly * 12 * 0.7); // 30% discount on yearly
-      const dbMonthlyEquivalent = Math.round(dbMonthly * 0.7);
+      const is7Days = db.durationDays === 7 || (db.planName && db.planName.toLowerCase().includes('plus')) || (db.name && db.name.toLowerCase().includes('plus'));
+      const dbYearlyTotal = is7Days ? dbMonthly : Math.round(dbMonthly * 12 * 0.7); // 30% discount on yearly, gói tuần giữ nguyên
+      const dbMonthlyEquivalent = is7Days ? dbMonthly : Math.round(dbMonthly * 0.7);
       const dbName = db.planName || db.name || `Gói Dịch Vụ #${idx + 1}`;
       const quota = db.quotaLimit !== undefined ? db.quotaLimit : (dbMonthly === 0 ? 3 : dbMonthly < 100000 ? 10 : dbMonthly < 200000 ? 30 : 999);
       const planId = db.planId ? `PLAN_${db.planId}` : (db.id || `PLAN_${idx}`);
@@ -722,7 +744,7 @@ export default function CandidatePricingPage({ user, onNavigate }) {
         buttonText: isFree ? 'Gói Mặc Định' : isAceOrVip ? 'Nâng Cấp Gói VIP' : isPro ? 'Nâng Cấp Pro AI' : 'Nâng Cấp Ngay',
         isPopular: isPro || (dbMonthly >= 100000 && dbMonthly < 200000),
         quotaLimit: quota,
-        durationDays: db.durationDays || 30,
+        durationDays: is7Days ? 7 : (db.durationDays || 30),
         features: enriched.features,
         missingFeatures: enriched.missingFeatures,
       };
@@ -758,12 +780,13 @@ export default function CandidatePricingPage({ user, onNavigate }) {
   };
 
   const hasActivePaidPlan = Boolean(
-    activeSubscriptionInfo &&
-    activeSubscriptionInfo.active &&
-    (
-      (activeSubscriptionInfo.planId && Number(activeSubscriptionInfo.planId) > 1) ||
-      (activeSubscriptionInfo.planName && !activeSubscriptionInfo.planName.toLowerCase().includes('free') && !activeSubscriptionInfo.planName.toLowerCase().includes('starter'))
-    )
+    (activeSubscriptionInfo &&
+      activeSubscriptionInfo.active &&
+      (
+        (activeSubscriptionInfo.planId && Number(activeSubscriptionInfo.planId) > 1) ||
+        (activeSubscriptionInfo.planName && !activeSubscriptionInfo.planName.toLowerCase().includes('free') && !activeSubscriptionInfo.planName.toLowerCase().includes('starter'))
+      )
+    ) || (activePlan && activePlan !== 'CANDIDATE_FREE' && activePlan !== 'PLAN_1' && activePlan !== 'BASIC')
   );
 
   const currentTier = hasActivePaidPlan ? getCandidatePlanTier(activeSubscriptionInfo?.planName || activePlan) : 0;
@@ -802,7 +825,12 @@ export default function CandidatePricingPage({ user, onNavigate }) {
                 <span className="font-extrabold text-white uppercase tracking-wider flex items-center gap-1.5">
                   {hasActivePaidPlan && <span className="text-amber-300">👑</span>}
                   <span>
-                    {activeSubscriptionInfo?.planName || (activePlan === 'CANDIDATE_VIP' ? 'Career Ace' : activePlan === 'CANDIDATE_PRO' ? 'Practice Pro' : 'Free Candidate (Miễn Phí)')}
+                    {activeSubscriptionInfo?.planName || (
+                      activePlan === 'CANDIDATE_VIP' || activePlan === 'PLAN_VIP' ? 'Career Ace' :
+                      activePlan === 'CANDIDATE_PRO' || activePlan === 'PLAN_PRO' ? 'Practice Pro' :
+                      activePlan === 'CANDIDATE_PLUS' || activePlan === 'PLAN_PLUS' ? 'Practice Plus' :
+                      'Free Candidate (Miễn Phí)'
+                    )}
                   </span>
                 </span>
                 {hasActivePaidPlan ? (
@@ -1251,7 +1279,11 @@ export default function CandidatePricingPage({ user, onNavigate }) {
                     <div className="flex justify-between items-center text-slate-600">
                       <span>Chu kỳ thanh toán:</span>
                       <span className="font-semibold text-emerald-600">
-                        {billingCycle === 'YEARLY' ? '12 Tháng (Trọn Gói 1 Năm - Tiết Kiệm 30%)' : '1 Tháng (Linh Hoạt)'}
+                        {(selectedPlanForPurchase.durationDays === 7 || (selectedPlanForPurchase.name && selectedPlanForPurchase.name.toLowerCase().includes('plus')))
+                          ? '7 Ngày (Gói Trải Nghiệm Tuần)'
+                          : billingCycle === 'YEARLY'
+                          ? '12 Tháng (Trọn Gói 1 Năm - Tiết Kiệm 30%)'
+                          : '1 Tháng (Linh Hoạt)'}
                       </span>
                     </div>
                   )}
@@ -1260,12 +1292,14 @@ export default function CandidatePricingPage({ user, onNavigate }) {
                     <span className="font-bold">
                       {formatVND(
                         selectedPlanForPurchase
-                          ? (billingCycle === 'YEARLY' ? (selectedPlanForPurchase.yearlyTotal || selectedPlanForPurchase.yearlyPrice * 12) : selectedPlanForPurchase.monthlyPrice)
+                          ? ((billingCycle === 'YEARLY' && selectedPlanForPurchase.durationDays !== 7 && !(selectedPlanForPurchase.name && selectedPlanForPurchase.name.toLowerCase().includes('plus')))
+                              ? (selectedPlanForPurchase.yearlyTotal || selectedPlanForPurchase.yearlyPrice * 12)
+                              : selectedPlanForPurchase.monthlyPrice)
                           : (selectedAddonForPurchase?.price || 0)
                       )}
                     </span>
                   </div>
-                  {billingCycle === 'YEARLY' && selectedPlanForPurchase && (
+                  {billingCycle === 'YEARLY' && selectedPlanForPurchase && selectedPlanForPurchase.durationDays !== 7 && !(selectedPlanForPurchase.name && selectedPlanForPurchase.name.toLowerCase().includes('plus')) && (
                     <div className="flex justify-between items-center text-emerald-700 text-xs font-semibold">
                       <span>Ưu đãi thanh toán trọn năm (-30%):</span>
                       <span>Đã tiết kiệm {formatVND(selectedPlanForPurchase.monthlyPrice * 12 * 0.3)}</span>
@@ -1289,7 +1323,9 @@ export default function CandidatePricingPage({ user, onNavigate }) {
                   currentPlanName={selectedPlanForPurchase?.name || selectedAddonForPurchase?.name}
                   basePrice={
                     selectedPlanForPurchase
-                      ? (billingCycle === 'YEARLY' ? (selectedPlanForPurchase.yearlyTotal || selectedPlanForPurchase.yearlyPrice * 12) : selectedPlanForPurchase.monthlyPrice)
+                      ? ((billingCycle === 'YEARLY' && selectedPlanForPurchase.durationDays !== 7 && !(selectedPlanForPurchase.name && selectedPlanForPurchase.name.toLowerCase().includes('plus')))
+                          ? (selectedPlanForPurchase.yearlyTotal || selectedPlanForPurchase.yearlyPrice * 12)
+                          : selectedPlanForPurchase.monthlyPrice)
                       : (selectedAddonForPurchase?.price || 0)
                   }
                   appliedVoucher={appliedVoucher}

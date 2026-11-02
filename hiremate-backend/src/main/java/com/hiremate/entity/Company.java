@@ -59,6 +59,12 @@ public class Company {
     @Column(name = "legal_representative", length = 150)
     private String legalRepresentative;
 
+    @Column(name = "branches_json", columnDefinition = "TEXT")
+    private String branchesJson;
+
+    @Column(name = "benefits_json", columnDefinition = "TEXT")
+    private String benefitsJson;
+
     @Column(name = "rejection_reason", columnDefinition = "TEXT")
     private String rejectionReason;
 

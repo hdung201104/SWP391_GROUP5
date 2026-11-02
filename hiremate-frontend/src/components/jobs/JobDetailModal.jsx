@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { calculateJobDeadline } from '../../utils/jobTimeUtils';
+import { aiMatchApi, cvApi } from '../../api';
 
 // Helper for brand logos with reliable fallback
 const getBrandLogo = (job) => {
@@ -152,6 +153,36 @@ const getRoleTemplate = (title = '') => {
 export default function JobDetailModal({ job, onClose, onApply, onViewCompanyProfile }) {
   if (!job) return null;
 
+  const compName = job.companyName || job.company?.companyName || job.company || 'Doanh Nghiệp Tuyển Dụng';
+  const rawCompStatus = job.companyStatus || job.company?.status || 'PENDING';
+  let isCompanyVerified = Boolean(job.companyVerified || rawCompStatus === 'VERIFIED' || rawCompStatus === 'ACTIVE');
+  let isCompanyBlocked = Boolean(job.companyBlocked || rawCompStatus === 'REJECTED' || rawCompStatus === 'BANNED' || rawCompStatus === 'SUSPENDED');
+  let companyRejectionReason = job.companyRejectionReason || job.company?.rejectionReason || null;
+
+  try {
+    const adminList = localStorage.getItem('hiremate_admin_companies_list');
+    if (adminList) {
+      const list = JSON.parse(adminList);
+      const matched = list.find((c) =>
+        (c.name || '').toLowerCase() === compName.toLowerCase() ||
+        (c.shortName || '').toLowerCase() === compName.toLowerCase()
+      );
+      if (matched) {
+        if (matched.status === 'REJECTED' || matched.status === 'BANNED' || matched.status === 'SUSPENDED') {
+          isCompanyBlocked = true;
+          isCompanyVerified = false;
+          if (matched.rejectionReason) companyRejectionReason = matched.rejectionReason;
+        } else if (matched.status === 'VERIFIED' || matched.status === 'ACTIVE') {
+          isCompanyVerified = true;
+          isCompanyBlocked = false;
+        }
+      }
+    }
+  } catch {}
+
+  const rawJobStatus = job.jobStatus || job.status || 'PUBLISHED';
+  const isJobClosed = Boolean(job.jobClosed || rawJobStatus === 'CLOSED' || isCompanyBlocked);
+
   const [activeTab, setActiveTab] = useState('ALL');
   const [logoError, setLogoError] = useState(false);
 
@@ -232,15 +263,8 @@ export default function JobDetailModal({ job, onClose, onApply, onViewCompanyPro
   // Bóc tách mô tả công việc (LUÔN giữ nguyên dữ liệu người dùng nhập)
   const getDescriptionBullets = () => {
     const userBullets = parseCleanBullets(job.description);
-    if (userBullets.length >= 2) {
+    if (userBullets.length > 0) {
       return userBullets;
-    }
-    if (userBullets.length === 1) {
-      // Giữ nguyên câu người dùng đã nhập làm bullet 1, bổ sung trách nhiệm chuẩn cho vị trí
-      const supplemental = template.descriptions.filter(
-        (d) => !d.toLowerCase().includes(userBullets[0].toLowerCase())
-      );
-      return [userBullets[0], ...supplemental.slice(0, 4)];
     }
     return template.descriptions;
   };
@@ -248,15 +272,8 @@ export default function JobDetailModal({ job, onClose, onApply, onViewCompanyPro
   // Bóc tách yêu cầu công việc (LUÔN giữ nguyên dữ liệu người dùng nhập)
   const getRequirementBullets = () => {
     const userBullets = parseCleanBullets(job.requirements);
-    if (userBullets.length >= 2) {
+    if (userBullets.length > 0) {
       return userBullets;
-    }
-    if (userBullets.length === 1) {
-      // Giữ nguyên yêu cầu người dùng nhập ở vị trí đầu tiên
-      const supplemental = template.requirements.filter(
-        (r) => !r.toLowerCase().includes(userBullets[0].toLowerCase())
-      );
-      return [userBullets[0], ...supplemental.slice(0, 4)];
     }
     return template.requirements;
   };
@@ -283,10 +300,13 @@ export default function JobDetailModal({ job, onClose, onApply, onViewCompanyPro
   const benefitBullets = getBenefitsBullets();
 
   const handleOpenCompanyProfile = () => {
+    if (isCompanyBlocked) return;
     if (onViewCompanyProfile) {
       onViewCompanyProfile(job);
     } else {
-      window.location.hash = `#/company-profile?id=${job.companyId || job.company?.companyId || ''}`;
+      const compId = job.companyId || job.company?.companyId || '';
+      if (onClose) onClose();
+      window.location.hash = compId ? `#/?companyId=${compId}` : '#/';
     }
   };
 
@@ -304,12 +324,56 @@ export default function JobDetailModal({ job, onClose, onApply, onViewCompanyPro
   // Tính toán thời hạn tuyển dụng và tình trạng hết hạn
   const deadlineInfo = calculateJobDeadline(job.deadlineDate || job.deadline);
 
-  const aiMatchScore =
+  const storedUser = localStorage.getItem('user');
+  const user = storedUser ? JSON.parse(storedUser) : null;
+  const isCandidate = user?.role === 'CANDIDATE' || user?.role === 'ROLE_CANDIDATE';
+
+  const [currentMatchScore, setCurrentMatchScore] = useState(
     job.aiMatchScore != null
       ? job.aiMatchScore
       : job.matchingScore != null
       ? Math.round(job.matchingScore)
-      : null;
+      : null
+  );
+  const [matchReasoning, setMatchReasoning] = useState(job.aiReasoning || null);
+  const [myCvs, setMyCvs] = useState([]);
+  const [selectedCvId, setSelectedCvId] = useState('');
+  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [evalError, setEvalError] = useState(null);
+
+  useEffect(() => {
+    if (isCandidate && cvApi?.getMyCvs) {
+      cvApi.getMyCvs()
+        .then((res) => {
+          const cvs = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+          setMyCvs(cvs);
+          const defaultCv = cvs.find((c) => c.isDefault) || cvs[0];
+          if (defaultCv) setSelectedCvId(defaultCv.cvId);
+        })
+        .catch(() => {});
+    }
+  }, [isCandidate]);
+
+  const handleRequestAiEvaluation = async () => {
+    setIsEvaluating(true);
+    setEvalError(null);
+    try {
+      const jobId = job.jobId || job.id;
+      const res = await aiMatchApi.evaluateJobWithCv(jobId, selectedCvId || undefined);
+      const data = res?.data || res;
+      if (data && data.matchingScore != null) {
+        setCurrentMatchScore(Math.round(data.matchingScore));
+        setMatchReasoning(data.aiReasoning || '');
+      }
+    } catch (err) {
+      console.error('Lỗi khi nhờ AI chấm điểm:', err);
+      setEvalError(err?.response?.data?.message || 'Không thể chấm điểm AI. Vui lòng thử lại sau.');
+    } finally {
+      setIsEvaluating(false);
+    }
+  };
+
+  const aiMatchScore = currentMatchScore;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 md:p-6 bg-[#0f0c20]/65 backdrop-blur-xs animate-fade-in font-sans">
@@ -386,11 +450,24 @@ export default function JobDetailModal({ job, onClose, onApply, onViewCompanyPro
                   #{jobCode}
                 </span>
 
-                {aiMatchScore != null && (
-                  <div className="ml-auto flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-purple-100 to-indigo-100 border border-purple-300 text-[#5b48bd] font-black text-xs shadow-2xs">
-                    <span className="material-symbols-outlined text-sm text-[#5b48bd]">auto_awesome</span>
-                    <span>Match AI: {aiMatchScore}%</span>
-                  </div>
+                {isCandidate && (
+                  aiMatchScore != null ? (
+                    <div className="ml-auto flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-orange-100 to-purple-100 border border-orange-300 text-[#ea580c] font-black text-xs shadow-2xs" title={matchReasoning || 'Điểm tương thích AI'}>
+                      <span className="material-symbols-outlined text-sm text-[#ea580c]">auto_awesome</span>
+                      <span>Match AI: {aiMatchScore}%</span>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleRequestAiEvaluation}
+                      disabled={isEvaluating}
+                      className="ml-auto flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 text-[#5b48bd] hover:bg-purple-100 font-extrabold text-xs shadow-2xs cursor-pointer transition-all disabled:opacity-50"
+                      title="Bấm để nhờ AI chấm điểm độ phù hợp của bạn"
+                    >
+                      <span className="material-symbols-outlined text-sm text-[#5b48bd]">{isEvaluating ? 'hourglass_top' : 'psychology'}</span>
+                      <span>{isEvaluating ? 'Đang chấm...' : '✨ Nhờ AI chấm độ phù hợp'}</span>
+                    </button>
+                  )
                 )}
               </div>
 
@@ -402,10 +479,27 @@ export default function JobDetailModal({ job, onClose, onApply, onViewCompanyPro
                 <button
                   type="button"
                   onClick={handleOpenCompanyProfile}
-                  className="font-bold text-[#5b48bd] hover:underline flex items-center gap-1 cursor-pointer"
+                  disabled={isCompanyBlocked}
+                  className={`font-bold flex items-center gap-1.5 flex-wrap ${
+                    isCompanyBlocked
+                      ? 'text-slate-600 cursor-not-allowed select-none'
+                      : 'text-[#5b48bd] hover:underline cursor-pointer'
+                  }`}
+                  title={isCompanyBlocked ? 'Doanh nghiệp đã bị đình chỉ GPKD' : 'Xem thông tin doanh nghiệp'}
                 >
                   <span>{companyName}</span>
-                  <span className="material-symbols-outlined text-emerald-600 text-[15px]" title="Doanh nghiệp xác thực">verified</span>
+                  {isCompanyBlocked ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-300 shadow-2xs">
+                      <span className="material-symbols-outlined text-[12px] text-rose-600">block</span>
+                      <span>Đã Đình Chỉ GPKD</span>
+                    </span>
+                  ) : isCompanyVerified ? (
+                    <span className="material-symbols-outlined text-emerald-600 text-[15px]" title="Doanh nghiệp xác thực (Đã duyệt GPKD)">verified</span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-500 border border-slate-200">
+                      Chưa Duyệt GPKD
+                    </span>
+                  )}
                 </button>
                 <span>•</span>
                 <span className="flex items-center gap-1">
@@ -420,9 +514,9 @@ export default function JobDetailModal({ job, onClose, onApply, onViewCompanyPro
                 {job.recruiterName && (
                   <>
                     <span>•</span>
-                    <span className="flex items-center gap-1 text-purple-700 font-semibold">
+                    <span className={`flex items-center gap-1 font-semibold ${isCompanyBlocked ? 'text-rose-600' : 'text-purple-700'}`}>
                       <span className="material-symbols-outlined text-[14px]">person</span>
-                      HR: {job.recruiterName}
+                      <span>HR: {job.recruiterName}{isCompanyBlocked ? ' (Đã khóa liên hệ)' : ''}</span>
                     </span>
                   </>
                 )}
@@ -433,6 +527,50 @@ export default function JobDetailModal({ job, onClose, onApply, onViewCompanyPro
 
         {/* MODAL BODY (Scrollable) */}
         <div className="flex-1 overflow-y-auto px-6 sm:px-8 py-5 space-y-5 scrollbar-thin">
+
+          {/* ======================================================== */}
+          {/* CẢNH BÁO PHÁP LÝ DOANH NGHIỆP / BÀI ĐĂNG ĐÃ ĐÓNG       */}
+          {/* ======================================================== */}
+          {(isCompanyBlocked || isJobClosed) && (
+            <div className="flex items-start justify-between p-4 rounded-2xl bg-gradient-to-r from-rose-50 via-rose-50/90 to-amber-50/70 border-2 border-rose-300 text-rose-950 text-xs shadow-xs gap-3 animate-in fade-in">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
+                  <span className="material-symbols-outlined text-xl">gavel</span>
+                </div>
+                <div className="space-y-1">
+                  <div className="font-black text-rose-800 text-sm flex items-center gap-2 flex-wrap">
+                    <span>
+                      {isCompanyBlocked
+                        ? '⚠️ CẢNH BÁO QUAN TRỌNG: Doanh nghiệp đã bị tạm đình chỉ / thu hồi Giấy phép kinh doanh'
+                        : '⚠️ THÔNG BÁO: Bài đăng tuyển dụng này hiện đã bị đóng hoặc gỡ bỏ'}
+                    </span>
+                  </div>
+                  <div className="text-slate-800 leading-relaxed font-medium">
+                    {isCompanyBlocked ? (
+                      <>
+                        Doanh nghiệp <strong>"{compName}"</strong> hiện đang bị tạm khóa hoạt động tuyển dụng do chưa đáp ứng yêu cầu pháp lý hoặc đã bị Ban Quản Trị thu hồi GPKD. 
+                        {companyRejectionReason && (
+                          <div className="mt-1.5 p-2 rounded-xl bg-white/80 border border-rose-200 text-rose-900 font-semibold text-xs">
+                            📌 Lý do đình chỉ: "{companyRejectionReason}"
+                          </div>
+                        )}
+                        <p className="mt-1 text-rose-700 font-semibold text-[11px]">
+                          • Chức năng nộp hồ sơ ứng tuyển trực tuyến cho vị trí này đã bị khóa hoàn toàn.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        Tin tuyển dụng đã kết thúc đợt nhận hồ sơ hoặc đã được nhà tuyển dụng đóng lại. Hệ thống không tiếp nhận thêm hồ sơ mới.
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <span className="px-3 py-1 rounded-full bg-rose-600 text-white font-extrabold text-[11px] shrink-0 whitespace-nowrap shadow-xs">
+                {isCompanyBlocked ? 'Đã Đình Chỉ GPKD' : 'Đã Đóng Tuyển'}
+              </span>
+            </div>
+          )}
 
           {/* ======================================================== */}
           {/* PROMINENT EXPIRATION & DEADLINE ALERT BANNER            */}
@@ -609,6 +747,136 @@ export default function JobDetailModal({ job, onClose, onApply, onViewCompanyPro
             )}
           </div>
 
+          {/* ON-DEMAND AI EVALUATION & MATCHING INSIGHTS */}
+          {isCandidate && (
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-white to-purple-50/60 border border-purple-200/90 shadow-2xs space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-purple-100 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-[#5b48bd] to-[#8b5cf6] text-white flex items-center justify-center shrink-0 shadow-2xs">
+                    <span className="material-symbols-outlined text-base">auto_awesome</span>
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-xs text-[#221d47]">
+                      Đánh Giá Độ Phù Hợp AI HireMate (ATS Match)
+                    </h3>
+                    <p className="text-[10px] text-slate-500">
+                      Đối soát độc lập CV cá nhân của bạn với tiêu chuẩn tuyển dụng này
+                    </p>
+                  </div>
+                </div>
+
+                {aiMatchScore != null && (
+                  <div className="flex items-center gap-1.5 self-start sm:self-auto">
+                    <span className="text-[11px] font-bold text-slate-500">Độ phù hợp:</span>
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-black border ${
+                      aiMatchScore >= 80 
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-300' 
+                        : aiMatchScore >= 50 
+                        ? 'bg-amber-50 text-amber-700 border-amber-300' 
+                        : 'bg-rose-50 text-rose-700 border-rose-300'
+                    }`}>
+                      {aiMatchScore}% {aiMatchScore >= 80 ? '• Rất phù hợp' : aiMatchScore >= 50 ? '• Phù hợp cơ bản' : '• Cần cải thiện'}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {aiMatchScore != null ? (
+                <div className="space-y-2.5 text-xs">
+                  {matchReasoning && (
+                    <div className="p-3 rounded-xl bg-purple-50/80 border border-purple-200 text-slate-700 text-[11px] leading-relaxed flex items-start gap-2">
+                      <span className="material-symbols-outlined text-[#5b48bd] text-sm shrink-0 mt-0.5">psychology</span>
+                      <div>
+                        <strong className="text-[#221d47]">Nhận định từ AI: </strong>
+                        <span>{matchReasoning}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-1 text-[11px] text-slate-600">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-slate-500">Chấm lại với CV:</span>
+                      <select
+                        value={selectedCvId}
+                        onChange={(e) => setSelectedCvId(e.target.value)}
+                        className="text-xs px-2 py-1 rounded-lg border border-purple-200 bg-white font-medium focus:ring-1 focus:ring-[#5b48bd] outline-hidden"
+                      >
+                        {myCvs.map((c) => (
+                          <option key={c.cvId} value={c.cvId}>
+                            {c.fileName} {c.isDefault ? '(Mặc định)' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleRequestAiEvaluation}
+                      disabled={isEvaluating}
+                      className="px-3.5 py-1 rounded-lg bg-white border border-purple-200 hover:bg-purple-50 text-[#5b48bd] font-bold text-xs flex items-center justify-center gap-1 cursor-pointer shadow-2xs transition-all disabled:opacity-50"
+                    >
+                      <span className="material-symbols-outlined text-sm">{isEvaluating ? 'hourglass_top' : 'refresh'}</span>
+                      <span>{isEvaluating ? 'Đang chấm lại...' : 'Chấm lại với CV này'}</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2.5 text-xs">
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 text-[11px] leading-relaxed flex items-start gap-2">
+                    <span className="material-symbols-outlined text-slate-400 text-sm shrink-0 mt-0.5">info</span>
+                    <div>
+                      <span>
+                        Hệ thống tự động chấm điểm và gợi ý trước <strong>Top 10 việc làm tối ưu nhất</strong> cho bạn trên trang chủ.
+                        Đối với công việc này, bạn có thể chọn CV và <strong>nhờ AI phân tích độ phù hợp ngay lập tức</strong>.
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-bold text-slate-500">Chọn CV đối soát:</span>
+                      {myCvs.length > 0 ? (
+                        <select
+                          value={selectedCvId}
+                          onChange={(e) => setSelectedCvId(e.target.value)}
+                          className="text-xs px-2 py-1 rounded-lg border border-purple-200 bg-white font-medium focus:ring-1 focus:ring-[#5b48bd] outline-hidden"
+                        >
+                          {myCvs.map((c) => (
+                            <option key={c.cvId} value={c.cvId}>
+                              {c.fileName} {c.isDefault ? '(Mặc định)' : ''}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <a
+                          href="#/candidate-profile"
+                          className="text-xs text-[#5b48bd] font-bold hover:underline flex items-center gap-1"
+                        >
+                          <span className="material-symbols-outlined text-sm">upload_file</span>
+                          <span>Tải CV lên trang cá nhân</span>
+                        </a>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleRequestAiEvaluation}
+                      disabled={isEvaluating || myCvs.length === 0}
+                      className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-[#5b48bd] to-[#7c66dc] hover:from-[#4938a5] hover:to-[#6a54cb] text-white font-extrabold text-xs shadow-md transition-all flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+                    >
+                      <span className="material-symbols-outlined text-sm">{isEvaluating ? 'hourglass_top' : 'auto_awesome'}</span>
+                      <span>{isEvaluating ? 'AI đang đối soát...' : '✨ Nhờ AI chấm độ phù hợp'}</span>
+                    </button>
+                  </div>
+
+                  {evalError && (
+                    <p className="text-xs text-rose-600 font-medium">{evalError}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* UNDERLINE NAVIGATION TABS */}
           <div className="border-b border-purple-100 flex items-center gap-6 text-xs font-bold pt-1 overflow-x-auto scrollbar-none">
             {[
@@ -733,9 +1001,22 @@ export default function JobDetailModal({ job, onClose, onApply, onViewCompanyPro
                   )}
                 </div>
                 <div>
-                  <div className="font-bold text-sm text-white flex items-center gap-1.5">
+                  <div className="font-bold text-sm text-white flex items-center gap-1.5 flex-wrap">
                     <span>{companyName}</span>
-                    <span className="material-symbols-outlined text-xs text-sky-400">verified</span>
+                    {isCompanyBlocked ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-600/90 text-white border border-rose-400 shadow-2xs">
+                        <span className="material-symbols-outlined text-[12px]">block</span>
+                        <span>Đã Đình Chỉ GPKD</span>
+                      </span>
+                    ) : isCompanyVerified ? (
+                      <span className="material-symbols-outlined text-xs text-sky-400" title="Nhà tuyển dụng xác thực (Đã duyệt GPKD)">
+                        verified
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-white/20 text-purple-200 border border-white/20">
+                        Chưa Duyệt GPKD
+                      </span>
+                    )}
                   </div>
                   <div className="text-xs text-purple-200 flex items-center gap-1 mt-0.5">
                     <span className="material-symbols-outlined text-xs">location_on</span>
@@ -761,8 +1042,22 @@ export default function JobDetailModal({ job, onClose, onApply, onViewCompanyPro
         {/* MODAL FOOTER */}
         <div className="px-6 sm:px-8 py-3.5 bg-slate-50 border-t border-purple-100 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-            <span className="material-symbols-outlined text-base text-emerald-600">verified</span>
-            <span>Tin tuyển dụng chính thức đã qua thẩm định HireMate AI</span>
+            {isCompanyBlocked ? (
+              <span className="text-rose-600 font-bold flex items-center gap-1">
+                <span className="material-symbols-outlined text-base text-rose-600">gavel</span>
+                <span>Doanh nghiệp đang bị tạm đình chỉ Giấy phép kinh doanh</span>
+              </span>
+            ) : isCompanyVerified ? (
+              <>
+                <span className="material-symbols-outlined text-base text-emerald-600">verified</span>
+                <span>Tin tuyển dụng chính thức đã qua thẩm định HireMate AI</span>
+              </>
+            ) : (
+              <span className="text-amber-700 font-medium flex items-center gap-1">
+                <span className="material-symbols-outlined text-base text-amber-600">pending</span>
+                <span>Doanh nghiệp đang chờ hoàn tất thẩm định GPKD</span>
+              </span>
+            )}
           </div>
 
           <div className="w-full sm:w-auto flex items-center justify-end gap-2.5">
@@ -774,16 +1069,28 @@ export default function JobDetailModal({ job, onClose, onApply, onViewCompanyPro
               Đóng
             </button>
 
-            <button
-              type="button"
-              onClick={handleStartPracticeInterview}
-              className="px-4 py-2 rounded-xl text-xs font-bold text-[#5b48bd] bg-purple-50 hover:bg-purple-100 border border-purple-200 transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
-            >
-              <span className="material-symbols-outlined text-sm text-[#5b48bd]">psychology</span>
-              <span>Luyện Phỏng Vấn Với AI</span>
-            </button>
+            {!isCompanyBlocked && (
+              <button
+                type="button"
+                onClick={handleStartPracticeInterview}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-[#5b48bd] bg-purple-50 hover:bg-purple-100 border border-purple-200 transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              >
+                <span className="material-symbols-outlined text-sm text-[#5b48bd]">psychology</span>
+                <span>Luyện Phỏng Vấn Với AI</span>
+              </button>
+            )}
 
-            {deadlineInfo.isExpired ? (
+            {isCompanyBlocked || isJobClosed ? (
+              <button
+                type="button"
+                disabled
+                className="px-6 py-2 rounded-xl text-xs font-bold text-rose-700 bg-rose-100/90 border border-rose-300 cursor-not-allowed flex items-center gap-1.5 shadow-2xs"
+                title="Tin tuyển dụng đã đóng hoặc doanh nghiệp đang bị đình chỉ GPKD"
+              >
+                <span className="material-symbols-outlined text-sm">block</span>
+                <span>{isCompanyBlocked ? 'Doanh Nghiệp Bị Đình Chỉ GPKD' : 'Bài Đăng Đã Đóng Tuyển'}</span>
+              </button>
+            ) : deadlineInfo.isExpired ? (
               <button
                 type="button"
                 disabled

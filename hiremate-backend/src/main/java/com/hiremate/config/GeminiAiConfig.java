@@ -13,7 +13,7 @@ public class GeminiAiConfig {
     @Value("${gemini.api.key:YOUR_GEMINI_API_KEY}")
     private String apiKey;
 
-    @Value("${gemini.api.model:gemini-3-flash-preview}")
+    @Value("${gemini.api.model:gemini-3.5-flash-lite}")
     private String model;
 
     @Value("${gemini.api.base-url:https://generativelanguage.googleapis.com/v1beta}")
@@ -22,7 +22,7 @@ public class GeminiAiConfig {
     @Value("${gemini.voice.api-key:}")
     private String voiceApiKey;
 
-    @Value("${gemini.voice.model:gemini-3-flash-preview}")
+    @Value("${gemini.voice.model:gemini-3.5-flash-lite}")
     private String voiceModel;
 
     /**
@@ -42,7 +42,7 @@ public class GeminiAiConfig {
         if (voiceModel != null && !voiceModel.isBlank()) {
             return voiceModel.trim();
         }
-        return "gemini-3-flash-preview";
+        return "gemini-3.5-flash-lite";
     }
 
     /**
@@ -57,7 +57,8 @@ public class GeminiAiConfig {
         java.util.List<String> list = new java.util.ArrayList<>();
         for (String t : tokens) {
             String clean = t.trim();
-            if (!clean.isEmpty() && !clean.contains("YOUR_GEMINI_API_KEY")) {
+            String upper = clean.toUpperCase();
+            if (!clean.isEmpty() && !upper.contains("YOUR_GEMINI_API_KEY") && !upper.contains("YOUR_GEMINI_API_KEY_HERE") && clean.length() >= 15) {
                 list.add(clean);
             }
         }

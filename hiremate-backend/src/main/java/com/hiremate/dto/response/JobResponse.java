@@ -28,7 +28,10 @@ public class JobResponse {
     private List<String> benefits;
     private BigDecimal salaryMin;
     private BigDecimal salaryMax;
+    private String salaryCurrency;
+    private String jobCategory;
     private String location;
+    private String branchName;
     private EmploymentType employmentType;
     private JobStatus status;
     private com.hiremate.enums.JobApprovalStatus approvalStatus;
@@ -55,5 +58,6 @@ public class JobResponse {
     private String companyDescription;
     private String companyWebsite;
     private String companyIndustry;
+    private String moderationNote;
     private LocalDateTime createdAt;
 }

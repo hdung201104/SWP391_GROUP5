@@ -56,4 +56,12 @@ public class Cv {
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    public String getAiAnalysisJson() {
+        return parsedJson;
+    }
+
+    public void setAiAnalysisJson(String aiAnalysisJson) {
+        this.parsedJson = aiAnalysisJson;
+    }
 }

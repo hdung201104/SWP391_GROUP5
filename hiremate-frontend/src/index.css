@@ -10,7 +10,7 @@
     margin: 0;
     padding: 0;
     font-family: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif;
-    background-color: #3b2b8e;
+    background-color: #f8f9fe;
     color: #1e1b4b;
     -webkit-font-smoothing: antialiased;
   }
@@ -43,7 +43,7 @@
 
 /* Outer Shell Background & Canvas */
 .mindskills-shell {
-  background-color: #3b2b8e;
+  background-color: #f8f9fe;
   background-image: 
     radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.25) 0px, transparent 50%),
     radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.2) 0px, transparent 50%);
@@ -827,4 +827,321 @@
     font-size: 11px !important;
     line-height: 1.45 !important;
   }
+}
+
+/* ==========================================================================
+   DYNAMIC DASHBOARD ANIMATIONS (HELIOS & QUIXOTIC MODERN DASHBOARD)
+   ========================================================================== */
+
+@keyframes drawWaveLine {
+  from {
+    stroke-dashoffset: 2000;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes fadeInArea {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pillBarGrow {
+  0% {
+    transform: scaleY(0);
+    opacity: 0.3;
+  }
+  100% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+@keyframes glowPulsePin {
+  0%, 100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 6px rgba(91, 72, 189, 0.7));
+  }
+  50% {
+    transform: scale(1.15);
+    filter: drop-shadow(0 0 14px rgba(91, 72, 189, 0.95));
+  }
+}
+
+@keyframes floatBadgePeak {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.animate-draw-wave {
+  stroke-dasharray: 2000;
+  stroke-dashoffset: 2000;
+  animation: drawWaveLine 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fade-area {
+  animation: fadeInArea 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-pill-grow {
+  transform-origin: bottom;
+  animation: pillBarGrow 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-pin-glow {
+  animation: glowPulsePin 2s infinite ease-in-out;
+}
+
+.animate-float-peak {
+  animation: floatBadgePeak 2.5s infinite ease-in-out;
+}
+
+/* ==========================================================================
+   GLASSMORPHISM DESIGN SYSTEM V2 & CINEMATIC MOTION TOKENS
+   ========================================================================== */
+
+/* Frosted Glass V2 Surface (Light) */
+.glass-v2 {
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow: 
+    0 10px 30px -5px rgba(59, 43, 142, 0.08),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-v2:hover {
+  background: rgba(255, 255, 255, 0.88);
+  border-color: rgba(255, 255, 255, 1);
+  box-shadow: 
+    0 20px 45px -10px rgba(59, 43, 142, 0.14),
+    inset 0 1px 0 0 rgba(255, 255, 255, 1);
+}
+
+/* Frosted Glass V2 Surface (Dark / Header / Modals) */
+.glass-dark-v2 {
+  background: rgba(30, 20, 88, 0.75);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 
+    0 20px 50px -10px rgba(15, 10, 45, 0.4),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.2);
+}
+
+/* Glass Pill (Navigation Tabs & Chips) */
+.glass-pill-active {
+  background: rgba(255, 255, 255, 0.95);
+  color: #32247b;
+  box-shadow: 
+    0 4px 16px -2px rgba(59, 43, 142, 0.2),
+    inset 0 1px 0 0 rgba(255, 255, 255, 1);
+  font-weight: 700;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+}
+
+.glass-pill-inactive {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e0e7ff;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-pill-inactive:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
+}
+
+/* Specular Sheen Highlight Line */
+.glass-specular {
+  position: relative;
+}
+.glass-specular::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.8) 50%, transparent 100%);
+  pointer-events: none;
+}
+
+/* Ambient Radial Mesh Background Drifting Animations */
+@keyframes ambientDrift1 {
+  0%, 100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  33% {
+    transform: translate(40px, -30px) scale(1.08);
+  }
+  66% {
+    transform: translate(-30px, 25px) scale(0.95);
+  }
+}
+
+@keyframes ambientDrift2 {
+  0%, 100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  33% {
+    transform: translate(-35px, 35px) scale(1.05);
+  }
+  66% {
+    transform: translate(25px, -20px) scale(0.98);
+  }
+}
+
+.animate-ambient-1 {
+  animation: ambientDrift1 18s ease-in-out infinite;
+}
+
+.animate-ambient-2 {
+  animation: ambientDrift2 22s ease-in-out infinite;
+}
+
+/* Shimmer Skeleton Glass */
+@keyframes glassShimmerSweep {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.shimmer-glass {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.35) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 200% 100%;
+  animation: glassShimmerSweep 2s infinite;
+}
+
+/* Accessibility: Respect Reduced Motion Preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .animate-ambient-1,
+  .animate-ambient-2,
+  .animate-pin-glow,
+  .animate-float-peak,
+  .shimmer-glass {
+    animation: none !important;
+  }
+}
+
+/* ==========================================================================
+   CINEMATIC MOTION SYSTEM (dùng chung toàn site) - chỉ opacity/translate/scale
+   Dùng thuộc tính `translate` & `scale` độc lập với `transform` để không đè
+   lên transform sẵn có của component (hover, -translate-x-1/2, framer-motion...).
+   ========================================================================== */
+:root {
+  --hm-ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Trạng thái chờ (đã được autoReveal gắn khi phần tử chưa vào viewport) */
+.hm-pre {
+  opacity: 0;
+  translate: 0 22px;
+  scale: 0.97;
+}
+.hm-pre.hm-in {
+  opacity: 1;
+  translate: 0 0;
+  scale: 1;
+  transition:
+    opacity 0.6s var(--hm-ease) var(--hm-delay, 0ms),
+    translate 0.7s var(--hm-ease) var(--hm-delay, 0ms),
+    scale 0.7s var(--hm-ease) var(--hm-delay, 0ms) !important;
+}
+
+
+/* Overlay / Modal / Dropdown mở SAU khi trang ổn định */
+@keyframes hm-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes hm-modal-in {
+  from { opacity: 0; translate: 0 14px; scale: 0.95; }
+  to   { opacity: 1; translate: 0 0;    scale: 1; }
+}
+@keyframes hm-pop-in {
+  from { opacity: 0; translate: 0 -6px; scale: 0.94; }
+  to   { opacity: 1; translate: 0 0;    scale: 1; }
+}
+.hm-overlay { animation: hm-fade 0.22s ease-out both; }
+.hm-modal   { animation: hm-modal-in 0.4s var(--hm-ease) both; }
+.hm-pop     { animation: hm-pop-in 0.22s var(--hm-ease) both; transform-origin: top right; }
+
+/* Skeleton shimmer */
+@keyframes hm-shimmer { 0% { background-position: -240% 0; } 100% { background-position: 240% 0; } }
+.hm-skeleton {
+  background: linear-gradient(100deg, rgba(91,72,189,0.07) 20%, rgba(255,255,255,0.75) 40%, rgba(91,72,189,0.07) 60%);
+  background-size: 240% 100%;
+  animation: hm-shimmer 1.6s ease-in-out infinite;
+}
+
+/* Micro interactions */
+button:not(:disabled):active,
+[role="button"]:active { scale: 0.97; }
+
+input[type="search"],
+input[placeholder*="Tìm"],
+input[placeholder*="tìm"],
+input[placeholder*="Search"] {
+  transition: scale 0.28s var(--hm-ease), box-shadow 0.28s var(--hm-ease), border-color 0.2s ease;
+}
+input[type="search"]:focus,
+input[placeholder*="Tìm"]:focus,
+input[placeholder*="tìm"]:focus,
+input[placeholder*="Search"]:focus {
+  scale: 1.012;
+  box-shadow: 0 10px 30px -8px rgba(91, 72, 189, 0.28);
+}
+
+/* Glass utilities dùng chung */
+.glass {
+  background: rgba(255, 255, 255, 0.72);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  backdrop-filter: blur(18px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 10px 35px -8px rgba(59, 43, 142, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+.glass-strong {
+  background: rgba(255, 255, 255, 0.86);
+  -webkit-backdrop-filter: blur(26px) saturate(1.5);
+  backdrop-filter: blur(26px) saturate(1.5);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 18px 50px -12px rgba(30, 20, 90, 0.18), inset 0 1px 0 #fff;
+}
+
+/* Tôn trọng prefers-reduced-motion: tắt mọi chuyển động, nội dung hiện ngay */
+@media (prefers-reduced-motion: reduce) {
+  .hm-pre { opacity: 1 !important; translate: none !important; scale: 1 !important; }
+  .hm-pre img, .hm-pre canvas { filter: none !important; }
+  .hm-overlay, .hm-modal, .hm-pop, .hm-skeleton { animation: none !important; }
+  button:not(:disabled):active, [role="button"]:active { scale: 1; }
+  input:focus { scale: 1 !important; }
 }
