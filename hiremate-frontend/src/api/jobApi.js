@@ -15,9 +15,21 @@ export const jobApi = {
   getJobsByCompany: (companyId) => axiosClient.get(`/jobs/company/${companyId}`),
   updateJobStatus: (id, status) => axiosClient.patch(`/jobs/${id}/status?status=${status}`),
   cloneJob: (id) => axiosClient.post(`/jobs/${id}/clone`),
-  scanJd: (formData) => axiosClient.post('/jobs/scan-jd', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  }),
+  scanJd: (payload) => {
+    let body = payload;
+    if (typeof payload === 'string') {
+      const fd = new FormData();
+      fd.append('rawText', payload);
+      body = fd;
+    } else if (payload && !(payload instanceof FormData)) {
+      const fd = new FormData();
+      if (payload.rawText) fd.append('rawText', payload.rawText);
+      if (payload.file) fd.append('file', payload.file);
+      body = fd;
+    }
+    return axiosClient.post('/jobs/scan-jd', body);
+  },
+  generateJdContent: (payload) => axiosClient.post('/jobs/generate-jd', payload),
 };
 
 export default jobApi;

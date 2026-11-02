@@ -79,8 +79,11 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
   };
 
   // Company Profile state from DB
+  const currentUser = user;
   const [companyStatus, setCompanyStatus] = useState('PENDING');
   const [showUnverifiedWarningModal, setShowUnverifiedWarningModal] = useState(false);
+  const isCompanyVerified = companyStatus === 'VERIFIED' || companyStatus === 'APPROVED' || companyStatus === 'ACTIVE' || user?.role === 'ADMIN';
+  const isCompanyBlocked = companyStatus === 'REJECTED' || companyStatus === 'BANNED' || companyStatus === 'SUSPENDED';
   const [companyProfile, setCompanyProfile] = useState({
     name: user?.companyName || 'Doanh Nghiệp Tuyển Dụng',
     tagline: 'Leading Global IT Services & Digital Transformation Partner',
@@ -564,6 +567,11 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
   };
 
   const handleMoveCandidateStage = async (candidateId, nextStage) => {
+    if (!isCompanyVerified) {
+      setShowUnverifiedWarningModal(true);
+      setNotification('⚠️ Doanh nghiệp chưa duyệt hoặc đã bị thu hồi GPKD. Quyền chuyển trạng thái ứng viên đã bị tạm khóa!');
+      return;
+    }
     const cand = candidates.find((c) => c.candidateId === candidateId);
     if (!cand) return;
 
@@ -1056,6 +1064,43 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
             </button>
           </div>
         </div>
+
+        {/* Banner Cảnh báo GPKD Doanh Nghiệp bị đình chỉ hoặc chưa duyệt */}
+        {!isCompanyVerified && (
+          <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-rose-50 via-rose-50/95 to-amber-50/80 border-2 border-rose-300 text-rose-950 text-xs shadow-md flex items-start gap-4 animate-in fade-in">
+            <div className="w-11 h-11 rounded-2xl bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
+              <span className="material-symbols-outlined text-2xl">gavel</span>
+            </div>
+            <div className="flex-1 space-y-2">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="font-black text-rose-900 text-sm sm:text-base flex items-center gap-2 flex-wrap">
+                  <span>
+                    {isCompanyBlocked
+                      ? '⚠️ DOANH NGHIỆP ĐANG BỊ TẠM ĐÌNH CHỈ / THU HỒI GIẤY PHÉP KINH DOANH (GPKD)'
+                      : '⚠️ DOANH NGHIỆP CHƯA HOÀN TẤT THẨM ĐỊNH PHÁP LÝ GIẤY PHÉP KINH DOANH'}
+                  </span>
+                </div>
+                <span className="px-3 py-1 rounded-full text-xs font-black bg-rose-600 text-white shadow-xs">
+                  QUYỀN DUYỆT ỨNG VIÊN BỊ KHÓA
+                </span>
+              </div>
+              <p className="text-slate-800 leading-relaxed font-medium">
+                {isCompanyBlocked
+                  ? 'Ban Quản Trị HireMate đã đình chỉ hoặc thu hồi quyền tuyển dụng của doanh nghiệp do chưa đáp ứng Giấy phép kinh doanh hợp lệ. Toàn bộ thao tác duyệt ứng viên, chuyển phỏng vấn và gửi Offer đã bị tạm khóa.'
+                  : 'Doanh nghiệp của bạn đang trong tiến trình chờ Ban Quản Trị duyệt Giấy phép kinh doanh. Trong thời gian này, quyền thao tác duyệt ứng viên và chuyển trạng thái tuyển dụng bị tạm ngưng.'}
+              </p>
+              <div className="pt-1 flex items-center gap-3 flex-wrap">
+                <a
+                  href="#/recruiter-profile"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs shadow-xs transition-colors cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-base">badge</span>
+                  <span>Cập nhật Giấy phép kinh doanh tại Hồ Sơ Doanh Nghiệp</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Pending HR Join Requests Banner */}
         {pendingJoinRequests.length > 0 && (

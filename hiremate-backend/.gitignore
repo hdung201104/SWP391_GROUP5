@@ -57,3 +57,8 @@ hiremate_uploads/
 # OS metadata
 .DS_Store
 Thumbs.db
+
+# Temporary test outputs
+cp2.txt
+temp_*.json
+voices.json

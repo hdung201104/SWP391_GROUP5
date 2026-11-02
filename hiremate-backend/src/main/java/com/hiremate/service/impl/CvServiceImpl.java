@@ -113,10 +113,11 @@ public class CvServiceImpl implements CvService {
         if ("pdf".equalsIgnoreCase(fileType)) {
             try (org.apache.pdfbox.pdmodel.PDDocument document = org.apache.pdfbox.Loader.loadPDF(fileBytes)) {
                 org.apache.pdfbox.text.PDFTextStripper stripper = new org.apache.pdfbox.text.PDFTextStripper();
+                stripper.setSortByPosition(true);
                 String rawText = stripper.getText(document);
                 if (rawText != null && !rawText.isBlank()) {
                     parsedText = rawText.trim();
-                    log.info(">> [CvService] Đã trích xuất thành công {} ký tự text từ CV PDF: {}", parsedText.length(), originalName);
+                    log.info(">> [CvService] Đã trích xuất thành công {} ký tự text từ CV PDF (vị trí tọa độ): {}", parsedText.length(), originalName);
                 }
 
                 // Nếu PDF dạng ảnh scan (không có text stream hoặc ít hơn 50 ký tự), dùng Gemini Vision OCR
@@ -578,14 +579,13 @@ public class CvServiceImpl implements CvService {
 
         // 4. Cập nhật họ tên và số điện thoại ứng viên từ hồ sơ CV
         boolean userUpdated = false;
-        if (analysis.getCandidateName() != null && !analysis.getCandidateName().isBlank() 
-                && !analysis.getCandidateName().toLowerCase().contains("của bạn")
-                && !analysis.getCandidateName().equalsIgnoreCase("Ứng Viên Tuyển Dụng")) {
-            candidate.setFullName(analysis.getCandidateName());
+        String rawCandidateName = analysis.getCandidateName() != null ? analysis.getCandidateName().trim() : null;
+        if (isValidCandidateFullName(rawCandidateName)) {
+            candidate.setFullName(rawCandidateName);
             userUpdated = true;
         }
         if (analysis.getPhone() != null && !analysis.getPhone().isBlank() && !analysis.getPhone().contains("điện thoại")) {
-            candidate.setPhone(analysis.getPhone());
+            candidate.setPhone(analysis.getPhone().trim());
             userUpdated = true;
         }
         if (userUpdated) {
@@ -1163,6 +1163,9 @@ public class CvServiceImpl implements CvService {
             if (applicationRepository.existsByCvIdAndRecruiterId(cvId, user.getUserId())) {
                 return true;
             }
+            if (applicationRepository.existsByCandidateIdAndRecruiterId(cv.getCandidateId(), user.getUserId())) {
+                return true;
+            }
             if (recruiterRepository != null) {
                 com.hiremate.entity.Recruiter rec = recruiterRepository.findById(user.getUserId()).orElse(null);
                 if (rec != null && rec.getCompany() != null) {
@@ -1170,9 +1173,29 @@ public class CvServiceImpl implements CvService {
                     if (applicationRepository.existsByCvIdAndCompanyId(cvId, companyId)) {
                         return true;
                     }
+                    if (applicationRepository.existsByCandidateIdAndCompanyId(cv.getCandidateId(), companyId)) {
+                        return true;
+                    }
                 }
             }
         }
         return false;
+    }
+
+    private boolean isValidCandidateFullName(String name) {
+        if (name == null || name.isBlank()) return false;
+        String u = name.toUpperCase().trim();
+        if (u.contains("CỦA BẠN") || u.equalsIgnoreCase("ỨNG VIÊN TUYỂN DỤNG") || u.equalsIgnoreCase("RESUME") || u.equalsIgnoreCase("CURRICULUM VITAE")) {
+            return false;
+        }
+        // Blacklist common CV section headers
+        if (u.contains("ANALYSIS") || u.contains("MODELING") || u.contains("ABOUT ME") || u.contains("EDUCATION")
+                || u.contains("SKILL") || u.contains("EXPERIENCE") || u.contains("PROJECT") || u.contains("CERTIFICATION")
+                || u.contains("LANGUAGE") || u.contains("ACHIEVEMENT") || u.contains("HỌC VẤN") || u.contains("KINH NGHIỆM")
+                || u.contains("KỸ NĂNG") || u.contains("MỤC TIÊU") || u.contains("LIÊN HỆ") || u.contains("THÔNG TIN")
+                || u.contains("DỰ ÁN") || u.contains("CHỨNG CHỈ") || u.contains("HOẠT ĐỘNG") || u.contains("&")) {
+            return false;
+        }
+        return name.matches("^[A-ZÀ-Ỹa-zà-ỹ]{2,}(?:\\s+[A-ZÀ-Ỹa-zà-ỹ]{2,}){1,4}$");
     }
 }

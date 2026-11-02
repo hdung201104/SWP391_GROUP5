@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { cvApi } from '../../api/cvApi';
 import { applicationApi } from '../../api/applicationApi';
 import { extractBlob } from '../../utils/excelExportUtils';
+import ModalPortal from './ModalPortal';
 
 /**
  * CvViewModal.jsx
@@ -271,7 +272,8 @@ export default function CvViewModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-5 bg-slate-900/70 backdrop-blur-xs animate-fade-in font-sans">
+    <ModalPortal isOpen={isOpen}>
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-5 bg-slate-900/70 backdrop-blur-xs animate-fade-in font-sans">
       <div className="relative w-full max-w-4xl bg-white border border-purple-100 rounded-[28px] shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
         {/* Header */}
         <div className="px-6 py-4 bg-gradient-to-r from-purple-50/70 via-indigo-50/30 to-white border-b border-purple-100 flex items-center justify-between gap-3 shrink-0">
@@ -420,7 +422,7 @@ export default function CvViewModal({
                   </div>
                 </div>
                 <iframe
-                  src={blobUrl}
+                  src={blobUrl?.includes('#') ? blobUrl : `${blobUrl}#page=1&view=Fit&toolbar=1`}
                   title="CV Preview"
                   className="w-full flex-1 border-none"
                 />
@@ -478,5 +480,6 @@ export default function CvViewModal({
         </div>
       </div>
     </div>
-  );
+  </ModalPortal>
+);
 }

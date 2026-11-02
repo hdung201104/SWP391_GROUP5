@@ -1841,13 +1841,13 @@ public class GeminiAiServiceImpl implements GeminiAiService {
             return null;
         }
 
-        // Danh sách model ưu tiên từ nhanh nhất đến ổn định nhất trên Google AI Studio
         List<String> modelsToTry = new ArrayList<>();
-        if (primaryModel != null && !primaryModel.isBlank() && !primaryModel.contains("preview") && !primaryModel.contains("3.")) {
+        if (primaryModel != null && !primaryModel.isBlank()) {
             modelsToTry.add(primaryModel.trim());
         }
-        modelsToTry.add("gemini-1.5-flash");   // Model chuẩn, cực nhanh (~500ms) và ổn định nhất
-        modelsToTry.add("gemini-2.0-flash");
+        if (!modelsToTry.contains("gemini-2.5-flash")) modelsToTry.add("gemini-2.5-flash");
+        if (!modelsToTry.contains("gemini-2.0-flash")) modelsToTry.add("gemini-2.0-flash");
+        if (!modelsToTry.contains("gemini-1.5-flash")) modelsToTry.add("gemini-1.5-flash");
 
         for (String model : modelsToTry) {
             try {
@@ -1868,7 +1868,7 @@ public class GeminiAiServiceImpl implements GeminiAiService {
                         .uri(URI.create(endpoint))
                         .header("Content-Type", "application/json")
                         .header("X-goog-api-key", apiKey)
-                        .timeout(Duration.ofSeconds(4)) // Giới hạn tối đa 4s cho voice turn tương tác thời gian thực
+                        .timeout(Duration.ofSeconds(12)) // Tăng lên 12s để Gemini suy nghĩ câu hỏi đầy đủ mà không bị timeout sớm
                         .POST(HttpRequest.BodyPublishers.ofString(requestBodyJson))
                         .build();
 
@@ -2036,7 +2036,7 @@ public class GeminiAiServiceImpl implements GeminiAiService {
                         .uri(URI.create(endpoint))
                         .header("Content-Type", "application/json")
                         .header("X-goog-api-key", apiKey)
-                        .timeout(Duration.ofSeconds(15))
+                        .timeout(Duration.ofSeconds(35))
                         .POST(HttpRequest.BodyPublishers.ofString(requestBodyJson))
                         .build();
 
@@ -2444,7 +2444,18 @@ public class GeminiAiServiceImpl implements GeminiAiService {
         String detectedName = null;
         String detectedHeadline = null;
 
-        // Ưu tiên tìm tên riêng tiếng Việt viết hoa (2-4 từ) có chức danh liền kề
+        java.util.function.Predicate<String> isCvSectionHeader = s -> {
+            if (s == null) return false;
+            String u = s.toUpperCase().trim();
+            return u.contains("ANALYSIS") || u.contains("MODELING") || u.contains("ABOUT ME") || u.contains("EDUCATION")
+                    || u.contains("SKILL") || u.contains("EXPERIENCE") || u.contains("PROJECT") || u.contains("CERTIFICATION")
+                    || u.contains("LANGUAGE") || u.contains("ACHIEVEMENT") || u.contains("HỌC VẤN") || u.contains("KINH NGHIỆM")
+                    || u.contains("KỸ NĂNG") || u.contains("MỤC TIÊU") || u.contains("LIÊN HỆ") || u.contains("THÔNG TIN")
+                    || u.contains("DỰ ÁN") || u.contains("CHỨNG CHỈ") || u.contains("HOẠT ĐỘNG") || u.contains("&")
+                    || u.contains("|") || u.contains("/") || u.contains("RESUME") || u.contains("CURRICULUM VITAE");
+        };
+
+        // Ưu tiên 1: Tìm tên riêng tiếng Việt viết hoa (TitleCase hoặc ALL-CAPS, 2-4 từ) có chức danh liền kề
         for (int i = 0; i < lines.size(); i++) {
             String l = lines.get(i);
             if (l.contains("@") || l.contains("•") || l.contains("CV") || l.contains("github.com") 
@@ -2453,13 +2464,20 @@ public class GeminiAiServiceImpl implements GeminiAiService {
                     || l.toLowerCase().startsWith("nam •") || l.toLowerCase().startsWith("nữ •")) {
                 continue;
             }
-            if (l.matches("^[A-ZÀ-Ỹ][a-zà-ỹ]+(?:\\s+[A-ZÀ-Ỹ][a-zà-ỹ]+){1,3}$")) {
+            if (isCvSectionHeader.test(l)) continue;
+
+            boolean isFullNamePattern = l.matches("^[A-ZÀ-Ỹ][a-zà-ỹ]+(?:\\s+[A-ZÀ-Ỹ][a-zà-ỹ]+){1,4}$")
+                    || l.matches("^[A-ZÀ-Ỹ]{2,}(?:\\s+[A-ZÀ-Ỹ]{2,}){1,4}$");
+
+            if (isFullNamePattern) {
                 if (i + 1 < lines.size()) {
                     String next = lines.get(i + 1);
                     String nu = next.toUpperCase();
                     if (nu.contains("DEVELOPER") || nu.contains("KỸ SƯ") || nu.contains("ENGINEER") 
                             || nu.contains("ANALYST") || nu.contains("CHUYÊN VIÊN") || nu.contains("MANAGER")
-                            || nu.contains("GIÁM ĐỐC") || nu.contains("TRƯỞNG PHÒNG") || nu.contains("LEAD")) {
+                            || nu.contains("GIÁM ĐỐC") || nu.contains("TRƯỞNG PHÒNG") || nu.contains("LEAD")
+                            || nu.contains("REPRESENTATIVE") || nu.contains("SALES") || nu.contains("CONSULTANT")
+                            || nu.contains("DESIGNER") || nu.contains("INTERN") || nu.contains("BRSE")) {
                         detectedName = l;
                         detectedHeadline = next;
                         break;
@@ -2468,11 +2486,15 @@ public class GeminiAiServiceImpl implements GeminiAiService {
             }
         }
 
+        // Ưu tiên 2: Tìm dòng đầu tiên khớp dạng họ tên người (2-4 từ, không trùng tiêu đề mục)
         if (detectedName == null) {
-            for (int i = 0; i < Math.min(6, lines.size()); i++) {
+            for (int i = 0; i < Math.min(10, lines.size()); i++) {
                 String l = lines.get(i);
-                if (l.contains("@") || l.matches(".*\\d{6}.*") || l.contains("•") || l.toLowerCase().contains("mục tiêu")) continue;
-                if (l.length() >= 3 && l.length() <= 40 && l.split("\\s+").length <= 5) {
+                if (l.contains("@") || l.matches(".*\\d{4}.*") || l.contains("•") || l.toLowerCase().contains("mục tiêu")
+                        || l.contains("http") || l.contains(".com")) continue;
+                if (isCvSectionHeader.test(l)) continue;
+                if (l.matches("^[A-ZÀ-Ỹ][a-zà-ỹ]+(?:\\s+[A-ZÀ-Ỹ][a-zà-ỹ]+){1,4}$")
+                        || l.matches("^[A-ZÀ-Ỹ]{2,}(?:\\s+[A-ZÀ-Ỹ]{2,}){1,4}$")) {
                     detectedName = l;
                     break;
                 }
@@ -2483,7 +2505,13 @@ public class GeminiAiServiceImpl implements GeminiAiService {
         }
 
         if (detectedHeadline == null || detectedHeadline.isBlank()) {
-            if (lower.contains("full-stack") || lower.contains("fullstack")) {
+            if (lower.contains("bridge software engineer") || lower.contains("brse")) {
+                detectedHeadline = "Bridge Software Engineer (BrSE)";
+            } else if (lower.contains("embedded system") || lower.contains("embedded")) {
+                detectedHeadline = "Embedded System Engineer";
+            } else if (lower.contains("sales representative")) {
+                detectedHeadline = "Sales Representative";
+            } else if (lower.contains("full-stack") || lower.contains("fullstack")) {
                 detectedHeadline = "Kỹ Sư Phần Mềm • Full-Stack Developer";
             } else if (lower.contains("business analyst") || lower.contains("ba |")) {
                 detectedHeadline = "Business Analyst (BA) | Bridge System Engineer (BrSE)";
@@ -2826,12 +2854,12 @@ public class GeminiAiServiceImpl implements GeminiAiService {
             List<String> curBullets = new ArrayList<>();
             for (String l : lines) {
                 String u = l.toUpperCase();
-                if (u.contains("KINH NGHIỆM") || u.contains("WORK EXPERIENCE")) {
+                if (u.contains("KINH NGHIỆM") || u.contains("WORK EXPERIENCE") || u.contains("PROJECT EXPERIENCE") || (u.contains("EXPERIENCE") && !u.contains("USER EXPERIENCE"))) {
                     inExp = true;
                     continue;
                 }
                 if (inExp) {
-                    if (u.contains("HỌC VẤN") || u.contains("DỰ ÁN") || u.contains("CHỨNG CHỈ") || u.contains("KỸ NĂNG") || u.contains("NGOẠI NGỮ") || u.contains("MỤC TIÊU")) {
+                    if (u.contains("HỌC VẤN") || u.contains("EDUCATION") || u.contains("CHỨNG CHỈ") || u.contains("CERTIFICATION") || u.contains("KỸ NĂNG") || u.contains("SKILL") || u.contains("NGOẠI NGỮ") || u.contains("LANGUAGE") || u.contains("MỤC TIÊU") || u.contains("ABOUT ME")) {
                         inExp = false;
                         if (curComp != null) {
                             exps.add(Map.of(
@@ -3324,6 +3352,87 @@ public class GeminiAiServiceImpl implements GeminiAiService {
         }
 
         return fallbackJdParse("Vị trí tuyển dụng", "Job posting image scan");
+    }
+
+    @Override
+    public java.util.Map<String, Object> generateJobContent(java.util.Map<String, Object> jobParams) {
+        String title = jobParams != null && jobParams.get("title") != null ? String.valueOf(jobParams.get("title")).trim() : "Vị trí tuyển dụng";
+        String domain = jobParams != null && jobParams.get("domain") != null ? String.valueOf(jobParams.get("domain")).trim() : "Công nghệ thông tin";
+        String jobLevel = jobParams != null && jobParams.get("jobLevel") != null ? String.valueOf(jobParams.get("jobLevel")).trim() : "JUNIOR";
+        String edu = jobParams != null && jobParams.get("educationRequirement") != null ? String.valueOf(jobParams.get("educationRequirement")).trim() : "Đại học / Cử nhân";
+        String exp = jobParams != null && jobParams.get("experienceRequirement") != null ? String.valueOf(jobParams.get("experienceRequirement")).trim() : "1 - 2 năm";
+        String workplace = jobParams != null && jobParams.get("workplaceType") != null ? String.valueOf(jobParams.get("workplaceType")).trim() : "Hybrid";
+        String salary = jobParams != null && jobParams.get("salary") != null ? String.valueOf(jobParams.get("salary")).trim() : "Thỏa thuận";
+        String location = jobParams != null && jobParams.get("location") != null ? String.valueOf(jobParams.get("location")).trim() : "Hà Nội / TP.HCM";
+
+        Object mandObj = jobParams != null ? jobParams.get("mandatorySkills") : null;
+        List<String> mandList = new ArrayList<>();
+        if (mandObj instanceof List<?>) {
+            for (Object o : (List<?>) mandObj) {
+                if (o != null && !String.valueOf(o).isBlank()) mandList.add(String.valueOf(o).trim());
+            }
+        } else if (mandObj != null && !String.valueOf(mandObj).isBlank()) {
+            mandList.addAll(Arrays.stream(String.valueOf(mandObj).split("[,;\\n]+")).map(String::trim).filter(s -> !s.isBlank()).toList());
+        }
+
+        Object prefObj = jobParams != null ? jobParams.get("preferredSkills") : null;
+        List<String> prefList = new ArrayList<>();
+        if (prefObj instanceof List<?>) {
+            for (Object o : (List<?>) prefObj) {
+                if (o != null && !String.valueOf(o).isBlank()) prefList.add(String.valueOf(o).trim());
+            }
+        } else if (prefObj != null && !String.valueOf(prefObj).isBlank()) {
+            prefList.addAll(Arrays.stream(String.valueOf(prefObj).split("[,;\\n]+")).map(String::trim).filter(s -> !s.isBlank()).toList());
+        }
+
+        String prompt = "Bạn là Chuyên gia Cố vấn Tuyển dụng Cấp cao (Executive Talent Acquisition & Technical Recruiter Specialist) của HireMate AI.\n" +
+                "Nhiệm vụ: Hãy đọc và phân tích kỹ lưỡng các thông tin đầu vào bài đăng tuyển dụng dưới đây để SOẠN THẢO BẢN MÔ TẢ CÔNG VIỆC (JOB DESCRIPTION - JD) HOÀN CHỈNH, CHUYÊN NGHIỆP, CHUẨN ATS TUYỂN DỤNG:\n\n" +
+                "- Tiêu đề vị trí: " + title + "\n" +
+                "- Lĩnh vực chuyên môn: " + domain + "\n" +
+                "- Cấp bậc tuyển dụng: " + jobLevel + "\n" +
+                "- Yêu cầu bằng cấp / học vấn: " + edu + "\n" +
+                "- Kinh nghiệm làm việc: " + exp + "\n" +
+                "- Hình thức làm việc: " + workplace + "\n" +
+                "- Mức thu nhập dự kiến: " + salary + "\n" +
+                "- Địa điểm làm việc: " + location + "\n" +
+                "- Ma trận kỹ năng bắt buộc (Mandatory - 70% trọng số): " + String.join(", ", mandList) + "\n" +
+                "- Ma trận kỹ năng ưu tiên (Preferred - 30% trọng số): " + String.join(", ", prefList) + "\n\n" +
+                "Yêu cầu đầu ra: Trả về DUY NHẤT một chuỗi JSON chuẩn xác gồm 3 trường chính bằng tiếng Việt, mỗi ý gạch đầu dòng bắt đầu bằng dấu (- ):\n" +
+                "{\n" +
+                "  \"description\": \"Mô tả chi tiết 4-6 trách nhiệm công việc cốt lõi, bám sát các kỹ năng bắt buộc và cấp bậc vị trí...\",\n" +
+                "  \"requirements\": \"Yêu cầu năng lực 4-6 ý gồm bằng cấp, số năm kinh nghiệm, kỹ năng bắt buộc (70%) và kỹ năng cộng điểm (30%)...\",\n" +
+                "  \"benefits\": \"Chế độ đãi ngộ 4-5 ý gồm thu nhập (" + salary + "), môi trường (" + workplace + "), bảo hiểm, thưởng hiệu suất và cơ hội phát triển...\"\n" +
+                "}";
+
+        try {
+            String responseText = callGeminiApi(prompt, 2000);
+            if (responseText != null && !responseText.isBlank()) {
+                String jsonStr = extractJson(responseText);
+                JsonNode root = objectMapper.readTree(jsonStr);
+                java.util.Map<String, Object> resMap = new java.util.HashMap<>();
+                resMap.put("description", root.hasNonNull("description") ? root.get("description").asText() : "");
+                resMap.put("requirements", root.hasNonNull("requirements") ? root.get("requirements").asText() : "");
+                resMap.put("benefits", root.hasNonNull("benefits") ? root.get("benefits").asText() : "");
+                resMap.put("mandatorySkills", mandList);
+                resMap.put("preferredSkills", prefList);
+
+                if (!String.valueOf(resMap.get("description")).isBlank()) {
+                    return resMap;
+                }
+            }
+        } catch (Exception e) {
+            log.warn(">> [GeminiAiService] generateJobContent via Gemini failed: {}. Using smart template fallback.", e.getMessage());
+        }
+
+        // Smart Fallback
+        java.util.Map<String, Object> fallback = fallbackJdParse(title, title + " " + String.join(" ", mandList));
+        java.util.Map<String, Object> resMap = new java.util.HashMap<>();
+        resMap.put("description", fallback.get("description"));
+        resMap.put("requirements", fallback.get("requirements"));
+        resMap.put("benefits", fallback.get("benefits"));
+        resMap.put("mandatorySkills", mandList);
+        resMap.put("preferredSkills", prefList);
+        return resMap;
     }
 
     private java.util.Map<String, Object> parseJdJson(String responseText, String fallbackTitle, String rawJd) {

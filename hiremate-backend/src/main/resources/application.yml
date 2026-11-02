@@ -62,11 +62,11 @@ jwt:
 gemini:
   api:
     key: ${GEMINI_API_KEY:your_gemini_api_key_here}
-    model: ${GEMINI_MODEL:gemini-3-flash-preview}
+    model: ${GEMINI_MODEL:gemini-3.5-flash-lite}
     base-url: https://generativelanguage.googleapis.com/v1beta
   voice:
-    api-key: ${GEMINI_VOICE_API_KEY:YOUR_GEMINI_VOICE_API_KEY}
-    model: ${GEMINI_VOICE_MODEL:gemini-3-flash-preview}
+    api-key: ${GEMINI_VOICE_API_KEY:}
+    model: ${GEMINI_VOICE_MODEL:gemini-3.5-flash-lite}
 
 openai:
   api:

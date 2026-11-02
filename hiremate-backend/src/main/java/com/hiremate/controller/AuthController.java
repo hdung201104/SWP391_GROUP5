@@ -22,7 +22,10 @@ import java.util.Map;
 public class AuthController {
 
     private final AuthService authService;
+    private final com.hiremate.repository.UserRepository userRepository;
     private final com.hiremate.service.FileStorageService fileStorageService;
+    private final com.hiremate.service.UserSessionService userSessionService;
+    private final com.hiremate.config.JwtUtil jwtUtil;
 
     @PostMapping(value = "/upload-license", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<Map<String, String>>> uploadLicenseBeforeRegister(
@@ -53,8 +56,14 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<ApiResponse<AuthResponse>> login(
+            @Valid @RequestBody LoginRequest request,
+            jakarta.servlet.http.HttpServletRequest httpRequest
+    ) {
         AuthResponse response = authService.login(request);
+        if (userSessionService != null && response != null) {
+            userSessionService.recordSession(response.getUserId(), response.getToken(), response.getRefreshToken(), httpRequest);
+        }
         return ResponseEntity.ok(ApiResponse.ok("Login successful", response));
     }
 
@@ -75,11 +84,21 @@ public class AuthController {
 
     @PostMapping("/send-otp")
     public ResponseEntity<ApiResponse<Map<String, String>>> sendOtp(@Valid @RequestBody SendOtpRequest request) {
-        authService.sendOtp(request);
+        String generatedOtp = authService.sendOtp(request);
         Map<String, String> data = new java.util.HashMap<>();
         data.put("email", request.getEmail());
         data.put("purpose", request.getPurpose());
-        return ResponseEntity.ok(ApiResponse.ok("Mã xác thực OTP đã được gửi đến email", data));
+        data.put("otpDevHint", generatedOtp);
+        return ResponseEntity.ok(ApiResponse.ok("Mã xác thực OTP đã được tạo và gửi đến email", data));
+    }
+
+    @GetMapping("/check-email")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> checkEmail(@RequestParam String email) {
+        boolean exists = userRepository.existsByEmail(email.toLowerCase().trim());
+        Map<String, Object> data = new java.util.HashMap<>();
+        data.put("email", email);
+        data.put("exists", exists);
+        return ResponseEntity.ok(ApiResponse.ok("Kiểm tra sự tồn tại của email thành công", data));
     }
 
     @PostMapping("/verify-otp")
@@ -114,26 +133,50 @@ public class AuthController {
     }
 
     @PostMapping("/google")
-    public ResponseEntity<ApiResponse<AuthResponse>> googleLogin(@Valid @RequestBody GoogleAuthRequest request) {
+    public ResponseEntity<ApiResponse<AuthResponse>> googleLogin(
+            @Valid @RequestBody GoogleAuthRequest request,
+            jakarta.servlet.http.HttpServletRequest httpRequest
+    ) {
         AuthResponse response = authService.googleLogin(request);
+        if (userSessionService != null && response != null) {
+            userSessionService.recordSession(response.getUserId(), response.getToken(), response.getRefreshToken(), httpRequest);
+        }
         return ResponseEntity.ok(ApiResponse.ok("Đăng nhập Google thành công", response));
     }
 
     @PostMapping("/google/complete-registration")
-    public ResponseEntity<ApiResponse<AuthResponse>> completeGoogleRegistration(@Valid @RequestBody GoogleCompleteRegistrationRequest request) {
+    public ResponseEntity<ApiResponse<AuthResponse>> completeGoogleRegistration(
+            @Valid @RequestBody GoogleCompleteRegistrationRequest request,
+            jakarta.servlet.http.HttpServletRequest httpRequest
+    ) {
         AuthResponse response = authService.completeGoogleRegistration(request);
+        if (userSessionService != null && response != null) {
+            userSessionService.recordSession(response.getUserId(), response.getToken(), response.getRefreshToken(), httpRequest);
+        }
         return ResponseEntity.ok(ApiResponse.ok("Hoàn tất đăng ký tài khoản thành công", response));
     }
 
     @PostMapping("/github")
-    public ResponseEntity<ApiResponse<AuthResponse>> githubLogin(@RequestBody GitHubAuthRequest request) {
+    public ResponseEntity<ApiResponse<AuthResponse>> githubLogin(
+            @RequestBody GitHubAuthRequest request,
+            jakarta.servlet.http.HttpServletRequest httpRequest
+    ) {
         AuthResponse response = authService.githubLogin(request);
+        if (userSessionService != null && response != null) {
+            userSessionService.recordSession(response.getUserId(), response.getToken(), response.getRefreshToken(), httpRequest);
+        }
         return ResponseEntity.ok(ApiResponse.ok("Đăng nhập GitHub thành công", response));
     }
 
     @PostMapping("/refresh-token")
-    public ResponseEntity<ApiResponse<AuthResponse>> refreshToken(@Valid @RequestBody com.hiremate.dto.request.RefreshTokenRequest request) {
+    public ResponseEntity<ApiResponse<AuthResponse>> refreshToken(
+            @Valid @RequestBody com.hiremate.dto.request.RefreshTokenRequest request,
+            jakarta.servlet.http.HttpServletRequest httpRequest
+    ) {
         AuthResponse response = authService.refreshToken(request);
+        if (userSessionService != null && response != null) {
+            userSessionService.recordSession(response.getUserId(), response.getToken(), response.getRefreshToken(), httpRequest);
+        }
         return ResponseEntity.ok(ApiResponse.ok("Làm mới token thành công", response));
     }
 
@@ -141,5 +184,55 @@ public class AuthController {
     public ResponseEntity<ApiResponse<String>> logout(@RequestHeader(value = "Authorization", required = false) String authHeader) {
         authService.logout(authHeader);
         return ResponseEntity.ok(ApiResponse.ok("Đăng xuất thành công", "LOGGED_OUT"));
+    }
+
+    @GetMapping("/sessions")
+    public ResponseEntity<ApiResponse<java.util.List<com.hiremate.dto.response.UserSessionDTO>>> getActiveSessions(
+            @AuthenticationPrincipal User user,
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            jakarta.servlet.http.HttpServletRequest httpRequest
+    ) {
+        if (user == null) {
+            return ResponseEntity.status(401).body(ApiResponse.error("Vui lòng đăng nhập để xem phiên hoạt động"));
+        }
+        String currentToken = jwtUtil.extractTokenFromHeader(authHeader);
+        if ((currentToken == null || currentToken.isBlank()) && httpRequest != null) {
+            String pToken = httpRequest.getParameter("token");
+            if (pToken == null || pToken.isBlank()) pToken = httpRequest.getParameter("access_token");
+            if (pToken != null && !pToken.isBlank()) currentToken = pToken.trim();
+        }
+        java.util.List<com.hiremate.dto.response.UserSessionDTO> sessions = userSessionService.getUserSessions(user, currentToken);
+        return ResponseEntity.ok(ApiResponse.ok("Lấy danh sách phiên đăng nhập thành công", sessions));
+    }
+
+    @DeleteMapping("/sessions/{sessionId}")
+    public ResponseEntity<ApiResponse<String>> revokeSession(
+            @AuthenticationPrincipal User user,
+            @PathVariable String sessionId
+    ) {
+        if (user == null) {
+            return ResponseEntity.status(401).body(ApiResponse.error("Vui lòng đăng nhập"));
+        }
+        userSessionService.revokeSession(user, sessionId);
+        return ResponseEntity.ok(ApiResponse.ok("Đã đăng xuất thiết bị thành công", "SESSION_REVOKED"));
+    }
+
+    @DeleteMapping("/sessions/others")
+    public ResponseEntity<ApiResponse<String>> revokeAllOtherSessions(
+            @AuthenticationPrincipal User user,
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            jakarta.servlet.http.HttpServletRequest httpRequest
+    ) {
+        if (user == null) {
+            return ResponseEntity.status(401).body(ApiResponse.error("Vui lòng đăng nhập"));
+        }
+        String currentToken = jwtUtil.extractTokenFromHeader(authHeader);
+        if ((currentToken == null || currentToken.isBlank()) && httpRequest != null) {
+            String pToken = httpRequest.getParameter("token");
+            if (pToken == null || pToken.isBlank()) pToken = httpRequest.getParameter("access_token");
+            if (pToken != null && !pToken.isBlank()) currentToken = pToken.trim();
+        }
+        userSessionService.revokeAllOtherSessions(user, currentToken);
+        return ResponseEntity.ok(ApiResponse.ok("Đã đăng xuất tất cả các thiết bị khác thành công", "OTHER_SESSIONS_REVOKED"));
     }
 }

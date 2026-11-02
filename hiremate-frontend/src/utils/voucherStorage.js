@@ -14,11 +14,11 @@ export const DEFAULT_VOUCHERS = [
     discountPercent: 50,
     maxDiscountAmount: 150000,
     minOrderAmount: 0,
-    targetRole: 'ALL', // Áp dụng cả Ứng viên & HR
-    applicableScope: 'ALL', // Áp dụng tất cả các gói
+    targetRole: 'ALL',
+    applicableScope: 'ALL',
     applicablePlanIds: [],
-    applicablePlans: ['Tất cả các gói dịch vụ'],
-    description: 'Giảm 50% (tối đa 150.000đ) cho tất cả khách hàng mới gia nhập HireMate AI',
+    applicablePlans: ['Tất cả các gói nâng cấp'],
+    description: 'Giảm 50% (tối đa 150.000đ) cho tất cả khách hàng mới nâng cấp dịch vụ HireMate AI',
     status: 'ACTIVE',
     isActive: true,
     usage: '68/100 lượt',
@@ -32,12 +32,12 @@ export const DEFAULT_VOUCHERS = [
     code: 'CANDIDATE20',
     discountPercent: 20,
     maxDiscountAmount: 100000,
-    minOrderAmount: 50000,
-    targetRole: 'CANDIDATE', // Chỉ dành cho Ứng viên
-    applicableScope: 'ALL', // Tất cả các gói Ứng viên
-    applicablePlanIds: ['CANDIDATE_STARTER', 'CANDIDATE_PRO', 'CANDIDATE_VIP', 'AI_CV_REWRITE', 'MOCK_PASS_10', 'FEATURED_CANDIDATE', 'HR_CONSULTING'],
-    applicablePlans: ['Mọi gói nâng cấp & Add-on Ứng viên'],
-    description: 'Giảm 20% độc quyền cho Ứng viên nâng cấp tài khoản hoặc mua gói ôn luyện phỏng vấn',
+    minOrderAmount: 40000,
+    targetRole: 'CANDIDATE',
+    applicableScope: 'ALL',
+    applicablePlanIds: [6, 7, 8, '6', '7', '8', 'CANDIDATE_PLUS', 'CANDIDATE_PRO', 'CANDIDATE_ACE'],
+    applicablePlans: ['Practice Plus', 'Practice Pro', 'Career Ace'],
+    description: 'Giảm 20% độc quyền cho Ứng viên nâng cấp gói luyện phỏng vấn AI Voice',
     status: 'ACTIVE',
     isActive: true,
     usage: '42/150 lượt',
@@ -52,11 +52,11 @@ export const DEFAULT_VOUCHERS = [
     discountPercent: 30,
     maxDiscountAmount: 200000,
     minOrderAmount: 100000,
-    targetRole: 'CANDIDATE', // Chỉ dành cho Ứng viên
-    applicableScope: 'SPECIFIC', // Chỉ áp dụng gói phỏng vấn và CV
-    applicablePlanIds: ['CANDIDATE_PRO', 'CANDIDATE_VIP', 'AI_CV_REWRITE'],
-    applicablePlans: ['Phỏng Vấn Đột Phá (Pro)', 'Career Mastery VIP 👑', 'AI CV Rewrite & ATS Pass'],
-    description: 'Ưu đãi 30% gói Luyện phỏng vấn AI và Tối ưu hóa CV dành cho Sinh viên & Tài năng trẻ FPT',
+    targetRole: 'CANDIDATE',
+    applicableScope: 'SPECIFIC',
+    applicablePlanIds: [7, 8, '7', '8', 'CANDIDATE_PRO', 'CANDIDATE_ACE'],
+    applicablePlans: ['Practice Pro (149k)', 'Career Ace (249k)'],
+    description: 'Ưu đãi 30% gói Luyện phỏng vấn AI chuyên sâu & Chẩn đoán STAR cho sinh viên FPT',
     status: 'ACTIVE',
     isActive: true,
     usage: '85/200 lượt',
@@ -70,12 +70,12 @@ export const DEFAULT_VOUCHERS = [
     code: 'PROHR2026',
     discountPercent: 30,
     maxDiscountAmount: 300000,
-    minOrderAmount: 200000,
-    targetRole: 'RECRUITER', // Chỉ dành cho HR / Doanh nghiệp
-    applicableScope: 'ALL', // Mọi gói tuyển dụng
-    applicablePlanIds: ['Hiring Starter', 'Hiring Pro', 'Enterprise Unlimited', 'pkg-2', 'pkg-3', 'pkg-4'],
-    applicablePlans: ['Mọi gói đăng tin & tuyển dụng HR'],
-    description: 'Giảm ngay 30% (tối đa 300.000đ) cho Nhà tuyển dụng đăng ký gói Hiring Pro và Enterprise',
+    minOrderAmount: 150000,
+    targetRole: 'RECRUITER',
+    applicableScope: 'ALL',
+    applicablePlanIds: [2, 3, 4, '2', '3', '4', 'STARTER', 'PROFESSIONAL', 'ENTERPRISE'],
+    applicablePlans: ['Hiring Starter', 'Hiring Pro', 'Hiring Elite'],
+    description: 'Giảm ngay 30% (tối đa 300.000đ) cho Nhà tuyển dụng đăng ký gói tuyển dụng thông minh',
     status: 'ACTIVE',
     isActive: true,
     usage: '38/100 lượt',
@@ -89,12 +89,12 @@ export const DEFAULT_VOUCHERS = [
     code: 'HRBOOST',
     discountPercent: 40,
     maxDiscountAmount: 400000,
-    minOrderAmount: 500000,
-    targetRole: 'RECRUITER', // Chỉ dành cho HR
-    applicableScope: 'SPECIFIC', // Chỉ gói Pro và Enterprise
-    applicablePlanIds: ['Hiring Pro', 'Enterprise Unlimited', 'pkg-3', 'pkg-4'],
-    applicablePlans: ['Hiring Pro (Tuyển Dụng Nhanh)', 'Enterprise Unlimited (Doanh Nghiệp Lớn)'],
-    description: 'Ưu đãi 40% cho Doanh nghiệp mở rộng quy mô tuyển dụng nhân sự cấp cao',
+    minOrderAmount: 400000,
+    targetRole: 'RECRUITER',
+    applicableScope: 'SPECIFIC',
+    applicablePlanIds: [3, 4, '3', '4', 'PROFESSIONAL', 'ENTERPRISE'],
+    applicablePlans: ['Hiring Pro (499k)', 'Hiring Elite (1.199k)'],
+    description: 'Ưu đãi 40% cho Doanh nghiệp nâng cấp gói Hiring Pro & Hiring Elite',
     status: 'ACTIVE',
     isActive: true,
     usage: '19/50 lượt',
@@ -112,8 +112,8 @@ export const DEFAULT_VOUCHERS = [
     targetRole: 'ALL',
     applicableScope: 'ALL',
     applicablePlanIds: [],
-    applicablePlans: ['Tất cả các gói dịch vụ'],
-    description: 'Mã chào mừng thành viên mới - Giảm trực tiếp 20% cho đơn hàng đầu tiên',
+    applicablePlans: ['Tất cả các gói nâng cấp'],
+    description: 'Mã chào mừng thành viên mới - Giảm trực tiếp 20% cho đơn hàng nâng cấp đầu tiên',
     status: 'ACTIVE',
     isActive: true,
     usage: '112/300 lượt',
@@ -131,15 +131,15 @@ export const DEFAULT_VOUCHERS = [
     targetRole: 'ALL',
     applicableScope: 'ALL',
     applicablePlanIds: [],
-    applicablePlans: ['Tất cả các gói dịch vụ'],
+    applicablePlans: ['Tất cả các gói nâng cấp'],
     description: 'Đợt ưu đãi đầu mùa tuyển dụng (Đã hết hạn)',
     status: 'EXPIRED',
     isActive: false,
     usage: '100/100 lượt',
     usageLimit: 100,
     usedCount: 100,
-    validTo: '2026-03-01',
-    badgeBg: 'bg-slate-100 text-slate-600 border-slate-200',
+    validTo: '2026-03-31',
+    badgeBg: 'bg-slate-100 text-slate-500 border-slate-300',
   },
 ];
 
@@ -150,6 +150,10 @@ export function getStoredVouchers() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
+      if (raw.includes('AI_CV_REWRITE') || raw.includes('MOCK_PASS_10')) {
+        saveStoredVouchers(DEFAULT_VOUCHERS);
+        return DEFAULT_VOUCHERS;
+      }
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
         return parsed;

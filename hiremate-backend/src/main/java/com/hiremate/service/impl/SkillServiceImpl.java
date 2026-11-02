@@ -733,7 +733,7 @@ public class SkillServiceImpl implements SkillService {
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public Skill findOrCreateNormalizedSkill(String rawName, String suggestedCategory, String aliases) {
         if (rawName == null || rawName.isBlank()) {
             return null;
@@ -785,11 +785,16 @@ public class SkillServiceImpl implements SkillService {
                 .aliases(sbAliases.length() > 0 ? sbAliases.toString() : null)
                 .build();
 
-        Skill saved = skillRepository.save(newSkill);
-        cachedSkillsRef.set(null); // Invalidate cache để các API khác cập nhật tức thì
-        if (saved != null) {
-            log.info(">> [AI Skill Taxonomy] Tự động bổ sung kỹ năng mới vào Supabase: {} ({})", saved.getSkillName(), saved.getCategory());
-            return saved;
+        try {
+            Skill saved = skillRepository.save(newSkill);
+            cachedSkillsRef.set(null); // Invalidate cache để các API khác cập nhật tức thì
+            if (saved != null) {
+                log.info(">> [AI Skill Taxonomy] Tự động bổ sung kỹ năng mới vào Supabase: {} ({})", saved.getSkillName(), saved.getCategory());
+                return saved;
+            }
+        } catch (Exception saveEx) {
+            log.warn(">> [AI Skill Taxonomy] Không thể lưu kỹ năng '{}' (có thể đã tồn tại): {}", normalized, saveEx.getMessage());
+            return skillRepository.findBySkillNameIgnoreCase(normalized).orElse(null);
         }
         return newSkill;
     }

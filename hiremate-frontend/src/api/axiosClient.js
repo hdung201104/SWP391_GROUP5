@@ -25,6 +25,12 @@ axiosClient.interceptors.request.use(
     if (token && !isPublicAuth) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // If uploading FormData, delete Content-Type so Axios/browser sets boundary automatically
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+    }
+
     return config;
   },
   (error) => Promise.reject(error)

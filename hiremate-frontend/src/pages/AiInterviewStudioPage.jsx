@@ -682,6 +682,8 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const simVisionIntervalRef = useRef(null);
+  const lastFaceSeenTimeRef = useRef(0);
+  const faceLossStreakRef = useRef(0);
 
   const showToast = (msg) => {
     setToast(msg);
@@ -1222,30 +1224,55 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
     }
   }, [view]);
 
-  // Phân tích sâu CV bằng AI logic để may đo các vị trí phỏng vấn mục tiêu đa ngành nghề (AI Tailored Practice Tracks)
-  const generateAiTracksFromCv = (cv) => {
-    if (!cv) return [];
+  // Phân tích sâu tất cả CV bằng AI logic để may đo các vị trí phỏng vấn mục tiêu chính xác theo năng lực thực tế
+  const generateAiTracksFromAllCvs = (allCvs = [], primaryCv = null) => {
+    const cvList = Array.isArray(allCvs) && allCvs.length > 0 ? allCvs : (primaryCv ? [primaryCv] : []);
+    if (cvList.length === 0) return [];
 
-    const rawSkills = [];
-    if (Array.isArray(cv.detectedSkills)) rawSkills.push(...cv.detectedSkills);
-    if (Array.isArray(cv.skills)) rawSkills.push(...cv.skills);
-    if (Array.isArray(cv.parsedData?.skills)) rawSkills.push(...cv.parsedData.skills);
-    if (cv.parsedText) {
-      const textLower = cv.parsedText.toLowerCase();
-      const techPool = [
-        'Java', 'Spring Boot', 'React', 'ReactJS', 'TypeScript', 'JavaScript', 'Node.js',
-        'Python', 'FastAPI', 'Django', 'PostgreSQL', 'MySQL', 'MongoDB', 'Docker',
-        'Kubernetes', 'AWS', 'Microservices', 'RESTful API', 'Git', 'CI/CD', 'Flutter',
-        'Golang', 'Vue.js', 'Next.js', 'Tailwind CSS', 'Redis', 'Kafka', 'GraphQL'
-      ];
-      techPool.forEach((t) => {
-        if (textLower.includes(t.toLowerCase()) && !rawSkills.includes(t)) {
-          rawSkills.push(t);
-        }
-      });
-    }
+    const rawSkills = new Set();
+    const headlines = [];
+    const fullTexts = [];
 
-    const uniqueSkills = Array.from(new Set(rawSkills.map((s) => String(s).trim()))).filter(Boolean);
+    cvList.forEach((cv) => {
+      if (Array.isArray(cv.detectedSkills)) cv.detectedSkills.forEach((s) => rawSkills.add(String(s).trim()));
+      if (Array.isArray(cv.skills)) cv.skills.forEach((s) => rawSkills.add(String(s).trim()));
+      if (Array.isArray(cv.parsedData?.skills)) cv.parsedData.skills.forEach((s) => rawSkills.add(String(s).trim()));
+      if (cv.parsedJson) {
+        try {
+          const parsed = typeof cv.parsedJson === 'string' ? JSON.parse(cv.parsedJson) : cv.parsedJson;
+          if (Array.isArray(parsed.skills)) parsed.skills.forEach((s) => rawSkills.add(String(s).trim()));
+          if (Array.isArray(parsed.technicalSkills)) parsed.technicalSkills.forEach((s) => rawSkills.add(String(s).trim()));
+        } catch (e) {}
+      }
+      if (cv.headline) headlines.push(cv.headline);
+      if (cv.title) headlines.push(cv.title);
+      if (cv.parsedText) fullTexts.push(cv.parsedText);
+      if (cv.summary) fullTexts.push(cv.summary);
+    });
+
+    const textCorpus = fullTexts.join(' ').toLowerCase();
+    const headlineText = headlines.join(' ').toLowerCase();
+
+    // Đối soát các kỹ năng công nghệ chuẩn từ kho từ điển dựa trên word boundary
+    const TECH_KEYWORDS = [
+      'Java', 'Spring Boot', 'Spring', 'Hibernate', 'React', 'ReactJS', 'TypeScript', 'JavaScript',
+      'Node.js', 'Express', 'NestJS', 'Python', 'FastAPI', 'Django', 'PostgreSQL', 'MySQL',
+      'MongoDB', 'Docker', 'Kubernetes', 'AWS', 'GCP', 'Azure', 'Microservices', 'RESTful API',
+      'Git', 'CI/CD', 'Flutter', 'Dart', 'React Native', 'Golang', 'Vue.js', 'Next.js',
+      'Tailwind CSS', 'Redis', 'Kafka', 'GraphQL', 'Linux', 'SQL', 'C++', 'C#', '.NET',
+      'Selenium', 'Postman', 'JMeter', 'Manual Testing', 'Automation Testing', 'Unit Test',
+      'Business Analyst', 'Scrum', 'Agile', 'Jira', 'Figma', 'UI/UX'
+    ];
+
+    TECH_KEYWORDS.forEach((t) => {
+      const escaped = t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`(^|[^a-zA-Z0-9_])${escaped}([^a-zA-Z0-9_]|$)`, 'i');
+      if (regex.test(textCorpus) || regex.test(headlineText)) {
+        rawSkills.add(t);
+      }
+    });
+
+    const uniqueSkills = Array.from(rawSkills).filter(Boolean);
     const skillsLower = uniqueSkills.map((s) => s.toLowerCase());
     const fullCvText = [
       cv.parsedText || '',
@@ -1258,242 +1285,182 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
 
     const tracks = [];
 
-    // Nhận diện các ngành nghề kinh tế / phi kỹ thuật (Non-Tech Domains)
-    const hasFinance = fullCvText.includes('kế toán') || fullCvText.includes('kiểm toán') || fullCvText.includes('tài chính') ||
-      fullCvText.includes('bctc') || fullCvText.includes('thuế') || fullCvText.includes('vat') || fullCvText.includes('tndn') ||
-      fullCvText.includes('vas') || fullCvText.includes('ifrs') || fullCvText.includes('misa') || fullCvText.includes('công nợ') ||
-      fullCvText.includes('ngân hàng') || fullCvText.includes('accounting') || fullCvText.includes('finance') || fullCvText.includes('audit');
+    // Tính điểm match động dựa trên số lượng kỹ năng thực tế khớp trong CV
+    const calcScore = (matchedCount, base = 84) => {
+      return Math.min(98, Math.max(76, Math.round(base + Math.min(matchedCount, 5) * 2.5)));
+    };
 
-    const hasMarketing = fullCvText.includes('marketing') || fullCvText.includes('seo') || fullCvText.includes('sem') ||
-      fullCvText.includes('content') || fullCvText.includes('truyền thông') || fullCvText.includes('digital marketing') ||
-      fullCvText.includes('facebook ads') || fullCvText.includes('google ads') || fullCvText.includes('tiktok') ||
-      fullCvText.includes('roas') || fullCvText.includes('brand') || fullCvText.includes('chiến dịch') || fullCvText.includes('quảng cáo');
+    // 1. Phân nhánh Java Backend
+    const javaSkills = uniqueSkills.filter((s) => /java|spring|microservice|hibernate|sql|postgres|mysql|rest|docker|redis|kafka/i.test(s));
+    if (skillsLower.some((s) => s.includes('java') || s.includes('spring'))) {
+      const score = calcScore(javaSkills.length, 86);
+      tracks.push({
+        id: 'track-java-backend',
+        title: 'Senior Java & Spring Boot Backend Engineer',
+        domain: 'Backend & Enterprise Architecture',
+        matchScore: score,
+        focusSkills: javaSkills.length >= 3 ? javaSkills.slice(0, 5) : ['Java Core', 'Spring Boot', 'Microservices', 'RESTful API', 'PostgreSQL'],
+        reasoning: `Dựa trên tổng hợp ${cvList.length} hồ sơ CV của bạn, AI nhận thấy thế mạnh nổi trội về hệ sinh thái Java & Spring Boot (${javaSkills.slice(0, 4).join(', ')}). Phỏng vấn sẽ đào sâu kiến trúc Microservices, quản lý Transaction, tối ưu truy vấn Database và Concurrency.`,
+        interviewFocus: 'Kiến trúc hệ thống phân tán, xử lý tải cao, Spring Security và JPA Hibernate optimization.',
+      });
+    }
 
-    const hasSales = fullCvText.includes('sales') || fullCvText.includes('kinh doanh') || fullCvText.includes('bán hàng') ||
-      fullCvText.includes('phát triển thị trường') || fullCvText.includes('business development') || fullCvText.includes('b2b') ||
-      fullCvText.includes('b2c') || fullCvText.includes('crm') || fullCvText.includes('chốt đơn') || fullCvText.includes('đàm phán') ||
-      fullCvText.includes('doanh số') || fullCvText.includes('kpi sales') || fullCvText.includes('khách hàng mục tiêu');
+    // 2. Phân nhánh Frontend React.js / Web
+    const feSkills = uniqueSkills.filter((s) => /react|typescript|javascript|frontend|tailwind|next|vue|html|css|redux|zustand/i.test(s));
+    if (skillsLower.some((s) => s.includes('react') || s.includes('typescript') || s.includes('vue') || s.includes('frontend') || s.includes('next'))) {
+      const score = calcScore(feSkills.length, 85);
+      tracks.push({
+        id: 'track-react-frontend',
+        title: 'Frontend React.js & Modern Web Specialist',
+        domain: 'Web Performance & Modern UI',
+        matchScore: score,
+        focusSkills: feSkills.length >= 3 ? feSkills.slice(0, 5) : ['React.js', 'TypeScript', 'Next.js', 'Tailwind CSS', 'RESTful API'],
+        reasoning: `CV thể hiện kinh nghiệm thực chiến với ${feSkills.slice(0, 4).join(', ')}. AI sẽ thử thách khả năng quản lý State phức tạp, Component Lifecycle, tối ưu Web Vitals và kiến trúc mã nguồn Clean Code.`,
+        interviewFocus: 'Render lifecycle, Virtual DOM, Custom Hooks, Clean Code và trải nghiệm người dùng cao cấp.',
+      });
+    }
 
-    const hasHr = fullCvText.includes('nhân sự') || fullCvText.includes('hr') || fullCvText.includes('tuyển dụng') ||
-      fullCvText.includes('c&b') || fullCvText.includes('talent acquisition') || fullCvText.includes('headhunt') ||
-      fullCvText.includes('tiền lương') || fullCvText.includes('phúc lợi') || fullCvText.includes('bhxh') ||
-      fullCvText.includes('luật lao động') || fullCvText.includes('onboarding') || fullCvText.includes('văn hóa doanh nghiệp');
+    // 3. Phân nhánh Fullstack Software Engineer (nếu có cả BE và FE)
+    const hasBe = skillsLower.some((s) => s.includes('java') || s.includes('node') || s.includes('python') || s.includes('backend') || s.includes('spring'));
+    const hasFe = skillsLower.some((s) => s.includes('react') || s.includes('javascript') || s.includes('frontend') || s.includes('typescript') || s.includes('vue'));
+    if (hasBe && hasFe) {
+      const combinedSkills = Array.from(new Set([...javaSkills, ...feSkills])).slice(0, 5);
+      tracks.push({
+        id: 'track-fullstack-engineer',
+        title: 'Fullstack Software Engineer (Web & APIs)',
+        domain: 'End-to-End Product Development',
+        matchScore: calcScore(combinedSkills.length, 88),
+        focusSkills: combinedSkills.length >= 3 ? combinedSkills : ['Java / Spring Boot', 'React.js', 'RESTful API', 'PostgreSQL', 'Docker'],
+        reasoning: 'Hồ sơ có năng lực phát triển toàn diện từ Backend tới Giao diện người dùng. AI sẽ đánh giá tư duy kiến trúc toàn trình (End-to-End), thiết kế API chuẩn RESTful và xử lý tương tác bất đồng bộ.',
+        interviewFocus: 'Tích hợp Frontend-Backend, thiết kế API chuẩn REST, bảo mật xác thực JWT và tối ưu độ trễ mạng.',
+      });
+    }
 
-    const hasBA = fullCvText.includes('business analyst') || fullCvText.includes('product owner') || fullCvText.includes('product manager') ||
-      fullCvText.includes('scrum master') || fullCvText.includes('brd') || fullCvText.includes('srs') || fullCvText.includes('user story') ||
-      fullCvText.includes('use case') || fullCvText.includes('bpmn') || fullCvText.includes('phân tích nghiệp vụ') || fullCvText.includes('backlog');
+    // 4. Phân nhánh Python & AI / Data Integration
+    const pySkills = uniqueSkills.filter((s) => /python|fastapi|django|ai|machine learning|data|pandas|numpy|llm|genai/i.test(s));
+    if (skillsLower.some((s) => s.includes('python') || s.includes('fastapi') || s.includes('django') || s.includes('ai') || s.includes('machine learning'))) {
+      const score = calcScore(pySkills.length, 84);
+      tracks.push({
+        id: 'track-python-ai',
+        title: 'Python Backend & AI Integration Engineer',
+        domain: 'AI Applications & Microservices',
+        matchScore: score,
+        focusSkills: pySkills.length >= 3 ? pySkills.slice(0, 5) : ['Python', 'FastAPI', 'PostgreSQL', 'Docker', 'AI / LLM Integration'],
+        reasoning: `CV của bạn thể hiện kỹ năng lập trình với Python (${pySkills.slice(0, 4).join(', ')}). AI sẽ tập trung vào tư duy lập trình bất đồng bộ (asyncio), xây dựng API hiệu năng cao và kinh nghiệm tích hợp mô hình AI/LLM.`,
+        interviewFocus: 'Async processing, ORM database, containerization và kiểm soát chi phí token API.',
+      });
+    }
 
-    const hasQA = fullCvText.includes('tester') || fullCvText.includes('test case') || fullCvText.includes('test plan') ||
-      fullCvText.includes('selenium') || fullCvText.includes('postman') || fullCvText.includes('jmeter') || fullCvText.includes('automation test') ||
-      fullCvText.includes('manual test') || fullCvText.includes('kiểm thử') || fullCvText.includes('quality assurance') || fullCvText.includes('qa/qc');
+    // 5. Phân nhánh DevOps / Cloud Infrastructure
+    const devOpsSkills = uniqueSkills.filter((s) => /docker|kubernetes|ci\/cd|aws|cloud|linux|terraform|jenkins/i.test(s));
+    if (skillsLower.some((s) => s.includes('docker') || s.includes('kubernetes') || s.includes('ci/cd') || s.includes('aws') || s.includes('cloud'))) {
+      const score = calcScore(devOpsSkills.length, 82);
+      tracks.push({
+        id: 'track-devops-cloud',
+        title: 'Cloud DevOps & CI/CD Platform Engineer',
+        domain: 'Infrastructure & Automation',
+        matchScore: score,
+        focusSkills: devOpsSkills.length >= 3 ? devOpsSkills.slice(0, 5) : ['Docker', 'Kubernetes', 'CI/CD Pipeline', 'AWS / Cloud', 'Linux'],
+        reasoning: `Hồ sơ có các kỹ năng quản trị hạ tầng (${devOpsSkills.slice(0, 4).join(', ')}). AI sẽ khảo sát khả năng thiết kế pipeline kiểm thử tự động, giám sát dịch vụ và độ sẵn sàng của hệ thống.`,
+        interviewFocus: 'Container orchestration, monitoring & alerting, hạ tầng dự phòng và bảo mật hạ tầng mạng.',
+      });
+    }
 
-    const hasLogistics = fullCvText.includes('logistics') || fullCvText.includes('chuỗi cung ứng') || fullCvText.includes('supply chain') ||
-      fullCvText.includes('xuất nhập khẩu') || fullCvText.includes('hải quan') || fullCvText.includes('incoterms') || fullCvText.includes('tờ khai') ||
-      fullCvText.includes('vnaccs') || fullCvText.includes('kho bãi') || fullCvText.includes('wms') || fullCvText.includes('forwarder');
+    // 6. Phân nhánh QA / QC / Kiểm thử phần mềm
+    const qaSkills = uniqueSkills.filter((s) => /test|qa|qc|selenium|postman|jmeter|automation|manual/i.test(s));
+    if (skillsLower.some((s) => s.includes('test') || s.includes('qa') || s.includes('qc') || s.includes('selenium') || s.includes('postman') || s.includes('kiểm thử'))) {
+      const score = calcScore(qaSkills.length, 85);
+      tracks.push({
+        id: 'track-qa-tester',
+        title: 'Software Quality Assurance & Automation Test Engineer',
+        domain: 'Software Quality Assurance & Testing',
+        matchScore: score,
+        focusSkills: qaSkills.length >= 3 ? qaSkills.slice(0, 5) : ['Thiết kế Test Cases', 'Kiểm thử Hướng biên', 'API Testing (Postman)', 'Automation Testing', 'Quản lý Bug'],
+        reasoning: `Hồ sơ có năng lực kiểm thử phần mềm với ${qaSkills.slice(0, 4).join(', ')}. AI sẽ tập trung khai thác tư duy thiết kế ca kiểm thử, phương pháp tìm bắt lỗi biên và kinh nghiệm kiểm thử tự động hóa.`,
+        interviewFocus: 'Kỹ thuật phân vùng tương đương, kiểm thử biên, API testing, viết automation script và quản trị vòng đời bug.',
+      });
+    }
 
-    const isNonTechCv = (hasFinance || hasMarketing || hasSales || hasHr || hasLogistics) &&
-      !skillsLower.some((s) => s.includes('java') || s.includes('python') || s.includes('react') || s.includes('docker') || s.includes('kubernetes'));
+    // 7. Phân nhánh Mobile Developer
+    const mobileSkills = uniqueSkills.filter((s) => /flutter|dart|react native|mobile|android|ios|swift|kotlin/i.test(s));
+    if (skillsLower.some((s) => s.includes('flutter') || s.includes('dart') || s.includes('react native') || s.includes('mobile') || s.includes('android') || s.includes('ios'))) {
+      const score = calcScore(mobileSkills.length, 85);
+      tracks.push({
+        id: 'track-mobile-dev',
+        title: 'Mobile Engineer (Flutter / Cross-Platform)',
+        domain: 'Mobile Application Architecture',
+        matchScore: score,
+        focusSkills: mobileSkills.length >= 3 ? mobileSkills.slice(0, 5) : ['Flutter', 'Dart', 'State Management', 'RESTful API', 'Mobile UI'],
+        reasoning: `Hồ sơ thể hiện kỹ năng phát triển ứng dụng di động (${mobileSkills.slice(0, 4).join(', ')}). AI sẽ kiểm tra kiến trúc ứng dụng di động, xử lý dữ liệu offline và tối ưu trải nghiệm mượt mà.`,
+        interviewFocus: 'App lifecycle, memory leak prevention, async networking và tối ưu hóa trải nghiệm di động.',
+      });
+    }
 
-    // 1. Phân nhánh Kế toán / Kiểm toán / Tài chính
-    if (hasFinance) {
+    // 8. Phân nhánh Business Analyst / Product Owner
+    const baSkills = uniqueSkills.filter((s) => /business analyst|srs|brd|bpmn|uml|user story|agile|scrum|jira/i.test(s));
+    if (skillsLower.some((s) => s.includes('business analyst') || s.includes('srs') || s.includes('brd') || s.includes('bpmn') || s.includes('phân tích nghiệp vụ')) || /\b(ba|business analyst)\b/i.test(headlineText)) {
+      const score = calcScore(baSkills.length, 86);
+      tracks.push({
+        id: 'track-business-analyst',
+        title: 'Business Analyst & Product Specialist',
+        domain: 'Phân tích Nghiệp vụ & Quản lý Sản phẩm',
+        matchScore: score,
+        focusSkills: baSkills.length >= 3 ? baSkills.slice(0, 5) : ['Khảo sát & Đặc tả yêu cầu (BRD/SRS)', 'Vẽ luồng nghiệp vụ (BPMN/UML)', 'User Story & Acceptance Criteria', 'Quản trị Scope & Backlog'],
+        reasoning: 'Hồ sơ có năng lực cầu nối xuất sắc giữa nghiệp vụ kinh doanh và đội ngũ công nghệ. AI sẽ kiểm tra khả năng bóc tách yêu cầu phức tạp, giải quyết xung đột phạm vi dự án và tối ưu quy trình vận hành.',
+        interviewFocus: 'Khai thác Requirement từ Stakeholders khó tính, xử lý Scope Creep, thiết kế Use Case và nghiệm thu UAT.',
+      });
+    }
+
+    // 9. Chỉ khi hồ sơ THỰC SỰ là chuyên ngành Kế toán / Kiểm toán (Không bị dính nhầm từ 'private' hay 'canvas')
+    const hasFinance = /\b(kế toán|kiểm toán|báo cáo tài chính|bctc|chuẩn mực vas|chuẩn mực ifrs|phần mềm misa|quyết toán thuế|thuế tndn|quản trị dòng tiền)\b/i.test(textCorpus) ||
+      /\b(kế toán|kiểm toán|accountant|auditor)\b/i.test(headlineText);
+    if (hasFinance && tracks.length === 0) {
       tracks.push({
         id: 'track-finance-accounting',
         title: 'Chuyên viên Kế toán & Quản trị Tài chính Doanh nghiệp',
         domain: 'Tài chính, Kế toán & Kiểm toán',
-        matchScore: 95,
+        matchScore: 92,
         focusSkills: ['Báo cáo tài chính (BCTC)', 'Chuẩn mực VAS / IFRS', 'Quyết toán thuế & Hóa đơn', 'Phần mềm MISA / SAP', 'Quản trị dòng tiền'],
         reasoning: 'Hồ sơ thể hiện nền tảng vững vàng về nghiệp vụ kế toán, đối chiếu chứng từ và tuân thủ thuế. AI sẽ đào sâu vào kiểm soát rủi ro tài chính, cân đối dòng tiền và lập báo cáo quản trị.',
         interviewFocus: 'Kiểm soát nội bộ, tối ưu thuế TNDN/GTGT, lập báo cáo lưu chuyển tiền tệ và phản biện số liệu chi phí.',
       });
     }
 
-    // 2. Phân nhánh Marketing / Truyền thông / SEO
-    if (hasMarketing) {
+    // 10. Chỉ khi hồ sơ THỰC SỰ là Digital Marketing
+    const hasMarketing = /\b(digital marketing|chuyên viên marketing|seo specialist|performance marketing|chạy ads|quảng cáo facebook|content creator|brand marketing)\b/i.test(textCorpus) ||
+      /\b(marketing|seo|content)\b/i.test(headlineText);
+    if (hasMarketing && tracks.length === 0) {
       tracks.push({
         id: 'track-digital-marketing',
         title: 'Digital Marketing & Performance Campaign Specialist',
         domain: 'Digital Marketing & Brand Growth',
-        matchScore: 94,
+        matchScore: 91,
         focusSkills: ['Chiến dịch Performance (Ads)', 'Chiến lược Content & SEO', 'Phễu chuyển đổi & CVR', 'Phân tích chỉ số ROAS/CAC', 'Quản trị thương hiệu'],
         reasoning: 'CV có thế mạnh nổi bật về truyền thông số và tối ưu chiến dịch đa kênh. AI sẽ tập trung vào tư duy phân tích tệp khách hàng mục tiêu, tối ưu chi phí quảng cáo và xử lý khủng hoảng truyền thông.',
         interviewFocus: 'Tối ưu chỉ số ROAS/CAC, lập kế hoạch chiến dịch ra mắt sản phẩm mới, xây dựng content viral và A/B testing.',
       });
     }
 
-    // 3. Phân nhánh Kinh doanh / Sales / BD
-    if (hasSales) {
-      tracks.push({
-        id: 'track-sales-bd',
-        title: 'Chuyên viên Phát triển Kinh doanh & Bán hàng B2B/B2C (Sales / BD)',
-        domain: 'Bán hàng, Đàm phán & Phát triển Đối tác',
-        matchScore: 93,
-        focusSkills: ['Quy trình Sales Pipeline & CRM', 'Kỹ năng Đàm phán & Thuyết phục', 'Xử lý từ chối (Objection Handling)', 'Chăm sóc & Mở rộng khách hàng', 'Vượt chỉ tiêu doanh số (KPI/Quota)'],
-        reasoning: 'Hồ sơ nổi bật với năng lực khai phá thị trường và kỹ năng tương tác khách hàng. AI sẽ thử thách khả năng xử lý từ chối của khách hàng khó tính, nghệ thuật chốt hợp đồng và chiến lược quản lý phễu khách hàng.',
-        interviewFocus: 'Chiến thuật SPIN selling, đàm phán hợp đồng giá trị cao, phục hồi khách hàng rời bỏ và vượt quota doanh số.',
-      });
-    }
-
-    // 4. Phân nhánh Nhân sự (HR / C&B / Tuyển dụng)
-    if (hasHr) {
-      tracks.push({
-        id: 'track-hr-talent',
-        title: 'Chuyên viên Nhân sự Tổng hợp & Tuyển dụng (HR / Talent Acquisition)',
-        domain: 'Quản trị Nguồn nhân lực & Văn hóa Doanh nghiệp',
-        matchScore: 92,
-        focusSkills: ['Tuyển dụng & Headhunting', 'Chế độ C&B & Luật Lao động', 'Đánh giá năng lực (KPI/OKR)', 'Đào tạo & Onboarding', 'Giữ chân nhân tài (Retention)'],
-        reasoning: 'CV thể hiện kỹ năng toàn diện về quản trị nhân sự và quy trình tuyển chọn ứng viên. AI sẽ khảo sát khả năng phỏng vấn sàng lọc, xử lý tranh chấp lao động và xây dựng chính sách phúc lợi giữ chân nhân viên.',
-        interviewFocus: 'Xây dựng thương hiệu nhà tuyển dụng, giải quyết xung đột nội bộ, tuân thủ Luật Lao động và tối ưu tỷ lệ turnover.',
-      });
-    }
-
-    // 5. Phân nhánh BA / Product Manager
-    if (hasBA) {
-      tracks.push({
-        id: 'track-business-analyst',
-        title: 'Business Analyst & Product Specialist (Chuyên viên Phân tích Nghiệp vụ)',
-        domain: 'Phân tích Nghiệp vụ & Quản lý Sản phẩm',
-        matchScore: 94,
-        focusSkills: ['Khảo sát & Đặc tả yêu cầu (BRD/SRS)', 'Vẽ luồng nghiệp vụ (BPMN/UML)', 'User Story & Acceptance Criteria', 'Quản trị Scope & Backlog', 'Phối hợp Stakeholders & UAT'],
-        reasoning: 'Hồ sơ có năng lực cầu nối xuất sắc giữa nghiệp vụ kinh doanh và đội ngũ công nghệ. AI sẽ kiểm tra khả năng bóc tách yêu cầu phức tạp, giải quyết xung đột phạm vi dự án và tối ưu quy trình vận hành.',
-        interviewFocus: 'Khai thác Requirement từ Stakeholders khó tính, xử lý Scope Creep, thiết kế Use Case và nghiệm thu UAT.',
-      });
-    }
-
-    // 6. Phân nhánh QA / QC / Kiểm thử phần mềm
-    if (hasQA) {
-      tracks.push({
-        id: 'track-qa-tester',
-        title: 'Software Quality Assurance & Automation Test Engineer (QA/QC)',
-        domain: 'Software Quality Assurance & Testing',
-        matchScore: 95,
-        focusSkills: ['Thiết kế Test Cases & Test Scenarios', 'Kiểm thử Hướng biên & Bảng quyết định', 'API Testing (Postman/RestAssured)', 'Automation Testing', 'Quản lý Bug & UAT'],
-        reasoning: 'Hồ sơ có thế mạnh rõ nét về kiểm soát chất lượng phần mềm. AI sẽ tập trung khai thác tư duy tìm bắt lỗi tiềm ẩn, phương pháp thiết kế ca kiểm thử tối ưu và kinh nghiệm kiểm thử hồi quy/tải cao.',
-        interviewFocus: 'Kỹ thuật phân vùng tương đương, kiểm thử biên, API testing, viết automation script và quản trị vòng đời bug.',
-      });
-    }
-
-    // 7. Phân nhánh Logistics & Xuất nhập khẩu
-    if (hasLogistics) {
-      tracks.push({
-        id: 'track-logistics-supplychain',
-        title: 'Chuyên viên Logistics & Xuất Nhập Khẩu (Supply Chain Specialist)',
-        domain: 'Chuỗi Cung Ứng & Thủ Tục Ngoại Thương',
-        matchScore: 93,
-        focusSkills: ['Thủ tục Hải quan & Tờ khai VNACCS', 'Quy chuẩn Incoterms', 'Quản trị Kho vận (WMS/Inventory)', 'Vận tải Quốc tế & Forwarder', 'Tối ưu hóa Chi phí Chuỗi cung ứng'],
-        reasoning: 'CV thể hiện kiến thức chuyên sâu về nghiệp vụ xuất nhập khẩu và điều phối hàng hóa. AI sẽ đặt ra các bài toán giải quyết sự cố thông quan, lựa chọn điều kiện Incoterms và tối ưu tồn kho.',
-        interviewFocus: 'Xử lý vướng mắc tờ khai hải quan, đàm phán cước tàu forwarder, áp dụng Incoterms 2020 và kiểm soát lead time.',
-      });
-    }
-
-    // 8. Nhận diện các ngành Công nghệ Phần mềm (Tech Tracks)
-    const hasJava = skillsLower.some((s) => s.includes('java') || s.includes('spring'));
-    const hasReact = skillsLower.some((s) => s.includes('react') || s.includes('typescript') || s.includes('frontend') || s.includes('next'));
-    const hasPython = skillsLower.some((s) => s.includes('python') || s.includes('django') || s.includes('fastapi') || s.includes('ai') || s.includes('machine learning'));
-    const hasNode = skillsLower.some((s) => s.includes('node') || s.includes('express') || s.includes('nest'));
-    const hasDevOps = skillsLower.some((s) => s.includes('docker') || s.includes('kubernetes') || s.includes('aws') || s.includes('ci/cd') || s.includes('cloud'));
-    const hasMobile = skillsLower.some((s) => s.includes('flutter') || s.includes('dart') || s.includes('react native') || s.includes('mobile'));
-
-    if (hasJava) {
-      tracks.push({
-        id: 'track-java-backend',
-        title: 'Senior Java & Spring Boot Backend Engineer',
-        domain: 'Backend & Enterprise Architecture',
-        matchScore: 96,
-        focusSkills: ['Java Core', 'Spring Boot', 'Microservices', 'RESTful API', 'PostgreSQL'],
-        reasoning: 'CV của bạn có thế mạnh nổi trội về hệ sinh thái Java / Spring Boot. AI sẽ tập trung khai thác chuyên sâu kiến trúc Microservices, quản lý Transaction, tối ưu truy vấn Database và xử lý Concurrency.',
-        interviewFocus: 'Kiến trúc hệ thống phân tán, xử lý tải cao, Spring Security và JPA Hibernate optimization.',
-      });
-    }
-
-    if (hasReact) {
-      tracks.push({
-        id: 'track-react-frontend',
-        title: 'Frontend React.js & TypeScript Specialist',
-        domain: 'Web Performance & Modern UI',
-        matchScore: 94,
-        focusSkills: ['React.js', 'TypeScript', 'Next.js', 'Tailwind CSS', 'RESTful API'],
-        reasoning: 'Hồ sơ thể hiện năng lực vững chắc về React và phát triển giao diện hiện đại. AI sẽ kiểm tra chuyên sâu tư duy Component Lifecycle, State Management (Redux/Zustand), Web Performance và SSR.',
-        interviewFocus: 'Render lifecycle, Virtual DOM, Custom Hooks, Clean Code và trải nghiệm người dùng cao cấp.',
-      });
-    }
-
-    if ((hasJava && hasReact) || (hasNode && hasReact)) {
-      tracks.push({
-        id: 'track-fullstack-engineer',
-        title: 'Fullstack Software Engineer (Web & APIs)',
-        domain: 'End-to-End Product Development',
-        matchScore: 92,
-        focusSkills: ['Java / Spring Boot', 'React.js', 'RESTful API', 'PostgreSQL', 'Docker'],
-        reasoning: 'Hồ sơ có khả năng bao quát toàn diện từ tầng cơ sở dữ liệu, API Backend tới giao diện người dùng. AI sẽ đánh giá tư duy kết nối hệ thống, bảo mật JWT và triển khai container hóa.',
-        interviewFocus: 'Tích hợp Frontend-Backend, thiết kế API chuẩn REST, bảo mật xác thực và tối ưu độ trễ mạng.',
-      });
-    }
-
-    if (hasPython) {
-      tracks.push({
-        id: 'track-python-ai',
-        title: 'Python Backend & AI Integration Engineer',
-        domain: 'AI Applications & Microservices',
-        matchScore: 90,
-        focusSkills: ['Python', 'FastAPI', 'PostgreSQL', 'Docker', 'AI / LLM Integration'],
-        reasoning: 'CV thể hiện kỹ năng lập trình Python hiện đại. AI sẽ tập trung vào tư duy lập trình bất đồng bộ (asyncio), kiến trúc API RESTful hiệu năng cao và kinh nghiệm tích hợp mô hình GenAI / LLM.',
-        interviewFocus: 'Async processing, ORM database, containerization và kiểm soát chi phí token API.',
-      });
-    }
-
-    // TUYỆT ĐỐI CHỈ gợi ý DevOps khi có kỹ năng DevOps VÀ KHÔNG PHẢI ngành phi kỹ thuật
-    if (hasDevOps && !isNonTechCv) {
-      tracks.push({
-        id: 'track-devops-cloud',
-        title: 'Cloud DevOps & CI/CD Platform Engineer',
-        domain: 'Infrastructure & Automation',
-        matchScore: 88,
-        focusSkills: ['Docker', 'Kubernetes', 'CI/CD Pipeline', 'AWS / Cloud', 'Linux'],
-        reasoning: 'Hồ sơ có định hướng quản trị hạ tầng và tự động hóa triển khai. AI sẽ khảo sát khả năng thiết kế pipeline kiểm thử tự động, giám sát dịch vụ và tối ưu tính sẵn sàng của hệ thống.',
-        interviewFocus: 'Container orchestration, monitoring & alerting, hạ tầng dự phòng và bảo mật hạ tầng mạng.',
-      });
-    }
-
-    if (hasMobile) {
-      tracks.push({
-        id: 'track-mobile-flutter',
-        title: 'Mobile Engineer (Flutter / Cross-Platform)',
-        domain: 'Mobile Application Architecture',
-        matchScore: 91,
-        focusSkills: ['Flutter', 'Dart', 'State Management (BLoC/Provider)', 'RESTful API'],
-        reasoning: 'Hồ sơ thể hiện kỹ năng phát triển ứng dụng di động đa nền tảng. AI sẽ kiểm tra kiến trúc ứng dụng di động, xử lý offline data và tối ưu hiệu năng render 60fps.',
-        interviewFocus: 'App lifecycle, memory leak prevention, async networking và tối ưu hóa trải nghiệm di động.',
-      });
-    }
-
-    // Fallback thông minh: nếu chưa nhận diện được track cụ thể nào
+    // Fallback: nếu chưa khớp track chuyên sâu nào
     if (tracks.length === 0) {
-      if (isNonTechCv) {
-        tracks.push({
-          id: 'track-general-business',
-          title: cv.headline || 'Chuyên viên Nghiệp vụ & Vận hành Doanh nghiệp',
-          domain: 'Nghiệp vụ Doanh nghiệp & Vận hành',
-          matchScore: 88,
-          focusSkills: ['Kỹ năng giao tiếp & đàm phán', 'Giải quyết vấn đề nghiệp vụ', 'Lập kế hoạch & báo cáo', 'Quy trình vận hành'],
-          reasoning: `Dựa trên hồ sơ CV ${cv.title || cv.fileName || ''}, AI đã may đo lộ trình phỏng vấn nghiệp vụ chuyên sâu bám sát kinh nghiệm thực tế của bạn.`,
-          interviewFocus: 'Tư duy xử lý tình huống nghiệp vụ, phối hợp liên phòng ban và tối ưu hóa hiệu quả công việc.',
-        });
-      } else {
-        const topSkills = uniqueSkills.slice(0, 4);
-        tracks.push({
-          id: 'track-general-tech',
-          title: cv.headline || 'Software Engineer (Kỹ Sư Phần Mềm)',
-          domain: 'Software Engineering & System Fundamentals',
-          matchScore: 85,
-          focusSkills: topSkills.length > 0 ? topSkills : ['OOP', 'Data Structures', 'RESTful API', 'SQL'],
-          reasoning: `Dựa trên hồ sơ CV ${cv.title || cv.fileName || ''}, AI đã tổng hợp các kỹ năng cốt lõi để xây dựng kịch bản phỏng vấn bám sát kinh nghiệm thực tế của bạn.`,
-          interviewFocus: 'Tư duy giải quyết vấn đề, thuật toán, thiết kế cơ sở dữ liệu và làm việc nhóm trong môi trường Agile.',
-        });
-      }
+      const topSkills = uniqueSkills.slice(0, 5);
+      const isTech = uniqueSkills.length > 0;
+      tracks.push({
+        id: isTech ? 'track-general-tech' : 'track-general-business',
+        title: primaryCv?.headline || primaryCv?.title || (isTech ? 'Software Engineer (Kỹ Sư Phần Mềm)' : 'Chuyên viên Nghiệp vụ & Vận hành Doanh nghiệp'),
+        domain: isTech ? 'Software Engineering & System Fundamentals' : 'Nghiệp vụ Doanh nghiệp & Vận hành',
+        matchScore: 86,
+        focusSkills: topSkills.length > 0 ? topSkills : (isTech ? ['OOP', 'Data Structures', 'RESTful API', 'SQL'] : ['Giao tiếp & Đàm phán', 'Giải quyết vấn đề', 'Quản lý công việc']),
+        reasoning: `Dựa trên tổng hợp ${cvList.length} hồ sơ CV của bạn, AI đã may đo lộ trình phỏng vấn bám sát kinh nghiệm thực tế và kỹ năng cốt lõi của bạn.`,
+        interviewFocus: 'Tư duy xử lý vấn đề, khả năng làm việc độc lập và phối hợp trong môi trường chuyên nghiệp.',
+      });
     }
 
     return tracks;
   };
+
+  // Alias tương thích
+  const generateAiTracksFromCv = (cv) => generateAiTracksFromAllCvs(myCvs.length > 0 ? myCvs : (cv ? [cv] : []), cv);
 
   // So khớp và tính điểm độ tương thích tại chỗ giữa availableJobs với CV của ứng viên
   const scoreJobsLocallyWithCv = (jobs, cv) => {
@@ -1570,34 +1537,104 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
     showToast(`✨ Đã chọn vị trí "${track.title}" do AI may đo!`);
   };
 
-  // Tự động cập nhật AI Practice Tracks khi ứng viên đổi CV tại bước 2
+  // Nạp và đồng bộ AI Practice Tracks từ Cache (Tuyệt đối không tự động sinh lại gây tốn token khi vào lại trang)
   useEffect(() => {
-    if (selectedCv) {
-      const tracks = generateAiTracksFromCv(selectedCv);
-      setAiTailoredTracks(tracks);
-    }
-  }, [selectedCv]);
+    const activeCv = selectedCv || myCvs[0];
+    if (!activeCv) return;
 
-  // Kích hoạt phân tích AI và tải danh sách việc làm gợi ý
+    const cacheKey = user?.userId ? `hiremate_ai_practice_tracks_${user.userId}` : 'hiremate_ai_practice_tracks_guest';
+    const jobCacheKey = user?.userId ? `hiremate_ai_rec_jobs_${user.userId}` : 'hiremate_ai_rec_jobs_guest';
+
+    try {
+      const cachedTracks = localStorage.getItem(cacheKey);
+      if (cachedTracks) {
+        const parsed = JSON.parse(cachedTracks);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setAiTailoredTracks(parsed);
+          if ((!selectedJob || selectedJob.isAiTrack) && !selectedTrackId) {
+            handleSelectAiTrack(parsed[0]);
+          }
+          // Nạp cả việc làm gợi ý từ cache nếu có
+          const cachedJobs = localStorage.getItem(jobCacheKey);
+          if (cachedJobs) {
+            const parsedJobs = JSON.parse(cachedJobs);
+            if (Array.isArray(parsedJobs) && parsedJobs.length > 0) {
+              setRecommendedJobs(parsedJobs);
+            }
+          }
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn('Lỗi đọc cache AI tracks:', e);
+    }
+
+    // Chỉ tự động phân tích lần đầu tiên nếu chưa từng có cache trong máy
+    const tracks = generateAiTracksFromAllCvs(myCvs, activeCv);
+    setAiTailoredTracks(tracks);
+    try {
+      localStorage.setItem(cacheKey, JSON.stringify(tracks));
+    } catch (e) {}
+
+    if ((!selectedJob || selectedJob.isAiTrack) && tracks.length > 0 && !selectedTrackId) {
+      handleSelectAiTrack(tracks[0]);
+    }
+  }, [selectedCv?.cvId, myCvs.length, user?.userId]);
+
+  // Kích hoạt phân tích AI và tải danh sách việc làm gợi ý (CHỈ gọi AI khi người dùng chủ động bấm 'Phân Tích Lại Bằng AI')
   const handleLoadAiRecommendations = async (forceRefresh = false) => {
     setContextMode('ai-recommend');
 
-    const activeCv = selectedCv || myCvs[0];
-    if (activeCv) {
-      const tracks = generateAiTracksFromCv(activeCv);
-      setAiTailoredTracks(tracks);
-      if ((!selectedJob || selectedJob.isAiTrack) && tracks.length > 0 && !selectedTrackId) {
-        handleSelectAiTrack(tracks[0]);
+    const cacheKey = user?.userId ? `hiremate_ai_practice_tracks_${user.userId}` : 'hiremate_ai_practice_tracks_guest';
+    const jobCacheKey = user?.userId ? `hiremate_ai_rec_jobs_${user.userId}` : 'hiremate_ai_rec_jobs_guest';
+
+    // 1. Nếu KHÔNG PHẢI người dùng chủ động bấm nút "Làm mới / Phân tích lại" (forceRefresh === false)
+    // Và đã có dữ liệu trong state hoặc cache -> Giữ nguyên kết quả cũ, KHÔNG GỌI LẠI AI
+    if (!forceRefresh) {
+      if (aiTailoredTracks.length > 0) {
+        return;
       }
+      try {
+        const cachedTracks = localStorage.getItem(cacheKey);
+        if (cachedTracks) {
+          const parsed = JSON.parse(cachedTracks);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setAiTailoredTracks(parsed);
+            if ((!selectedJob || selectedJob.isAiTrack) && !selectedTrackId) {
+              handleSelectAiTrack(parsed[0]);
+            }
+            const cachedJobs = localStorage.getItem(jobCacheKey);
+            if (cachedJobs) {
+              const parsedJobs = JSON.parse(cachedJobs);
+              if (Array.isArray(parsedJobs) && parsedJobs.length > 0) {
+                setRecommendedJobs(parsedJobs);
+              }
+            }
+            return;
+          }
+        }
+      } catch (e) {}
     }
 
-    if (!forceRefresh && recommendedJobs.length > 0) return;
-
+    // 2. CHỈ khi người dùng bấm nút "✨ Phân Tích Lại Bằng AI" (forceRefresh === true) hoặc lần đầu tiên vào trang
     setIsAiLoadingRecommend(true);
+    const activeCv = selectedCv || myCvs[0];
+
     try {
+      // Phân tích sâu dựa trên TẤT CẢ CV của ứng viên
+      const tracks = generateAiTracksFromAllCvs(myCvs, activeCv);
+      setAiTailoredTracks(tracks);
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(tracks));
+      } catch (e) {}
+
+      if (tracks.length > 0) {
+        handleSelectAiTrack(tracks[0]);
+      }
+
       let mapped = [];
 
-      // 1. Gọi API gợi ý việc làm chuẩn ATS qua jobApi.getRecommendations
+      // Gọi API gợi ý việc làm chuẩn ATS qua jobApi.getRecommendations
       try {
         const res = await jobApi.getRecommendations({ minMatch: 30, limit: 12 });
         const list = res?.data || (Array.isArray(res) ? res : []);
@@ -1622,44 +1659,23 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
         console.warn('jobApi.getRecommendations failed, trying fallback:', err);
       }
 
-      // 2. Nếu chưa có, gọi POST /jobs/re-match để kích hoạt tính toán so khớp ngay lập tức
-      if (mapped.length === 0) {
-        try {
-          const res = await jobApi.reMatch();
-          const list = res?.data || (Array.isArray(res) ? res : []);
-          if (Array.isArray(list) && list.length > 0) {
-            mapped = list.map((m) => ({
-              jobId: m.jobId,
-              title: m.title || m.jobTitle || 'Chuyên viên Kỹ thuật',
-              companyName: m.companyName || 'Doanh nghiệp Tuyển dụng',
-              location: m.location || 'Toàn quốc',
-              salaryText: formatSalary(m.salaryMin, m.salaryMax),
-              matchScore: Math.round(m.matchingScore || 75),
-              matchedMandatorySkills: m.matchedSkills || m.matchedMandatorySkills || [],
-              missingMandatorySkills: m.missingSkills || m.missingMandatorySkills || [],
-              aiReasoning: m.aiReasoning || '',
-              requirements: m.requirements || [],
-              skills: m.skills || [],
-              mandatorySkills: m.mandatorySkills || [],
-              preferredSkills: m.preferredSkills || [],
-            }));
-          }
-        } catch (err) {
-          console.warn('jobApi.reMatch failed, trying fallback:', err);
-        }
-      }
-
-      // 3. Fallback: So khớp có sẵn từ danh sách việc làm trên hệ thống
+      // Fallback: So khớp có sẵn từ danh sách việc làm trên hệ thống
       if (mapped.length === 0 && availableJobs.length > 0) {
         mapped = scoreJobsLocallyWithCv(availableJobs, activeCv);
       }
 
       setRecommendedJobs(mapped);
+      try {
+        localStorage.setItem(jobCacheKey, JSON.stringify(mapped));
+      } catch (e) {}
+
       if (mapped.length > 0 && (!selectedJob || selectedJob.isAiTrack === undefined)) {
         setSelectedJob(mapped[0]);
       }
 
-      showToast(`🎯 AI đã phân tích CV và tìm thấy ${mapped.length} vị trí phù hợp!`);
+      if (forceRefresh) {
+        showToast(`✨ Đã phân tích lại bằng AI dựa trên toàn bộ CV (${myCvs.length} hồ sơ) và lưu kết quả mới!`);
+      }
     } catch (err) {
       console.warn('Could not load AI recommendations:', err);
       if (availableJobs.length > 0) {
@@ -1733,14 +1749,24 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
 
       let stream = null;
       try {
+        // Tầng 1: Thử camera HD 720p hướng người dùng
         stream = await navigator.mediaDevices.getUserMedia({
           video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
           audio: false,
         });
-      } catch (constraintErr) {
-        console.warn('Strict camera constraints failed, retrying with basic { video: true }:', constraintErr);
-        // Fallback: Thử lại với cấu hình video cơ bản nếu facingMode hoặc 1280x720 bị từ chối
-        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      } catch (hdErr) {
+        console.warn('HD camera constraints rejected, retrying with standard 640x480:', hdErr);
+        try {
+          // Tầng 2: Thử độ phân giải 640x480 tương thích với mọi webcam laptop
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 640 }, height: { ideal: 480 } },
+            audio: false,
+          });
+        } catch (stdErr) {
+          console.warn('Standard resolution rejected, retrying with basic video: true:', stdErr);
+          // Tầng 3: Cấu hình video cơ bản nhất của trình duyệt
+          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        }
       }
 
       streamRef.current = stream;
@@ -1752,9 +1778,9 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
       setIsCameraOn(true);
       setCameraError(null);
       startVisionAnalysis();
-      showToast('📹 Camera phỏng vấn đã kích hoạt.');
+      showToast('📹 Camera phỏng vấn đã kích hoạt thành công.');
     } catch (err) {
-      console.warn('Không thể truy cập WebCam:', err);
+      console.warn('Không thể truy cập WebCam vật lý:', err);
       setIsCameraOn(false);
       let errType = 'generic';
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
@@ -2186,6 +2212,9 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
         try {
           const mpResult = analyzeFaceFrameWithMediaPipe(mediaPipeLandmarkerRef.current, video, performance.now());
           if (mpResult && mpResult.faceDetected) {
+            faceLossStreakRef.current = 0;
+            lastFaceSeenTimeRef.current = Date.now();
+
             // Làm mượt chuyển động bounding box bằng Exponential Moving Average (EMA)
             const smoothX = Math.round(prevFaceBoxRef.current.x * 0.65 + mpResult.box.x * 0.35);
             const smoothY = Math.round(prevFaceBoxRef.current.y * 0.65 + mpResult.box.y * 0.35);
@@ -2224,7 +2253,15 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
             }
             return;
           } else {
-            // Không tìm thấy khuôn mặt trong khung hình
+            // Debounce: Nếu chỉ mất dấu trong tích tắc (< 2.2 giây), giữ vị trí gần nhất để tránh chớp giật báo lỗi
+            const timeSinceLast = Date.now() - (lastFaceSeenTimeRef.current || 0);
+            if (timeSinceLast < 2200 && lastFaceSeenTimeRef.current > 0) {
+              setLivePostureStatus('Cân đối • Đang giao tiếp');
+              setLiveEyeContactPercent(88);
+              setLiveFacialEmotion('Tập trung theo dõi 🤔');
+              return;
+            }
+            // Không tìm thấy khuôn mặt trong khung hình sau > 2.2 giây
             setLivePostureStatus('Chưa vào khung hình');
             setLiveEyeContactPercent(15);
             setLiveFacialEmotion('Không nhận diện được khuôn mặt');
@@ -2255,12 +2292,12 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
         const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const data = frame.data;
 
-        const maxScanY = Math.floor(canvas.height * 0.58);
+        const maxScanY = Math.floor(canvas.height * 0.65);
         let minX = canvas.width, maxX = 0, minY = canvas.height, maxY = 0;
         let skinPixelCount = 0;
         let sumX = 0, sumY = 0;
 
-        for (let y = 6; y < maxScanY; y += 2) {
+        for (let y = 4; y < maxScanY; y += 2) {
           for (let x = 4; x < canvas.width - 4; x += 2) {
             const idx = (y * canvas.width + x) * 4;
             const r = data[idx], g = data[idx + 1], b = data[idx + 2];
@@ -2269,8 +2306,9 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
             const cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b;
             const cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b;
 
-            const isSkin = (yVal > 35 && cb >= 72 && cb <= 140 && cr >= 125 && cr <= 186) ||
-                           (r > 55 && g > 35 && b > 20 && r > g && (r - g) >= 8 && (r - b) >= 12);
+            // Dải màu da nhạy bén tương thích với mọi ánh sáng phòng
+            const isSkin = (yVal > 25 && cb >= 68 && cb <= 145 && cr >= 120 && cr <= 190) ||
+                           (r > 45 && g > 30 && b > 18 && r >= g && (r - b) >= 6);
 
             if (isSkin) {
               skinPixelCount++;
@@ -2284,7 +2322,7 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
           }
         }
 
-        if (skinPixelCount > 25 && maxY > minY) {
+        if (skinPixelCount > 15 && maxY > minY) {
           faceDetected = true;
           const cx = sumX / skinPixelCount;
           const cy = sumY / skinPixelCount;
@@ -2307,7 +2345,7 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
             for (let x = minX; x <= maxX; x += 2) {
               const idx = (y * canvas.width + x) * 4;
               const r = data[idx], g = data[idx + 1], b = data[idx + 2];
-              const isSkin = (r > 55 && g > 35 && b > 20 && r > g && (r - g) >= 8);
+              const isSkin = (r > 45 && g > 30 && b > 18 && r >= g);
               if (isSkin) {
                 if (x < midX) leftSkin++;
                 else rightSkin++;
@@ -2327,6 +2365,7 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
       }
 
       if (faceDetected) {
+        lastFaceSeenTimeRef.current = Date.now();
         const smoothX = Math.round(prevFaceBoxRef.current.x * 0.72 + targetX * 0.28);
         const smoothY = Math.round(prevFaceBoxRef.current.y * 0.72 + targetY * 0.28);
         const smoothW = Math.round(prevFaceBoxRef.current.w * 0.72 + targetW * 0.28);
@@ -2342,7 +2381,7 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
 
         let posture = 'Cân đối • Nhìn thẳng camera';
         let contact = 90;
-        let emotion = 'Đang tải AI Face Tracker...';
+        let emotion = 'Đang nhận diện khuôn mặt...';
 
         if (isProfile) {
           posture = 'Quay mặt sang bên • Không nhìn camera';
@@ -2375,9 +2414,16 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
         setLiveFacialEmotion(emotion);
         telemetryHistoryRef.current.eyeContactSamples.push(contact);
       } else {
-        setLivePostureStatus('Chưa vào khung hình');
-        setLiveEyeContactPercent(15);
-        setLiveFacialEmotion('Không nhận diện được khuôn mặt');
+        const timeSinceLast = Date.now() - (lastFaceSeenTimeRef.current || 0);
+        if (timeSinceLast < 2200 && lastFaceSeenTimeRef.current > 0) {
+          setLivePostureStatus('Cân đối • Đang giao tiếp');
+          setLiveEyeContactPercent(88);
+          setLiveFacialEmotion('Tập trung theo dõi 🤔');
+        } else {
+          setLivePostureStatus('Chưa vào khung hình');
+          setLiveEyeContactPercent(15);
+          setLiveFacialEmotion('Không nhận diện được khuôn mặt');
+        }
       }
     }, 150);
   };
@@ -3132,10 +3178,10 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
         planName: quotaStatus?.planName || 'Free Candidate',
       });
 
-      // Giới hạn thời gian chờ tối đa 3.5 giây để không làm trễ trải nghiệm
+      // Giới hạn thời gian chờ tối đa 10 giây để Gemini kịp suy nghĩ và sinh câu hỏi mở đầu độc nhất
       const voiceRes = await Promise.race([
         voiceTurnPromise,
-        new Promise((resolve) => setTimeout(() => resolve(null), 3500))
+        new Promise((resolve) => setTimeout(() => resolve(null), 10000))
       ]);
 
       const aiReply = (voiceRes?.data?.reply || voiceRes?.reply || voiceRes?.data?.data?.reply || '')?.trim();
@@ -3165,45 +3211,80 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
     speakNeuralAudio(dynamicGreeting);
   };
 
-  // Trình tạo phản hồi thích ứng theo ngữ cảnh dự phòng (Domain-aware Adaptive Generator)
-  // Đảm bảo AI KHÔNG BAO GIỜ IM LẶNG dù mạng chập chờn hay backend bận
+  // Trình tạo phản hồi thích ứng theo ngữ cảnh dự phòng nâng cao (Advanced Dynamic Adaptive Fallback)
+  // Bóc tách từ khóa chuyên môn thực tế từ câu trả lời của ứng viên để tự sinh câu hỏi đào sâu thông minh
   const getIntelligentTurnFallback = (targetPos, ansText, turnIndex) => {
     const t = (targetPos || '').toLowerCase();
     const a = (ansText || '').toLowerCase();
 
-    // Lĩnh vực: Tester / QA / QC / Automation Test
-    if (t.includes('test') || t.includes('qa') || t.includes('qc') || a.includes('test') || a.includes('auto') || a.includes('bug')) {
-      if (a.includes('auto') || a.includes('selenium') || a.includes('playwright') || a.includes('script') || a.includes('file')) {
-        return 'Tôi hiểu bạn đang sử dụng các file script và framework automation để phát triển kiểm thử. Bạn có thể nói rõ hơn về cách tổ chức Page Object Model (POM) hoặc cách bạn assert kiểm tra dữ liệu kết quả trong framework đó không?';
-      }
-      if (a.includes('manual') || a.includes('tay')) {
-        return 'Rất tốt. Vậy với các tính năng nghiệp vụ phức tạp, bạn thiết kế Test Cases và áp dụng kỹ thuật phân vùng tương đương hay bảng quyết định như thế nào để đảm bảo độ bao phủ?';
-      }
-      const qaQuestions = [
-        'Cảm ơn bạn. Khi gặp một lỗi ngắt quãng (intermittent bug) chỉ xuất hiện 1-2 lần trên môi trường production, quy trình bạn tái hiện và phối hợp với Dev team ra sao?',
-        'Tôi ghi nhận câu trả lời của bạn. Trong dự án kiểm thử gần nhất, bạn đo lường hiệu quả bằng những chỉ số nào, ví dụ như Defect Density hay Test Coverage?',
-        'Rất rõ ràng. Bạn có thể chia sẻ thêm về cách bạn phân biệt mức độ nghiêm trọng (Severity) và độ ưu tiên (Priority) của một lỗi khi báo cáo cho Product Owner không?',
+    // 1. Phản hồi theo từ khóa chuyên biệt trong câu trả lời của ứng viên
+    if (a.includes('database') || a.includes('sql') || a.includes('mysql') || a.includes('postgres') || a.includes('mongodb') || a.includes('dữ liệu')) {
+      const dbPool = [
+        'Tôi ghi nhận bạn đã nhắc tới phần cơ sở dữ liệu. Bạn có thể chia sẻ cách bạn thiết kế chỉ mục (Index) hoặc tối ưu các truy vấn chậm (Slow Queries) trong dự án đó không?',
+        'Rất thực tế. Khi lượng dữ liệu tăng lên hàng triệu bản ghi, bạn áp dụng chiến lược gì như sharding, partitioning hay caching để đảm bảo tốc độ đọc/ghi?',
+        'Về tính toàn vẹn dữ liệu, bạn quản lý Transaction và các cấp độ cô lập (Isolation Levels) ra sao để tránh hiện tượng Race Condition?'
       ];
-      return qaQuestions[turnIndex % qaQuestions.length];
+      return dbPool[turnIndex % dbPool.length];
     }
 
-    // Lĩnh vực: Lập trình viên / Developer / Kỹ sư phần mềm
-    if (t.includes('developer') || t.includes('engineer') || t.includes('dev') || t.includes('software') || t.includes('lập trình') || t.includes('frontend') || t.includes('backend') || t.includes('fullstack')) {
-      const devQuestions = [
+    if (a.includes('api') || a.includes('rest') || a.includes('endpoint') || a.includes('backend') || a.includes('service')) {
+      const apiPool = [
+        'Cảm ơn bạn. Khi thiết kế các API đó, bạn áp dụng chuẩn xác thực và phân quyền như JWT, OAuth2 hay giải pháp bảo mật nào?',
+        'Rất tốt. Bạn xử lý các bài toán giới hạn tần suất gọi (Rate Limiting) và cơ chế Retry khi các service phụ thuộc phản hồi chậm hoặc lỗi thế nào?',
+        'Tôi muốn hỏi thêm: Bạn thiết kế cấu trúc DTO và xử lý chuẩn hóa mã lỗi (Error Handling / Global Exception) trong các API đó như thế nào?'
+      ];
+      return apiPool[turnIndex % apiPool.length];
+    }
+
+    if (a.includes('redis') || a.includes('cache') || a.includes('bộ nhớ đệm')) {
+      return 'Về chiến lược sử dụng Cache, bạn giải quyết vấn đề Cache Invalidation hoặc Cache Stampede khi dữ liệu gốc thay đổi liên tục như thế nào?';
+    }
+
+    if (a.includes('docker') || a.includes('ci/cd') || a.includes('deploy') || a.includes('triển khai') || a.includes('cloud') || a.includes('aws')) {
+      return 'Tôi thấy bạn có kinh nghiệm triển khai hệ thống. Bạn có thể chia sẻ quy trình tự động hóa kiểm thử và triển khai (CI/CD pipeline) của bạn diễn ra qua những bước nào?';
+    }
+
+    if (a.includes('react') || a.includes('vue') || a.includes('angular') || a.includes('ui') || a.includes('frontend') || a.includes('giao diện')) {
+      const fePool = [
+        'Về mặt giao diện và trải nghiệm, bạn tối ưu thời gian tải trang (FCP, LCP) hoặc quản lý trạng thái (State Management) như thế nào để tránh re-render không cần thiết?',
+        'Bạn đã từng xử lý vấn đề tương thích đa trình duyệt và Responsive Design cho các màn hình phức tạp như thế nào?'
+      ];
+      return fePool[turnIndex % fePool.length];
+    }
+
+    // 2. Lĩnh vực QA / Tester
+    if (t.includes('test') || t.includes('qa') || t.includes('qc') || a.includes('test') || a.includes('bug')) {
+      if (a.includes('auto') || a.includes('selenium') || a.includes('playwright') || a.includes('cypress')) {
+        return 'Tôi hiểu bạn đang sử dụng Automation Test. Bạn có thể nói rõ hơn về cách tổ chức Page Object Model (POM) hoặc cách bạn assert kiểm tra dữ liệu kết quả trong framework đó không?';
+      }
+      const qaPool = [
+        'Khi gặp một lỗi ngắt quãng (intermittent bug) chỉ xuất hiện 1-2 lần trên production, quy trình bạn phối hợp với team Dev để khoanh vùng và tái hiện lỗi ra sao?',
+        'Trong dự án kiểm thử gần nhất, bạn đo lường chất lượng bằng những chỉ số nào, ví dụ như Defect Density, Test Coverage hay MTTR?',
+        'Bạn phân biệt và đánh giá mức độ nghiêm trọng (Severity) và độ ưu tiên (Priority) của một lỗi phức tạp như thế nào trước khi báo cáo Product Owner?',
+        'Khi thời gian UAT bị cắt ngắn sát hạn release, bạn áp dụng chiến lược Risk-based Testing để chọn lọc kịch bản kiểm thử trọng tâm như thế nào?'
+      ];
+      return qaPool[turnIndex % qaPool.length];
+    }
+
+    // 3. Lĩnh vực Developer / Kỹ sư phần mềm
+    if (t.includes('developer') || t.includes('engineer') || t.includes('dev') || t.includes('software') || t.includes('lập trình')) {
+      const devPool = [
         'Cảm ơn bạn. Bạn có thể giải thích sâu hơn về giải pháp kiến trúc và cách bạn tối ưu hiệu năng hoặc xử lý ngoại lệ phát sinh trong trường hợp đó không?',
-        'Rất thú vị. Nếu hệ thống của bạn tăng tải đột biến gấp 10 lần, điểm nghẽn (bottleneck) lớn nhất sẽ nằm ở đâu và bạn giải quyết thế nào?',
-        'Tôi hiểu ý của bạn. Bạn đã áp dụng Unit Test hoặc CI/CD pipeline để đảm bảo chất lượng code trong giai đoạn đó như thế nào?',
+        'Rất thú vị. Nếu hệ thống tăng tải đột biến gấp 10 lần, điểm nghẽn (bottleneck) lớn nhất sẽ nằm ở đâu và bạn đưa ra giải pháp khắc phục thế nào?',
+        'Tôi hiểu ý bạn. Bạn đã áp dụng Unit Test hoặc các công cụ đo lường chất lượng mã nguồn (như SonarQube) trong giai đoạn đó như thế nào?',
+        'Bạn có thể chia sẻ một sự cố phát sinh trên môi trường thực tế (production incident) nghiêm trọng nhất bạn từng tham gia xử lý và bài học rút ra là gì?'
       ];
-      return devQuestions[turnIndex % devQuestions.length];
+      return devPool[turnIndex % devPool.length];
     }
 
-    // Lĩnh vực chung / Kỹ năng mềm / Nghiệp vụ
-    const defaultQuestions = [
-      'Cảm ơn bạn đã chia sẻ. Bạn có thể kể cụ thể hơn một thử thách khó khăn nhất bạn từng gặp trong quá trình đó và bài học rút ra là gì không?',
+    // 4. Lĩnh vực chung / Kỹ năng mềm & Tình huống
+    const generalPool = [
+      'Cảm ơn bạn đã chia sẻ. Bạn có thể kể cụ thể hơn một thử thách khó khăn nhất bạn từng gặp trong quá trình đó và bài học kinh nghiệm bạn rút ra là gì?',
       'Rất thực tế. Kết quả cuối cùng của công việc đó được đo lường bằng con số hay phản hồi cụ thể nào từ người dùng hoặc cấp trên?',
-      'Tôi đã nắm được thông tin. Nếu được làm lại dự án đó từ đầu, bạn sẽ cải tiến hoặc làm khác đi điều gì để tối ưu hơn?',
+      'Tôi đã nắm được thông tin. Nếu được làm lại dự án đó từ đầu với những kinh nghiệm hiện tại, bạn sẽ cải tiến hoặc làm khác đi điều gì?',
+      'Khi xảy ra bất đồng quan điểm chuyên môn với đồng nghiệp hoặc cấp trên về phương án triển khai, bạn đã giải quyết như thế nào để đảm bảo tiến độ chung?'
     ];
-    return defaultQuestions[turnIndex % defaultQuestions.length];
+    return generalPool[turnIndex % generalPool.length];
   };
 
   // Gửi câu trả lời: Xử lý cả khi nói micro hoặc gõ phím nhắn tin với bộ lọc chống lặp lại âm thanh AI
@@ -3327,11 +3408,10 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
         ? interviewApi.processVoiceTurn(currentSessionId, payload)
         : interviewApi.processVoiceTurnStandalone(payload));
 
-      // Đua thời gian (Race condition): Giới hạn tối đa 4.5s chờ API.
-      // Nếu mạng hoặc AI phản hồi chậm quá 4.5s -> Kích hoạt ngay Intelligent Adaptive Fallback để trả lời tức thì, triệt tiêu hoàn toàn tình trạng đơ/chậm!
+      // Đua thời gian (Race condition): Cho phép tối đa 14 giây để Gemini Generative AI xử lý và sinh câu hỏi đào sâu thông minh.
       let voiceRes = null;
       try {
-        const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 4500));
+        const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 14000));
         voiceRes = await Promise.race([callVoiceTurn(), timeoutPromise]);
       } catch (turnErr) {
         console.warn('Voice turn API gặp sự cố mạng, chuyển ngay sang Adaptive Fallback:', turnErr);
@@ -3819,18 +3899,26 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
 
     const totalWordsAllTurns = candidateTurns.reduce((sum, t) => sum + (t.text ? t.text.trim().split(/\s+/).filter(Boolean).length : 0), 0);
     const meaningfulTurnsCount = candidateTurns.filter(t => t.text && t.text.trim().split(/\s+/).filter(Boolean).length >= 5).length;
-    const isVeryShortSession = totalWordsAllTurns < 30 || meaningfulTurnsCount < 2;
+    const hasNoAnswers = totalWordsAllTurns === 0 || scoredQuestions.length === 0 || candidateTurns.length === 0;
+    const isVeryShortSession = hasNoAnswers || totalWordsAllTurns < 30 || meaningfulTurnsCount < 2;
 
     const calculatedAvg = scoredQuestions.length > 0
       ? Math.round(scoredQuestions.reduce((s, q) => s + q.score, 0) / scoredQuestions.length)
-      : 20;
+      : 0;
 
-    let total = (backendResult?.overallScore != null && backendResult.overallScore > 0)
-      ? Math.round(backendResult.overallScore)
-      : calculatedAvg;
+    let total = 0;
+    if (hasNoAnswers) {
+      total = 0;
+    } else if (backendResult?.overallScore != null && !isNaN(backendResult.overallScore)) {
+      total = Math.max(0, Math.round(backendResult.overallScore));
+    } else {
+      total = calculatedAvg;
+    }
 
-    if (isVeryShortSession) {
-      total = Math.min(25, Math.max(10, total));
+    if (hasNoAnswers) {
+      total = 0;
+    } else if (isVeryShortSession) {
+      total = Math.max(0, Math.min(25, Math.round(totalWordsAllTurns * 0.5)));
     }
 
     const targetMaxQuestions = backendResult?.maxQuestions || maxQ;
@@ -3842,26 +3930,31 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
         ? 'Đạt Yêu Cầu'
         : total >= 50
           ? 'Cần Rèn Luyện Thêm'
-          : 'Không Đạt Yêu Cầu';
+          : (hasNoAnswers ? 'Không Đạt Yêu Cầu (Chưa có câu trả lời)' : 'Không Đạt Yêu Cầu');
 
-    let domainAvg = scoredQuestions.length > 0
+    let domainAvg = hasNoAnswers ? 0 : (scoredQuestions.length > 0
       ? Math.round(scoredQuestions.reduce((s, q) => s + (q.domainScore ?? q.score), 0) / scoredQuestions.length)
-      : total;
-    let problemAvg = scoredQuestions.length > 0
+      : total);
+    let problemAvg = hasNoAnswers ? 0 : (scoredQuestions.length > 0
       ? Math.round(scoredQuestions.reduce((s, q) => s + (q.problemScore ?? q.score), 0) / scoredQuestions.length)
-      : total;
-    let starAvg = scoredQuestions.length > 0
-      ? Math.round(scoredQuestions.reduce((s, q) => s + (q.starScore ?? 20), 0) / scoredQuestions.length)
-      : 20;
-    let deliveryAvg = scoredQuestions.length > 0
-      ? Math.round(scoredQuestions.reduce((s, q) => s + (q.deliveryScore ?? 20), 0) / scoredQuestions.length)
-      : 20;
+      : total);
+    let starAvg = hasNoAnswers ? 0 : (scoredQuestions.length > 0
+      ? Math.round(scoredQuestions.reduce((s, q) => s + (q.starScore ?? 0), 0) / scoredQuestions.length)
+      : 0);
+    let deliveryAvg = hasNoAnswers ? 0 : (scoredQuestions.length > 0
+      ? Math.round(scoredQuestions.reduce((s, q) => s + (q.deliveryScore ?? 0), 0) / scoredQuestions.length)
+      : 0);
 
-    if (isVeryShortSession) {
-      domainAvg = Math.min(25, Math.max(10, Math.round(totalWordsAllTurns * 0.7)));
-      problemAvg = Math.min(25, Math.max(10, Math.round(totalWordsAllTurns * 0.6)));
-      starAvg = Math.min(20, Math.max(8, Math.round(totalWordsAllTurns * 0.5)));
-      deliveryAvg = Math.min(25, Math.max(10, Math.round(totalWordsAllTurns * 0.6)));
+    if (hasNoAnswers) {
+      domainAvg = 0;
+      problemAvg = 0;
+      starAvg = 0;
+      deliveryAvg = 0;
+    } else if (isVeryShortSession) {
+      domainAvg = Math.min(25, Math.max(0, Math.round(totalWordsAllTurns * 0.7)));
+      problemAvg = Math.min(25, Math.max(0, Math.round(totalWordsAllTurns * 0.6)));
+      starAvg = Math.min(20, Math.max(0, Math.round(totalWordsAllTurns * 0.5)));
+      deliveryAvg = Math.min(25, Math.max(0, Math.round(totalWordsAllTurns * 0.6)));
     }
 
     const finalDeliveryFeedback = backendResult?.deliveryFeedback || (

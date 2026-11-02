@@ -151,6 +151,12 @@ public interface GeminiAiService {
     java.util.Map<String, Object> parseJobDescriptionImage(byte[] imageBytes, String mimeType);
 
     /**
+     * Tự động đọc thông tin chức danh, cấp bậc, đãi ngộ và ma trận kỹ năng 70/30 để soạn thảo trọn bộ JD
+     * gồm Mô Tả Công Việc (Description), Yêu Cầu Ứng Viên (Requirements), Quyền Lợi (Benefits).
+     */
+    java.util.Map<String, Object> generateJobContent(java.util.Map<String, Object> jobParams);
+
+    /**
      * Đối soát chuyên sâu bằng Gemini AI giữa Hồ sơ CV thực tế của Ứng viên và Bài tuyển dụng (JD).
      * Phân tích rõ: Điểm tương thích, Năng lực phù hợp (kèm bằng chứng CV), Điểm yếu chưa phù hợp (lỗ hổng),
      * Nhận định chuyên gia và Bộ câu hỏi phỏng vấn thực tế.

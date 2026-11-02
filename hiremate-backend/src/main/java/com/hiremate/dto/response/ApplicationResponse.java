@@ -34,6 +34,16 @@ public class ApplicationResponse {
     private String notes;
     private String rejectionReason;
     private LocalDateTime createdAt;
+    private String jobStatus;
+    private String companyStatus;
+    private Boolean companyVerified;
+    private Boolean companyBlocked;
+    private String companyRejectionReason;
+    private Boolean jobClosed;
+
+    public String getNotes() {
+        return notes != null ? notes : evaluationNotes;
+    }
 
     public String getNotes() {
         return notes != null ? notes : evaluationNotes;
@@ -186,13 +196,51 @@ public class ApplicationResponse {
             return this;
         }
 
+        private String jobStatus;
+        private String companyStatus;
+        private Boolean companyVerified;
+        private Boolean companyBlocked;
+        private String companyRejectionReason;
+        private Boolean jobClosed;
+
+        public ApplicationResponseBuilder jobStatus(String jobStatus) {
+            this.jobStatus = jobStatus;
+            return this;
+        }
+
+        public ApplicationResponseBuilder companyStatus(String companyStatus) {
+            this.companyStatus = companyStatus;
+            return this;
+        }
+
+        public ApplicationResponseBuilder companyVerified(Boolean companyVerified) {
+            this.companyVerified = companyVerified;
+            return this;
+        }
+
+        public ApplicationResponseBuilder companyBlocked(Boolean companyBlocked) {
+            this.companyBlocked = companyBlocked;
+            return this;
+        }
+
+        public ApplicationResponseBuilder companyRejectionReason(String companyRejectionReason) {
+            this.companyRejectionReason = companyRejectionReason;
+            return this;
+        }
+
+        public ApplicationResponseBuilder jobClosed(Boolean jobClosed) {
+            this.jobClosed = jobClosed;
+            return this;
+        }
+
         public ApplicationResponse build() {
             return new ApplicationResponse(
                     applicationId, jobId, jobTitle, companyName, candidateId,
                     candidateName, candidateEmail, candidatePhone, candidateAvatar, withdrawnByCandidate, offerDeclinedByCandidate,
                     recruiterId, recruiterName, recruiterEmail,
                     cvId, cvUrl, status, coverLetter, matchingScore,
-                    evaluationNotes, notes, rejectionReason, createdAt
+                    evaluationNotes, notes, rejectionReason, createdAt,
+                    jobStatus, companyStatus, companyVerified, companyBlocked, companyRejectionReason, jobClosed
             );
         }
     }

@@ -62,19 +62,7 @@ public class UserServiceImpl implements UserService {
         // Cập nhật các trường trên bảng users (base class)
         user.setFullName(request.getFullName().trim());
         if (request.getPhone() != null) user.setPhone(request.getPhone().trim());
-        if (request.getDateOfBirth() != null && !request.getDateOfBirth().trim().isEmpty()) {
-            String dobStr = request.getDateOfBirth().trim();
-            try {
-                LocalDate dob = LocalDate.parse(dobStr);
-                if (dob.isAfter(LocalDate.now())) {
-                    throw new IllegalArgumentException("Ngày sinh không thể là ngày trong tương lai.");
-                }
-            } catch (DateTimeParseException ignored) {
-            }
-            user.setDateOfBirth(dobStr);
-        } else if (request.getDateOfBirth() != null) {
-            user.setDateOfBirth(null);
-        }
+        if (request.getDateOfBirth() != null) user.setDateOfBirth(request.getDateOfBirth().trim());
 
         String effectiveAddress = null;
         if (request.getAddress() != null && !request.getAddress().trim().isEmpty()) {

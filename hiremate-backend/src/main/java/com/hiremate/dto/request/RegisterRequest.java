@@ -52,6 +52,7 @@ public class RegisterRequest {
     private String licenseDocUrl;
     private String licenseDocName;
     private String legalRepresentative;
+    private String companyHrPin;
     private String otp;
 }
 

@@ -11,6 +11,7 @@ import java.util.List;
 public interface AiJobMatchService {
     AiJobMatchResponse calculateAndSaveMatch(Candidate candidate, Job job, Cv cv);
     AiJobMatchResponse getOrCalculateMatch(Long jobId, User candidateUser);
+    AiJobMatchResponse evaluateJobWithCv(Long jobId, Long cvId, User candidateUser);
     List<AiJobMatchResponse> getMatchesForJob(Long jobId, User recruiterUser);
     List<AiJobMatchResponse> getMyMatches(User candidateUser);
 

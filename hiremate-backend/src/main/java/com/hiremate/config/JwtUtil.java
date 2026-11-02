@@ -98,4 +98,15 @@ public class JwtUtil {
         Date expiration = extractExpiration(token);
         return expiration != null && expiration.before(new Date());
     }
+
+    public String extractTokenFromHeader(String authHeader) {
+        if (authHeader == null || authHeader.isBlank()) {
+            return null;
+        }
+        String clean = authHeader.trim();
+        if (clean.regionMatches(true, 0, "Bearer ", 0, 7)) {
+            return clean.substring(7).trim();
+        }
+        return clean;
+    }
 }

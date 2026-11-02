@@ -295,24 +295,11 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
   const isFreeRecruiter = !isAdmin && (!recruiterSubscription || (!subscriptionPerms.aiMatching && (planPrice === 0 || planName.toLowerCase().includes('free'))));
 
   const checkAiJdQuota = () => {
-    if (!isFreeRecruiter) return true;
-    const today = new Date().toISOString().split('T')[0];
-    const key = `hiremate_ai_jd_usage_${today}_${user?.userId || user?.id || 'default'}`;
-    const currentUsage = parseInt(localStorage.getItem(key) || '0', 10);
-    if (currentUsage >= 2) {
-      setQuotaModalMessage('Bạn đã sử dụng hết 2 lượt dùng thử tính năng AI Phân Tích JD & Đề Xuất Kỹ Năng trong ngày của gói Free Recruiter. Vui lòng nâng cấp lên gói Hiring Starter (199.000đ) để sử dụng KHÔNG GIỚI HẠN tính năng AI trích xuất JD tự động!');
-      setShowQuotaExceededModal(true);
-      return false;
-    }
     return true;
   };
 
   const incrementAiJdQuota = () => {
-    if (!isFreeRecruiter) return;
-    const today = new Date().toISOString().split('T')[0];
-    const key = `hiremate_ai_jd_usage_${today}_${user?.userId || user?.id || 'default'}`;
-    const currentUsage = parseInt(localStorage.getItem(key) || '0', 10);
-    localStorage.setItem(key, String(currentUsage + 1));
+    // Không chặn giới hạn ảo
   };
 
   useEffect(() => {
@@ -492,6 +479,9 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
   const [lastScannedData, setLastScannedData] = useState(null);
   const [rawJdText, setRawJdText] = useState('');
   const [isExtractingSkillsAi, setIsExtractingSkillsAi] = useState(false);
+  const [isGeneratingJdContent, setIsGeneratingJdContent] = useState(false);
+  const [candidatePreviewTab, setCandidatePreviewTab] = useState('DESC');
+  const [showFullJdPreviewModal, setShowFullJdPreviewModal] = useState(false);
   const [aiSuggestedSkillsData, setAiSuggestedSkillsData] = useState(null);
   const fileInputRef = useRef(null);
 
@@ -580,18 +570,169 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
   // Tab for Detailed Job Content: 'DESC' (Mô tả) | 'REQ' (Yêu cầu) | 'BEN' (Đãi ngộ)
   const [activeContentTab, setActiveContentTab] = useState('DESC');
 
-  // Dynamic AI Job Quality Score (0 - 100) based strictly on real input completeness
-  const aiJobScore = useMemo(() => {
-    let score = 0;
-    if (createForm.title && createForm.title.trim().length >= 5) score += 20;
-    if (createForm.salary && createForm.salary.trim().length > 0) score += 15;
-    if (mandatorySkillsArray.length >= 2) score += 25;
-    else if (mandatorySkillsArray.length === 1) score += 10;
-    if (preferredSkillsArray.length >= 1) score += 15;
-    if (createForm.description && createForm.description.trim().length >= 40) score += 15;
-    if (createForm.requirements && createForm.requirements.trim().length >= 20) score += 10;
-    return Math.min(score, 100);
-  }, [createForm.title, createForm.salary, createForm.description, createForm.requirements, mandatorySkillsArray.length, preferredSkillsArray.length]);
+  // Dynamic AI Job Quality Score (0 - 100) based strictly on real input completeness & ATS industry standards
+  const aiJobScoreData = useMemo(() => {
+    // 1. Tiêu đề vị trí (Max 15đ)
+    let titleScore = 0;
+    const trimmedTitle = (createForm.title || '').trim();
+    const hasJobKeyword = /(lập trình|developer|kỹ sư|engineer|chuyên viên|nhân viên|trưởng nhóm|lead|manager|thực tập|intern|fresher|senior|junior|middle|kế toán|marketing|sales|kinh doanh|thiết kế|designer|tester|qa|qc|devops|data|ai)/i.test(trimmedTitle);
+    if (trimmedTitle.length >= 15 && hasJobKeyword) {
+      titleScore = 15;
+    } else if (trimmedTitle.length >= 10 || (trimmedTitle.length >= 6 && hasJobKeyword)) {
+      titleScore = 10;
+    } else if (trimmedTitle.length >= 6) {
+      titleScore = 5;
+    }
+
+    // 2. Ma trận kỹ năng 70/30 (Max 25đ)
+    let mandScore = 0;
+    if (mandatorySkillsArray.length >= 3) {
+      mandScore = 15;
+    } else if (mandatorySkillsArray.length === 2) {
+      mandScore = 10;
+    } else if (mandatorySkillsArray.length === 1) {
+      mandScore = 5;
+    }
+
+    let prefScore = 0;
+    if (preferredSkillsArray.length >= 2) {
+      prefScore = 10;
+    } else if (preferredSkillsArray.length === 1) {
+      prefScore = 5;
+    }
+    const skillsScore = mandScore + prefScore;
+
+    // 3. Mô tả công việc (Max 20đ)
+    let descScore = 0;
+    const descLen = (createForm.description || '').trim().length;
+    if (descLen >= 300) {
+      descScore = 20;
+    } else if (descLen >= 150) {
+      descScore = 14;
+    } else if (descLen >= 60) {
+      descScore = 7;
+    }
+
+    // 4. Yêu cầu ứng viên (Max 15đ)
+    let reqScore = 0;
+    const reqLen = (createForm.requirements || '').trim().length;
+    if (reqLen >= 250) {
+      reqScore = 15;
+    } else if (reqLen >= 120) {
+      reqScore = 10;
+    } else if (reqLen >= 40) {
+      reqScore = 5;
+    }
+
+    // 5. Quyền lợi & Đãi ngộ (Max 10đ)
+    let benScore = 0;
+    const benLen = (createForm.benefits || '').trim().length;
+    if (benLen >= 100) {
+      benScore = 10;
+    } else if (benLen >= 40) {
+      benScore = 6;
+    } else if (benLen >= 15) {
+      benScore = 3;
+    }
+
+    // 6. Mức lương minh bạch (Max 10đ)
+    let salaryScore = 0;
+    const salStr = (createForm.salary || '').trim();
+    const hasNumbers = /\d/.test(salStr);
+    const isVagueSalary = /^(thỏa thuận|thoa thuan|deal|cạnh tranh|hấp dẫn)$/i.test(salStr);
+    if (hasNumbers && salStr.length >= 3) {
+      salaryScore = 10;
+    } else if (salStr.length > 0 && !isVagueSalary) {
+      salaryScore = 7;
+    } else if (isVagueSalary) {
+      salaryScore = 4;
+    }
+
+    // 7. Địa điểm & Hạn nộp hồ sơ (Max 5đ)
+    let metaScore = 0;
+    const hasLocation = (createForm.location || '').trim().length >= 4;
+    const hasDeadline = Boolean(createForm.deadlineDate);
+    if (hasLocation && hasDeadline) {
+      metaScore = 5;
+    } else if (hasLocation || hasDeadline) {
+      metaScore = 3;
+    }
+
+    const total = Math.min(titleScore + skillsScore + descScore + reqScore + benScore + salaryScore + metaScore, 100);
+
+    return {
+      total,
+      breakdown: {
+        title: {
+          score: titleScore,
+          max: 15,
+          passed: titleScore >= 10,
+          label: 'Tiêu đề vị trí tuyển dụng chuẩn ATS',
+          hint: titleScore >= 15 ? 'Đạt chuẩn ATS tối ưu' : titleScore > 0 ? 'Nên ghi rõ cấp bậc hoặc chuyên ngành (VD: Senior Java Developer)' : 'Chưa nhập tiêu đề vị trí tuyển dụng',
+        },
+        skills: {
+          score: skillsScore,
+          max: 25,
+          passed: mandScore >= 10 && prefScore >= 5,
+          label: 'Ma trận kỹ năng 70/30 (Bắt buộc & Ưu tiên)',
+          hint: mandScore >= 15 && prefScore >= 10
+            ? 'Đủ 3+ bắt buộc (70%) & 2+ ưu tiên (30%)'
+            : mandatorySkillsArray.length < 2
+            ? 'Cần thêm ít nhất 2 kỹ năng bắt buộc (70%)'
+            : preferredSkillsArray.length === 0
+            ? 'Cần thêm ít nhất 1 kỹ năng ưu tiên (30%)'
+            : 'Nên bổ sung thêm kỹ năng ưu tiên để đạt 25/25đ',
+        },
+        description: {
+          score: descScore,
+          max: 20,
+          passed: descScore >= 14,
+          label: 'Mô tả & trách nhiệm công việc chi tiết',
+          hint: descLen >= 300 ? 'Mô tả chi tiết, đầy đủ nhiệm vụ' : descLen >= 60 ? 'Mô tả còn ngắn, nên viết từ 150-300 ký tự' : 'Chưa có mô tả công việc (Dùng nút AI Soạn Thảo)',
+        },
+        requirements: {
+          score: reqScore,
+          max: 15,
+          passed: reqScore >= 10,
+          label: 'Yêu cầu chuyên môn & học vấn',
+          hint: reqLen >= 250 ? 'Yêu cầu kinh nghiệm & năng lực rõ ràng' : reqLen >= 40 ? 'Cần nêu rõ công nghệ và số năm kinh nghiệm' : 'Chưa nhập yêu cầu công việc',
+        },
+        benefits: {
+          score: benScore,
+          max: 10,
+          passed: benScore >= 6,
+          label: 'Quyền lợi & chế độ đãi ngộ hấp dẫn',
+          hint: benLen >= 100 ? 'Đầy đủ bảo hiểm, thưởng và phúc lợi' : benLen >= 15 ? 'Nên bổ sung thêm thông tin bảo hiểm, thưởng KPI' : 'Chưa có quyền lợi (Ứng viên rất quan tâm mục này)',
+        },
+        salary: {
+          score: salaryScore,
+          max: 10,
+          passed: salaryScore >= 7,
+          label: 'Mức lương minh bạch (+35% tỷ lệ ứng tuyển)',
+          hint: salaryScore === 10 ? 'Mức lương định lượng rõ ràng' : salStr ? 'Lương cụ thể (VD: 15-25 triệu) thu hút gấp đôi so với "Thỏa thuận"' : 'Chưa nhập mức lương',
+        },
+        meta: {
+          score: metaScore,
+          max: 5,
+          passed: metaScore === 5,
+          label: 'Địa điểm làm việc & Hạn chót ứng tuyển',
+          hint: metaScore === 5 ? 'Đầy đủ địa điểm & thời hạn' : !hasLocation ? 'Chưa nhập địa điểm' : 'Chưa chọn hạn nộp hồ sơ',
+        },
+      },
+    };
+  }, [
+    createForm.title,
+    createForm.salary,
+    createForm.description,
+    createForm.requirements,
+    createForm.benefits,
+    createForm.location,
+    createForm.deadlineDate,
+    mandatorySkillsArray.length,
+    preferredSkillsArray.length,
+  ]);
+
+  const aiJobScore = aiJobScoreData.total;
 
   const handleAddMandatorySkill = (skillToAdd) => {
     const trimmed = (skillToAdd || mandSkillTagInput).trim();
@@ -772,9 +913,18 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
       formData.append('file', file);
 
       const res = await jobApi.scanJd(formData);
-      const data = res?.data || res;
+      const data = (res?.data && typeof res.data === 'object' && !Array.isArray(res.data) && res.data.title !== undefined)
+        ? res.data
+        : (res?.data?.data || res?.data || res);
 
       if (data) {
+        // Tự động điền văn bản đã bóc tách từ file PDF/Word/Ảnh vào ô textarea để người dùng tiện chỉnh sửa
+        if (data.rawText) {
+          setRawJdText(data.rawText);
+        } else if (data.description || data.requirements) {
+          setRawJdText([data.title, data.description, data.requirements].filter(Boolean).join('\n\n'));
+        }
+
         const todayStr = new Date().toISOString().split('T')[0];
         let validDeadline = data.deadlineDate;
         if (validDeadline && validDeadline < todayStr) {
@@ -842,8 +992,8 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
 
   // Quét trực tiếp nội dung văn bản JD thô bằng AI
   const handleScanRawJdText = async () => {
-    if (!rawJdText || rawJdText.trim().length < 20) {
-      triggerToast('Vui lòng dán nội dung mô tả công việc (tối thiểu 20 ký tự) để AI phân tích.');
+    if (!rawJdText || rawJdText.trim().length < 10) {
+      triggerToast('Vui lòng nhập hoặc dán nội dung mô tả công việc (tối thiểu 10 ký tự) để AI phân tích.');
       return;
     }
 
@@ -853,14 +1003,13 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
 
     try {
       setIsScanningJd(true);
-      setJdScanFileName('Nội dung văn bản dán trực tiếp');
+      setJdScanFileName('Văn bản JD trực tiếp');
       setJdScanSuccess(false);
 
-      const formData = new FormData();
-      formData.append('rawText', rawJdText.trim());
-
-      const res = await jobApi.scanJd(formData);
-      const data = res?.data || res;
+      const res = await jobApi.scanJd({ rawText: rawJdText.trim() });
+      const data = (res?.data && typeof res.data === 'object' && !Array.isArray(res.data) && res.data.title !== undefined)
+        ? res.data
+        : (res?.data?.data || res?.data || res);
 
       if (data) {
         const todayStr = new Date().toISOString().split('T')[0];
@@ -924,6 +1073,80 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
       triggerToast('Không thể quét JD tự động: ' + (err.response?.data?.message || err.message));
     } finally {
       setIsScanningJd(false);
+    }
+  };
+
+  // Luồng 0: AI Tự Động Đọc Tiêu Đề, Cấp Bậc & Kỹ Năng để Soạn Thảo Đầy Đủ JD (Mô Tả, Yêu Cầu, Quyền Lợi)
+  const handleAiGenerateJdContent = async (isEdit = false) => {
+    const currentForm = isEdit ? editingJob : createForm;
+    if (!currentForm) return;
+
+    const title = (currentForm.title || '').trim();
+    if (!title) {
+      triggerToast('⚠️ Vui lòng nhập Tiêu đề vị trí tuyển dụng trước khi yêu cầu AI soạn thảo JD!');
+      return;
+    }
+
+    try {
+      setIsGeneratingJdContent(true);
+      triggerToast('✨ AI Gemini đang đọc tiêu đề, cấp bậc & ma trận kỹ năng để soạn thảo toàn bộ JD chuẩn ATS...');
+
+      const mandList = (currentForm.mandatorySkillsInput || '')
+        .split(/[,;\n]+/)
+        .map(s => s.trim())
+        .filter(Boolean);
+      const prefList = (currentForm.preferredSkillsInput || '')
+        .split(/[,;\n]+/)
+        .map(s => s.trim())
+        .filter(Boolean);
+
+      const payload = {
+        title: title,
+        domain: currentForm.domain || '',
+        jobLevel: currentForm.jobLevel || 'JUNIOR',
+        educationRequirement: currentForm.educationRequirement || 'Đại học / Cử nhân',
+        experienceRequirement: currentForm.experienceRequirement || 'Không yêu cầu kinh nghiệm',
+        workplaceType: currentForm.workplaceType || 'Hybrid (Linh hoạt)',
+        salary: currentForm.salary || 'Thỏa thuận',
+        location: currentForm.location || 'Hà Nội / TP.HCM',
+        mandatorySkills: mandList,
+        preferredSkills: prefList
+      };
+
+      const res = await jobApi.generateJdContent(payload);
+      const data = (res?.data && typeof res.data === 'object' && !Array.isArray(res.data) && res.data.description !== undefined)
+        ? res.data
+        : (res?.data?.data || res?.data || res);
+
+      if (data) {
+        const desc = data.description || '';
+        const req = data.requirements || '';
+        const ben = data.benefits || '';
+
+        if (isEdit) {
+          setEditingJob(prev => ({
+            ...prev,
+            description: desc || prev.description,
+            requirements: req || prev.requirements,
+            benefits: ben || prev.benefits
+          }));
+        } else {
+          setCreateForm(prev => ({
+            ...prev,
+            description: desc || prev.description,
+            requirements: req || prev.requirements,
+            benefits: ben || prev.benefits
+          }));
+          setActiveContentTab('DESC');
+        }
+
+        triggerToast('🎉 AI đã đọc toàn bộ thông tin và tự động soạn thảo Mô tả, Yêu cầu & Quyền lợi hoàn chỉnh!');
+      }
+    } catch (err) {
+      console.error('Lỗi khi AI soạn thảo JD:', err);
+      triggerToast('Không thể soạn thảo JD lúc này: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setIsGeneratingJdContent(false);
     }
   };
 
@@ -1986,188 +2209,192 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
         </div>
 
         {/* Filter, Search & Action Bar */}
-        <div className="relative z-10 flex flex-wrap items-center justify-between gap-3 p-3.5 sm:p-4 rounded-[28px] bg-white border border-purple-100/80 shadow-sm overflow-hidden">
-          {/* Search Box & Filter Tabs */}
-          <div className="flex flex-wrap items-center gap-3 flex-1 min-w-[280px]">
-            {/* Multi-Branch Scope Switcher */}
-            <div className="flex items-center gap-1 p-1 bg-[#f4f2fd] rounded-full border border-purple-100 shrink-0">
-              <button
-                type="button"
-                onClick={() => setBranchScopeFilter('ALL')}
-                className={`px-3 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  branchScopeFilter === 'ALL'
-                    ? 'bg-[#5b48bd] text-white shadow-xs'
-                    : 'text-[#47369f] hover:bg-white/60'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[15px]">apartment</span>
-                <span>Tất cả chi nhánh ({jobsList.length})</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setBranchScopeFilter('MY_BRANCH')}
-                className={`px-3 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  branchScopeFilter === 'MY_BRANCH'
-                    ? 'bg-[#5b48bd] text-white shadow-xs'
-                    : 'text-[#47369f] hover:bg-white/60'
-                }`}
-                title={`Lọc tin thuộc chi nhánh: ${currentRecruiterBranch}`}
-              >
-                <span className="material-symbols-outlined text-[15px]">person_pin_circle</span>
-                <span>Chi nhánh của tôi ({jobsList.filter(canEditOrManageJob).length})</span>
-              </button>
-            </div>
-            <div className="relative flex-1 min-w-[220px] max-w-sm">
-              <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">
-                search
-              </span>
-              <input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-[#f8f7ff] text-[#221d47] placeholder-slate-400 text-xs pl-10 pr-4 py-2.5 rounded-full focus:outline-none focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 focus:bg-white transition-all border border-purple-100 font-sans"
-                placeholder="Tìm theo chức danh, tech stack (Java, React...)"
-                type="text"
-              />
-            </div>
-
-            {/* Segmented Category Tabs with Overdue & Expiring Soon */}
-            <div className="flex items-center gap-1.5 p-1.5 bg-[#f4f2fd] rounded-full overflow-x-auto text-xs border border-purple-100 shrink-0">
-              <button
-                type="button"
-                onClick={() => setSelectedCategory('ALL')}
-                className={`px-3.5 py-1.5 rounded-full font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${selectedCategory === 'ALL'
-                  ? 'bg-[#5b48bd] text-white shadow-md'
-                  : 'text-[#47369f] hover:bg-white/60'
-                  }`}
-              >
-                <span>Tất cả</span>
-                <span className="px-1.5 py-0.5 rounded-full bg-white/20 text-[10px] font-bold">({jobsList.length})</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setSelectedCategory('ACTIVE')}
-                className={`px-3.5 py-1.5 rounded-full font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${selectedCategory === 'ACTIVE'
-                  ? 'bg-[#10b981] text-white shadow-md'
-                  : 'text-[#47369f] hover:bg-white/60'
-                  }`}
-              >
-                <span>Đang bật tuyển</span>
-                <span className="text-[10px] opacity-90">({activeCount})</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setSelectedCategory('EXPIRING_SOON')}
-                className={`px-3.5 py-1.5 rounded-full font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${selectedCategory === 'EXPIRING_SOON'
-                  ? 'bg-amber-500 text-white shadow-md'
-                  : 'text-amber-700 hover:bg-amber-100/70'
-                  }`}
-              >
-                <span className="material-symbols-outlined text-[14px]">alarm</span>
-                <span>Sắp hết hạn</span>
-                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${selectedCategory === 'EXPIRING_SOON' ? 'bg-white/25' : 'bg-amber-100 text-amber-800'}`}>({expiringSoonCount})</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setSelectedCategory('EXPIRED')}
-                className={`px-3.5 py-1.5 rounded-full font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${selectedCategory === 'EXPIRED'
-                  ? 'bg-rose-600 text-white shadow-md'
-                  : 'text-rose-700 hover:bg-rose-100/70'
-                  }`}
-              >
-                <span className="material-symbols-outlined text-[14px]">event_busy</span>
-                <span>Đã quá hạn</span>
-                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${selectedCategory === 'EXPIRED' ? 'bg-white/25' : 'bg-rose-100 text-rose-800'}`}>({expiredCount})</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setSelectedCategory('PAUSED')}
-                className={`px-3.5 py-1.5 rounded-full font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${selectedCategory === 'PAUSED'
-                  ? 'bg-[#f97316] text-white shadow-md'
-                  : 'text-[#47369f] hover:bg-white/60'
-                  }`}
-              >
-                <span>Tạm dừng</span>
-                <span className="text-[10px] opacity-90">({pausedCount})</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setSelectedCategory('PENDING')}
-                className={`px-3.5 py-1.5 rounded-full font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${selectedCategory === 'PENDING'
-                  ? 'bg-amber-500 text-white shadow-md'
-                  : 'text-amber-800 hover:bg-white/60'
-                  }`}
-              >
-                <span className="material-symbols-outlined text-[14px]">hourglass_top</span>
-                <span>Chờ duyệt</span>
-                <span className="text-[10px] opacity-90">({pendingCount})</span>
-              </button>
-
-              {rejectedCount > 0 && (
+        <div className="relative z-10 flex flex-col gap-3 p-3.5 sm:p-4 rounded-[28px] bg-white border border-purple-100/80 shadow-sm">
+          {/* Top Row: Branch Scope, Search Bar & Main Action Buttons */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-[280px]">
+              {/* Multi-Branch Scope Switcher */}
+              <div className="flex items-center gap-1 p-1 bg-[#f4f2fd] rounded-full border border-purple-100 shrink-0">
                 <button
                   type="button"
-                  onClick={() => setSelectedCategory('REJECTED')}
-                  className={`px-3.5 py-1.5 rounded-full font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${selectedCategory === 'REJECTED'
-                    ? 'bg-rose-700 text-white shadow-md'
-                    : 'text-rose-700 hover:bg-rose-100/70'
-                    }`}
+                  onClick={() => setBranchScopeFilter('ALL')}
+                  className={`px-3 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    branchScopeFilter === 'ALL'
+                      ? 'bg-[#5b48bd] text-white shadow-xs'
+                      : 'text-[#47369f] hover:bg-white/60'
+                  }`}
                 >
-                  <span className="material-symbols-outlined text-[14px]">cancel</span>
-                  <span>Bị từ chối</span>
-                  <span className="text-[10px] opacity-90">({rejectedCount})</span>
+                  <span className="material-symbols-outlined text-[15px]">apartment</span>
+                  <span>Tất cả chi nhánh ({jobsList.length})</span>
                 </button>
-              )}
+                <button
+                  type="button"
+                  onClick={() => setBranchScopeFilter('MY_BRANCH')}
+                  className={`px-3 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    branchScopeFilter === 'MY_BRANCH'
+                      ? 'bg-[#5b48bd] text-white shadow-xs'
+                      : 'text-[#47369f] hover:bg-white/60'
+                  }`}
+                  title={`Lọc tin thuộc chi nhánh: ${currentRecruiterBranch}`}
+                >
+                  <span className="material-symbols-outlined text-[15px]">person_pin_circle</span>
+                  <span>Chi nhánh của tôi ({jobsList.filter(canEditOrManageJob).length})</span>
+                </button>
+              </div>
+
+              {/* Search Box */}
+              <div className="relative flex-1 min-w-[200px] max-w-md">
+                <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">
+                  search
+                </span>
+                <input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-[#f8f7ff] text-[#221d47] placeholder-slate-400 text-xs pl-10 pr-4 py-2.5 rounded-full focus:outline-none focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 focus:bg-white transition-all border border-purple-100 font-sans"
+                  placeholder="Tìm theo chức danh, tech stack (Java, React...)"
+                  type="text"
+                />
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2.5 shrink-0 ml-auto">
+              <button
+                onClick={() => setShowExportModal(true)}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-white hover:bg-purple-50 text-[#5b48bd] text-xs font-bold transition-all border border-purple-200 cursor-pointer shadow-sm whitespace-nowrap"
+                type="button"
+              >
+                <span className="material-symbols-outlined text-[18px] text-[#5b48bd]">ios_share</span>
+                <span>Xuất Báo Cáo</span>
+              </button>
 
               <button
+                onClick={handleOpenCreateModal}
+                className={`flex items-center gap-1.5 px-5 py-2.5 rounded-full text-white text-xs font-bold tracking-wide shadow-md transition-all whitespace-nowrap ${
+                  companyStatus === 'VERIFIED' || companyStatus === 'APPROVED' || companyStatus === 'ACTIVE' || user?.role === 'ADMIN'
+                    ? 'bg-[#10b981] hover:bg-[#059669] hover:shadow-lg cursor-pointer hover:scale-105'
+                    : 'bg-amber-600 hover:bg-amber-700 cursor-pointer'
+                }`}
+                title={
+                  companyStatus === 'VERIFIED' || companyStatus === 'APPROVED' || companyStatus === 'ACTIVE' || user?.role === 'ADMIN'
+                    ? 'Đăng tin tuyển dụng mới'
+                    : 'Yêu cầu hoàn tất xác thực giấy phép công ty để đăng tin'
+                }
                 type="button"
-                onClick={() => setSelectedCategory('CLOSED')}
-                className={`px-3.5 py-1.5 rounded-full font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${selectedCategory === 'CLOSED'
-                  ? 'bg-[#64748b] text-white shadow-md'
-                  : 'text-[#47369f] hover:bg-white/60'
-                  }`}
               >
-                <span>Đã đóng</span>
-                <span className="text-[10px] opacity-90">({closedCount})</span>
+                <span className="material-symbols-outlined text-[18px]">
+                  {companyStatus === 'VERIFIED' || companyStatus === 'APPROVED' || companyStatus === 'ACTIVE' || user?.role === 'ADMIN' ? 'add_circle' : 'lock'}
+                </span>
+                <span>Đăng Tin Mới</span>
+                {!(companyStatus === 'VERIFIED' || companyStatus === 'APPROVED' || companyStatus === 'ACTIVE' || user?.role === 'ADMIN') && (
+                  <span className="text-[10px] bg-amber-800/60 px-1.5 py-0.5 rounded-full ml-1">Chờ xác thực</span>
+                )}
               </button>
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2.5 shrink-0 ml-auto">
+          {/* Bottom Row: Segmented Category Tabs with Overdue & Expiring Soon */}
+          <div className="flex items-center gap-1.5 p-1.5 bg-[#f4f2fd] rounded-full overflow-x-auto text-xs border border-purple-100 w-full scrollbar-none">
             <button
-              onClick={() => setShowExportModal(true)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-white hover:bg-purple-50 text-[#5b48bd] text-xs font-bold transition-all border border-purple-200 cursor-pointer shadow-sm whitespace-nowrap"
               type="button"
+              onClick={() => setSelectedCategory('ALL')}
+              className={`px-3.5 py-1.5 rounded-full font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${selectedCategory === 'ALL'
+                ? 'bg-[#5b48bd] text-white shadow-md'
+                : 'text-[#47369f] hover:bg-white/60'
+                }`}
             >
-              <span className="material-symbols-outlined text-[18px] text-[#5b48bd]">ios_share</span>
-              <span>Xuất Báo Cáo</span>
+              <span>Tất cả</span>
+              <span className="px-1.5 py-0.5 rounded-full bg-white/20 text-[10px] font-bold">({jobsList.length})</span>
             </button>
 
             <button
-              onClick={handleOpenCreateModal}
-              className={`flex items-center gap-1.5 px-5 py-2.5 rounded-full text-white text-xs font-bold tracking-wide shadow-md transition-all whitespace-nowrap ${
-                companyStatus === 'VERIFIED' || companyStatus === 'APPROVED' || companyStatus === 'ACTIVE' || user?.role === 'ADMIN'
-                  ? 'bg-[#10b981] hover:bg-[#059669] hover:shadow-lg cursor-pointer hover:scale-105'
-                  : 'bg-amber-600 hover:bg-amber-700 cursor-pointer'
-              }`}
-              title={
-                companyStatus === 'VERIFIED' || companyStatus === 'APPROVED' || companyStatus === 'ACTIVE' || user?.role === 'ADMIN'
-                  ? 'Đăng tin tuyển dụng mới'
-                  : 'Yêu cầu hoàn tất xác thực giấy phép công ty để đăng tin'
-              }
               type="button"
+              onClick={() => setSelectedCategory('ACTIVE')}
+              className={`px-3.5 py-1.5 rounded-full font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${selectedCategory === 'ACTIVE'
+                ? 'bg-[#10b981] text-white shadow-md'
+                : 'text-[#47369f] hover:bg-white/60'
+                }`}
             >
-              <span className="material-symbols-outlined text-[18px]">
-                {companyStatus === 'VERIFIED' || companyStatus === 'APPROVED' || companyStatus === 'ACTIVE' || user?.role === 'ADMIN' ? 'add_circle' : 'lock'}
-              </span>
-              <span>Đăng Tin Mới</span>
-              {!(companyStatus === 'VERIFIED' || companyStatus === 'APPROVED' || companyStatus === 'ACTIVE' || user?.role === 'ADMIN') && (
-                <span className="text-[10px] bg-amber-800/60 px-1.5 py-0.5 rounded-full ml-1">Chờ xác thực</span>
-              )}
+              <span>Đang bật tuyển</span>
+              <span className="text-[10px] opacity-90">({activeCount})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedCategory('EXPIRING_SOON')}
+              className={`px-3.5 py-1.5 rounded-full font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${selectedCategory === 'EXPIRING_SOON'
+                ? 'bg-amber-500 text-white shadow-md'
+                : 'text-amber-700 hover:bg-amber-100/70'
+                }`}
+            >
+              <span className="material-symbols-outlined text-[14px]">alarm</span>
+              <span>Sắp hết hạn</span>
+              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${selectedCategory === 'EXPIRING_SOON' ? 'bg-white/25' : 'bg-amber-100 text-amber-800'}`}>({expiringSoonCount})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedCategory('EXPIRED')}
+              className={`px-3.5 py-1.5 rounded-full font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${selectedCategory === 'EXPIRED'
+                ? 'bg-rose-600 text-white shadow-md'
+                : 'text-rose-700 hover:bg-rose-100/70'
+                }`}
+            >
+              <span className="material-symbols-outlined text-[14px]">event_busy</span>
+              <span>Đã quá hạn</span>
+              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${selectedCategory === 'EXPIRED' ? 'bg-white/25' : 'bg-rose-100 text-rose-800'}`}>({expiredCount})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedCategory('PAUSED')}
+              className={`px-3.5 py-1.5 rounded-full font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${selectedCategory === 'PAUSED'
+                ? 'bg-[#f97316] text-white shadow-md'
+                : 'text-[#47369f] hover:bg-white/60'
+                }`}
+            >
+              <span>Tạm dừng</span>
+              <span className="text-[10px] opacity-90">({pausedCount})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedCategory('PENDING')}
+              className={`px-3.5 py-1.5 rounded-full font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${selectedCategory === 'PENDING'
+                ? 'bg-amber-500 text-white shadow-md'
+                : 'text-amber-800 hover:bg-white/60'
+                }`}
+            >
+              <span className="material-symbols-outlined text-[14px]">hourglass_top</span>
+              <span>Chờ duyệt</span>
+              <span className="text-[10px] opacity-90">({pendingCount})</span>
+            </button>
+
+            {rejectedCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setSelectedCategory('REJECTED')}
+                className={`px-3.5 py-1.5 rounded-full font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${selectedCategory === 'REJECTED'
+                  ? 'bg-rose-700 text-white shadow-md'
+                  : 'text-rose-700 hover:bg-rose-100/70'
+                  }`}
+              >
+                <span className="material-symbols-outlined text-[14px]">cancel</span>
+                <span>Bị từ chối</span>
+                <span className="text-[10px] opacity-90">({rejectedCount})</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setSelectedCategory('CLOSED')}
+              className={`px-3.5 py-1.5 rounded-full font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${selectedCategory === 'CLOSED'
+                ? 'bg-[#64748b] text-white shadow-md'
+                : 'text-[#47369f] hover:bg-white/60'
+                }`}
+            >
+              <span>Đã đóng</span>
+              <span className="text-[10px] opacity-90">({closedCount})</span>
             </button>
           </div>
         </div>
@@ -3392,13 +3619,13 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
 
                     </div>
 
-                    {/* SECTION 2: COMPENSATION, LOCATION & TIMELINE */}
+                    {/* SECTION 3: COMPENSATION, LOCATION & TIMELINE */}
                     <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-4">
                       <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
                         <div className="flex items-center gap-2">
                           <span className="material-symbols-outlined text-emerald-600 text-lg">payments</span>
                           <span className="font-bold text-xs uppercase tracking-wider text-slate-900">
-                            2. Đãi Ngộ, Địa Điểm &amp; Tiến Độ Tuyển Dụng
+                            3. Đãi Ngộ, Địa Điểm &amp; Tiến Độ Tuyển Dụng
                           </span>
                         </div>
                       </div>
@@ -3567,48 +3794,72 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
 
                     {/* SECTION 3: DETAILED CONTENT (TABS FOR DESCRIPTION, REQUIREMENTS, BENEFITS) */}
                     <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-4">
-                      <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
+                      <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 flex-wrap gap-2.5">
                         <div className="flex items-center gap-2">
                           <span className="material-symbols-outlined text-indigo-600 text-lg">description</span>
                           <span className="font-bold text-xs uppercase tracking-wider text-slate-900">
                             4. Nội Dung Chi Tiết Bài Đăng Tuyển Dụng
                           </span>
                         </div>
-                        {/* Segmented Tab Controls */}
-                        <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold">
+
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {/* AI Auto Draft JD button */}
                           <button
                             type="button"
-                            onClick={() => setActiveContentTab('DESC')}
-                            className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
-                              activeContentTab === 'DESC'
-                                ? 'bg-indigo-600 text-white shadow-xs'
-                                : 'text-slate-600 hover:text-indigo-600'
-                            }`}
+                            onClick={() => handleAiGenerateJdContent(false)}
+                            disabled={isGeneratingJdContent}
+                            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white text-xs font-bold shadow-xs hover:shadow-md transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.01]"
+                            title="AI đọc toàn bộ Tiêu đề, Cấp bậc, Đãi ngộ và Kỹ năng 70/30 để tự động soạn thảo đầy đủ Mô tả, Yêu cầu và Quyền lợi"
                           >
-                            Mô Tả (JD)
+                            {isGeneratingJdContent ? (
+                              <>
+                                <span className="material-symbols-outlined text-sm animate-spin">sync</span>
+                                <span>AI Đang Soạn Thảo JD...</span>
+                              </>
+                            ) : (
+                              <>
+                                <span className="material-symbols-outlined text-sm text-yellow-300">auto_awesome</span>
+                                <span>✨ AI Tự Động Soạn Thảo JD (Đọc Từ Vị Trí &amp; Kỹ Năng)</span>
+                              </>
+                            )}
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => setActiveContentTab('REQ')}
-                            className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
-                              activeContentTab === 'REQ'
-                                ? 'bg-amber-600 text-white shadow-xs'
-                                : 'text-slate-600 hover:text-amber-600'
-                            }`}
-                          >
-                            Yêu Cầu (Requirements)
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setActiveContentTab('BEN')}
-                            className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
-                              activeContentTab === 'BEN'
-                                ? 'bg-emerald-600 text-white shadow-xs'
-                                : 'text-slate-600 hover:text-emerald-600'
-                            }`}
-                          >
-                            Quyền Lợi (Benefits)
-                          </button>
+
+                          {/* Segmented Tab Controls */}
+                          <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold">
+                            <button
+                              type="button"
+                              onClick={() => setActiveContentTab('DESC')}
+                              className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                                activeContentTab === 'DESC'
+                                  ? 'bg-indigo-600 text-white shadow-xs'
+                                  : 'text-slate-600 hover:text-indigo-600'
+                              }`}
+                            >
+                              Mô Tả (JD)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setActiveContentTab('REQ')}
+                              className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                                activeContentTab === 'REQ'
+                                  ? 'bg-amber-600 text-white shadow-xs'
+                                  : 'text-slate-600 hover:text-amber-600'
+                              }`}
+                            >
+                              Yêu Cầu (Requirements)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setActiveContentTab('BEN')}
+                              className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                                activeContentTab === 'BEN'
+                                  ? 'bg-emerald-600 text-white shadow-xs'
+                                  : 'text-slate-600 hover:text-emerald-600'
+                              }`}
+                            >
+                              Quyền Lợi (Benefits)
+                            </button>
+                          </div>
                         </div>
                       </div>
 
@@ -4103,7 +4354,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                             d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                           />
                           <path
-                            className={`${aiJobScore >= 80 ? 'text-emerald-500' : aiJobScore >= 60 ? 'text-amber-500' : aiJobScore > 0 ? 'text-indigo-500' : 'text-slate-300'}`}
+                            className={`${aiJobScore >= 85 ? 'text-emerald-500' : aiJobScore >= 65 ? 'text-indigo-600' : aiJobScore >= 40 ? 'text-amber-500' : aiJobScore > 0 ? 'text-rose-500' : 'text-slate-300'}`}
                             strokeDasharray={`${aiJobScore}, 100`}
                             strokeWidth="3.5"
                             strokeLinecap="round"
@@ -4113,67 +4364,65 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                           />
                         </svg>
                         <div className="absolute inset-0 flex flex-col items-center justify-center">
-                          <span className={`text-sm font-extrabold ${aiJobScore > 0 ? 'text-slate-900' : 'text-slate-400'}`}>{aiJobScore}</span>
+                          <span className={`text-sm font-extrabold ${aiJobScore >= 85 ? 'text-emerald-700' : aiJobScore >= 65 ? 'text-indigo-700' : aiJobScore >= 40 ? 'text-amber-700' : aiJobScore > 0 ? 'text-rose-700' : 'text-slate-400'}`}>
+                            {aiJobScore}
+                          </span>
                           <span className="text-[8px] text-slate-400 font-bold">/100</span>
                         </div>
                       </div>
 
                       <div className="min-w-0">
                         <p className="font-bold text-xs text-slate-900">
-                          {aiJobScore >= 85
-                            ? '🌟 Bài đăng tối ưu & cực kỳ thu hút!'
-                            : aiJobScore >= 65
+                          {aiJobScore >= 90
+                            ? '🌟 Bài đăng tối ưu chuẩn ATS (Tuyệt vời)'
+                            : aiJobScore >= 70
                             ? '⚡ Bài đăng khá tốt, sẵn sàng đón ứng viên'
+                            : aiJobScore >= 40
+                            ? '📈 Khá ổn, cần bổ sung thêm để tối ưu'
                             : aiJobScore > 0
-                            ? '⚠️ Cần bổ sung thêm thông tin để tối ưu ATS'
-                            : '📝 Bắt đầu nhập thông tin hoặc tải file JD'}
+                            ? '⚠️ Thông tin còn sơ sài, ứng viên khó tiếp cận'
+                            : '📝 Bắt đầu nhập liệu hoặc bấm nút AI Soạn Thảo'}
                         </p>
                         <p className="text-[11px] text-slate-500 mt-0.5">
-                          {aiJobScore >= 85
-                            ? 'Đầy đủ mức lương, mô tả chi tiết và kỹ năng 70/30'
-                            : aiJobScore >= 65
-                            ? 'Bổ sung thêm kỹ năng ưu tiên và dải lương để đạt điểm 90+'
+                          {aiJobScore >= 90
+                            ? 'Đầy đủ chức danh, ma trận kỹ năng 70/30, mức lương và nội dung 3 phần.'
+                            : aiJobScore >= 70
+                            ? 'Bổ sung thêm một số quyền lợi và kỹ năng ưu tiên để đạt điểm tuyệt đối 100.'
+                            : aiJobScore >= 40
+                            ? 'Bấm nút "✨ AI Tự Động Soạn Thảo JD" ở mục 4 để AI hoàn thiện nhanh nội dung.'
                             : aiJobScore > 0
-                            ? 'Bổ sung chức danh, mức lương và ma trận kỹ năng 70/30'
-                            : 'Tự gõ hoặc tải file JD lên để AI đánh giá tự động'}
+                            ? 'Cần nhập thêm tiêu đề chuẩn, mức lương cụ thể và ma trận kỹ năng 70/30.'
+                            : 'Nhập thông tin bên trái hoặc tải file JD để hệ thống chấm điểm thực tế.'}
                         </p>
                       </div>
                     </div>
 
-                    {/* ATS Checklist */}
+                    {/* ATS Detailed Breakdown Checklist (7 Criteria) */}
                     <div className="space-y-1.5 text-[11px]">
-                      <div className="flex items-center gap-2">
-                        <span className={`material-symbols-outlined text-sm ${createForm.title.trim().length >= 5 ? 'text-emerald-600' : 'text-slate-300'}`}>
-                          {createForm.title.trim().length >= 5 ? 'check_circle' : 'radio_button_unchecked'}
-                        </span>
-                        <span className={createForm.title.trim().length >= 5 ? 'text-slate-700 font-semibold' : 'text-slate-400'}>
-                          Tiêu đề vị trí tuyển dụng chuẩn ATS
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`material-symbols-outlined text-sm ${createForm.salary.trim() ? 'text-emerald-600' : 'text-slate-300'}`}>
-                          {createForm.salary.trim() ? 'check_circle' : 'radio_button_unchecked'}
-                        </span>
-                        <span className={createForm.salary.trim() ? 'text-slate-700 font-semibold' : 'text-slate-400'}>
-                          Mức lương minh bạch (+35% tỷ lệ ứng tuyển)
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`material-symbols-outlined text-sm ${mandatorySkillsArray.length >= 2 ? 'text-emerald-600' : 'text-slate-300'}`}>
-                          {mandatorySkillsArray.length >= 2 ? 'check_circle' : 'radio_button_unchecked'}
-                        </span>
-                        <span className={mandatorySkillsArray.length >= 2 ? 'text-slate-700 font-semibold' : 'text-slate-400'}>
-                          Đã cấu hình ma trận kỹ năng 70/30 AI Match
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`material-symbols-outlined text-sm ${createForm.description.trim().length >= 40 ? 'text-emerald-600' : 'text-slate-300'}`}>
-                          {createForm.description.trim().length >= 40 ? 'check_circle' : 'radio_button_unchecked'}
-                        </span>
-                        <span className={createForm.description.trim().length >= 40 ? 'text-slate-700 font-semibold' : 'text-slate-400'}>
-                          Mô tả &amp; trách nhiệm công việc chi tiết
-                        </span>
-                      </div>
+                      {Object.entries(aiJobScoreData.breakdown).map(([key, item]) => {
+                        const isFull = item.score === item.max;
+                        const isPartial = item.score > 0 && item.score < item.max;
+                        return (
+                          <div key={key} className="p-2 rounded-xl bg-slate-50 border border-slate-200/80 transition-colors">
+                            <div className="flex items-center justify-between gap-1">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className={`material-symbols-outlined text-[15px] shrink-0 ${isFull ? 'text-emerald-600' : isPartial ? 'text-amber-500' : 'text-slate-300'}`}>
+                                  {isFull ? 'check_circle' : isPartial ? 'change_circle' : 'radio_button_unchecked'}
+                                </span>
+                                <span className={`truncate text-[11px] font-semibold ${isFull ? 'text-slate-800' : isPartial ? 'text-slate-700' : 'text-slate-400'}`}>
+                                  {item.label}
+                                </span>
+                              </div>
+                              <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded shrink-0 ${isFull ? 'bg-emerald-100 text-emerald-800' : isPartial ? 'bg-amber-100 text-amber-800' : 'bg-slate-200/70 text-slate-500'}`}>
+                                {item.score}/{item.max}đ
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-slate-500 pl-5 leading-tight pt-0.5">
+                              {item.hint}
+                            </p>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -4332,14 +4581,73 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                           </div>
                         )}
 
-                        {/* Description preview snippet */}
-                        {createForm.description.trim() && (
-                          <div className="pt-2 border-t border-slate-100">
-                            <p className="text-[11px] text-slate-600 line-clamp-2 leading-relaxed">
-                              {createForm.description}
-                            </p>
+                        {/* Interactive Tabbed Content Preview */}
+                        <div className="pt-2 border-t border-slate-100 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1">
+                              <span className="material-symbols-outlined text-[13px] text-indigo-600">visibility</span>
+                              <span>Bản Xem Trước JD:</span>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setShowFullJdPreviewModal(true)}
+                              className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-0.5 cursor-pointer"
+                            >
+                              <span className="material-symbols-outlined text-[12px]">open_in_new</span>
+                              <span>Toàn màn hình</span>
+                            </button>
                           </div>
-                        )}
+
+                          {/* Mini tabs */}
+                          <div className="grid grid-cols-3 gap-1 bg-slate-100 p-0.5 rounded-lg text-[10px] font-bold text-center">
+                            <button
+                              type="button"
+                              onClick={() => setCandidatePreviewTab('DESC')}
+                              className={`py-1 rounded cursor-pointer transition-colors ${candidatePreviewTab === 'DESC' ? 'bg-white text-indigo-600 shadow-2xs' : 'text-slate-500 hover:text-slate-800'}`}
+                            >
+                              Mô Tả
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setCandidatePreviewTab('REQ')}
+                              className={`py-1 rounded cursor-pointer transition-colors ${candidatePreviewTab === 'REQ' ? 'bg-white text-amber-600 shadow-2xs' : 'text-slate-500 hover:text-slate-800'}`}
+                            >
+                              Yêu Cầu
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setCandidatePreviewTab('BEN')}
+                              className={`py-1 rounded cursor-pointer transition-colors ${candidatePreviewTab === 'BEN' ? 'bg-white text-emerald-600 shadow-2xs' : 'text-slate-500 hover:text-slate-800'}`}
+                            >
+                              Quyền Lợi
+                            </button>
+                          </div>
+
+                          {/* Tab Content */}
+                          <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 max-h-36 overflow-y-auto text-[11px] leading-relaxed text-slate-700">
+                            {candidatePreviewTab === 'DESC' && (
+                              createForm.description?.trim() ? (
+                                <div className="whitespace-pre-line text-slate-700">{createForm.description}</div>
+                              ) : (
+                                <span className="text-slate-400 italic">Chưa có mô tả công việc (Bấm nút "✨ AI Tự Động Soạn Thảo JD" ở mục 4 để AI viết ngay)</span>
+                              )
+                            )}
+                            {candidatePreviewTab === 'REQ' && (
+                              createForm.requirements?.trim() ? (
+                                <div className="whitespace-pre-line text-slate-700">{createForm.requirements}</div>
+                              ) : (
+                                <span className="text-slate-400 italic">Chưa có yêu cầu công việc</span>
+                              )
+                            )}
+                            {candidatePreviewTab === 'BEN' && (
+                              createForm.benefits?.trim() ? (
+                                <div className="whitespace-pre-line text-slate-700">{createForm.benefits}</div>
+                              ) : (
+                                <span className="text-slate-400 italic">Chưa có quyền lợi &amp; đãi ngộ</span>
+                              )
+                            )}
+                          </div>
+                        </div>
 
                         {/* Deadline info */}
                         <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400">
@@ -4594,6 +4902,31 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
 
               {/* NỘI DUNG CHI TIẾT */}
               <div className="p-4 rounded-2xl bg-[#f8f7ff] border border-purple-100 space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-purple-100 flex-wrap gap-2">
+                  <span className="font-bold text-xs uppercase tracking-wider text-slate-800">
+                    Nội Dung Chi Tiết (Mô Tả, Yêu Cầu &amp; Quyền Lợi)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleAiGenerateJdContent(true)}
+                    disabled={isGeneratingJdContent}
+                    className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white text-xs font-bold shadow-xs hover:shadow transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02]"
+                    title="AI đọc toàn bộ Tiêu đề, Cấp bậc, Đãi ngộ và Kỹ năng để tự động soạn thảo đầy đủ Mô tả, Yêu cầu và Quyền lợi"
+                  >
+                    {isGeneratingJdContent ? (
+                      <>
+                        <span className="material-symbols-outlined text-xs animate-spin">sync</span>
+                        <span>AI Đang Soạn Thảo JD...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="material-symbols-outlined text-xs text-yellow-300">auto_awesome</span>
+                        <span>✨ AI Tự Động Soạn Thảo Lại JD</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
                 <div>
                   <label className="block text-[#5b48bd] mb-1 font-bold uppercase text-xs">Mô Tả Công Việc (Job Description)</label>
                   <textarea
@@ -4882,6 +5215,208 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                 <span>Nâng Cấp Ngay</span>
                 <span className="material-symbols-outlined text-sm">arrow_forward</span>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FULL JD PREVIEW MODAL (Candidate Perspective Preview) */}
+      {showFullJdPreviewModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
+          <div className="relative w-full max-w-4xl max-h-[90vh] bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
+            {/* Modal Header */}
+            <div className="p-6 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex items-start justify-between gap-4 border-b border-slate-800">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                    👁️ Bản Xem Trước JD Chuẩn Ứng Viên
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    {createForm.domain || 'Công nghệ thông tin'}
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono text-slate-300 bg-white/10">
+                    {createForm.code || 'JD-AUTO'}
+                  </span>
+                </div>
+                <h2 className="text-xl sm:text-2xl font-black text-white leading-tight">
+                  {createForm.title?.trim() || 'Chưa nhập tiêu đề vị trí tuyển dụng'}
+                </h2>
+                <div className="flex items-center gap-3 text-xs text-slate-300 flex-wrap">
+                  <span className="flex items-center gap-1">
+                    <span className="material-symbols-outlined text-sm text-indigo-400">apartment</span>
+                    <span>{user?.companyName || user?.name || 'Doanh nghiệp của bạn'}</span>
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="material-symbols-outlined text-sm text-indigo-400">location_on</span>
+                    <span>{createForm.location?.trim() || 'Hà Nội / TP.HCM'}</span>
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowFullJdPreviewModal(false)}
+                className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer shrink-0"
+              >
+                <span className="material-symbols-outlined text-lg">close</span>
+              </button>
+            </div>
+
+            {/* Quick Metrics Bar */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2 p-4 bg-slate-50 border-b border-slate-200 text-xs">
+              <div className="bg-white p-2.5 rounded-xl border border-slate-200/80">
+                <p className="text-[10px] text-slate-400 uppercase font-semibold">Mức Lương</p>
+                <p className="font-bold text-amber-600 text-xs truncate">{createForm.salary?.trim() || 'Thỏa thuận'}</p>
+              </div>
+              <div className="bg-white p-2.5 rounded-xl border border-slate-200/80">
+                <p className="text-[10px] text-slate-400 uppercase font-semibold">Cấp Bậc</p>
+                <p className="font-bold text-slate-800 text-xs truncate">
+                  {createForm.jobLevel === 'INTERN' ? 'Thực tập sinh' : createForm.jobLevel === 'FRESHER' ? 'Fresher' : createForm.jobLevel === 'SENIOR' ? 'Senior' : createForm.jobLevel || 'Chuyên viên'}
+                </p>
+              </div>
+              <div className="bg-white p-2.5 rounded-xl border border-slate-200/80">
+                <p className="text-[10px] text-slate-400 uppercase font-semibold">Hình Thức</p>
+                <p className="font-bold text-slate-800 text-xs truncate">
+                  {createForm.employmentType === 'FULL_TIME' ? 'Toàn thời gian' : createForm.employmentType === 'PART_TIME' ? 'Bán thời gian' : createForm.employmentType === 'INTERNSHIP' ? 'Thực tập' : createForm.employmentType}
+                </p>
+              </div>
+              <div className="bg-white p-2.5 rounded-xl border border-slate-200/80">
+                <p className="text-[10px] text-slate-400 uppercase font-semibold">Làm Việc</p>
+                <p className="font-bold text-slate-800 text-xs truncate">{createForm.workplaceType || 'Hybrid'}</p>
+              </div>
+              <div className="bg-white p-2.5 rounded-xl border border-slate-200/80">
+                <p className="text-[10px] text-slate-400 uppercase font-semibold">Kinh Nghiệm</p>
+                <p className="font-bold text-emerald-700 text-xs truncate">{createForm.experienceRequirement || 'Không yêu cầu'}</p>
+              </div>
+              <div className="bg-white p-2.5 rounded-xl border border-slate-200/80">
+                <p className="text-[10px] text-slate-400 uppercase font-semibold">Hạn Nộp</p>
+                <p className="font-bold text-indigo-600 text-xs truncate">{createForm.deadlineDate || 'Chưa đặt'}</p>
+              </div>
+            </div>
+
+            {/* Modal Body - Scrollable content */}
+            <div className="p-6 overflow-y-auto space-y-6 text-sm flex-1">
+              {/* Section 1: Mô tả */}
+              <div className="space-y-2">
+                <h4 className="font-bold text-xs uppercase tracking-wider text-indigo-700 flex items-center gap-1.5 pb-1 border-b border-indigo-100">
+                  <span className="material-symbols-outlined text-base">description</span>
+                  <span>1. Mô Tả Công Việc (Job Description)</span>
+                </h4>
+                {createForm.description?.trim() ? (
+                  <div className="p-4 rounded-2xl bg-indigo-50/40 border border-indigo-100 text-slate-800 whitespace-pre-line leading-relaxed text-xs sm:text-sm">
+                    {createForm.description}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-400 italic p-3 bg-slate-50 rounded-xl">Chưa có nội dung mô tả.</p>
+                )}
+              </div>
+
+              {/* Section 2: Yêu cầu */}
+              <div className="space-y-2">
+                <h4 className="font-bold text-xs uppercase tracking-wider text-amber-700 flex items-center gap-1.5 pb-1 border-b border-amber-100">
+                  <span className="material-symbols-outlined text-base">checklist</span>
+                  <span>2. Yêu Cầu Ứng Viên (Requirements)</span>
+                </h4>
+                {createForm.requirements?.trim() ? (
+                  <div className="p-4 rounded-2xl bg-amber-50/40 border border-amber-100 text-slate-800 whitespace-pre-line leading-relaxed text-xs sm:text-sm">
+                    {createForm.requirements}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-400 italic p-3 bg-slate-50 rounded-xl">Chưa có nội dung yêu cầu.</p>
+                )}
+              </div>
+
+              {/* Section 3: Quyền lợi */}
+              <div className="space-y-2">
+                <h4 className="font-bold text-xs uppercase tracking-wider text-emerald-700 flex items-center gap-1.5 pb-1 border-b border-emerald-100">
+                  <span className="material-symbols-outlined text-base">card_giftcard</span>
+                  <span>3. Quyền Lợi &amp; Đãi Ngộ (Benefits)</span>
+                </h4>
+                {createForm.benefits?.trim() ? (
+                  <div className="p-4 rounded-2xl bg-emerald-50/40 border border-emerald-100 text-slate-800 whitespace-pre-line leading-relaxed text-xs sm:text-sm">
+                    {createForm.benefits}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-400 italic p-3 bg-slate-50 rounded-xl">Chưa có nội dung quyền lợi.</p>
+                )}
+              </div>
+
+              {/* Section 4: Skills Matrix 70/30 */}
+              <div className="space-y-3 p-4 rounded-2xl bg-slate-50 border border-slate-200">
+                <h4 className="font-bold text-xs uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-base text-purple-600">psychology</span>
+                  <span>4. Ma Trận Kỹ Năng Đánh Giá AI Match Chuẩn ATS</span>
+                </h4>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Mandatory */}
+                  <div className="p-3 bg-white rounded-xl border border-indigo-200 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-indigo-700">Kỹ Năng Bắt Buộc (Mandatory)</span>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 font-bold">70% trọng số</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {mandatorySkillsArray.length > 0 ? (
+                        mandatorySkillsArray.map((sk) => (
+                          <span key={sk} className="px-2.5 py-1 rounded-lg text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                            {sk}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-xs text-slate-400 italic">Chưa nhập kỹ năng bắt buộc</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Preferred */}
+                  <div className="p-3 bg-white rounded-xl border border-emerald-200 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-emerald-700">Kỹ Năng Ưu Tiên (Preferred)</span>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold">30% trọng số</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {preferredSkillsArray.length > 0 ? (
+                        preferredSkillsArray.map((sk) => (
+                          <span key={sk} className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            {sk}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-xs text-slate-400 italic">Chưa nhập kỹ năng ưu tiên</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3 flex-wrap">
+              <span className="text-xs text-slate-500 flex items-center gap-1">
+                <span className="material-symbols-outlined text-sm text-indigo-600">info</span>
+                <span>Đây là giao diện chuẩn xác ứng viên sẽ nhìn thấy khi xem JD trên sàn việc làm HireMate AI</span>
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowFullJdPreviewModal(false)}
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  Đóng Bản Xem Trước
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowFullJdPreviewModal(false);
+                    handleCreateSubmit();
+                  }}
+                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold text-xs shadow-md shadow-indigo-500/20 transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-sm">rocket_launch</span>
+                  <span>Chốt &amp; Xuất Bản Ngay</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -55,4 +55,5 @@ public class GoogleCompleteRegistrationRequest {
     private String licenseDocUrl;
     private String licenseDocName;
     private String legalRepresentative;
+    private String companyHrPin;
 }

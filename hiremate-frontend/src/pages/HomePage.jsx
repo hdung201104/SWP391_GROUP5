@@ -1663,7 +1663,7 @@ export default function HomePage({ user }) {
                 key={`jobs-grid-${currentPage}-${viewMode}`}
                 stagger={0.06}
                 delay={0.04}
-                className={`grid gap-6 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}
+                className={`grid gap-6 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 items-stretch' : 'grid-cols-1'}`}
               >
                 {paginatedJobs.map((job) => {
                   const targetJobId = job.jobId || job.id;
@@ -1671,7 +1671,7 @@ export default function HomePage({ user }) {
                   return (
                     <StaggerItem 
                       key={targetJobId}
-                      className={`transition-[z-index] ${
+                      className={`h-full transition-[z-index] ${
                         isHovered ? 'relative z-50' : 'relative z-10 hover:z-40 focus-within:z-40'
                       }`}
                     >

@@ -583,106 +583,89 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
     }
   };
 
-  // Sync real current session and persistent sessions
+  // Sync real current session and active sessions from Backend API
   const syncSessions = async () => {
     setIsLoadingSessions(true);
-    const dev = detectCurrentDevice();
-    const locationStr = await resolveClientLocation();
-
-    let currentSessionId = sessionStorage.getItem('hiremate_current_session_token');
-    if (!currentSessionId) {
-      currentSessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
-      sessionStorage.setItem('hiremate_current_session_token', currentSessionId);
-    }
-
-    const storageKey = `hiremate_active_sessions_${user?.userId || user?.email || 'default'}`;
-    let savedList = [];
     try {
-      const raw = localStorage.getItem(storageKey);
-      if (raw) savedList = JSON.parse(raw);
-    } catch {
-      savedList = [];
+      const res = await authApi.getSessions();
+      const serverSessions = res?.data || res || [];
+      if (Array.isArray(serverSessions) && serverSessions.length > 0) {
+        let mapped = serverSessions.map((s) => ({
+          id: s.sessionId,
+          device: s.device,
+          location: s.location || (s.ipAddress ? `IP: ${s.ipAddress}` : 'Việt Nam'),
+          time: s.timeDisplay || 'Đang hoạt động (Hiện tại)',
+          isCurrent: Boolean(s.isCurrent ?? s.current),
+          icon: s.icon || 'devices',
+        }));
+
+        // Defensive fallback: Nếu backend chưa gán được isCurrent (ví dụ token lệch chữ hoa/thường), tự chọn phiên đầu làm phiên hiện tại
+        if (!mapped.some((s) => s.isCurrent)) {
+          mapped[0].isCurrent = true;
+          mapped[0].time = 'Đang hoạt động (Hiện tại)';
+        }
+
+        // Đảm bảo đưa phiên hiện tại lên đầu tiên
+        mapped.sort((a, b) => (b.isCurrent ? 1 : 0) - (a.isCurrent ? 1 : 0));
+
+        setSessions(mapped);
+      } else {
+        const dev = detectCurrentDevice();
+        setSessions([{
+          id: 'current',
+          device: dev.deviceTitle,
+          location: 'Kết nối an toàn (Thiết bị hiện tại)',
+          time: 'Đang hoạt động (Hiện tại)',
+          isCurrent: true,
+          icon: dev.icon,
+        }]);
+      }
+    } catch (err) {
+      console.warn('Lỗi đồng bộ phiên đăng nhập thực tế:', err);
+      const dev = detectCurrentDevice();
+      setSessions([{
+        id: 'current',
+        device: dev.deviceTitle,
+        location: 'Kết nối an toàn (Thiết bị hiện tại)',
+        time: 'Đang hoạt động (Hiện tại)',
+        isCurrent: true,
+        icon: dev.icon,
+      }]);
+    } finally {
+      setIsLoadingSessions(false);
     }
-
-    const currentSession = {
-      id: currentSessionId,
-      device: dev.deviceTitle,
-      location: locationStr,
-      time: 'Đang hoạt động (Hiện tại)',
-      isCurrent: true,
-      icon: dev.icon,
-      lastLogin: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-    };
-
-    // Filter out old entry for currentSessionId if any, retain genuine other sessions
-    const otherSessions = Array.isArray(savedList)
-      ? savedList.filter((s) => s && s.id !== currentSessionId && !s.isCurrent)
-      : [];
-
-    const updated = [currentSession, ...otherSessions];
-    setSessions(updated);
-    localStorage.setItem(storageKey, JSON.stringify(updated));
-    setIsLoadingSessions(false);
   };
 
   useEffect(() => {
     syncSessions();
   }, [user?.userId, user?.email]);
 
-  // Terminate all other sessions
-  const handleTerminateOtherSessions = () => {
-    const storageKey = `hiremate_active_sessions_${user?.userId || user?.email || 'default'}`;
-    const remaining = sessions.filter((s) => s.isCurrent);
-    setSessions(remaining);
-    localStorage.setItem(storageKey, JSON.stringify(remaining));
-    triggerToast('✓ Đã đăng xuất và thu hồi quyền truy cập của tất cả các thiết bị khác!');
+  // Terminate all other sessions via Backend API
+  const handleTerminateOtherSessions = async () => {
+    try {
+      setIsLoadingSessions(true);
+      await authApi.revokeOtherSessions();
+      triggerToast('✓ Đã đăng xuất và thu hồi quyền truy cập của tất cả các thiết bị khác thành công!');
+      await syncSessions();
+    } catch (err) {
+      triggerToast(err.message || 'Không thể đăng xuất các thiết bị khác');
+    } finally {
+      setIsLoadingSessions(false);
+    }
   };
 
-  // Terminate a single specific session
-  const handleTerminateSingleSession = (sessId, devName) => {
-    const storageKey = `hiremate_active_sessions_${user?.userId || user?.email || 'default'}`;
-    const remaining = sessions.filter((s) => s.id !== sessId);
-    setSessions(remaining);
-    localStorage.setItem(storageKey, JSON.stringify(remaining));
-    triggerToast(`✓ Đã đăng xuất thiết bị "${devName}" thành công!`);
-  };
-
-  // Add simulated session for testing multi-device logout
-  const handleAddTestSession = () => {
-    const storageKey = `hiremate_active_sessions_${user?.userId || user?.email || 'default'}`;
-    const testDevices = [
-      {
-        device: 'Apple iPhone 16 Pro • Safari Mobile',
-        location: 'Hà Nội, Việt Nam (IP: 14.161.42.19)',
-        time: '35 phút trước',
-        icon: 'smartphone',
-      },
-      {
-        device: 'MacBook Pro M3 Max • Chrome 133',
-        location: 'Đà Nẵng, Việt Nam (IP: 118.69.192.45)',
-        time: '3 giờ trước',
-        icon: 'laptop_mac',
-      },
-      {
-        device: 'Samsung Galaxy S24 Ultra • Edge Android',
-        location: 'Cần Thơ, Việt Nam (IP: 171.244.38.10)',
-        time: 'Hôm qua • 18:20',
-        icon: 'smartphone',
-      },
-    ];
-    const picked = testDevices[Math.floor(Math.random() * testDevices.length)];
-    const newSess = {
-      id: 'test_sess_' + Date.now(),
-      device: picked.device,
-      location: picked.location,
-      time: picked.time,
-      isCurrent: false,
-      icon: picked.icon,
-    };
-    const updated = [...sessions, newSess];
-    setSessions(updated);
-    localStorage.setItem(storageKey, JSON.stringify(updated));
-    triggerToast(`✓ Đã thêm phiên thử nghiệm "${picked.device}" để kiểm tra tính năng!`);
+  // Terminate a single specific session via Backend API
+  const handleTerminateSingleSession = async (sessId, devName) => {
+    try {
+      setIsLoadingSessions(true);
+      await authApi.revokeSession(sessId);
+      triggerToast(`✓ Đã đăng xuất thiết bị "${devName}" thành công!`);
+      await syncSessions();
+    } catch (err) {
+      triggerToast(err.message || `Không thể đăng xuất thiết bị "${devName}"`);
+    } finally {
+      setIsLoadingSessions(false);
+    }
   };
 
   return (
@@ -2033,17 +2016,6 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                       <span>Đăng xuất các thiết bị khác ({sessions.filter(s => !s.isCurrent).length})</span>
                     </button>
                   )}
-
-                  {sessions.filter(s => !s.isCurrent).length === 0 && (
-                    <button
-                      type="button"
-                      onClick={handleAddTestSession}
-                      className="px-3 py-1.5 rounded-xl border border-dashed border-purple-200 text-slate-500 hover:text-[#5b48bd] hover:border-[#5b48bd] text-[11px] font-sans transition-colors cursor-pointer"
-                      title="Mô phỏng 1 thiết bị khác đăng nhập để kiểm tra tính năng thu hồi token"
-                    >
-                      + Giả lập thiết bị để thử
-                    </button>
-                  )}
                 </div>
               </div>
 
@@ -2119,6 +2091,21 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                         <p className="font-bold text-emerald-900">Tài khoản bảo mật an toàn</p>
                         <p className="text-[11px] leading-relaxed text-slate-600">
                           Hiện tại tài khoản chỉ được xác thực và duy trì kết nối trên thiết bị này. Không có thiết bị lạ hoặc token trái phép nào khác đang hoạt động.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Multi-device Alert Banner when 2+ devices exist */}
+                  {sessions.length > 1 && (
+                    <div className="p-4 sm:p-5 rounded-2xl bg-amber-50/70 border border-amber-200 flex items-start sm:items-center gap-3.5 text-xs text-amber-950 font-sans">
+                      <div className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center shrink-0 text-amber-700">
+                        <span className="material-symbols-outlined text-lg">devices</span>
+                      </div>
+                      <div className="space-y-0.5">
+                        <p className="font-bold text-amber-900">Đang có {sessions.length} thiết bị duy trì phiên đăng nhập đồng thời</p>
+                        <p className="text-[11px] leading-relaxed text-slate-600">
+                          Bao gồm thiết bị này và {sessions.filter(s => !s.isCurrent).length} thiết bị/phiên khác. Nếu bạn nhận thấy thiết bị lạ không thuộc quyền kiểm soát của mình, hãy nhấn nút "Đăng xuất thiết bị" hoặc "Đăng xuất các thiết bị khác" ngay lập tức để bảo vệ tài khoản.
                         </p>
                       </div>
                     </div>

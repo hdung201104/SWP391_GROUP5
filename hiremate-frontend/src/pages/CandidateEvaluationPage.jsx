@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { applicationApi, aiMatchApi, jobApi, interviewApi, paymentApi } from '../api';
 import { cvApi } from '../api/cvApi';
 import LoadingSpinner from '../components/common/LoadingSpinner';
-import { parseSkillList } from '../utils/helpers';
+import { parseSkillList, sanitizeEvidenceText } from '../utils/helpers';
 import { parseSubscriptionPermissions } from '../utils/subscriptionPerms';
 import { createHrToCandidateMailto } from '../utils/emailUtils';
 import { extractBlob } from '../utils/excelExportUtils';
@@ -16,7 +16,7 @@ import OnlineCvRenderer from '../components/common/OnlineCvRenderer';
  */
 export default function CandidateEvaluationPage({
   user,
-  candidateId = 1,
+  candidateId = null,
   jobId = null,
   cvId = null,
   applicationId = null,
@@ -110,6 +110,7 @@ export default function CandidateEvaluationPage({
   const [cvMimeType, setCvMimeType] = useState('application/pdf');
   const [isPdfLoading, setIsPdfLoading] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(100);
+  const [layoutRatio, setLayoutRatio] = useState('wide-cv'); // 'wide-cv' (4:8) | 'balanced' (5:7)
 
   // Modals state
   const [showInterviewModal, setShowInterviewModal] = useState(false);
@@ -230,6 +231,76 @@ export default function CandidateEvaluationPage({
     let isMounted = true;
     let createdBlobUrl = null;
 
+    // Tải trước file PDF/Word bất đồng bộ, không khóa giao diện đánh giá
+    const loadPdfPreview = async (targetCvId, targetCvUrl, targetCvMeta) => {
+      if (!isMounted) return;
+      setIsPdfLoading(true);
+
+      const fn = targetCvMeta?.fileName?.toLowerCase() || '';
+      const isWord = fn.endsWith('.docx') || fn.endsWith('.doc') || targetCvMeta?.fileType?.includes('word');
+      if (isWord) {
+        if (isMounted) {
+          setCvMimeType('application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+          setCvViewMode('pdf');
+          setIsPdfLoading(false);
+        }
+        return;
+      }
+
+      if (targetCvId) {
+        try {
+          const previewRes = await cvApi.previewCv(targetCvId).catch(() => null);
+          let detectedMime = previewRes?.headers?.['content-type']
+            || (fn.endsWith('.png') ? 'image/png'
+            : fn.endsWith('.jpg') || fn.endsWith('.jpeg') ? 'image/jpeg'
+            : 'application/pdf');
+
+          const blob = extractBlob(previewRes, detectedMime);
+          if (blob && blob.size > 200) {
+            createdBlobUrl = window.URL.createObjectURL(blob);
+            if (isMounted) {
+              setPdfBlobUrl(createdBlobUrl);
+              setCvMimeType(detectedMime);
+              setCvViewMode('pdf');
+              setIsPdfLoading(false);
+              return;
+            }
+          } else {
+            const dlRes = await cvApi.downloadCv(targetCvId).catch(() => null);
+            const dlBlob = extractBlob(dlRes, detectedMime);
+            if (dlBlob && dlBlob.size > 200) {
+              createdBlobUrl = window.URL.createObjectURL(dlBlob);
+              if (isMounted) {
+                setPdfBlobUrl(createdBlobUrl);
+                setCvMimeType(detectedMime);
+                setCvViewMode('pdf');
+                setIsPdfLoading(false);
+                return;
+              }
+            }
+          }
+        } catch (cvErr) {
+          console.warn('Lỗi tải preview blob:', cvErr);
+        }
+      }
+
+      // Fallback: nếu targetCvUrl là link http/https trực tiếp
+      if (targetCvUrl && (targetCvUrl.startsWith('http://') || targetCvUrl.startsWith('https://'))) {
+        if (isMounted) {
+          setPdfBlobUrl(targetCvUrl);
+          setCvViewMode('pdf');
+          setIsPdfLoading(false);
+          return;
+        }
+      }
+
+      // Nếu chưa có file PDF hợp lệ, tự động hiển thị tab CV Online ngay tức thì
+      if (isMounted) {
+        setCvViewMode('parsed');
+        setIsPdfLoading(false);
+      }
+    };
+
     const fetchCandidateData = async () => {
       setIsLoading(true);
 
@@ -252,212 +323,263 @@ export default function CandidateEvaluationPage({
       let cvData = null;
       let candMatch = null;
 
-      // Khi có appId, tự động gọi API lấy chi tiết đơn để lấy jobId, cvId, candidateId chính xác
-      if (effectiveAppId) {
-        try {
-          const singleAppRes = await applicationApi.getApplicationById(effectiveAppId);
-          const singleApp = singleAppRes?.data?.data || singleAppRes?.data;
-          if (singleApp) {
-            appData = singleApp;
-            if (singleApp.jobId) effectiveJobId = singleApp.jobId;
-            if (singleApp.cvId) effectiveCvId = singleApp.cvId;
-            if (singleApp.candidateId) resolvedCandId = singleApp.candidateId;
-          }
-        } catch (e) {
-          console.warn('Could not load application by ID directly:', e);
-        }
-
-        if (!effectiveJobId || !resolvedCandId) {
+      try {
+        // Khi có appId, tự động gọi API lấy chi tiết đơn để lấy jobId, cvId, candidateId chính xác
+        if (effectiveAppId) {
           try {
-            const myAppsRes = await applicationApi.getMyRecruiterApplications();
-            const list = myAppsRes?.data?.data || myAppsRes?.data || [];
-            if (Array.isArray(list)) {
-              const found = list.find(a => Number(a.applicationId) === Number(effectiveAppId));
-              if (found) {
-                appData = found;
-                if (found.jobId) effectiveJobId = found.jobId;
-                if (found.cvId) effectiveCvId = found.cvId;
-                if (found.candidateId) resolvedCandId = found.candidateId;
-              }
+            const singleAppRes = await applicationApi.getApplicationById(effectiveAppId);
+            const singleApp = singleAppRes?.data?.data || singleAppRes?.data;
+            if (singleApp) {
+              appData = singleApp;
+              if (singleApp.jobId) effectiveJobId = singleApp.jobId;
+              if (singleApp.cvId) effectiveCvId = singleApp.cvId;
+              if (singleApp.candidateId) resolvedCandId = singleApp.candidateId;
             }
-          } catch (err) {
-            console.warn('Fallback getMyRecruiterApplications failed:', err);
+          } catch (e) {
+            console.warn('Could not load application by ID directly:', e);
           }
-        }
-      }
 
-      // 2.1 Gọi song song các API backend
-      try {
-        const promises = [];
-        if (resolvedCandId) promises.push(applicationApi.getCandidateProfile(resolvedCandId).catch(() => null));
-        else promises.push(Promise.resolve(null));
-
-        if (effectiveJobId) {
-          promises.push(jobApi.getJobById(effectiveJobId).catch(() => null));
-          promises.push(applicationApi.getJobApplications(effectiveJobId).catch(() => null));
-          promises.push(aiMatchApi.getJobMatchesForRecruiter(effectiveJobId).catch(() => null));
-        } else {
-          promises.push(Promise.resolve(null));
-          promises.push(Promise.resolve(null));
-          promises.push(Promise.resolve(null));
-        }
-
-        const [profRes, jRes, appsRes, matchesRes] = await Promise.all(promises);
-
-        profileData = profRes?.data || profRes;
-        jobData = jRes?.data || jRes;
-        const appsList = Array.isArray(appsRes?.data) ? appsRes.data : (Array.isArray(appsRes) ? appsRes : []);
-        const matchesList = Array.isArray(matchesRes?.data) ? matchesRes.data : (Array.isArray(matchesRes) ? matchesRes : []);
-
-        // Tìm candidate match từ AI Job Matches
-        if (matchesList.length > 0) {
-          candMatch = matchesList.find(
-            (m) => parsedCandId && Number(m.candidateId) === Number(parsedCandId)
-          ) || null;
-        }
-
-        // Tìm application
-        if (appsList.length > 0) {
-          appData = appsList.find(
-            (a) =>
-              (effectiveAppId && Number(a.applicationId) === Number(effectiveAppId)) ||
-              (parsedCandId && Number(a.candidateId) === Number(parsedCandId))
-          ) || appsList[0];
-        }
-
-        // Cập nhật từ profile API nếu có
-        if (profileData) {
-          candidateName = profileData.fullName || candidateName;
-          candidateEmail = profileData.email || candidateEmail;
-          candidatePhone = profileData.phone || candidatePhone;
-          candidateAvatar = profileData.avatarUrl || candidateAvatar;
-        }
-
-        // Cập nhật từ job API nếu có
-        if (jobData) {
-          jobTitle = jobData.title || jobTitle;
-        }
-
-        // Cập nhật từ appData nếu có
-        let isWithdrawn = false;
-        if (appData) {
-          effectiveAppId = appData.applicationId;
-          candidateName = appData.candidateName || candidateName;
-          candidateEmail = appData.candidateEmail || candidateEmail;
-          jobTitle = appData.jobTitle || jobTitle;
-          matchScore = appData.matchingScore != null ? Math.round(appData.matchingScore) : matchScore;
-          appStatus = appData.status || appStatus;
-
-          // Khôi phục ghi chú đánh giá từ Backend nếu có
-          if (appData.evaluationNotes || appData.notes) {
+          if (!effectiveJobId || !resolvedCandId) {
             try {
-              const parsedNotes = JSON.parse(appData.evaluationNotes || appData.notes);
-              if (Array.isArray(parsedNotes) && parsedNotes.length > 0) {
-                setHrNotes(parsedNotes);
+              const myAppsRes = await applicationApi.getMyRecruiterApplications();
+              const list = myAppsRes?.data?.data || myAppsRes?.data || [];
+              if (Array.isArray(list)) {
+                const found = list.find(a => Number(a.applicationId) === Number(effectiveAppId));
+                if (found) {
+                  appData = found;
+                  if (found.jobId) effectiveJobId = found.jobId;
+                  if (found.cvId) effectiveCvId = found.cvId;
+                  if (found.candidateId) resolvedCandId = found.candidateId;
+                }
               }
-            } catch {
-              const rawNote = appData.evaluationNotes || appData.notes;
-              if (rawNote) {
-                setHrNotes([{
-                  id: 1,
-                  author: user?.fullName || 'Bộ phận Tuyển Dụng',
-                  time: 'Hệ thống lưu',
-                  tag: 'Đánh giá HR',
-                  text: rawNote,
-                }]);
-              }
+            } catch (err) {
+              console.warn('Fallback getMyRecruiterApplications failed:', err);
             }
           }
-          if (appData.cvId) effectiveCvId = appData.cvId;
-          if (appData.cvUrl) cvUrl = appData.cvUrl;
-          isWithdrawn = Boolean(
-            appData.withdrawnByCandidate ||
-            (appData.status === 'REJECTED' && (
-              (appData.rejectionReason && appData.rejectionReason.includes('WITHDRAWN_BY_CANDIDATE')) ||
-              (appData.rejectReason && appData.rejectReason.includes('WITHDRAWN_BY_CANDIDATE')) ||
-              (appData.rejectionReason && appData.rejectionReason.toLowerCase().includes('rút đơn')) ||
-              (appData.rejectReason && appData.rejectReason.toLowerCase().includes('rút đơn'))
-            ))
-          );
         }
 
-        // Xác định CV mục tiêu từ danh sách CV của ứng viên
-        if (!effectiveCvId && profileData?.cvs && profileData.cvs.length > 0) {
-          const defaultCv = profileData.cvs.find((c) => c.isDefault) || profileData.cvs[0];
-          if (defaultCv) {
-            effectiveCvId = defaultCv.cvId;
-            cvUrl = defaultCv.fileUrl || cvUrl;
+        // 2. Nếu có CV ID nhưng chưa có candidateId
+        if (effectiveCvId && !resolvedCandId) {
+          try {
+            const initialCvRes = await cvApi.getCvById(effectiveCvId).catch(() => null);
+            const initCv = initialCvRes?.data?.data || initialCvRes?.data;
+            if (initCv) {
+              cvData = initCv;
+              if (initCv.candidateId) resolvedCandId = initCv.candidateId;
+            }
+          } catch (e) {
+            console.warn('Error fetching initial CV by ID:', e);
           }
         }
-      } catch (err) {
-        console.warn('Lỗi tải dữ liệu ứng viên từ API, dùng dữ liệu thread/cache an toàn:', err);
-      }
 
-      // 2.2 Tải bản xem trước CV (PDF Blob) nếu có effectiveCvId
-      if (effectiveCvId) {
-        setIsPdfLoading(true);
+        // 2.1 Gọi song song các API backend để lấy thông tin hồ sơ & vị trí
         try {
-          // Lấy chi tiết metadata của CV
-          const detailRes = await cvApi.getCvById(effectiveCvId).catch(() => null);
-          cvData = detailRes?.data?.data || detailRes?.data || null;
+          const promises = [];
+          if (resolvedCandId) promises.push(applicationApi.getCandidateProfile(resolvedCandId).catch(() => null));
+          else promises.push(Promise.resolve(null));
 
-          // Lấy file nhị phân gốc (PDF, Ảnh hoặc Word) để preview
-          const previewRes = await cvApi.previewCv(effectiveCvId).catch(() => null);
-          const fn = cvData?.fileName?.toLowerCase() || '';
-          let detectedMime = previewRes?.headers?.['content-type']
-            || (fn.endsWith('.png') ? 'image/png'
-            : fn.endsWith('.jpg') || fn.endsWith('.jpeg') ? 'image/jpeg'
-            : fn.endsWith('.docx') ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-            : fn.endsWith('.doc') ? 'application/msword'
-            : 'application/pdf');
-
-          const blob = extractBlob(previewRes, detectedMime);
-          if (blob && blob.size > 200) {
-            createdBlobUrl = window.URL.createObjectURL(blob);
-            if (isMounted) {
-              setPdfBlobUrl(createdBlobUrl);
-              setCvMimeType(detectedMime);
-              setCvViewMode('pdf');
-            }
+          if (effectiveJobId) {
+            promises.push(jobApi.getJobById(effectiveJobId).catch(() => null));
+            promises.push(applicationApi.getJobApplications(effectiveJobId).catch(() => null));
+            promises.push(aiMatchApi.getJobMatchesForRecruiter(effectiveJobId).catch(() => null));
           } else {
-            // Fallback sang downloadCv
-            const dlRes = await cvApi.downloadCv(effectiveCvId).catch(() => null);
-            const dlBlob = extractBlob(dlRes, detectedMime);
-            if (dlBlob && dlBlob.size > 200) {
-              createdBlobUrl = window.URL.createObjectURL(dlBlob);
-              if (isMounted) {
-                setPdfBlobUrl(createdBlobUrl);
-                setCvMimeType(detectedMime);
-                setCvViewMode('pdf');
+            promises.push(Promise.resolve(null));
+            promises.push(Promise.resolve(null));
+            promises.push(Promise.resolve(null));
+          }
+
+          if (effectiveCvId && !cvData) {
+            promises.push(cvApi.getCvById(effectiveCvId).catch(() => null));
+          } else {
+            promises.push(Promise.resolve(null));
+          }
+
+          const [profRes, jRes, appsRes, matchesRes, cvDetailRes] = await Promise.all(promises);
+
+          profileData = profRes?.data?.data || profRes?.data || null;
+          jobData = jRes?.data?.data || jRes?.data || null;
+          if (cvDetailRes) {
+            cvData = cvDetailRes?.data?.data || cvDetailRes?.data || cvData;
+          }
+
+          const appsList = Array.isArray(appsRes?.data?.data)
+            ? appsRes.data.data
+            : Array.isArray(appsRes?.data)
+            ? appsRes.data
+            : Array.isArray(appsRes)
+            ? appsRes
+            : [];
+
+          const matchesList = Array.isArray(matchesRes?.data?.data)
+            ? matchesRes.data.data
+            : Array.isArray(matchesRes?.data)
+            ? matchesRes.data
+            : Array.isArray(matchesRes)
+            ? matchesRes
+            : [];
+
+          // Cập nhật candidateId nếu phát hiện từ CV
+          if (!resolvedCandId && cvData?.candidateId) {
+            resolvedCandId = cvData.candidateId;
+          }
+
+          // Tìm candidate match từ AI Job Matches
+          if (matchesList.length > 0) {
+            candMatch = matchesList.find(
+              (m) => (resolvedCandId && Number(m.candidateId) === Number(resolvedCandId)) ||
+                     (parsedCandId && Number(m.candidateId) === Number(parsedCandId))
+            ) || null;
+          }
+
+          // Tìm application
+          if (appsList.length > 0) {
+            appData = appsList.find(
+              (a) =>
+                (effectiveAppId && Number(a.applicationId) === Number(effectiveAppId)) ||
+                (resolvedCandId && Number(a.candidateId) === Number(resolvedCandId)) ||
+                (parsedCandId && Number(a.candidateId) === Number(parsedCandId))
+            ) || appData || appsList[0];
+          }
+
+          // Lấy jobId hoặc candidateId từ appData nếu chưa có
+          if (appData) {
+            if (!effectiveJobId && appData.jobId) effectiveJobId = appData.jobId;
+            if (!resolvedCandId && appData.candidateId) resolvedCandId = appData.candidateId;
+            if (!effectiveCvId && appData.cvId) effectiveCvId = appData.cvId;
+          }
+
+          // Gọi chi tiết đánh giá AI đa chiều trực tiếp nếu có JobId và CandidateId
+          const targetEvalCandId = resolvedCandId || parsedCandId || appData?.candidateId;
+          const targetEvalJobId = effectiveJobId || appData?.jobId;
+          if (targetEvalJobId && targetEvalCandId) {
+            try {
+              const directEvalRes = await aiMatchApi.getDetailedCandidateEvaluation(targetEvalJobId, targetEvalCandId).catch(() => null);
+              const directEval = directEvalRes?.data?.data || directEvalRes?.data;
+              if (directEval && directEval.matchingScore != null) {
+                candMatch = {
+                  ...candMatch,
+                  ...directEval,
+                  skillsScore: directEval.skillsScore != null ? directEval.skillsScore : directEval.matchingScore,
+                  experienceScore: directEval.experienceScore != null ? directEval.experienceScore : directEval.matchingScore,
+                  educationScore: directEval.educationScore != null ? directEval.educationScore : directEval.matchingScore,
+                  semanticScore: directEval.semanticScore != null ? directEval.semanticScore : directEval.matchingScore,
+                };
+                matchScore = Math.round(directEval.matchingScore);
               }
-            } else if (isMounted) {
-              setCvViewMode('parsed');
+            } catch (evalErr) {
+              console.warn('Could not load detailed AI evaluation directly:', evalErr);
             }
           }
-        } catch (cvErr) {
-          console.warn('Không thể tạo PDF Blob preview:', cvErr);
-          if (isMounted) setCvViewMode('parsed');
-        } finally {
-          if (isMounted) setIsPdfLoading(false);
-        }
-      } else if (cvUrl && cvUrl !== '#') {
-        if (isMounted) {
-          setPdfBlobUrl(cvUrl);
-          setCvViewMode('pdf');
-        }
-      } else if (isMounted) {
-        setCvViewMode('parsed');
-      }
 
-      // 2.3 Phân tích dữ liệu trích xuất (Parsed JSON / Structured Profile)
-      let parsedJson = null;
-      try {
-        if (cvData?.parsedJson) {
-          parsedJson = typeof cvData.parsedJson === 'string' ? JSON.parse(cvData.parsedJson) : cvData.parsedJson;
-        }
-      } catch (ignored) {}
+          // Nếu trước đó chưa load được profileData mà giờ đã có resolvedCandId
+          if (!profileData && resolvedCandId) {
+            try {
+              const extraProfRes = await applicationApi.getCandidateProfile(resolvedCandId).catch(() => null);
+              profileData = extraProfRes?.data?.data || extraProfRes?.data || null;
+            } catch (e) {}
+          }
 
-      // Lấy danh sách kỹ năng thực tế
+          // Cập nhật từ profile API nếu có
+          if (profileData) {
+            candidateName = profileData.fullName || candidateName;
+            candidateEmail = profileData.email || candidateEmail;
+            candidatePhone = profileData.phone || candidatePhone;
+            candidateAvatar = profileData.avatarUrl || candidateAvatar;
+          }
+
+          // Cập nhật từ job API nếu có
+          if (jobData) {
+            jobTitle = jobData.title || jobTitle;
+          }
+
+          // Cập nhật từ appData nếu có
+          let isWithdrawn = false;
+          if (appData) {
+            effectiveAppId = appData.applicationId;
+            candidateName = appData.candidateName || candidateName;
+            candidateEmail = appData.candidateEmail || candidateEmail;
+            jobTitle = appData.jobTitle || jobTitle;
+            if (candMatch?.matchingScore != null) {
+              matchScore = Math.round(candMatch.matchingScore);
+            } else if (appData.matchingScore != null) {
+              matchScore = Math.round(appData.matchingScore);
+            }
+            appStatus = appData.status || appStatus;
+
+            // Khôi phục ghi chú đánh giá từ Backend nếu có
+            if (appData.evaluationNotes || appData.notes) {
+              try {
+                const parsedNotes = JSON.parse(appData.evaluationNotes || appData.notes);
+                if (Array.isArray(parsedNotes) && parsedNotes.length > 0) {
+                  setHrNotes(parsedNotes);
+                }
+              } catch {
+                const rawNote = appData.evaluationNotes || appData.notes;
+                if (rawNote) {
+                  setHrNotes([{
+                    id: 1,
+                    author: user?.fullName || 'Bộ phận Tuyển Dụng',
+                    time: 'Hệ thống lưu',
+                    tag: 'Đánh giá HR',
+                    text: rawNote,
+                  }]);
+                }
+              }
+            }
+            if (appData.cvId) effectiveCvId = appData.cvId;
+            if (appData.cvUrl) cvUrl = appData.cvUrl;
+            isWithdrawn = Boolean(
+              appData.withdrawnByCandidate ||
+              (appData.status === 'REJECTED' && (
+                (appData.rejectionReason && appData.rejectionReason.includes('WITHDRAWN_BY_CANDIDATE')) ||
+                (appData.rejectReason && appData.rejectReason.includes('WITHDRAWN_BY_CANDIDATE')) ||
+                (appData.rejectionReason && appData.rejectionReason.toLowerCase().includes('rút đơn')) ||
+                (appData.rejectReason && appData.rejectReason.toLowerCase().includes('rút đơn'))
+              ))
+            );
+          }
+
+          // Xác định CV mục tiêu từ danh sách CV của ứng viên nếu chưa có
+          if (!effectiveCvId && profileData?.cvs && profileData.cvs.length > 0) {
+            const defaultCv = profileData.cvs.find((c) => c.isDefault) || profileData.cvs[0];
+            if (defaultCv) {
+              effectiveCvId = defaultCv.cvId;
+              cvUrl = defaultCv.fileUrl || cvUrl;
+            }
+          }
+
+          // Nếu có effectiveCvId nhưng chưa tải cvData metadata
+          if (effectiveCvId && !cvData) {
+            const extraCvRes = await cvApi.getCvById(effectiveCvId).catch(() => null);
+            cvData = extraCvRes?.data?.data || extraCvRes?.data || null;
+          }
+        } catch (err) {
+          console.warn('Lỗi tải dữ liệu ứng viên từ API:', err);
+        }
+
+        // 2.2 Kích hoạt tải PDF Blob bất đồng bộ (HOÀN TOÀN KHÔNG CHẶN HIỂN THỊ HỒ SƠ ỨNG VIÊN)
+        loadPdfPreview(effectiveCvId, cvUrl, cvData);
+
+        // 2.3 Phân tích dữ liệu trích xuất (Parsed JSON / Structured Profile)
+        let parsedJson = null;
+        try {
+          if (cvData?.parsedJson) {
+            parsedJson = typeof cvData.parsedJson === 'string' ? JSON.parse(cvData.parsedJson) : cvData.parsedJson;
+          }
+        } catch (ignored) {}
+
+        // Trích xuất thông tin cơ bản của ứng viên với đa tầng fallback an toàn
+        candidateName = candidateName || profileData?.fullName || appData?.candidateName || cvData?.fullName || cvData?.candidateName || parsedJson?.fullName || parsedJson?.name || parsedJson?.contact?.name;
+        if (!candidateName || candidateName === 'Đang tải hồ sơ...') {
+          candidateName = cvData?.fileName ? cvData.fileName.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ') : 'Ứng viên';
+        }
+
+        candidateEmail = candidateEmail || profileData?.email || appData?.candidateEmail || cvData?.email || parsedJson?.email || parsedJson?.contact?.email || '';
+        candidatePhone = candidatePhone || profileData?.phone || appData?.candidatePhone || cvData?.phone || parsedJson?.phone || parsedJson?.contact?.phone || '';
+        candidateAvatar = candidateAvatar || profileData?.avatarUrl || appData?.candidateAvatar;
+        jobTitle = jobTitle || jobData?.title || appData?.jobTitle || (effectiveJobId ? `Vị trí Tuyển Dụng #${effectiveJobId}` : 'Vị trí Tuyển Dụng');
+
+        // Lấy danh sách kỹ năng thực tế
       let cleanSkills = [];
       if (parsedJson?.skills && Array.isArray(parsedJson.skills) && parsedJson.skills.length > 0) {
         cleanSkills = parsedJson.skills.filter((s) => typeof s === 'string' && s.trim().length > 1);
@@ -627,7 +749,7 @@ export default function CandidateEvaluationPage({
           jobTitle,
           cvId: effectiveCvId,
           cvUrl: cvUrl || cvData?.fileUrl || '#',
-          cvFileName: cvData?.fileName || `CV_${candidateName.replace(/\s+/g, '_')}.pdf`,
+          cvFileName: cvData?.fileName || `CV_${(candidateName || 'Ung_Vien').replace(/\s+/g, '_')}.pdf`,
           matchedMandatorySkills: mandatorySkills,
           missingMandatorySkills: missingMandatorySkills,
           matchedPreferredSkills: preferredSkills,
@@ -643,12 +765,17 @@ export default function CandidateEvaluationPage({
         });
 
         setAiRejectionEmail(
-          `Kính gửi bạn ${candidateName},\n\nCảm ơn bạn đã quan tâm và ứng tuyển vào vị trí ${jobTitle} tại ${user?.companyName || 'công ty chúng tôi'} qua nền tảng HireMate AI.\n\nSau khi thẩm định kỹ lưỡng hồ sơ, hội đồng tuyển dụng nhận thấy định hướng đợt này cần ưu tiên các tiêu chí đặc thù khác. Do đó, chúng tôi xin phép lưu lại thông tin của bạn vào Talent Pool và sẽ chủ động kết nối khi có cơ hội phù hợp hơn.\n\nChúc bạn luôn thành công trên con đường sự nghiệp!\n\nTrân trọng,\n${user?.fullName || 'Bộ Phận Nhân Sự'}`
+          `Kính gửi bạn ${candidateName || 'Ứng viên'},\n\nCảm ơn bạn đã quan tâm và ứng tuyển vào vị trí ${jobTitle || 'công việc'} tại ${user?.companyName || 'công ty chúng tôi'} qua nền tảng HireMate AI.\n\nSau khi thẩm định kỹ lưỡng hồ sơ, hội đồng tuyển dụng nhận thấy định hướng đợt này cần ưu tiên các tiêu chí đặc thù khác. Do đó, chúng tôi xin phép lưu lại thông tin của bạn vào Talent Pool và sẽ chủ động kết nối khi có cơ hội phù hợp hơn.\n\nChúc bạn luôn thành công trên con đường sự nghiệp!\n\nTrân trọng,\n${user?.fullName || 'Bộ Phận Nhân Sự'}`
         );
-
+      }
+    } catch (masterErr) {
+      console.error('Lỗi khi tải thông tin ứng viên:', masterErr);
+    } finally {
+      if (isMounted) {
         setIsLoading(false);
       }
-    };
+    }
+  };
 
     fetchCandidateData();
 
@@ -974,9 +1101,9 @@ export default function CandidateEvaluationPage({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         
         {/* --------------------------------------------------------------- */}
-        {/* CỘT TRÁI (5/12): ĐÁNH GIÁ NĂNG LỰC, TIÊU CHÍ JD & QUYẾT ĐỊNH HR   */}
+        {/* CỘT TRÁI: ĐÁNH GIÁ NĂNG LỰC, TIÊU CHÍ JD & QUYẾT ĐỊNH HR        */}
         {/* --------------------------------------------------------------- */}
-        <div className="lg:col-span-5 space-y-5">
+        <div className={`${layoutRatio === 'wide-cv' ? 'lg:col-span-5 xl:col-span-4' : 'lg:col-span-5'} space-y-5 transition-all`}>
           
           {/* Card A: Candidate Identification Card */}
           <div className="bg-white border border-slate-200/80 rounded-3xl p-5 sm:p-6 shadow-xs space-y-5">
@@ -990,8 +1117,9 @@ export default function CandidateEvaluationPage({
                   />
                 ) : (
                   <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-[#1e1548] to-[#5b48bd] text-white flex items-center justify-center font-extrabold text-2xl shadow-sm">
-                    {cand.name
+                    {(cand.name || 'UV')
                       .split(' ')
+                      .filter(Boolean)
                       .map((n) => n[0])
                       .slice(-2)
                       .join('')
@@ -1202,7 +1330,7 @@ export default function CandidateEvaluationPage({
                   Đánh giá phân tích ngữ nghĩa AI:
                 </span>
                 <p className="text-slate-700 leading-relaxed">
-                  {cand.aiReasoning}
+                  {sanitizeEvidenceText(cand.aiReasoning)}
                 </p>
               </div>
             </div>
@@ -1320,9 +1448,9 @@ export default function CandidateEvaluationPage({
         </div>
 
         {/* --------------------------------------------------------------- */}
-        {/* CỘT PHẢI (7/12): XEM FILE CV NGUYÊN BẢN (PDF) & CHI TIẾT ATS     */}
+        {/* CỘT PHẢI: XEM FILE CV NGUYÊN BẢN (PDF) & CHI TIẾT ATS           */}
         {/* --------------------------------------------------------------- */}
-        <div className="lg:col-span-7 bg-white border border-slate-200/80 rounded-3xl shadow-xs overflow-hidden flex flex-col min-h-[750px]">
+        <div className={`${layoutRatio === 'wide-cv' ? 'lg:col-span-7 xl:col-span-8' : 'lg:col-span-7'} bg-white border border-slate-200/80 rounded-3xl shadow-xs overflow-hidden flex flex-col min-h-[750px] transition-all`}>
           
           {/* Header công cụ trên đầu hồ sơ */}
           <div className="px-5 py-3.5 bg-gradient-to-r from-purple-50/60 via-slate-50/40 to-white border-b border-slate-200/80 flex items-center justify-between gap-3 shrink-0 flex-wrap">
@@ -1351,10 +1479,66 @@ export default function CandidateEvaluationPage({
                 <span className="material-symbols-outlined text-sm">web</span>
                 <span>CV Online</span>
               </button>
+
+              {/* Bộ chuyển tỷ lệ chia cột màn hình */}
+              <div className="hidden sm:flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-0.5 ml-2 shadow-2xs text-[11px] font-bold">
+                <button
+                  type="button"
+                  onClick={() => setLayoutRatio('balanced')}
+                  className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                    layoutRatio === 'balanced' ? 'bg-[#5b48bd] text-white' : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                  title="Bố cục cân đối (5:7)"
+                >
+                  Cân đối
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLayoutRatio('wide-cv')}
+                  className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                    layoutRatio === 'wide-cv' ? 'bg-[#5b48bd] text-white' : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                  title="Mở rộng khung xem CV (4:8)"
+                >
+                  Mở rộng CV
+                </button>
+              </div>
             </div>
 
-            {/* Quick Actions (Download, Open New Tab, Zoom) */}
+            {/* Quick Actions (Zoom controls, Download, Open New Tab) */}
             <div className="flex items-center gap-2">
+              {cvViewMode === 'pdf' && pdfBlobUrl && (
+                <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl px-2 py-1 shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => setZoomLevel((prev) => Math.max(prev - 10, 50))}
+                    className="w-6 h-6 rounded-lg text-slate-600 hover:bg-slate-100 flex items-center justify-center font-bold text-sm cursor-pointer"
+                    title="Thu nhỏ CV (-)"
+                  >
+                    -
+                  </button>
+                  <span className="text-[11px] font-bold text-slate-700 min-w-[36px] text-center">
+                    {zoomLevel}%
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setZoomLevel((prev) => Math.min(prev + 10, 160))}
+                    className="w-6 h-6 rounded-lg text-slate-600 hover:bg-slate-100 flex items-center justify-center font-bold text-sm cursor-pointer"
+                    title="Phóng to CV (+)"
+                  >
+                    +
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setZoomLevel(100)}
+                    className="ml-1 px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] font-bold cursor-pointer"
+                    title="Vừa chiều rộng chuẩn (Fit to Width)"
+                  >
+                    Fit
+                  </button>
+                </div>
+              )}
+
               <button
                 type="button"
                 onClick={handleDownloadCv}
@@ -1381,7 +1565,7 @@ export default function CandidateEvaluationPage({
           </div>
 
           {/* Nội dung hồ sơ */}
-          <div className="flex-1 p-5 sm:p-6 overflow-y-auto max-h-[820px] bg-[#fafafc]">
+          <div className="flex-1 p-4 sm:p-5 overflow-y-auto max-h-[840px] bg-[#fafafc]">
             {cvViewMode === 'pdf' ? (
               /* ======================================================= */
               /* TAB 1: XEM FILE PDF NGUYÊN BẢN CỦA ỨNG VIÊN             */
@@ -1433,11 +1617,32 @@ export default function CandidateEvaluationPage({
                       </div>
                     </div>
                   ) : (
-                    <iframe
-                      src={pdfBlobUrl}
-                      title={`CV - ${cand.name}`}
-                      className="w-full h-[720px] rounded-2xl border border-slate-200/90 shadow-xs bg-white"
-                    />
+                    <div className="w-full flex-1 flex flex-col items-center justify-start overflow-auto p-2 sm:p-4 bg-slate-200/70 rounded-2xl min-h-[750px]">
+                      <div
+                        style={{
+                          width: `${Math.max(320, Math.round(720 * (zoomLevel / 100)))}px`,
+                          maxWidth: '100%',
+                          transition: 'width 0.15s ease-out',
+                        }}
+                        className="mx-auto rounded-2xl shadow-xl border border-slate-300 overflow-hidden bg-white flex flex-col"
+                      >
+                        <iframe
+                          key={`${pdfBlobUrl}-${zoomLevel}`}
+                          src={
+                            pdfBlobUrl.includes('#')
+                              ? pdfBlobUrl.replace(/#.*$/, `#page=1&view=Fit&zoom=${zoomLevel}&toolbar=1&navpanes=0`)
+                              : `${pdfBlobUrl}#page=1&view=Fit&zoom=${zoomLevel}&toolbar=1&navpanes=0`
+                          }
+                          title={`CV - ${cand.name}`}
+                          style={{
+                            width: '100%',
+                            height: '860px',
+                            border: 'none',
+                          }}
+                          className="bg-white"
+                        />
+                      </div>
+                    </div>
                   )
                 ) : (
                   /* THÔNG BÁO KHI CHƯA CÓ PDF BLOB */
