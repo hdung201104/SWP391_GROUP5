@@ -907,11 +907,11 @@ export default function CandidateEvaluationPage({
         : [];
 
       const assessmentLabel =
-        matchScore >= 85
+        resolvedMatchScore >= 85
           ? 'XUẤT SẮC • ĐỀ CỬ VÒNG KỸ THUẬT'
-          : matchScore >= 70
+          : resolvedMatchScore >= 70
           ? 'ƯU TÚ • ĐẠT TIÊU CHÍ CỐT LÕI'
-          : matchScore >= 50
+          : resolvedMatchScore >= 50
           ? 'TIỀM NĂNG • CẦN PHỎNG VẤN ĐÁNH GIÁ'
           : 'CÂN NHẮC • CHƯA ĐẠT CHUẨN';
 
@@ -935,7 +935,7 @@ export default function CandidateEvaluationPage({
       const finalReport = (directEvalReport && directEvalReport.advantages && directEvalReport.advantages.length > 0)
         ? directEvalReport
         : buildCandidateAiReport({
-            matchScore,
+            matchScore: resolvedMatchScore,
             skillsScore,
             experienceScore,
             educationScore,
@@ -960,7 +960,7 @@ export default function CandidateEvaluationPage({
           name: candidateName,
           title: parsedJson?.headline || profileData?.headline || (jobTitle ? `${jobTitle} • Ứng viên` : 'Chuyên viên'),
           roleSummary: `${(jobTitle || 'VỊ TRÍ TUYỂN DỤNG').toUpperCase()} • ĐÃ NỘP HỒ SƠ`,
-          matchScore,
+          matchScore: resolvedMatchScore,
           skillsScore,
           experienceScore,
           educationScore,
