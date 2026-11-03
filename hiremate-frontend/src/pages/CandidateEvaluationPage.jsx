@@ -2101,8 +2101,8 @@ export default function CandidateEvaluationPage({
                           key={pdfBlobUrl + '-' + zoomLevel}
                           src={
                             pdfBlobUrl.includes('#')
-                              ? pdfBlobUrl.replace(/#.*$/, '#page=1&view=FitH&toolbar=1&navpanes=0')
-                              : (pdfBlobUrl + '#page=1&view=FitH&toolbar=1&navpanes=0')
+                              ? pdfBlobUrl.replace(/#.*$/, '#page=1&view=FitH&toolbar=1&navpanes=1')
+                              : (pdfBlobUrl + '#page=1&view=FitH&toolbar=1&navpanes=1')
                           }
                           title={'CV - ' + cand.name}
                           style={{
