@@ -1949,34 +1949,21 @@ export default function CandidateEvaluationPage({
                 <span className="material-symbols-outlined text-sm">web</span>
                 <span>CV Online</span>
               </button>
-
-              {/* Bộ chuyển tỷ lệ chia cột màn hình */}
-              <div className="hidden sm:flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-0.5 ml-2 shadow-2xs text-[11px] font-bold">
-                <button
-                  type="button"
-                  onClick={() => setLayoutRatio('balanced')}
-                  className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                    layoutRatio === 'balanced' ? 'bg-[#5b48bd] text-white' : 'text-slate-600 hover:bg-slate-100'
-                  }`}
-                  title="Bố cục cân đối (5:7)"
-                >
-                  Cân đối
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setLayoutRatio('wide-cv')}
-                  className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                    layoutRatio === 'wide-cv' ? 'bg-[#5b48bd] text-white' : 'text-slate-600 hover:bg-slate-100'
-                  }`}
-                  title="Mở rộng khung xem CV (4:8)"
-                >
-                  Mở rộng CV
-                </button>
-              </div>
             </div>
 
-            {/* Quick Actions (Zoom controls, Download, Open New Tab) */}
+            {/* Quick Actions (Layout toggle, Zoom controls, Download, Open New Tab) */}
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setLayoutRatio(layoutRatio === 'wide-cv' ? 'balanced' : 'wide-cv')}
+                className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold cursor-pointer transition-all shadow-2xs"
+                title={layoutRatio === 'wide-cv' ? 'Chuyển về tỷ lệ cân đối (5:7)' : 'Mở rộng khung xem CV (4:8)'}
+              >
+                <span className="material-symbols-outlined text-sm text-purple-600">
+                  {layoutRatio === 'wide-cv' ? 'view_sidebar' : 'fullscreen'}
+                </span>
+                <span>{layoutRatio === 'wide-cv' ? 'Cân Đối (5:7)' : 'Mở Rộng CV (4:8)'}</span>
+              </button>
               {cvViewMode === 'pdf' && pdfBlobUrl && (
                 <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl px-2 py-1 shadow-2xs">
                   <button
@@ -2034,13 +2021,17 @@ export default function CandidateEvaluationPage({
             </div>
           </div>
 
-          {/* Nội dung hồ sơ */}
-          <div className="flex-1 p-4 sm:p-5 overflow-y-auto max-h-[840px] bg-[#fafafc]">
+          {/* Nội dung hồ sơ (PDF mode: overflow-hidden triệt tiêu hoàn toàn thanh cuộn kép) */}
+          <div className={`flex-1 flex flex-col ${
+            cvViewMode === 'pdf'
+              ? 'p-0 overflow-hidden h-[840px] bg-[#323639]'
+              : 'p-4 sm:p-5 overflow-y-auto max-h-[840px] bg-[#fafafc]'
+          }`}>
             {cvViewMode === 'pdf' ? (
               /* ======================================================= */
               /* TAB 1: XEM FILE PDF NGUYÊN BẢN CỦA ỨNG VIÊN             */
               /* ======================================================= */
-              <div className="w-full h-full min-h-[700px] flex flex-col">
+              <div className="w-full h-full flex flex-col overflow-hidden">
                 {isPdfLoading ? (
                   <div className="h-[650px] flex items-center justify-center bg-white rounded-2xl border border-slate-200">
                     <div className="text-center space-y-2">
@@ -2087,30 +2078,30 @@ export default function CandidateEvaluationPage({
                       </div>
                     </div>
                   ) : (
-                    <div className="w-full flex-1 flex flex-col items-center justify-start overflow-auto p-1 sm:p-3 bg-slate-100 rounded-2xl min-h-[780px]">
+                    <div className="w-full h-full flex-1 flex flex-col items-center justify-center overflow-hidden bg-[#323639]">
                       <div
                         style={{
-                          width: zoomLevel === 100 ? '100%' : (zoomLevel + '%'),
+                          width: zoomLevel === 100 ? '100%' : `${zoomLevel}%`,
                           maxWidth: '100%',
-                          minHeight: '880px',
+                          height: '100%',
                           transition: 'width 0.15s ease-out',
                         }}
-                        className="w-full mx-auto rounded-2xl shadow-lg border border-slate-200 overflow-hidden bg-white flex flex-col"
+                        className="w-full h-full overflow-hidden flex flex-col bg-[#323639]"
                       >
                         <iframe
-                          key={pdfBlobUrl + '-' + zoomLevel}
+                          key={`${pdfBlobUrl}-${zoomLevel}`}
                           src={
                             pdfBlobUrl.includes('#')
                               ? pdfBlobUrl.replace(/#.*$/, '#page=1&view=FitH&toolbar=1&navpanes=1')
-                              : (pdfBlobUrl + '#page=1&view=FitH&toolbar=1&navpanes=1')
+                              : `${pdfBlobUrl}#page=1&view=FitH&toolbar=1&navpanes=1`
                           }
-                          title={'CV - ' + cand.name}
+                          title={`CV - ${cand.name}`}
                           style={{
                             width: '100%',
-                            height: '880px',
+                            height: '100%',
                             border: 'none',
                           }}
-                          className="w-full bg-white"
+                          className="w-full h-full bg-[#323639] flex-1"
                         />
                       </div>
                     </div>
