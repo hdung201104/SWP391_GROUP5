@@ -15,6 +15,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,6 +36,16 @@ public class CandidateServiceImpl implements CandidateService {
     private final CvRepository cvRepository;
     private final RecruiterRepository recruiterRepository;
     private final ApplicationRepository applicationRepository;
+
+    @Autowired(required = false)
+    private ObjectMapper objectMapper;
+
+    private ObjectMapper getObjectMapper() {
+        if (this.objectMapper == null) {
+            this.objectMapper = new ObjectMapper();
+        }
+        return this.objectMapper;
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -142,6 +155,34 @@ public class CandidateServiceImpl implements CandidateService {
         String projectsJson = candidate != null ? candidate.getProjectsJson() : null;
         String headline = candidate != null ? candidate.getHeadline() : null;
         String bio = candidate != null && candidate.getBio() != null ? candidate.getBio() : user.getBio();
+
+        // Tu dong trich xuat du lieu chi tiet tu CV parsedJson neu bang candidates chua luu
+        if (primaryCv != null && primaryCv.getParsedJson() != null && !primaryCv.getParsedJson().isBlank()) {
+            try {
+                JsonNode root = getObjectMapper().readTree(primaryCv.getParsedJson());
+                if ((experiencesJson == null || experiencesJson.isBlank() || experiencesJson.equals("[]")) && root.has("experiences") && !root.get("experiences").isEmpty()) {
+                    experiencesJson = root.get("experiences").toString();
+                } else if ((experiencesJson == null || experiencesJson.isBlank() || experiencesJson.equals("[]")) && root.has("experience") && !root.get("experience").isEmpty()) {
+                    experiencesJson = root.get("experience").toString();
+                }
+                if ((educationsJson == null || educationsJson.isBlank() || educationsJson.equals("[]")) && root.has("educations") && !root.get("educations").isEmpty()) {
+                    educationsJson = root.get("educations").toString();
+                } else if ((educationsJson == null || educationsJson.isBlank() || educationsJson.equals("[]")) && root.has("education") && !root.get("education").isEmpty()) {
+                    educationsJson = root.get("education").toString();
+                }
+                if ((projectsJson == null || projectsJson.isBlank() || projectsJson.equals("[]")) && root.has("projects") && !root.get("projects").isEmpty()) {
+                    projectsJson = root.get("projects").toString();
+                }
+                if ((headline == null || headline.isBlank()) && root.has("headline") && !root.get("headline").asText().isBlank()) {
+                    headline = root.get("headline").asText();
+                } else if ((headline == null || headline.isBlank()) && root.has("targetTitle") && !root.get("targetTitle").asText().isBlank()) {
+                    headline = root.get("targetTitle").asText();
+                }
+            } catch (Exception ex) {
+                log.warn(">> [CandidateServiceImpl] Loi giai ma parsedJson tu CV: {}", ex.getMessage());
+            }
+        }
+
         if ((bio == null || bio.isBlank()) && primaryCv != null && primaryCv.getSummary() != null) {
             bio = primaryCv.getSummary();
         }

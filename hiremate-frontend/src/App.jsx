@@ -359,7 +359,7 @@ function AppContent() {
       const cvId = cvIdMatch ? Number(cvIdMatch[1]) : null;
       const appIdMatch = route.match(/appid=(\d+)/i) || route.match(/applicationid=(\d+)/i);
       const appId = appIdMatch ? Number(appIdMatch[1]) : null;
-      const candId = candIdMatch ? Number(candIdMatch[1]) : (appId ? null : 1);
+      const candId = candIdMatch ? Number(candIdMatch[1]) : null;
       return (
         <ProtectedRoute user={user} requiredRole="RECRUITER">
           <CandidateEvaluationPage
