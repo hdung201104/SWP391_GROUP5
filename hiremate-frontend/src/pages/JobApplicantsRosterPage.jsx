@@ -301,9 +301,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
 
   // Filter & Search states
   // 'ALL' | 'NEW' | 'REVIEWING' | 'INTERVIEW' | 'PASSED' | 'REJECTED'
-  const [activeFilter, setActiveFilter] = useState('ALL');
-  // Bộ lọc Phễu 3 Tầng: Mặc định TOP_10 để HR tập trung vào các ứng viên xuất sắc nhất
-  const [rankingFilter, setRankingFilter] = useState('TOP_10'); // 'TOP_10' | 'TOP_20' | 'ALL' | 'KNOCKOUT'
+  const [activeFilter, setActiveFilter] = useState('ALL'); // 'TOP_10' | 'TOP_20' | 'ALL' | 'KNOCKOUT'
   const [searchQuery, setSearchQuery] = useState('');
   const [scoreFilter, setScoreFilter] = useState('ALL'); // 'ALL' | 'EXCELLENT' | 'GOOD' | 'LOW'
   const [expFilter, setExpFilter] = useState('ALL'); // 'ALL' | 'INTERN' | 'JUNIOR' | 'MIDDLE' | 'SENIOR'
@@ -332,6 +330,12 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
       })
       .catch((e) => console.warn('Could not load recruiter subscription in roster', e));
   }, []);
+
+  const top10Candidates = useMemo(() => {
+    return candidates
+      .filter((c) => (c.matchScore || 0) > 0)
+      .slice(0, 10);
+  }, [candidates]);
 
   const currentUser = user || (() => {
     try {
@@ -868,37 +872,23 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
         };
       });
 
-      // Sắp xếp danh sách ứng viên theo điểm matchScore giảm dần
+      // Sắp xếp danh sách ứng viên theo điểm matchScore giảm dần (ứng viên điểm cao lên đầu)
       mappedCandidates.sort((a, b) => {
-        if (a.isKnockedOut !== b.isKnockedOut) return a.isKnockedOut ? 1 : -1;
         return (b.matchScore || 0) - (a.matchScore || 0);
       });
-      let qualifiedIndex = 0;
-      mappedCandidates.forEach((c) => {
-        // Chỉ xếp hạng Top 10/20 cho các ứng viên thực sự đạt độ phù hợp theo tiêu chí đưa ra
-        const isQualifiedScore = (c.matchScore || 0) >= 50 && !c.isKnockedOut;
-        if (isQualifiedScore) {
-          qualifiedIndex += 1;
-          c.rank = qualifiedIndex;
-          c.isTop10 = (c.matchScore || 0) >= 70 && qualifiedIndex <= 10;
-          c.isTop20 = qualifiedIndex <= 20;
+
+      // Xếp hạng Top 10 đề cử: 10 ứng viên có điểm cao nhất (> 0)
+      mappedCandidates.forEach((c, idx) => {
+        c.rank = idx + 1;
+        if (idx < 10 && (c.matchScore || 0) > 0) {
+          c.isTop10 = true;
+          c.isEvaluated = true;
         } else {
-          c.rank = null;
           c.isTop10 = false;
-          c.isTop20 = false;
+          // Ứng viên ngoài top 10 chỉ được tính là đã chấm điểm nếu họ thực sự đã có báo cáo trong DB hoặc matchScore > 0
+          c.isEvaluated = Boolean(c.hasAiReport || (c.matchScore || 0) > 0);
         }
       });
-
-      // Tự động chọn bộ lọc thông minh: Nếu có Top 10 -> chọn TOP_10; nếu không có ai >= 50% -> chuyển về ALL
-      const top10Count = mappedCandidates.filter((c) => c.isTop10).length;
-      const top20Count = mappedCandidates.filter((c) => c.isTop20).length;
-      if (top10Count > 0) {
-        setRankingFilter('TOP_10');
-      } else if (top20Count > 0) {
-        setRankingFilter('TOP_20');
-      } else {
-        setRankingFilter('ALL');
-      }
 
       // 4. Update Job Details State
       const totalCount = mappedCandidates.length;
@@ -1060,21 +1050,16 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
               : c
           );
           updated.sort((a, b) => {
-            if (a.isKnockedOut !== b.isKnockedOut) return a.isKnockedOut ? 1 : -1;
             return (b.matchScore || 0) - (a.matchScore || 0);
           });
-          let qIdx = 0;
-          updated.forEach((c) => {
-            const isQualifiedScore = (c.matchScore || 0) >= 50 && !c.isKnockedOut;
-            if (isQualifiedScore) {
-              qIdx += 1;
-              c.rank = qIdx;
-              c.isTop10 = (c.matchScore || 0) >= 70 && qIdx <= 10;
-              c.isTop20 = qIdx <= 20;
+          updated.forEach((c, idx) => {
+            c.rank = idx + 1;
+            if (idx < 10 && (c.matchScore || 0) > 0) {
+              c.isTop10 = true;
+              c.isEvaluated = true;
             } else {
-              c.rank = null;
               c.isTop10 = false;
-              c.isTop20 = false;
+              c.isEvaluated = Boolean(c.hasAiReport || (c.matchScore || 0) > 0);
             }
           });
           return updated;
@@ -1174,20 +1159,9 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
     setCurrentPage(1);
   };
 
-  // Filter & sort logic (kết hợp Phễu 3 tầng rankingFilter và activeFilter)
+  // Filter & sort logic cho bảng toàn bộ hồ sơ ứng viên (độc lập với Top 10 phía trên)
   const filteredCandidates = useMemo(() => {
     let list = [...candidates];
-
-    // TẦNG 2 & TẦNG 1: Lọc theo Phễu Sàng Lọc Ranking
-    if (rankingFilter === 'TOP_10') {
-      list = list.filter((c) => c.isTop10);
-    } else if (rankingFilter === 'TOP_20') {
-      list = list.filter((c) => c.isTop20);
-    } else if (rankingFilter === 'KNOCKOUT') {
-      list = list.filter((c) => c.isKnockedOut || (c.matchScore || 0) < 50);
-    } else if (rankingFilter === 'ALL') {
-      // Hiển thị tất cả ứng viên
-    }
 
     // Filter by tab
     if (activeFilter === 'NEW') list = list.filter((c) => c.stage === 'NEW');
@@ -1247,7 +1221,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
     );
 
     return list;
-  }, [candidates, rankingFilter, activeFilter, searchQuery, isAiSortDescending, scoreFilter, expFilter, skillFilter]);
+  }, [candidates, activeFilter, searchQuery, isAiSortDescending, scoreFilter, expFilter, skillFilter]);
 
   // Pagination calculation
   const PAGE_SIZE = 6;
@@ -1497,96 +1471,200 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
           </div>
 
           {/* ======================================================== */}
-          {/* UNIFIED RECRUITMENT COMMAND & FILTER TOOLBAR             */}
+          {/* TOP SECTION: BẢNG XẾP HẠNG AI — TOP 10 ỨNG VIÊN ĐỀ CỬ     */}
           {/* ======================================================== */}
-          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-4 sm:p-5 space-y-4">
-            {/* TIER 1: ATS 3-STAGE SCREENING FUNNEL & PIPELINE TABS */}
-            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3.5 pb-3.5 border-b border-slate-100">
-              {/* Funnel Segment Pills */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 xl:pb-0">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mr-1 flex items-center gap-1 shrink-0">
-                  <span className="material-symbols-outlined text-[15px] text-purple-600">filter_alt</span>
-                  <span>Phễu ATS:</span>
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shadow-xs shrink-0">
+                  <span className="material-symbols-outlined text-[22px]">emoji_events</span>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-base font-bold text-slate-900 tracking-tight">
+                      Bảng Xếp Hạng AI — Top 10 Ứng Viên Phù Hợp Nhất
+                    </h2>
+                    <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-amber-100 text-amber-800 border border-amber-200">
+                      Top 10 Đề Cử
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Xếp hạng tự động theo chuẩn HireMate ATS: 70% Kỹ năng bắt buộc + 30% Kỹ năng ưu tiên
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 self-start sm:self-center">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span>Đồng bộ Realtime Supabase</span>
                 </span>
+                <span className="hidden md:inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-purple-50 text-purple-700 border border-purple-200" title="Chỉ tự động chấm điểm cho Top 10 để tiết kiệm Token">
+                  <span className="material-symbols-outlined text-[14px]">bolt</span>
+                  <span>Tối ưu Token AI</span>
+                </span>
+              </div>
+            </div>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRankingFilter('TOP_10');
-                    setCurrentPage(1);
-                  }}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
-                    rankingFilter === 'TOP_10'
-                      ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 shadow-xs font-extrabold'
-                      : 'bg-slate-50 hover:bg-amber-50/60 text-slate-700 hover:text-amber-800 border border-slate-200/80'
-                  }`}
-                  title="Lọc Top 10 ứng viên có điểm ATS cao nhất đạt chuẩn (≥70%)"
-                >
-                  <span className="material-symbols-outlined text-[15px] text-amber-600">hotel_class</span>
-                  <span>⭐ Top 10 Xuất Sắc</span>
-                  <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/10 font-mono">
-                    {candidates.filter((c) => c.isTop10).length}
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRankingFilter('TOP_20');
-                    setCurrentPage(1);
-                  }}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
-                    rankingFilter === 'TOP_20'
-                      ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-xs font-extrabold'
-                      : 'bg-slate-50 hover:bg-purple-50 text-slate-700 hover:text-purple-700 border border-slate-200/80'
-                  }`}
-                  title="Lọc Top 20 ứng viên tiềm năng đạt chuẩn (≥50%)"
-                >
-                  <span className="material-symbols-outlined text-[15px]">workspace_premium</span>
-                  <span>Top 20 Tiềm Năng</span>
-                  <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20 font-mono">
-                    {candidates.filter((c) => c.isTop20).length}
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRankingFilter('ALL');
-                    setCurrentPage(1);
-                  }}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
-                    rankingFilter === 'ALL'
-                      ? 'bg-slate-900 text-white shadow-xs font-extrabold'
-                      : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/80'
-                  }`}
-                  title="Xem toàn bộ danh sách hồ sơ ứng tuyển"
-                >
-                  <span className="material-symbols-outlined text-[15px]">group</span>
-                  <span>Tất Cả CV</span>
-                  <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 text-slate-700 font-mono">
-                    {candidates.length}
-                  </span>
-                </button>
-
-                {candidates.some((c) => c.isKnockedOut || (c.matchScore || 0) < 50) && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRankingFilter('KNOCKOUT');
-                      setCurrentPage(1);
-                    }}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
-                      rankingFilter === 'KNOCKOUT'
-                        ? 'bg-rose-600 text-white shadow-xs font-extrabold'
-                        : 'bg-rose-50/70 hover:bg-rose-100 text-rose-700 border border-rose-200'
-                    }`}
-                    title="Danh sách ứng viên chưa đạt chuẩn hoặc bị loại ở Tầng 1"
+            {/* List of Top Candidates */}
+            {top10Candidates.length === 0 ? (
+              <div className="py-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                <span className="material-symbols-outlined text-3xl text-slate-400">group_off</span>
+                <p className="text-xs text-slate-600 font-semibold mt-1">Chưa có ứng viên nào có điểm đánh giá trong hệ thống.</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">Các hồ sơ nộp mới sẽ tự động được xếp hạng tại đây.</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {top10Candidates.map((cand, idx) => (
+                  <div
+                    key={cand.id || cand.candidateId || idx}
+                    className="py-3 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:bg-slate-50/70 px-3 rounded-xl transition-colors group"
                   >
-                    <span className="material-symbols-outlined text-[15px]">filter_alt_off</span>
-                    <span>Chưa Đạt Chuẩn ({candidates.filter((c) => c.isKnockedOut || (c.matchScore || 0) < 50).length})</span>
-                  </button>
-                )}
+                    {/* Left: Rank Medal + Avatar + Info */}
+                    <div className="flex items-center gap-3.5 min-w-0 md:w-5/12">
+                      {/* Rank Medal */}
+                      <div className="shrink-0 flex items-center justify-center w-8 h-8">
+                        {idx === 0 ? (
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-300 to-amber-500 text-white flex items-center justify-center text-sm font-black shadow-xs ring-2 ring-amber-200" title="Hạng 1 - Phù hợp nhất">
+                            🥇
+                          </div>
+                        ) : idx === 1 ? (
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-200 to-slate-400 text-slate-800 flex items-center justify-center text-sm font-black shadow-xs ring-2 ring-slate-200" title="Hạng 2">
+                            🥈
+                          </div>
+                        ) : idx === 2 ? (
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-600 to-amber-800 text-white flex items-center justify-center text-sm font-black shadow-xs ring-2 ring-amber-300" title="Hạng 3">
+                            🥉
+                          </div>
+                        ) : (
+                          <div className="w-7 h-7 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center text-xs font-bold border border-slate-200">
+                            #{idx + 1}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Avatar */}
+                      <div className="relative shrink-0">
+                        {cand.avatar ? (
+                          <img
+                            src={cand.avatar}
+                            alt={cand.name}
+                            className="w-10 h-10 rounded-xl object-cover ring-1 ring-slate-200"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-xl bg-purple-100 text-[#5b48bd] font-bold text-xs flex items-center justify-center ring-1 ring-purple-200">
+                            {cand.initials}
+                          </div>
+                        )}
+                        <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center text-[10px] text-white">
+                          ✓
+                        </span>
+                      </div>
+
+                      {/* Candidate Name & Email */}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-xs sm:text-sm font-bold text-slate-900 truncate group-hover:text-purple-700 transition-colors">
+                            {cand.name}
+                          </h4>
+                          <span className={`px-2 py-0.2 rounded-full text-[10px] font-bold shrink-0 ${
+                            cand.matchScore >= 80
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : cand.matchScore >= 65
+                              ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                              : 'bg-amber-50 text-amber-700 border border-amber-200'
+                          }`}>
+                            {cand.matchScore}% AI
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                          {cand.email}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Middle: Progress Bar & Category Badge */}
+                    <div className="flex items-center gap-3 md:w-4/12">
+                      <div className="flex-1 min-w-[120px]">
+                        <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200/60">
+                          <div
+                            className="h-full bg-gradient-to-r from-purple-600 via-indigo-500 to-emerald-400 transition-all duration-500"
+                            style={{ width: `${Math.min(100, Math.max(5, cand.matchScore || 0))}%` }}
+                          />
+                        </div>
+                      </div>
+                      <span className="text-[11px] font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200 shrink-0 whitespace-nowrap">
+                        {cand.matchCategory}
+                      </span>
+                    </div>
+
+                    {/* Right: Quick Action Buttons */}
+                    <div className="flex items-center gap-2 md:w-3/12 justify-end shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCandidateForModal(cand)}
+                        className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer bg-purple-50 hover:bg-purple-100 text-[#5b48bd] border border-purple-200 flex items-center gap-1 shadow-2xs"
+                        title="Xem báo cáo AI đánh giá chuyên sâu hồ sơ này"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">description</span>
+                        <span className="hidden sm:inline">Báo Cáo AI</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          window.location.hash = `#/candidate-evaluation?candidateId=${cand.candidateId}&jobId=${jobDetails.id}&appId=${cand.applicationId}&cvId=${cand.cvId || ''}`;
+                        }}
+                        className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer bg-slate-900 hover:bg-slate-800 text-white flex items-center gap-1 shadow-2xs"
+                        title="Xem hồ sơ chi tiết và thẩm định CV"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">badge</span>
+                        <span>Xem hồ sơ</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Bottom footnote */}
+            <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-[11px] text-slate-400">
+              <span>
+                Hiển thị top {top10Candidates.length} / {candidates.length} ứng viên • Sắp xếp theo AI Match Score (70/30)
+              </span>
+              <span className="flex items-center gap-1 text-purple-600 font-semibold cursor-pointer" onClick={() => {
+                const el = document.getElementById('applicant-table-section');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }}>
+                <span>Xem đầy đủ danh sách bên dưới</span>
+                <span className="material-symbols-outlined text-[14px]">south</span>
+              </span>
+            </div>
+          </div>
+
+          {/* ======================================================== */}
+          {/* BOTTOM SECTION: DANH SÁCH TOÀN BỘ HỒ SƠ ỨNG TUYỂN        */}
+          {/* ======================================================== */}
+          <div id="applicant-table-section" className="space-y-4">
+            <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-4 sm:p-5 space-y-4">
+              {/* Header of Bottom Section */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2.5">
+                  <span className="material-symbols-outlined text-purple-600 text-[22px]">folder_shared</span>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 tracking-tight">
+                      Danh Sách Toàn Bộ Hồ Sơ Ứng Tuyển
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Tất cả hồ sơ ứng tuyển đã nộp vào vị trí này — Lọc và quản lý quy trình tuyển dụng
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                    Tất cả: <strong>{candidates.length}</strong> ứng viên
+                  </span>
+                </div>
               </div>
 
               {/* Pipeline Stage Pills */}
@@ -1766,28 +1844,13 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                 <span className="material-symbols-outlined text-4xl text-slate-400">person_search</span>
                 <h3 className="text-base font-bold text-slate-900">Không tìm thấy hồ sơ phù hợp</h3>
                 <p className="text-xs text-slate-500 max-w-md mx-auto">
-                  {rankingFilter === 'TOP_10' && activeFilter !== 'ALL'
-                    ? `Hiện chưa có ứng viên nào trong Top 10 ở trạng thái "${activeFilter}". Hãy chọn "Tất Cả CV" để xem các ứng viên khác.`
-                    : 'Không có ứng viên nào khớp với bộ lọc hoặc từ khoá tìm kiếm của bạn. Hãy thử thay đổi bộ lọc trạng thái hoặc từ khoá.'}
+                  Không có ứng viên nào khớp với bộ lọc hoặc từ khoá tìm kiếm của bạn. Hãy thử thay đổi bộ lọc trạng thái hoặc từ khoá.
                 </p>
                 <div className="flex items-center justify-center gap-2 pt-2 flex-wrap">
-                  {rankingFilter !== 'ALL' && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setRankingFilter('ALL');
-                        setCurrentPage(1);
-                      }}
-                      className="px-4 py-2 rounded-xl bg-purple-100 hover:bg-purple-200 text-[#5b48bd] text-xs font-bold transition-all cursor-pointer shadow-2xs"
-                    >
-                      Mở rộng xem tất cả CV ({candidates.length})
-                    </button>
-                  )}
                   <button
                     type="button"
                     onClick={() => {
                       setActiveFilter('ALL');
-                      setRankingFilter('ALL');
                       setSearchQuery('');
                       setScoreFilter('ALL');
                       setExpFilter('ALL');
@@ -1933,57 +1996,63 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                     </div>
                   </div>
 
-                  {/* Col 2: Match Badge & Xem Báo Cáo AI Button (Gọn gàng, tinh tế, chỉ giữ phần trăm và nút báo cáo AI) */}
+                  {/* Col 2: Match Badge & Xem Báo Cáo AI Button (Chỉ chấm AI cho Top 10, ứng viên khác chấm theo yêu cầu) */}
                   <div className="flex items-center gap-2.5 min-w-0 xl:flex-1 xl:px-4 flex-wrap">
-                    <div
-                      className={`px-3 py-1 rounded-full flex items-center gap-1.5 border shrink-0 ${
-                        cand.matchScore >= 80
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 shadow-xs'
-                          : cand.matchScore >= 65
-                          ? 'bg-purple-50 text-purple-700 border-purple-200 shadow-xs'
-                          : 'bg-amber-50 text-amber-700 border-amber-200'
-                      }`}
-                    >
-                      <span className="material-symbols-outlined text-[15px]">
-                        {cand.matchScore >= 80 ? 'verified' : cand.matchScore >= 65 ? 'insights' : 'warning'}
-                      </span>
-                      <span className="text-xs font-black tracking-wide">
-                        {cand.matchScore}% AI Match
-                      </span>
-                    </div>
+                    {cand.isEvaluated && (cand.matchScore || 0) > 0 ? (
+                      <>
+                        <div
+                          className={`px-3 py-1 rounded-full flex items-center gap-1.5 border shrink-0 ${
+                            cand.matchScore >= 80
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200 shadow-xs'
+                              : cand.matchScore >= 65
+                              ? 'bg-purple-50 text-purple-700 border-purple-200 shadow-xs'
+                              : 'bg-amber-50 text-amber-700 border-amber-200'
+                          }`}
+                        >
+                          <span className="material-symbols-outlined text-[15px]">
+                            {cand.matchScore >= 80 ? 'verified' : cand.matchScore >= 65 ? 'insights' : 'warning'}
+                          </span>
+                          <span className="text-xs font-black tracking-wide">
+                            {cand.matchScore}% AI Match
+                          </span>
+                        </div>
 
-                    <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
-                      {cand.matchCategory}
-                    </span>
-
-                    {/* NÚT BÁO CÁO AI 2 TRẠNG THÁI THEO YÊU CẦU: ON-DEMAND & DB CACHED */}
-                    {cand.hasAiReport ? (
-                      <button
-                        type="button"
-                        onClick={() => setSelectedCandidateForModal(cand)}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#5b48bd] hover:bg-[#47369f] text-white text-xs font-bold transition-all cursor-pointer shadow-xs hover:scale-105 shrink-0"
-                        title="Xem báo cáo AI chuyên sâu đã lưu trong CSDL (0ms, 0 Token)"
-                      >
-                        <span className="material-symbols-outlined text-[15px]">description</span>
-                        <span>Xem Báo Cáo (Đã lưu)</span>
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 ml-0.5"></span>
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled={evaluatingCandId === cand.candidateId}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeepEvaluateCandidate(cand);
-                        }}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 hover:border-indigo-300 text-xs font-bold transition-all cursor-pointer shadow-2xs hover:scale-105 shrink-0"
-                        title="Yêu cầu AI thẩm định chuyên sâu hồ sơ này (gọi Gemini AI và lưu cứng vào CSDL)"
-                      >
-                        <span className={`material-symbols-outlined text-[15px] text-indigo-600 ${evaluatingCandId === cand.candidateId ? 'animate-spin' : ''}`}>
-                          {evaluatingCandId === cand.candidateId ? 'sync' : 'auto_awesome'}
+                        <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
+                          {cand.matchCategory}
                         </span>
-                        <span>{evaluatingCandId === cand.candidateId ? 'AI Đang Thẩm Định...' : '🤖 Yêu Cầu AI Phân Tích'}</span>
-                      </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setSelectedCandidateForModal(cand)}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#5b48bd] hover:bg-[#47369f] text-white text-xs font-bold transition-all cursor-pointer shadow-xs hover:scale-105 shrink-0"
+                          title="Xem báo cáo AI chuyên sâu đã lưu trong CSDL (0ms, 0 Token)"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">description</span>
+                          <span>Xem Báo Cáo (Đã lưu)</span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 ml-0.5"></span>
+                        </button>
+                      </>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
+                          Chờ Chấm AI
+                        </span>
+                        <button
+                          type="button"
+                          disabled={evaluatingCandId === cand.candidateId}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeepEvaluateCandidate(cand);
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-bold transition-all cursor-pointer shadow-xs hover:scale-105 shrink-0"
+                          title="Bấm để kích hoạt AI thẩm định và chấm điểm hồ sơ này (Lưu cứng vào CSDL)"
+                        >
+                          <span className={`material-symbols-outlined text-[15px] ${evaluatingCandId === cand.candidateId ? 'animate-spin' : ''}`}>
+                            {evaluatingCandId === cand.candidateId ? 'sync' : 'auto_awesome'}
+                          </span>
+                          <span>{evaluatingCandId === cand.candidateId ? 'AI Đang Chấm Điểm...' : '🤖 Chấm Điểm AI'}</span>
+                        </button>
+                      </div>
                     )}
                   </div>
 
