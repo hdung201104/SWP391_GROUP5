@@ -122,7 +122,7 @@ public class DataInitializer implements CommandLineRunner {
                                 .price(java.math.BigDecimal.ZERO)
                                 .durationDays(30)
                                 .quotaLimit(3)
-                                .description("Dành cho doanh nghiệp trải nghiệm đăng tin tuyển dụng cơ bản [PERMS:{\"jobLimit\":3,\"jobQuota\":3,\"jobPostingQuota\":3,\"cvViewLimit\":5,\"aiFilter\":false,\"aiMatching\":true,\"exportReport\":false,\"batchAction\":false,\"aiMockInterview\":false,\"badge\":\"Cơ bản\"}]")
+                                .description("Dành cho doanh nghiệp trải nghiệm đăng tin tuyển dụng cơ bản [PERMS:{\"jobLimit\":3,\"jobQuota\":3,\"jobPostingQuota\":3,\"cvViewLimit\":0,\"aiFilter\":false,\"aiMatching\":true,\"exportReport\":false,\"batchAction\":false,\"canSeeAiAnalysis\":false,\"badge\":\"Cơ bản\"}]")
                                 .isActive(true)
                                 .build(),
                         com.hiremate.entity.SubscriptionPlan.builder()
@@ -132,7 +132,7 @@ public class DataInitializer implements CommandLineRunner {
                                 .price(new java.math.BigDecimal("199000"))
                                 .durationDays(30)
                                 .quotaLimit(10)
-                                .description("Đăng 10 tin tuyển dụng chất lượng cao, mở 25 hồ sơ ứng viên và lọc cơ bản [PERMS:{\"jobLimit\":10,\"jobQuota\":10,\"jobPostingQuota\":10,\"cvViewLimit\":25,\"aiFilter\":true,\"aiMatching\":true,\"exportReport\":true,\"batchAction\":false,\"aiMockInterview\":false,\"badge\":\"Khởi nghiệp\"}]")
+                                .description("Đăng 10 tin tuyển dụng, mở 30 hồ sơ ứng viên và xuất Excel [PERMS:{\"jobLimit\":10,\"jobQuota\":10,\"jobPostingQuota\":10,\"cvViewLimit\":30,\"aiFilter\":true,\"aiMatching\":true,\"exportReport\":true,\"batchAction\":false,\"canSeeAiAnalysis\":false,\"badge\":\"Khởi nghiệp\"}]")
                                 .isActive(true)
                                 .build(),
                         com.hiremate.entity.SubscriptionPlan.builder()
@@ -142,7 +142,7 @@ public class DataInitializer implements CommandLineRunner {
                                 .price(new java.math.BigDecimal("499000"))
                                 .durationDays(30)
                                 .quotaLimit(30)
-                                .description("Đăng 30 tin tuyển dụng chất lượng cao, mở 100 CV, AI gợi ý ứng viên tự động [PERMS:{\"jobLimit\":30,\"jobQuota\":30,\"jobPostingQuota\":30,\"cvViewLimit\":100,\"aiFilter\":true,\"aiMatching\":true,\"exportReport\":true,\"batchAction\":true,\"aiMockInterview\":true,\"badge\":\"Doanh nghiệp xác thực\"}]")
+                                .description("Đăng 30 tin tuyển dụng, mở 100 CV, trọn bộ Báo cáo AI chuyên sâu và Batch Action [PERMS:{\"jobLimit\":30,\"jobQuota\":30,\"jobPostingQuota\":30,\"cvViewLimit\":100,\"aiFilter\":true,\"aiMatching\":true,\"exportReport\":true,\"batchAction\":true,\"canSeeAiAnalysis\":true,\"badge\":\"Doanh nghiệp xác thực\"}]")
                                 .isActive(true)
                                 .build(),
                         com.hiremate.entity.SubscriptionPlan.builder()
@@ -152,7 +152,7 @@ public class DataInitializer implements CommandLineRunner {
                                 .price(new java.math.BigDecimal("1199000"))
                                 .durationDays(90)
                                 .quotaLimit(999)
-                                .description("Tuyển dụng không giới hạn (999 tin), Top tin nổi bật và AI Matching nâng cao [PERMS:{\"jobLimit\":999,\"jobQuota\":999,\"jobPostingQuota\":999,\"cvViewLimit\":9999,\"aiFilter\":true,\"aiMatching\":true,\"exportReport\":true,\"batchAction\":true,\"aiMockInterview\":true,\"badge\":\"Doanh nghiệp VIP\",\"featuredJobBadge\":true}]")
+                                .description("Tuyển dụng không giới hạn (999 tin), mở khóa 9.999 CV, trọn bộ Báo cáo AI và độc quyền 1-click Chấm lại AI [PERMS:{\"jobLimit\":999,\"jobQuota\":999,\"jobPostingQuota\":999,\"cvViewLimit\":9999,\"aiFilter\":true,\"aiMatching\":true,\"exportReport\":true,\"batchAction\":true,\"canSeeAiAnalysis\":true,\"badge\":\"Doanh nghiệp VIP\",\"featuredJobBadge\":true}]")
                                 .isActive(true)
                                 .build()
                 );

@@ -35,13 +35,14 @@ export const parseSubscriptionPermissions = (subscription, targetRole = 'RECRUIT
           ...defaultPerms,
           ...jsonPerms,
           jobPostingQuota: jsonPerms.jobPostingQuota || jsonPerms.jobQuota || defaultPerms.jobPostingQuota,
+          cvViewLimit: defaultPerms.cvViewLimit,
+          canSeeAiAnalysis: defaultPerms.canSeeAiAnalysis,
+          batchAction: defaultPerms.batchAction,
+          exportReport: defaultPerms.exportReport,
           aiMatching: jsonPerms.aiMatching !== undefined ? Boolean(jsonPerms.aiMatching) : defaultPerms.aiMatching,
-          unlockDirectContact: jsonPerms.unlockDirectContact !== undefined ? Boolean(jsonPerms.unlockDirectContact) : defaultPerms.unlockDirectContact,
+          unlockDirectContact: defaultPerms.unlockDirectContact,
           featuredJobBadge: jsonPerms.featuredJobBadge !== undefined ? Boolean(jsonPerms.featuredJobBadge) : defaultPerms.featuredJobBadge,
-          exportReport: jsonPerms.exportReport !== undefined ? Boolean(jsonPerms.exportReport) : defaultPerms.exportReport,
-          autoEmail: jsonPerms.autoEmail !== undefined ? Boolean(jsonPerms.autoEmail) : defaultPerms.autoEmail,
-          batchAction: jsonPerms.batchAction !== undefined ? Boolean(jsonPerms.batchAction) : defaultPerms.batchAction,
-          aiMockInterview: jsonPerms.aiMockInterview !== undefined ? Boolean(jsonPerms.aiMockInterview) : defaultPerms.aiMockInterview,
+          autoEmail: defaultPerms.autoEmail,
         };
       }
 

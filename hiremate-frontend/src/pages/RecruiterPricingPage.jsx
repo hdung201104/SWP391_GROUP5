@@ -17,21 +17,22 @@ const RECRUITER_SUBSCRIPTION_PLANS = [
     isCurrent: true,
     features: [
       { text: 'Đăng tối đa 3 tin tuyển dụng hoạt động cùng lúc', highlight: true },
-      { text: 'Xem danh sách ứng viên & Điểm % AI Match tổng quan', highlight: false },
-      { text: 'Tự động tính điểm so khớp hồ sơ theo chuẩn AI Matching 70/30', highlight: false },
-      { text: 'Bảng quản lý quy trình ứng tuyển Kanban tiêu chuẩn 6 giai đoạn', highlight: false },
+      { text: 'Dùng thử 2 lượt/ngày AI Hỗ trợ tạo & Quét JD', highlight: false },
+      { text: 'Xem danh sách ứng viên & Điểm % AI Match chuẩn 70/30', highlight: false },
+      { text: 'Bảng quản lý quy trình ứng tuyển Kanban 6 giai đoạn', highlight: false },
       { text: 'Tự động gửi Email & Thông báo khi duyệt hồ sơ', highlight: false },
     ],
     missingFeatures: [
-      'Mở khóa Báo cáo phân tích khoảng trống kỹ năng (Skill Gap)',
-      'Mở khóa Báo cáo đánh giá & thẩm định chuyên sâu từ AI Copilot',
-      'Xuất dữ liệu báo cáo ứng viên ra file Excel (.xlsx)',
+      'Mở khóa thông tin liên hệ SĐT/Email & Tải file CV gốc (0 hồ sơ)',
+      'Trọn bộ Báo Cáo Phân Tích Chuyên Sâu AI (Ưu/Nhược điểm & Skill Gap)',
+      'Duyệt ứng viên hàng loạt (Batch Action) & Xuất Excel (.xlsx)',
+      'AI Chấm lại toàn bộ hồ sơ bài đăng (1-click Recalculate)',
     ]
   },
   {
     id: 'STARTER',
     name: 'Hiring Starter',
-    tagline: 'Gói khởi động tối ưu chi phí dành cho SME, mở khóa toàn bộ công cụ trích xuất JD & Excel.',
+    tagline: 'Gói khởi động tối ưu chi phí dành cho SME, mở khóa 30 hồ sơ liên hệ, tạo JD không giới hạn & Xuất Excel.',
     monthlyPrice: 199000,
     yearlyPrice: 159000, // ~20% off
     badgeText: 'TIẾT KIỆM ⭐',
@@ -41,20 +42,21 @@ const RECRUITER_SUBSCRIPTION_PLANS = [
     isCurrent: false,
     features: [
       { text: 'Đăng tối đa 10 tin tuyển dụng hoạt động cùng lúc', highlight: true },
-      { text: 'Tự động phân tích JD & Bóc tách kỹ năng bắt buộc (70%) và ưu tiên (30%)', highlight: true },
-      { text: 'Mở khóa Báo cáo phân tích khoảng trống kỹ năng (Skill Gap)', highlight: true },
-      { text: 'Lọc & Xếp hạng ứng viên thông minh theo chuẩn AI Matching', highlight: true },
-      { text: 'Mở khóa tính năng Xuất danh sách ứng viên ra file Excel', highlight: true },
+      { text: 'Mở khóa 30 hồ sơ liên hệ (SĐT & Email cá nhân) & Tải CV gốc / tháng', highlight: true },
+      { text: 'KHÔNG GIỚI HẠN AI Scan PDF & Tự viết JD tuyển dụng', highlight: true },
+      { text: 'Xem Điểm Tương Thích % ATS & Sắp xếp AI 70/30', highlight: true },
+      { text: 'Mở khóa tính năng Xuất danh sách ứng viên ra file Excel (.xlsx)', highlight: true },
     ],
     missingFeatures: [
-      'Mở khóa Báo cáo đánh giá & thẩm định chuyên sâu từ AI Copilot',
+      'Trọn bộ Báo Cáo Phân Tích Chuyên Sâu AI (HR tự đọc & đánh giá CV)',
       'Duyệt chuyển trạng thái ứng viên hàng loạt (Batch Action)',
+      'AI Chấm lại toàn bộ hồ sơ bài đăng (1-click Recalculate)',
     ]
   },
   {
     id: 'PROFESSIONAL',
     name: 'Hiring Pro',
-    tagline: 'Giải pháp hoàn hảo cho doanh nghiệp đang tăng tốc tuyển dụng IT & Tech Talent.',
+    tagline: 'Giải pháp tuyển dụng mạnh mẽ: AI đọc hộ & đối soát CV, Duyệt hàng loạt và mở khóa 100 hồ sơ.',
     monthlyPrice: 499000,
     yearlyPrice: 399000, // 20% off
     badgeText: 'PHỔ BIẾN NHẤT 🔥',
@@ -64,19 +66,20 @@ const RECRUITER_SUBSCRIPTION_PLANS = [
     isCurrent: false,
     features: [
       { text: 'Đăng tối đa 30 tin tuyển dụng hoạt động cùng lúc', highlight: true },
-      { text: 'Toàn bộ tính năng AI JD Extractor & Phân tích Skill Gap Matrix', highlight: true },
-      { text: 'Mở khóa Báo cáo Đánh giá & Thẩm định chi tiết AI Copilot (Ưu điểm & Điểm yếu)', highlight: true },
-      { text: 'Mở khóa Duyệt & Chuyển trạng thái ứng viên hàng loạt (Batch)', highlight: true },
-      { text: 'Xuất báo cáo đánh giá ứng viên ra file Excel chuyên nghiệp', highlight: true },
+      { text: 'Mở khóa 100 hồ sơ liên hệ ứng viên & Tải file CV gốc / tháng', highlight: true },
+      { text: 'MỞ KHÓA TRỌN BỘ Báo Cáo Phân Tích Chuyên Sâu AI (Skill Gap, Ưu/Nhược điểm, Gợi ý câu hỏi)', highlight: true },
+      { text: 'Mở khóa Duyệt & Chuyển trạng thái ứng viên hàng loạt (Floating Batch Action)', highlight: true },
+      { text: 'Xuất báo cáo ứng viên ra file Excel chuyên nghiệp (.xlsx)', highlight: true },
     ],
     missingFeatures: [
-      'Đăng tin tuyển dụng KHÔNG GIỚI HẠN số lượng',
+      'Đăng tin tuyển dụng KHÔNG GIỚI HẠN (999 tin)',
+      'Độc quyền 1-Click AI Tái chấm & Quét lại toàn bộ hồ sơ bài đăng',
     ]
   },
   {
     id: 'ENTERPRISE',
     name: 'Hiring Elite',
-    tagline: 'Dành cho tập đoàn & công ty tuyển dụng quy mô lớn với tính năng AI phỏng vấn độc quyền.',
+    tagline: 'Dành cho tập đoàn quy mô lớn: Đăng tin không giới hạn, mở khóa 9.999 CV & Độc quyền 1-Click Chấm lại AI.',
     monthlyPrice: 1199000,
     yearlyPrice: 959000, // 20% off
     badgeText: 'TOÀN DIỆN & VIP 👑',
@@ -85,10 +88,11 @@ const RECRUITER_SUBSCRIPTION_PLANS = [
     isPopular: false,
     isCurrent: false,
     features: [
-      { text: 'KHÔNG GIỚI HẠN số lượng tin đăng tuyển dụng hoạt động', highlight: true },
-      { text: 'Xem trọn vẹn 100% Báo cáo Đánh giá & Đối soát chuyên sâu AI Copilot', highlight: true },
-      { text: 'Không giới hạn AI Phân tích JD, Skill Gap & Sắp xếp AI 70/30', highlight: true },
-      { text: 'Quản lý Kanban nâng cao, Duyệt hàng loạt & Xuất file Excel', highlight: true },
+      { text: 'KHÔNG GIỚI HẠN số lượng tin đăng tuyển dụng hoạt động (999 tin)', highlight: true },
+      { text: 'Mở khóa SĐT/Email & Tải CV gốc KHÔNG GIỚI HẠN (9.999 hồ sơ)', highlight: true },
+      { text: 'Mở khóa trọn bộ Báo Cáo Phân Tích Chuyên Sâu AI Copilot', highlight: true },
+      { text: 'ĐỘC QUYỀN ELITE: 1-Click AI Chấm lại toàn bộ hồ sơ bài đăng', highlight: true },
+      { text: 'Quản lý Kanban nâng cao, Duyệt hàng loạt & Xuất file Excel (.xlsx)', highlight: true },
       { text: 'Ưu tiên gắn nhãn Tin tuyển dụng Nổi bật (HOT / TOP)', highlight: true },
     ],
     missingFeatures: []
