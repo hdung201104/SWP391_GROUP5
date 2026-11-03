@@ -868,24 +868,37 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
         };
       });
 
-      // Sắp xếp danh sách ứng viên mặc định theo điểm matchScore giảm dần và gán Rank cho Top 10/20
+      // Sắp xếp danh sách ứng viên theo điểm matchScore giảm dần
       mappedCandidates.sort((a, b) => {
         if (a.isKnockedOut !== b.isKnockedOut) return a.isKnockedOut ? 1 : -1;
         return (b.matchScore || 0) - (a.matchScore || 0);
       });
       let qualifiedIndex = 0;
       mappedCandidates.forEach((c) => {
-        if (!c.isKnockedOut) {
+        // Chỉ xếp hạng Top 10/20 cho các ứng viên thực sự đạt độ phù hợp theo tiêu chí đưa ra
+        const isQualifiedScore = (c.matchScore || 0) >= 50 && !c.isKnockedOut;
+        if (isQualifiedScore) {
           qualifiedIndex += 1;
           c.rank = qualifiedIndex;
-          c.isTop10 = qualifiedIndex <= 10;
+          c.isTop10 = (c.matchScore || 0) >= 70 && qualifiedIndex <= 10;
           c.isTop20 = qualifiedIndex <= 20;
         } else {
-          c.rank = 999;
+          c.rank = null;
           c.isTop10 = false;
           c.isTop20 = false;
         }
       });
+
+      // Tự động chọn bộ lọc thông minh: Nếu có Top 10 -> chọn TOP_10; nếu không có ai >= 50% -> chuyển về ALL
+      const top10Count = mappedCandidates.filter((c) => c.isTop10).length;
+      const top20Count = mappedCandidates.filter((c) => c.isTop20).length;
+      if (top10Count > 0) {
+        setRankingFilter('TOP_10');
+      } else if (top20Count > 0) {
+        setRankingFilter('TOP_20');
+      } else {
+        setRankingFilter('ALL');
+      }
 
       // 4. Update Job Details State
       const totalCount = mappedCandidates.length;
@@ -1052,11 +1065,16 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
           });
           let qIdx = 0;
           updated.forEach((c) => {
-            if (!c.isKnockedOut) {
+            const isQualifiedScore = (c.matchScore || 0) >= 50 && !c.isKnockedOut;
+            if (isQualifiedScore) {
               qIdx += 1;
               c.rank = qIdx;
-              c.isTop10 = qIdx <= 10;
+              c.isTop10 = (c.matchScore || 0) >= 70 && qIdx <= 10;
               c.isTop20 = qIdx <= 20;
+            } else {
+              c.rank = null;
+              c.isTop10 = false;
+              c.isTop20 = false;
             }
           });
           return updated;
@@ -1162,11 +1180,11 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
 
     // TẦNG 2 & TẦNG 1: Lọc theo Phễu Sàng Lọc Ranking
     if (rankingFilter === 'TOP_10') {
-      list = list.filter((c) => !c.isKnockedOut && c.rank <= 10);
+      list = list.filter((c) => c.isTop10);
     } else if (rankingFilter === 'TOP_20') {
-      list = list.filter((c) => !c.isKnockedOut && c.rank <= 20);
+      list = list.filter((c) => c.isTop20);
     } else if (rankingFilter === 'KNOCKOUT') {
-      list = list.filter((c) => c.isKnockedOut);
+      list = list.filter((c) => c.isKnockedOut || (c.matchScore || 0) < 50);
     } else if (rankingFilter === 'ALL') {
       // Hiển thị tất cả ứng viên
     }
@@ -1515,12 +1533,33 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
               <div className="p-8 text-center text-xs text-slate-500">
                 Chưa có ứng viên nào ứng tuyển vào vị trí này.
               </div>
-            ) : (
-              <div className="divide-y divide-slate-100">
-                {[...candidates]
-                  .sort((a, b) => b.matchScore - a.matchScore)
-                  .slice(0, 5)
-                  .map((cand, idx) => {
+            ) : (() => {
+              const recommendedCandidates = [...candidates]
+                .filter((c) => !c.isKnockedOut && (c.matchScore || 0) >= 60)
+                .sort((a, b) => b.matchScore - a.matchScore)
+                .slice(0, 5);
+
+              if (recommendedCandidates.length === 0) {
+                return (
+                  <div className="p-6 sm:p-8 text-center space-y-2 bg-slate-50/60">
+                    <div className="w-11 h-11 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto border border-amber-200 shadow-2xs">
+                      <span className="material-symbols-outlined text-2xl">verified_user</span>
+                    </div>
+                    <div className="space-y-1">
+                      <h4 className="font-bold text-sm text-slate-800">
+                        Chưa có ứng viên đạt chuẩn đề cử tự động (Yêu cầu độ phù hợp ≥ 60%)
+                      </h4>
+                      <p className="text-xs text-slate-500 max-w-lg mx-auto leading-relaxed">
+                        Hệ thống chỉ đề cử các hồ sơ đạt độ phù hợp từ <strong>60% trở lên</strong> dựa trên đối soát yêu cầu kỹ năng cốt lõi của vị trí tuyển dụng. Toàn bộ {candidates.length} hồ sơ hiện tại đang ở mức <em>Trau dồi kỹ năng (&lt; 50%)</em> và cần được xem xét thủ công tại danh sách bên dưới.
+                      </p>
+                    </div>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="divide-y divide-slate-100">
+                  {recommendedCandidates.map((cand, idx) => {
                     const rankMedalStyle = idx === 0 
                       ? 'bg-gradient-to-br from-amber-100 to-amber-200 text-amber-900 border-amber-300 shadow-xs'
                       : idx === 1
@@ -1589,8 +1628,9 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                       </div>
                     );
                   })}
-              </div>
-            )}
+                </div>
+              );
+            })()}
 
             {/* Footer */}
             <div className="px-6 py-3 border-t border-slate-200 bg-slate-50/70 flex items-center justify-between">
@@ -1649,7 +1689,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                 <span className="material-symbols-outlined text-[15px]">hotel_class</span>
                 <span>⭐ Top 10 CV Xuất Sắc</span>
                 <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/20 text-white font-mono">
-                  {Math.min(10, candidates.filter((c) => !c.isKnockedOut).length)}
+                  {candidates.filter((c) => c.isTop10).length}
                 </span>
               </button>
 
@@ -1668,7 +1708,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                 <span className="material-symbols-outlined text-[15px]">workspace_premium</span>
                 <span>Top 20 Tiềm Năng</span>
                 <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20 text-white font-mono">
-                  {Math.min(20, candidates.filter((c) => !c.isKnockedOut).length)}
+                  {candidates.filter((c) => c.isTop20).length}
                 </span>
               </button>
 
@@ -1688,7 +1728,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                 <span>Tất Cả CV ({candidates.length})</span>
               </button>
 
-              {candidates.some((c) => c.isKnockedOut) && (
+              {candidates.some((c) => c.isKnockedOut || (c.matchScore || 0) < 50) && (
                 <button
                   type="button"
                   onClick={() => {
@@ -1700,10 +1740,10 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                       ? 'bg-rose-600 text-white shadow-sm font-extrabold'
                       : 'text-rose-300 hover:text-rose-100 hover:bg-rose-900/40'
                   }`}
-                  title="Danh sách CV không đạt chuẩn knockout ở Tầng 1 (Kỹ năng cốt lõi, kinh nghiệm)"
+                  title="Danh sách CV không đạt chuẩn độ phù hợp hoặc vi phạm chốt chặn Tầng 1"
                 >
                   <span className="material-symbols-outlined text-[15px]">filter_alt_off</span>
-                  <span>Chưa Đạt Chuẩn ({candidates.filter((c) => c.isKnockedOut).length})</span>
+                  <span>Chưa Đạt Chuẩn ({candidates.filter((c) => c.isKnockedOut || (c.matchScore || 0) < 50).length})</span>
                 </button>
               )}
             </div>
@@ -2046,12 +2086,12 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                         </div>
                       )}
 
-                      {cand.isKnockedOut ? (
+                      {cand.isKnockedOut || (cand.matchScore || 0) < 50 ? (
                         <span
-                          className="absolute -bottom-1 -right-1 px-1.5 py-0.2 rounded-full text-[9px] font-extrabold bg-rose-600 text-white shadow-xs"
-                          title={cand.knockoutReason || 'Chưa đạt chuẩn'}
+                          className="absolute -bottom-1 -right-1 px-1.5 py-0.2 rounded-full text-[9px] font-extrabold bg-slate-500 text-white shadow-xs"
+                          title={cand.knockoutReason || 'Dưới ngưỡng phù hợp (< 50%)'}
                         >
-                          Loại
+                          {cand.isKnockedOut ? 'Loại' : 'Chưa đạt'}
                         </span>
                       ) : cand.rank && (
                         <span
