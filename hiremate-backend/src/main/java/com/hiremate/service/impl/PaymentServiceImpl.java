@@ -573,6 +573,7 @@ public class PaymentServiceImpl implements PaymentService {
                 LocalDateTime end = start.plusDays(duration);
 
                 if (LocalDateTime.now().isBefore(end)) {
+                    int quota = approvedPlan.getQuotaLimit() != null ? approvedPlan.getQuotaLimit() : 3;
                     sub = Subscription.builder()
                             .user(user)
                             .plan(approvedPlan)
@@ -580,6 +581,9 @@ public class PaymentServiceImpl implements PaymentService {
                             .startDate(start)
                             .endDate(end)
                             .status(SubscriptionStatus.ACTIVE)
+                            .customQuota(quota)
+                            .remainingJobPosts(quota)
+                            .remainingAiTests(quota)
                             .build();
                     subscriptionRepository.save(sub);
                     log.info(">> [PaymentService] Tự động đồng bộ kích hoạt Subscription cho user {} từ đơn hàng APPROVED #{}", user.getEmail(), latestApproved.getOrderCode());
@@ -836,6 +840,7 @@ public class PaymentServiceImpl implements PaymentService {
                 subscriptionRepository.save(oldSub);
             }
 
+            int defaultQuota = (plan.getQuotaLimit() != null && plan.getQuotaLimit() > 0) ? plan.getQuotaLimit() : 3;
             Subscription subscription = Subscription.builder()
                     .user(order.getUser())
                     .plan(plan)
@@ -843,6 +848,9 @@ public class PaymentServiceImpl implements PaymentService {
                     .startDate(LocalDateTime.now())
                     .endDate(LocalDateTime.now().plusDays(durationDays))
                     .status(SubscriptionStatus.ACTIVE)
+                    .customQuota(defaultQuota)
+                    .remainingJobPosts(defaultQuota)
+                    .remainingAiTests(defaultQuota)
                     .build();
 
             subscriptionRepository.save(subscription);
