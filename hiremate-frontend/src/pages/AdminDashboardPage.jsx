@@ -337,7 +337,7 @@ const INITIAL_PACKAGES = [
       'Mở khóa xem 200 hồ sơ CV gốc và thông tin liên hệ trực tiếp',
       'Huy hiệu Doanh nghiệp Verified & Tự động đẩy Top tin tuyển dụng 24/7',
       'Lọc ứng viên xuất sắc Top 5% theo thuật toán AI ATS Score',
-      'Mở khóa xem chi tiết Báo cáo Phỏng vấn AI Voice của ứng viên (STAR & Score)',
+      'Mở khóa Báo cáo Đánh giá & Thẩm định chi tiết AI Copilot (Ưu điểm, Điểm yếu & Khuyến nghị)',
       'Duyệt & chuyển trạng thái ứng viên hàng loạt (Batch Stage Actions)',
       'Gửi email tự động mời phỏng vấn & thông báo kết quả hàng loạt theo mẫu',
       'Báo cáo Talent Analytics chuyên sâu: Phễu tuyển dụng & Tỉ lệ chuyển đổi',
@@ -380,7 +380,7 @@ const INITIAL_PACKAGES = [
     features: [
       'KHÔNG GIỚI HẠN số lượng tin đăng tuyển dụng hoạt động (Unlimited Jobs)',
       'Mở khóa xem CV & liên hệ trực tiếp toàn bộ kho ứng viên không giới hạn',
-      'Xem trọn vẹn 100% Báo cáo Phỏng vấn AI Voice & Chẩn đoán chuyên sâu',
+      'Xem trọn vẹn 100% Báo cáo Đánh giá & Đối soát chuyên sâu AI Copilot không giới hạn',
       'Đẩy Top ưu tiên vị trí số 1 tìm kiếm & Gắn huy hiệu VIP Doanh nghiệp',
       'Tùy chọn đăng tin bảo mật / Ẩn danh danh tính công ty (Confidential Hiring)',
       'Trọn bộ công cụ tự động hóa: Gửi email hàng loạt & Đặt lịch phỏng vấn',
@@ -571,7 +571,7 @@ const RECRUITER_FEATURE_OPTIONS = [
   'AI JD Extractor & Phân tích ma trận khoảng trống kỹ năng (Skill Gap Matrix)',
   'AI Gemini gợi ý câu hỏi phỏng vấn chuyên sâu theo JD & CV',
   'Mở khóa xem đầy đủ CV gốc, số điện thoại & email liên hệ trực tiếp',
-  'Xem chi tiết Báo cáo Phỏng vấn AI Voice của ứng viên (STAR, Score, Audio)',
+  'Mở khóa Báo cáo Thẩm định & Đánh giá năng lực từ AI Copilot (Ưu điểm, Điểm yếu & Khuyến nghị)',
   'Quản trị Pipeline Kanban 6 bước & Đặt lịch phỏng vấn tự động',
   'Duyệt & chuyển trạng thái ứng viên hàng loạt (Batch Actions)',
   'Gửi email tự động mời phỏng vấn & thông báo kết quả hàng loạt theo mẫu',
@@ -1172,12 +1172,12 @@ function RolePermissionMatrixConfig({ form, setForm, isCand }) {
         </div>
       </div>
 
-      {/* NHÓM 3: HỒ SƠ ỨNG VIÊN & BÁO CÁO PHỎNG VẤN AI VOICE */}
+      {/* NHÓM 3: HỒ SƠ ỨNG VIÊN & BÁO CÁO THẨM ĐỊNH AI COPILOT */}
       <div className="p-4 rounded-xl bg-white border border-purple-100 space-y-3">
         <div className="flex items-center justify-between text-xs font-bold text-[#1e1b4b]">
           <span className="flex items-center gap-1.5">
             <span className="material-symbols-outlined text-sm text-emerald-600">contact_page</span>
-            <span>3. Hồ Sơ Ứng Viên &amp; Báo Cáo Phỏng Vấn AI Voice (Candidate Roster)</span>
+            <span>3. Hồ Sơ Ứng Viên &amp; Đánh Giá AI Copilot (Candidate Assessment)</span>
           </span>
           <span className="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">Candidate Data</span>
         </div>
@@ -1204,24 +1204,28 @@ function RolePermissionMatrixConfig({ form, setForm, isCand }) {
             </div>
           </div>
 
-          {/* Toggle Xem Báo Cáo AI Voice */}
+          {/* Toggle Báo Cáo Thẩm Định & Đánh Giá AI Copilot */}
           <div
-            onClick={() => updatePerm('viewAiInterviewReport', !perms.viewAiInterviewReport)}
+            onClick={() => {
+              const currentVal = Boolean(perms.aiCopilotReport ?? perms.viewAiInterviewReport);
+              updatePerm('aiCopilotReport', !currentVal);
+              updatePerm('viewAiInterviewReport', !currentVal);
+            }}
             className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
-              perms.viewAiInterviewReport
+              (perms.aiCopilotReport ?? perms.viewAiInterviewReport)
                 ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300'
                 : 'bg-white/60 border-slate-200 text-slate-400'
             }`}
           >
             <div>
               <div className="font-bold flex items-center gap-1">
-                <span className="material-symbols-outlined text-sm text-[#5b48bd]">record_voice_over</span>
-                <span>Xem Báo Cáo Phỏng Vấn AI Voice Ứng Viên</span>
+                <span className="material-symbols-outlined text-sm text-[#5b48bd]">psychology</span>
+                <span>Báo Cáo Thẩm Định &amp; Đánh Giá AI Copilot</span>
               </div>
-              <div className="text-[10px] text-slate-500 mt-0.5">Xem câu trả lời STAR, điểm AI chấm và chẩn đoán giọng nói</div>
+              <div className="text-[10px] text-slate-500 mt-0.5">Phân tích chi tiết ưu điểm, điểm yếu và khuyến nghị tuyển dụng bám sát JD</div>
             </div>
-            <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.viewAiInterviewReport ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
-              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.viewAiInterviewReport ? 'translate-x-5' : 'translate-x-0'}`} />
+            <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${(perms.aiCopilotReport ?? perms.viewAiInterviewReport) ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
+              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${(perms.aiCopilotReport ?? perms.viewAiInterviewReport) ? 'translate-x-5' : 'translate-x-0'}`} />
             </div>
           </div>
 
@@ -3199,14 +3203,6 @@ export default function AdminDashboardPage({ user, onLogout }) {
         );
         triggerToast(`Lỗi thu hồi trên máy chủ: ${err?.message || 'Thử lại'}`, 'error');
       }
-    }
-  };
-
-  const handleVerifyCompany = handleApproveCompany;
-  const openRejectModal = (type, id, name) => {
-    if (type === 'COMPANY') {
-      const comp = companies.find((c) => c.id === id) || { id, name };
-      handleOpenRejectCompany(comp);
     }
   };
 

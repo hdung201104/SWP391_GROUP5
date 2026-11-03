@@ -27,6 +27,12 @@ export const aiMatchApi = {
     axiosClient.get(`/ai-matches/job/${jobId}/candidate/${candidateId}/detailed-evaluation`, {
       params: { forceRefresh },
     }),
+
+  // Lấy hoặc yêu cầu AI phân tích chuyên sâu & viết báo cáo cho Ứng viên (Hỗ trợ phân hạng người dùng và lưu DB)
+  getCandidateJobReport: (jobId, cvId = null, forceRefresh = false) =>
+    axiosClient.get(`/ai-matches/job/${jobId}/candidate-report`, {
+      params: { cvId: cvId || undefined, forceRefresh },
+    }),
 };
 
 export default aiMatchApi;

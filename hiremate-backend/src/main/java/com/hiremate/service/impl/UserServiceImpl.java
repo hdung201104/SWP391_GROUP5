@@ -23,8 +23,6 @@ import com.hiremate.entity.Skill;
 import com.hiremate.repository.CandidateSkillRepository;
 import com.hiremate.repository.SkillRepository;
 
-import java.time.LocalDate;
-import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;

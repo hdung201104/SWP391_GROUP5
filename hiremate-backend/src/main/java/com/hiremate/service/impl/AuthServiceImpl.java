@@ -25,8 +25,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -621,7 +619,6 @@ public class AuthServiceImpl implements AuthService {
         }
 
         UserRole role = request.getRole() != null ? request.getRole() : UserRole.CANDIDATE;
-        validateDateOfBirth(request.getDateOfBirth());
         String rawPassword = (request.getPassword() != null && !request.getPassword().isBlank())
                 ? request.getPassword().trim()
                 : ("GoogleOAuth2_" + UUID.randomUUID());

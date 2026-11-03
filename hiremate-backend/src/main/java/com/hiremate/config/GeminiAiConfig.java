@@ -19,7 +19,7 @@ public class GeminiAiConfig {
     @Value("${gemini.api.base-url:https://generativelanguage.googleapis.com/v1beta}")
     private String baseUrl;
 
-    @Value("${gemini.voice.api-key:YOUR_GEMINI_VOICE_API_KEY}")
+    @Value("${gemini.voice.api-key:}")
     private String voiceApiKey;
 
     @Value("${gemini.voice.model:gemini-3.5-flash-lite}")

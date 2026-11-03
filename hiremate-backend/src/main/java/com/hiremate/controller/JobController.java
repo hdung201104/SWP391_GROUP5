@@ -25,8 +25,8 @@ public class JobController {
     @GetMapping("/recommendations")
     @PreAuthorize("hasRole('CANDIDATE')")
     public ResponseEntity<ApiResponse<List<JobResponse>>> getJobRecommendations(
-            @RequestParam(required = false, defaultValue = "50.0") Float minMatch,
-            @RequestParam(required = false, defaultValue = "10") Integer limit,
+            @RequestParam(required = false, defaultValue = "0.0") Float minMatch,
+            @RequestParam(required = false, defaultValue = "50") Integer limit,
             @AuthenticationPrincipal User user
     ) {
         List<JobResponse> recommendations = aiJobMatchService.getIndustrialJobRecommendations(user, minMatch, limit);

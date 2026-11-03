@@ -78,9 +78,33 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
     setShowExportModal(true);
   };
 
-  // Company Profile state from DB
+  // Company Profile state from DB & Admin Sync
   const currentUser = user;
-  const [companyStatus, setCompanyStatus] = useState('PENDING');
+  const getResolvedInitialCompanyStatus = () => {
+    if (user?.role === 'ADMIN') return 'VERIFIED';
+    const companyKey = (user?.companyName || 'vng_corporation').toLowerCase().replace(/[^a-z0-9]/g, '_');
+    try {
+      const saved = localStorage.getItem(`hiremate_company_legal_${companyKey}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.status === 'VERIFIED' || parsed.status === 'APPROVED' || parsed.status === 'ACTIVE') return 'VERIFIED';
+        if (parsed.status === 'REJECTED' || parsed.status === 'BANNED' || parsed.status === 'SUSPENDED') return parsed.status;
+      }
+      const adminList = localStorage.getItem('hiremate_admin_companies_list');
+      if (adminList) {
+        const list = JSON.parse(adminList);
+        const comp = list.find((c) =>
+          (c.name || '').toLowerCase() === (user?.companyName || 'vng corporation').toLowerCase() ||
+          (c.shortName || '').toLowerCase() === (user?.companyName || 'vng corporation').toLowerCase()
+        );
+        if (comp && (comp.status === 'VERIFIED' || comp.status === 'ACTIVE')) return 'VERIFIED';
+        if (comp && (comp.status === 'REJECTED' || comp.status === 'BANNED')) return comp.status;
+      }
+    } catch {}
+    return 'PENDING';
+  };
+
+  const [companyStatus, setCompanyStatus] = useState(getResolvedInitialCompanyStatus);
   const [showUnverifiedWarningModal, setShowUnverifiedWarningModal] = useState(false);
   const isCompanyVerified = companyStatus === 'VERIFIED' || companyStatus === 'APPROVED' || companyStatus === 'ACTIVE' || user?.role === 'ADMIN';
   const isCompanyBlocked = companyStatus === 'REJECTED' || companyStatus === 'BANNED' || companyStatus === 'SUSPENDED';
@@ -115,99 +139,181 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
         applicationApi.getMyRecruiterApplications(),
       ]);
 
-      if (compRes.status === 'fulfilled' && compRes.value?.data) {
-        const c = compRes.value.data;
-        const st = (c.status === 'VERIFIED' || c.status === 'ACTIVE' || c.status === 'APPROVED') ? 'VERIFIED' : (c.status || 'PENDING');
-        setCompanyStatus(st);
+      let resolvedStatus = null;
+      let compData = null;
+      if (compRes.status === 'fulfilled' && compRes.value) {
+        const c = compRes.value?.data?.data || compRes.value?.data || compRes.value;
+        if (c && typeof c === 'object') {
+          compData = c;
+          if (c.status) {
+            resolvedStatus = (c.status === 'VERIFIED' || c.status === 'ACTIVE' || c.status === 'APPROVED') ? 'VERIFIED' : c.status;
+          }
+        }
+      }
+
+      if (!resolvedStatus) {
+        const companyKey = (user?.companyName || compData?.companyName || 'vng_corporation').toLowerCase().replace(/[^a-z0-9]/g, '_');
+        try {
+          const saved = localStorage.getItem(`hiremate_company_legal_${companyKey}`);
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            resolvedStatus = (parsed.status === 'VERIFIED' || parsed.status === 'APPROVED' || parsed.status === 'ACTIVE') ? 'VERIFIED' : (parsed.status || 'PENDING');
+          }
+          if (!resolvedStatus) {
+            const adminList = localStorage.getItem('hiremate_admin_companies_list');
+            if (adminList) {
+              const list = JSON.parse(adminList);
+              const comp = list.find((c) =>
+                (c.name || '').toLowerCase() === (user?.companyName || 'vng corporation').toLowerCase() ||
+                (c.shortName || '').toLowerCase() === (user?.companyName || 'vng corporation').toLowerCase()
+              );
+              if (comp && (comp.status === 'VERIFIED' || comp.status === 'ACTIVE')) {
+                resolvedStatus = 'VERIFIED';
+              } else if (comp && (comp.status === 'REJECTED' || comp.status === 'BANNED')) {
+                resolvedStatus = comp.status;
+              }
+            }
+          }
+        } catch {}
+      }
+
+      if (resolvedStatus) {
+        setCompanyStatus(resolvedStatus);
+      }
+
+      if (compData) {
         setCompanyProfile({
-          name: c.companyName || user?.companyName || 'Doanh Nghiệp Tuyển Dụng',
-          tagline: c.description || 'Đối Tác Tuyển Dụng Chuyển Đổi Số AI',
-          bio: c.description || 'Doanh nghiệp tuyển dụng trên nền tảng HireMate AI.',
-          website: c.website || 'https://hiremate.ai',
-          headquarters: c.address || 'Việt Nam',
-          size: c.companySize || '100 - 500 nhân sự',
-          logoUrl: c.logoUrl || c.logo || user?.companyLogo || user?.avatar || '',
+          name: compData.companyName || user?.companyName || 'Doanh Nghiệp Tuyển Dụng',
+          tagline: compData.description || 'Đối Tác Tuyển Dụng Chuyển Đổi Số AI',
+          bio: compData.description || 'Doanh nghiệp tuyển dụng trên nền tảng HireMate AI.',
+          website: compData.website || 'https://hiremate.ai',
+          headquarters: compData.address || 'Việt Nam',
+          size: compData.companySize || '100 - 500 nhân sự',
+          logoUrl: compData.logoUrl || compData.logo || user?.companyLogo || user?.avatar || '',
         });
       }
 
       const allBackendApps = (allAppsRes.status === 'fulfilled' && Array.isArray(allAppsRes.value?.data))
         ? allAppsRes.value.data : [];
 
-      if (jobsRes.status === 'fulfilled' && Array.isArray(jobsRes.value?.data)) {
-        const rawJobs = jobsRes.value.data;
-        const allAppsCollected = allBackendApps.map((app) => ({
-          applicationId: app.applicationId,
-          candidateId: app.candidateId,
-          candidateName: app.candidateName || 'Ứng viên',
-          candidateEmail: app.candidateEmail || '',
-          jobId: app.jobId,
-          jobTitle: app.jobTitle || 'Vị trí Tuyển Dụng',
-          matchingScore: app.matchingScore || 0,
-          status: app.status || 'APPLIED',
-          createdAt: app.createdAt || new Date().toISOString(),
-          cvUrl: app.cvUrl || '#',
-        }));
+      let rawJobs = (jobsRes.status === 'fulfilled' && Array.isArray(jobsRes.value?.data))
+        ? jobsRes.value.data
+        : ((jobsRes.status === 'fulfilled' && Array.isArray(jobsRes.value)) ? jobsRes.value : []);
 
-        const formatSalaryText = (min, max) => {
-          if (!min && !max) return 'Thỏa thuận';
-          if ((min && min >= 1000000) || (max && max >= 1000000)) {
-            const minM = min ? `${(min / 1000000).toLocaleString('vi-VN')} Tr` : '';
-            const maxM = max ? `${(max / 1000000).toLocaleString('vi-VN')} Tr` : '';
-            if (minM && maxM) return `${minM} - ${maxM} VNĐ/tháng`;
-            return minM ? `Từ ${minM} VNĐ/tháng` : `Tới ${maxM} VNĐ/tháng`;
+      if (rawJobs.length === 0) {
+        try {
+          const publicRes = await jobApi.getPublishedJobs();
+          const publicList = Array.isArray(publicRes?.data) ? publicRes.data : (Array.isArray(publicRes) ? publicRes : []);
+          const compNameClean = (user?.companyName || 'vng').toLowerCase();
+          const matchedCompanyJobs = publicList.filter(j =>
+            (j.companyName || j.company?.companyName || '').toLowerCase().includes(compNameClean) ||
+            compNameClean.includes((j.companyName || j.company?.companyName || '').toLowerCase())
+          );
+          if (matchedCompanyJobs.length > 0) {
+            rawJobs = matchedCompanyJobs;
+          } else if (publicList.length > 0) {
+            rawJobs = publicList.slice(0, 3);
           }
-          if (min || max) {
-            if (min && max) return `$${min.toLocaleString()} - $${max.toLocaleString()}/tháng`;
-            return min ? `Từ $${min.toLocaleString()}/tháng` : `Tới $${max.toLocaleString()}/tháng`;
-          }
-          return 'Thỏa thuận';
-        };
-
-        const mappedJobs = rawJobs.map((j) => {
-          const apps = allBackendApps.filter((a) => a.jobId === j.jobId);
-          const applicantCount = apps.length;
-          const interviewCount = apps.filter((a) => a.status === 'INTERVIEWING').length;
-          const offerCount = apps.filter((a) => a.status === 'OFFERED').length;
-          const hiredCount = apps.filter((a) => a.status === 'HIRED').length;
-          const totalScore = apps.reduce((sum, a) => sum + (a.matchingScore || 0), 0);
-          const avgScore = applicantCount > 0 ? Math.round(totalScore / applicantCount) : 0;
-
-          return {
-            jobId: j.jobId,
-            title: j.title || 'Vị trí Tuyển Dụng',
-            department: j.company?.industry || j.companyName || 'Engineering',
-            location: j.location || 'Việt Nam',
-            salaryText: formatSalaryText(j.salaryMin, j.salaryMax),
-            salaryMin: j.salaryMin,
-            salaryMax: j.salaryMax,
-            description: j.description || '',
-            requirements: j.requirements || '',
-            benefits: j.benefits || '',
-            employmentType: j.employmentType || 'FULL_TIME',
-            status: j.status || 'PUBLISHED',
-            targetHires: j.vacanciesCount || 2,
-            vacanciesCount: j.vacanciesCount || 2,
-            hiredCount: hiredCount,
-            totalViews: j.totalViews ?? 0,
-            totalApplicants: applicantCount,
-            avgMatch: avgScore,
-            interviewCount: interviewCount,
-            offerCount: offerCount,
-            postedDate: j.createdAt ? new Date(j.createdAt).toLocaleDateString('vi-VN') : 'Gần đây',
-            deadlineDate: j.deadlineDate || null,
-            mandatorySkills: Array.isArray(j.mandatorySkills) && j.mandatorySkills.length > 0
-              ? j.mandatorySkills
-              : parseSkillList(j.requirements, ['Kỹ năng chuyên môn']),
-            preferredSkills: Array.isArray(j.preferredSkills) && j.preferredSkills.length > 0
-              ? j.preferredSkills
-              : parseSkillList(j.benefits, ['Đãi ngộ tốt']),
-          };
-        });
-        setJobs(mappedJobs);
-        setAllCompanyApplications(allAppsCollected);
-        if (mappedJobs.length > 0 && !selectedJobId) {
-          setSelectedJobId(mappedJobs[0].jobId);
+        } catch (e) {
+          console.warn('Fallback public jobs error:', e);
         }
+      }
+
+      let allAppsCollected = allBackendApps.map((app) => ({
+        applicationId: app.applicationId,
+        candidateId: app.candidateId,
+        candidateName: app.candidateName || 'Ứng viên',
+        candidateEmail: app.candidateEmail || '',
+        jobId: app.jobId,
+        jobTitle: app.jobTitle || 'Vị trí Tuyển Dụng',
+        matchingScore: app.matchingScore || 0,
+        status: app.status || 'APPLIED',
+        createdAt: app.createdAt || new Date().toISOString(),
+        cvUrl: app.cvUrl || '#',
+      }));
+
+      if (allAppsCollected.length === 0 && rawJobs.length > 0) {
+        try {
+          const firstJobAppsRes = await applicationApi.getJobApplications(rawJobs[0].jobId);
+          const firstJobApps = Array.isArray(firstJobAppsRes?.data) ? firstJobAppsRes.data : [];
+          if (firstJobApps.length > 0) {
+            allAppsCollected = firstJobApps.map((app) => ({
+              applicationId: app.applicationId,
+              candidateId: app.candidateId,
+              candidateName: app.candidateName || 'Ứng viên',
+              candidateEmail: app.candidateEmail || '',
+              jobId: app.jobId || rawJobs[0].jobId,
+              jobTitle: app.jobTitle || rawJobs[0].title || 'Vị trí Tuyển Dụng',
+              matchingScore: app.matchingScore || 0,
+              status: app.status || 'APPLIED',
+              createdAt: app.createdAt || new Date().toISOString(),
+              cvUrl: app.cvUrl || '#',
+            }));
+          }
+        } catch (e) {
+          console.warn('Fallback job applications error:', e);
+        }
+      }
+
+      const formatSalaryText = (min, max) => {
+        if (!min && !max) return 'Thỏa thuận';
+        if ((min && min >= 1000000) || (max && max >= 1000000)) {
+          const minM = min ? `${(min / 1000000).toLocaleString('vi-VN')} Tr` : '';
+          const maxM = max ? `${(max / 1000000).toLocaleString('vi-VN')} Tr` : '';
+          if (minM && maxM) return `${minM} - ${maxM} VNĐ/tháng`;
+          return minM ? `Từ ${minM} VNĐ/tháng` : `Tới ${maxM} VNĐ/tháng`;
+        }
+        if (min || max) {
+          if (min && max) return `$${min.toLocaleString()} - $${max.toLocaleString()}/tháng`;
+          return min ? `Từ $${min.toLocaleString()}/tháng` : `Tới $${max.toLocaleString()}/tháng`;
+        }
+        return 'Thỏa thuận';
+      };
+
+      const mappedJobs = rawJobs.map((j) => {
+        const apps = allAppsCollected.filter((a) => a.jobId === j.jobId);
+        const applicantCount = apps.length;
+        const interviewCount = apps.filter((a) => a.status === 'INTERVIEWING').length;
+        const offerCount = apps.filter((a) => a.status === 'OFFERED').length;
+        const hiredCount = apps.filter((a) => a.status === 'HIRED').length;
+        const totalScore = apps.reduce((sum, a) => sum + (a.matchingScore || 0), 0);
+        const avgScore = applicantCount > 0 ? Math.round(totalScore / applicantCount) : 0;
+
+        return {
+          jobId: j.jobId,
+          title: j.title || 'Vị trí Tuyển Dụng',
+          department: j.company?.industry || j.companyName || 'Engineering',
+          location: j.location || 'Việt Nam',
+          salaryText: formatSalaryText(j.salaryMin, j.salaryMax),
+          salaryMin: j.salaryMin,
+          salaryMax: j.salaryMax,
+          description: j.description || '',
+          requirements: j.requirements || '',
+          benefits: j.benefits || '',
+          employmentType: j.employmentType || 'FULL_TIME',
+          status: j.status || 'PUBLISHED',
+          targetHires: j.vacanciesCount || 2,
+          vacanciesCount: j.vacanciesCount || 2,
+          hiredCount: hiredCount,
+          totalViews: j.totalViews ?? 0,
+          totalApplicants: applicantCount,
+          avgMatch: avgScore,
+          interviewCount: interviewCount,
+          offerCount: offerCount,
+          postedDate: j.createdAt ? new Date(j.createdAt).toLocaleDateString('vi-VN') : 'Gần đây',
+          deadlineDate: j.deadlineDate || null,
+          mandatorySkills: Array.isArray(j.mandatorySkills) && j.mandatorySkills.length > 0
+            ? j.mandatorySkills
+            : parseSkillList(j.requirements, ['Kỹ năng chuyên môn']),
+          preferredSkills: Array.isArray(j.preferredSkills) && j.preferredSkills.length > 0
+            ? j.preferredSkills
+            : parseSkillList(j.benefits, ['Đãi ngộ tốt']),
+        };
+      });
+      setJobs(mappedJobs);
+      setAllCompanyApplications(allAppsCollected);
+      if (mappedJobs.length > 0 && !selectedJobId) {
+        setSelectedJobId(mappedJobs[0].jobId);
       }
     } catch (err) {
       console.error('Lỗi tải dữ liệu dashboard:', err);
@@ -218,6 +324,33 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
 
   useEffect(() => {
     fetchDashboardData();
+
+    // Lắng nghe cập nhật real-time từ Admin duyệt/thu hồi GPKD
+    const handleCompanyUpdate = (e) => {
+      if (e?.detail?.status) {
+        const nextSt = (e.detail.status === 'VERIFIED' || e.detail.status === 'ACTIVE' || e.detail.status === 'APPROVED') ? 'VERIFIED' : e.detail.status;
+        setCompanyStatus(nextSt);
+      }
+    };
+    window.addEventListener('hiremate_company_updated', handleCompanyUpdate);
+
+    let bc = null;
+    try {
+      bc = new BroadcastChannel('hiremate_realtime_channel');
+      bc.onmessage = (event) => {
+        if (event.data?.type === 'COMPANY_STATUS_UPDATED' && event.data?.status) {
+          const nextSt = (event.data.status === 'VERIFIED' || event.data.status === 'ACTIVE' || event.data.status === 'APPROVED') ? 'VERIFIED' : event.data.status;
+          setCompanyStatus(nextSt);
+        }
+      };
+    } catch {}
+
+    return () => {
+      window.removeEventListener('hiremate_company_updated', handleCompanyUpdate);
+      if (bc) {
+        try { bc.close(); } catch {}
+      }
+    };
   }, []);
 
   useEffect(() => {

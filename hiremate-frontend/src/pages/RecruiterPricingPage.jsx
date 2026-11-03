@@ -24,7 +24,7 @@ const RECRUITER_SUBSCRIPTION_PLANS = [
     ],
     missingFeatures: [
       'Mở khóa Báo cáo phân tích khoảng trống kỹ năng (Skill Gap)',
-      'Xem chi tiết Báo cáo Phỏng vấn AI Voice của ứng viên',
+      'Mở khóa Báo cáo đánh giá & thẩm định chuyên sâu từ AI Copilot',
       'Xuất dữ liệu báo cáo ứng viên ra file Excel (.xlsx)',
     ]
   },
@@ -47,7 +47,7 @@ const RECRUITER_SUBSCRIPTION_PLANS = [
       { text: 'Mở khóa tính năng Xuất danh sách ứng viên ra file Excel', highlight: true },
     ],
     missingFeatures: [
-      'Xem chi tiết Báo cáo Phỏng vấn AI Voice của ứng viên',
+      'Mở khóa Báo cáo đánh giá & thẩm định chuyên sâu từ AI Copilot',
       'Duyệt chuyển trạng thái ứng viên hàng loạt (Batch Action)',
     ]
   },
@@ -65,7 +65,7 @@ const RECRUITER_SUBSCRIPTION_PLANS = [
     features: [
       { text: 'Đăng tối đa 30 tin tuyển dụng hoạt động cùng lúc', highlight: true },
       { text: 'Toàn bộ tính năng AI JD Extractor & Phân tích Skill Gap Matrix', highlight: true },
-      { text: 'Mở khóa xem Báo cáo kết quả Phỏng vấn AI Voice của ứng viên', highlight: true },
+      { text: 'Mở khóa Báo cáo Đánh giá & Thẩm định chi tiết AI Copilot (Ưu điểm & Điểm yếu)', highlight: true },
       { text: 'Mở khóa Duyệt & Chuyển trạng thái ứng viên hàng loạt (Batch)', highlight: true },
       { text: 'Xuất báo cáo đánh giá ứng viên ra file Excel chuyên nghiệp', highlight: true },
     ],
@@ -86,7 +86,7 @@ const RECRUITER_SUBSCRIPTION_PLANS = [
     isCurrent: false,
     features: [
       { text: 'KHÔNG GIỚI HẠN số lượng tin đăng tuyển dụng hoạt động', highlight: true },
-      { text: 'Xem trọn vẹn 100% Báo cáo Phỏng vấn AI Voice & Chẩn đoán sâu', highlight: true },
+      { text: 'Xem trọn vẹn 100% Báo cáo Đánh giá & Đối soát chuyên sâu AI Copilot', highlight: true },
       { text: 'Không giới hạn AI Phân tích JD, Skill Gap & Sắp xếp AI 70/30', highlight: true },
       { text: 'Quản lý Kanban nâng cao, Duyệt hàng loạt & Xuất file Excel', highlight: true },
       { text: 'Ưu tiên gắn nhãn Tin tuyển dụng Nổi bật (HOT / TOP)', highlight: true },
@@ -140,7 +140,7 @@ const COMPARISON_ROWS = [
   { feature: 'Bóc tách kỹ năng bắt buộc (70%) & ưu tiên (30%)', free: 'Tiêu chuẩn', starter: 'Toàn diện', pro: 'Toàn diện', elite: 'Toàn diện' },
   { feature: 'Báo cáo khoảng trống kỹ năng (Skill Gap)', free: '❌', starter: '✅ Mở khóa', pro: '✅ Skill Gap Matrix', elite: '✅ Skill Gap Matrix sâu' },
   { feature: 'Xuất báo cáo danh sách ứng viên (Excel .xlsx)', free: '❌', starter: '✅ Mở khóa', pro: '✅ Chuyên nghiệp', elite: '✅ Toàn bộ' },
-  { feature: 'Xem Báo cáo Phỏng vấn AI Voice của ứng viên', free: '❌', starter: '❌', pro: '✅ Báo cáo Voice', elite: '✅ 100% Chẩn đoán sâu' },
+  { feature: 'Báo cáo Đánh giá & Thẩm định chi tiết AI Copilot', free: '❌ (Chỉ xem % Match)', starter: '❌ (Chỉ xem Skill Gap)', pro: '✅ Báo cáo chi tiết AI Copilot', elite: '✅ Toàn diện 100% & Không giới hạn' },
   { feature: 'Duyệt chuyển trạng thái hàng loạt (Batch Action)', free: '❌', starter: '❌', pro: '✅ Duyệt hàng loạt', elite: '✅ Duyệt hàng loạt & Gắn nhãn HOT' },
 ];
 
@@ -174,7 +174,7 @@ const getRecruiterEnrichedFeatures = (planName, monthlyPrice, quotaLimit, descri
       tagline: 'Giải pháp tuyển dụng toàn diện và cao cấp nhất cho Tập đoàn & Headhunt chuyên nghiệp.',
       features: [
         { text: 'KHÔNG GIỚI HẠN số lượng tin đăng tuyển dụng hoạt động', highlight: true },
-        { text: 'Xem trọn vẹn 100% Báo cáo Phỏng vấn AI Voice & Chẩn đoán sâu', highlight: true },
+        { text: 'Xem trọn vẹn 100% Báo cáo Đánh giá & Đối soát chuyên sâu AI Copilot', highlight: true },
         { text: 'Không giới hạn AI Phân tích JD, Skill Gap & Sắp xếp AI 70/30', highlight: true },
         { text: 'Quản lý Kanban nâng cao, Duyệt hàng loạt & Xuất file Excel', highlight: true },
         { text: 'Ưu tiên gắn nhãn Tin tuyển dụng Nổi bật (HOT / TOP)', highlight: true },
@@ -190,7 +190,7 @@ const getRecruiterEnrichedFeatures = (planName, monthlyPrice, quotaLimit, descri
       features: [
         { text: `Đăng tối đa ${quota > 0 ? quota : 30} tin tuyển dụng hoạt động cùng lúc`, highlight: true },
         { text: 'Toàn bộ tính năng AI JD Extractor & Phân tích Skill Gap Matrix', highlight: true },
-        { text: 'Mở khóa xem Báo cáo kết quả Phỏng vấn AI Voice của ứng viên', highlight: true },
+        { text: 'Mở khóa Báo cáo Đánh giá & Thẩm định chi tiết AI Copilot (Ưu điểm & Điểm yếu)', highlight: true },
         { text: 'Mở khóa Duyệt & Chuyển trạng thái ứng viên hàng loạt (Batch)', highlight: true },
         { text: 'Xuất báo cáo đánh giá ứng viên ra file Excel chuyên nghiệp', highlight: true },
       ],
@@ -212,7 +212,7 @@ const getRecruiterEnrichedFeatures = (planName, monthlyPrice, quotaLimit, descri
         { text: 'Mở khóa tính năng Xuất danh sách ứng viên ra file Excel', highlight: true },
       ],
       missingFeatures: [
-        'Xem chi tiết Báo cáo Phỏng vấn AI Voice của ứng viên',
+        'Mở khóa Báo cáo đánh giá & thẩm định chuyên sâu từ AI Copilot',
         'Duyệt chuyển trạng thái ứng viên hàng loạt (Batch Action)',
       ]
     };
@@ -230,7 +230,7 @@ const getRecruiterEnrichedFeatures = (planName, monthlyPrice, quotaLimit, descri
     ],
     missingFeatures: [
       'Mở khóa Báo cáo phân tích khoảng trống kỹ năng (Skill Gap)',
-      'Xem chi tiết Báo cáo Phỏng vấn AI Voice của ứng viên',
+      'Mở khóa Báo cáo đánh giá & thẩm định chuyên sâu từ AI Copilot',
       'Xuất dữ liệu báo cáo ứng viên ra file Excel (.xlsx)',
     ]
   };

@@ -14,6 +14,14 @@ public class AiDetailedEvaluationReport {
     private Long jobId;
     private String jobTitle;
     private Float matchingScore;
+    private Float skillsScore;
+    private Float experienceScore;
+    private Float educationScore;
+    private Float semanticScore;
+    private List<String> matchedMandatorySkills;
+    private List<String> missingMandatorySkills;
+    private List<String> matchedPreferredSkills;
+    private List<String> missingPreferredSkills;
     private String matchTier;
     private String overallVerdict;
     private String executiveRecommendation;
@@ -23,6 +31,15 @@ public class AiDetailedEvaluationReport {
     
     // 2. Điểm yếu & Tiêu chí chưa đạt (Kỹ năng còn thiếu, Kinh nghiệm chưa đủ, Chứng chỉ/Bằng cấp chưa đạt chuẩn JD)
     private List<DisadvantageItem> disadvantages;
+
+    // 3. Phân hạng người dùng & Quota báo cáo AI
+    private String candidateTier;          // "FREE", "PLUS", "PRO", "ACE"
+    private String candidateTierName;      // "Free Candidate", "Practice Plus", "Practice Pro", "Career Ace"
+    private Integer reportsRemaining;      // Số lượt phân tích còn lại (-1 nếu không giới hạn)
+    private Boolean isUnlimited;           // true nếu là gói trả phí (Plus/Pro/Ace)
+    private Boolean isReportCached;        // true nếu báo cáo đọc từ database cache (0ms, 0 AI token)
+    private List<String> interviewTips;    // Gợi ý chuẩn bị phỏng vấn trọng tâm dựa trên điểm yếu của CV
+    private List<String> cvImprovementSuggestions; // Đề xuất từ khóa và chỉnh sửa CV chuẩn ATS
 
     @Data
     @Builder

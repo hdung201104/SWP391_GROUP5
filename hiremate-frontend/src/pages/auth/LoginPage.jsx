@@ -451,12 +451,14 @@ export default function LoginPage({ onNavigateRegister, onLoginSuccess }) {
         <div className="lg:col-span-5 relative p-8 sm:p-10 flex flex-col justify-between overflow-hidden min-h-[380px] lg:min-h-full">
           {/* Image 3: Skyscraper Backdrop */}
           <img
-            src="/assets/auth-bg.jpg"
+            src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1600&auto=format&fit=crop&q=80"
+            onError={(e) => { e.currentTarget.src = '/assets/auth-bg.jpg'; }}
             alt="HireMate AI Corporate Architecture"
-            className="absolute inset-0 w-full h-full object-cover filter blur-[1.5px] scale-105"
+            className="absolute inset-0 w-full h-full object-cover brightness-[0.88] contrast-[1.05] scale-105 transition-transform duration-1000"
           />
           {/* Deep Indigo Glass Gradient Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-br from-[#1e1b4b]/85 via-[#32247b]/80 to-[#47369f]/90 backdrop-blur-[2px]" />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#1e1b4b]/75 via-[#32247b]/65 to-[#47369f]/75" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#1e1b4b]/90 via-transparent to-black/20" />
 
           {/* Top Logo */}
           <div className="relative z-10">
@@ -494,6 +496,28 @@ export default function LoginPage({ onNavigateRegister, onLoginSuccess }) {
                 </span>
               </div>
             </button>
+            <span className="mt-3 text-xs font-semibold text-white/90 drop-shadow flex items-center gap-1.5 select-none">
+              <span className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse" />
+              Xem video giới thiệu hệ sinh thái AI
+            </span>
+          </div>
+
+          {/* Bottom Feature Pill: Cloud AI Hiring Platform */}
+          <div className="relative z-10 pt-2">
+            <div className="p-3.5 sm:p-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 text-white shadow-xl space-y-1">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[#10b981] text-lg">cloud_done</span>
+                  <span className="text-xs font-bold tracking-wide">Nền Tảng AI Cloud Tuyển Dụng</span>
+                </div>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#10b981]/20 text-[#10b981] border border-[#10b981]/30">
+                  Cloud Native
+                </span>
+              </div>
+              <p className="text-[11px] text-white/80 leading-relaxed font-normal">
+                Đối sánh năng lực ứng viên & JD tự động, phỏng vấn AI và giải pháp tuyển dụng toàn diện.
+              </p>
+            </div>
           </div>
         </div>
 

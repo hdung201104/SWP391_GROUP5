@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { calculateJobDeadline } from '../../utils/jobTimeUtils';
 import { aiMatchApi, cvApi } from '../../api';
+import AiJobEvaluationReportCard from './AiJobEvaluationReportCard';
 
 // Helper for brand logos with reliable fallback
 const getBrandLogo = (job) => {
@@ -39,16 +40,42 @@ const formatJobTitle = (title) => {
 // Intelligently parse raw text into clean bullet points
 const parseCleanBullets = (raw) => {
   if (!raw) return [];
+  let text = '';
   if (Array.isArray(raw)) {
-    return raw
-      .map((item) => (typeof item === 'string' ? item.trim().replace(/^[-*•\d+.]\s*/, '') : ''))
-      .filter((l) => l.length > 0);
+    text = raw.map((item) => (typeof item === 'string' ? item : '')).join('\n');
+  } else {
+    text = String(raw).replaceAll('\\n', '\n');
   }
-  return String(raw)
-    .replaceAll('\\n', '\n')
+
+  // Normalize single-line comma-separated criteria into distinct lines
+  text = text.replace(
+    /,\s*(?:-\s*)?(Cấp bậc|Vị trí|Yêu cầu bằng cấp|Bằng cấp|Trình độ|Học vấn|Kinh nghiệm|Môi trường|Hình thức|Giới tính|\[YÊU CẦU|\[TIÊU CHUẨN)/gi,
+    '\n- $1'
+  );
+
+  // If there is [YÊU CẦU NĂNG LỰC CHI TIẾT], take the text after it
+  if (text.includes('[YÊU CẦU NĂNG LỰC CHI TIẾT]')) {
+    const parts = text.split(/\[YÊU CẦU NĂNG LỰC CHI TIẾT\]/i);
+    if (parts.length > 1 && parts[1].trim()) {
+      text = parts[1].trim();
+    }
+  }
+
+  const lines = text
     .split('\n')
-    .map((l) => l.trim().replace(/^[-*•\d+.]\s*/, ''))
-    .filter((l) => l.length > 0);
+    .map((l) => l.trim().replace(/^[-*•·–—\d+.]\s*/, ''));
+
+  return lines.filter((l) => {
+    if (!l || l.length === 0) return false;
+    const lower = l.toLowerCase();
+    if (lower.startsWith('[tiêu chuẩn') || lower.startsWith('[yêu cầu năng lực') || lower.startsWith('[điều kiện')) return false;
+    if (lower.startsWith('cấp bậc tuyển dụng:') || lower.startsWith('cấp bậc:') || lower.startsWith('vị trí:')) return false;
+    if (lower.startsWith('yêu cầu bằng cấp') || lower.startsWith('bằng cấp:') || lower.startsWith('trình độ học vấn:') || lower.startsWith('học vấn:')) return false;
+    if (lower.startsWith('kinh nghiệm làm việc:') || lower.startsWith('kinh nghiệm:')) return false;
+    if (lower.startsWith('môi trường làm việc:') || lower.startsWith('môi trường:')) return false;
+    if (lower.startsWith('giới tính yêu cầu:') || lower.startsWith('giới tính:')) return false;
+    return true;
+  });
 };
 
 // Smart role-based supplements when recruiter inputs are concise
@@ -354,20 +381,57 @@ export default function JobDetailModal({ job, onClose, onApply, onViewCompanyPro
     }
   }, [isCandidate]);
 
+  useEffect(() => {
+    const targetJobId = job.jobId || job.id;
+    if (isCandidate && targetJobId && currentMatchScore == null && aiMatchApi?.getCandidateJobMatch) {
+      aiMatchApi.getCandidateJobMatch(targetJobId)
+        .then((res) => {
+          const payload = res?.data || res;
+          const score = payload?.matchingScore != null ? payload.matchingScore : payload?.data?.matchingScore;
+          if (score != null) {
+            setCurrentMatchScore(Math.round(score));
+            if (payload.aiReasoning || payload?.data?.aiReasoning) {
+              setMatchReasoning(payload.aiReasoning || payload?.data?.aiReasoning);
+            }
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isCandidate, job.jobId, job.id, currentMatchScore]);
+
   const handleRequestAiEvaluation = async () => {
     setIsEvaluating(true);
     setEvalError(null);
     try {
       const jobId = job.jobId || job.id;
       const res = await aiMatchApi.evaluateJobWithCv(jobId, selectedCvId || undefined);
-      const data = res?.data || res;
-      if (data && data.matchingScore != null) {
-        setCurrentMatchScore(Math.round(data.matchingScore));
-        setMatchReasoning(data.aiReasoning || '');
+      const payload = res?.data || res;
+      const score = payload?.matchingScore != null ? payload.matchingScore : payload?.data?.matchingScore;
+      if (score != null) {
+        setCurrentMatchScore(Math.round(score));
+        setMatchReasoning(payload.aiReasoning || payload?.data?.aiReasoning || '');
+      } else {
+        const fbRes = await aiMatchApi.getCandidateJobMatch(jobId);
+        const fbPayload = fbRes?.data || fbRes;
+        const fbScore = fbPayload?.matchingScore != null ? fbPayload.matchingScore : fbPayload?.data?.matchingScore;
+        if (fbScore != null) {
+          setCurrentMatchScore(Math.round(fbScore));
+          setMatchReasoning(fbPayload.aiReasoning || fbPayload?.data?.aiReasoning || '');
+        }
       }
     } catch (err) {
       console.error('Lỗi khi nhờ AI chấm điểm:', err);
-      setEvalError(err?.response?.data?.message || 'Không thể chấm điểm AI. Vui lòng thử lại sau.');
+      try {
+        const fbRes = await aiMatchApi.getCandidateJobMatch(job.jobId || job.id);
+        const fbPayload = fbRes?.data || fbRes;
+        const fbScore = fbPayload?.matchingScore != null ? fbPayload.matchingScore : fbPayload?.data?.matchingScore;
+        if (fbScore != null) {
+          setCurrentMatchScore(Math.round(fbScore));
+          setMatchReasoning(fbPayload.aiReasoning || fbPayload?.data?.aiReasoning || '');
+          return;
+        }
+      } catch (e) {}
+      setEvalError(err?.response?.data?.message || err?.message || 'Không thể chấm điểm AI. Vui lòng thử lại sau.');
     } finally {
       setIsEvaluating(false);
     }
@@ -555,7 +619,7 @@ export default function JobDetailModal({ job, onClose, onApply, onViewCompanyPro
                           </div>
                         )}
                         <p className="mt-1 text-rose-700 font-semibold text-[11px]">
-                          • Chức năng nộp hồ sơ ứng tuyển trực tuyến cho vị trí này đã bị khóa hoàn toàn.
+                          • Chức năng nộp hồ sơ ứng tuyển trực tuyến và toàn bộ kênh liên hệ HR đã bị khóa vì lý do an toàn pháp lý.
                         </p>
                       </>
                     ) : (
@@ -747,134 +811,21 @@ export default function JobDetailModal({ job, onClose, onApply, onViewCompanyPro
             )}
           </div>
 
-          {/* ON-DEMAND AI EVALUATION & MATCHING INSIGHTS */}
+          {/* ON-DEMAND AI EVALUATION & ATS REPORT CARD */}
           {isCandidate && (
-            <div className="p-4 rounded-2xl bg-gradient-to-br from-white to-purple-50/60 border border-purple-200/90 shadow-2xs space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-purple-100 pb-2.5">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-[#5b48bd] to-[#8b5cf6] text-white flex items-center justify-center shrink-0 shadow-2xs">
-                    <span className="material-symbols-outlined text-base">auto_awesome</span>
-                  </div>
-                  <div>
-                    <h3 className="font-extrabold text-xs text-[#221d47]">
-                      Đánh Giá Độ Phù Hợp AI HireMate (ATS Match)
-                    </h3>
-                    <p className="text-[10px] text-slate-500">
-                      Đối soát độc lập CV cá nhân của bạn với tiêu chuẩn tuyển dụng này
-                    </p>
-                  </div>
-                </div>
-
-                {aiMatchScore != null && (
-                  <div className="flex items-center gap-1.5 self-start sm:self-auto">
-                    <span className="text-[11px] font-bold text-slate-500">Độ phù hợp:</span>
-                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-black border ${
-                      aiMatchScore >= 80 
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-300' 
-                        : aiMatchScore >= 50 
-                        ? 'bg-amber-50 text-amber-700 border-amber-300' 
-                        : 'bg-rose-50 text-rose-700 border-rose-300'
-                    }`}>
-                      {aiMatchScore}% {aiMatchScore >= 80 ? '• Rất phù hợp' : aiMatchScore >= 50 ? '• Phù hợp cơ bản' : '• Cần cải thiện'}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {aiMatchScore != null ? (
-                <div className="space-y-2.5 text-xs">
-                  {matchReasoning && (
-                    <div className="p-3 rounded-xl bg-purple-50/80 border border-purple-200 text-slate-700 text-[11px] leading-relaxed flex items-start gap-2">
-                      <span className="material-symbols-outlined text-[#5b48bd] text-sm shrink-0 mt-0.5">psychology</span>
-                      <div>
-                        <strong className="text-[#221d47]">Nhận định từ AI: </strong>
-                        <span>{matchReasoning}</span>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-1 text-[11px] text-slate-600">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-500">Chấm lại với CV:</span>
-                      <select
-                        value={selectedCvId}
-                        onChange={(e) => setSelectedCvId(e.target.value)}
-                        className="text-xs px-2 py-1 rounded-lg border border-purple-200 bg-white font-medium focus:ring-1 focus:ring-[#5b48bd] outline-hidden"
-                      >
-                        {myCvs.map((c) => (
-                          <option key={c.cvId} value={c.cvId}>
-                            {c.fileName} {c.isDefault ? '(Mặc định)' : ''}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={handleRequestAiEvaluation}
-                      disabled={isEvaluating}
-                      className="px-3.5 py-1 rounded-lg bg-white border border-purple-200 hover:bg-purple-50 text-[#5b48bd] font-bold text-xs flex items-center justify-center gap-1 cursor-pointer shadow-2xs transition-all disabled:opacity-50"
-                    >
-                      <span className="material-symbols-outlined text-sm">{isEvaluating ? 'hourglass_top' : 'refresh'}</span>
-                      <span>{isEvaluating ? 'Đang chấm lại...' : 'Chấm lại với CV này'}</span>
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-2.5 text-xs">
-                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 text-[11px] leading-relaxed flex items-start gap-2">
-                    <span className="material-symbols-outlined text-slate-400 text-sm shrink-0 mt-0.5">info</span>
-                    <div>
-                      <span>
-                        Hệ thống tự động chấm điểm và gợi ý trước <strong>Top 10 việc làm tối ưu nhất</strong> cho bạn trên trang chủ.
-                        Đối với công việc này, bạn có thể chọn CV và <strong>nhờ AI phân tích độ phù hợp ngay lập tức</strong>.
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-bold text-slate-500">Chọn CV đối soát:</span>
-                      {myCvs.length > 0 ? (
-                        <select
-                          value={selectedCvId}
-                          onChange={(e) => setSelectedCvId(e.target.value)}
-                          className="text-xs px-2 py-1 rounded-lg border border-purple-200 bg-white font-medium focus:ring-1 focus:ring-[#5b48bd] outline-hidden"
-                        >
-                          {myCvs.map((c) => (
-                            <option key={c.cvId} value={c.cvId}>
-                              {c.fileName} {c.isDefault ? '(Mặc định)' : ''}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <a
-                          href="#/candidate-profile"
-                          className="text-xs text-[#5b48bd] font-bold hover:underline flex items-center gap-1"
-                        >
-                          <span className="material-symbols-outlined text-sm">upload_file</span>
-                          <span>Tải CV lên trang cá nhân</span>
-                        </a>
-                      )}
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={handleRequestAiEvaluation}
-                      disabled={isEvaluating || myCvs.length === 0}
-                      className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-[#5b48bd] to-[#7c66dc] hover:from-[#4938a5] hover:to-[#6a54cb] text-white font-extrabold text-xs shadow-md transition-all flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
-                    >
-                      <span className="material-symbols-outlined text-sm">{isEvaluating ? 'hourglass_top' : 'auto_awesome'}</span>
-                      <span>{isEvaluating ? 'AI đang đối soát...' : '✨ Nhờ AI chấm độ phù hợp'}</span>
-                    </button>
-                  </div>
-
-                  {evalError && (
-                    <p className="text-xs text-rose-600 font-medium">{evalError}</p>
-                  )}
-                </div>
-              )}
-            </div>
+            <AiJobEvaluationReportCard
+              jobId={jobId}
+              jobTitle={title}
+              initialScore={aiMatchScore}
+              initialReasoning={matchReasoning}
+              candidateCvs={myCvs}
+              selectedCvId={selectedCvId}
+              onSelectCv={(cvId) => setSelectedCvId(cvId)}
+              onScoreUpdated={(newScore, newReasoning) => {
+                setAiMatchScore(newScore);
+                setMatchReasoning(newReasoning);
+              }}
+            />
           )}
 
           {/* UNDERLINE NAVIGATION TABS */}

@@ -6,7 +6,7 @@ import JobDetailModal from '../components/jobs/JobDetailModal';
 import ApplyJobModal from '../components/jobs/ApplyJobModal';
 import CompanyCard from '../components/jobs/CompanyCard';
 import CompanyProfileModal from '../components/jobs/CompanyProfileModal';
-import { jobApi, skillApi, companyApi } from '../api';
+import { jobApi, skillApi, companyApi, aiMatchApi } from '../api';
 import { useLivingTheme } from '../context/LivingThemeContext';
 import { StaggerContainer, StaggerItem, GlassCard, GlassPanel, BlurReveal, CinematicTitle } from '../components/motion/MotionSystem';
 
@@ -270,36 +270,42 @@ export default function HomePage({ user }) {
       setAvailableSkills(Array.from(skillMap.values()));
       setLoading(false);
 
-      // Background AI recommendations matching
+      // Background AI matches loading: nạp toàn bộ điểm mà ứng viên đã được chấm từ DB
       if (isCandidate) {
-        jobApi.getRecommendations()
-          .then(recsRes => {
-            const recs = Array.isArray(recsRes?.data) ? recsRes.data : (Array.isArray(recsRes) ? recsRes : []);
-            if (Array.isArray(recs) && recs.length > 0) {
+        const fetchMatchesPromise = aiMatchApi?.getMyJobMatches 
+          ? aiMatchApi.getMyJobMatches() 
+          : jobApi.getRecommendations({ minMatch: 0, limit: 100 });
+
+        fetchMatchesPromise
+          .then(matchesRes => {
+            const matches = Array.isArray(matchesRes?.data) ? matchesRes.data : (Array.isArray(matchesRes) ? matchesRes : []);
+            if (Array.isArray(matches) && matches.length > 0) {
               const recMap = new Map();
               const recReasoningMap = new Map();
-              recs.forEach(r => {
-                if (r.jobId && r.matchingScore != null) {
-                  recMap.set(r.jobId, Math.round(r.matchingScore));
-                  if (r.aiReasoning) recReasoningMap.set(r.jobId, r.aiReasoning);
+              matches.forEach(r => {
+                const targetJobId = r.jobId || r.id;
+                if (targetJobId && r.matchingScore != null) {
+                  recMap.set(targetJobId, Math.round(r.matchingScore));
+                  if (r.aiReasoning) recReasoningMap.set(targetJobId, r.aiReasoning);
                 }
               });
               setAllJobs(prevJobs => prevJobs.map(j => {
-                const score = recMap.get(j.jobId);
-                const reasoning = recReasoningMap.get(j.jobId);
+                const targetJobId = j.jobId || j.id;
+                const score = recMap.get(targetJobId);
+                const reasoning = recReasoningMap.get(targetJobId);
                 if (score != null) {
                   return {
                     ...j,
                     aiMatchScore: score,
                     aiReasoning: reasoning || j.aiReasoning,
-                    aiMatchDetail: score >= 80 ? 'Rất Phù Hợp' : 'Phù Hợp Cơ Bản',
+                    aiMatchDetail: score >= 80 ? 'Rất Phù Hợp' : (score >= 50 ? 'Tiềm Năng' : 'Trau Dồi Kỹ Năng'),
                   };
                 }
                 return j;
               }));
             }
           })
-          .catch(err => console.warn('Background recommendations fetch:', err));
+          .catch(err => console.warn('Background my job matches fetch:', err));
       }
 
     } catch (err) {

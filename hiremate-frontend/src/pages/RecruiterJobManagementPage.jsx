@@ -1792,10 +1792,8 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
         `- Giới tính yêu cầu: ${createForm.genderRequirement || 'Không yêu cầu'}`
       ].join('\n');
 
-      const rawReq = (createForm.requirements || '').trim();
-      const compiledRequirements = rawReq.includes('[TIÊU CHUẨN TUYỂN DỤNG')
-        ? rawReq
-        : `${criteriaSection}\n\n[YÊU CẦU NĂNG LỰC CHI TIẾT]\n${rawReq || '- Nắm vững kiến thức nền tảng và các kỹ năng chuyên môn yêu cầu bên dưới.\n- Tinh thần chủ động, trách nhiệm và khả năng phối hợp nhóm hiệu quả.'}`;
+      const rawReq = extractCleanRequirements(createForm.requirements);
+      const compiledRequirements = `${criteriaSection}\n\n[YÊU CẦU NĂNG LỰC CHI TIẾT]\n${rawReq || '- Nắm vững kiến thức nền tảng và các kỹ năng chuyên môn yêu cầu bên dưới.\n- Tinh thần chủ động, trách nhiệm và khả năng phối hợp nhóm hiệu quả.'}`;
 
       const payload = {
         title: createForm.title,

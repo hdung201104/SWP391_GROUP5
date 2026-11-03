@@ -45,10 +45,6 @@ public class ApplicationResponse {
         return notes != null ? notes : evaluationNotes;
     }
 
-    public String getNotes() {
-        return notes != null ? notes : evaluationNotes;
-    }
-
     public static ApplicationResponseBuilder builder() {
         return new ApplicationResponseBuilder();
     }

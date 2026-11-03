@@ -305,10 +305,6 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
     }
 
     if (role === 'CANDIDATE') {
-      if (dateOfBirth && dateOfBirth > new Date().toLocaleDateString('en-CA')) {
-        setErrorMessage('Ngày sinh không thể là ngày trong tương lai.');
-        return;
-      }
       if (!headline.trim()) {
         setErrorMessage('Vui lòng nhập vị trí mong muốn hoặc định hướng nghề nghiệp (Ví dụ: Frontend Developer).');
         return;
@@ -428,12 +424,14 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
         <div className="lg:col-span-5 relative p-7 sm:p-9 flex flex-col justify-between overflow-hidden min-h-[360px] lg:min-h-full">
           {/* Skyscraper Backdrop */}
           <img
-            src="/assets/auth-bg.jpg"
+            src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1600&auto=format&fit=crop&q=80"
+            onError={(e) => { e.currentTarget.src = '/assets/auth-bg.jpg'; }}
             alt="HireMate AI Corporate Architecture"
-            className="absolute inset-0 w-full h-full object-cover filter blur-[1.5px] scale-105"
+            className="absolute inset-0 w-full h-full object-cover brightness-[0.88] contrast-[1.05] scale-105 transition-transform duration-1000"
           />
           {/* Deep Indigo Glass Gradient Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-br from-[#1e1b4b]/90 via-[#32247b]/85 to-[#47369f]/90 backdrop-blur-[2px]" />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#1e1b4b]/75 via-[#32247b]/65 to-[#47369f]/75" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#1e1b4b]/90 via-transparent to-black/20" />
 
           {/* Top Logo */}
           <div className="relative z-10">
@@ -701,7 +699,6 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
                       <Calendar className="w-4 h-4 text-[#5b48bd] absolute left-3.5 pointer-events-none" />
                       <input
                         type="date"
-                        max={new Date().toLocaleDateString('en-CA')}
                         value={dateOfBirth}
                         onChange={(e) => setDateOfBirth(e.target.value)}
                         className="w-full pl-10 pr-3 py-2.5 bg-white border border-purple-100 focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] placeholder-slate-400 focus:outline-none transition-all font-sans"
