@@ -11,6 +11,7 @@ import java.util.List;
 public interface AiJobMatchService {
     AiJobMatchResponse calculateAndSaveMatch(Candidate candidate, Job job, Cv cv);
     AiJobMatchResponse getOrCalculateMatch(Long jobId, User candidateUser);
+    AiJobMatchResponse evaluateJobWithCv(Long jobId, Long cvId, User candidateUser);
     List<AiJobMatchResponse> getMatchesForJob(Long jobId, User recruiterUser);
     List<AiJobMatchResponse> getMyMatches(User candidateUser);
 
@@ -58,4 +59,10 @@ public interface AiJobMatchService {
      * Báo cáo đánh giá chuyên sâu độc lập có kiểm tra quyền sở hữu (Chống lỗ hổng IDOR).
      */
     com.hiremate.dto.response.AiDetailedEvaluationReport getDetailedCandidateEvaluation(Long jobId, Long candidateId, boolean forceRefresh, User currentUser);
+
+    /**
+     * Lấy hoặc kích hoạt AI viết báo cáo đánh giá chuyên sâu cho Ứng viên (Candidate View).
+     * Phân hạng gói dịch vụ (Free vs Plus/Pro/VIP), kiểm soát hạn mức và lưu trữ vĩnh viễn vào DB.
+     */
+    com.hiremate.dto.response.AiDetailedEvaluationReport getCandidateJobReport(Long jobId, Long cvId, boolean forceRefresh, User candidateUser);
 }

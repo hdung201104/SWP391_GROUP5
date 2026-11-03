@@ -18,13 +18,13 @@ const RECRUITER_SUBSCRIPTION_PLANS = [
     features: [
       { text: 'Đăng tối đa 3 tin tuyển dụng hoạt động cùng lúc', highlight: true },
       { text: 'Xem danh sách ứng viên & Điểm % AI Match tổng quan', highlight: false },
-      { text: '2 Lượt / ngày dùng AI Phân tích JD & Đề xuất kỹ năng', highlight: false },
-      { text: 'Bảng quản lý quy trình ứng tuyển Kanban tiêu chuẩn', highlight: false },
+      { text: 'Tự động tính điểm so khớp hồ sơ theo chuẩn AI Matching 70/30', highlight: false },
+      { text: 'Bảng quản lý quy trình ứng tuyển Kanban tiêu chuẩn 6 giai đoạn', highlight: false },
       { text: 'Tự động gửi Email & Thông báo khi duyệt hồ sơ', highlight: false },
     ],
     missingFeatures: [
       'Mở khóa Báo cáo phân tích khoảng trống kỹ năng (Skill Gap)',
-      'Xem chi tiết Báo cáo Phỏng vấn AI Voice của ứng viên',
+      'Mở khóa Báo cáo đánh giá & thẩm định chuyên sâu từ AI Copilot',
       'Xuất dữ liệu báo cáo ứng viên ra file Excel (.xlsx)',
     ]
   },
@@ -41,13 +41,13 @@ const RECRUITER_SUBSCRIPTION_PLANS = [
     isCurrent: false,
     features: [
       { text: 'Đăng tối đa 10 tin tuyển dụng hoạt động cùng lúc', highlight: true },
-      { text: 'KHÔNG GIỚI HẠN dùng AI Phân tích JD & Trích xuất kỹ năng', highlight: true },
+      { text: 'Tự động phân tích JD & Bóc tách kỹ năng bắt buộc (70%) và ưu tiên (30%)', highlight: true },
       { text: 'Mở khóa Báo cáo phân tích khoảng trống kỹ năng (Skill Gap)', highlight: true },
-      { text: 'Lọc & Xếp hạng ứng viên thông minh theo chuẩn AI 70/30', highlight: true },
+      { text: 'Lọc & Xếp hạng ứng viên thông minh theo chuẩn AI Matching', highlight: true },
       { text: 'Mở khóa tính năng Xuất danh sách ứng viên ra file Excel', highlight: true },
     ],
     missingFeatures: [
-      'Xem chi tiết Báo cáo Phỏng vấn AI Voice của ứng viên',
+      'Mở khóa Báo cáo đánh giá & thẩm định chuyên sâu từ AI Copilot',
       'Duyệt chuyển trạng thái ứng viên hàng loạt (Batch Action)',
     ]
   },
@@ -65,7 +65,7 @@ const RECRUITER_SUBSCRIPTION_PLANS = [
     features: [
       { text: 'Đăng tối đa 30 tin tuyển dụng hoạt động cùng lúc', highlight: true },
       { text: 'Toàn bộ tính năng AI JD Extractor & Phân tích Skill Gap Matrix', highlight: true },
-      { text: 'Mở khóa xem Báo cáo kết quả Phỏng vấn AI Voice của ứng viên', highlight: true },
+      { text: 'Mở khóa Báo cáo Đánh giá & Thẩm định chi tiết AI Copilot (Ưu điểm & Điểm yếu)', highlight: true },
       { text: 'Mở khóa Duyệt & Chuyển trạng thái ứng viên hàng loạt (Batch)', highlight: true },
       { text: 'Xuất báo cáo đánh giá ứng viên ra file Excel chuyên nghiệp', highlight: true },
     ],
@@ -86,7 +86,7 @@ const RECRUITER_SUBSCRIPTION_PLANS = [
     isCurrent: false,
     features: [
       { text: 'KHÔNG GIỚI HẠN số lượng tin đăng tuyển dụng hoạt động', highlight: true },
-      { text: 'Xem trọn vẹn 100% Báo cáo Phỏng vấn AI Voice & Chẩn đoán sâu', highlight: true },
+      { text: 'Xem trọn vẹn 100% Báo cáo Đánh giá & Đối soát chuyên sâu AI Copilot', highlight: true },
       { text: 'Không giới hạn AI Phân tích JD, Skill Gap & Sắp xếp AI 70/30', highlight: true },
       { text: 'Quản lý Kanban nâng cao, Duyệt hàng loạt & Xuất file Excel', highlight: true },
       { text: 'Ưu tiên gắn nhãn Tin tuyển dụng Nổi bật (HOT / TOP)', highlight: true },
@@ -137,10 +137,10 @@ const RECRUITER_ADDONS = [
 const COMPARISON_ROWS = [
   { feature: 'Số tin đăng tuyển dụng hoạt động cùng lúc', free: 'Tối đa 3 tin', starter: 'Tối đa 10 tin', pro: 'Tối đa 30 tin', elite: 'Không giới hạn' },
   { feature: 'Xem danh sách ứng viên & Điểm AI Match', free: '% Match tổng quan', starter: 'Xếp hạng chuẩn AI 70/30', pro: 'Xếp hạng chuẩn AI 70/30', elite: 'Xếp hạng chuẩn AI 70/30' },
-  { feature: 'AI Phân tích JD & Trích xuất kỹ năng', free: '2 Lượt / ngày', starter: 'Không giới hạn', pro: 'Không giới hạn', elite: 'Không giới hạn' },
+  { feature: 'Bóc tách kỹ năng bắt buộc (70%) & ưu tiên (30%)', free: 'Tiêu chuẩn', starter: 'Toàn diện', pro: 'Toàn diện', elite: 'Toàn diện' },
   { feature: 'Báo cáo khoảng trống kỹ năng (Skill Gap)', free: '❌', starter: '✅ Mở khóa', pro: '✅ Skill Gap Matrix', elite: '✅ Skill Gap Matrix sâu' },
   { feature: 'Xuất báo cáo danh sách ứng viên (Excel .xlsx)', free: '❌', starter: '✅ Mở khóa', pro: '✅ Chuyên nghiệp', elite: '✅ Toàn bộ' },
-  { feature: 'Xem Báo cáo Phỏng vấn AI Voice của ứng viên', free: '❌', starter: '❌', pro: '✅ Báo cáo Voice', elite: '✅ 100% Chẩn đoán sâu' },
+  { feature: 'Báo cáo Đánh giá & Thẩm định chi tiết AI Copilot', free: '❌ (Chỉ xem % Match)', starter: '❌ (Chỉ xem Skill Gap)', pro: '✅ Báo cáo chi tiết AI Copilot', elite: '✅ Toàn diện 100% & Không giới hạn' },
   { feature: 'Duyệt chuyển trạng thái hàng loạt (Batch Action)', free: '❌', starter: '❌', pro: '✅ Duyệt hàng loạt', elite: '✅ Duyệt hàng loạt & Gắn nhãn HOT' },
 ];
 
@@ -174,7 +174,7 @@ const getRecruiterEnrichedFeatures = (planName, monthlyPrice, quotaLimit, descri
       tagline: 'Giải pháp tuyển dụng toàn diện và cao cấp nhất cho Tập đoàn & Headhunt chuyên nghiệp.',
       features: [
         { text: 'KHÔNG GIỚI HẠN số lượng tin đăng tuyển dụng hoạt động', highlight: true },
-        { text: 'Xem trọn vẹn 100% Báo cáo Phỏng vấn AI Voice & Chẩn đoán sâu', highlight: true },
+        { text: 'Xem trọn vẹn 100% Báo cáo Đánh giá & Đối soát chuyên sâu AI Copilot', highlight: true },
         { text: 'Không giới hạn AI Phân tích JD, Skill Gap & Sắp xếp AI 70/30', highlight: true },
         { text: 'Quản lý Kanban nâng cao, Duyệt hàng loạt & Xuất file Excel', highlight: true },
         { text: 'Ưu tiên gắn nhãn Tin tuyển dụng Nổi bật (HOT / TOP)', highlight: true },
@@ -190,7 +190,7 @@ const getRecruiterEnrichedFeatures = (planName, monthlyPrice, quotaLimit, descri
       features: [
         { text: `Đăng tối đa ${quota > 0 ? quota : 30} tin tuyển dụng hoạt động cùng lúc`, highlight: true },
         { text: 'Toàn bộ tính năng AI JD Extractor & Phân tích Skill Gap Matrix', highlight: true },
-        { text: 'Mở khóa xem Báo cáo kết quả Phỏng vấn AI Voice của ứng viên', highlight: true },
+        { text: 'Mở khóa Báo cáo Đánh giá & Thẩm định chi tiết AI Copilot (Ưu điểm & Điểm yếu)', highlight: true },
         { text: 'Mở khóa Duyệt & Chuyển trạng thái ứng viên hàng loạt (Batch)', highlight: true },
         { text: 'Xuất báo cáo đánh giá ứng viên ra file Excel chuyên nghiệp', highlight: true },
       ],
@@ -206,13 +206,13 @@ const getRecruiterEnrichedFeatures = (planName, monthlyPrice, quotaLimit, descri
       tagline: 'Gói khởi động tối ưu chi phí dành cho SME, mở khóa toàn bộ công cụ trích xuất JD & Excel.',
       features: [
         { text: `Đăng tối đa ${quota > 0 ? quota : 10} tin tuyển dụng hoạt động cùng lúc`, highlight: true },
-        { text: 'KHÔNG GIỚI HẠN dùng AI Phân tích JD & Trích xuất kỹ năng', highlight: true },
+        { text: 'Tự động phân tích JD & Bóc tách kỹ năng bắt buộc (70%) và ưu tiên (30%)', highlight: true },
         { text: 'Mở khóa Báo cáo phân tích khoảng trống kỹ năng (Skill Gap)', highlight: true },
-        { text: 'Lọc & Xếp hạng ứng viên thông minh theo chuẩn AI 70/30', highlight: true },
+        { text: 'Lọc & Xếp hạng ứng viên thông minh theo chuẩn AI Matching', highlight: true },
         { text: 'Mở khóa tính năng Xuất danh sách ứng viên ra file Excel', highlight: true },
       ],
       missingFeatures: [
-        'Xem chi tiết Báo cáo Phỏng vấn AI Voice của ứng viên',
+        'Mở khóa Báo cáo đánh giá & thẩm định chuyên sâu từ AI Copilot',
         'Duyệt chuyển trạng thái ứng viên hàng loạt (Batch Action)',
       ]
     };
@@ -224,13 +224,13 @@ const getRecruiterEnrichedFeatures = (planName, monthlyPrice, quotaLimit, descri
     features: [
       { text: `Đăng tối đa ${quota > 0 ? quota : 3} tin tuyển dụng hoạt động cùng lúc`, highlight: true },
       { text: 'Xem danh sách ứng viên & Điểm % AI Match tổng quan', highlight: false },
-      { text: '2 Lượt / ngày dùng AI Phân tích JD & Đề xuất kỹ năng', highlight: false },
-      { text: 'Bảng quản lý quy trình ứng tuyển Kanban tiêu chuẩn', highlight: false },
+      { text: 'Tự động tính điểm so khớp hồ sơ theo chuẩn AI Matching 70/30', highlight: false },
+      { text: 'Bảng quản lý quy trình ứng tuyển Kanban tiêu chuẩn 6 giai đoạn', highlight: false },
       { text: 'Tự động gửi Email & Thông báo khi duyệt hồ sơ', highlight: false },
     ],
     missingFeatures: [
       'Mở khóa Báo cáo phân tích khoảng trống kỹ năng (Skill Gap)',
-      'Xem chi tiết Báo cáo Phỏng vấn AI Voice của ứng viên',
+      'Mở khóa Báo cáo đánh giá & thẩm định chuyên sâu từ AI Copilot',
       'Xuất dữ liệu báo cáo ứng viên ra file Excel (.xlsx)',
     ]
   };
@@ -1142,70 +1142,6 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
       );
     })()}
 
-        {/* ADD-ON CREDITS & FEATURED JOBS SECTION */}
-        <div className="bg-white rounded-[32px] p-6 sm:p-8 border border-purple-100 shadow-sm space-y-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[#32247b] text-2xl">add_shopping_cart</span>
-                <h2 className="text-xl sm:text-2xl font-bold text-[#1e1b4b]">
-                  Gói Mua Lẻ Credits &amp; Đẩy Tin Nổi Bật (Add-ons)
-                </h2>
-              </div>
-              <p className="text-xs text-slate-500 mt-1">
-                Mua thêm hạn ngạch tạm thời cho nhà tuyển dụng mà không cần thay đổi gói cước định kỳ.
-              </p>
-            </div>
-            
-            <span className="px-3.5 py-1.5 rounded-full bg-amber-50 text-amber-700 text-xs font-bold border border-amber-200 flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-sm font-bold">all_inclusive</span>
-              <span>Cộng dồn vĩnh viễn</span>
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {RECRUITER_ADDONS.map((addon) => (
-              <div
-                key={addon.id}
-                className="p-5 rounded-2xl bg-slate-50 border border-slate-200/80 hover:border-indigo-300 hover:bg-white transition-all flex flex-col justify-between space-y-4 group shadow-xs hover:shadow-md"
-              >
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className={`w-10 h-10 rounded-xl bg-gradient-to-r ${addon.color} text-white flex items-center justify-center shadow-sm`}>
-                      <span className="material-symbols-outlined text-xl">{addon.icon}</span>
-                    </div>
-                    <span className="px-2.5 py-0.5 rounded-full bg-indigo-100 text-[#32247b] text-[10px] font-bold">
-                      {addon.badge}
-                    </span>
-                  </div>
-
-                  <div>
-                    <h4 className="font-bold text-sm text-[#1e1b4b] group-hover:text-[#32247b] transition-colors">
-                      {addon.name}
-                    </h4>
-                    <p className="text-xs text-slate-500 mt-1 line-clamp-2 font-sans">
-                      {addon.desc}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="pt-3 border-t border-slate-200/60 flex items-center justify-between">
-                  <span className="font-extrabold text-base text-[#32247b]">
-                    {formatVND(addon.price)}
-                  </span>
-
-                  <button
-                    onClick={() => handleOpenAddonModal(addon)}
-                    className="px-3 py-1.5 rounded-xl bg-[#32247b] hover:bg-[#10b981] text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
-                  >
-                    <span>Mua Ngay</span>
-                    <span className="material-symbols-outlined text-xs">arrow_forward</span>
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
 
         {/* COMPARISON MATRIX TABLE */}
         <div className="bg-white rounded-[32px] p-6 sm:p-8 border border-purple-100 shadow-sm space-y-6">

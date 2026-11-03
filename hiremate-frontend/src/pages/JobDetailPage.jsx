@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import ApplyJobModal from '../components/jobs/ApplyJobModal';
-import { jobApi, companyApi, applicationApi } from '../api';
+import { jobApi, companyApi, applicationApi, cvApi, aiMatchApi } from '../api';
 import { isJobSaved, toggleSaveJob } from '../utils/savedJobsStorage';
 import { calculateJobDeadline } from '../utils/jobTimeUtils';
-import { createCandidateToHrMailto } from '../utils/emailUtils';
 import { StaggerContainer, StaggerItem, GlassCard, GlassPanel, BlurReveal, CinematicTitle } from '../components/motion/MotionSystem';
+import AiJobEvaluationReportCard from '../components/jobs/AiJobEvaluationReportCard';
+import { createCandidateToHrMailto } from '../utils/emailUtils';
 
 // Helper for corporate brand logos
 const getBrandLogo = (companyName = '', logoUrl = null) => {
@@ -46,12 +47,30 @@ const getCompanyInitials = (name) => {
 // Intelligently parse raw text into clean bullet points
 const parseCleanBullets = (raw) => {
   if (!raw) return [];
-  const lines = Array.isArray(raw)
-    ? raw.map((item) => (typeof item === 'string' ? item.trim().replace(/^[-*•\d+.]\s*/, '') : ''))
-    : String(raw)
-        .replaceAll('\\n', '\n')
-        .split('\n')
-        .map((l) => l.trim().replace(/^[-*•\d+.]\s*/, ''));
+  let text = '';
+  if (Array.isArray(raw)) {
+    text = raw.map((item) => (typeof item === 'string' ? item : '')).join('\n');
+  } else {
+    text = String(raw).replaceAll('\\n', '\n');
+  }
+
+  // Normalize single-line comma-separated criteria into distinct lines
+  text = text.replace(
+    /,\s*(?:-\s*)?(Cấp bậc|Vị trí|Yêu cầu bằng cấp|Bằng cấp|Trình độ|Học vấn|Kinh nghiệm|Môi trường|Hình thức|Giới tính|\[YÊU CẦU|\[TIÊU CHUẨN)/gi,
+    '\n- $1'
+  );
+
+  // If there is [YÊU CẦU NĂNG LỰC CHI TIẾT], take the text after it
+  if (text.includes('[YÊU CẦU NĂNG LỰC CHI TIẾT]')) {
+    const parts = text.split(/\[YÊU CẦU NĂNG LỰC CHI TIẾT\]/i);
+    if (parts.length > 1 && parts[1].trim()) {
+      text = parts[1].trim();
+    }
+  }
+
+  const lines = text
+    .split('\n')
+    .map((l) => l.trim().replace(/^[-*•·–—\d+.]\s*/, ''));
 
   return lines.filter((l) => {
     if (!l || l.length === 0) return false;
@@ -76,17 +95,41 @@ const extractJobCriteria = (job) => {
     genderLabel: 'Không yêu cầu'
   };
 
-  const reqStr = String(job.requirements || '');
-  const levelMatch = reqStr.match(/(?:Cấp bậc|Vị trí)(?:\s+tuyển dụng)?:\s*([^\n\r]+)/i);
-  const eduMatch = reqStr.match(/(?:Yêu cầu bằng cấp|Bằng cấp|Trình độ học vấn|Học vấn):\s*([^\n\r]+)/i);
-  const expMatch = reqStr.match(/(?:Kinh nghiệm làm việc|Kinh nghiệm):\s*([^\n\r]+)/i);
-  const wpMatch = reqStr.match(/(?:Môi trường làm việc|Môi trường|Hình thức làm việc):\s*([^\n\r]+)/i);
-  const genMatch = reqStr.match(/(?:Giới tính|Giới tính yêu cầu):\s*([^\n\r]+)/i);
+  // Convert job.requirements safely (array or string)
+  let rawStr = '';
+  if (Array.isArray(job.requirements)) {
+    rawStr = job.requirements.join('\n');
+  } else {
+    rawStr = String(job.requirements || '').replaceAll('\\n', '\n');
+  }
+
+  // Also check if criteria are concatenated with commas on one line
+  // e.g. "Cấp bậc: ..., Yêu cầu bằng cấp: ..., Kinh nghiệm: ..."
+  rawStr = rawStr.replace(/,\s*(?:-\s*)?(Cấp bậc|Vị trí|Yêu cầu bằng cấp|Bằng cấp|Trình độ|Học vấn|Kinh nghiệm|Môi trường|Hình thức|Giới tính|\[YÊU CẦU|\[TIÊU CHUẨN)/gi, '\n- $1');
+
+  const cleanField = (val) => {
+    if (!val) return '';
+    // Strip trailing commas, periods, or next field markers
+    let s = val.split(/,\s*(?:-\s*)?(?:Cấp bậc|Vị trí|Yêu cầu bằng cấp|Bằng cấp|Trình độ|Học vấn|Kinh nghiệm|Môi trường|Hình thức|Giới tính|\[YÊU CẦU|\[TIÊU CHUẨN)/i)[0];
+    s = s.replace(/\[(?:YÊU CẦU|TIÊU CHUẨN)[^\]]*\]/gi, '');
+    s = s.replace(/^[-*•·–—]+\s*/, '').replace(/[,.;\s]+$/, '').trim();
+    // If it still contains a comma and is unusually long (> 65 chars), keep only first segment
+    if (s.length > 65 && s.includes(',')) {
+      s = s.split(',')[0].trim();
+    }
+    return s;
+  };
+
+  const levelMatch = rawStr.match(/(?:Cấp bậc|Vị trí)(?:\s+tuyển dụng)?:\s*([^\n\r]+)/i);
+  const eduMatch = rawStr.match(/(?:Yêu cầu bằng cấp|Bằng cấp|Trình độ học vấn|Học vấn):\s*([^\n\r]+)/i);
+  const expMatch = rawStr.match(/(?:Kinh nghiệm làm việc|Kinh nghiệm):\s*([^\n\r]+)/i);
+  const wpMatch = rawStr.match(/(?:Môi trường làm việc|Môi trường|Hình thức làm việc):\s*([^\n\r]+)/i);
+  const genMatch = rawStr.match(/(?:Giới tính|Giới tính yêu cầu):\s*([^\n\r]+)/i);
 
   const t = (job.title || '').toLowerCase();
   const emp = (job.employmentType || '').toLowerCase();
 
-  let jobLevelLabel = levelMatch ? levelMatch[1].trim() : '';
+  let jobLevelLabel = cleanField(levelMatch ? levelMatch[1] : '');
   if (!jobLevelLabel) {
     if (t.includes('intern') || emp.includes('intern')) jobLevelLabel = 'Thực tập sinh (Intern)';
     else if (t.includes('fresher') || emp.includes('fresher')) jobLevelLabel = 'Fresher (Mới ra trường)';
@@ -97,21 +140,21 @@ const extractJobCriteria = (job) => {
     else jobLevelLabel = 'Chuyên viên / Kỹ sư (Middle)';
   }
 
-  let educationLabel = eduMatch ? eduMatch[1].trim() : '';
+  let educationLabel = cleanField(eduMatch ? eduMatch[1] : '');
   if (!educationLabel) {
     if (t.includes('intern') || t.includes('fresher')) educationLabel = 'Đại học / Cử nhân (Sinh viên năm cuối hoặc mới tốt nghiệp)';
     else if (t.includes('ai') || t.includes('data')) educationLabel = 'Đại học / Thạc sĩ chuyên ngành AI, CNTT hoặc tương đương';
     else educationLabel = 'Đại học / Cử nhân chuyên ngành liên quan';
   }
 
-  let experienceLabel = expMatch ? expMatch[1].trim() : '';
+  let experienceLabel = cleanField(expMatch ? expMatch[1] : '');
   if (!experienceLabel) {
     if (t.includes('intern') || t.includes('fresher')) experienceLabel = 'Không yêu cầu kinh nghiệm (Đào tạo thực tế)';
     else if (t.includes('senior')) experienceLabel = 'Tối thiểu 3 - 5 năm kinh nghiệm';
     else experienceLabel = '1 - 3 năm kinh nghiệm làm việc';
   }
 
-  let workplaceLabel = wpMatch ? wpMatch[1].trim() : '';
+  let workplaceLabel = cleanField(wpMatch ? wpMatch[1] : '');
   if (!workplaceLabel) {
     const loc = (job.location || '').toLowerCase();
     if (loc.includes('remote') || t.includes('remote')) workplaceLabel = 'Remote (100% làm việc từ xa)';
@@ -119,7 +162,7 @@ const extractJobCriteria = (job) => {
     else workplaceLabel = 'On-site (Tại văn phòng)';
   }
 
-  const genderLabel = genMatch ? genMatch[1].trim() : 'Không yêu cầu';
+  const genderLabel = cleanField(genMatch ? genMatch[1] : '') || 'Không yêu cầu';
 
   return { jobLevelLabel, educationLabel, experienceLabel, workplaceLabel, genderLabel };
 };
@@ -207,6 +250,11 @@ export default function JobDetailPage({ user: propUser, jobId }) {
   const [relatedJobs, setRelatedJobs] = useState([]);
   const [myCompany, setMyCompany] = useState(null);
   const [myApplication, setMyApplication] = useState(null);
+  const [candidateCvs, setCandidateCvs] = useState([]);
+  const [selectedCvId, setSelectedCvId] = useState('');
+  const [isEvaluatingMatch, setIsEvaluatingMatch] = useState(false);
+  const [matchError, setMatchError] = useState(null);
+  const [matchDetails, setMatchDetails] = useState(null);
 
   const fetchCandidateApplication = () => {
     if (isCandidate && applicationApi?.getMyApplications && currentId) {
@@ -226,9 +274,98 @@ export default function JobDetailPage({ user: propUser, jobId }) {
     }
   };
 
+  const fetchCandidateMatchScore = () => {
+    if (isCandidate && aiMatchApi?.getCandidateJobMatch && currentId) {
+      aiMatchApi.getCandidateJobMatch(currentId)
+        .then((res) => {
+          const payload = res?.data || res;
+          const score = payload?.matchingScore != null ? payload.matchingScore : payload?.data?.matchingScore;
+          if (score != null) {
+            const rounded = Math.round(score);
+            setJob((prev) => (prev ? {
+              ...prev,
+              aiMatchScore: rounded,
+              aiReasoning: payload.aiReasoning || payload?.data?.aiReasoning,
+            } : prev));
+            setMatchDetails(payload.data || payload);
+          }
+        })
+        .catch(() => {});
+    }
+  };
+
   useEffect(() => {
     fetchCandidateApplication();
+    fetchCandidateMatchScore();
   }, [isCandidate, currentId]);
+
+  // Tải danh sách CV của ứng viên để lựa chọn đối soát AI theo yêu cầu
+  useEffect(() => {
+    if (isCandidate && cvApi?.getMyCvs) {
+      cvApi.getMyCvs()
+        .then((res) => {
+          const list = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+          setCandidateCvs(list);
+          const def = list.find((c) => c.isDefault) || list[0];
+          if (def) setSelectedCvId(def.cvId);
+        })
+        .catch(() => {});
+    }
+  }, [isCandidate]);
+
+  const handleEvaluateAiMatch = async () => {
+    if (!job) return;
+    setIsEvaluatingMatch(true);
+    setMatchError(null);
+    try {
+      const res = await aiMatchApi.evaluateJobWithCv(job.jobId || currentId, selectedCvId || undefined);
+      const payload = res?.data || res;
+      const score = payload?.matchingScore != null ? payload.matchingScore : payload?.data?.matchingScore;
+      if (score != null) {
+        const rounded = Math.round(score);
+        setJob((prev) => ({
+          ...prev,
+          aiMatchScore: rounded,
+          aiReasoning: payload.aiReasoning || payload?.data?.aiReasoning,
+        }));
+        setMatchDetails(payload.data || payload);
+      } else {
+        const fallbackRes = await aiMatchApi.getCandidateJobMatch(job.jobId || currentId);
+        const fallbackPayload = fallbackRes?.data || fallbackRes;
+        const fbScore = fallbackPayload?.matchingScore != null ? fallbackPayload.matchingScore : fallbackPayload?.data?.matchingScore;
+        if (fbScore != null) {
+          const rounded = Math.round(fbScore);
+          setJob((prev) => ({
+            ...prev,
+            aiMatchScore: rounded,
+            aiReasoning: fallbackPayload.aiReasoning || fallbackPayload?.data?.aiReasoning,
+          }));
+          setMatchDetails(fallbackPayload.data || fallbackPayload);
+        }
+      }
+    } catch (err) {
+      console.error('Lỗi khi nhờ AI chấm điểm:', err);
+      // Fallback: Thử gọi getCandidateJobMatch để lấy kết quả tính nhanh không bị nghẽn mạng
+      try {
+        const fallbackRes = await aiMatchApi.getCandidateJobMatch(job.jobId || currentId);
+        const fallbackPayload = fallbackRes?.data || fallbackRes;
+        const fbScore = fallbackPayload?.matchingScore != null ? fallbackPayload.matchingScore : fallbackPayload?.data?.matchingScore;
+        if (fbScore != null) {
+          const rounded = Math.round(fbScore);
+          setJob((prev) => ({
+            ...prev,
+            aiMatchScore: rounded,
+            aiReasoning: fallbackPayload.aiReasoning || fallbackPayload?.data?.aiReasoning,
+          }));
+          setMatchDetails(fallbackPayload.data || fallbackPayload);
+          return;
+        }
+      } catch (e) {}
+      setMatchError(err?.response?.data?.message || err?.message || 'Không thể chấm điểm AI. Vui lòng thử lại sau.');
+    } finally {
+      setIsEvaluatingMatch(false);
+    }
+  };
 
   useEffect(() => {
     if (isRecruiter && companyApi?.getMyCompany) {
@@ -426,7 +563,42 @@ export default function JobDetailPage({ user: propUser, jobId }) {
               pref = all.slice(split);
             }
 
+            const rawCompanyStatus = apiData.companyStatus || apiData.company?.status || 'PENDING';
+            let isCompanyVerified = Boolean(apiData.companyVerified || rawCompanyStatus === 'VERIFIED' || rawCompanyStatus === 'ACTIVE');
+            let isCompanyBlocked = Boolean(apiData.companyBlocked || rawCompanyStatus === 'REJECTED' || rawCompanyStatus === 'BANNED' || rawCompanyStatus === 'SUSPENDED');
+            let companyRejectionReason = apiData.companyRejectionReason || apiData.company?.rejectionReason || null;
+
+            try {
+              const adminList = localStorage.getItem('hiremate_admin_companies_list');
+              if (adminList) {
+                const list = JSON.parse(adminList);
+                const matched = list.find((c) =>
+                  (c.name || '').toLowerCase() === (compName || '').toLowerCase() ||
+                  (c.shortName || '').toLowerCase() === (compName || '').toLowerCase()
+                );
+                if (matched) {
+                  if (matched.status === 'REJECTED' || matched.status === 'BANNED' || matched.status === 'SUSPENDED') {
+                    isCompanyBlocked = true;
+                    isCompanyVerified = false;
+                    if (matched.rejectionReason) companyRejectionReason = matched.rejectionReason;
+                  } else if (matched.status === 'VERIFIED' || matched.status === 'ACTIVE') {
+                    isCompanyVerified = true;
+                    isCompanyBlocked = false;
+                  }
+                }
+              }
+            } catch {}
+
+            const isJobClosed = Boolean(apiData.status === 'CLOSED' || isCompanyBlocked);
+
             setJob({
+              raw: apiData,
+              status: apiData.status,
+              isClosed: isJobClosed,
+              companyStatus: rawCompanyStatus,
+              companyVerified: isCompanyVerified,
+              companyBlocked: isCompanyBlocked,
+              companyRejectionReason: companyRejectionReason,
               jobId: apiData.jobId || currentId,
               code: apiData.code || `JD-IT-${apiData.jobId || currentId}`,
               title: apiData.title || 'Vị trí Tuyển Dụng',
@@ -634,6 +806,46 @@ export default function JobDetailPage({ user: propUser, jobId }) {
         {/* ============================================================ */}
         <div className="lg:col-span-8 space-y-5">
 
+          {/* BANNER CẢNH BÁO PHÁP LÝ DOANH NGHIỆP / BÀI ĐĂNG ĐÃ ĐÓNG */}
+          {(job.isClosed || job.companyBlocked) && (
+            <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-rose-50 via-rose-50/95 to-amber-50/80 border-2 border-rose-300 text-rose-950 text-xs shadow-md flex items-start gap-4 animate-in fade-in">
+              <div className="w-11 h-11 rounded-2xl bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
+                <span className="material-symbols-outlined text-2xl">gavel</span>
+              </div>
+              <div className="flex-1 space-y-1.5">
+                <div className="font-black text-rose-900 text-sm sm:text-base flex items-center gap-2 flex-wrap">
+                  <span>
+                    {job.companyBlocked
+                      ? '⚠️ CẢNH BÁO: Doanh nghiệp đã bị Ban Quản Trị tạm ngưng do thiếu/thu hồi Giấy phép kinh doanh'
+                      : '⚠️ THÔNG BÁO: Bài đăng tuyển dụng này hiện đã bị đóng hoặc gỡ bỏ'}
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-600 text-white shadow-2xs">
+                    TẠM NGƯNG TUYỂN DỤNG
+                  </span>
+                </div>
+                <div className="text-slate-800 leading-relaxed font-medium">
+                  {job.companyBlocked ? (
+                    <>
+                      Doanh nghiệp <strong>"{job.companyName}"</strong> hiện đang bị tạm khóa hoạt động tuyển dụng do chưa đáp ứng yêu cầu pháp lý hoặc đã bị Ban Quản Trị thu hồi GPKD. 
+                      {job.companyRejectionReason && (
+                        <div className="mt-1.5 p-2 rounded-xl bg-white/80 border border-rose-200 text-rose-900 font-semibold text-xs">
+                          📌 Lý do đình chỉ: "{job.companyRejectionReason}"
+                        </div>
+                      )}
+                      <p className="mt-1 text-rose-700 font-semibold text-[11px]">
+                        • Hệ thống đã khóa chức năng nộp hồ sơ ứng tuyển trực tuyến và toàn bộ kênh liên hệ HR cho vị trí này.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      Tin tuyển dụng cho vị trí này đã kết thúc đợt nhận hồ sơ. Hệ thống không tiếp nhận thêm hồ sơ mới.
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* 1. HERO HEADER CARD */}
           <section className="rounded-3xl bg-white/80 backdrop-blur-xl border border-white/85 p-6 sm:p-7 shadow-[0_10px_35px_-5px_rgba(59,43,142,0.07)] relative overflow-hidden">
             {/* Top Specular Sheen Highlight */}
@@ -667,11 +879,22 @@ export default function JobDetailPage({ user: propUser, jobId }) {
                     {job.title}
                   </h1>
 
-                  <div className="flex items-center gap-1.5 text-sm font-bold text-[#5b48bd]">
+                  <div className="flex items-center gap-1.5 text-sm font-bold text-[#5b48bd] flex-wrap">
                     <span>{job.companyName}</span>
-                    <span className="material-symbols-outlined text-emerald-500 text-[18px]" title="Doanh nghiệp xác thực">
-                      verified
-                    </span>
+                    {job.companyBlocked ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-700 border border-rose-300 shadow-2xs">
+                        <span className="material-symbols-outlined text-[13px] text-rose-600">block</span>
+                        <span>Đã Đình Chỉ GPKD</span>
+                      </span>
+                    ) : job.companyVerified ? (
+                      <span className="material-symbols-outlined text-emerald-500 text-[18px]" title="Doanh nghiệp đã xác thực GPKD">
+                        verified
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                        Chưa Duyệt GPKD
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-slate-500 font-medium pt-0.5">
@@ -715,24 +938,34 @@ export default function JobDetailPage({ user: propUser, jobId }) {
                   <div className="pt-1.5 flex items-center gap-2.5 flex-wrap">
                     <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700">
                       <span className="material-symbols-outlined text-purple-600 text-[16px]">person</span>
-                      <span>HR: {job.recruiterName}</span>
+                      <span>HR: {job.recruiterName} {job.companyBlocked && <span className="text-rose-500 font-bold ml-1">(Đã khóa liên hệ)</span>}</span>
                     </div>
 
                     {!isJobOwner && (
-                      <a
-                        href={createCandidateToHrMailto({
-                          hrEmail: job.recruiterEmail || 'tuyendung@fpt.com',
-                          hrName: job.recruiterName,
-                          companyName: job.companyName,
-                          jobTitle: job.title,
-                          candidateName: user?.fullName || user?.name || 'Ứng viên',
-                          candidateEmail: user?.email,
-                        })}
-                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold transition-all shadow-2xs hover:shadow-xs cursor-pointer"
-                        title="Gửi email trao đổi trực tiếp với HR phụ trách bài đăng tuyển dụng này"
-                      >
-                        <span>✉️ Gửi Email cho HR</span>
-                      </a>
+                      job.companyBlocked || job.isClosed ? (
+                        <div
+                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-100 border border-slate-200 text-slate-400 text-xs font-bold cursor-not-allowed select-none shadow-2xs"
+                          title={job.companyBlocked ? "Doanh nghiệp đã bị tạm đình chỉ hoạt động nên chức năng liên hệ HR đã bị tạm khóa" : "Vị trí tuyển dụng này đã đóng"}
+                        >
+                          <span className="material-symbols-outlined text-[14px] text-slate-400">lock</span>
+                          <span>Đã Khóa Liên Hệ HR</span>
+                        </div>
+                      ) : (
+                        <a
+                          href={createCandidateToHrMailto({
+                            hrEmail: job.recruiterEmail || 'tuyendung@fpt.com',
+                            hrName: job.recruiterName,
+                            companyName: job.companyName,
+                            jobTitle: job.title,
+                            candidateName: user?.fullName || user?.name || 'Ứng viên',
+                            candidateEmail: user?.email,
+                          })}
+                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold transition-all shadow-2xs hover:shadow-xs cursor-pointer"
+                          title="Gửi email trao đổi trực tiếp với HR phụ trách bài đăng tuyển dụng này"
+                        >
+                          <span>✉️ Gửi Email cho HR</span>
+                        </a>
+                      )
                     )}
                   </div>
                 </div>
@@ -881,15 +1114,34 @@ export default function JobDetailPage({ user: propUser, jobId }) {
                   <>
                     {/* AI Match Pill for Candidate */}
                     {job.aiMatchScore != null ? (
-                      <div className="px-3.5 py-1.5 rounded-full bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 text-[#5b48bd] font-extrabold text-xs flex items-center gap-1.5 shadow-2xs self-end" title="Độ so khớp giữa CV cá nhân của bạn và tiêu chuẩn công việc">
-                        <span className="material-symbols-outlined text-sm text-[#5b48bd]">auto_awesome</span>
-                        <span>Match AI: {job.aiMatchScore}%</span>
+                      <div className="flex items-center gap-1.5 self-end">
+                        <div className="px-3.5 py-1.5 rounded-full bg-gradient-to-r from-orange-50 to-purple-50 border border-orange-200 text-[#ea580c] font-extrabold text-xs flex items-center gap-1.5 shadow-2xs" title={job.aiReasoning || "Độ so khớp giữa CV cá nhân của bạn và tiêu chuẩn công việc"}>
+                          <span className="material-symbols-outlined text-sm text-[#ea580c]">auto_awesome</span>
+                          <span>Match AI: {job.aiMatchScore}%</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleEvaluateAiMatch}
+                          disabled={isEvaluatingMatch}
+                          className="p-1 rounded-full text-slate-400 hover:text-[#5b48bd] hover:bg-purple-50 transition-colors cursor-pointer"
+                          title="Bấm để chấm lại bằng AI"
+                        >
+                          <span className={`material-symbols-outlined text-[15px] ${isEvaluatingMatch ? 'animate-spin text-[#5b48bd]' : ''}`}>refresh</span>
+                        </button>
                       </div>
                     ) : (
-                      <div className="px-3.5 py-1.5 rounded-full bg-slate-50 border border-slate-200 text-slate-600 font-semibold text-xs flex items-center gap-1.5 shadow-2xs self-end">
-                        <span className="material-symbols-outlined text-sm text-[#5b48bd]">psychology</span>
-                        <span>AI đang phân tích độ phù hợp CV</span>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={handleEvaluateAiMatch}
+                        disabled={isEvaluatingMatch}
+                        className="px-3.5 py-1.5 rounded-full bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 text-[#5b48bd] hover:bg-purple-100 font-extrabold text-xs flex items-center gap-1.5 shadow-2xs self-end cursor-pointer transition-all disabled:opacity-50"
+                        title="Bấm để nhờ AI chấm điểm độ phù hợp của bạn với vị trí này"
+                      >
+                        <span className={`material-symbols-outlined text-sm text-[#5b48bd] ${isEvaluatingMatch ? 'animate-spin' : ''}`}>
+                          {isEvaluatingMatch ? 'sync' : 'psychology'}
+                        </span>
+                        <span>{isEvaluatingMatch ? 'AI đang đối soát...' : '✨ Nhờ AI chấm độ phù hợp'}</span>
+                      </button>
                     )}
 
                     {/* Primary Button */}
@@ -901,14 +1153,15 @@ export default function JobDetailPage({ user: propUser, jobId }) {
                         <span className="material-symbols-outlined text-sm">task_alt</span>
                         <span>Đã Ứng Tuyển (Xem tiến trình)</span>
                       </a>
-                    ) : (deadlineInfo.isExpired || (job.status && job.status !== 'ACTIVE' && job.status !== 'OPEN' && job.status !== 'PUBLISHED')) ? (
+                    ) : (job.isClosed || job.companyBlocked || deadlineInfo.isExpired || (job.status && job.status !== 'ACTIVE' && job.status !== 'OPEN' && job.status !== 'PUBLISHED')) ? (
                       <button
                         type="button"
                         disabled
-                        className="w-full md:w-auto px-6 py-2.5 rounded-xl bg-slate-200 text-slate-500 font-bold text-xs cursor-not-allowed flex items-center justify-center gap-1.5"
+                        className="w-full md:w-auto px-6 py-2.5 rounded-xl bg-rose-100 text-rose-700 border border-rose-300 font-bold text-xs cursor-not-allowed flex items-center justify-center gap-1.5 shadow-2xs"
+                        title={job.companyBlocked ? "Doanh nghiệp bị tạm đình chỉ GPKD" : "Tin tuyển dụng đã đóng hoặc hết hạn"}
                       >
-                        <span className="material-symbols-outlined text-sm">event_busy</span>
-                        <span>{deadlineInfo.isExpired ? 'Đã Hết Hạn Nộp' : 'Đã Đóng Tuyển'}</span>
+                        <span className="material-symbols-outlined text-sm">block</span>
+                        <span>{job.companyBlocked ? 'Doanh Nghiệp Bị Đình Chỉ GPKD' : deadlineInfo.isExpired ? 'Đã Hết Hạn Nộp' : 'Đã Đóng Tuyển'}</span>
                       </button>
                     ) : (
                       <button
@@ -1230,6 +1483,26 @@ export default function JobDetailPage({ user: propUser, jobId }) {
               </div>
             )}
           </div>
+
+          {/* ON-DEMAND AI EVALUATION & DETAILED REPORT CARD */}
+          {isCandidate && (
+            <AiJobEvaluationReportCard
+              jobId={job.jobId || currentId}
+              jobTitle={job.title}
+              initialScore={job.aiMatchScore}
+              initialReasoning={job.aiReasoning}
+              candidateCvs={candidateCvs}
+              selectedCvId={selectedCvId}
+              onSelectCv={(cvId) => setSelectedCvId(cvId)}
+              onScoreUpdated={(newScore, newReasoning) => {
+                setJob((prev) => (prev ? {
+                  ...prev,
+                  aiMatchScore: newScore,
+                  aiReasoning: newReasoning || prev.aiReasoning,
+                } : prev));
+              }}
+            />
+          )}
 
           {/* 5. NAVIGATION UNDERLINE TABS */}
           <div className="border-b border-purple-100 flex items-center gap-6 text-xs font-bold pt-1 overflow-x-auto scrollbar-none">
@@ -1696,26 +1969,41 @@ export default function JobDetailPage({ user: propUser, jobId }) {
                         {job.recruiterName ? job.recruiterName.slice(0, 2).toUpperCase() : 'HR'}
                       </div>
                       <div className="min-w-0">
-                        <div className="font-extrabold text-xs text-[#1e1b4b] truncate">{job.recruiterName}</div>
-                        <div className="text-[11px] text-slate-500 font-sans truncate">{job.recruiterEmail || 'hr@fpt.com'}</div>
+                        <div className="font-extrabold text-xs text-[#1e1b4b] truncate">
+                          {job.recruiterName}
+                          {job.companyBlocked && <span className="text-rose-500 font-bold ml-1 block text-[10px]">(Đã khóa liên hệ)</span>}
+                        </div>
+                        <div className="text-[11px] text-slate-500 font-sans truncate">
+                          {job.companyBlocked ? 'Liên hệ bị tạm khóa' : (job.recruiterEmail || 'hr@fpt.com')}
+                        </div>
                       </div>
                     </div>
 
                     {!isJobOwner && (
-                      <a
-                        href={createCandidateToHrMailto({
-                          hrEmail: job.recruiterEmail || 'tuyendung@fpt.com',
-                          hrName: job.recruiterName,
-                          companyName: job.companyName,
-                          jobTitle: job.title,
-                          candidateName: user?.fullName || user?.name || 'Ứng viên',
-                          candidateEmail: user?.email,
-                        })}
-                        className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-xs shadow-sm hover:shadow transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                        title="Mở trình soạn email mặc định hoặc Gmail để liên hệ HR"
-                      >
-                        <span>✉️ Gửi Email cho HR</span>
-                      </a>
+                      job.companyBlocked || job.isClosed ? (
+                        <div
+                          className="w-full py-2.5 px-3 rounded-xl bg-slate-100 border border-slate-200 text-slate-400 font-extrabold text-xs flex items-center justify-center gap-1.5 cursor-not-allowed select-none shadow-2xs"
+                          title={job.companyBlocked ? "Doanh nghiệp đã bị tạm đình chỉ hoạt động nên chức năng liên hệ HR đã bị tạm khóa" : "Vị trí tuyển dụng này đã đóng"}
+                        >
+                          <span className="material-symbols-outlined text-[15px] text-slate-400">lock</span>
+                          <span>Đã Khóa Liên Hệ HR</span>
+                        </div>
+                      ) : (
+                        <a
+                          href={createCandidateToHrMailto({
+                            hrEmail: job.recruiterEmail || 'tuyendung@fpt.com',
+                            hrName: job.recruiterName,
+                            companyName: job.companyName,
+                            jobTitle: job.title,
+                            candidateName: user?.fullName || user?.name || 'Ứng viên',
+                            candidateEmail: user?.email,
+                          })}
+                          className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-xs shadow-sm hover:shadow transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                          title="Mở trình soạn email mặc định hoặc Gmail để liên hệ HR"
+                        >
+                          <span>✉️ Gửi Email cho HR</span>
+                        </a>
+                      )
                     )}
                   </div>
                 </div>

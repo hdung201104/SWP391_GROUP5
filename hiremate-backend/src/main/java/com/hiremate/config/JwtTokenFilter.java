@@ -26,6 +26,7 @@ public class JwtTokenFilter extends OncePerRequestFilter {
     private final JwtUtil jwtUtil;
     private final com.hiremate.service.UserCacheService userCacheService;
     private final com.hiremate.service.TokenBlacklistService tokenBlacklistService;
+    private final com.hiremate.service.UserSessionService userSessionService;
 
     @Override
     protected void doFilterInternal(
@@ -96,6 +97,10 @@ public class JwtTokenFilter extends OncePerRequestFilter {
                     );
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
+
+                    if (userSessionService != null) {
+                        userSessionService.recordOrTouchSession(user.getUserId(), token, request);
+                    }
                 }
             }
         } catch (Exception ex) {

@@ -107,14 +107,13 @@ public class ApplicationServiceImpl implements ApplicationService {
         boolean isPublished = job.getStatus() == com.hiremate.enums.JobStatus.PUBLISHED;
         boolean isApproved = job.getApprovalStatus() == null || job.getApprovalStatus() == com.hiremate.enums.JobApprovalStatus.APPROVED;
         if (!isPublished || !isApproved) {
-            throw new BadRequestException("Tin tuyển dụng này hiện không còn nhận hồ sơ.");
+            throw new BadRequestException("Tin tuyển dụng này hiện đã đóng hoặc không còn nhận hồ sơ.");
         }
 
-        // Kiểm tra trạng thái của Công ty: không cho phép nộp vào công ty BANNED / REJECTED / SUSPENDED
-        if (job.getCompany() != null && (job.getCompany().getStatus() == com.hiremate.enums.CompanyStatus.BANNED
-                || job.getCompany().getStatus() == com.hiremate.enums.CompanyStatus.REJECTED
-                || job.getCompany().getStatus() == com.hiremate.enums.CompanyStatus.SUSPENDED)) {
-            throw new BadRequestException("Doanh nghiệp tuyển dụng vị trí này hiện đang tạm ngưng tiếp nhận hồ sơ.");
+        // Kiểm tra trạng thái của Công ty: không cho phép nộp vào công ty BANNED / REJECTED / SUSPENDED hoặc chưa VERIFIED
+        if (job.getCompany() != null && (job.getCompany().getStatus() != com.hiremate.enums.CompanyStatus.VERIFIED
+                && job.getCompany().getStatus() != com.hiremate.enums.CompanyStatus.ACTIVE)) {
+            throw new BadRequestException("Doanh nghiệp này chưa hoàn tất thẩm định Giấy phép kinh doanh (GPKD) hoặc đang bị tạm ngưng hoạt động. Hiện không thể tiếp nhận hồ sơ ứng tuyển.");
         }
 
         // Kiểm tra hạn chót nộp hồ sơ
@@ -280,10 +279,6 @@ public class ApplicationServiceImpl implements ApplicationService {
             } else {
                 throw new BadRequestException("Bạn đang có hồ sơ ứng tuyển cho vị trí này (trạng thái: " + existingApp.getStatus() + "). Vui lòng theo dõi tiến trình tại mục Việc làm đã ứng tuyển.");
             }
-        }
-
-        if (cv == null) {
-            throw new BadRequestException("Vui lòng tải lên hoặc chọn một CV trước khi ứng tuyển!");
         }
 
         Application application = Application.builder()
@@ -533,6 +528,20 @@ public class ApplicationServiceImpl implements ApplicationService {
         // Kiểm tra quyền: recruiter đăng tin, recruiter cùng công ty, hoặc ADMIN
         if (!isAuthorizedRecruiterForJob(job, user)) {
             throw new SecurityException("Unauthorized to modify this application.");
+        }
+
+        // BẢO VỆ PHÁP LÝ & QUY TRÌNH: Chặn thao tác nếu Doanh nghiệp bị đình chỉ / từ chối GPKD hoặc chưa có GPKD
+        Company company = job != null ? job.getCompany() : null;
+        if (user.getRole() != com.hiremate.enums.UserRole.ADMIN) {
+            if (company != null && (company.getStatus() == com.hiremate.enums.CompanyStatus.REJECTED
+                    || company.getStatus() == com.hiremate.enums.CompanyStatus.BANNED
+                    || company.getStatus() == com.hiremate.enums.CompanyStatus.SUSPENDED
+                    || company.getStatus() == com.hiremate.enums.CompanyStatus.PENDING)) {
+                throw new BadRequestException("Doanh nghiệp của bạn đang bị đình chỉ hoạt động hoặc chưa có Giấy phép kinh doanh (GPKD) hợp lệ. Quyền duyệt hồ sơ, xếp lịch phỏng vấn và gửi Offer cho ứng viên đã bị tạm khóa!");
+            }
+            if (job != null && job.getStatus() == com.hiremate.enums.JobStatus.CLOSED) {
+                throw new BadRequestException("Tin tuyển dụng này đã bị đóng. Không thể tiếp tục thay đổi trạng thái hồ sơ ứng viên.");
+            }
         }
 
         // Chặn không cho phép thay đổi trạng thái nếu ứng viên đã chủ động rút đơn hoặc đã từ chối Offer
@@ -818,6 +827,20 @@ public class ApplicationServiceImpl implements ApplicationService {
                     || app.getRejectionReason().toLowerCase().contains("từ chối offer")
                     || app.getRejectionReason().toLowerCase().contains("từ chối lời mời nhận việc"));
 
+        String rawJobStatus = job != null && job.getStatus() != null ? job.getStatus().name() : "PUBLISHED";
+        String rawCompanyStatus = company != null && company.getStatus() != null ? company.getStatus().name() : "PENDING";
+        boolean isCompanyVerified = company != null && (
+                company.getStatus() == com.hiremate.enums.CompanyStatus.VERIFIED ||
+                company.getStatus() == com.hiremate.enums.CompanyStatus.ACTIVE
+        );
+        boolean isCompanyBlocked = company != null && (
+                company.getStatus() == com.hiremate.enums.CompanyStatus.REJECTED ||
+                company.getStatus() == com.hiremate.enums.CompanyStatus.BANNED ||
+                company.getStatus() == com.hiremate.enums.CompanyStatus.SUSPENDED
+        );
+        String companyRejectionReason = company != null ? company.getRejectionReason() : null;
+        boolean isJobClosed = (job != null && job.getStatus() == com.hiremate.enums.JobStatus.CLOSED) || isCompanyBlocked;
+
         return ApplicationResponse.builder()
                 .applicationId(app.getApplicationId())
                 .jobId(job != null ? job.getJobId() : null)
@@ -842,6 +865,12 @@ public class ApplicationServiceImpl implements ApplicationService {
                 .notes(app.getEvaluationNotes())
                 .rejectionReason(app.getRejectionReason())
                 .createdAt(app.getCreatedAt())
+                .jobStatus(rawJobStatus)
+                .companyStatus(rawCompanyStatus)
+                .companyVerified(isCompanyVerified)
+                .companyBlocked(isCompanyBlocked)
+                .companyRejectionReason(companyRejectionReason)
+                .jobClosed(isJobClosed)
                 .build();
     }
 

@@ -43,6 +43,7 @@ export const pageTransitionVariants = {
     y: 0,
     scale: 1,
     transition: { duration: 0.42, ease: EASE_CINEMATIC },
+    transitionEnd: { transform: 'none' },
   },
   exit: {
     opacity: 0,
@@ -75,7 +76,7 @@ export function PageTransition({ children, className = '', routeKey = '', ...pro
       ref={ref}
       variants={pageTransitionVariants}
       initial={useShared ? sharedInitial : 'initial'}
-      animate={useShared ? { opacity: 1, x: 0, y: 0, scale: 1, transition: SHARED_SPRING } : 'animate'}
+      animate={useShared ? { opacity: 1, x: 0, y: 0, scale: 1, transition: SHARED_SPRING, transitionEnd: { transform: 'none' } } : 'animate'}
       exit="exit"
       className={`w-full ${className}`}
       {...props}

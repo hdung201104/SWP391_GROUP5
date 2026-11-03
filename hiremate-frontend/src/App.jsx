@@ -524,7 +524,7 @@ function AppContent() {
         </div>
 
         {/* Outer Mindskills Glass Canvas Container - Crisp, clean, luminous light surface */}
-        <div className="relative z-10 flex flex-col min-h-[calc(100vh-2rem)] md:min-h-[calc(100vh-3rem)] justify-between bg-white/95 backdrop-blur-xl rounded-2xl md:rounded-[32px] shadow-[0_20px_50px_-10px_rgba(40,25,90,0.07)] overflow-hidden border border-purple-100/70">
+        <div className="relative z-10 flex flex-col min-h-[calc(100vh-2rem)] md:min-h-[calc(100vh-3rem)] justify-between bg-white/95 rounded-2xl md:rounded-[32px] shadow-[0_20px_50px_-10px_rgba(40,25,90,0.07)] border border-purple-100/70">
           {!hideGlobalLayout && (
             <motion.div
               initial={{ opacity: 0, y: -14 }}

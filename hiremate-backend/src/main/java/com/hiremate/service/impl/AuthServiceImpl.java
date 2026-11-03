@@ -25,8 +25,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -75,8 +73,6 @@ public class AuthServiceImpl implements AuthService {
         if (role == UserRole.ADMIN) {
             throw new BadRequestException("Không thể đăng ký tài khoản với vai trò Quản trị viên (ADMIN) qua cổng công khai.");
         }
-
-        validateDateOfBirth(request.getDateOfBirth());
 
         User user = User.builder()
                 .email(request.getEmail().toLowerCase().trim())
@@ -145,6 +141,7 @@ public class AuthServiceImpl implements AuthService {
                     ? request.getBranchAddress().trim()
                     : (request.getCompanyAddress() != null ? request.getCompanyAddress().trim() : (request.getLocation() != null ? request.getLocation().trim() : ""));
 
+            boolean isPinVerified = false;
             if (company == null) {
                 isNewCompany = true;
                 String initialBranchesJson = initOrAppendBranch(null, bName, bAddr, request.getCompanySize(), savedUser.getUserId(), savedUser.getFullName(), true);
@@ -166,19 +163,36 @@ public class AuthServiceImpl implements AuthService {
                         .build();
                 company = companyRepository.saveAndFlush(company);
             } else {
-                // Công ty đã tồn tại: KHÔNG gán thẳng quyền công ty (Chống chiếm quyền công ty / Company Takeover)
-                // Lưu yêu cầu gia nhập vào pendingJoinRequests trong branchesJson của công ty
-                String updatedBranches = appendPendingJoinRequest(company.getBranchesJson(), savedUser, request, bName, bAddr);
-                company.setBranchesJson(updatedBranches);
-                companyRepository.save(company);
+                // Công ty đã tồn tại: Kiểm tra xem người dùng có cung cấp Mã HR PIN hợp lệ không
+                String inputPin = request.getCompanyHrPin() != null ? request.getCompanyHrPin().trim() : "";
+                if (!inputPin.isEmpty()) {
+                    if (isCompanyHrPinValid(company, inputPin)) {
+                        isPinVerified = true;
+                        log.info(">> [AuthService] HR PIN xác thực THÀNH CÔNG cho {} gia nhập công ty {} ({})",
+                                savedUser.getEmail(), company.getCompanyName(), bName);
+                        // Tự động thêm chi nhánh mới vào công ty nếu chưa tồn tại
+                        String updatedBranches = initOrAppendBranch(company.getBranchesJson(), bName, bAddr, company.getCompanySize(), savedUser.getUserId(), savedUser.getFullName(), false);
+                        company.setBranchesJson(updatedBranches);
+                        companyRepository.save(company);
+                    } else {
+                        throw new BadRequestException("Mã số xác nhận gia nhập HR (HR PIN: " + inputPin + ") không chính xác cho doanh nghiệp \"" + company.getCompanyName() + "\". Vui lòng kiểm tra lại mã từ Trụ sở chính hoặc chọn gửi yêu cầu chờ duyệt.");
+                    }
+                } else {
+                    // Chưa có mã PIN: KHÔNG gán thẳng quyền công ty (Chống chiếm quyền công ty / Company Takeover)
+                    // Lưu yêu cầu gia nhập vào pendingJoinRequests trong branchesJson của công ty
+                    String updatedBranches = appendPendingJoinRequest(company.getBranchesJson(), savedUser, request, bName, bAddr);
+                    company.setBranchesJson(updatedBranches);
+                    companyRepository.save(company);
+                }
             }
 
             // 2. Tạo Recruiter subclass record
-            // Nếu là công ty mới thì liên kết ngay, nếu công ty đã tồn tại thì company = null chờ Head Recruiter phê duyệt
+            // Nếu là công ty mới hoặc nhập đúng PIN thì liên kết ngay; nếu chờ duyệt thì company = null
+            boolean shouldLinkCompany = isNewCompany || isPinVerified;
             Recruiter recruiter = Recruiter.builder()
                     .recruiterId(savedUser.getUserId())  // Shared PK
                     .user(savedUser)
-                    .company(isNewCompany ? company : null)
+                    .company(shouldLinkCompany ? company : null)
                     .position(request.getPosition() != null && !request.getPosition().isBlank() ? request.getPosition().trim() : "HR Recruiter")
                     .department(request.getDepartment() != null && !request.getDepartment().isBlank() ? request.getDepartment().trim() : "Phòng Tuyển dụng & Nhân sự")
                     .branchName(bName)
@@ -187,15 +201,50 @@ public class AuthServiceImpl implements AuthService {
                     .build();
             Recruiter savedRecruiter = recruiterRepository.saveAndFlush(recruiter);
 
-            // 3. Nếu là công ty mới, gán recruiter này làm đại diện và cấp companyId
+            // 3. Xử lý quyền và gửi thông báo
             if (isNewCompany) {
                 company.setRecruiterId(savedRecruiter.getRecruiterId());
                 companyRepository.save(company);
                 companyId = company.getCompanyId();
-            } else {
-                companyId = null; // Chưa được duyệt, không cấp quyền truy cập dữ liệu nội bộ công ty
+            } else if (isPinVerified) {
+                companyId = company.getCompanyId();
 
-                // 4. Gửi thông báo hệ thống đến các HR hiện tại của công ty để xem xét phê duyệt
+                // Gửi thông báo đến HR Trụ sở chính biết có nhân sự chi nhánh mới gia nhập qua PIN
+                try {
+                    List<Recruiter> existingRecruiters = recruiterRepository.findAllByCompany_CompanyId(company.getCompanyId());
+                    for (Recruiter existing : existingRecruiters) {
+                        if (!existing.getRecruiterId().equals(savedUser.getUserId())) {
+                            notificationService.createNotification(
+                                    existing.getRecruiterId(),
+                                    com.hiremate.enums.NotificationType.SYSTEM_ALERT,
+                                    "Thành viên HR mới gia nhập qua Mã HR PIN",
+                                    "Chuyên viên nhân sự " + savedUser.getFullName() + " (" + savedUser.getEmail() + ") đã dùng Mã HR PIN của công ty để kết nối thành công vào chi nhánh [" + bName + "].",
+                                    company.getCompanyId(),
+                                    "companies"
+                            );
+                        }
+                    }
+                } catch (Exception notifEx) {
+                    log.warn(">> [AuthService] Không thể gửi thông báo cho HR cùng công ty: {}", notifEx.getMessage());
+                }
+
+                // Gửi thông báo chúc mừng cho chính HR vừa gia nhập
+                try {
+                    notificationService.createNotification(
+                            savedUser.getUserId(),
+                            com.hiremate.enums.NotificationType.SYSTEM_ALERT,
+                            "Gia nhập doanh nghiệp thành công",
+                            "Chào mừng bạn gia nhập đội ngũ tuyển dụng của " + company.getCompanyName() + " tại chi nhánh [" + bName + "]. Bạn hiện đã có toàn quyền đăng tin và tuyển dụng.",
+                            company.getCompanyId(),
+                            "companies"
+                    );
+                } catch (Exception notifEx) {
+                    log.warn(">> [AuthService] Không thể gửi thông báo cho HR vừa gia nhập: {}", notifEx.getMessage());
+                }
+            } else {
+                companyId = null; // Chưa có PIN, chờ Head Recruiter phê duyệt
+
+                // Gửi thông báo đến các HR hiện tại của công ty để xem xét phê duyệt
                 try {
                     List<Recruiter> existingRecruiters = recruiterRepository.findAllByCompany_CompanyId(company.getCompanyId());
                     for (Recruiter existing : existingRecruiters) {
@@ -223,7 +272,7 @@ public class AuthServiceImpl implements AuthService {
                             "companies"
                     );
                 } catch (Exception notifEx) {
-                    log.warn(">> [AuthService] Không thể gửi thông báo cho HR mới: {}", notifEx.getMessage());
+                    log.warn(">> [AuthService] Không thể gửi thông báo chờ duyệt: {}", notifEx.getMessage());
                 }
             }
         }
@@ -372,6 +421,12 @@ public class AuthServiceImpl implements AuthService {
     public String sendOtp(SendOtpRequest request) {
         String email = request.getEmail().toLowerCase().trim();
         String purpose = request.getPurpose() != null ? request.getPurpose() : "REGISTER";
+
+        if ("REGISTER".equalsIgnoreCase(purpose)) {
+            if (userRepository.existsByEmail(email)) {
+                throw new IllegalArgumentException("Email này (" + email + ") đã được đăng ký tài khoản trong hệ thống. Vui lòng đăng nhập hoặc sử dụng email khác!");
+            }
+        }
 
         if ("FORGOT_PASSWORD".equalsIgnoreCase(purpose) || "CHANGE_PASSWORD".equalsIgnoreCase(purpose)) {
             if (!userRepository.existsByEmail(email)) {
@@ -564,7 +619,6 @@ public class AuthServiceImpl implements AuthService {
         }
 
         UserRole role = request.getRole() != null ? request.getRole() : UserRole.CANDIDATE;
-        validateDateOfBirth(request.getDateOfBirth());
         String rawPassword = (request.getPassword() != null && !request.getPassword().isBlank())
                 ? request.getPassword().trim()
                 : ("GoogleOAuth2_" + UUID.randomUUID());
@@ -625,6 +679,7 @@ public class AuthServiceImpl implements AuthService {
                     ? request.getBranchAddress().trim()
                     : (request.getCompanyAddress() != null ? request.getCompanyAddress().trim() : (user.getAddress() != null ? user.getAddress() : "Việt Nam"));
 
+            boolean isPinVerified = false;
             if (company == null) {
                 isNewComp = true;
                 String initialBranchesJson = initOrAppendBranch(null, bName, bAddr, request.getCompanySize(), user.getUserId(), user.getFullName(), true);
@@ -643,9 +698,26 @@ public class AuthServiceImpl implements AuthService {
                         .build();
                 company = companyRepository.saveAndFlush(company);
             } else {
-                // Tự động kiểm tra và thêm chi nhánh mới nếu chưa có
-                String updatedBranches = initOrAppendBranch(company.getBranchesJson(), bName, bAddr, company.getCompanySize(), user.getUserId(), user.getFullName(), false);
-                company.setBranchesJson(updatedBranches);
+                String inputPin = request.getCompanyHrPin() != null ? request.getCompanyHrPin().trim() : "";
+                if (!inputPin.isEmpty()) {
+                    if (isCompanyHrPinValid(company, inputPin)) {
+                        isPinVerified = true;
+                        String updatedBranches = initOrAppendBranch(company.getBranchesJson(), bName, bAddr, company.getCompanySize(), user.getUserId(), user.getFullName(), false);
+                        company.setBranchesJson(updatedBranches);
+                    } else {
+                        throw new BadRequestException("Mã số xác nhận gia nhập HR (HR PIN: " + inputPin + ") không chính xác cho doanh nghiệp \"" + company.getCompanyName() + "\". Vui lòng kiểm tra lại mã từ Trụ sở chính.");
+                    }
+                } else if (company.getRecruiterId() == null) {
+                    isPinVerified = true;
+                } else {
+                    // Chưa có mã PIN: Lưu vào pendingJoinRequests chờ duyệt
+                    RegisterRequest tempReq = new RegisterRequest();
+                    tempReq.setPosition(request.getPosition());
+                    tempReq.setDepartment(request.getDepartment());
+                    String updatedBranches = appendPendingJoinRequest(company.getBranchesJson(), user, tempReq, bName, bAddr);
+                    company.setBranchesJson(updatedBranches);
+                }
+
                 if ((company.getTaxCode() == null || company.getTaxCode().isBlank()) && request.getTaxCode() != null) {
                     company.setTaxCode(request.getTaxCode().trim());
                 }
@@ -656,10 +728,11 @@ public class AuthServiceImpl implements AuthService {
                 companyRepository.save(company);
             }
 
+            boolean shouldLinkCompany = isNewComp || isPinVerified;
             Recruiter recruiter = Recruiter.builder()
                     .recruiterId(user.getUserId())
                     .user(user)
-                    .company(company)
+                    .company(shouldLinkCompany ? company : null)
                     .position(request.getPosition() != null && !request.getPosition().isBlank() 
                             ? request.getPosition().trim() 
                             : "HR Recruiter")
@@ -1078,15 +1151,33 @@ public class AuthServiceImpl implements AuthService {
         }
     }
 
-    private void validateDateOfBirth(String dobStr) {
-        if (dobStr != null && !dobStr.isBlank()) {
-            try {
-                LocalDate dob = LocalDate.parse(dobStr.trim());
-                if (dob.isAfter(LocalDate.now())) {
-                    throw new BadRequestException("Ngày sinh không thể là ngày trong tương lai.");
-                }
-            } catch (DateTimeParseException ignored) {
+    private boolean isCompanyHrPinValid(Company company, String rawPin) {
+        if (company == null || rawPin == null || rawPin.isBlank()) {
+            return false;
+        }
+        String pin = rawPin.trim().toUpperCase();
+        String rawTax = company.getTaxCode() != null ? company.getTaxCode().trim() : "";
+        String cleanTax = rawTax.replaceAll("[^a-zA-Z0-9]", "").toUpperCase();
+        String rawName = company.getCompanyName() != null ? company.getCompanyName().trim() : "HR";
+        String shortComp = rawName.replaceAll("[^a-zA-Z0-9]", "").toUpperCase();
+        if (shortComp.length() > 4) {
+            shortComp = shortComp.substring(0, 4);
+        }
+
+        // 1. Kiểm tra format: HM-<taxCode> hoặc <taxCode> (VD: HM-0303987654 hoặc 0303987654)
+        if (!cleanTax.isEmpty()) {
+            if (pin.equalsIgnoreCase("HM-" + cleanTax) || pin.equalsIgnoreCase(cleanTax)) {
+                return true;
             }
         }
+        // 2. Kiểm tra format: HM-<shortComp>-2026 hoặc HM-<shortComp> (VD: HM-VNG-2026 hoặc HM-VNG)
+        if (!shortComp.isEmpty()) {
+            if (pin.equalsIgnoreCase("HM-" + shortComp + "-2026")
+                    || pin.equalsIgnoreCase("HM-" + shortComp)
+                    || pin.equalsIgnoreCase(shortComp)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

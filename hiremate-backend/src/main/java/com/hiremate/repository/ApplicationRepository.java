@@ -110,6 +110,9 @@ public interface ApplicationRepository extends JpaRepository<Application, Long> 
     @Query("SELECT COUNT(a) > 0 FROM Application a WHERE a.candidate.candidateId = :candidateId AND a.job.company.companyId = :companyId")
     boolean existsByCandidateIdAndCompanyId(@Param("candidateId") Long candidateId, @Param("companyId") Long companyId);
 
+    @Query("SELECT COUNT(a) > 0 FROM Application a WHERE a.candidate.candidateId = :candidateId AND a.job.recruiter.recruiterId = :recruiterId")
+    boolean existsByCandidateIdAndRecruiterId(@Param("candidateId") Long candidateId, @Param("recruiterId") Long recruiterId);
+
     /** Đếm các đơn ứng tuyển đang hoạt động/xét duyệt có sử dụng CV này */
     @Query("SELECT COUNT(a) FROM Application a WHERE a.cv.cvId = :cvId AND a.status NOT IN (com.hiremate.enums.ApplicationStatus.REJECTED)")
     long countActiveApplicationsByCvId(@Param("cvId") Long cvId);

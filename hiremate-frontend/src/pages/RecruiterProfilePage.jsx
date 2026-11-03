@@ -194,43 +194,44 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
     };
   };
 
-  // Team HR trực thuộc cùng doanh nghiệp
+  // Active Job Openings List
+  const [jobsList, setJobsList] = useState([]);
+
+  // Team HR trực thuộc cùng doanh nghiệp (Dữ liệu thành viên thực tế)
   const [companyTeam, setCompanyTeam] = useState(() => {
     try {
       const saved = localStorage.getItem(`hiremate_company_team_${companyKey}`);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const clean = parsed.filter(m => m.name !== 'Hoàng Yến' && m.name !== 'Nguyễn Minh Anh' && m.email !== 'recruitment@vng.com.vn');
+          if (clean.length > 0) return clean;
+        }
+      }
     } catch {}
-    const isVng = (user?.companyName || '').toLowerCase().includes('vng');
     return [
       {
-        id: 'hr_1',
-        name: isVng ? 'Hoàng Yến' : 'Nguyễn Minh Anh',
-        email: isVng ? 'recruitment@vng.com.vn' : 'hr.lead@company.com',
-        phone: '0912 345 678',
-        role: 'Talent Acquisition Director',
-        department: 'Ban Tuyển Dụng & Thu Hút Nhân Tài',
-        isRepresentative: true,
-        joinedAt: '01/01/2026',
-        avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop&q=80',
-        activeJobs: 4,
-      },
-      {
-        id: 'hr_2',
-        name: user?.fullName || 'Lê Hoàng Nam',
-        email: user?.email || 'recruiter@hiremate.ai',
-        phone: user?.phone || '0988 777 666',
-        role: 'Senior Tech Recruiter',
-        department: 'Ban Kỹ Thuật & Công Nghệ',
-        isRepresentative: false,
-        joinedAt: '12/03/2026',
-        avatar: user?.avatarUrl || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80',
-        activeJobs: 2,
+        id: `hr_${user?.userId || user?.id || 'main'}`,
+        recruiterId: user?.userId || user?.id || 1,
+        name: user?.fullName || 'Chuyên viên Nhân sự',
+        email: user?.email || '',
+        phone: user?.phone || 'Chưa cập nhật',
+        role: user?.position || (user?.isHeadRecruiter !== false ? 'Trưởng Ban Tuyển Dụng (Head Recruiter)' : 'Chuyên viên Tuyển dụng'),
+        position: user?.position || 'Chuyên viên Tuyển dụng',
+        department: user?.department || 'Phòng Nhân Sự',
+        branchName: user?.branchName || 'Trụ sở chính',
+        isRepresentative: user?.isHeadRecruiter !== false,
+        joinedAt: user?.createdAt ? new Date(user.createdAt).toLocaleDateString('vi-VN') : 'Hiện tại',
+        avatar: user?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+        activeJobs: 0,
       },
     ];
   });
 
   // Modals for Legal preview & Team invite
   const [showLicensePreviewModal, setShowLicensePreviewModal] = useState(false);
+  const [pendingJoinRequests, setPendingJoinRequests] = useState([]);
+  const [isProcessingJoinReq, setIsProcessingJoinReq] = useState(false);
   const [licenseModalTab, setLicenseModalTab] = useState('certificate'); // 'certificate' | 'scan'
   const [scanZoom, setScanZoom] = useState(100);
   const [scanRotate, setScanRotate] = useState(0);
@@ -545,8 +546,63 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
     }
   };
 
-  // Active Job Openings List
-  const [jobsList, setJobsList] = useState([]);
+  const handleApproveJoinRequest = async (reqId, reqEmail) => {
+    const targetIdentifier = reqEmail || reqId;
+    try {
+      setIsProcessingJoinReq(true);
+      if (companyApi?.approveJoinRequest && targetIdentifier) {
+        await companyApi.approveJoinRequest(targetIdentifier);
+      }
+      setPendingJoinRequests((prev) => prev.filter((r) => r.id !== reqId && r.email !== reqEmail));
+      triggerToast('🎉 Đã phê duyệt nhân sự gia nhập đội ngũ công ty thành công!');
+      // Nạp lại danh sách thành viên thực tế
+      try {
+        const teamRes = await companyApi.getCompanyMembers();
+        const members = teamRes?.data?.data || teamRes?.data;
+        if (Array.isArray(members) && members.length > 0) {
+          const mappedTeam = members.map((m) => ({
+            id: `hr_${m.recruiterId}`,
+            recruiterId: m.recruiterId,
+            name: m.fullName || m.name || (m.email ? m.email.split('@')[0] : 'Thành viên HR'),
+            email: m.email,
+            phone: m.phone || 'Chưa cập nhật',
+            role: m.position || 'Chuyên viên Nhân sự',
+            position: m.position || 'Chuyên viên Nhân sự',
+            department: m.department || 'Phòng Tuyển Dụng',
+            branchName: m.branchName || 'Trụ sở chính',
+            branchAddress: m.branchAddress || '',
+            isRepresentative: Boolean(m.isRepresentative),
+            joinedAt: m.joinedAt ? new Date(m.joinedAt).toLocaleDateString('vi-VN') : 'Thành viên doanh nghiệp',
+            avatar: m.avatarUrl || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop&q=80',
+            activeJobs: m.activeJobsCount || 0,
+          }));
+          setCompanyTeam(mappedTeam);
+        }
+      } catch (err) {
+        console.warn('Lỗi nạp lại danh sách team sau duyệt:', err);
+      }
+    } catch (apiErr) {
+      triggerToast('Lỗi phê duyệt yêu cầu: ' + (apiErr?.response?.data?.message || apiErr?.message));
+    } finally {
+      setIsProcessingJoinReq(false);
+    }
+  };
+
+  const handleRejectJoinRequest = async (reqId, reqEmail) => {
+    const targetIdentifier = reqEmail || reqId;
+    try {
+      setIsProcessingJoinReq(true);
+      if (companyApi?.rejectJoinRequest && targetIdentifier) {
+        await companyApi.rejectJoinRequest(targetIdentifier);
+      }
+      setPendingJoinRequests((prev) => prev.filter((r) => r.id !== reqId && r.email !== reqEmail));
+      triggerToast('Đã từ chối yêu cầu gia nhập công ty.');
+    } catch (apiErr) {
+      triggerToast('Lỗi từ chối yêu cầu: ' + (apiErr?.response?.data?.message || apiErr?.message));
+    } finally {
+      setIsProcessingJoinReq(false);
+    }
+  };
 
   // Fetch real company info & active jobs from Supabase
   const fetchBillingData = async () => {
@@ -710,6 +766,17 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
           }
         } catch (teamErr) {
           console.warn('Không thể tải danh sách đồng nghiệp HR từ backend:', teamErr);
+        }
+
+        // Tải danh sách yêu cầu gia nhập chờ duyệt
+        try {
+          if (companyApi?.getPendingJoinRequests) {
+            const pendRes = await companyApi.getPendingJoinRequests();
+            const list = pendRes?.data?.data || pendRes?.data || [];
+            setPendingJoinRequests(Array.isArray(list) ? list : []);
+          }
+        } catch (pendErr) {
+          console.warn('Không thể tải danh sách yêu cầu chờ duyệt:', pendErr);
         }
 
         // Đồng bộ danh sách phúc lợi (benefitsJson hoặc benefits) từ Backend
@@ -966,41 +1033,51 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
     return defaultCompanyBenefits;
   });
 
-  // Default Offices & Campuses (Dynamically adapts to the current company)
+  // Phân quyền theo cấp bậc: Trụ sở chính (Head Recruiter) vs Chi nhánh (Branch Recruiter)
+  const isHeadOffice = React.useMemo(() => {
+    if (user?.role === 'ADMIN') return true;
+    if (user?.isHeadRecruiter === true) return true;
+    const branch = (user?.branchName || '').trim().toLowerCase();
+    return !branch || branch === 'trụ sở chính' || branch.includes('trụ sở') || branch === 'headquarters';
+  }, [user]);
+
+  // Mã số xác nhận gia nhập doanh nghiệp dành cho HR mới (Company HR Organization PIN)
+  const companyHrCode = React.useMemo(() => {
+    const rawTax = companyLegal.taxCode || companyInfo.taxCode || '';
+    const cleanTax = rawTax.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+    const shortComp = (companyInfo.name || user?.companyName || 'HR').replace(/[^a-zA-Z0-9]/g, '').slice(0, 4).toUpperCase();
+    return cleanTax ? `HM-${cleanTax}` : `HM-${shortComp}-2026`;
+  }, [companyLegal.taxCode, companyInfo.taxCode, companyInfo.name, user?.companyName]);
+
+  // Default Offices: Chỉ tạo Trụ sở chính động từ thông tin thực tế của doanh nghiệp, không hardcode dummy
   const defaultOfficeLocations = [
     {
-      id: 'loc_1',
-      name: `Trụ sở chính: ${companyInfo.name || 'Văn phòng chính'}`,
+      id: 'loc_headquarters',
+      name: `Trụ sở chính: ${companyInfo.name || user?.companyName || 'Văn phòng chính'}`,
       badge: 'Trụ Sở Chính',
-      address: companyInfo.headquarters || 'Hà Nội & TP. Hồ Chí Minh',
-      scale: `Quy mô ${companyInfo.headcount || '100 - 500 nhân sự'} • Môi trường làm việc chuẩn quốc tế`,
-      hotline: companyInfo.website ? companyInfo.website.replace(/^https?:\/\//, '') : 'hiremate.ai',
+      isHeadquarters: true,
+      address: companyInfo.headquarters || user?.address || 'Chưa cập nhật địa chỉ trụ sở chính',
+      scale: `Quy mô ${companyInfo.headcount || '100 - 500 nhân sự'} • Trụ sở chính điều hành`,
+      hotline: user?.phone || (companyInfo.website ? companyInfo.website.replace(/^https?:\/\//, '') : 'Liên hệ HR'),
       icon: 'corporate_fare',
-    },
-    {
-      id: 'loc_2',
-      name: 'Chi nhánh công nghệ & Trung tâm Đổi mới Sáng tạo',
-      badge: 'Chi Nhánh Kỹ Thuật',
-      address: 'Khu Công nghệ cao & Các trung tâm phát triển phần mềm trọng điểm.',
-      scale: 'Không gian làm việc mở, phòng họp thông minh & tiện ích nội khu đầy đủ',
-      hotline: 'Hotline tuyển dụng & hỗ trợ đối tác',
-      icon: 'domain',
-    },
-    {
-      id: 'loc_3',
-      name: 'Mạng lưới đối tác & Chi nhánh quốc tế',
-      badge: 'Global Network',
-      address: 'Việt Nam & các thị trường công nghệ trọng điểm khu vực.',
-      scale: 'Cơ hội Onsite, làm việc cùng chuyên gia công nghệ và khách hàng toàn cầu',
-      hotline: companyInfo.website || 'https://hiremate.ai',
-      icon: 'public',
     },
   ];
 
   const [companyLocations, setCompanyLocations] = useState(() => {
     try {
       const saved = localStorage.getItem(`hiremate_company_locations_${companyKey}`) || localStorage.getItem('hiremate_company_locations');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Lọc bỏ triệt để các dữ liệu mẫu giả (Khu Công nghệ cao, Mạng lưới đối tác...)
+          const clean = parsed.filter(loc => 
+            !loc.name?.includes('Trung tâm Đổi mới Sáng tạo') && 
+            !loc.name?.includes('Mạng lưới đối tác & Chi nhánh quốc tế') &&
+            !(loc.name?.includes('VNG Corporation') && !(companyInfo.name || '').toLowerCase().includes('vng'))
+          );
+          if (clean.length > 0) return clean;
+        }
+      }
     } catch {}
     return defaultOfficeLocations;
   });
@@ -1997,14 +2074,20 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                   <h3 className="text-lg font-bold text-[#221d47]">
                     Hệ Thống Trụ Sở &amp; Chi Nhánh
                   </h3>
-                  <button
-                    type="button"
-                    onClick={() => openCompanyModal('locations')}
-                    className="text-xs text-[#5b48bd] hover:underline font-bold flex items-center gap-1 cursor-pointer"
-                  >
-                    <span className="material-symbols-outlined text-sm">edit_location</span>
-                    <span>Chỉnh sửa trụ sở &amp; chi nhánh</span>
-                  </button>
+                  {isHeadOffice ? (
+                    <button
+                      type="button"
+                      onClick={() => openCompanyModal('locations')}
+                      className="text-xs text-[#5b48bd] hover:underline font-bold flex items-center gap-1 cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-sm">edit_location</span>
+                      <span>Chỉnh sửa trụ sở &amp; chi nhánh</span>
+                    </button>
+                  ) : (
+                    <span className="text-[11px] text-slate-500 font-semibold bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
+                      🔒 Quyền quản lý chi nhánh thuộc Trụ sở chính
+                    </span>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -2029,13 +2112,37 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                       <p className="text-xs text-slate-600 leading-relaxed">{loc.address}</p>
                       <div className="pt-2 border-t border-slate-100 text-xs text-slate-500 space-y-1">
                         <div>&bull; {loc.scale || 'Quy mô chi nhánh tiêu chuẩn'}</div>
-                        <div>&bull; Hotline: <span className="text-[#221d47] font-bold">{loc.hotline || 'hiremate.ai'}</span></div>
+                        <div>&bull; Hotline: <span className="text-[#221d47] font-bold">{loc.hotline || user?.phone || 'Liên hệ HR'}</span></div>
                         {loc.managerName && (
                           <div className="text-blue-700 font-semibold">&bull; Quản lý chi nhánh: <span>{loc.managerName}</span></div>
                         )}
                       </div>
                     </div>
                   ))}
+
+                  {companyLocations.length === 1 && (
+                    <div className="p-6 rounded-[28px] border-2 border-dashed border-purple-200 bg-purple-50/20 flex flex-col items-center justify-center text-center space-y-2">
+                      <div className="w-11 h-11 rounded-2xl bg-white text-[#5b48bd] flex items-center justify-center shadow-xs border border-purple-100">
+                        <span className="material-symbols-outlined text-2xl">add_business</span>
+                      </div>
+                      <div className="space-y-0.5">
+                        <h4 className="text-xs font-bold text-[#221d47]">Doanh nghiệp chưa thiết lập thêm chi nhánh phụ</h4>
+                        <p className="text-[11px] text-slate-500 max-w-sm">
+                          {isHeadOffice ? 'Bấm nút "Chỉnh sửa trụ sở & chi nhánh" để đăng ký thêm văn phòng chi nhánh hoặc cơ sở các tỉnh/thành phố.' : 'Liên hệ Quản trị viên Trụ sở chính để đăng ký thêm chi nhánh mới.'}
+                        </p>
+                      </div>
+                      {isHeadOffice && (
+                        <button
+                          type="button"
+                          onClick={() => openCompanyModal('locations')}
+                          className="px-3.5 py-1.5 rounded-xl bg-[#5b48bd] hover:bg-[#47369f] text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer mt-1"
+                        >
+                          <span className="material-symbols-outlined text-sm">add</span>
+                          <span>Thêm Chi Nhánh Mới</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -2046,6 +2153,14 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
             {/* =============================================================== */}
             {activeTab === 'legal' && (
               <div className="space-y-6 animate-fade-in font-sans">
+                {!isHeadOffice && (
+                  <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-950 text-xs flex items-center gap-3">
+                    <span className="material-symbols-outlined text-amber-600 text-xl shrink-0">lock</span>
+                    <div>
+                      <strong>Phân Quyền Chi Nhánh:</strong> Bạn đang hoạt động với vai trò Chuyên viên tại <strong>{user?.branchName || 'Chi nhánh'}</strong>. Chỉ Quản trị viên Trụ sở chính mới có thẩm quyền chỉnh sửa, nộp hoặc cập nhật Hồ sơ pháp lý &amp; GPKD của doanh nghiệp mẹ.
+                    </div>
+                  </div>
+                )}
                 
                 {/* 1. Trạng Thái Thẩm Định Pháp Lý Doanh Nghiệp */}
                 <div className={`p-5 sm:p-6 rounded-[24px] border shadow-xs transition-all ${getLegalStatusInfo(companyLegal).bannerBg}`}>
@@ -2349,7 +2464,179 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
             {/* =============================================================== */}
             {activeTab === 'team' && (
               <div className="space-y-6 animate-fade-in font-sans">
-                {/* 1. Team Info Banner */}
+                {/* 1. Widget Mã Xác Thực HR Gia Nhập Doanh Nghiệp */}
+                <div className="p-5 rounded-3xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-purple-500/10 border border-amber-300/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-sm">
+                      <span className="material-symbols-outlined text-2xl">vpn_key</span>
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-sm font-bold text-amber-950 uppercase tracking-wider">
+                          Mã Số Xác Nhận Gia Nhập HR Của Doanh Nghiệp (HR PIN)
+                        </h3>
+                        <span className="px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 text-[10px] font-black uppercase tracking-wider border border-amber-300">
+                          {isHeadOffice ? 'Trụ Sở Chính Quản Lý' : 'Mã Xác Thực Tổ Chức'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-600 mt-1 max-w-xl leading-relaxed">
+                        Cung cấp mã số này cho các chuyên viên tuyển dụng hoặc nhân sự chi nhánh mới khi đăng ký tài khoản để họ được hệ thống tự động xác minh và liên kết vào tổ chức <strong>{companyInfo.name}</strong>.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 self-start md:self-auto shrink-0 bg-white px-4 py-2.5 rounded-2xl border border-amber-300 shadow-sm">
+                    <div className="text-right">
+                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mã HR Tổ Chức</div>
+                      <code className="text-sm font-black text-amber-900 font-mono tracking-wider">{companyHrCode}</code>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(companyHrCode);
+                        triggerToast(`📋 Đã sao chép Mã HR "${companyHrCode}" vào bộ nhớ tạm!`);
+                      }}
+                      className="p-2 hover:bg-amber-100 rounded-xl text-amber-800 transition-colors cursor-pointer"
+                      title="Sao chép mã xác thực"
+                    >
+                      <span className="material-symbols-outlined text-lg">content_copy</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 2. Thẻ Phân Quyền Rõ Ràng Theo Trụ Sở Chính & Chi Nhánh */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-white border border-indigo-100 shadow-2xs space-y-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-indigo-600 text-xl">shield_person</span>
+                      <h4 className="text-xs font-bold text-[#1e1b4b] uppercase tracking-wider">
+                        Phân Định Quyền Hạn Theo Trụ Sở &amp; Chi Nhánh
+                      </h4>
+                    </div>
+                    {isHeadOffice ? (
+                      <span className="px-3 py-1 rounded-full bg-purple-100 text-[#5b48bd] text-xs font-bold border border-purple-200 flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[14px]">stars</span>
+                        <span>Vai trò của bạn: Quản Trị Viên Trụ Sở Chính</span>
+                      </span>
+                    ) : (
+                      <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-800 text-xs font-bold border border-blue-200 flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[14px]">apartment</span>
+                        <span>Vai trò của bạn: Chuyên Viên Chi Nhánh ({user?.branchName || 'Chi nhánh'})</span>
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                    <div className="p-3 rounded-xl bg-purple-50/50 border border-purple-100 space-y-1">
+                      <div className="font-bold text-purple-950 flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-sm text-purple-700">corporate_fare</span>
+                        <span>1. Trụ Sở Chính (Headquarters / Full Admin)</span>
+                      </div>
+                      <p className="text-[11px] text-slate-600 leading-relaxed">
+                        Toàn quyền cấu hình thông tin doanh nghiệp mẹ, duyệt Giấy phép kinh doanh (GPKD), thêm/sửa/xóa các chi nhánh, cấp Mã xác thực HR và duyệt tuyển dụng trên toàn quốc.
+                      </p>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-blue-50/50 border border-blue-100 space-y-1">
+                      <div className="font-bold text-blue-950 flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-sm text-blue-700">apartment</span>
+                        <span>2. Chi Nhánh Phụ (Local Branches / Branch HR)</span>
+                      </div>
+                      <p className="text-[11px] text-slate-600 leading-relaxed">
+                        Chỉ có quyền đăng tin và lọc ứng viên trong phạm vi chi nhánh được phân công. Không có quyền sửa đổi GPKD hoặc giải thể các chi nhánh khác của công ty mẹ.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2.5 YÊU CẦU GIA NHẬP ĐỘI NGŨ HR CHỜ PHÊ DUYỆT (PENDING REQUESTS) */}
+                {isHeadOffice && (
+                  <div className="p-5 rounded-3xl bg-amber-50/70 border-2 border-amber-300 shadow-sm space-y-3.5 animate-fadeIn">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <span className="material-symbols-outlined text-amber-600 text-2xl">pending_actions</span>
+                        <div>
+                          <h4 className="text-sm font-bold text-amber-950 uppercase tracking-wider flex items-center gap-2">
+                            <span>Yêu Cầu Gia Nhập Đội Ngũ HR Chờ Phê Duyệt</span>
+                            <span className="px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 text-xs font-black">
+                              {pendingJoinRequests.length}
+                            </span>
+                          </h4>
+                          <p className="text-xs text-slate-600 mt-0.5">
+                            Các chuyên viên nhân sự đã đăng ký tài khoản nhưng chưa nhập Mã HR PIN hoặc đang chờ Trụ sở chính phê duyệt chi nhánh.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {pendingJoinRequests.length === 0 ? (
+                      <div className="p-4 bg-white/80 rounded-2xl border border-amber-200/60 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
+                        <span className="material-symbols-outlined text-sm text-emerald-600">check_circle</span>
+                        <span>Hiện không có yêu cầu gia nhập nào đang chờ duyệt. Đội ngũ nhân sự đã được đồng bộ đầy đủ!</span>
+                      </div>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {pendingJoinRequests.map((req) => (
+                          <div
+                            key={req.id || req.email}
+                            className="p-4 bg-white rounded-2xl border border-amber-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:shadow-md transition-all"
+                          >
+                            <div className="flex items-start gap-3 min-w-0">
+                              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-black text-sm shrink-0">
+                                {(req.fullName || req.name || 'HR')?.charAt(0)}
+                              </div>
+                              <div className="min-w-0 space-y-0.5">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <h5 className="text-sm font-bold text-slate-900">{req.fullName || req.name}</h5>
+                                  <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 text-[10px] font-bold border border-blue-200 flex items-center gap-1">
+                                    <span className="material-symbols-outlined text-[11px]">apartment</span>
+                                    <span>Yêu cầu: {req.branchName || 'Chi nhánh mới'}</span>
+                                  </span>
+                                </div>
+                                <div className="text-xs text-slate-500 flex items-center gap-3 flex-wrap">
+                                  <span className="flex items-center gap-1">
+                                    <span className="material-symbols-outlined text-[13px]">mail</span>
+                                    <span>{req.email}</span>
+                                  </span>
+                                  {req.phone && (
+                                    <span className="flex items-center gap-1">
+                                      <span className="material-symbols-outlined text-[13px]">call</span>
+                                      <span>{req.phone}</span>
+                                    </span>
+                                  )}
+                                  <span>• Chức vụ: {req.position || 'Chuyên viên tuyển dụng'}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                              <button
+                                type="button"
+                                disabled={isProcessingJoinReq}
+                                onClick={() => handleApproveJoinRequest(req.id, req.email)}
+                                className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors disabled:opacity-50"
+                              >
+                                <span className="material-symbols-outlined text-sm">check</span>
+                                <span>Phê Duyệt</span>
+                              </button>
+                              <button
+                                type="button"
+                                disabled={isProcessingJoinReq}
+                                onClick={() => handleRejectJoinRequest(req.id, req.email)}
+                                className="px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold flex items-center gap-1 border border-rose-200 cursor-pointer transition-colors disabled:opacity-50"
+                              >
+                                <span className="material-symbols-outlined text-sm">close</span>
+                                <span>Từ Chối</span>
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 3. Team Info Banner & Action Button */}
                 <div className="p-5 rounded-3xl bg-purple-50/60 border border-purple-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex items-start gap-3.5">
                     <div className="w-11 h-11 rounded-2xl bg-[#5b48bd] text-white flex items-center justify-center shrink-0 shadow-xs">
@@ -2357,25 +2644,27 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                     </div>
                     <div>
                       <h3 className="text-sm font-bold text-[#221d47]">
-                        Đội Ngũ Nhân Sự Tuyển Dụng — {companyInfo.name}
+                        Đội Ngũ Nhân Sự Tuyển Dụng — {companyInfo.name} ({companyTeam.length} thành viên)
                       </h3>
                       <p className="text-xs text-slate-600 mt-0.5 max-w-xl leading-relaxed">
-                        Các chuyên viên HR thuộc cùng công ty dùng chung hồ sơ doanh nghiệp. Khi có thành viên mới tạo tài khoản HR chọn <strong>{companyInfo.name}</strong>, hệ thống sẽ tự động liên kết vào tổ chức và gửi thông báo đến các HR hiện tại.
+                        Danh sách các chuyên viên nhân sự chính thức trực thuộc hệ thống trụ sở và chi nhánh của <strong>{companyInfo.name}</strong>.
                       </p>
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setShowInviteHrModal(true)}
-                    className="px-4 py-2.5 rounded-full bg-[#5b48bd] hover:bg-[#47369f] text-white text-xs font-bold flex items-center gap-1.5 shrink-0 shadow-xs cursor-pointer"
-                  >
-                    <span className="material-symbols-outlined text-base">person_add</span>
-                    <span>Thêm / Mời HR Mới</span>
-                  </button>
+                  {isHeadOffice && (
+                    <button
+                      type="button"
+                      onClick={() => setShowInviteHrModal(true)}
+                      className="px-4 py-2.5 rounded-full bg-[#5b48bd] hover:bg-[#47369f] text-white text-xs font-bold flex items-center gap-1.5 shrink-0 shadow-xs cursor-pointer transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-base">person_add</span>
+                      <span>Mời HR Mới</span>
+                    </button>
+                  )}
                 </div>
 
-                {/* 2. Team Member Cards Grid */}
+                {/* 4. Team Member Cards Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {companyTeam.map((member) => (
                     <div

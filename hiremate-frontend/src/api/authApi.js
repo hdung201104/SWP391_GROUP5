@@ -10,6 +10,7 @@ export const authApi = {
   // Email OTP Verification
   sendOtp: (data) => axiosClient.post('/auth/send-otp', data),
   verifyOtp: (data) => axiosClient.post('/auth/verify-otp', data),
+  checkEmail: (email) => axiosClient.get('/auth/check-email', { params: { email } }),
 
   // Password Recovery & Security
   forgotPassword: (data) => axiosClient.post('/auth/forgot-password', data),
@@ -26,6 +27,11 @@ export const authApi = {
   getProfile: () => axiosClient.get('/users/profile'),
   updateProfile: (data) => axiosClient.put('/users/profile', data),
   updateAvatar: (avatarUrl) => axiosClient.post('/users/avatar', { avatarUrl }),
+
+  // Real Active Login Sessions Management
+  getSessions: () => axiosClient.get('/auth/sessions'),
+  revokeSession: (sessionId) => axiosClient.delete(`/auth/sessions/${sessionId}`),
+  revokeOtherSessions: () => axiosClient.delete('/auth/sessions/others'),
 };
 
 export default authApi;

@@ -274,6 +274,10 @@ export default function CandidatePricingPage({ user, onNavigate }) {
     }
   });
   const [pendingOrders, setPendingOrders] = useState([]);
+  const [myOrders, setMyOrders] = useState([]);
+  const [isLoadingOrders, setIsLoadingOrders] = useState(false);
+  const [orderFilterTab, setOrderFilterTab] = useState('ALL');
+  const [selectedOrderReceipt, setSelectedOrderReceipt] = useState(null);
 
   const syncSubscriptionState = (sub) => {
     const isSubActive = Boolean(
@@ -344,19 +348,24 @@ export default function CandidatePricingPage({ user, onNavigate }) {
       });
   };
 
-  const fetchMyPendingOrders = () => {
+  const fetchMyOrders = () => {
+    setIsLoadingOrders(true);
     paymentApi.getMyOrders()
       .then(res => {
         const orders = res?.data?.data !== undefined
           ? res.data.data
           : (res?.data !== undefined ? res.data : (Array.isArray(res) ? res : []));
         if (Array.isArray(orders)) {
+          setMyOrders(orders);
           const pendings = orders.filter(o => o.status === 'PENDING');
           setPendingOrders(pendings);
         }
       })
-      .catch(err => console.warn('Could not load user orders', err));
+      .catch(err => console.warn('Could not load user orders', err))
+      .finally(() => setIsLoadingOrders(false));
   };
+
+  const fetchMyPendingOrders = fetchMyOrders;
 
   // Fetch real plans & active subscription from Supabase (chạy lại khi user thay đổi hoặc đăng nhập)
   useEffect(() => {
@@ -531,6 +540,7 @@ export default function CandidatePricingPage({ user, onNavigate }) {
         throw new Error('Dữ liệu đơn hàng trả về từ máy chủ không hợp lệ.');
       }
       setCreatedOrder(order);
+      fetchMyOrders();
 
       if (order.status === 'APPROVED' || finalPrice === 0) {
         setPurchaseSuccess(true);
@@ -790,6 +800,28 @@ export default function CandidatePricingPage({ user, onNavigate }) {
   );
 
   const currentTier = hasActivePaidPlan ? getCandidatePlanTier(activeSubscriptionInfo?.planName || activePlan) : 0;
+
+  const filteredOrders = React.useMemo(() => {
+    if (!myOrders || myOrders.length === 0) return [];
+    if (orderFilterTab === 'APPROVED') {
+      return myOrders.filter(o => o.status === 'APPROVED' || o.status === 'PAID' || o.status === 'SUCCESS');
+    }
+    if (orderFilterTab === 'PENDING') {
+      return myOrders.filter(o => o.status === 'PENDING');
+    }
+    if (orderFilterTab === 'CANCELLED') {
+      return myOrders.filter(o => o.status === 'REJECTED' || o.status === 'CANCELLED');
+    }
+    return myOrders;
+  }, [myOrders, orderFilterTab]);
+
+  const orderStats = React.useMemo(() => {
+    const list = myOrders || [];
+    const approved = list.filter(o => o.status === 'APPROVED' || o.status === 'PAID' || o.status === 'SUCCESS').length;
+    const pending = list.filter(o => o.status === 'PENDING').length;
+    const cancelled = list.filter(o => o.status === 'REJECTED' || o.status === 'CANCELLED').length;
+    return { all: list.length, approved, pending, cancelled };
+  }, [myOrders]);
 
   return (
     <div className="min-h-screen bg-transparent text-[#1e1b4b] py-6 px-3 sm:px-6 lg:px-8 font-sans">
@@ -1233,6 +1265,285 @@ export default function CandidatePricingPage({ user, onNavigate }) {
           </div>
         </div>
 
+        {/* PAYMENT & ORDER TRANSACTION HISTORY TABLE */}
+        <div id="payment-history-section" className="bg-white rounded-[32px] p-6 sm:p-8 border border-purple-100 shadow-sm space-y-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-slate-100">
+            <div>
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#32247b] to-[#5b48bd] text-white flex items-center justify-center shadow-md">
+                  <span className="material-symbols-outlined text-xl">receipt_long</span>
+                </div>
+                <div>
+                  <h2 className="text-xl sm:text-2xl font-black text-[#1e1b4b] flex items-center gap-2">
+                    <span>Lịch Sử Giao Dịch & Đơn Hàng Của Bạn</span>
+                    {myOrders.length > 0 && (
+                      <span className="px-2.5 py-0.5 rounded-full bg-purple-50 text-[#32247b] border border-purple-200 text-xs font-extrabold">
+                        {myOrders.length}
+                      </span>
+                    )}
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Theo dõi toàn bộ đơn mua gói phỏng vấn AI, lượt add-on và trạng thái chuyển khoản VietQR tự động.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={fetchMyOrders}
+                disabled={isLoadingOrders}
+                className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                title="Làm mới lịch sử đơn hàng"
+              >
+                <span className={`material-symbols-outlined text-base ${isLoadingOrders ? 'animate-spin text-[#32247b]' : ''}`}>
+                  refresh
+                </span>
+                <span>{isLoadingOrders ? 'Đang tải...' : 'Làm Mới'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Filter Tabs */}
+          {user && (
+            <div className="flex flex-wrap items-center gap-2">
+              {[
+                { id: 'ALL', label: 'Tất Cả Đơn', count: orderStats.all, icon: 'list_alt' },
+                { id: 'APPROVED', label: 'Đã Kích Hoạt', count: orderStats.approved, icon: 'check_circle', color: 'text-emerald-700' },
+                { id: 'PENDING', label: 'Chờ Thanh Toán', count: orderStats.pending, icon: 'pending', color: 'text-amber-700' },
+                { id: 'CANCELLED', label: 'Đã Hủy', count: orderStats.cancelled, icon: 'cancel', color: 'text-slate-600' },
+              ].map((tab) => {
+                const active = orderFilterTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setOrderFilterTab(tab.id)}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                      active
+                        ? 'bg-[#32247b] text-white shadow-sm ring-2 ring-[#32247b]/20'
+                        : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-sm">{tab.icon}</span>
+                    <span>{tab.label}</span>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
+                      active ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+                    }`}>
+                      {tab.count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Content Area */}
+          {!user ? (
+            <div className="p-8 rounded-2xl bg-slate-50 border border-slate-200 text-center space-y-3">
+              <div className="w-12 h-12 rounded-full bg-purple-100 text-[#32247b] flex items-center justify-center mx-auto">
+                <span className="material-symbols-outlined text-2xl">lock</span>
+              </div>
+              <h3 className="text-base font-bold text-slate-800">
+                Vui lòng đăng nhập để xem lịch sử thanh toán
+              </h3>
+              <p className="text-xs text-slate-500 max-w-md mx-auto">
+                Lịch sử giao dịch, hóa đơn điện tử và các lượt phỏng vấn đã mua sẽ được hiển thị khi bạn đăng nhập tài khoản.
+              </p>
+              <button
+                type="button"
+                onClick={() => { if (onNavigate) onNavigate('#/login'); else window.location.hash = '#/login'; }}
+                className="px-5 py-2.5 rounded-xl bg-[#32247b] hover:bg-[#4331a6] text-white text-xs font-bold transition-all shadow-md cursor-pointer inline-flex items-center gap-1.5"
+              >
+                <span className="material-symbols-outlined text-sm">login</span>
+                <span>Đăng Nhập Ngay</span>
+              </button>
+            </div>
+          ) : isLoadingOrders && myOrders.length === 0 ? (
+            <div className="py-12 flex flex-col items-center justify-center gap-3 text-slate-500 text-xs">
+              <span className="material-symbols-outlined text-3xl text-[#32247b] animate-spin">
+                progress_activity
+              </span>
+              <span>Đang tải lịch sử giao dịch từ hệ thống...</span>
+            </div>
+          ) : filteredOrders.length === 0 ? (
+            <div className="py-10 px-4 text-center rounded-2xl bg-slate-50/70 border border-dashed border-slate-200 space-y-2">
+              <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+                <span className="material-symbols-outlined text-2xl">receipt</span>
+              </div>
+              <p className="text-sm font-bold text-slate-700">
+                {orderFilterTab === 'ALL'
+                  ? 'Bạn chưa có đơn hàng hoặc giao dịch nào'
+                  : `Không có đơn hàng nào ở trạng thái "${orderFilterTab === 'PENDING' ? 'Chờ thanh toán' : orderFilterTab === 'APPROVED' ? 'Đã kích hoạt' : 'Đã hủy'}"`}
+              </p>
+              <p className="text-xs text-slate-400 max-w-md mx-auto">
+                {orderFilterTab === 'ALL'
+                  ? 'Hãy chọn một trong các gói dịch vụ phía trên hoặc mua thêm lượt phỏng vấn AI để khởi động lộ trình sự nghiệp!'
+                  : 'Chuyển sang bộ lọc "Tất Cả Đơn" để kiểm tra các giao dịch khác.'}
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded-2xl border border-slate-200 shadow-2xs">
+              <table className="w-full text-left border-collapse min-w-[760px]">
+                <thead>
+                  <tr className="border-b border-slate-200 text-[11px] text-slate-500 uppercase font-black bg-slate-50/90 tracking-wider">
+                    <th className="py-3.5 px-4">Mã Đơn / Thời Gian</th>
+                    <th className="py-3.5 px-4">Gói Dịch Vụ</th>
+                    <th className="py-3.5 px-4">Số Tiền Thực Trả</th>
+                    <th className="py-3.5 px-4">Phương Thức</th>
+                    <th className="py-3.5 px-4">Trạng Thái</th>
+                    <th className="py-3.5 px-4 text-right">Thao Tác</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700">
+                  {filteredOrders.map((ord) => {
+                    const isApproved = ord.status === 'APPROVED' || ord.status === 'PAID' || ord.status === 'SUCCESS';
+                    const isPending = ord.status === 'PENDING';
+                    const isCancelled = ord.status === 'REJECTED' || ord.status === 'CANCELLED';
+
+                    return (
+                      <tr key={ord.orderId || ord.orderCode} className="hover:bg-purple-50/30 transition-colors">
+                        {/* Order Code & Date */}
+                        <td className="py-3.5 px-4 space-y-1">
+                          <div className="flex items-center gap-1.5 font-mono font-bold text-[#1e1b4b]">
+                            <span>#{ord.orderCode || ord.orderId}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleCopy(ord.orderCode || ord.orderId, 'mã đơn hàng')}
+                              className="text-slate-400 hover:text-[#32247b] transition-colors cursor-pointer"
+                              title="Sao chép mã đơn"
+                            >
+                              <span className="material-symbols-outlined text-[15px]">content_copy</span>
+                            </button>
+                          </div>
+                          <div className="text-[11px] text-slate-400">
+                            {ord.createdAt
+                              ? new Date(ord.createdAt).toLocaleString('vi-VN', {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                  year: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })
+                              : 'Vừa xong'}
+                          </div>
+                        </td>
+
+                        {/* Plan Name & Voucher info */}
+                        <td className="py-3.5 px-4 space-y-1">
+                          <div className="font-extrabold text-[#1e1b4b]">
+                            {ord.planName || 'Gói Dịch Vụ Ứng Viên'}
+                          </div>
+                          {ord.voucherCode && (
+                            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold">
+                              <span className="material-symbols-outlined text-[12px]">sell</span>
+                              <span>Voucher: {ord.voucherCode}</span>
+                              {ord.discountAmount > 0 && <span>(-{formatVND(ord.discountAmount)})</span>}
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Amount */}
+                        <td className="py-3.5 px-4 space-y-0.5">
+                          <div className="font-black text-sm text-[#32247b]">
+                            {formatVND(ord.amount)}
+                          </div>
+                          {ord.originalAmount && Number(ord.originalAmount) > Number(ord.amount) && (
+                            <div className="text-[11px] text-slate-400 line-through">
+                              {formatVND(ord.originalAmount)}
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Payment Method */}
+                        <td className="py-3.5 px-4">
+                          <div className="inline-flex items-center gap-1.5 text-slate-700 text-xs font-semibold">
+                            <span className="material-symbols-outlined text-base text-indigo-600">qr_code_2</span>
+                            <span>{ord.bankName || 'VietQR PayOS'}</span>
+                          </div>
+                        </td>
+
+                        {/* Status Badge */}
+                        <td className="py-3.5 px-4">
+                          {isApproved ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                              <span>Đã Kích Hoạt</span>
+                            </span>
+                          ) : isPending ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-[11px] font-bold">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                              <span>Chờ Chuyển Tiền</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200 text-[11px] font-bold">
+                              <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                              <span>Đã Hủy</span>
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Actions */}
+                        <td className="py-3.5 px-4 text-right">
+                          <div className="inline-flex items-center justify-end gap-1.5">
+                            {isPending ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenPendingOrderQr(ord)}
+                                  className="px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
+                                  title="Mở lại mã QR chuyển khoản"
+                                >
+                                  <span className="material-symbols-outlined text-[14px]">qr_code</span>
+                                  <span>Quét QR</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleActivateSpecificOrder(ord.orderCode)}
+                                  disabled={checkingStatus}
+                                  className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold transition-all shadow-xs flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                                  title="Kiểm tra tiền đã vào tài khoản chưa"
+                                >
+                                  <span className="material-symbols-outlined text-[14px]">sync</span>
+                                  <span>Kiểm Tra</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleCancelSpecificOrder(ord.orderCode)}
+                                  disabled={checkingStatus}
+                                  className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 transition-all cursor-pointer"
+                                  title="Hủy đơn hàng này"
+                                >
+                                  <span className="material-symbols-outlined text-[14px]">close</span>
+                                </button>
+                              </>
+                            ) : isApproved ? (
+                              <button
+                                type="button"
+                                onClick={() => setSelectedOrderReceipt(ord)}
+                                className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-purple-100 text-[#32247b] border border-purple-200 text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer shadow-2xs"
+                                title="Xem hóa đơn / biên lai điện tử"
+                              >
+                                <span className="material-symbols-outlined text-[14px]">receipt</span>
+                                <span>Xem Biên Lai</span>
+                              </button>
+                            ) : (
+                              <span className="text-[11px] text-slate-400 font-semibold px-2 py-1">
+                                Đã kết thúc
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
       </div>
 
       {/* CHECKOUT MODAL FOR CANDIDATES */}
@@ -1576,6 +1887,100 @@ export default function CandidatePricingPage({ user, onNavigate }) {
               </div>
             )}
 
+          </div>
+        </div>
+      )}
+
+      {/* E-RECEIPT MODAL (BIÊN LAI ĐIỆN TỬ) */}
+      {selectedOrderReceipt && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white w-full max-w-lg rounded-[32px] p-6 sm:p-8 shadow-2xl border border-indigo-100 relative space-y-6 max-h-[92vh] overflow-y-auto">
+            <button
+              onClick={() => setSelectedOrderReceipt(null)}
+              className="absolute top-5 right-5 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 cursor-pointer transition-colors"
+            >
+              &times;
+            </button>
+
+            <div className="text-center space-y-1.5 pt-2">
+              <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-sm">
+                <span className="material-symbols-outlined text-3xl font-black">check_circle</span>
+              </div>
+              <span className="px-3 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-extrabold uppercase tracking-wider border border-emerald-200">
+                Giao Dịch Đã Quyết Toán Thành Công
+              </span>
+              <h3 className="text-xl font-black text-[#1e1b4b]">
+                Biên Lai Thanh Toán Điện Tử
+              </h3>
+              <p className="text-xs text-slate-400">
+                Cổng thanh toán tự động VietQR • HireMate.AI
+              </p>
+            </div>
+
+            <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3 text-xs">
+              <div className="flex justify-between items-center text-slate-600">
+                <span>Mã đơn hàng:</span>
+                <span className="font-mono font-bold text-[#1e1b4b]">#{selectedOrderReceipt.orderCode}</span>
+              </div>
+              <div className="flex justify-between items-center text-slate-600">
+                <span>Khách hàng (Ứng viên):</span>
+                <span className="font-bold text-[#1e1b4b]">{user?.fullName || selectedOrderReceipt.userName || 'Ứng viên HireMate'}</span>
+              </div>
+              <div className="flex justify-between items-center text-slate-600">
+                <span>Email tài khoản:</span>
+                <span className="font-medium text-slate-700">{user?.email || selectedOrderReceipt.userEmail || ''}</span>
+              </div>
+              <div className="border-t border-slate-200 pt-2 flex justify-between items-center text-slate-600">
+                <span>Gói dịch vụ đã mua:</span>
+                <span className="font-extrabold text-[#32247b]">{selectedOrderReceipt.planName || 'Gói Dịch Vụ'}</span>
+              </div>
+              {selectedOrderReceipt.originalAmount && Number(selectedOrderReceipt.originalAmount) > Number(selectedOrderReceipt.amount) && (
+                <div className="flex justify-between items-center text-slate-500">
+                  <span>Giá niêm yết:</span>
+                  <span className="line-through">{formatVND(selectedOrderReceipt.originalAmount)}</span>
+                </div>
+              )}
+              {selectedOrderReceipt.voucherCode && (
+                <div className="flex justify-between items-center text-emerald-700 font-bold bg-emerald-50 px-2 py-1 rounded-lg">
+                  <span>Voucher ưu đãi ({selectedOrderReceipt.voucherCode}):</span>
+                  <span>-{formatVND(selectedOrderReceipt.discountAmount)}</span>
+                </div>
+              )}
+              <div className="border-t border-slate-200 pt-2 flex justify-between items-center text-sm font-black text-[#1e1b4b]">
+                <span>Tổng tiền thanh toán:</span>
+                <span className="text-emerald-600 font-extrabold text-base">{formatVND(selectedOrderReceipt.amount)}</span>
+              </div>
+              <div className="flex justify-between items-center text-[11px] text-slate-500 pt-1">
+                <span>Thời gian thanh toán:</span>
+                <span>
+                  {selectedOrderReceipt.approvedAt || selectedOrderReceipt.createdAt
+                    ? new Date(selectedOrderReceipt.approvedAt || selectedOrderReceipt.createdAt).toLocaleString('vi-VN')
+                    : 'Gần đây'}
+                </span>
+              </div>
+            </div>
+
+            <div className="text-[11px] text-slate-500 text-center italic bg-purple-50/60 p-3 rounded-xl border border-purple-100">
+              ✨ Các đặc quyền phỏng vấn AI mock, tối ưu CV và hỗ trợ tuyển dụng đã được đồng bộ tự động vào tài khoản của bạn.
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="flex-1 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-sm">print</span>
+                <span>In Biên Lai</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedOrderReceipt(null)}
+                className="flex-1 py-3 rounded-xl bg-[#32247b] hover:bg-[#4331a6] text-white font-bold text-xs transition-all shadow-md flex items-center justify-center cursor-pointer"
+              >
+                Đóng
+              </button>
+            </div>
           </div>
         </div>
       )}

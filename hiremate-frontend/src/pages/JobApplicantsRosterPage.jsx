@@ -5,13 +5,14 @@ const cleanCoverLetter = (raw) => {
     .replace(/\[Định dạng nộp:[^\]]*\]/gi, '')
     .trim();
 };
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useLivingTheme } from '../context/LivingThemeContext';
 import { jobApi, applicationApi, aiMatchApi, interviewApi, companyApi } from '../api';
 import LoadingSpinner from '../components/common/LoadingSpinner';
-import { parseSkillList } from '../utils/helpers';
+import { parseSkillList, sanitizeEvidenceText } from '../utils/helpers';
 import { createHrToCandidateMailto } from '../utils/emailUtils';
 import CvViewModal from '../components/common/CvViewModal';
+import ModalPortal from '../components/common/ModalPortal';
 import { HIREMATE_LOGO_URL } from '../constants/branding';
 import { exportCandidatesToExcel } from '../utils/excelExportUtils';
 import paymentApi from '../api/paymentApi';
@@ -62,18 +63,33 @@ function generateComprehensiveAiReport(cand, jobDetails, liveAiReport) {
   const score = liveAiReport?.matchingScore != null ? Math.round(liveAiReport.matchingScore) : (cand.matchScore || 0);
   const matchCategory = liveAiReport?.matchTier || (score >= 85 ? '⭐ Phù Hợp Xuất Sắc (Ready for Offer)' : score >= 70 ? '✨ Phù Hợp Tốt (Khuyên Mời Phỏng Vấn)' : score >= 50 ? '💡 Tiềm Năng' : 'Trau Dồi Kỹ Năng');
 
-  // 1. Nếu có live report từ Gemini AI với advantages và disadvantages
+  // 1. Nếu có live report từ Gemini AI hoặc backend với advantages và disadvantages
   if (liveAiReport && Array.isArray(liveAiReport.advantages) && liveAiReport.advantages.length > 0) {
     let fullDisadvantages = [...(liveAiReport.disadvantages || [])];
     const mandatoryMissing = cand.mandatoryMissing || [];
     const preferredMissing = cand.preferredMissing || [];
     const cleanSkill = (s) => normalizeSkillName(s);
 
+    const verifiedSkillsText = (liveAiReport.advantages || [])
+      .map((a) => `${a.title || ''} ${a.cvEvidence || ''} ${a.jobMatch || ''}`)
+      .join(' ')
+      .toLowerCase();
+    const matchedSkillsList = (cand.mandatoryMatched || []).map((s) => s.toLowerCase());
+
     mandatoryMissing.forEach((s) => {
       const skillName = cleanSkill(s);
-      const exists = fullDisadvantages.some(d => 
-        (d.title && d.title.toLowerCase().includes(skillName.toLowerCase())) ||
-        (d.jobRequirement && d.jobRequirement.toLowerCase().includes(skillName.toLowerCase()))
+      const sLower = s.toLowerCase();
+      const nameLower = skillName.toLowerCase();
+
+      // Nếu kỹ năng đã được xác nhận sở hữu trong advantages hoặc matched, TUYỆT ĐỐI không đưa vào nhược điểm
+      if (verifiedSkillsText.includes(sLower) || verifiedSkillsText.includes(nameLower)
+          || matchedSkillsList.some((m) => m.includes(sLower) || sLower.includes(m))) {
+        return;
+      }
+
+      const exists = fullDisadvantages.some((d) => 
+        (d.title && (d.title.toLowerCase().includes(nameLower) || d.title.toLowerCase().includes(sLower))) ||
+        (d.jobRequirement && (d.jobRequirement.toLowerCase().includes(nameLower) || d.jobRequirement.toLowerCase().includes(sLower)))
       );
       if (!exists) {
         fullDisadvantages.unshift({
@@ -88,9 +104,17 @@ function generateComprehensiveAiReport(cand, jobDetails, liveAiReport) {
 
     preferredMissing.forEach((s) => {
       const skillName = cleanSkill(s);
-      const exists = fullDisadvantages.some(d => 
-        (d.title && d.title.toLowerCase().includes(skillName.toLowerCase())) ||
-        (d.jobRequirement && d.jobRequirement.toLowerCase().includes(skillName.toLowerCase()))
+      const sLower = s.toLowerCase();
+      const nameLower = skillName.toLowerCase();
+
+      if (verifiedSkillsText.includes(sLower) || verifiedSkillsText.includes(nameLower)
+          || matchedSkillsList.some((m) => m.includes(sLower) || sLower.includes(m))) {
+        return;
+      }
+
+      const exists = fullDisadvantages.some((d) => 
+        (d.title && (d.title.toLowerCase().includes(nameLower) || d.title.toLowerCase().includes(sLower))) ||
+        (d.jobRequirement && (d.jobRequirement.toLowerCase().includes(nameLower) || d.jobRequirement.toLowerCase().includes(sLower)))
       );
       if (!exists) {
         fullDisadvantages.push({
@@ -105,7 +129,7 @@ function generateComprehensiveAiReport(cand, jobDetails, liveAiReport) {
 
     const isIntern = jobTitle.toLowerCase().includes('intern') || jobTitle.toLowerCase().includes('fresher') || jobTitle.toLowerCase().includes('thực tập');
     if (isIntern) {
-      fullDisadvantages = fullDisadvantages.filter(d => !d.title || (!d.title.toLowerCase().includes('chịu tải') && !d.title.toLowerCase().includes('quy mô lớn') && !d.title.toLowerCase().includes('vận hành hệ thống')));
+      fullDisadvantages = fullDisadvantages.filter((d) => !d.title || (!d.title.toLowerCase().includes('chịu tải') && !d.title.toLowerCase().includes('quy mô lớn') && !d.title.toLowerCase().includes('vận hành hệ thống')));
     }
 
     return {
@@ -415,9 +439,11 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
     return () => { isMounted = false; };
   }, [currentUser, user]);
 
+  const isCompanyVerified = companyStatus === 'VERIFIED' || companyStatus === 'APPROVED' || companyStatus === 'ACTIVE' || currentUser?.role === 'ADMIN' || user?.role === 'ADMIN';
+  const isCompanyBlocked = companyStatus === 'REJECTED' || companyStatus === 'BANNED' || companyStatus === 'SUSPENDED';
+
   const handleNewJobClick = () => {
-    const isVerified = companyStatus === 'VERIFIED' || companyStatus === 'APPROVED' || companyStatus === 'ACTIVE' || currentUser?.role === 'ADMIN' || user?.role === 'ADMIN';
-    if (!isVerified) {
+    if (!isCompanyVerified) {
       setShowUnverifiedWarningModal(true);
     } else {
       window.location.hash = '#/recruiter-jobs?action=new';
@@ -430,6 +456,8 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
   const [isReportLoading, setIsReportLoading] = useState(false);
   const [candidateAiInterviewData, setCandidateAiInterviewData] = useState(null);
   const [isLoadingInterviewData, setIsLoadingInterviewData] = useState(false);
+  // Bộ nhớ đệm báo cáo AI trên client: đọc tức thì 0ms, không tốn AI token khi xem lại hoặc reload
+  const reportsCacheRef = useRef({});
 
   // Schedule Interview State & Modal
   const [schedulingCandidate, setSchedulingCandidate] = useState(null);
@@ -444,6 +472,11 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
   const handleScheduleSubmit = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
     if (!schedulingCandidate) return;
+    if (!isCompanyVerified) {
+      setShowUnverifiedWarningModal(true);
+      triggerToast('⚠️ Doanh nghiệp chưa duyệt hoặc đã bị thu hồi GPKD. Quyền lên lịch phỏng vấn đã bị tạm khóa!');
+      return;
+    }
     if (!canManageJob) {
       triggerToast('Tin tuyển dụng thuộc chi nhánh khác (Chỉ xem). Bạn không có quyền lên lịch phỏng vấn.');
       return;
@@ -538,6 +571,11 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
   };
 
   const handleExecuteBatchStatus = async (newStatus) => {
+    if (!isCompanyVerified) {
+      setShowUnverifiedWarningModal(true);
+      triggerToast('⚠️ Doanh nghiệp chưa duyệt hoặc đã bị thu hồi GPKD. Quyền duyệt hàng loạt đã bị tạm khóa!');
+      return;
+    }
     if (!canManageJob) {
       triggerToast('Bạn không thể thao tác trên bài đăng thuộc chi nhánh khác (Chỉ xem).');
       return;
@@ -572,7 +610,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
     }
   };
 
-  // Tự động gọi API Gemini AI backend để đối soát CV của ứng viên với bài tuyển dụng
+  // Đọc báo cáo AI chi tiết: ưu tiên bộ nhớ đệm (Cache) tức thì, chỉ gọi mạng khi chưa có và KHÔNG gọi Gemini AI
   useEffect(() => {
     if (!selectedCandidateForModal || !jobDetails?.id) {
       setAiReportData(null);
@@ -582,14 +620,25 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
       return;
     }
 
+    const candId = selectedCandidateForModal.candidateId;
+    const cacheKey = `${jobDetails.id}_${candId}`;
+
+    // 1. Nếu đã có trong Client Memory Cache -> Trả về tức thì 0ms, không tốn network / token
+    if (reportsCacheRef.current[cacheKey]) {
+      setAiReportData(reportsCacheRef.current[cacheKey]);
+      setIsReportLoading(false);
+      return;
+    }
+
     let isMounted = true;
     setIsReportLoading(true);
     setIsLoadingInterviewData(true);
 
-    aiMatchApi.getDetailedCandidateEvaluation(jobDetails.id, selectedCandidateForModal.candidateId)
+    aiMatchApi.getDetailedCandidateEvaluation(jobDetails.id, candId)
       .then((res) => {
         if (!isMounted) return;
         const data = res?.data?.data || res?.data || res;
+        reportsCacheRef.current[cacheKey] = data;
         setAiReportData(data);
 
         // ĐỒNG BỘ 100% ĐIỂM SỐ GIỮA BẢNG VÀ MODAL
@@ -597,7 +646,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
           const freshScore = Math.round(data.matchingScore);
           setCandidates((prev) =>
             prev.map((c) =>
-              c.candidateId === selectedCandidateForModal.candidateId
+              c.candidateId === candId
                 ? {
                     ...c,
                     matchScore: freshScore,
@@ -831,6 +880,11 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
 
   // Stage change handler -> Persist to Supabase
   const handleStageChange = async (candidateAppId, newLabel) => {
+    if (!isCompanyVerified) {
+      setShowUnverifiedWarningModal(true);
+      triggerToast('⚠️ Doanh nghiệp chưa duyệt hoặc đã bị thu hồi GPKD. Quyền duyệt hồ sơ đã bị tạm khóa!');
+      return;
+    }
     if (!canManageJob) {
       triggerToast('Tin tuyển dụng thuộc chi nhánh khác (Chỉ xem). Bạn không có quyền đổi trạng thái.');
       return;
@@ -878,6 +932,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
       triggerToast(`Đang yêu cầu AI đối soát chuyên sâu & chấm lại kỹ hơn cho ứng viên "${cand.name}"...`);
       const res = await aiMatchApi.getDetailedCandidateEvaluation(jobDetails.id, cand.candidateId, true);
       const data = res?.data?.data || res?.data || res;
+      reportsCacheRef.current[`${jobDetails.id}_${cand.candidateId}`] = data;
       if (data?.matchingScore != null) {
         const freshScore = Math.round(data.matchingScore);
         const freshTier = data.matchTier || (freshScore >= 85 ? '⭐ Phù Hợp Xuất Sắc' : freshScore >= 70 ? '✨ Phù Hợp Tốt' : freshScore >= 50 ? '💡 Tiềm Năng' : 'Trau Dồi Kỹ Năng');
@@ -1106,8 +1161,45 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
         <div className="absolute top-40 right-10 w-96 h-96 bg-indigo-200/20 rounded-full blur-3xl pointer-events-none" />
 
         {/* Main Workspace Container */}
-        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-8 flex flex-col gap-8 relative z-10">
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-8 flex flex-col gap-6 relative z-10">
           
+          {/* CẢNH BÁO DOANH NGHIỆP CHƯA DUYỆT HOẶC ĐÃ BỊ ĐÌNH CHỈ GPKD */}
+          {!isCompanyVerified && (
+            <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-rose-50 via-rose-50/95 to-amber-50/80 border-2 border-rose-300 text-rose-950 text-xs shadow-md flex items-start gap-4 animate-in fade-in">
+              <div className="w-11 h-11 rounded-2xl bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
+                <span className="material-symbols-outlined text-2xl">gavel</span>
+              </div>
+              <div className="flex-1 space-y-2">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="font-black text-rose-900 text-sm sm:text-base flex items-center gap-2 flex-wrap">
+                    <span>
+                      {isCompanyBlocked
+                        ? '⚠️ DOANH NGHIỆP ĐANG BỊ TẠM ĐÌNH CHỈ / THU HỒI GIẤY PHÉP KINH DOANH (GPKD)'
+                        : '⚠️ DOANH NGHIỆP CHƯA HOÀN TẤT THẨM ĐỊNH PHÁP LÝ GIẤY PHÉP KINH DOANH'}
+                    </span>
+                  </div>
+                  <span className="px-3 py-1 rounded-full text-xs font-black bg-rose-600 text-white shadow-xs">
+                    QUYỀN DUYỆT ỨNG VIÊN BỊ KHÓA
+                  </span>
+                </div>
+                <p className="text-slate-800 leading-relaxed font-medium">
+                  {isCompanyBlocked
+                    ? 'Ban Quản Trị HireMate đã đình chỉ hoặc thu hồi quyền hoạt động tuyển dụng của doanh nghiệp do chưa đáp ứng Giấy phép kinh doanh hợp lệ. Toàn bộ thao tác duyệt hồ sơ, thay đổi vòng tuyển dụng, lên lịch phỏng vấn và gửi Offer cho ứng viên đã bị tạm khóa.'
+                    : 'Doanh nghiệp của bạn đang trong tiến trình chờ Ban Quản Trị thẩm định Giấy phép kinh doanh. Trong thời gian này, bạn chỉ có thể xem danh sách ứng viên ở chế độ Chỉ Xem, không thể thao tác đổi trạng thái.'}
+                </p>
+                <div className="pt-1 flex items-center gap-3 flex-wrap">
+                  <a
+                    href="#/recruiter-profile"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs shadow-xs transition-colors cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-base">badge</span>
+                    <span>Cập nhật Giấy phép kinh doanh tại Hồ Sơ Doanh Nghiệp</span>
+                  </a>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ======================================================== */}
           {/* NAVIGATION & ACTION HEADER                               */}
           {/* ======================================================== */}
@@ -2035,10 +2127,11 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
       {/* ======================================================== */}
       {/* CANDIDATE AI EVALUATION & CV DETAIL MODAL (BÁO CÁO AI)   */}
       {/* ======================================================== */}
-            {selectedCandidateForModal && (() => {
+      {selectedCandidateForModal && (() => {
         const report = generateComprehensiveAiReport(selectedCandidateForModal, jobDetails, aiReportData);
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-md animate-fade-in font-sans">
+          <ModalPortal isOpen={!!selectedCandidateForModal}>
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-md animate-fade-in font-sans">
             <div className="relative w-full max-w-[1280px] break-words bg-white border border-slate-200/90 rounded-[28px] max-h-[92vh] overflow-y-auto shadow-2xl flex flex-col text-slate-800">
               
               {/* Header Bar */}
@@ -2071,6 +2164,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                               aiMatchApi.getDetailedCandidateEvaluation(jobDetails.id, selectedCandidateForModal.candidateId, true)
                                 .then((res) => {
                                   const data = res?.data?.data || res?.data || res;
+                                  reportsCacheRef.current[`${jobDetails.id}_${selectedCandidateForModal.candidateId}`] = data;
                                   setAiReportData(data);
                                   if (data?.matchingScore != null) {
                                     const freshScore = Math.round(data.matchingScore);
@@ -2357,11 +2451,11 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                               </div>
                               <div className="text-[11px] text-slate-700">
                                 <strong className="text-emerald-900">🎯 Đáp ứng yêu cầu JD: </strong>
-                                <span>{item.jobMatch}</span>
+                                <span>{sanitizeEvidenceText(item.jobMatch)}</span>
                               </div>
                               <div className="p-2 rounded-lg bg-slate-50 border border-slate-100 text-[11px] text-slate-600 leading-relaxed font-normal">
                                 <strong className="text-slate-800">📄 Minh chứng thực tế từ CV: </strong>
-                                <span>{item.cvEvidence}</span>
+                                <span>{sanitizeEvidenceText(item.cvEvidence)}</span>
                               </div>
                             </div>
                           ))}
@@ -2436,11 +2530,11 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                                   </div>
                                   <div className="text-[11px] text-slate-700">
                                     <strong className="text-amber-950">📌 Yêu cầu bài tuyển dụng: </strong>
-                                    <span>{item.jobRequirement}</span>
+                                    <span>{sanitizeEvidenceText(item.jobRequirement)}</span>
                                   </div>
                                   <div className="p-2 rounded-lg bg-amber-50/60 border border-amber-100 text-[11px] text-amber-950 leading-relaxed font-normal">
                                     <strong className="text-amber-900">⚠️ Hiện trạng trong CV: </strong>
-                                    <span>{item.cvShortfall}</span>
+                                    <span>{sanitizeEvidenceText(item.cvShortfall)}</span>
                                   </div>
                                 </div>
                               );
@@ -2549,8 +2643,9 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
               </div>
             </div>
           </div>
-        );
-      })()}
+        </ModalPortal>
+      );
+    })()}
 
 
 
@@ -2570,7 +2665,8 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
 
       {/* Modal Lên Lịch Phỏng Vấn Trực Tiếp */}
       {schedulingCandidate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in font-sans">
+        <ModalPortal isOpen={!!schedulingCandidate}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in font-sans">
           <div className="relative w-full max-w-lg bg-white border border-purple-100 rounded-[32px] p-6 sm:p-7 shadow-2xl space-y-5 text-slate-800">
             <button
               onClick={() => setSchedulingCandidate(null)}
@@ -2673,7 +2769,8 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
             </form>
           </div>
         </div>
-      )}
+      </ModalPortal>
+    )}
 
       {/* Unverified Company Legal GPKD Warning Modal */}
       {showUnverifiedWarningModal && companyStatus !== 'VERIFIED' && companyStatus !== 'ACTIVE' && currentUser?.role !== 'ADMIN' && (

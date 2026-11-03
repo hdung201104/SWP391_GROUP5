@@ -206,10 +206,59 @@ export default function CandidateApplicationsPage({ user }) {
               return 'Theo thỏa thuận';
             };
 
+            // Kiểm tra trạng thái tính pháp lý của doanh nghiệp từ backend payload & cache Admin
+            const rawCompStatus = app.companyStatus || app.job?.company?.status || 'PENDING';
+            let isCompanyVerified = Boolean(
+              app.companyVerified ||
+              rawCompStatus === 'VERIFIED' ||
+              rawCompStatus === 'ACTIVE'
+            );
+            let isCompanyBlocked = Boolean(
+              app.companyBlocked ||
+              rawCompStatus === 'REJECTED' ||
+              rawCompStatus === 'BANNED' ||
+              rawCompStatus === 'SUSPENDED'
+            );
+            let companyRejectionReason = app.companyRejectionReason || app.job?.company?.rejectionReason || null;
+
+            try {
+              const adminList = localStorage.getItem('hiremate_admin_companies_list');
+              if (adminList) {
+                const list = JSON.parse(adminList);
+                const matched = list.find((c) =>
+                  (c.name || '').toLowerCase() === comp.toLowerCase() ||
+                  (c.shortName || '').toLowerCase() === comp.toLowerCase()
+                );
+                if (matched) {
+                  if (matched.status === 'REJECTED' || matched.status === 'BANNED' || matched.status === 'SUSPENDED') {
+                    isCompanyBlocked = true;
+                    isCompanyVerified = false;
+                    if (matched.rejectionReason) companyRejectionReason = matched.rejectionReason;
+                  } else if (matched.status === 'VERIFIED' || matched.status === 'ACTIVE') {
+                    isCompanyVerified = true;
+                    isCompanyBlocked = false;
+                  }
+                }
+              }
+            } catch {}
+
+            const rawJobStatus = app.jobStatus || app.job?.status || 'PUBLISHED';
+            const isJobClosed = Boolean(
+              app.jobClosed ||
+              rawJobStatus === 'CLOSED' ||
+              isCompanyBlocked
+            );
+
             return {
               id: app.applicationId || idx + 1,
               company: comp,
               companyShort: compShort,
+              companyStatus: rawCompStatus,
+              companyVerified: isCompanyVerified,
+              companyBlocked: isCompanyBlocked,
+              companyRejectionReason: companyRejectionReason,
+              jobStatus: rawJobStatus,
+              jobClosed: isJobClosed,
               division: app.job?.company?.industry
                 ? `Lĩnh vực: ${app.job.company.industry}`
                 : 'Doanh nghiệp tuyển dụng trực tuyến',
@@ -768,20 +817,30 @@ export default function CandidateApplicationsPage({ user }) {
                           </div>
                         )}
                         <div className="pt-2 border-t border-purple-100 flex items-center justify-between gap-2">
-                          <a
-                            href={createCandidateToHrMailto({
-                              hrEmail: a.recruiterEmail || 'tuyendung@fpt.com',
-                              hrName: a.recruiterName,
-                              companyName: a.company,
-                              jobTitle: a.title,
-                              candidateName: user?.fullName || user?.name || 'Ứng viên',
-                              candidateEmail: user?.email,
-                            })}
-                            className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer"
-                            title="Gửi email cho HR phụ trách"
-                          >
-                            <span>✉️ Email HR</span>
-                          </a>
+                          {a.companyBlocked ? (
+                            <span
+                              className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md flex items-center gap-1 cursor-not-allowed select-none"
+                              title="Doanh nghiệp đã bị đình chỉ GPKD nên chức năng liên hệ bị tạm khóa"
+                            >
+                              <span className="material-symbols-outlined text-[12px]">lock</span>
+                              <span>Khóa liên hệ HR</span>
+                            </span>
+                          ) : (
+                            <a
+                              href={createCandidateToHrMailto({
+                                hrEmail: a.recruiterEmail || 'tuyendung@fpt.com',
+                                hrName: a.recruiterName,
+                                companyName: a.company,
+                                jobTitle: a.title,
+                                candidateName: user?.fullName || user?.name || 'Ứng viên',
+                                candidateEmail: user?.email,
+                              })}
+                              className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer"
+                              title="Gửi email cho HR phụ trách"
+                            >
+                              <span>✉️ Email HR</span>
+                            </a>
+                          )}
                           {a.jobId && (
                             <a
                               href={`#/jobs/${a.jobId}`}
@@ -1021,25 +1080,45 @@ export default function CandidateApplicationsPage({ user }) {
                         <div className="flex items-center gap-2 flex-wrap">
                           <span
                             onClick={() => handleOpenJobModal(app)}
-                            className="text-base font-bold text-[#1e1b4b] hover:text-[#5b48bd] transition-colors cursor-pointer flex items-center gap-1"
+                            className="text-base font-bold text-[#1e1b4b] hover:text-[#5b48bd] transition-colors cursor-pointer flex items-center gap-1.5 flex-wrap"
                             title="Bấm để xem thông tin chi tiết công ty và bài đăng"
                           >
                             <span>{app.company}</span>
-                            <span className="material-symbols-outlined text-[#10b981] text-[16px]" title="Nhà tuyển dụng xác thực">
-                              verified
-                            </span>
+                            {app.companyBlocked ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-700 border border-rose-300 shadow-2xs" title="Doanh nghiệp này đã bị thu hồi quyền do chưa có GPKD hợp lệ">
+                                <span className="material-symbols-outlined text-[13px] text-rose-600">block</span>
+                                <span>Bị Đình Chỉ GPKD</span>
+                              </span>
+                            ) : app.companyVerified ? (
+                              <span className="material-symbols-outlined text-[#10b981] text-[16px]" title="Nhà tuyển dụng xác thực (Đã duyệt GPKD)">
+                                verified
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200" title="Doanh nghiệp đang chờ thẩm định GPKD">
+                                <span className="material-symbols-outlined text-[13px] text-slate-400">pending</span>
+                                <span>Chưa Duyệt GPKD</span>
+                              </span>
+                            )}
                           </span>
                           <span className="text-xs text-slate-400">•</span>
                           <span className="text-xs text-slate-500 font-medium">{app.division}</span>
                         </div>
 
-                        <h3
-                          onClick={() => handleOpenJobModal(app)}
-                          className="text-lg sm:text-xl font-extrabold text-[#3b2b8e] mt-0.5 hover:text-[#5b48bd] transition-colors cursor-pointer"
-                          title="Bấm để mở xem chi tiết bài đăng tuyển dụng"
-                        >
-                          {app.title}
-                        </h3>
+                        <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                          <h3
+                            onClick={() => handleOpenJobModal(app)}
+                            className="text-lg sm:text-xl font-extrabold text-[#3b2b8e] hover:text-[#5b48bd] transition-colors cursor-pointer"
+                            title="Bấm để mở xem chi tiết bài đăng tuyển dụng"
+                          >
+                            {app.title}
+                          </h3>
+                          {app.jobClosed && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-300 shadow-2xs">
+                              <span className="material-symbols-outlined text-[14px] text-slate-500">lock</span>
+                              <span>Đã Đóng Tuyển</span>
+                            </span>
+                          )}
+                        </div>
 
                         <div className="flex flex-wrap items-center gap-y-1.5 gap-x-3 text-xs text-slate-500 mt-2">
                           <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200/60">
@@ -1090,6 +1169,43 @@ export default function CandidateApplicationsPage({ user }) {
                       </span>
                     </div>
                   </div>
+
+                  {/* CẢNH BÁO PHÁP LÝ & BÀI ĐĂNG BỊ KHÓA / ĐÌNH CHỈ GPKD */}
+                  {(app.companyBlocked || app.jobClosed) && (
+                    <div className="p-4 rounded-2xl bg-gradient-to-r from-rose-50 via-rose-50/90 to-amber-50/70 border-2 border-rose-300 text-rose-950 text-xs flex items-start gap-3 shadow-xs animate-in fade-in duration-300">
+                      <div className="w-9 h-9 rounded-xl bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
+                        <span className="material-symbols-outlined text-xl">gavel</span>
+                      </div>
+                      <div className="flex-1 space-y-1.5">
+                        <div className="font-black text-rose-800 text-sm flex items-center gap-2 flex-wrap">
+                          <span>
+                            {app.companyBlocked
+                              ? '⚠️ CẢNH BÁO QUAN TRỌNG: Doanh nghiệp đã bị Ban Quản Trị tạm khóa do thiếu/thu hồi Giấy phép kinh doanh (GPKD)'
+                              : '⚠️ THÔNG BÁO: Bài đăng tuyển dụng này hiện đã bị đóng hoặc gỡ bỏ'}
+                          </span>
+                        </div>
+                        <div className="text-slate-800 leading-relaxed font-medium">
+                          {app.companyBlocked ? (
+                            <>
+                              Công ty <strong className="text-rose-900 font-bold">"{app.company}"</strong> hiện không đủ điều kiện pháp lý hoạt động hoặc đã bị Quản trị viên thu hồi giấy phép. 
+                              {app.companyRejectionReason && (
+                                <div className="mt-1.5 p-2 rounded-xl bg-white/80 border border-rose-200 text-rose-900 font-semibold text-xs">
+                                  📌 Lý do đình chỉ từ Ban Quản Trị: "{app.companyRejectionReason}"
+                                </div>
+                              )}
+                              <p className="mt-1 text-rose-700 font-semibold text-[11px]">
+                                • Toàn bộ tiến trình phỏng vấn và duyệt hồ sơ của vị trí này đã bị tạm dừng hoàn toàn để bảo vệ quyền lợi ứng viên.
+                              </p>
+                            </>
+                          ) : (
+                            <>
+                              Tin tuyển dụng cho vị trí này đã kết thúc đợt nhận hồ sơ. Bạn vẫn có thể xem lại lịch sử nộp hồ sơ nhưng không thể thực hiện thêm các thao tác mới.
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Rejection / Withdrawal / Offer Decline feedback */}
                   {app.rejectionReason && (
@@ -1145,7 +1261,12 @@ export default function CandidateApplicationsPage({ user }) {
                     <div className="flex items-center gap-1.5 text-xs text-slate-500">
                       <span className="material-symbols-outlined text-sm text-slate-400">person</span>
                       <span>
-                        Người phụ trách: <strong className="text-[#1e1b4b]">{app.recruiter?.name}</strong>
+                        Người phụ trách:{' '}
+                        {app.companyBlocked ? (
+                          <strong className="text-rose-600 font-bold">{app.recruiter?.name || 'Bộ phận Tuyển dụng'} (Đã khóa liên hệ)</strong>
+                        ) : (
+                          <strong className="text-[#1e1b4b]">{app.recruiter?.name}</strong>
+                        )}
                       </span>
                     </div>
                   </div>
@@ -1213,21 +1334,31 @@ export default function CandidateApplicationsPage({ user }) {
 
                   {/* Actions Toolbar */}
                   <div className="flex flex-wrap items-center gap-3 pt-1">
-                    {/* Primary Email Button (Direct professional HR contact) */}
-                    <a
-                      href={createCandidateToHrMailto({
-                        hrEmail: app.recruiterEmail || 'tuyendung@fpt.com',
-                        hrName: app.recruiterName,
-                        companyName: app.company,
-                        jobTitle: app.title,
-                        candidateName: user?.fullName || user?.name || 'Ứng viên',
-                        candidateEmail: user?.email,
-                      })}
-                      className="px-4 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white border border-emerald-200 font-bold text-xs transition-all shadow-xs hover:shadow flex items-center gap-1.5 cursor-pointer"
-                      title="Gửi email trao đổi trực tiếp với HR phụ trách hồ sơ này"
-                    >
-                      <span>✉️ Liên hệ HR qua Email</span>
-                    </a>
+                    {/* Primary Email Button: KHÓA LIÊN HỆ NẾU DOANH NGHIỆP BỊ ĐÌNH CHỈ GPKD */}
+                    {app.companyBlocked ? (
+                      <div
+                        className="px-4 py-2 rounded-xl bg-slate-100 text-slate-400 border border-slate-200 font-bold text-xs flex items-center gap-1.5 cursor-not-allowed select-none shadow-2xs"
+                        title="Doanh nghiệp đã bị tạm đình chỉ hoạt động nên chức năng liên hệ HR đã bị tạm khóa hoàn toàn"
+                      >
+                        <span className="material-symbols-outlined text-[15px] text-slate-400">lock</span>
+                        <span>Đã Khóa Liên Hệ HR</span>
+                      </div>
+                    ) : (
+                      <a
+                        href={createCandidateToHrMailto({
+                          hrEmail: app.recruiterEmail || 'tuyendung@fpt.com',
+                          hrName: app.recruiterName,
+                          companyName: app.company,
+                          jobTitle: app.title,
+                          candidateName: user?.fullName || user?.name || 'Ứng viên',
+                          candidateEmail: user?.email,
+                        })}
+                        className="px-4 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white border border-emerald-200 font-bold text-xs transition-all shadow-xs hover:shadow flex items-center gap-1.5 cursor-pointer"
+                        title="Gửi email trao đổi trực tiếp với HR phụ trách hồ sơ này"
+                      >
+                        <span>✉️ Liên hệ HR qua Email</span>
+                      </a>
+                    )}
 
                     {/* View JD Details */}
                     <button

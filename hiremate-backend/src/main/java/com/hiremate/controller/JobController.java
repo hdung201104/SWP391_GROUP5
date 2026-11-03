@@ -26,7 +26,7 @@ public class JobController {
     @PreAuthorize("hasRole('CANDIDATE')")
     public ResponseEntity<ApiResponse<List<JobResponse>>> getJobRecommendations(
             @RequestParam(required = false, defaultValue = "0.0") Float minMatch,
-            @RequestParam(required = false, defaultValue = "20") Integer limit,
+            @RequestParam(required = false, defaultValue = "50") Integer limit,
             @AuthenticationPrincipal User user
     ) {
         List<JobResponse> recommendations = aiJobMatchService.getIndustrialJobRecommendations(user, minMatch, limit);
@@ -102,13 +102,32 @@ public class JobController {
     }
 
     @PostMapping(value = "/scan-jd", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasRole('RECRUITER')")
+    @PreAuthorize("hasAnyRole('RECRUITER', 'ADMIN')")
     public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> scanJd(
             @RequestParam(value = "file", required = false) org.springframework.web.multipart.MultipartFile file,
             @RequestParam(value = "rawText", required = false) String rawText
     ) {
         java.util.Map<String, Object> parsed = jobService.parseJdFile(file, rawText);
         return ResponseEntity.ok(ApiResponse.ok("Đã quét và bóc tách dữ liệu JD bằng AI thành công", parsed));
+    }
+
+    @PostMapping(value = "/scan-jd", consumes = { org.springframework.http.MediaType.APPLICATION_JSON_VALUE, org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED_VALUE })
+    @PreAuthorize("hasAnyRole('RECRUITER', 'ADMIN')")
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> scanJdJson(
+            @RequestBody(required = false) java.util.Map<String, Object> body
+    ) {
+        String rawText = body != null && body.get("rawText") != null ? String.valueOf(body.get("rawText")) : "";
+        java.util.Map<String, Object> parsed = jobService.parseJdFile(null, rawText);
+        return ResponseEntity.ok(ApiResponse.ok("Đã quét và bóc tách dữ liệu JD bằng AI thành công", parsed));
+    }
+
+    @PostMapping("/generate-jd")
+    @PreAuthorize("hasAnyRole('RECRUITER', 'ADMIN')")
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> generateJd(
+            @RequestBody(required = false) java.util.Map<String, Object> body
+    ) {
+        java.util.Map<String, Object> generated = jobService.generateJobContent(body);
+        return ResponseEntity.ok(ApiResponse.ok("AI đã đọc thông tin và soạn thảo nội dung JD thành công", generated));
     }
 
     @PutMapping("/{id}")

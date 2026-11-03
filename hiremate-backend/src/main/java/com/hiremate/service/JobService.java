@@ -36,5 +36,6 @@ public interface JobService {
     List<JobResponse> mapToResponses(List<com.hiremate.entity.Job> jobs);
     JobResponse mapToResponse(com.hiremate.entity.Job job);
     java.util.Map<String, Object> parseJdFile(org.springframework.web.multipart.MultipartFile file, String rawText);
+    java.util.Map<String, Object> generateJobContent(java.util.Map<String, Object> jobParams);
 }
 

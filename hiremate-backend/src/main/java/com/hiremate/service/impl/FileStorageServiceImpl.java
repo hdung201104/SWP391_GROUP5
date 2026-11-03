@@ -159,21 +159,33 @@ public class FileStorageServiceImpl implements FileStorageService {
 
         // 2. Thử đọc qua đường dẫn mạng HTTP Remote (Cloudinary CDN)
         if (fileUrlOrName.startsWith("http://") || fileUrlOrName.startsWith("https://")) {
-            try (java.io.InputStream in = java.net.URI.create(fileUrlOrName).toURL().openStream()) {
-                byte[] remoteBytes = in.readAllBytes();
-                if (remoteBytes != null && remoteBytes.length > 0) {
-                    return remoteBytes;
+            try {
+                java.net.URL url = java.net.URI.create(fileUrlOrName).toURL();
+                java.net.URLConnection conn = url.openConnection();
+                conn.setConnectTimeout(5000);
+                conn.setReadTimeout(10000);
+                try (java.io.InputStream in = conn.getInputStream()) {
+                    byte[] remoteBytes = in.readAllBytes();
+                    if (remoteBytes != null && remoteBytes.length > 0) {
+                        return remoteBytes;
+                    }
                 }
             } catch (Exception e) {
                 log.warn(">> [FileStorage] Không thể đọc trực tiếp từ Remote URL ({}): {}", fileUrlOrName, e.getMessage());
                 // Fallback nếu là file PDF trên Cloudinary CDN bị giới hạn ACL 401: Cloudinary cho phép render trực tiếp sang .png nét cao
                 if (fileUrlOrName.contains("res.cloudinary.com") && fileUrlOrName.toLowerCase().endsWith(".pdf")) {
                     String pngUrl = fileUrlOrName.replaceAll("(?i)\\.pdf$", ".png");
-                    try (java.io.InputStream inPng = java.net.URI.create(pngUrl).toURL().openStream()) {
-                        byte[] pngBytes = inPng.readAllBytes();
-                        if (pngBytes != null && pngBytes.length > 0) {
-                            log.info(">> [FileStorage] Đã tải thành công ảnh xem trước (.png) thay thế cho PDF Cloudinary: {}", pngUrl);
-                            return pngBytes;
+                    try {
+                        java.net.URL urlPng = java.net.URI.create(pngUrl).toURL();
+                        java.net.URLConnection connPng = urlPng.openConnection();
+                        connPng.setConnectTimeout(5000);
+                        connPng.setReadTimeout(10000);
+                        try (java.io.InputStream inPng = connPng.getInputStream()) {
+                            byte[] pngBytes = inPng.readAllBytes();
+                            if (pngBytes != null && pngBytes.length > 0) {
+                                log.info(">> [FileStorage] Đã tải thành công ảnh xem trước (.png) thay thế cho PDF Cloudinary: {}", pngUrl);
+                                return pngBytes;
+                            }
                         }
                     } catch (Exception exPng) {
                         log.warn(">> [FileStorage] Thử tải fallback .png từ Cloudinary cũng thất bại: {}", exPng.getMessage());

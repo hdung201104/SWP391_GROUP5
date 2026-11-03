@@ -8,6 +8,7 @@ import { extractBlob } from '../utils/excelExportUtils';
 import JobDetailModal from '../components/jobs/JobDetailModal';
 import ApplyJobModal from '../components/jobs/ApplyJobModal';
 import CvViewModal from '../components/common/CvViewModal';
+import ModalPortal from '../components/common/ModalPortal';
 import interviewApi from '../api/interviewApi';
 
 
@@ -1452,66 +1453,68 @@ export default function CandidateProfilePage({ user }) {
       {/* AI CV SCANNER & PARSER REALTIME MODAL                     */}
       {/* ========================================================= */}
       {scanState.isScanning && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fadeIn no-print">
-          <div className="w-full max-w-md bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-purple-100 text-center space-y-5 animate-scaleUp font-sans">
-            <div className="relative w-20 h-24 mx-auto bg-gradient-to-b from-purple-50 to-purple-100/70 rounded-2xl border-2 border-purple-200 flex flex-col items-center justify-center shadow-inner overflow-hidden">
-              <span className="material-symbols-outlined text-4xl text-[#5b48bd]">description</span>
-              <div 
-                className="absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-[#5b48bd] to-transparent shadow-lg animate-pulse"
-              />
-            </div>
+        <ModalPortal isOpen={scanState.isScanning}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fadeIn no-print">
+            <div className="w-full max-w-md bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-purple-100 text-center space-y-5 animate-scaleUp font-sans">
+              <div className="relative w-20 h-24 mx-auto bg-gradient-to-b from-purple-50 to-purple-100/70 rounded-2xl border-2 border-purple-200 flex flex-col items-center justify-center shadow-inner overflow-hidden">
+                <span className="material-symbols-outlined text-4xl text-[#5b48bd]">description</span>
+                <div 
+                  className="absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-[#5b48bd] to-transparent shadow-lg animate-pulse"
+                />
+              </div>
 
-            <div>
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-50 text-[#5b48bd] text-[11px] font-bold border border-purple-100 mb-2">
-                <span className="material-symbols-outlined text-sm">auto_awesome</span>
-                <span>HireMate AI CV Scanner</span>
+              <div>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-50 text-[#5b48bd] text-[11px] font-bold border border-purple-100 mb-2">
+                  <span className="material-symbols-outlined text-sm">auto_awesome</span>
+                  <span>HireMate AI CV Scanner</span>
+                </div>
+                <h3 className="text-base font-bold text-[#1e1b4b]">Đang Quét & Bóc Tách Tệp CV</h3>
+                <p className="text-xs text-slate-500 mt-0.5 truncate max-w-xs mx-auto font-medium">{scanState.fileName}</p>
               </div>
-              <h3 className="text-base font-bold text-[#1e1b4b]">Đang Quét & Bóc Tách Tệp CV</h3>
-              <p className="text-xs text-slate-500 mt-0.5 truncate max-w-xs mx-auto font-medium">{scanState.fileName}</p>
-            </div>
 
-            {/* Progress bar */}
-            <div className="space-y-1.5">
-              <div className="w-full bg-purple-100 rounded-full h-2 overflow-hidden">
-                <div
-                  className="bg-gradient-to-r from-[#5b48bd] to-purple-500 h-full rounded-full transition-all duration-500"
-                  style={{ width: `${scanState.progress}%` }}
-                ></div>
+              {/* Progress bar */}
+              <div className="space-y-1.5">
+                <div className="w-full bg-purple-100 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-gradient-to-r from-[#5b48bd] to-purple-500 h-full rounded-full transition-all duration-500"
+                    style={{ width: `${scanState.progress}%` }}
+                  ></div>
+                </div>
+                <p className="text-xs font-semibold text-[#5b48bd] animate-pulse">
+                  {scanState.statusText}
+                </p>
               </div>
-              <p className="text-xs font-semibold text-[#5b48bd] animate-pulse">
-                {scanState.statusText}
-              </p>
-            </div>
 
-            {/* Step list */}
-            <div className="text-left text-xs space-y-2 bg-[#f8f7ff] p-3.5 rounded-2xl border border-purple-50">
-              <div className={`flex items-center gap-2 ${scanState.step >= 1 ? 'text-[#1e1b4b] font-medium' : 'text-slate-400'}`}>
-                <span className={`material-symbols-outlined text-sm ${scanState.step > 1 ? 'text-emerald-500 font-bold' : 'text-[#5b48bd]'}`}>
-                  {scanState.step > 1 ? 'check_circle' : 'hourglass_top'}
-                </span>
-                <span>1. Tải tệp lên máy chủ an toàn</span>
-              </div>
-              <div className={`flex items-center gap-2 ${scanState.step >= 2 ? 'text-[#1e1b4b] font-medium' : 'text-slate-400'}`}>
-                <span className={`material-symbols-outlined text-sm ${scanState.step > 2 ? 'text-emerald-500 font-bold' : scanState.step === 2 ? 'text-[#5b48bd]' : 'radio_button_unchecked'}`}>
-                  {scanState.step > 2 ? 'check_circle' : scanState.step === 2 ? 'hourglass_top' : 'radio_button_unchecked'}
-                </span>
-                <span>2. Đọc và bóc tách cấu trúc văn bản (PDF / DOCX / Ảnh Scan OCR)</span>
-              </div>
-              <div className={`flex items-center gap-2 ${scanState.step >= 3 ? 'text-[#1e1b4b] font-medium' : 'text-slate-400'}`}>
-                <span className={`material-symbols-outlined text-sm ${scanState.step > 3 ? 'text-emerald-500 font-bold' : scanState.step === 3 ? 'text-[#5b48bd]' : 'radio_button_unchecked'}`}>
-                  {scanState.step > 3 ? 'check_circle' : scanState.step === 3 ? 'hourglass_top' : 'radio_button_unchecked'}
-                </span>
-                <span>3. AI trích xuất Học vấn, Kinh nghiệm & Kỹ năng</span>
-              </div>
-              <div className={`flex items-center gap-2 ${scanState.step >= 4 ? 'text-emerald-600 font-bold' : 'text-slate-400'}`}>
-                <span className={`material-symbols-outlined text-sm ${scanState.step >= 4 ? 'text-emerald-500 font-bold' : 'radio_button_unchecked'}`}>
-                  {scanState.step >= 4 ? 'check_circle' : 'radio_button_unchecked'}
-                </span>
-                <span>4. Hoàn tất & Tự động đồng bộ vào Bản CV Trực Tuyến</span>
+              {/* Step list */}
+              <div className="text-left text-xs space-y-2 bg-[#f8f7ff] p-3.5 rounded-2xl border border-purple-50">
+                <div className={`flex items-center gap-2 ${scanState.step >= 1 ? 'text-[#1e1b4b] font-medium' : 'text-slate-400'}`}>
+                  <span className={`material-symbols-outlined text-sm ${scanState.step > 1 ? 'text-emerald-500 font-bold' : 'text-[#5b48bd]'}`}>
+                    {scanState.step > 1 ? 'check_circle' : 'hourglass_top'}
+                  </span>
+                  <span>1. Tải tệp lên máy chủ an toàn</span>
+                </div>
+                <div className={`flex items-center gap-2 ${scanState.step >= 2 ? 'text-[#1e1b4b] font-medium' : 'text-slate-400'}`}>
+                  <span className={`material-symbols-outlined text-sm ${scanState.step > 2 ? 'text-emerald-500 font-bold' : scanState.step === 2 ? 'text-[#5b48bd]' : 'radio_button_unchecked'}`}>
+                    {scanState.step > 2 ? 'check_circle' : scanState.step === 2 ? 'hourglass_top' : 'radio_button_unchecked'}
+                  </span>
+                  <span>2. Đọc và bóc tách cấu trúc văn bản (PDF / DOCX / Ảnh Scan OCR)</span>
+                </div>
+                <div className={`flex items-center gap-2 ${scanState.step >= 3 ? 'text-[#1e1b4b] font-medium' : 'text-slate-400'}`}>
+                  <span className={`material-symbols-outlined text-sm ${scanState.step > 3 ? 'text-emerald-500 font-bold' : scanState.step === 3 ? 'text-[#5b48bd]' : 'radio_button_unchecked'}`}>
+                    {scanState.step > 3 ? 'check_circle' : scanState.step === 3 ? 'hourglass_top' : 'radio_button_unchecked'}
+                  </span>
+                  <span>3. AI trích xuất Học vấn, Kinh nghiệm & Kỹ năng</span>
+                </div>
+                <div className={`flex items-center gap-2 ${scanState.step >= 4 ? 'text-emerald-600 font-bold' : 'text-slate-400'}`}>
+                  <span className={`material-symbols-outlined text-sm ${scanState.step >= 4 ? 'text-emerald-500 font-bold' : 'radio_button_unchecked'}`}>
+                    {scanState.step >= 4 ? 'check_circle' : 'radio_button_unchecked'}
+                  </span>
+                  <span>4. Hoàn tất & Tự động đồng bộ vào Bản CV Trực Tuyến</span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
 
       {toastMessage && (
@@ -4426,7 +4429,8 @@ export default function CandidateProfilePage({ user }) {
         {/* 🎯 MODAL BÁO CÁO ATS & VIỆC LÀM PHÙ HỢP TỨC THÌ         */}
         {/* ========================================================= */}
         {showRecommendationModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-sm animate-fade-in font-sans">
+          <ModalPortal isOpen={showRecommendationModal}>
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-sm animate-fade-in font-sans">
             <div className="relative w-full max-w-2xl bg-white border border-purple-100 rounded-[32px] p-6 sm:p-8 shadow-2xl text-[#1e1b4b] max-h-[90vh] overflow-y-auto">
               <button
                 onClick={() => setShowRecommendationModal(false)}
@@ -4620,7 +4624,8 @@ export default function CandidateProfilePage({ user }) {
               </div>
             </div>
           </div>
-        )}
+        </ModalPortal>
+      )}
 
 
 
@@ -4640,7 +4645,8 @@ export default function CandidateProfilePage({ user }) {
         {/* MODAL: TÙY CHỌN LOẠI CV ĐỂ IN & XUẤT BẢN PDF             */}
         {/* ========================================================= */}
         {showPrintModal && (
-          <div className="no-print fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+          <ModalPortal isOpen={showPrintModal}>
+            <div className="no-print fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
             <div className="w-full max-w-2xl bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-purple-100 space-y-6 animate-scaleUp font-sans max-h-[90vh] overflow-y-auto">
               
               {/* Header */}
@@ -4844,16 +4850,17 @@ export default function CandidateProfilePage({ user }) {
                   Đóng Hộp Thoại
                 </button>
               </div>
-
             </div>
           </div>
-        )}
+        </ModalPortal>
+      )}
 
         {/* ========================================================= */}
         {/* UPGRADE SUBSCRIPTION MODAL                                */}
         {/* ========================================================= */}
         {upgradeModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn font-sans">
+          <ModalPortal isOpen={upgradeModalOpen}>
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn font-sans">
             <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-purple-100 text-center space-y-5 animate-scaleUp">
               <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-purple-600 via-indigo-600 to-amber-500 text-white flex items-center justify-center mx-auto shadow-lg shadow-purple-200">
                 <span className="material-symbols-outlined text-3xl">workspace_premium</span>
@@ -4898,7 +4905,8 @@ export default function CandidateProfilePage({ user }) {
               </div>
             </div>
           </div>
-        )}
+        </ModalPortal>
+      )}
 
       </div>
     </div>

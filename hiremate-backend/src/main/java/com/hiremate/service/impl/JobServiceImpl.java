@@ -1492,7 +1492,29 @@ public class JobServiceImpl implements JobService {
             }
         }
 
-        return postProcessParsedJd(aiResult, extractedText);
+        java.util.Map<String, Object> result = postProcessParsedJd(aiResult, extractedText);
+        if (extractedText != null && !extractedText.isBlank()) {
+            result.put("rawText", extractedText.trim());
+        }
+        return result;
+    }
+
+    @Override
+    public java.util.Map<String, Object> generateJobContent(java.util.Map<String, Object> jobParams) {
+        if (geminiAiService != null) {
+            try {
+                return geminiAiService.generateJobContent(jobParams);
+            } catch (Exception e) {
+                log.warn(">> [JobService] Gemini generateJobContent failed: {}. Fallback to smart generator.", e.getMessage());
+            }
+        }
+        String title = jobParams != null && jobParams.get("title") != null ? String.valueOf(jobParams.get("title")) : "Vị trí tuyển dụng";
+        java.util.Map<String, Object> fallback = createSmartFallbackJd(title);
+        java.util.Map<String, Object> res = new java.util.HashMap<>();
+        res.put("description", fallback.get("description"));
+        res.put("requirements", fallback.get("requirements"));
+        res.put("benefits", fallback.get("benefits"));
+        return res;
     }
 
     @SuppressWarnings("unchecked")
@@ -1552,7 +1574,7 @@ public class JobServiceImpl implements JobService {
             }
         }
 
-        // Chuẩn hóa và lưu kỹ năng vào CSDL 3NF qua skillService.findOrCreateNormalizedSkill
+        // Chuẩn hóa và gán danh sách kỹ năng an toàn (không làm sập tiến trình bóc tách JD)
         List<String> normalizedMand = new ArrayList<>();
         List<String> normalizedPref = new ArrayList<>();
         List<String> newSkillsAdded = new ArrayList<>();
@@ -1561,7 +1583,7 @@ public class JobServiceImpl implements JobService {
         for (String sk : mandList) {
             if (sk == null || sk.isBlank()) continue;
             String trimmed = sk.trim();
-            boolean existed = skillRepository.existsBySkillNameIgnoreCase(trimmed);
+            boolean added = false;
             try {
                 if (skillService != null) {
                     com.hiremate.entity.Skill normSkill = skillService.findOrCreateNormalizedSkill(trimmed, domainStr, null);
@@ -1569,37 +1591,21 @@ public class JobServiceImpl implements JobService {
                         String nName = normSkill.getSkillName().trim();
                         if (!normalizedMand.contains(nName)) normalizedMand.add(nName);
                         skillNameCache.put(normSkill.getSkillId(), nName);
-                        if (!existed && !newSkillsAdded.contains(nName)) {
-                            newSkillsAdded.add(nName);
-                        }
-                        continue;
+                        added = true;
                     }
                 }
             } catch (Exception ex) {
                 log.warn(">> [JobService] findOrCreateNormalizedSkill failed for mandatory skill '{}': {}", trimmed, ex.getMessage());
             }
-            Long sid = resolveOrCreateSkillId(trimmed, domainStr);
-            if (sid != null) {
-                String normalizedName = skillNameCache.get(sid);
-                if (normalizedName == null) {
-                    normalizedName = skillRepository.findById(sid).map(Skill::getSkillName).orElse(trimmed);
-                    skillNameCache.put(sid, normalizedName);
-                }
-                if (!normalizedMand.contains(normalizedName)) {
-                    normalizedMand.add(normalizedName);
-                }
-                if (!existed && !newSkillsAdded.contains(normalizedName)) {
-                    newSkillsAdded.add(normalizedName);
-                }
-            } else {
-                if (!normalizedMand.contains(trimmed)) normalizedMand.add(trimmed);
+            if (!added && !normalizedMand.contains(trimmed)) {
+                normalizedMand.add(trimmed);
             }
         }
 
         for (String sk : prefList) {
             if (sk == null || sk.isBlank()) continue;
             String trimmed = sk.trim();
-            boolean existed = skillRepository.existsBySkillNameIgnoreCase(trimmed);
+            boolean added = false;
             try {
                 if (skillService != null) {
                     com.hiremate.entity.Skill normSkill = skillService.findOrCreateNormalizedSkill(trimmed, domainStr, null);
@@ -1609,32 +1615,14 @@ public class JobServiceImpl implements JobService {
                             normalizedPref.add(nName);
                         }
                         skillNameCache.put(normSkill.getSkillId(), nName);
-                        if (!existed && !newSkillsAdded.contains(nName)) {
-                            newSkillsAdded.add(nName);
-                        }
-                        continue;
+                        added = true;
                     }
                 }
             } catch (Exception ex) {
                 log.warn(">> [JobService] findOrCreateNormalizedSkill failed for preferred skill '{}': {}", trimmed, ex.getMessage());
             }
-            Long sid = resolveOrCreateSkillId(trimmed, domainStr);
-            if (sid != null) {
-                String normalizedName = skillNameCache.get(sid);
-                if (normalizedName == null) {
-                    normalizedName = skillRepository.findById(sid).map(Skill::getSkillName).orElse(trimmed);
-                    skillNameCache.put(sid, normalizedName);
-                }
-                if (!normalizedMand.contains(normalizedName) && !normalizedPref.contains(normalizedName)) {
-                    normalizedPref.add(normalizedName);
-                }
-                if (!existed && !newSkillsAdded.contains(normalizedName)) {
-                    newSkillsAdded.add(normalizedName);
-                }
-            } else {
-                if (!normalizedMand.contains(trimmed) && !normalizedPref.contains(trimmed)) {
-                    normalizedPref.add(trimmed);
-                }
+            if (!added && !normalizedMand.contains(trimmed) && !normalizedPref.contains(trimmed)) {
+                normalizedPref.add(trimmed);
             }
         }
 

@@ -248,11 +248,30 @@ const INITIAL_PACKAGES = [
     status: 'ACTIVE',
     color: '#5b48bd',
     features: [
-      'Gói mặc định miễn phí, tối đa 3 bài đăng/tuần',
-      'AI Matching 70/30 cơ bản',
-      'Xem danh sách ứng viên nộp hồ sơ',
-      'Thời hạn sử dụng 365 ngày'
+      'Đăng tối đa 3 tin tuyển dụng active đồng thời',
+      'Thuật toán AI Matching 70/30 tự động & phân loại sơ bộ',
+      'Mở khóa xem tối đa 10 hồ sơ CV ứng viên mỗi tháng (che SĐT/Email)',
+      'Quản lý hồ sơ ứng viên qua bảng Kanban Pipeline 6 giai đoạn tiêu chuẩn',
+      'Hạn ngạch sử dụng 365 ngày hoàn toàn miễn phí',
     ],
+    permissions: {
+      jobPostingQuota: 3,
+      cvUnlockQuota: 10,
+      teamSeats: 1,
+      aiMatching: true,
+      topCandidateFilter: false,
+      skillGapAnalysis: false,
+      aiInterviewQuestions: false,
+      unlockDirectContact: false,
+      viewAiInterviewReport: false,
+      kanbanPipeline: true,
+      batchActions: false,
+      featuredJobBadge: false,
+      exportReport: false,
+      autoEmail: false,
+      confidentialHiring: false,
+      prioritySupport: false,
+    },
   },
   {
     id: 'pkg-2',
@@ -270,11 +289,33 @@ const INITIAL_PACKAGES = [
     status: 'ACTIVE',
     color: '#10b981',
     features: [
-      'Đăng tối đa 10 bài tuyển dụng trong 30 ngày',
-      'Thuật toán AI Matching 70/30 tự động',
-      'Mở khóa xem thông tin ứng viên đầy đủ',
-      'Quản lý tuyển dụng Kanban Pipeline'
+      'Đăng tối đa 10 tin tuyển dụng active trong 30 ngày',
+      'Mở khóa xem 50 CV gốc, đầy đủ SĐT, Email & Portfolio không che',
+      'Thuật toán AI Matching 70/30 & Lọc ứng viên Top 10% xuất sắc',
+      'AI JD Extractor & Phân tích ma trận khoảng trống kỹ năng (Skill Gap)',
+      'Bảng Kanban quản lý tuyển dụng & Đặt lịch phỏng vấn tự động',
+      'AI Gemini gợi ý câu hỏi phỏng vấn theo từng vị trí tuyển dụng',
+      'Xuất danh sách ứng viên và báo cáo tuyển dụng ra file Excel (.xlsx)',
+      'Hỗ trợ phân quyền đội ngũ tối đa 2 tài khoản HR',
     ],
+    permissions: {
+      jobPostingQuota: 10,
+      cvUnlockQuota: 50,
+      teamSeats: 2,
+      aiMatching: true,
+      topCandidateFilter: true,
+      skillGapAnalysis: true,
+      aiInterviewQuestions: true,
+      unlockDirectContact: true,
+      viewAiInterviewReport: false,
+      kanbanPipeline: true,
+      batchActions: false,
+      featuredJobBadge: false,
+      exportReport: true,
+      autoEmail: false,
+      confidentialHiring: false,
+      prioritySupport: false,
+    },
   },
   {
     id: 'pkg-3',
@@ -292,11 +333,34 @@ const INITIAL_PACKAGES = [
     status: 'ACTIVE',
     color: '#06b6d4',
     features: [
-      'Đăng 30 bài tuyển dụng/tháng, ưu tiên hiển thị tin',
-      'Lọc ứng viên Top 5% xuất sắc nhất theo AI Score',
-      'Huy hiệu Doanh nghiệp Xác thực Verified',
-      'Mở khóa xem CV & thông tin liên hệ không giới hạn'
+      'Đăng tối đa 30 tin tuyển dụng active hoạt động đồng thời',
+      'Mở khóa xem 200 hồ sơ CV gốc và thông tin liên hệ trực tiếp',
+      'Huy hiệu Doanh nghiệp Verified & Tự động đẩy Top tin tuyển dụng 24/7',
+      'Lọc ứng viên xuất sắc Top 5% theo thuật toán AI ATS Score',
+      'Mở khóa Báo cáo Đánh giá & Thẩm định chi tiết AI Copilot (Ưu điểm, Điểm yếu & Khuyến nghị)',
+      'Duyệt & chuyển trạng thái ứng viên hàng loạt (Batch Stage Actions)',
+      'Gửi email tự động mời phỏng vấn & thông báo kết quả hàng loạt theo mẫu',
+      'Báo cáo Talent Analytics chuyên sâu: Phễu tuyển dụng & Tỉ lệ chuyển đổi',
+      'Phân quyền đội ngũ tối đa 5 tài khoản HR trong công ty',
     ],
+    permissions: {
+      jobPostingQuota: 30,
+      cvUnlockQuota: 200,
+      teamSeats: 5,
+      aiMatching: true,
+      topCandidateFilter: true,
+      skillGapAnalysis: true,
+      aiInterviewQuestions: true,
+      unlockDirectContact: true,
+      viewAiInterviewReport: true,
+      kanbanPipeline: true,
+      batchActions: true,
+      featuredJobBadge: true,
+      exportReport: true,
+      autoEmail: true,
+      confidentialHiring: false,
+      prioritySupport: false,
+    },
   },
   {
     id: 'pkg-4',
@@ -314,11 +378,34 @@ const INITIAL_PACKAGES = [
     status: 'ACTIVE',
     color: '#f59e0b',
     features: [
-      'Không giới hạn đăng tin tuyển dụng',
-      'AI lọc & xếp hạng ứng viên chuyên sâu',
-      'Đẩy top tin tuyển dụng tự động 24/7',
-      'Xuất báo cáo tuyển dụng & Phân tích thị trường lương'
+      'KHÔNG GIỚI HẠN số lượng tin đăng tuyển dụng hoạt động (Unlimited Jobs)',
+      'Mở khóa xem CV & liên hệ trực tiếp toàn bộ kho ứng viên không giới hạn',
+      'Xem trọn vẹn 100% Báo cáo Đánh giá & Đối soát chuyên sâu AI Copilot không giới hạn',
+      'Đẩy Top ưu tiên vị trí số 1 tìm kiếm & Gắn huy hiệu VIP Doanh nghiệp',
+      'Tùy chọn đăng tin bảo mật / Ẩn danh danh tính công ty (Confidential Hiring)',
+      'Trọn bộ công cụ tự động hóa: Gửi email hàng loạt & Đặt lịch phỏng vấn',
+      'Xuất toàn bộ dữ liệu Talent Pool ra Excel, CSV & Báo cáo PDF cao cấp',
+      'Hỗ trợ chuyên viên HR Account Manager phục vụ riêng 24/7',
+      'Không giới hạn số lượng tài khoản HR cộng tác trong tổ chức',
     ],
+    permissions: {
+      jobPostingQuota: 999,
+      cvUnlockQuota: 999,
+      teamSeats: 999,
+      aiMatching: true,
+      topCandidateFilter: true,
+      skillGapAnalysis: true,
+      aiInterviewQuestions: true,
+      unlockDirectContact: true,
+      viewAiInterviewReport: true,
+      kanbanPipeline: true,
+      batchActions: true,
+      featuredJobBadge: true,
+      exportReport: true,
+      autoEmail: true,
+      confidentialHiring: true,
+      prioritySupport: true,
+    },
   },
   {
     id: 'pkg-5',
@@ -336,11 +423,27 @@ const INITIAL_PACKAGES = [
     status: 'ACTIVE',
     color: '#8b5cf6',
     features: [
-      'Gói mặc định miễn phí, tối đa 2 lượt phỏng vấn AI/ngày',
-      'Chấm điểm & tối ưu hóa CV chuẩn ATS',
-      'Ứng tuyển 1-click không giới hạn tới doanh nghiệp',
-      'Lưu lịch sử phỏng vấn và câu trả lời'
+      '2 Phiên luyện phỏng vấn AI Voice Mock Studio mỗi ngày',
+      'Cấu trúc 3 câu hỏi cơ bản / phiên (Thời lượng tối đa 5 phút)',
+      'Hội đồng phỏng vấn: HR Manager Lan Anh (Giọng chuẩn Miền Bắc)',
+      '1 Lượt trợ lý AI Coach gợi ý trả lời / phiên',
+      'Xem điểm tổng quan & Câu trả lời mẫu STAR cho câu đầu tiên',
+      'Ứng tuyển 1-click không giới hạn tới tất cả việc làm mở tuyển',
     ],
+    permissions: {
+      interviewQuotaPerDay: 2,
+      maxQuestions: 3,
+      maxDurationMinutes: 5,
+      allowedPersonas: ['HR_MANAGER'],
+      allowedVoices: ['vi-native'],
+      coachHints: 1,
+      unlockFullStar: false,
+      unlockRoadmap: false,
+      deltaScoreChart: false,
+      atsCvAnalysis: true,
+      atsScanQuota: 3,
+      topTalentBadge: false,
+    },
   },
   {
     id: 'pkg-6',
@@ -358,15 +461,71 @@ const INITIAL_PACKAGES = [
     status: 'ACTIVE',
     color: '#ec4899',
     features: [
-      '10 lượt phỏng vấn AI/ngày trong 7 ngày',
-      'Báo cáo cải thiện kỹ năng Delta sau phỏng vấn',
-      'Ngân hàng câu hỏi động theo vị trí và cấp bậc',
-      'Hồ sơ gắn nhãn Top Candidate ưu tiên tìm kiếm'
+      '10 Phiên luyện phỏng vấn AI Voice / ngày (Trong 7 ngày)',
+      'Cấu trúc 5 câu hỏi tiêu chuẩn / phiên (Thời lượng tối đa 10 phút)',
+      'Mở khóa thêm Phong cách Tech Lead & Giọng đọc ElevenLabs Alice',
+      '3 Lượt trợ lý AI Coach gợi ý trả lời / phiên',
+      'Mở khóa 100% Barem đáp án chuẩn mô hình STAR điểm 10/10',
+      'Mở khóa Lộ trình cải thiện kỹ năng 3 giai đoạn (Ngắn - Trung - Dài)',
+      'Chấm điểm & Tối ưu hóa từ khóa CV chuẩn ATS qua Gemini AI',
     ],
+    permissions: {
+      interviewQuotaPerDay: 10,
+      maxQuestions: 5,
+      maxDurationMinutes: 10,
+      allowedPersonas: ['HR_MANAGER', 'TECH_LEAD'],
+      allowedVoices: ['vi-native', 'eleven-alice'],
+      coachHints: 3,
+      unlockFullStar: true,
+      unlockRoadmap: true,
+      deltaScoreChart: true,
+      atsCvAnalysis: true,
+      atsScanQuota: 20,
+      topTalentBadge: false,
+    },
   },
   {
     id: 'pkg-7',
     rawId: 7,
+    name: 'Practice Pro',
+    targetRole: 'CANDIDATE',
+    planType: 'INTERVIEW_PRACTICE',
+    price: 149000,
+    priceText: '149.000 đ / 30 ngày',
+    duration: '30 ngày',
+    durationDays: 30,
+    quotaLimit: 30,
+    subscribersCount: 78,
+    sharePercent: '22%',
+    status: 'ACTIVE',
+    color: '#10b981',
+    features: [
+      '30 Phiên luyện phỏng vấn AI Voice Studio / ngày (Trong 30 ngày)',
+      'Cấu trúc 7 câu hỏi chuyên sâu / phiên (Thời lượng tối đa 15 phút)',
+      'Mở khóa trọn bộ 3 Hội đồng: HR Manager, Tech Lead & Giám Đốc Khắt Khe',
+      'Mở khóa đủ 3 Giọng đọc ElevenLabs AI Turbo (Alice & George)',
+      'Trợ lý AI Coach gợi ý trả lời KHÔNG GIỚI HẠN trong phiên',
+      'Mở khóa 100% Barem STAR, Biểu đồ Delta Score & Lộ trình nghề nghiệp',
+      'Quét & Tối ưu hóa CV chuẩn ATS không giới hạn số lượng',
+    ],
+    permissions: {
+      interviewQuotaPerDay: 30,
+      maxQuestions: 7,
+      maxDurationMinutes: 15,
+      allowedPersonas: ['HR_MANAGER', 'TECH_LEAD', 'STRICT_DIRECTOR'],
+      allowedVoices: ['vi-native', 'eleven-alice', 'eleven-george'],
+      coachHints: 999,
+      unlockFullStar: true,
+      unlockRoadmap: true,
+      deltaScoreChart: true,
+      atsCvAnalysis: true,
+      atsScanQuota: 999,
+      topTalentBadge: true,
+    },
+  },
+  {
+    id: 'pkg-8',
+    rawId: 8,
     name: 'Career Ace (Combo)',
     targetRole: 'CANDIDATE',
     planType: 'COMBO',
@@ -380,38 +539,65 @@ const INITIAL_PACKAGES = [
     status: 'ACTIVE',
     color: '#3b82f6',
     features: [
-      'Không giới hạn Luyện phỏng vấn AI Voice Studio',
-      'Chấm điểm CV ATS không giới hạn & Đề xuất từ khóa chuẩn',
-      'Fast-track CV tới Recruiter VIP hàng đầu',
-      'Báo cáo phân tích chuyên sâu xu hướng nghề nghiệp'
+      'KHÔNG GIỚI HẠN số phiên luyện phỏng vấn AI Voice Studio (Unlimited)',
+      'Chế độ Marathon 8 - 10 câu hỏi áp lực cao (Tối đa 20 - 30 phút)',
+      'Trọn bộ 3 Phong cách phỏng vấn & 3 Giọng đọc AI Studio cao cấp',
+      'Trợ lý AI Coach không giới hạn & Phân tích âm sắc giọng nói toàn diện',
+      'Mở khóa 100% Barem STAR, Biểu đồ Delta Score & Lộ trình nghề nghiệp',
+      'Huy hiệu "Ứng viên Nổi Bật (Top Talent Badge)" ưu tiên tiếp cận HR VIP',
+      'Fast-track hồ sơ tới các vị trí AI Matching >= 90% của doanh nghiệp hàng đầu',
     ],
+    permissions: {
+      interviewQuotaPerDay: 999,
+      maxQuestions: 8,
+      maxDurationMinutes: 20,
+      allowedPersonas: ['HR_MANAGER', 'TECH_LEAD', 'STRICT_DIRECTOR'],
+      allowedVoices: ['vi-native', 'eleven-alice', 'eleven-george'],
+      coachHints: 999,
+      unlockFullStar: true,
+      unlockRoadmap: true,
+      deltaScoreChart: true,
+      atsCvAnalysis: true,
+      atsScanQuota: 999,
+      topTalentBadge: true,
+    },
   },
 ];
 
 const RECRUITER_FEATURE_OPTIONS = [
-  'Đăng tin tuyển dụng theo hạn ngạch',
+  'Đăng tin tuyển dụng theo hạn ngạch (Job Posting Quota)',
   'Thuật toán AI Matching 70/30 tự động & xếp hạng hồ sơ',
-  'Lọc ứng viên Top 5% và Top 10% xuất sắc nhất',
-  'Mở khóa xem đầy đủ CV, số điện thoại & email liên hệ',
-  'Quản trị Pipeline Kanban 6 bước ứng viên',
-  'Huy hiệu Doanh nghiệp Xác thực Verified Employer',
-  'Tự động đẩy top tin tuyển dụng 24/7 trên trang chủ',
-  'Xuất báo cáo tuyển dụng chuyên sâu & Thống kê lương thị trường',
-  'Hỗ trợ chuyên viên HR Partner riêng 24/7',
-  'Gửi email tự động mời phỏng vấn & thông báo kết quả hàng loạt',
+  'Lọc ứng viên Top 5% và Top 10% xuất sắc nhất theo AI Score',
+  'AI JD Extractor & Phân tích ma trận khoảng trống kỹ năng (Skill Gap Matrix)',
+  'AI Gemini gợi ý câu hỏi phỏng vấn chuyên sâu theo JD & CV',
+  'Mở khóa xem đầy đủ CV gốc, số điện thoại & email liên hệ trực tiếp',
+  'Mở khóa Báo cáo Thẩm định & Đánh giá năng lực từ AI Copilot (Ưu điểm, Điểm yếu & Khuyến nghị)',
+  'Quản trị Pipeline Kanban 6 bước & Đặt lịch phỏng vấn tự động',
+  'Duyệt & chuyển trạng thái ứng viên hàng loạt (Batch Actions)',
+  'Gửi email tự động mời phỏng vấn & thông báo kết quả hàng loạt theo mẫu',
+  'Huy hiệu Doanh nghiệp Thẩm định (Verified Employer) & Đẩy Top tin 24/7',
+  'Xuất báo cáo Talent Analytics chuyên sâu ra Excel (.xlsx), CSV, PDF',
+  'Đăng tin tuyển dụng ẩn danh / Bảo mật danh tính công ty (Confidential)',
+  'Phân quyền nhiều tài khoản HR trong cùng công ty (Team Seats)',
+  'Hỗ trợ chuyên viên CSKH & HR Partner riêng phục vụ 24/7',
 ];
 
 const CANDIDATE_FEATURE_OPTIONS = [
   'Luyện phỏng vấn AI Voice Mock Studio theo hạn ngạch',
-  'Chấm điểm & tối ưu hóa CV chuyên sâu chuẩn ATS',
-  'Báo cáo cải thiện kỹ năng Delta sau phỏng vấn',
-  'Ngân hàng câu hỏi động bám sát JD thực tế của doanh nghiệp',
-  'Huy hiệu Ứng viên xuất sắc (Top Candidate Verified Badge)',
-  'Xem chỉ số thị trường lương & xu hướng kỹ năng VIP (Career Insights)',
-  'Nhận thông báo việc làm phù hợp AI Match >= 90% tức thì',
+  'Cấu trúc câu hỏi phỏng vấn chuẩn quốc tế (3 đến 8 câu / buổi)',
+  'Hội đồng phỏng vấn AI đa phong cách (HR Manager, Tech Lead, Giám đốc Khắt khe)',
+  'Đa dạng giọng đọc AI Voice Studio ElevenLabs chuẩn mực (Việt & Anh)',
+  'Trợ lý AI Coach gợi ý trả lời trong lúc phỏng vấn trực tiếp',
+  'Báo cáo phân tích câu trả lời chuẩn mô hình STAR điểm 10/10',
+  'Lộ trình cải thiện kỹ năng chuyên sâu 3 giai đoạn (Ngắn - Trung - Dài hạn)',
+  'Biểu đồ Delta Score theo dõi tiến bộ kỹ năng sau các phiên phỏng vấn',
+  'Chấm điểm & tối ưu hóa CV chuyên sâu chuẩn ATS bằng AI Gemini',
+  'Gợi ý từ khóa và chỉnh sửa nội dung CV theo từng JD ứng tuyển',
+  'Xem chi tiết điểm AI Matching 70/30 và Skill Gap với mọi tin tuyển dụng',
   'Tải xuống CV định dạng PDF chuẩn quốc tế không giới hạn',
+  'Huy hiệu Ứng viên Nổi Bật (Top Talent Badge) gửi tới Nhà tuyển dụng VIP',
   'Ưu tiên hiển thị hồ sơ trên đầu danh sách tìm kiếm của HR',
-  'Gợi ý lộ trình bù đắp kỹ năng thiếu hụt (Skill Gap Recommendation)',
+  'Xem chỉ số thị trường lương & xu hướng kỹ năng VIP (Career Insights)',
 ];
 
 const PERSONA_OPTIONS = [
@@ -428,6 +614,7 @@ const VOICE_OPTIONS = [
 
 function RolePermissionMatrixConfig({ form, setForm, isCand }) {
   const perms = form.permissions || (isCand ? {
+    interviewQuotaPerDay: form.quotaLimit || 10,
     maxQuestions: 5,
     maxDurationMinutes: 10,
     allowedPersonas: ['HR_MANAGER', 'TECH_LEAD'],
@@ -435,13 +622,27 @@ function RolePermissionMatrixConfig({ form, setForm, isCand }) {
     coachHints: 3,
     unlockFullStar: true,
     unlockRoadmap: true,
+    deltaScoreChart: true,
+    atsCvAnalysis: true,
+    atsScanQuota: 20,
+    topTalentBadge: false,
   } : {
     jobPostingQuota: form.quotaLimit || 10,
+    cvUnlockQuota: 50,
+    teamSeats: 2,
     aiMatching: true,
+    topCandidateFilter: true,
+    skillGapAnalysis: true,
+    aiInterviewQuestions: true,
     unlockDirectContact: true,
+    viewAiInterviewReport: false,
+    kanbanPipeline: true,
+    batchActions: false,
     featuredJobBadge: false,
     exportReport: true,
     autoEmail: false,
+    confidentialHiring: false,
+    prioritySupport: false,
   });
 
   const updatePerm = (key, value) => {
@@ -468,40 +669,48 @@ function RolePermissionMatrixConfig({ form, setForm, isCand }) {
 
   if (isCand) {
     return (
-      <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-50/70 via-orange-50/40 to-white border-2 border-amber-200/80 shadow-xs space-y-4">
-        <div className="flex items-center justify-between pb-2 border-b border-amber-200/60">
-          <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-amber-700 text-lg">admin_panel_settings</span>
-            <span className="font-black text-amber-950 text-xs uppercase tracking-wide">
-              Ma Trận Phân Quyền AI Mock Interview &amp; Studio (B2C)
-            </span>
+      <div className="p-5 rounded-2xl bg-gradient-to-br from-amber-50/70 via-orange-50/40 to-white border-2 border-amber-200/80 shadow-xs space-y-5">
+        <div className="flex items-center justify-between pb-3 border-b border-amber-200/60">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-xs">
+              <span className="material-symbols-outlined text-lg">psychology</span>
+            </div>
+            <div>
+              <span className="font-black text-amber-950 text-xs uppercase tracking-wide block">
+                Ma Trận Phân Quyền AI Mock Interview &amp; Studio (B2C)
+              </span>
+              <span className="text-[10px] text-amber-700 font-medium">Cấu hình điều phối quyền hạn phòng phỏng vấn giọng nói AI Studio</span>
+            </div>
           </div>
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+          <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
             Tự động kích hoạt vào Phòng Phỏng vấn &amp; Báo cáo
           </span>
         </div>
 
-        {/* 1. Số câu hỏi & Thời lượng */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* 1. Hạn ngạch phiên & Cấu trúc câu hỏi */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <label className="font-bold text-slate-700 block mb-1">
-              Số câu hỏi tối đa / phiên phỏng vấn:
+              Số phiên phỏng vấn / ngày:
             </label>
-            <div className="flex flex-wrap gap-1.5">
-              {[3, 5, 7, 8, 10].map((q) => {
-                const isSelected = (perms.maxQuestions || 3) === q;
+            <div className="flex flex-wrap gap-1">
+              {[2, 5, 10, 30, 999].map((q) => {
+                const isSelected = (perms.interviewQuotaPerDay ?? form.quotaLimit ?? 2) === q;
                 return (
                   <button
                     key={q}
                     type="button"
-                    onClick={() => updatePerm('maxQuestions', q)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                    onClick={() => {
+                      updatePerm('interviewQuotaPerDay', q);
+                      setForm((prev) => ({ ...prev, quotaLimit: q }));
+                    }}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
                       isSelected
                         ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
                         : 'bg-white text-slate-700 border-amber-200 hover:bg-amber-50'
                     }`}
                   >
-                    {q} câu {q === 3 ? '(Free)' : q === 5 ? '(Chuẩn)' : q >= 8 ? '(VIP)' : ''}
+                    {q === 999 ? '∞ Vô hạn' : `${q} lượt`}
                   </button>
                 );
               })}
@@ -510,9 +719,34 @@ function RolePermissionMatrixConfig({ form, setForm, isCand }) {
 
           <div>
             <label className="font-bold text-slate-700 block mb-1">
-              Thời lượng tối đa / phiên (Phút):
+              Số câu hỏi tối đa / phiên:
             </label>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1">
+              {[3, 5, 7, 8, 10].map((q) => {
+                const isSelected = (perms.maxQuestions || 3) === q;
+                return (
+                  <button
+                    key={q}
+                    type="button"
+                    onClick={() => updatePerm('maxQuestions', q)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+                      isSelected
+                        ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                        : 'bg-white text-slate-700 border-amber-200 hover:bg-amber-50'
+                    }`}
+                  >
+                    {q} câu {q === 3 ? '(Free)' : q === 5 ? '(Plus)' : q === 7 ? '(Pro)' : '(Marathon)'}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <label className="font-bold text-slate-700 block mb-1">
+              Thời lượng tối đa / phiên:
+            </label>
+            <div className="flex flex-wrap gap-1">
               {[5, 10, 15, 20, 30].map((m) => {
                 const isSelected = (perms.maxDurationMinutes || 5) === m;
                 return (
@@ -520,13 +754,13 @@ function RolePermissionMatrixConfig({ form, setForm, isCand }) {
                     key={m}
                     type="button"
                     onClick={() => updatePerm('maxDurationMinutes', m)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
                       isSelected
                         ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
                         : 'bg-white text-slate-700 border-amber-200 hover:bg-amber-50'
                     }`}
                   >
-                    {m} phút {m === 5 ? '(Free)' : m === 15 ? '(Plus)' : m >= 20 ? '(Pro)' : ''}
+                    {m} phút {m === 5 ? '(Free)' : m === 10 ? '(Plus)' : m >= 20 ? '(VIP)' : ''}
                   </button>
                 );
               })}
@@ -614,7 +848,7 @@ function RolePermissionMatrixConfig({ form, setForm, isCand }) {
           </div>
         </div>
 
-        {/* 4. Coach STAR & Mở khóa Báo cáo */}
+        {/* 4. Coach STAR, Delta & Mở khóa Báo cáo */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
           {/* Lượt gợi ý Coach */}
           <div className="p-3 bg-white rounded-xl border border-amber-200 flex flex-col justify-between">
@@ -686,128 +920,452 @@ function RolePermissionMatrixConfig({ form, setForm, isCand }) {
             </div>
           </div>
         </div>
+
+        {/* 5. Phân tích ATS & Huy hiệu Top Talent */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <div
+            onClick={() => updatePerm('deltaScoreChart', !perms.deltaScoreChart)}
+            className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
+              perms.deltaScoreChart
+                ? 'bg-white border-amber-500 text-amber-950 shadow-xs ring-1 ring-amber-300'
+                : 'bg-white/60 border-slate-200 text-slate-400'
+            }`}
+          >
+            <div>
+              <div className="font-bold flex items-center gap-1">
+                <span className="material-symbols-outlined text-sm text-amber-600">trending_up</span>
+                <span>Biểu Đồ Delta Score Sau Phỏng Vấn</span>
+              </div>
+              <div className="text-[10px] text-slate-500 mt-0.5">Theo dõi tỷ lệ tiến bộ và so sánh cải thiện qua các phiên</div>
+            </div>
+            <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.deltaScoreChart ? 'bg-amber-600' : 'bg-slate-300'}`}>
+              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.deltaScoreChart ? 'translate-x-5' : 'translate-x-0'}`} />
+            </div>
+          </div>
+
+          <div
+            onClick={() => updatePerm('topTalentBadge', !perms.topTalentBadge)}
+            className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
+              perms.topTalentBadge
+                ? 'bg-white border-amber-500 text-amber-950 shadow-xs ring-1 ring-amber-300'
+                : 'bg-white/60 border-slate-200 text-slate-400'
+            }`}
+          >
+            <div>
+              <div className="font-bold flex items-center gap-1">
+                <span className="material-symbols-outlined text-sm text-amber-600">workspace_premium</span>
+                <span>Huy Hiệu Ứng Viên Nổi Bật (Top Talent)</span>
+              </div>
+              <div className="text-[10px] text-slate-500 mt-0.5">Gắn huy hiệu nổi bật và ưu tiên xuất hiện trước Recruiter VIP</div>
+            </div>
+            <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.topTalentBadge ? 'bg-amber-600' : 'bg-slate-300'}`}>
+              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.topTalentBadge ? 'translate-x-5' : 'translate-x-0'}`} />
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
 
-  // RECRUITER PERMISSIONS MATRIX
+  // RECRUITER PERMISSIONS MATRIX (B2B)
   return (
-    <div className="p-4 rounded-2xl bg-gradient-to-br from-purple-50/70 via-indigo-50/40 to-white border-2 border-purple-200/80 shadow-xs space-y-4">
-      <div className="flex items-center justify-between pb-2 border-b border-purple-200/60">
-        <div className="flex items-center gap-2">
-          <span className="material-symbols-outlined text-[#5b48bd] text-lg">admin_panel_settings</span>
-          <span className="font-black text-[#1e1b4b] text-xs uppercase tracking-wide">
-            Ma Trận Phân Quyền Tuyển Dụng &amp; AI Matching (B2B)
-          </span>
+    <div className="p-5 rounded-2xl bg-gradient-to-br from-purple-50/70 via-indigo-50/40 to-white border-2 border-purple-200/80 shadow-xs space-y-5">
+      <div className="flex items-center justify-between pb-3 border-b border-purple-200/60">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-[#5b48bd] text-white flex items-center justify-center shadow-xs">
+            <span className="material-symbols-outlined text-lg">business_center</span>
+          </div>
+          <div>
+            <span className="font-black text-[#1e1b4b] text-xs uppercase tracking-wide block">
+              Ma Trận Phân Quyền Tuyển Dụng &amp; AI Matching Toàn Diện (B2B)
+            </span>
+            <span className="text-[10px] text-slate-500 font-medium">Áp dụng trực tiếp vào Hệ thống Quản trị &amp; Pipeline Nhà Tuyển Dụng</span>
+          </div>
         </div>
-        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-[#5b48bd]">
-          Áp dụng trực tiếp vào Hệ thống Quản trị Nhà Tuyển Dụng
+        <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-purple-100 text-[#5b48bd] border border-purple-200">
+          Quy chuẩn phân quyền Doanh nghiệp 4 Nhóm
         </span>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {/* Toggle AI Matching 70/30 */}
-        <div
-          onClick={() => updatePerm('aiMatching', !perms.aiMatching)}
-          className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
-            perms.aiMatching
-              ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300'
-              : 'bg-white/60 border-slate-200 text-slate-400'
-          }`}
-        >
-          <div>
-            <div className="font-bold flex items-center gap-1">
-              <span className="material-symbols-outlined text-sm text-[#5b48bd]">psychology</span>
-              <span>AI Matching 70/30 Tự Động</span>
-            </div>
-            <div className="text-[10px] text-slate-500 mt-0.5">70% Kỹ năng bắt buộc + 30% Kỹ năng ưu tiên</div>
-          </div>
-          <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.aiMatching ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
-            <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.aiMatching ? 'translate-x-5' : 'translate-x-0'}`} />
-          </div>
+      {/* NHÓM 1: HẠN NGẠCH CỐT LÕI & QUY MÔ ĐỘI NGŨ */}
+      <div className="p-4 rounded-xl bg-white border border-purple-100 space-y-3">
+        <div className="flex items-center justify-between text-xs font-bold text-[#1e1b4b]">
+          <span className="flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-sm text-[#5b48bd]">tune</span>
+            <span>1. Hạn Ngạch Tuyển Dụng &amp; Quy Mô Đội Ngũ (Quotas &amp; Seats)</span>
+          </span>
+          <span className="text-[10px] font-mono text-purple-700 bg-purple-50 px-2 py-0.5 rounded">Core Quotas</span>
         </div>
 
-        {/* Toggle Mở khóa xem CV & thông tin liên hệ không che */}
-        <div
-          onClick={() => updatePerm('unlockDirectContact', !perms.unlockDirectContact)}
-          className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
-            perms.unlockDirectContact
-              ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300'
-              : 'bg-white/60 border-slate-200 text-slate-400'
-          }`}
-        >
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* Quota Tin Đăng */}
           <div>
-            <div className="font-bold flex items-center gap-1">
-              <span className="material-symbols-outlined text-sm text-[#5b48bd]">visibility</span>
-              <span>Xem CV Gốc &amp; Liên Hệ Trực Tiếp</span>
+            <label className="text-[11px] font-bold text-slate-700 block mb-1">Tin tuyển dụng active tối đa:</label>
+            <div className="flex flex-wrap gap-1">
+              {[3, 10, 30, 999].map((q) => {
+                const isSelected = (perms.jobPostingQuota ?? form.quotaLimit ?? 3) === q;
+                return (
+                  <button
+                    key={q}
+                    type="button"
+                    onClick={() => {
+                      updatePerm('jobPostingQuota', q);
+                      setForm((prev) => ({ ...prev, quotaLimit: q }));
+                    }}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+                      isSelected
+                        ? 'bg-[#5b48bd] text-white border-[#5b48bd] shadow-xs'
+                        : 'bg-white text-slate-700 border-purple-200 hover:bg-purple-50'
+                    }`}
+                  >
+                    {q === 999 ? '∞ Vô hạn' : `${q} tin`}
+                  </button>
+                );
+              })}
             </div>
-            <div className="text-[10px] text-slate-500 mt-0.5">Không che số điện thoại, email, link portfolio</div>
           </div>
-          <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.unlockDirectContact ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
-            <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.unlockDirectContact ? 'translate-x-5' : 'translate-x-0'}`} />
+
+          {/* Quota Mở Khóa CV */}
+          <div>
+            <label className="text-[11px] font-bold text-slate-700 block mb-1">Mở khóa xem CV chi tiết / tháng:</label>
+            <div className="flex flex-wrap gap-1">
+              {[10, 50, 200, 999].map((q) => {
+                const isSelected = (perms.cvUnlockQuota ?? 50) === q;
+                return (
+                  <button
+                    key={q}
+                    type="button"
+                    onClick={() => updatePerm('cvUnlockQuota', q)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+                      isSelected
+                        ? 'bg-[#5b48bd] text-white border-[#5b48bd] shadow-xs'
+                        : 'bg-white text-slate-700 border-purple-200 hover:bg-purple-50'
+                    }`}
+                  >
+                    {q === 999 ? '∞ Vô hạn' : `${q} CV`}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Team Seats */}
+          <div>
+            <label className="text-[11px] font-bold text-slate-700 block mb-1">Số tài khoản HR đội ngũ (Team Seats):</label>
+            <div className="flex flex-wrap gap-1">
+              {[1, 2, 5, 999].map((s) => {
+                const isSelected = (perms.teamSeats ?? 1) === s;
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => updatePerm('teamSeats', s)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+                      isSelected
+                        ? 'bg-[#5b48bd] text-white border-[#5b48bd] shadow-xs'
+                        : 'bg-white text-slate-700 border-purple-200 hover:bg-purple-50'
+                    }`}
+                  >
+                    {s === 999 ? '∞ Không giới hạn' : `${s} HR`}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
+      </div>
 
-        {/* Toggle Huy hiệu Verified & Đẩy Top Tin */}
-        <div
-          onClick={() => updatePerm('featuredJobBadge', !perms.featuredJobBadge)}
-          className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
-            perms.featuredJobBadge
-              ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300'
-              : 'bg-white/60 border-slate-200 text-slate-400'
-          }`}
-        >
-          <div>
-            <div className="font-bold flex items-center gap-1">
-              <span className="material-symbols-outlined text-sm text-[#5b48bd]">verified</span>
-              <span>Huy Hiệu Verified &amp; Đẩy Top Tin 24/7</span>
-            </div>
-            <div className="text-[10px] text-slate-500 mt-0.5">Gắn tích xanh doanh nghiệp, ưu tiên số 1 tìm kiếm</div>
-          </div>
-          <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.featuredJobBadge ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
-            <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.featuredJobBadge ? 'translate-x-5' : 'translate-x-0'}`} />
-          </div>
+      {/* NHÓM 2: AI MATCHING & SÀNG LỌC HỒ SƠ */}
+      <div className="p-4 rounded-xl bg-white border border-purple-100 space-y-3">
+        <div className="flex items-center justify-between text-xs font-bold text-[#1e1b4b]">
+          <span className="flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-sm text-indigo-600">psychology</span>
+            <span>2. AI Matching 70/30 &amp; Sàng Lọc Thông Minh (ATS &amp; Gemini AI)</span>
+          </span>
+          <span className="text-[10px] font-mono text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded">AI Engine</span>
         </div>
 
-        {/* Toggle Xuất Báo Cáo Analytics */}
-        <div
-          onClick={() => updatePerm('exportReport', !perms.exportReport)}
-          className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
-            perms.exportReport
-              ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300'
-              : 'bg-white/60 border-slate-200 text-slate-400'
-          }`}
-        >
-          <div>
-            <div className="font-bold flex items-center gap-1">
-              <span className="material-symbols-outlined text-sm text-[#5b48bd]">analytics</span>
-              <span>Báo Cáo Talent Analytics PDF/Excel</span>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          {/* Toggle AI Matching 70/30 */}
+          <div
+            onClick={() => updatePerm('aiMatching', !perms.aiMatching)}
+            className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
+              perms.aiMatching
+                ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300'
+                : 'bg-white/60 border-slate-200 text-slate-400'
+            }`}
+          >
+            <div>
+              <div className="font-bold flex items-center gap-1">
+                <span className="material-symbols-outlined text-sm text-[#5b48bd]">psychology</span>
+                <span>Thuật Toán AI Matching 70/30 Tự Động</span>
+              </div>
+              <div className="text-[10px] text-slate-500 mt-0.5">70% Kỹ năng bắt buộc + 30% Kỹ năng ưu tiên chuẩn ATS</div>
             </div>
-            <div className="text-[10px] text-slate-500 mt-0.5">Phân tích nguồn ứng viên, chuyển đổi phễu tuyển dụng</div>
+            <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.aiMatching ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
+              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.aiMatching ? 'translate-x-5' : 'translate-x-0'}`} />
+            </div>
           </div>
-          <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.exportReport ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
-            <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.exportReport ? 'translate-x-5' : 'translate-x-0'}`} />
+
+          {/* Toggle Lọc Top % */}
+          <div
+            onClick={() => updatePerm('topCandidateFilter', !perms.topCandidateFilter)}
+            className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
+              perms.topCandidateFilter
+                ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300'
+                : 'bg-white/60 border-slate-200 text-slate-400'
+            }`}
+          >
+            <div>
+              <div className="font-bold flex items-center gap-1">
+                <span className="material-symbols-outlined text-sm text-[#5b48bd]">filter_alt</span>
+                <span>Bộ Lọc Ứng Viên Top % (Top 5% &amp; Top 10%)</span>
+              </div>
+              <div className="text-[10px] text-slate-500 mt-0.5">Tự động gắn cờ phân loại ứng viên xuất sắc nhất</div>
+            </div>
+            <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.topCandidateFilter ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
+              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.topCandidateFilter ? 'translate-x-5' : 'translate-x-0'}`} />
+            </div>
+          </div>
+
+          {/* Toggle Skill Gap Matrix */}
+          <div
+            onClick={() => updatePerm('skillGapAnalysis', !perms.skillGapAnalysis)}
+            className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
+              perms.skillGapAnalysis
+                ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300'
+                : 'bg-white/60 border-slate-200 text-slate-400'
+            }`}
+          >
+            <div>
+              <div className="font-bold flex items-center gap-1">
+                <span className="material-symbols-outlined text-sm text-[#5b48bd]">grid_view</span>
+                <span>AI JD Extractor &amp; Skill Gap Matrix</span>
+              </div>
+              <div className="text-[10px] text-slate-500 mt-0.5">Trích xuất kỹ năng JD &amp; phân tích khoảng trống kỹ năng</div>
+            </div>
+            <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.skillGapAnalysis ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
+              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.skillGapAnalysis ? 'translate-x-5' : 'translate-x-0'}`} />
+            </div>
+          </div>
+
+          {/* Toggle Gợi Ý Câu Hỏi Phỏng Vấn AI */}
+          <div
+            onClick={() => updatePerm('aiInterviewQuestions', !perms.aiInterviewQuestions)}
+            className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
+              perms.aiInterviewQuestions
+                ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300'
+                : 'bg-white/60 border-slate-200 text-slate-400'
+            }`}
+          >
+            <div>
+              <div className="font-bold flex items-center gap-1">
+                <span className="material-symbols-outlined text-sm text-[#5b48bd]">quiz</span>
+                <span>Gợi Ý Câu Hỏi Phỏng Vấn Theo JD &amp; CV</span>
+              </div>
+              <div className="text-[10px] text-slate-500 mt-0.5">AI sinh câu hỏi phỏng vấn kỹ thuật &amp; tình huống cho từng ứng viên</div>
+            </div>
+            <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.aiInterviewQuestions ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
+              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.aiInterviewQuestions ? 'translate-x-5' : 'translate-x-0'}`} />
+            </div>
           </div>
         </div>
+      </div>
 
-        {/* Toggle Gửi Email Tự Động Hàng Loạt */}
-        <div
-          onClick={() => updatePerm('autoEmail', !perms.autoEmail)}
-          className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between sm:col-span-2 ${
-            perms.autoEmail
-              ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300'
-              : 'bg-white/60 border-slate-200 text-slate-400'
-          }`}
-        >
-          <div>
-            <div className="font-bold flex items-center gap-1">
-              <span className="material-symbols-outlined text-sm text-[#5b48bd]">forward_to_inbox</span>
-              <span>Gửi Email Mời Phỏng Vấn &amp; Thông Báo Tự Động Hàng Loạt</span>
+      {/* NHÓM 3: HỒ SƠ ỨNG VIÊN & BÁO CÁO THẨM ĐỊNH AI COPILOT */}
+      <div className="p-4 rounded-xl bg-white border border-purple-100 space-y-3">
+        <div className="flex items-center justify-between text-xs font-bold text-[#1e1b4b]">
+          <span className="flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-sm text-emerald-600">contact_page</span>
+            <span>3. Hồ Sơ Ứng Viên &amp; Đánh Giá AI Copilot (Candidate Assessment)</span>
+          </span>
+          <span className="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">Candidate Data</span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          {/* Toggle Xem CV Gốc & SĐT */}
+          <div
+            onClick={() => updatePerm('unlockDirectContact', !perms.unlockDirectContact)}
+            className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
+              perms.unlockDirectContact
+                ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300'
+                : 'bg-white/60 border-slate-200 text-slate-400'
+            }`}
+          >
+            <div>
+              <div className="font-bold flex items-center gap-1">
+                <span className="material-symbols-outlined text-sm text-[#5b48bd]">visibility</span>
+                <span>Xem CV Gốc &amp; SĐT/Email Không Che</span>
+              </div>
+              <div className="text-[10px] text-slate-500 mt-0.5">Mở khóa số điện thoại, email, portfolio và tải file CV gốc</div>
             </div>
-            <div className="text-[10px] text-slate-500 mt-0.5">Tích hợp mẫu thư động gửi theo từng trạng thái pipeline tuyển dụng</div>
+            <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.unlockDirectContact ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
+              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.unlockDirectContact ? 'translate-x-5' : 'translate-x-0'}`} />
+            </div>
           </div>
-          <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.autoEmail ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
-            <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.autoEmail ? 'translate-x-5' : 'translate-x-0'}`} />
+
+          {/* Toggle Báo Cáo Thẩm Định & Đánh Giá AI Copilot */}
+          <div
+            onClick={() => {
+              const currentVal = Boolean(perms.aiCopilotReport ?? perms.viewAiInterviewReport);
+              updatePerm('aiCopilotReport', !currentVal);
+              updatePerm('viewAiInterviewReport', !currentVal);
+            }}
+            className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
+              (perms.aiCopilotReport ?? perms.viewAiInterviewReport)
+                ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300'
+                : 'bg-white/60 border-slate-200 text-slate-400'
+            }`}
+          >
+            <div>
+              <div className="font-bold flex items-center gap-1">
+                <span className="material-symbols-outlined text-sm text-[#5b48bd]">psychology</span>
+                <span>Báo Cáo Thẩm Định &amp; Đánh Giá AI Copilot</span>
+              </div>
+              <div className="text-[10px] text-slate-500 mt-0.5">Phân tích chi tiết ưu điểm, điểm yếu và khuyến nghị tuyển dụng bám sát JD</div>
+            </div>
+            <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${(perms.aiCopilotReport ?? perms.viewAiInterviewReport) ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
+              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${(perms.aiCopilotReport ?? perms.viewAiInterviewReport) ? 'translate-x-5' : 'translate-x-0'}`} />
+            </div>
+          </div>
+
+          {/* Toggle Kanban Pipeline */}
+          <div
+            onClick={() => updatePerm('kanbanPipeline', !perms.kanbanPipeline)}
+            className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
+              perms.kanbanPipeline
+                ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300'
+                : 'bg-white/60 border-slate-200 text-slate-400'
+            }`}
+          >
+            <div>
+              <div className="font-bold flex items-center gap-1">
+                <span className="material-symbols-outlined text-sm text-[#5b48bd]">view_kanban</span>
+                <span>Kanban Pipeline &amp; Đặt Lịch Phỏng Vấn</span>
+              </div>
+              <div className="text-[10px] text-slate-500 mt-0.5">Kéo thả ứng viên qua 6 bước tuyển dụng và gửi lịch phỏng vấn</div>
+            </div>
+            <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.kanbanPipeline ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
+              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.kanbanPipeline ? 'translate-x-5' : 'translate-x-0'}`} />
+            </div>
+          </div>
+
+          {/* Toggle Batch Actions */}
+          <div
+            onClick={() => updatePerm('batchActions', !perms.batchActions)}
+            className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
+              perms.batchActions
+                ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300'
+                : 'bg-white/60 border-slate-200 text-slate-400'
+            }`}
+          >
+            <div>
+              <div className="font-bold flex items-center gap-1">
+                <span className="material-symbols-outlined text-sm text-[#5b48bd]">checklist</span>
+                <span>Duyệt &amp; Chuyển Trạng Thái Hàng Loạt</span>
+              </div>
+              <div className="text-[10px] text-slate-500 mt-0.5">Thao tác batch move ứng viên qua vòng tiếp theo chỉ với 1 click</div>
+            </div>
+            <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.batchActions ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
+              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.batchActions ? 'translate-x-5' : 'translate-x-0'}`} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* NHÓM 4: TỰ ĐỘNG HÓA, THƯƠNG HIỆU & BÁO CÁO */}
+      <div className="p-4 rounded-xl bg-white border border-purple-100 space-y-3">
+        <div className="flex items-center justify-between text-xs font-bold text-[#1e1b4b]">
+          <span className="flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-sm text-purple-600">verified</span>
+            <span>4. Tự Động Hóa, Thương Hiệu &amp; Báo Cáo Chuyên Sâu (Automation &amp; Analytics)</span>
+          </span>
+          <span className="text-[10px] font-mono text-purple-700 bg-purple-50 px-2 py-0.5 rounded">Branding &amp; Growth</span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          {/* Toggle Email Tự Động Hàng Loạt */}
+          <div
+            onClick={() => updatePerm('autoEmail', !perms.autoEmail)}
+            className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
+              perms.autoEmail
+                ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300'
+                : 'bg-white/60 border-slate-200 text-slate-400'
+            }`}
+          >
+            <div>
+              <div className="font-bold flex items-center gap-1">
+                <span className="material-symbols-outlined text-sm text-[#5b48bd]">forward_to_inbox</span>
+                <span>Gửi Email Mời Phỏng Vấn Hàng Loạt</span>
+              </div>
+              <div className="text-[10px] text-slate-500 mt-0.5">Tích hợp gửi email tự động kèm địa điểm, link phỏng vấn</div>
+            </div>
+            <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.autoEmail ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
+              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.autoEmail ? 'translate-x-5' : 'translate-x-0'}`} />
+            </div>
+          </div>
+
+          {/* Toggle Huy Hiệu Verified & Đẩy Top Tin */}
+          <div
+            onClick={() => updatePerm('featuredJobBadge', !perms.featuredJobBadge)}
+            className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
+              perms.featuredJobBadge
+                ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300'
+                : 'bg-white/60 border-slate-200 text-slate-400'
+            }`}
+          >
+            <div>
+              <div className="font-bold flex items-center gap-1">
+                <span className="material-symbols-outlined text-sm text-[#5b48bd]">verified</span>
+                <span>Huy Hiệu Verified &amp; Đẩy Top Tin 24/7</span>
+              </div>
+              <div className="text-[10px] text-slate-500 mt-0.5">Gắn tích xanh doanh nghiệp uy tín, ưu tiên vị trí số 1 tìm kiếm</div>
+            </div>
+            <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.featuredJobBadge ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
+              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.featuredJobBadge ? 'translate-x-5' : 'translate-x-0'}`} />
+            </div>
+          </div>
+
+          {/* Toggle Xuất Báo Cáo Analytics */}
+          <div
+            onClick={() => updatePerm('exportReport', !perms.exportReport)}
+            className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
+              perms.exportReport
+                ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300'
+                : 'bg-white/60 border-slate-200 text-slate-400'
+            }`}
+          >
+            <div>
+              <div className="font-bold flex items-center gap-1">
+                <span className="material-symbols-outlined text-sm text-[#5b48bd]">analytics</span>
+                <span>Xuất Báo Cáo Talent Analytics (Excel/PDF)</span>
+              </div>
+              <div className="text-[10px] text-slate-500 mt-0.5">Phân tích chuyển đổi phễu tuyển dụng và xuất file Excel chuyên sâu</div>
+            </div>
+            <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.exportReport ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
+              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.exportReport ? 'translate-x-5' : 'translate-x-0'}`} />
+            </div>
+          </div>
+
+          {/* Toggle Tuyển Dụng Ẩn Danh & Hỗ Trợ 24/7 */}
+          <div
+            onClick={() => updatePerm('confidentialHiring', !perms.confidentialHiring)}
+            className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
+              perms.confidentialHiring
+                ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300'
+                : 'bg-white/60 border-slate-200 text-slate-400'
+            }`}
+          >
+            <div>
+              <div className="font-bold flex items-center gap-1">
+                <span className="material-symbols-outlined text-sm text-[#5b48bd]">visibility_off</span>
+                <span>Đăng Tin Ẩn Danh / Bảo Mật Doanh Nghiệp</span>
+              </div>
+              <div className="text-[10px] text-slate-500 mt-0.5">Tùy chọn che giấu tên thương hiệu và thông tin nhạy cảm khi tuyển dụng</div>
+            </div>
+            <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.confidentialHiring ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
+              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.confidentialHiring ? 'translate-x-5' : 'translate-x-0'}`} />
+            </div>
           </div>
         </div>
       </div>
@@ -936,12 +1494,25 @@ export const serializePermissionsToDescription = (perms, features = []) => {
     `coachHints=${perms.coachHints ?? 1}`,
     `fullStar=${Boolean(perms.unlockFullStar)}`,
     `roadmap=${Boolean(perms.unlockRoadmap)}`,
+    `deltaChart=${Boolean(perms.deltaScoreChart ?? true)}`,
+    `atsScanQuota=${perms.atsScanQuota || 3}`,
+    `topTalent=${Boolean(perms.topTalentBadge)}`,
     `jobQuota=${perms.jobPostingQuota || 3}`,
-    `aiMatch=${Boolean(perms.aiMatching)}`,
+    `cvQuota=${perms.cvUnlockQuota || 10}`,
+    `seats=${perms.teamSeats || 1}`,
+    `aiMatch=${Boolean(perms.aiMatching ?? true)}`,
+    `topFilter=${Boolean(perms.topCandidateFilter)}`,
+    `skillGap=${Boolean(perms.skillGapAnalysis)}`,
+    `aiQuestions=${Boolean(perms.aiInterviewQuestions)}`,
     `directCv=${Boolean(perms.unlockDirectContact)}`,
+    `voiceReport=${Boolean(perms.viewAiInterviewReport)}`,
+    `kanban=${Boolean(perms.kanbanPipeline ?? true)}`,
+    `batchActions=${Boolean(perms.batchActions)}`,
     `verifiedBadge=${Boolean(perms.featuredJobBadge)}`,
     `analytics=${Boolean(perms.exportReport)}`,
-    `bulkEmail=${Boolean(perms.autoEmail)}`
+    `bulkEmail=${Boolean(perms.autoEmail)}`,
+    `confidential=${Boolean(perms.confidentialHiring)}`,
+    `support=${Boolean(perms.prioritySupport)}`,
   ];
   const tag = `[PERMS:${pairs.join(';')}]`;
   const cleanFeatures = (features || []).filter((f) => !f.startsWith('[PERMS:'));
@@ -957,8 +1528,10 @@ export const parsePermissionsFromDescription = (desc = '', targetRole = 'CANDIDA
   const isFree = name.includes('free') || quotaLimit <= 2;
   const isPlus = name.includes('plus') || quotaLimit <= 10;
   const isPro = name.includes('pro') || name.includes('ace') || quotaLimit >= 30;
+  const isElite = name.includes('elite') || name.includes('enterprise') || quotaLimit >= 999;
 
   const defaultPerms = isCand ? {
+    interviewQuotaPerDay: isFree ? 2 : isPlus ? 10 : isPro ? 30 : 999,
     maxQuestions: isFree ? 3 : isPlus ? 5 : isPro ? 7 : 8,
     maxDurationMinutes: isFree ? 5 : isPlus ? 10 : isPro ? 15 : 20,
     allowedPersonas: isFree ? ['HR_MANAGER'] : isPlus ? ['HR_MANAGER', 'TECH_LEAD'] : ['HR_MANAGER', 'TECH_LEAD', 'STRICT_DIRECTOR'],
@@ -966,14 +1539,27 @@ export const parsePermissionsFromDescription = (desc = '', targetRole = 'CANDIDA
     coachHints: isFree ? 1 : isPlus ? 3 : 999,
     unlockFullStar: !isFree,
     unlockRoadmap: !isFree,
+    deltaScoreChart: !isFree,
     atsCvAnalysis: true,
+    atsScanQuota: isFree ? 3 : isPlus ? 20 : 999,
+    topTalentBadge: isPro || isElite,
   } : {
-    jobPostingQuota: quotaLimit || 3,
+    jobPostingQuota: quotaLimit || (isFree ? 3 : isPlus ? 10 : isPro ? 30 : 999),
+    cvUnlockQuota: isFree ? 10 : isPlus ? 50 : isPro ? 200 : 999,
+    teamSeats: isFree ? 1 : isPlus ? 2 : isPro ? 5 : 999,
     aiMatching: true,
+    topCandidateFilter: !isFree,
+    skillGapAnalysis: !isFree,
+    aiInterviewQuestions: !isFree,
     unlockDirectContact: !isFree,
-    featuredJobBadge: isPro,
+    viewAiInterviewReport: isPro || isElite,
+    kanbanPipeline: true,
+    batchActions: isPro || isElite,
+    featuredJobBadge: isPro || isElite,
     exportReport: !isFree,
-    autoEmail: isPro,
+    autoEmail: isPro || isElite,
+    confidentialHiring: isElite,
+    prioritySupport: isElite,
   };
 
   if (!desc || !desc.includes('[PERMS:')) {
@@ -993,6 +1579,7 @@ export const parsePermissionsFromDescription = (desc = '', targetRole = 'CANDIDA
 
       if (isCand) {
         return {
+          interviewQuotaPerDay: quotaLimit || (dict.maxQ ? (parseInt(dict.maxQ, 10) >= 8 ? 999 : parseInt(dict.maxQ, 10) >= 7 ? 30 : 10) : defaultPerms.interviewQuotaPerDay),
           maxQuestions: dict.maxQ ? parseInt(dict.maxQ, 10) : defaultPerms.maxQuestions,
           maxDurationMinutes: dict.maxDur ? Math.round(parseInt(dict.maxDur, 10) / 60) : defaultPerms.maxDurationMinutes,
           allowedPersonas: dict.personas ? dict.personas.split(',').map((s) => s.trim()).filter(Boolean) : defaultPerms.allowedPersonas,
@@ -1000,16 +1587,29 @@ export const parsePermissionsFromDescription = (desc = '', targetRole = 'CANDIDA
           coachHints: dict.coachHints !== undefined ? parseInt(dict.coachHints, 10) : defaultPerms.coachHints,
           unlockFullStar: dict.fullStar !== undefined ? dict.fullStar === 'true' : defaultPerms.unlockFullStar,
           unlockRoadmap: dict.roadmap !== undefined ? dict.roadmap === 'true' : defaultPerms.unlockRoadmap,
+          deltaScoreChart: dict.deltaChart !== undefined ? dict.deltaChart === 'true' : defaultPerms.deltaScoreChart,
           atsCvAnalysis: true,
+          atsScanQuota: dict.atsScanQuota ? parseInt(dict.atsScanQuota, 10) : defaultPerms.atsScanQuota,
+          topTalentBadge: dict.topTalent !== undefined ? dict.topTalent === 'true' : defaultPerms.topTalentBadge,
         };
       } else {
         return {
           jobPostingQuota: dict.jobQuota ? parseInt(dict.jobQuota, 10) : defaultPerms.jobPostingQuota,
+          cvUnlockQuota: dict.cvQuota ? parseInt(dict.cvQuota, 10) : defaultPerms.cvUnlockQuota,
+          teamSeats: dict.seats ? parseInt(dict.seats, 10) : defaultPerms.teamSeats,
           aiMatching: dict.aiMatch !== undefined ? dict.aiMatch === 'true' : defaultPerms.aiMatching,
+          topCandidateFilter: dict.topFilter !== undefined ? dict.topFilter === 'true' : defaultPerms.topCandidateFilter,
+          skillGapAnalysis: dict.skillGap !== undefined ? dict.skillGap === 'true' : defaultPerms.skillGapAnalysis,
+          aiInterviewQuestions: dict.aiQuestions !== undefined ? dict.aiQuestions === 'true' : defaultPerms.aiInterviewQuestions,
           unlockDirectContact: dict.directCv !== undefined ? dict.directCv === 'true' : defaultPerms.unlockDirectContact,
+          viewAiInterviewReport: dict.voiceReport !== undefined ? dict.voiceReport === 'true' : defaultPerms.viewAiInterviewReport,
+          kanbanPipeline: dict.kanban !== undefined ? dict.kanban === 'true' : defaultPerms.kanbanPipeline,
+          batchActions: dict.batchActions !== undefined ? dict.batchActions === 'true' : defaultPerms.batchActions,
           featuredJobBadge: dict.verifiedBadge !== undefined ? dict.verifiedBadge === 'true' : defaultPerms.featuredJobBadge,
           exportReport: dict.analytics !== undefined ? dict.analytics === 'true' : defaultPerms.exportReport,
           autoEmail: dict.bulkEmail !== undefined ? dict.bulkEmail === 'true' : defaultPerms.autoEmail,
+          confidentialHiring: dict.confidential !== undefined ? dict.confidential === 'true' : defaultPerms.confidentialHiring,
+          prioritySupport: dict.support !== undefined ? dict.support === 'true' : defaultPerms.prioritySupport,
         };
       }
     }
@@ -1822,7 +2422,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
   const [matchingPreset, setMatchingPreset] = useState('ATS_STANDARD'); // 'ATS_STANDARD' | 'INTERN_FRESHER' | 'SENIOR_LEAD' | 'CUSTOM'
   const [adaptiveRoleWeighting, setAdaptiveRoleWeighting] = useState(true);
 
-  const [autoPublishVerified, setAutoPublishVerified] = useState(true);
+  const [autoPublishVerified, setAutoPublishVerified] = useState(false);
   const [aiInterviewDifficulty, setAiInterviewDifficulty] = useState('STANDARD');
   const [interviewMaxMinutes, setInterviewMaxMinutes] = useState(30);
   const [targetWpm, setTargetWpm] = useState(132);
@@ -2482,56 +3082,63 @@ export default function AdminDashboardPage({ user, onLogout }) {
 
   // Company Approval Action Handlers (Supabase integrated)
   const handleApproveCompany = async (companyId) => {
-    try {
-      const comp = companies.find((c) => c.id === companyId);
-      if (!comp?.docUrl || comp.docUrl.includes('unsplash.com') || comp.docUrl.startsWith('blob:')) {
-        triggerToast('Doanh nghiệp này chưa nộp Giấy phép kinh doanh (GPKD) hợp lệ, không thể phê duyệt!', 'error');
-        return;
-      }
-      const rawId = comp?.rawId || parseInt(String(companyId).replace(/\D/g, ''), 10);
-      if (rawId) {
-        await adminApi.updateCompanyStatus(rawId, 'VERIFIED');
-      }
-      setCompanies((prev) => {
-        const next = prev.map((c) => (c.id === companyId ? { ...c, status: 'VERIFIED', verifiedAt: new Date().toLocaleDateString('vi-VN') } : c));
-        try {
-          localStorage.setItem('hiremate_admin_companies_list', JSON.stringify(next));
-        } catch {}
-        return next;
-      });
-      setSelectedCompanyIds((prev) => prev.filter((id) => id !== companyId));
+    const comp = companies.find((c) => c.id === companyId);
+    if (!comp?.docUrl || comp.docUrl.includes('unsplash.com') || comp.docUrl.startsWith('blob:')) {
+      triggerToast('Doanh nghiệp này chưa nộp Giấy phép kinh doanh (GPKD) hợp lệ, không thể phê duyệt!', 'error');
+      return;
+    }
+    const rawId = comp?.rawId || parseInt(String(companyId).replace(/\D/g, ''), 10);
+    const compName = comp?.name || comp?.shortName || '';
+    const oldStatus = comp?.status;
 
-      const namesToSync = [comp?.name, comp?.shortName].filter(Boolean);
-      namesToSync.forEach((nameStr) => {
-        const companyKey = nameStr.toLowerCase().replace(/[^a-z0-9]/g, '_');
-        let parsed = {};
-        try {
-          const existing = localStorage.getItem(`hiremate_company_legal_${companyKey}`);
-          if (existing) parsed = JSON.parse(existing);
-        } catch {}
-        parsed.status = 'VERIFIED';
-        parsed.verifiedAt = new Date().toLocaleDateString('vi-VN');
-        parsed.rejectionReason = '';
-        parsed.notes = 'Hồ sơ pháp nhân đã được Ban Quản Trị Admin xác thực và duyệt thành công.';
-        try {
-          localStorage.setItem(`hiremate_company_legal_${companyKey}`, JSON.stringify(parsed));
-        } catch {}
-      });
-
-      // Broadcast across tabs via BroadcastChannel and CustomEvent
-      const compName = comp?.name || comp?.shortName || '';
+    // Cập nhật giao diện tức thì (Optimistic UI - phản hồi ngay 0ms)
+    setCompanies((prev) => {
+      const next = prev.map((c) => (c.id === companyId ? { ...c, status: 'VERIFIED', verifiedAt: new Date().toLocaleDateString('vi-VN') } : c));
       try {
-        const bc = new BroadcastChannel('hiremate_realtime_channel');
-        bc.postMessage({ type: 'COMPANY_STATUS_UPDATED', status: 'VERIFIED', companyId: rawId, companyName: compName });
-        bc.close();
+        localStorage.setItem('hiremate_admin_companies_list', JSON.stringify(next));
       } catch {}
-      window.dispatchEvent(new CustomEvent('hiremate_company_updated', {
-        detail: { status: 'VERIFIED', companyId: rawId, companyName: compName }
-      }));
-      triggerToast(`Đã duyệt xác minh GPKD thành công cho công ty "${compName || companyId}"! Doanh nghiệp đã được cấp quyền đăng bài.`);
-    } catch (err) {
-      console.error('Lỗi khi duyệt công ty:', err);
-      triggerToast(`Lỗi khi duyệt công ty: ${err?.message || 'Thử lại'}`, 'warning');
+      return next;
+    });
+    setSelectedCompanyIds((prev) => prev.filter((id) => id !== companyId));
+
+    const namesToSync = [comp?.name, comp?.shortName].filter(Boolean);
+    namesToSync.forEach((nameStr) => {
+      const companyKey = nameStr.toLowerCase().replace(/[^a-z0-9]/g, '_');
+      let parsed = {};
+      try {
+        const existing = localStorage.getItem(`hiremate_company_legal_${companyKey}`);
+        if (existing) parsed = JSON.parse(existing);
+      } catch {}
+      parsed.status = 'VERIFIED';
+      parsed.verifiedAt = new Date().toLocaleDateString('vi-VN');
+      parsed.rejectionReason = '';
+      parsed.notes = 'Hồ sơ pháp nhân đã được Ban Quản Trị Admin xác thực và duyệt thành công.';
+      try {
+        localStorage.setItem(`hiremate_company_legal_${companyKey}`, JSON.stringify(parsed));
+      } catch {}
+    });
+
+    try {
+      const bc = new BroadcastChannel('hiremate_realtime_channel');
+      bc.postMessage({ type: 'COMPANY_STATUS_UPDATED', status: 'VERIFIED', companyId: rawId, companyName: compName });
+      bc.close();
+    } catch {}
+    window.dispatchEvent(new CustomEvent('hiremate_company_updated', {
+      detail: { status: 'VERIFIED', companyId: rawId, companyName: compName }
+    }));
+    triggerToast(`Đã duyệt xác minh GPKD thành công cho công ty "${compName || companyId}"! Doanh nghiệp đã được cấp quyền đăng bài.`);
+
+    // Gửi request ngầm lên Backend
+    if (rawId) {
+      try {
+        await adminApi.updateCompanyStatus(rawId, 'VERIFIED');
+      } catch (err) {
+        console.error('Lỗi khi duyệt công ty trên server:', err);
+        setCompanies((prev) =>
+          prev.map((c) => (c.id === companyId ? { ...c, status: oldStatus } : c))
+        );
+        triggerToast(`Lỗi khi duyệt công ty: ${err?.message || 'Thử lại'}`, 'warning');
+      }
     }
   };
 
@@ -2543,44 +3150,59 @@ export default function AdminDashboardPage({ user, onLogout }) {
   const handleConfirmRejectCompany = async () => {
     if (!rejectingCompanyModal) return;
     const cid = rejectingCompanyModal.id;
-    try {
-      const rawId = rejectingCompanyModal.rawId || parseInt(String(cid).replace(/\D/g, ''), 10);
-      if (rawId) {
-        await adminApi.updateCompanyStatus(rawId, 'REJECTED', { rejectionReason: rejectionNote, notes: rejectionNote });
-      }
-      setCompanies((prev) =>
-        prev.map((c) => (c.id === cid ? { ...c, status: 'REJECTED', notes: `Lý do từ chối: ${rejectionNote}` } : c))
-      );
-      setSelectedCompanyIds((prev) => prev.filter((id) => id !== cid));
+    const rawId = rejectingCompanyModal.rawId || parseInt(String(cid).replace(/\D/g, ''), 10);
+    const compName = rejectingCompanyModal.name || rejectingCompanyModal.shortName || '';
+    const note = rejectionNote || 'Mã số thuế hoặc Giấy phép kinh doanh chưa khớp với Cổng DKKD quốc gia.';
+    const oldStatus = rejectingCompanyModal.status;
 
-      const compName = rejectingCompanyModal.name || rejectingCompanyModal.shortName || '';
-      if (compName) {
-        const companyKey = compName.toLowerCase().replace(/[^a-z0-9]/g, '_');
-        const existingLegal = localStorage.getItem(`hiremate_company_legal_${companyKey}`);
-        if (existingLegal) {
-          try {
-            const parsed = JSON.parse(existingLegal);
-            parsed.status = 'REJECTED';
-            parsed.rejectionReason = rejectionNote;
-            localStorage.setItem(`hiremate_company_legal_${companyKey}`, JSON.stringify(parsed));
-          } catch {}
-        }
-      }
+    // ĐÓNG MODAL VÀ CẬP NHẬT GIAO DIỆN TỨC THÌ (OPTIMISTIC UI - PHẢN HỒI 0ms KHÔNG CHỜ LOAD)
+    setRejectingCompanyModal(null);
+    setRejectionNote('');
+    setSelectedCompanyIds((prev) => prev.filter((id) => id !== cid));
+
+    setCompanies((prev) => {
+      const next = prev.map((c) => (c.id === cid ? { ...c, status: 'REJECTED', notes: `Lý do từ chối: ${note}` } : c));
       try {
-        const bc = new BroadcastChannel('hiremate_realtime_channel');
-        bc.postMessage({ type: 'COMPANY_STATUS_UPDATED', status: 'REJECTED', companyId: rawId, companyName: compName, rejectionReason: rejectionNote });
-        bc.close();
+        localStorage.setItem('hiremate_admin_companies_list', JSON.stringify(next));
       } catch {}
-      window.dispatchEvent(new CustomEvent('hiremate_company_updated', {
-        detail: { status: 'REJECTED', companyId: rawId, companyName: compName, rejectionReason: rejectionNote }
-      }));
-      triggerToast(`Đã từ chối hồ sơ công ty "${compName || cid}".`, 'warning');
-    } catch (err) {
-      console.error('Lỗi khi từ chối công ty:', err);
-      triggerToast(`Lỗi từ chối công ty: ${err?.message || 'Thử lại'}`, 'warning');
-    } finally {
-      setRejectingCompanyModal(null);
-      setRejectionNote('');
+      return next;
+    });
+
+    if (compName) {
+      const companyKey = compName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+      const existingLegal = localStorage.getItem(`hiremate_company_legal_${companyKey}`);
+      if (existingLegal) {
+        try {
+          const parsed = JSON.parse(existingLegal);
+          parsed.status = 'REJECTED';
+          parsed.rejectionReason = note;
+          localStorage.setItem(`hiremate_company_legal_${companyKey}`, JSON.stringify(parsed));
+        } catch {}
+      }
+    }
+
+    try {
+      const bc = new BroadcastChannel('hiremate_realtime_channel');
+      bc.postMessage({ type: 'COMPANY_STATUS_UPDATED', status: 'REJECTED', companyId: rawId, companyName: compName, rejectionReason: note });
+      bc.close();
+    } catch {}
+    window.dispatchEvent(new CustomEvent('hiremate_company_updated', {
+      detail: { status: 'REJECTED', companyId: rawId, companyName: compName, rejectionReason: note }
+    }));
+
+    triggerToast(`Đã thu hồi hồ sơ công ty "${compName || cid}" thành công!`, 'warning');
+
+    // Gửi request ngầm lên Backend
+    if (rawId) {
+      try {
+        await adminApi.updateCompanyStatus(rawId, 'REJECTED', { rejectionReason: note, notes: note });
+      } catch (err) {
+        console.error('Lỗi khi thu hồi công ty trên server:', err);
+        setCompanies((prev) =>
+          prev.map((c) => (c.id === cid ? { ...c, status: oldStatus } : c))
+        );
+        triggerToast(`Lỗi thu hồi trên máy chủ: ${err?.message || 'Thử lại'}`, 'error');
+      }
     }
   };
 
@@ -6469,7 +7091,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
                 { id: 'ai_matching', label: '1. Ma Trận ATS Matching', icon: 'auto_graph' },
                 { id: 'skills', label: '2. Từ Điển Kỹ Năng', icon: 'psychology', count: skillsList.length },
                 { id: 'interview', label: '3. Nhật Ký Phỏng Vấn AI', icon: 'record_voice_over', count: interviewsList.length },
-                { id: 'quota_rules', label: '4. Hạn Mức & Kiểm Duyệt', icon: 'policy' },
+                { id: 'quota_rules', label: '4. Kiểm Duyệt 2 Lớp & Gói Khởi Đầu', icon: 'security' },
                 { id: 'vietqr_smtp', label: '5. VietQR & Email SMTP', icon: 'qr_code_2' },
               ].map((tab) => {
                 const isActive = settingsSubTab === tab.id;
@@ -8068,145 +8690,332 @@ export default function AdminDashboardPage({ user, onLogout }) {
             {/* KHỐI 4: HẠN MỨC GÓI MIỄN PHÍ & QUY TẮC KIỂM DUYỆT        */}
             {/* ========================================================= */}
             {(settingsSubTab === 'all' || settingsSubTab === 'quota_rules') && (
-            <div className="p-6 rounded-[28px] bg-white border border-purple-100 shadow-sm space-y-6">
-              <div className="flex items-center gap-3 pb-4 border-b border-purple-100">
-                <div className="w-10 h-10 rounded-2xl bg-teal-50 text-teal-700 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-xl">policy</span>
+            <div className="p-6 sm:p-7 rounded-[28px] bg-white border border-purple-100 shadow-sm space-y-6">
+              {/* Header section with Enterprise Governance badge */}
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between pb-4 border-b border-purple-100 gap-3">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-700 flex items-center justify-center shrink-0 shadow-xs">
+                    <span className="material-symbols-outlined text-2xl">verified_user</span>
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-[#1e1b4b] flex items-center gap-2">
+                      Khối 4: Quản Trị Kiểm Duyệt 2 Lớp &amp; Chính Sách Gói Khởi Đầu
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                        Quy trình 2 lớp bảo vệ • Chuẩn UC-33 &amp; UC-34
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-500 max-w-3xl">
+                      Thiết lập hai tầng kiểm duyệt độc lập: <strong>Pháp lý Doanh nghiệp (GPKD)</strong> và <strong>Kiểm duyệt nội dung bài đăng (JD Moderation)</strong>, kết hợp điều phối hạn mức tài khoản khởi đầu (Free Tier) đồng bộ với CSDL.
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-base font-bold text-[#1e1b4b]">
-                    Khối 4: Hạn Mức Gói Miễn Phí &amp; Quy Tắc Kiểm Duyệt (Quota &amp; Moderation Rules)
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    Thiết lập chính sách hạn ngạch tài khoản Free và các điều kiện kiểm duyệt bài đăng tuyển dụng (Tự động kích hoạt trong Backend).
-                  </p>
+                <div className="px-3.5 py-2 rounded-xl bg-purple-50 text-[#5b48bd] font-mono font-bold text-xs border border-purple-100 self-start lg:self-auto flex items-center gap-1.5 shrink-0 shadow-2xs">
+                  <span className="material-symbols-outlined text-[16px]">security</span>
+                  <span>Cơ chế bảo vệ 2 tầng: GPKD (Pháp nhân) + JD (Nội dung)</span>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Left: Free Quota Limits */}
+              {/* Visual Workflow Stepper: Quy trình tuyển dụng & kiểm duyệt chuẩn */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-purple-50/70 via-indigo-50/40 to-white border border-purple-100 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-[#1e1b4b] flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-sm text-[#5b48bd]">route</span>
+                    <span>Quy Trình Kiểm Duyệt Nghiệp Vụ Chuẩn 2 Lớp (Business Workflow):</span>
+                  </span>
+                  <span className="text-[10px] font-bold text-indigo-700 bg-indigo-100/70 px-2.5 py-0.5 rounded-full border border-indigo-200 font-mono">
+                    Zero-Trust Moderation
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {/* Step 1 */}
+                  <div className="bg-white p-3.5 rounded-xl border border-purple-100/90 shadow-2xs space-y-1.5">
+                    <div className="flex items-center justify-between text-[11px] font-mono">
+                      <span className="font-bold text-[#5b48bd] flex items-center gap-1">
+                        <span className="w-5 h-5 rounded-full bg-purple-100 text-[#5b48bd] flex items-center justify-center text-[10px] font-black">1</span>
+                        <span>Đăng Ký &amp; Nộp GPKD</span>
+                      </span>
+                      <span className="text-slate-400">Recruiter</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 leading-snug">
+                      Nhà tuyển dụng tải lên tài liệu GPKD hợp lệ vào hệ thống (<code className="text-indigo-700">companies.status = PENDING</code>).
+                    </p>
+                  </div>
+
+                  {/* Step 2 */}
+                  <div className="bg-white p-3.5 rounded-xl border border-indigo-100 shadow-2xs space-y-1.5">
+                    <div className="flex items-center justify-between text-[11px] font-mono">
+                      <span className="font-bold text-indigo-700 flex items-center gap-1">
+                        <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[10px] font-black">2</span>
+                        <span>Admin Thẩm Định GPKD</span>
+                      </span>
+                      <span className="text-indigo-600 font-bold">Lớp 1 (UC-33)</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 leading-snug">
+                      Admin duyệt cấp dấu <span className="text-emerald-700 font-bold">VERIFIED</span>. Chỉ công ty đã VERIFIED mới có quyền tạo tin tuyển dụng.
+                    </p>
+                  </div>
+
+                  {/* Step 3 */}
+                  <div className="bg-white p-3.5 rounded-xl border border-amber-100 shadow-2xs space-y-1.5">
+                    <div className="flex items-center justify-between text-[11px] font-mono">
+                      <span className="font-bold text-amber-700 flex items-center gap-1">
+                        <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-[10px] font-black">3</span>
+                        <span>Tạo Tin Tuyển Dụng</span>
+                      </span>
+                      <span className="text-amber-600 font-bold">Lưu PENDING</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 leading-snug">
+                      Tin mới vào trạng thái <span className="text-amber-800 font-bold">PENDING</span>. Chưa hiển thị ra cổng Ứng viên để chờ duyệt nội dung.
+                    </p>
+                  </div>
+
+                  {/* Step 4 */}
+                  <div className="bg-white p-3.5 rounded-xl border border-emerald-100 shadow-2xs space-y-1.5">
+                    <div className="flex items-center justify-between text-[11px] font-mono">
+                      <span className="font-bold text-emerald-700 flex items-center gap-1">
+                        <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-black">4</span>
+                        <span>Admin Duyệt Nội Dung JD</span>
+                      </span>
+                      <span className="text-emerald-600 font-bold">Lớp 2 (UC-34)</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 leading-snug">
+                      Admin phê duyệt <span className="text-emerald-700 font-bold">APPROVED</span>. Tin chính thức công khai và tự động kích hoạt AI Matching 70/30.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2-Column Grid: Left (Free Tier Quota) vs Right (2-Layer Moderation Switches) */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* CỘT TRÁI: HẠN NGẠCH GÓI KHỞI ĐẦU (FREE TIER QUOTA) */}
+                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-5">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                    <div className="flex items-center gap-2 text-xs font-bold text-[#1e1b4b]">
+                      <span className="material-symbols-outlined text-sm text-[#5b48bd]">hourglass_top</span>
+                      <span>Chính Sách Hạn Ngạch Gói Khởi Đầu (Free Tier Policy)</span>
+                    </div>
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-[#5b48bd] border border-purple-200 font-mono">
+                      Gói 0đ Mặc Định
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-slate-500 leading-relaxed">
+                    Hạn mức tài nguyên cấp phát mặc định cho người dùng đăng ký mới trước khi nâng cấp gói dịch vụ trả phí qua cổng VietQR Napas 247.
+                  </p>
+
+                  <div className="space-y-4">
+                    {/* Quota 1: Ứng viên */}
+                    <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-lg bg-purple-100 text-[#5b48bd] flex items-center justify-center shrink-0">
+                            <span className="material-symbols-outlined text-base">psychology</span>
+                          </div>
+                          <div>
+                            <div className="text-xs font-bold text-slate-800">Ứng viên: Lượt phỏng vấn AI Voice Studio / ngày</div>
+                            <span className="text-[10px] text-slate-400">Giới hạn số phiên AI Voice Mock Studio mỗi ngày</span>
+                          </div>
+                        </div>
+                        <span className="text-sm font-black font-mono text-[#5b48bd] bg-purple-50 px-2.5 py-1 rounded-lg border border-purple-200">
+                          {candidateFreeInterviewsPerDay} lượt/ngày
+                        </span>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <input
+                          type="range"
+                          min="1"
+                          max="10"
+                          step="1"
+                          value={candidateFreeInterviewsPerDay}
+                          onChange={(e) => setCandidateFreeInterviewsPerDay(Math.max(1, Number(e.target.value)))}
+                          className="w-full accent-[#5b48bd] cursor-pointer"
+                        />
+                        <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+                          <span>1 lượt (Tối thiểu)</span>
+                          <span>3 lượt (Khuyên dùng)</span>
+                          <span>10 lượt (Tối đa)</span>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-600">
+                        <span className="flex items-center gap-1 text-slate-500">
+                          <span className="material-symbols-outlined text-xs text-emerald-600">check_circle</span>
+                          Số câu hỏi tối đa / phiên:
+                        </span>
+                        <span className="font-bold text-slate-700">3 câu (Free)</span>
+                      </div>
+                    </div>
+
+                    {/* Quota 2: Nhà tuyển dụng */}
+                    <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
+                            <span className="material-symbols-outlined text-base">domain</span>
+                          </div>
+                          <div>
+                            <div className="text-xs font-bold text-slate-800">Nhà tuyển dụng: Số bài đăng tin tuyển dụng Active</div>
+                            <span className="text-[10px] text-slate-400">Số lượng tin tuyển dụng được mở tuyển đồng thời</span>
+                          </div>
+                        </div>
+                        <span className="text-sm font-black font-mono text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-200">
+                          {recruiterFreeJobPostsPerMonth} tin active
+                        </span>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <input
+                          type="range"
+                          min="1"
+                          max="10"
+                          step="1"
+                          value={recruiterFreeJobPostsPerMonth}
+                          onChange={(e) => setRecruiterFreeJobPostsPerMonth(Math.max(1, Number(e.target.value)))}
+                          className="w-full accent-indigo-600 cursor-pointer"
+                        />
+                        <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+                          <span>1 tin</span>
+                          <span>3 tin (Mặc định)</span>
+                          <span>10 tin</span>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-600">
+                        <span className="flex items-center gap-1 text-slate-500">
+                          <span className="material-symbols-outlined text-xs text-emerald-600">check_circle</span>
+                          Thuật toán AI Matching 70/30:
+                        </span>
+                        <span className="font-bold text-emerald-700">Tự động kích hoạt</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Navigation link to database subscription packages */}
+                  <div className="pt-2 flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('packages')}
+                      className="text-xs font-bold text-[#5b48bd] hover:text-[#47369f] hover:underline flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-sm">inventory_2</span>
+                      <span>Chỉnh sửa bảng giá &amp; phân quyền Gói CSDL tại Tab Gói Dịch Vụ ➔</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* CỘT PHẢI: QUY TRÌNH KIỂM DUYỆT 2 LỚP ĐỘC LẬP (TWO-LAYER DEFENSE) */}
                 <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-4">
-                  <div className="flex items-center gap-2 text-xs font-bold text-[#1e1b4b]">
-                    <span className="material-symbols-outlined text-sm text-teal-600">hourglass_top</span>
-                    <span>Hạn Ngạch Gói Miễn Phí (Default Free Quota)</span>
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                    <div className="flex items-center gap-2 text-xs font-bold text-[#1e1b4b]">
+                      <span className="material-symbols-outlined text-sm text-indigo-600">shield_with_heart</span>
+                      <span>Hệ Thống Kiểm Duyệt 2 Tầng Bảo Vệ (Two-Layer Defense)</span>
+                    </div>
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 font-mono">
+                      Bảo Vệ Độc Lập
+                    </span>
                   </div>
 
                   <div className="space-y-3.5">
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="text-xs font-semibold text-slate-700">Ứng viên: Lượt phỏng vấn AI Free / ngày</label>
-                        <span className="text-xs font-black font-mono text-teal-700">{candidateFreeInterviewsPerDay} lượt/ngày</span>
-                      </div>
-                      <input
-                        type="number"
-                        min="1"
-                        max="20"
-                        value={candidateFreeInterviewsPerDay}
-                        onChange={(e) => setCandidateFreeInterviewsPerDay(Math.max(1, Number(e.target.value)))}
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-[#5b48bd]"
-                      />
-                    </div>
-
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="text-xs font-semibold text-slate-700">Nhà tuyển dụng: Số bài đăng tin Free tối đa</label>
-                        <span className="text-xs font-black font-mono text-teal-700">{recruiterFreeJobPostsPerMonth} tin active</span>
-                      </div>
-                      <input
-                        type="number"
-                        min="1"
-                        max="20"
-                        value={recruiterFreeJobPostsPerMonth}
-                        onChange={(e) => setRecruiterFreeJobPostsPerMonth(Math.max(1, Number(e.target.value)))}
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-[#5b48bd]"
-                      />
-                    </div>
-                  </div>
-
-                  <p className="text-[11px] text-slate-500 italic">
-                    Khi người dùng dùng hết lượt Free, hệ thống sẽ tự động hiển thị modal nâng cấp gói dịch vụ trả phí (Subscription Plan).
-                  </p>
-                </div>
-
-                {/* Right: Moderation Switches */}
-                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-4">
-                  <div className="flex items-center gap-2 text-xs font-bold text-[#1e1b4b]">
-                    <span className="material-symbols-outlined text-sm text-teal-600">verified_user</span>
-                    <span>Quy Tắc Kiểm Duyệt Bài Đăng &amp; Doanh Nghiệp</span>
-                  </div>
-
-                  <div className="space-y-4">
-                    {/* Switch 1: Require GPKD */}
-                    <div className="flex items-start justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200">
-                      <div>
-                        <div className="text-xs font-bold text-slate-800">Bắt buộc xác thực Giấy phép kinh doanh (GPKD)</div>
-                        <p className="text-[11px] text-slate-500 mt-0.5">
-                          Nhà tuyển dụng phải được Admin duyệt GPKD thành công mới được đăng tin tuyển dụng.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setRequireGpkdToPost(!requireGpkdToPost)}
-                        className={`w-12 h-6 rounded-full transition-colors cursor-pointer p-0.5 shrink-0 ${
-                          requireGpkdToPost ? 'bg-[#5b48bd]' : 'bg-slate-300'
-                        }`}
-                      >
-                        <div
-                          className={`w-5 h-5 rounded-full bg-white transition-transform ${
-                            requireGpkdToPost ? 'translate-x-6' : 'translate-x-0'
+                    {/* TẦNG 1: Thẩm định pháp nhân GPKD */}
+                    <div className="bg-white p-4 rounded-xl border border-indigo-100/90 shadow-2xs space-y-2">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-800 font-mono">
+                              TẦNG 1 • PHÁP NHÂN
+                            </span>
+                            <span className="text-xs font-bold text-slate-800">
+                              Bắt buộc xác thực Giấy phép kinh doanh (GPKD)
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 leading-relaxed">
+                            Nhà tuyển dụng bắt buộc phải nộp tài liệu GPKD hợp lệ và được Ban Quản Trị thẩm định phê duyệt (<code className="text-indigo-700 font-bold">companies.status = VERIFIED</code>) mới được kích hoạt quyền tạo tin tuyển dụng. Ngăn chặn triệt để doanh nghiệp ma và công ty lừa đảo.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setRequireGpkdToPost(!requireGpkdToPost)}
+                          className={`w-12 h-6 rounded-full transition-colors cursor-pointer p-0.5 shrink-0 ${
+                            requireGpkdToPost ? 'bg-[#5b48bd]' : 'bg-slate-300'
                           }`}
-                        ></div>
-                      </button>
+                          title="Bật/Tắt yêu cầu xác thực GPKD"
+                        >
+                          <div
+                            className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                              requireGpkdToPost ? 'translate-x-6' : 'translate-x-0'
+                            }`}
+                          ></div>
+                        </button>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                        <span className="text-slate-400 font-medium">Trạng thái:</span>
+                        <span className={`font-bold font-mono px-2 py-0.5 rounded text-[10px] ${
+                          requireGpkdToPost ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700'
+                        }`}>
+                          {requireGpkdToPost ? '✓ Đang Bắt Buộc (Khuyên dùng)' : '⚠ Cho Phép Đăng Thử'}
+                        </span>
+                      </div>
                     </div>
 
-                    {/* Switch 2: Moderate new jobs */}
-                    <div className="flex items-start justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200">
-                      <div>
-                        <div className="text-xs font-bold text-slate-800">Kiểm duyệt tin tuyển dụng mới qua Admin</div>
-                        <p className="text-[11px] text-slate-500 mt-0.5">
-                          {moderateNewJobs
-                            ? 'Mọi tin mới sẽ vào trạng thái PENDING chờ Admin phê duyệt trước khi công khai.'
-                            : 'Tin tuyển dụng mới tạo sẽ tự động được PHÊ DUYỆT (APPROVED) và mở tuyển ngay.'}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setModerateNewJobs(!moderateNewJobs)}
-                        className={`w-12 h-6 rounded-full transition-colors cursor-pointer p-0.5 shrink-0 ${
-                          moderateNewJobs ? 'bg-[#5b48bd]' : 'bg-slate-300'
-                        }`}
-                      >
-                        <div
-                          className={`w-5 h-5 rounded-full bg-white transition-transform ${
-                            moderateNewJobs ? 'translate-x-6' : 'translate-x-0'
+                    {/* TẦNG 2: Kiểm duyệt nội dung JD */}
+                    <div className="bg-white p-4 rounded-xl border border-indigo-100/90 shadow-2xs space-y-2">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 font-mono">
+                              TẦNG 2 • NỘI DUNG JD
+                            </span>
+                            <span className="text-xs font-bold text-slate-800">
+                              Kiểm duyệt bài đăng tuyển dụng mới qua Admin
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 leading-relaxed">
+                            Mọi tin tuyển dụng mới tạo (kể cả thuộc doanh nghiệp đã có GPKD) bắt buộc vào trạng thái <code className="text-amber-800 font-bold">PENDING</code>. Admin sẽ kiểm tra mức lương, mô tả công việc và tính minh bạch trước khi phê duyệt (<code className="text-emerald-700 font-bold">APPROVED</code>), tránh tin lừa đảo nạp tiền hoặc vi phạm pháp luật.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setModerateNewJobs(!moderateNewJobs)}
+                          className={`w-12 h-6 rounded-full transition-colors cursor-pointer p-0.5 shrink-0 ${
+                            moderateNewJobs ? 'bg-[#5b48bd]' : 'bg-slate-300'
                           }`}
-                        ></div>
-                      </button>
+                          title="Bật/Tắt chế độ kiểm duyệt tin tuyển dụng qua Admin"
+                        >
+                          <div
+                            className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                              moderateNewJobs ? 'translate-x-6' : 'translate-x-0'
+                            }`}
+                          ></div>
+                        </button>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                        <span className="text-slate-400 font-medium">Trạng thái:</span>
+                        <span className={`font-bold font-mono px-2 py-0.5 rounded text-[10px] ${
+                          moderateNewJobs ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700'
+                        }`}>
+                          {moderateNewJobs ? '✓ Bật Kiểm Duyệt Thủ Công (Chuẩn UC-34)' : '⚠ Tự Động Phê Duyệt Ngay'}
+                        </span>
+                      </div>
                     </div>
 
-                    {/* Switch 3: Auto publish verified companies */}
-                    <div className="flex items-start justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200">
-                      <div>
-                        <div className="text-xs font-bold text-slate-800">Đặc cách tự động duyệt tin cho Doanh nghiệp đã thẩm định GPKD</div>
-                        <p className="text-[11px] text-slate-500 mt-0.5">
-                          {autoPublishVerified
-                            ? 'Công ty đã có dấu VERIFIED đăng bài sẽ được hệ thống duyệt tự động ngay lập tức, tiết kiệm thời gian.'
-                            : 'Mọi công ty (dù đã VERIFIED) vẫn phải chờ Admin phê duyệt thủ công từng tin nếu chế độ kiểm duyệt bật.'}
-                        </p>
+                    {/* CƠ CHẾ CHẾ TÀI PHÁP LÝ TỰ ĐỘNG */}
+                    <div className="bg-amber-50/60 p-3.5 rounded-xl border border-amber-200/80 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-sm text-amber-700">lock_person</span>
+                          <span>Chế tài tự động: Đóng băng tuyển dụng khi GPKD bị Thu Hồi / Đình Chỉ</span>
+                        </span>
+                        <span className="text-[10px] font-bold font-mono text-amber-800 bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
+                          Toàn Hệ Thống
+                        </span>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setAutoPublishVerified(!autoPublishVerified)}
-                        className={`w-12 h-6 rounded-full transition-colors cursor-pointer p-0.5 shrink-0 ${
-                          autoPublishVerified ? 'bg-[#5b48bd]' : 'bg-slate-300'
-                        }`}
-                      >
-                        <div
-                          className={`w-5 h-5 rounded-full bg-white transition-transform ${
-                            autoPublishVerified ? 'translate-x-6' : 'translate-x-0'
-                          }`}
-                        ></div>
-                      </button>
+                      <p className="text-[11px] text-amber-900/80 leading-relaxed">
+                        Khi Admin từ chối hoặc thu hồi GPKD (<code className="font-bold">REJECTED / SUSPENDED</code>), hệ thống sẽ tự động: (1) Đóng toàn bộ tin tuyển dụng của công ty (<code className="font-bold">jobs.status = CLOSED</code>), (2) Vô hiệu hóa nút nộp đơn, và (3) Khóa chặt toàn bộ kênh liên hệ HR trên hồ sơ ứng viên để ngăn chặn lừa đảo.
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -10220,8 +11029,8 @@ export default function AdminDashboardPage({ user, onLogout }) {
                     </span>
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-[#5b48bd]">
                       {newVoucherForm.applicableScope === 'SPECIFIC' && newVoucherForm.applicablePlanIds?.length > 0
-                        ? `${newVoucherForm.applicablePlanIds.length} gói dịch vụ`
-                        : 'Mọi gói dịch vụ'}
+                        ? `${newVoucherForm.applicablePlanIds.length} gói nâng cấp`
+                        : 'Mọi gói nâng cấp'}
                     </span>
                   </div>
                   <p className="text-xs text-slate-700 line-clamp-1 font-medium">
@@ -10471,8 +11280,9 @@ export default function AdminDashboardPage({ user, onLogout }) {
                       onClick={() => {
                         setNewVoucherForm((prev) => {
                           const relevant = packagesList
+                            .filter((p) => (Number(p.price) || 0) > 0)
                             .filter((p) => prev.targetRole === 'ALL' || p.targetRole === prev.targetRole)
-                            .map((p) => p.id);
+                            .map((p) => p.rawId || p.id);
                           return {
                             ...prev,
                             applicableScope: 'SPECIFIC',
@@ -10486,17 +11296,23 @@ export default function AdminDashboardPage({ user, onLogout }) {
                           : 'text-slate-600 hover:text-slate-900'
                       }`}
                     >
-                      <span>Chọn gói cụ thể</span>
+                      <span>Chọn danh mục gói nâng cấp</span>
                     </button>
                   </div>
                 </div>
 
-                {/* Specific Packages Checklist */}
+                {/* Specific Packages Checklist Grouped by Real Categories */}
                 {newVoucherForm.applicableScope === 'SPECIFIC' ? (
-                  <div className="space-y-2 pt-1 animate-fade-in">
+                  <div className="space-y-3 pt-1 animate-fade-in">
                     {(() => {
-                      const relevantPackages = packagesList.filter(
-                        (p) => newVoucherForm.targetRole === 'ALL' || p.targetRole === newVoucherForm.targetRole
+                      // Chỉ lọc các gói nâng cấp trả phí có trong hệ thống (loại bỏ gói 0đ)
+                      const upgradePackages = packagesList.filter((p) => (Number(p.price) || 0) > 0);
+                      const recruiterPackages = upgradePackages.filter((p) => p.targetRole === 'RECRUITER');
+                      const candidatePackages = upgradePackages.filter((p) => p.targetRole === 'CANDIDATE');
+
+                      const currentRole = newVoucherForm.targetRole || 'ALL';
+                      const visiblePackages = upgradePackages.filter(
+                        (p) => currentRole === 'ALL' || p.targetRole === currentRole
                       );
 
                       const togglePlan = (planId) => {
@@ -10512,7 +11328,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
                       const selectAll = () => {
                         setNewVoucherForm((prev) => ({
                           ...prev,
-                          applicablePlanIds: relevantPackages.map((p) => p.id),
+                          applicablePlanIds: visiblePackages.map((p) => p.rawId || p.id),
                         }));
                       };
 
@@ -10523,13 +11339,42 @@ export default function AdminDashboardPage({ user, onLogout }) {
                         }));
                       };
 
+                      const selectCategory = (role) => {
+                        const targetList = upgradePackages.filter((p) => p.targetRole === role).map((p) => p.rawId || p.id);
+                        setNewVoucherForm((prev) => {
+                          const current = prev.applicablePlanIds || [];
+                          const merged = Array.from(new Set([...current, ...targetList]));
+                          return { ...prev, applicablePlanIds: merged };
+                        });
+                      };
+
                       return (
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between text-[11px] px-1 text-slate-500">
+                        <div className="space-y-3">
+                          <div className="flex flex-wrap items-center justify-between text-[11px] px-1 text-slate-500 gap-2">
                             <span>
-                              Đã chọn <strong className="text-indigo-700">{newVoucherForm.applicablePlanIds?.length || 0}</strong> / {relevantPackages.length} gói dịch vụ
+                              Đã chọn <strong className="text-indigo-700 font-extrabold">{newVoucherForm.applicablePlanIds?.length || 0}</strong> / {visiblePackages.length} gói nâng cấp thực tế
                             </span>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {currentRole === 'ALL' && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => selectCategory('RECRUITER')}
+                                    className="text-indigo-600 font-bold hover:underline cursor-pointer"
+                                  >
+                                    + Chọn Gói Tuyển Dụng
+                                  </button>
+                                  <span>•</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => selectCategory('CANDIDATE')}
+                                    className="text-purple-600 font-bold hover:underline cursor-pointer"
+                                  >
+                                    + Chọn Gói Ứng Viên
+                                  </button>
+                                  <span>•</span>
+                                </>
+                              )}
                               <button
                                 type="button"
                                 onClick={selectAll}
@@ -10548,53 +11393,122 @@ export default function AdminDashboardPage({ user, onLogout }) {
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 bg-white rounded-xl border border-indigo-100 scrollbar-thin">
-                            {relevantPackages.map((pkg) => {
-                              const isChecked = (newVoucherForm.applicablePlanIds || []).includes(pkg.id);
-                              return (
-                                <div
-                                  key={pkg.id}
-                                  onClick={() => togglePlan(pkg.id)}
-                                  className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 cursor-pointer transition-all select-none ${
-                                    isChecked
-                                      ? 'bg-indigo-50/60 border-indigo-300 ring-1 ring-indigo-300/50'
-                                      : 'bg-white border-slate-200 hover:bg-slate-50'
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-2 min-w-0">
-                                    <input
-                                      type="checkbox"
-                                      checked={isChecked}
-                                      onChange={() => {}}
-                                      className="rounded border-purple-200 text-[#5b48bd] focus:ring-[#5b48bd] h-3.5 w-3.5 cursor-pointer pointer-events-none"
-                                    />
-                                    <div className="min-w-0">
-                                      <div className="text-xs font-bold text-slate-800 truncate" title={pkg.name}>
-                                        {pkg.name}
+                          {/* CATEGORY 1: RECRUITER UPGRADES */}
+                          {(currentRole === 'ALL' || currentRole === 'RECRUITER') && (
+                            <div className="p-3 rounded-2xl bg-white border border-indigo-200/80 space-y-2">
+                              <div className="flex items-center justify-between text-xs font-bold text-indigo-900 border-b border-indigo-100 pb-1.5">
+                                <span className="flex items-center gap-1.5">
+                                  <span className="material-symbols-outlined text-sm text-indigo-600">business_center</span>
+                                  <span>Danh mục Nâng Cấp Tuyển Dụng (Doanh Nghiệp / HR)</span>
+                                </span>
+                                <span className="text-[10px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full font-mono font-bold">
+                                  {recruiterPackages.length} gói
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                                {recruiterPackages.map((pkg) => {
+                                  const planKey = pkg.rawId || pkg.id;
+                                  const isChecked = (newVoucherForm.applicablePlanIds || []).includes(planKey) || (newVoucherForm.applicablePlanIds || []).includes(pkg.id);
+                                  return (
+                                    <div
+                                      key={pkg.id}
+                                      onClick={() => togglePlan(planKey)}
+                                      className={`p-2.5 rounded-xl border flex flex-col justify-between gap-1.5 cursor-pointer transition-all select-none ${
+                                        isChecked
+                                          ? 'bg-indigo-50/70 border-indigo-400 ring-1 ring-indigo-400/40 shadow-xs'
+                                          : 'bg-white border-slate-200 hover:bg-slate-50'
+                                      }`}
+                                    >
+                                      <div className="flex items-center justify-between gap-1">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                          <input
+                                            type="checkbox"
+                                            checked={isChecked}
+                                            onChange={() => {}}
+                                            className="rounded border-purple-200 text-[#5b48bd] focus:ring-[#5b48bd] h-3.5 w-3.5 cursor-pointer pointer-events-none"
+                                          />
+                                          <span className="text-xs font-bold text-slate-800 truncate" title={pkg.name}>
+                                            {pkg.name}
+                                          </span>
+                                        </div>
+                                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-800">
+                                          HR
+                                        </span>
                                       </div>
-                                      <div className="text-[10px] text-slate-500 font-mono">
-                                        {pkg.priceText || (pkg.price > 0 ? `${pkg.price.toLocaleString('vi-VN')} đ` : 'Miễn phí')}
+                                      <div className="flex items-center justify-between text-[11px] font-mono text-slate-600 pt-1 border-t border-slate-100">
+                                        <span className="font-bold text-[#5b48bd]">{Number(pkg.price).toLocaleString('vi-VN')} đ</span>
+                                        <span className="text-[10px] text-slate-500">{pkg.duration || '30 ngày'}</span>
+                                      </div>
+                                      <div className="text-[10px] text-slate-500 line-clamp-1">
+                                        {pkg.quotaLimit ? `Đăng tối đa ${pkg.quotaLimit >= 999 ? 'vô hạn' : pkg.quotaLimit} tin active` : 'Quyền lợi tuyển dụng nâng cao'}
                                       </div>
                                     </div>
-                                  </div>
-                                  <span
-                                    className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0 ${
-                                      pkg.targetRole === 'RECRUITER'
-                                        ? 'bg-indigo-100 text-indigo-700'
-                                        : 'bg-amber-100 text-amber-700'
-                                    }`}
-                                  >
-                                    {pkg.targetRole === 'RECRUITER' ? 'HR' : 'CAND'}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                          </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* CATEGORY 2: CANDIDATE UPGRADES */}
+                          {(currentRole === 'ALL' || currentRole === 'CANDIDATE') && (
+                            <div className="p-3 rounded-2xl bg-white border border-purple-200/80 space-y-2">
+                              <div className="flex items-center justify-between text-xs font-bold text-purple-900 border-b border-purple-100 pb-1.5">
+                                <span className="flex items-center gap-1.5">
+                                  <span className="material-symbols-outlined text-sm text-purple-600">psychology</span>
+                                  <span>Danh mục Nâng Cấp Luyện Phỏng Vấn (Ứng Viên / Sinh Viên)</span>
+                                </span>
+                                <span className="text-[10px] bg-purple-50 text-purple-700 px-2 py-0.5 rounded-full font-mono font-bold">
+                                  {candidatePackages.length} gói
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                                {candidatePackages.map((pkg) => {
+                                  const planKey = pkg.rawId || pkg.id;
+                                  const isChecked = (newVoucherForm.applicablePlanIds || []).includes(planKey) || (newVoucherForm.applicablePlanIds || []).includes(pkg.id);
+                                  return (
+                                    <div
+                                      key={pkg.id}
+                                      onClick={() => togglePlan(planKey)}
+                                      className={`p-2.5 rounded-xl border flex flex-col justify-between gap-1.5 cursor-pointer transition-all select-none ${
+                                        isChecked
+                                          ? 'bg-purple-50/70 border-purple-400 ring-1 ring-purple-400/40 shadow-xs'
+                                          : 'bg-white border-slate-200 hover:bg-slate-50'
+                                      }`}
+                                    >
+                                      <div className="flex items-center justify-between gap-1">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                          <input
+                                            type="checkbox"
+                                            checked={isChecked}
+                                            onChange={() => {}}
+                                            className="rounded border-purple-200 text-[#5b48bd] focus:ring-[#5b48bd] h-3.5 w-3.5 cursor-pointer pointer-events-none"
+                                          />
+                                          <span className="text-xs font-bold text-slate-800 truncate" title={pkg.name}>
+                                            {pkg.name}
+                                          </span>
+                                        </div>
+                                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-purple-100 text-purple-800">
+                                          CAND
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center justify-between text-[11px] font-mono text-slate-600 pt-1 border-t border-slate-100">
+                                        <span className="font-bold text-purple-700">{Number(pkg.price).toLocaleString('vi-VN')} đ</span>
+                                        <span className="text-[10px] text-slate-500">{pkg.duration || '30 ngày'}</span>
+                                      </div>
+                                      <div className="text-[10px] text-slate-500 line-clamp-1">
+                                        {pkg.quotaLimit ? `${pkg.quotaLimit >= 999 ? 'Vô hạn' : pkg.quotaLimit} lượt phỏng vấn AI/ngày` : 'Luyện phỏng vấn AI nâng cao'}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
 
                           {(newVoucherForm.applicablePlanIds || []).length === 0 && (
                             <div className="p-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[11px] flex items-center gap-1.5">
                               <span className="material-symbols-outlined text-xs">warning</span>
-                              <span>Vui lòng chọn ít nhất 1 gói hoặc bấm "Tất cả các gói" bên trên.</span>
+                              <span>Vui lòng chọn ít nhất 1 gói nâng cấp hoặc bấm "Tất cả các gói" bên trên.</span>
                             </div>
                           )}
                         </div>
@@ -10605,7 +11519,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
                   <div className="p-3 bg-white rounded-xl border border-indigo-100 text-[11px] text-slate-600 flex items-center gap-2">
                     <span className="material-symbols-outlined text-base text-emerald-600">check_circle</span>
                     <span>
-                      Mã voucher này sẽ được áp dụng cho <strong>toàn bộ các gói dịch vụ</strong> dành cho{' '}
+                      Mã voucher này sẽ được áp dụng cho <strong>toàn bộ các gói nâng cấp trả phí</strong> dành cho{' '}
                       <strong className="text-[#5b48bd]">
                         {newVoucherForm.targetRole === 'RECRUITER'
                           ? 'Nhà tuyển dụng'

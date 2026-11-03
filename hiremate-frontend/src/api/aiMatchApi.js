@@ -10,6 +10,12 @@ export const aiMatchApi = {
   // Lấy chi tiết match giữa candidate hiện tại và job
   getCandidateJobMatch: (jobId) => axiosClient.get(`/ai-matches/job/${jobId}`),
 
+  // Đánh giá trực tiếp độ tương thích AI giữa Job và một CV cụ thể
+  evaluateJobWithCv: (jobId, cvId) =>
+    axiosClient.post(`/ai-matches/job/${jobId}/evaluate`, null, {
+      params: cvId ? { cvId } : {},
+    }),
+
   // Lấy tất cả matches của ứng viên
   getMyJobMatches: () => axiosClient.get('/ai-matches/my'),
 
@@ -20,6 +26,12 @@ export const aiMatchApi = {
   getDetailedCandidateEvaluation: (jobId, candidateId, forceRefresh = false) =>
     axiosClient.get(`/ai-matches/job/${jobId}/candidate/${candidateId}/detailed-evaluation`, {
       params: { forceRefresh },
+    }),
+
+  // Lấy hoặc yêu cầu AI phân tích chuyên sâu & viết báo cáo cho Ứng viên (Hỗ trợ phân hạng người dùng và lưu DB)
+  getCandidateJobReport: (jobId, cvId = null, forceRefresh = false) =>
+    axiosClient.get(`/ai-matches/job/${jobId}/candidate-report`, {
+      params: { cvId: cvId || undefined, forceRefresh },
     }),
 };
 

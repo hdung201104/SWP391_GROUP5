@@ -8,7 +8,7 @@ const axiosClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 60000,
+  timeout: 120000,
 });
 
 // Request interceptor: Attach JWT token if stored, except for public auth endpoints
@@ -25,6 +25,12 @@ axiosClient.interceptors.request.use(
     if (token && !isPublicAuth) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // If uploading FormData, delete Content-Type so Axios/browser sets boundary automatically
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+    }
+
     return config;
   },
   (error) => Promise.reject(error)
