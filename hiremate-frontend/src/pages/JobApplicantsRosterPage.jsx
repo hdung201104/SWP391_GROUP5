@@ -2814,9 +2814,12 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
           cvId={viewingCvCandidate.cvId}
           cvUrl={viewingCvCandidate.cvUrl}
           candidateId={viewingCvCandidate.candidateId}
-          fileName={`CV_${viewingCvCandidate.name?.replace(/\s+/g, '_')}.pdf`}
+          fileName={`CV_${(viewingCvCandidate.name || 'Ung_Vien').replace(/\s+/g, '_')}.pdf`}
           candidateName={viewingCvCandidate.name}
           atsScore={viewingCvCandidate.matchScore}
+          candidateData={viewingCvCandidate}
+          jobTitle={jobDetails?.title || viewingCvCandidate.jobTitle}
+          status={viewingCvCandidate.status}
         />
       )}
 

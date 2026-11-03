@@ -2024,7 +2024,7 @@ export default function CandidateEvaluationPage({
           {/* Nội dung hồ sơ (PDF mode: overflow-hidden triệt tiêu hoàn toàn thanh cuộn kép) */}
           <div className={`flex-1 flex flex-col ${
             cvViewMode === 'pdf'
-              ? 'p-0 overflow-hidden h-[840px] bg-[#323639]'
+              ? 'p-0 overflow-hidden h-[840px] bg-slate-100/60'
               : 'p-4 sm:p-5 overflow-y-auto max-h-[840px] bg-[#fafafc]'
           }`}>
             {cvViewMode === 'pdf' ? (
@@ -2078,7 +2078,7 @@ export default function CandidateEvaluationPage({
                       </div>
                     </div>
                   ) : (
-                    <div className="w-full h-[840px] min-h-[840px] flex flex-col overflow-auto bg-[#323639]">
+                    <div className="w-full h-[840px] min-h-[840px] flex flex-col overflow-auto bg-slate-100/60 p-2 sm:p-3">
                       <div
                         style={{
                           width: zoomLevel === 100 ? '100%' : `${zoomLevel}%`,
@@ -2087,7 +2087,7 @@ export default function CandidateEvaluationPage({
                           minHeight: '840px',
                           transition: 'width 0.15s ease-out',
                         }}
-                        className="w-full h-[840px] min-h-[840px] flex flex-col bg-[#323639] mx-auto"
+                        className="w-full h-[840px] min-h-[840px] flex flex-col bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mx-auto"
                       >
                         <iframe
                           key={`${pdfBlobUrl}-${zoomLevel}`}
@@ -2103,7 +2103,7 @@ export default function CandidateEvaluationPage({
                             minHeight: '840px',
                             border: 'none',
                           }}
-                          className="w-full h-[840px] min-h-[840px] block border-0 bg-[#323639]"
+                          className="w-full h-[840px] min-h-[840px] block border-0 bg-white"
                         />
                       </div>
                     </div>
