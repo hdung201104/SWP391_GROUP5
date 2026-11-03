@@ -302,6 +302,8 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
   // Filter & Search states
   // 'ALL' | 'NEW' | 'REVIEWING' | 'INTERVIEW' | 'PASSED' | 'REJECTED'
   const [activeFilter, setActiveFilter] = useState('ALL');
+  // Bộ lọc Phễu 3 Tầng: Mặc định TOP_10 để HR tập trung vào các ứng viên xuất sắc nhất
+  const [rankingFilter, setRankingFilter] = useState('TOP_10'); // 'TOP_10' | 'TOP_20' | 'ALL' | 'KNOCKOUT'
   const [searchQuery, setSearchQuery] = useState('');
   const [scoreFilter, setScoreFilter] = useState('ALL'); // 'ALL' | 'EXCELLENT' | 'GOOD' | 'LOW'
   const [expFilter, setExpFilter] = useState('ALL'); // 'ALL' | 'INTERN' | 'JUNIOR' | 'MIDDLE' | 'SENIOR'
@@ -630,11 +632,33 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
       return;
     }
 
+    // Nếu ứng viên có evaluationNotes dạng JSON đã lưu, trích xuất tức thì 0ms
+    if (selectedCandidateForModal.evaluationNotes && typeof selectedCandidateForModal.evaluationNotes === 'string') {
+      try {
+        const parsed = JSON.parse(selectedCandidateForModal.evaluationNotes);
+        if (parsed && parsed.matchingScore != null) {
+          reportsCacheRef.current[cacheKey] = parsed;
+          setAiReportData(parsed);
+          setIsReportLoading(false);
+          setIsLoadingInterviewData(false);
+          return;
+        }
+      } catch {}
+    }
+
+    // Nếu ứng viên chưa có báo cáo và chưa yêu cầu AI -> Không tự động gọi Gemini API để tránh tốn Token
+    if (!selectedCandidateForModal.hasAiReport) {
+      setAiReportData(null);
+      setIsReportLoading(false);
+      setIsLoadingInterviewData(false);
+      return;
+    }
+
     let isMounted = true;
     setIsReportLoading(true);
     setIsLoadingInterviewData(true);
 
-    aiMatchApi.getDetailedCandidateEvaluation(jobDetails.id, candId)
+    aiMatchApi.getDetailedCandidateEvaluation(jobDetails.id, candId, false)
       .then((res) => {
         if (!isMounted) return;
         const data = res?.data?.data || res?.data || res;
@@ -716,7 +740,13 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
         if (m.candidateId) matchMap.set(m.candidateId, m);
       });
 
-      // 3. Map candidates with AI matching scores and chips
+      // 3. Map candidates with AI matching scores, Stage 1 Knockout, Stage 2 ATS & Stage 3 Report Cache
+      const jobTitleLower = (currentJob?.title || '').toLowerCase();
+      const isSeniorJob = jobTitleLower.includes('senior') || jobTitleLower.includes('lead') || jobTitleLower.includes('trưởng') || jobTitleLower.includes('quản lý');
+      const mandatorySkills = Array.isArray(currentJob?.mandatorySkills) && currentJob.mandatorySkills.length > 0
+        ? currentJob.mandatorySkills
+        : parseSkillList(currentJob?.mandatorySkills || currentJob?.requirements, []);
+
       const mappedCandidates = rawApps.map((app, idx) => {
         const match = matchMap.get(app.candidateId);
         const rawScore = app.matchingScore != null ? Number(app.matchingScore) : (match?.matchingScore != null ? Number(match.matchingScore) : null);
@@ -807,13 +837,54 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
           isLowerScore: score < 60,
           cvId: app.cvId || match?.cvId || null,
           cvUrl: app.cvUrl || match?.cvUrl || '#',
+          // TẦNG 1: Vòng lọc loại trực tiếp (Knockout / Hard Constraints)
+          isKnockedOut: (() => {
+            const isCorrupt = !app.cvUrl || app.cvUrl === '#' || (app.cvId == null);
+            const expText = (app.candidateExperienceSummary || app.coverLetter || '').toLowerCase();
+            const isZeroExp = expText.includes('fresher') || expText.includes('chưa có kinh nghiệm') || expText.includes('0 năm') || expText.includes('mới ra trường');
+            if (score < 30) return true;
+            if (mandatorySkills.length >= 2 && mandatoryMatched.length === 0 && score < 45) return true;
+            if (isSeniorJob && isZeroExp && score < 50) return true;
+            if (isCorrupt && score < 40) return true;
+            return false;
+          })(),
+          knockoutReason: (() => {
+            const isCorrupt = !app.cvUrl || app.cvUrl === '#' || (app.cvId == null);
+            const expText = (app.candidateExperienceSummary || app.coverLetter || '').toLowerCase();
+            const isZeroExp = expText.includes('fresher') || expText.includes('chưa có kinh nghiệm') || expText.includes('0 năm') || expText.includes('mới ra trường');
+            if (score < 30) return 'Điểm ATS dưới ngưỡng tối thiểu (< 30%)';
+            if (mandatorySkills.length >= 2 && mandatoryMatched.length === 0 && score < 45) return 'Thiếu kỹ năng sống còn (0/' + mandatorySkills.length + ' kỹ năng bắt buộc)';
+            if (isSeniorJob && isZeroExp && score < 50) return 'Chưa đạt số năm kinh nghiệm tối thiểu cho cấp bậc Senior';
+            if (isCorrupt && score < 40) return 'Tệp CV không hợp lệ hoặc không trích xuất được nội dung';
+            return null;
+          })(),
+          // TẦNG 3: Báo cáo phân tích sâu lưu cứng trong CSDL (Write Once, Read Many)
+          hasAiReport: Boolean(
+            (app.evaluationNotes && typeof app.evaluationNotes === 'string' && app.evaluationNotes.trim().length > 20 && app.evaluationNotes.includes('{')) ||
+            (match?.skillGapJson && match.skillGapJson.includes('"detailedReport"')) ||
+            reportsCacheRef.current[`${activeJobId}_${app.candidateId}`]
+          ),
+          evaluationNotes: app.evaluationNotes || app.notes || null,
         };
       });
 
-      // Sắp xếp danh sách ứng viên mặc định theo điểm matchScore giảm dần và tính động thứ hạng Rank
-      mappedCandidates.sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));
-      mappedCandidates.forEach((c, i) => {
-        c.rank = i + 1;
+      // Sắp xếp danh sách ứng viên mặc định theo điểm matchScore giảm dần và gán Rank cho Top 10/20
+      mappedCandidates.sort((a, b) => {
+        if (a.isKnockedOut !== b.isKnockedOut) return a.isKnockedOut ? 1 : -1;
+        return (b.matchScore || 0) - (a.matchScore || 0);
+      });
+      let qualifiedIndex = 0;
+      mappedCandidates.forEach((c) => {
+        if (!c.isKnockedOut) {
+          qualifiedIndex += 1;
+          c.rank = qualifiedIndex;
+          c.isTop10 = qualifiedIndex <= 10;
+          c.isTop20 = qualifiedIndex <= 20;
+        } else {
+          c.rank = 999;
+          c.isTop10 = false;
+          c.isTop20 = false;
+        }
       });
 
       // 4. Update Job Details State
@@ -970,16 +1041,29 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                   techChips: freshTechChips,
                   aiQuote: data.overallVerdict || c.aiQuote,
                   isLowerScore: freshScore < 60,
+                  hasAiReport: true,
+                  evaluationNotes: JSON.stringify(data),
                 }
               : c
           );
-          updated.sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));
-          updated.forEach((c, idx) => {
-            c.rank = idx + 1;
+          updated.sort((a, b) => {
+            if (a.isKnockedOut !== b.isKnockedOut) return a.isKnockedOut ? 1 : -1;
+            return (b.matchScore || 0) - (a.matchScore || 0);
+          });
+          let qIdx = 0;
+          updated.forEach((c) => {
+            if (!c.isKnockedOut) {
+              qIdx += 1;
+              c.rank = qIdx;
+              c.isTop10 = qIdx <= 10;
+              c.isTop20 = qIdx <= 20;
+            }
           });
           return updated;
         });
-        triggerToast(`Đã hoàn tất chấm lại bằng AI cho ứng viên "${cand.name}": ${freshScore}% AI Match (Hạng #${candidates.findIndex(c => c.candidateId === cand.candidateId) + 1 || 1})!`);
+        setAiReportData(data);
+        setSelectedCandidateForModal((prev) => (prev && prev.candidateId === cand.candidateId ? { ...prev, ...cand, hasAiReport: true, matchScore: freshScore } : { ...cand, hasAiReport: true, matchScore: freshScore }));
+        triggerToast(`🎉 AI đã thẩm định chuyên sâu & lưu vĩnh viễn báo cáo vào CSDL cho ứng viên "${cand.name}"!`);
       } else {
         triggerToast(`Đã đối soát xong hồ sơ của ứng viên "${cand.name}".`);
       }
@@ -1071,9 +1155,20 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
     setCurrentPage(1);
   };
 
-  // Filter & sort logic
+  // Filter & sort logic (kết hợp Phễu 3 tầng rankingFilter và activeFilter)
   const filteredCandidates = useMemo(() => {
     let list = [...candidates];
+
+    // TẦNG 2 & TẦNG 1: Lọc theo Phễu Sàng Lọc Ranking
+    if (rankingFilter === 'TOP_10') {
+      list = list.filter((c) => !c.isKnockedOut && c.rank <= 10);
+    } else if (rankingFilter === 'TOP_20') {
+      list = list.filter((c) => !c.isKnockedOut && c.rank <= 20);
+    } else if (rankingFilter === 'KNOCKOUT') {
+      list = list.filter((c) => c.isKnockedOut);
+    } else if (rankingFilter === 'ALL') {
+      // Hiển thị tất cả ứng viên
+    }
 
     // Filter by tab
     if (activeFilter === 'NEW') list = list.filter((c) => c.stage === 'NEW');
@@ -1133,7 +1228,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
     );
 
     return list;
-  }, [candidates, activeFilter, searchQuery, isAiSortDescending, scoreFilter, expFilter, skillFilter]);
+  }, [candidates, rankingFilter, activeFilter, searchQuery, isAiSortDescending, scoreFilter, expFilter, skillFilter]);
 
   // Pagination calculation
   const PAGE_SIZE = 6;
@@ -1513,6 +1608,107 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
           </div>
 
           {/* ======================================================== */}
+          {/* KIẾN TRÚC PHỄU SÀNG LỌC 3 TẦNG (TOP 10 / TOP 20 / ALL)   */}
+          {/* ======================================================== */}
+          <div className="bg-gradient-to-r from-[#171335] via-[#221d47] to-[#3a2d6f] text-white p-4 sm:p-5 rounded-3xl shadow-sm border border-purple-900/40 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span className="text-xs font-mono font-bold uppercase tracking-wider text-purple-200">
+                  Phễu Sàng Lọc CV 3 Tầng (ATS Multi-Pillar & Lazy AI Deep Report)
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/10 text-white border border-white/20">
+                  0 Token Chấm Tự Động
+                </span>
+              </div>
+              <p className="text-xs text-slate-300">
+                {rankingFilter === 'TOP_10'
+                  ? '⭐ Tầng 2: Đang lọc Top 10 CV Xuất Sắc Nhất đạt chuẩn qua Ma trận trọng số 4 trụ cột.'
+                  : rankingFilter === 'TOP_20'
+                  ? '✨ Tầng 2: Đang lọc Top 20 Ứng Viên Tiềm Năng (Dự phòng chất lượng cao).'
+                  : rankingFilter === 'KNOCKOUT'
+                  ? '⚠️ Tầng 1: Các CV bị loại trực tiếp do vi phạm chốt chặn (Deal-breaker, thiếu kinh nghiệm, file lỗi).'
+                  : '📋 Đang hiển thị toàn bộ ứng viên đã nộp hồ sơ vào vị trí tuyển dụng này.'}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-1.5 bg-white/10 p-1.5 rounded-2xl backdrop-blur-md border border-white/10 overflow-x-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  setRankingFilter('TOP_10');
+                  setCurrentPage(1);
+                }}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                  rankingFilter === 'TOP_10'
+                    ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 shadow-sm font-extrabold'
+                    : 'text-white/80 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[15px]">hotel_class</span>
+                <span>⭐ Top 10 CV Xuất Sắc</span>
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/20 text-white font-mono">
+                  {Math.min(10, candidates.filter((c) => !c.isKnockedOut).length)}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setRankingFilter('TOP_20');
+                  setCurrentPage(1);
+                }}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                  rankingFilter === 'TOP_20'
+                    ? 'bg-[#5b48bd] text-white shadow-sm font-extrabold border border-purple-400'
+                    : 'text-white/80 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[15px]">workspace_premium</span>
+                <span>Top 20 Tiềm Năng</span>
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20 text-white font-mono">
+                  {Math.min(20, candidates.filter((c) => !c.isKnockedOut).length)}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setRankingFilter('ALL');
+                  setCurrentPage(1);
+                }}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                  rankingFilter === 'ALL'
+                    ? 'bg-white text-slate-900 shadow-sm font-extrabold'
+                    : 'text-white/80 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[15px]">group</span>
+                <span>Tất Cả CV ({candidates.length})</span>
+              </button>
+
+              {candidates.some((c) => c.isKnockedOut) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRankingFilter('KNOCKOUT');
+                    setCurrentPage(1);
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                    rankingFilter === 'KNOCKOUT'
+                      ? 'bg-rose-600 text-white shadow-sm font-extrabold'
+                      : 'text-rose-300 hover:text-rose-100 hover:bg-rose-900/40'
+                  }`}
+                  title="Danh sách CV không đạt chuẩn knockout ở Tầng 1 (Kỹ năng cốt lõi, kinh nghiệm)"
+                >
+                  <span className="material-symbols-outlined text-[15px]">filter_alt_off</span>
+                  <span>Chưa Đạt Chuẩn ({candidates.filter((c) => c.isKnockedOut).length})</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* ======================================================== */}
           {/* CONTROLS PANEL (TABS + FILTER + SORT BAR)                */}
           {/* ======================================================== */}
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm">
@@ -1828,11 +2024,22 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                         </div>
                       )}
 
-                      {cand.rank && (
+                      {cand.isKnockedOut ? (
+                        <span
+                          className="absolute -bottom-1 -right-1 px-1.5 py-0.2 rounded-full text-[9px] font-extrabold bg-rose-600 text-white shadow-xs"
+                          title={cand.knockoutReason || 'Chưa đạt chuẩn'}
+                        >
+                          Loại
+                        </span>
+                      ) : cand.rank && (
                         <span
                           className={`absolute -bottom-1 -right-1 px-1.5 py-0.2 rounded-full text-[9px] font-extrabold ${
                             cand.rank === 1
-                              ? 'bg-amber-500 text-white shadow-xs'
+                              ? 'bg-amber-500 text-white shadow-xs ring-1 ring-amber-300'
+                              : cand.isTop10
+                              ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-xs'
+                              : cand.isTop20
+                              ? 'bg-[#5b48bd] text-white shadow-xs'
                               : 'bg-slate-800 text-white'
                           }`}
                         >
@@ -1895,31 +2102,35 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                       {cand.matchCategory}
                     </span>
 
-                    <button
-                      type="button"
-                      onClick={() => setSelectedCandidateForModal(cand)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-50 hover:bg-purple-100 text-[#5b48bd] border border-purple-200 hover:border-purple-300 text-xs font-bold transition-all cursor-pointer shadow-2xs hover:scale-105 shrink-0"
-                      title="Xem báo cáo phân tích CV chi tiết do AI xử lý"
-                    >
-                      <span className="material-symbols-outlined text-sm text-purple-600">auto_awesome</span>
-                      <span>Xem Báo Cáo AI</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      disabled={evaluatingCandId === cand.candidateId}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeepEvaluateCandidate(cand);
-                      }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 hover:border-indigo-300 text-xs font-bold transition-all cursor-pointer shadow-2xs hover:scale-105 shrink-0"
-                      title="Kích hoạt AI đối soát chuyên sâu & chấm lại kỹ hơn hồ sơ CV này"
-                    >
-                      <span className={`material-symbols-outlined text-sm text-indigo-600 ${evaluatingCandId === cand.candidateId ? 'animate-spin' : ''}`}>
-                        {evaluatingCandId === cand.candidateId ? 'sync' : 'psychology'}
-                      </span>
-                      <span>{evaluatingCandId === cand.candidateId ? 'Đang Chấm AI...' : 'AI Chấm Lại CV'}</span>
-                    </button>
+                    {/* NÚT BÁO CÁO AI 2 TRẠNG THÁI THEO YÊU CẦU: ON-DEMAND & DB CACHED */}
+                    {cand.hasAiReport ? (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCandidateForModal(cand)}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#5b48bd] hover:bg-[#47369f] text-white text-xs font-bold transition-all cursor-pointer shadow-xs hover:scale-105 shrink-0"
+                        title="Xem báo cáo AI chuyên sâu đã lưu trong CSDL (0ms, 0 Token)"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">description</span>
+                        <span>Xem Báo Cáo (Đã lưu)</span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 ml-0.5"></span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={evaluatingCandId === cand.candidateId}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeepEvaluateCandidate(cand);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 hover:border-indigo-300 text-xs font-bold transition-all cursor-pointer shadow-2xs hover:scale-105 shrink-0"
+                        title="Yêu cầu AI thẩm định chuyên sâu hồ sơ này (gọi Gemini AI và lưu cứng vào CSDL)"
+                      >
+                        <span className={`material-symbols-outlined text-[15px] text-indigo-600 ${evaluatingCandId === cand.candidateId ? 'animate-spin' : ''}`}>
+                          {evaluatingCandId === cand.candidateId ? 'sync' : 'auto_awesome'}
+                        </span>
+                        <span>{evaluatingCandId === cand.candidateId ? 'AI Đang Thẩm Định...' : '🤖 Yêu Cầu AI Phân Tích'}</span>
+                      </button>
+                    )}
                   </div>
 
                   {/* Col 3: Actions & Status Management (Shrink-0, intrinsic width, perfectly aligned right, no overlapping) */}
@@ -2146,15 +2357,15 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                         Báo Cáo Đối Soát Hồ Sơ CV &amp; Bài Đăng Tuyển Dụng
                       </h3>
                       {isReportLoading ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
                           <span className="w-1.5 h-1.5 rounded-full bg-purple-600 animate-ping"></span>
-                          Đang đối soát qua Gemini AI...
+                          Đang thẩm định chuyên sâu qua Gemini AI...
                         </span>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            <span className="material-symbols-outlined text-xs text-emerald-600">verified</span>
-                            Thẩm định đối chiếu trực tiếp bởi Gemini AI
+                      ) : aiReportData ? (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200 shadow-2xs">
+                            <span className="material-symbols-outlined text-sm text-purple-600">database</span>
+                            <span>✓ Dữ liệu thẩm định đã lưu trong CSDL</span>
                           </span>
                           <button
                             type="button"
@@ -2171,28 +2382,28 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                                     setCandidates((prev) =>
                                       prev.map((c) =>
                                         c.candidateId === selectedCandidateForModal.candidateId
-                                          ? { ...c, matchScore: freshScore, matchCategory: data.matchTier || '✨ Phù Hợp' }
+                                          ? { ...c, matchScore: freshScore, matchCategory: data.matchTier || '✨ Phù Hợp', hasAiReport: true, evaluationNotes: JSON.stringify(data) }
                                           : c
                                       )
                                     );
-                                    setSelectedCandidateForModal((prev) => (prev ? { ...prev, matchScore: freshScore } : null));
+                                    setSelectedCandidateForModal((prev) => (prev ? { ...prev, matchScore: freshScore, hasAiReport: true } : null));
                                   }
-                                  triggerToast('Đã đối soát lại trực tiếp với Gemini AI thành công!');
+                                  triggerToast('🎉 Đã thẩm định lại qua AI và lưu kết quả mới vào CSDL!');
                                 })
                                 .catch((err) => {
                                   console.warn('Lỗi gọi lại API AI:', err);
-                                  triggerToast('Không thể đối soát lại lúc này.');
+                                  triggerToast('Không thể thẩm định lại lúc này.');
                                 })
                                 .finally(() => setIsReportLoading(false));
                             }}
-                            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 hover:bg-purple-200 text-purple-800 border border-purple-300 transition-colors cursor-pointer"
-                            title="Kích hoạt Gemini AI phân tích lại toàn diện CV ứng viên này"
+                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-slate-100 hover:bg-purple-50 text-slate-700 hover:text-purple-700 border border-slate-200 hover:border-purple-300 transition-colors cursor-pointer"
+                            title="Yêu cầu Gemini AI phân tích lại toàn diện CV ứng viên này và lưu đè vào CSDL"
                           >
                             <span className={`material-symbols-outlined text-[13px] ${isReportLoading ? 'animate-spin' : ''}`}>sync</span>
-                            Chấm lại bằng AI
+                            <span>🔄 Phân tích lại</span>
                           </button>
                         </div>
-                      )}
+                      ) : null}
                     </div>
                     <p className="text-xs text-slate-500 mt-0.5">
                       Đối soát độc lập nội dung CV thực tế với yêu cầu bài đăng: <strong>{report.jobTitle}</strong>
@@ -2212,6 +2423,29 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
 
               {/* Modal Body */}
               <div className="p-6 sm:p-8 lg:p-10 space-y-6">
+
+                {/* Nếu chưa có báo cáo AI chuyên sâu trong DB: Hiển thị Banner Yêu cầu Phân tích Sâu */}
+                {!aiReportData && !isReportLoading && (
+                  <div className="p-8 text-center bg-gradient-to-b from-purple-50/70 to-white rounded-3xl border border-purple-200 space-y-4 shadow-xs">
+                    <div className="w-14 h-14 mx-auto rounded-2xl bg-purple-100 text-[#5b48bd] flex items-center justify-center shadow-xs">
+                      <span className="material-symbols-outlined text-3xl">psychology</span>
+                    </div>
+                    <div className="max-w-md mx-auto space-y-1">
+                      <h4 className="text-base font-bold text-slate-900">Chưa Có Báo Cáo Phân Tích Sâu (Lazy AI Report)</h4>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        Ứng viên đã được sàng lọc và chấm điểm tự động qua Ma trận ATS (Tầng 2). Bấm nút bên dưới để yêu cầu Gemini AI phân tích sâu Điểm mạnh cốt lõi, Lỗ hổng kỹ năng (Skill Gap) và 3 câu hỏi phỏng vấn thực chiến.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDeepEvaluateCandidate(selectedCandidateForModal)}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-[#5b48bd] to-indigo-600 hover:from-[#47369f] hover:to-indigo-700 text-white font-bold text-xs shadow-md hover:scale-105 transition-all cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-base">auto_awesome</span>
+                      <span>[🤖 Yêu Cầu AI Phân Tích Sâu] (Lưu Cứng Vào CSDL)</span>
+                    </button>
+                  </div>
+                )}
                 
                 {/* 1. Candidate Hero & ATS Score Gauge Card */}
                 <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-slate-50 via-purple-50/20 to-indigo-50/30 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-5 shadow-xs">

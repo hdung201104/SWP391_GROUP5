@@ -560,6 +560,14 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
         log.info(">> [AiJobMatch] Computed match candidateId={} jobId={} score={}%",
                 candidate.getCandidateId(), job.getJobId(), finalMatchingScore);
 
+        if (applicationRepository != null) {
+            try {
+                // Application matching score is synced via ai_job_matches joined queries
+            } catch (Exception ex) {
+                log.warn("Non-blocking update matchingScore to application failed: {}", ex.getMessage());
+            }
+        }
+
         return mapToResponse(saved);
     }
 
@@ -1517,6 +1525,29 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
 
         // 1. KIỂM TRA DATABASE CACHE NẾU KHÔNG BẬT CỜ CHẤM LẠI (forceRefresh == false)
         if (!forceRefresh) {
+            // A. Kiểm tra bảng applications.evaluation_notes trước
+            try {
+                if (applicationRepository != null) {
+                    Optional<Application> appOpt = applicationRepository.findByJob_JobIdAndCandidate_CandidateId(jobId, candidateId);
+                    if (appOpt.isPresent() && appOpt.get().getEvaluationNotes() != null && !appOpt.get().getEvaluationNotes().isBlank()) {
+                        String notesStr = appOpt.get().getEvaluationNotes().trim();
+                        if (notesStr.startsWith("{") && notesStr.contains("matchingScore")) {
+                            com.hiremate.dto.response.AiDetailedEvaluationReport appReport = objectMapper.readValue(
+                                    notesStr, com.hiremate.dto.response.AiDetailedEvaluationReport.class
+                            );
+                            if (appReport != null && appReport.getMatchingScore() != null) {
+                                log.info(">> [AiJobMatchService] Trả về báo cáo AI từ applications.evaluation_notes cho candidateId={} jobId={} (0ms, 0 Token)",
+                                        candidateId, jobId);
+                                return appReport;
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ex) {
+                log.warn(">> [AiJobMatchService] Lỗi giải mã evaluation_notes từ application: {}", ex.getMessage());
+            }
+
+            // B. Kiểm tra bảng ai_job_matches.skill_gap_json tiếp theo
             Optional<AiJobMatch> matchOpt = aiJobMatchRepository.findByCandidate_CandidateIdAndJob_JobId(candidateId, jobId);
             if (matchOpt.isPresent()) {
                 AiJobMatch m = matchOpt.get();
@@ -1632,9 +1663,8 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
         String candidateEmail = candidate.getUser() != null ? candidate.getUser().getEmail() : "";
 
         com.hiremate.dto.response.AiDetailedEvaluationReport report = null;
-        // TUYỆT ĐỐI CHỈ GỌI GEMINI AI KHI NGƯỜI DÙNG THỰC SỰ ẤN NÚT "CHẤM LẠI" (forceRefresh == true)
-        // Xem báo cáo bình thường, reload hoặc quay lại trang KHÔNG BAO GIỜ tốn token Gemini
-        if (forceRefresh && geminiAiService != null && geminiAiService.isAvailable()) {
+        // Gọi Gemini AI khi forceRefresh == true HOẶC khi chưa có báo cáo trong DB (được kích hoạt bởi thao tác Yêu cầu AI)
+        if (geminiAiService != null && geminiAiService.isAvailable()) {
             try {
                 report = geminiAiService.evaluateCandidateCvAgainstJob(
                         job.getTitle(),
@@ -1696,29 +1726,50 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
         report.setJobId(jobId);
         report.setJobTitle(job.getTitle());
 
-        // Lưu vào DATABASE CACHE (ai_job_matches.skill_gap_json) để lần sau đọc lại tức thì
+        // 1. Lưu CỨNG vào applications.evaluation_notes (Write Once, Read Many)
+        try {
+            if (applicationRepository != null) {
+                Optional<Application> appOpt = applicationRepository.findByJob_JobIdAndCandidate_CandidateId(jobId, candidateId);
+                if (appOpt.isPresent()) {
+                    Application app = appOpt.get();
+                    app.setEvaluationNotes(objectMapper.writeValueAsString(report));
+                    applicationRepository.save(app);
+                    log.info(">> [AiJobMatchService] Đã lưu cứng báo cáo AI vào applications.evaluation_notes cho candidateId={} jobId={}",
+                            candidateId, jobId);
+                }
+            }
+        } catch (Exception ex) {
+            log.warn(">> [AiJobMatchService] Lỗi khi lưu evaluation_notes vào application: {}", ex.getMessage());
+        }
+
+        // 2. Lưu CỨNG vào ai_job_matches.skill_gap_json
         try {
             Optional<AiJobMatch> savedMatchOpt = aiJobMatchRepository.findByCandidate_CandidateIdAndJob_JobId(candidateId, jobId);
-            if (savedMatchOpt.isPresent()) {
-                AiJobMatch match = savedMatchOpt.get();
-                if (report.getMatchingScore() != null && report.getMatchingScore() > 0) {
-                    match.setMatchingScore(report.getMatchingScore());
-                }
-                if (report.getOverallVerdict() != null && !report.getOverallVerdict().isBlank()) {
-                    match.setAiReasoning(report.getOverallVerdict());
-                }
-                Map<String, Object> gapMap;
-                try {
-                    gapMap = objectMapper.readValue(match.getSkillGapJson(), new TypeReference<>() {});
-                } catch (Exception ex) {
-                    gapMap = new HashMap<>();
-                }
-                gapMap.put("detailedReport", report);
-                match.setSkillGapJson(objectMapper.writeValueAsString(gapMap));
-                aiJobMatchRepository.save(match);
-                log.info(">> [AiJobMatchService] Đã lưu báo cáo AI chi tiết vào Database Cache cho candidateId={} jobId={}",
-                        candidateId, jobId);
+            AiJobMatch match = savedMatchOpt.isPresent() ? savedMatchOpt.get() : new AiJobMatch();
+            if (!savedMatchOpt.isPresent()) {
+                match.setCandidate(candidate);
+                match.setJob(job);
+                match.setCv(cv);
             }
+            if (report.getMatchingScore() != null && report.getMatchingScore() > 0) {
+                match.setMatchingScore(report.getMatchingScore());
+            }
+            if (report.getOverallVerdict() != null && !report.getOverallVerdict().isBlank()) {
+                match.setAiReasoning(report.getOverallVerdict());
+            }
+            Map<String, Object> gapMap;
+            try {
+                gapMap = (match.getSkillGapJson() != null && !match.getSkillGapJson().isBlank())
+                        ? objectMapper.readValue(match.getSkillGapJson(), new TypeReference<>() {})
+                        : new HashMap<>();
+            } catch (Exception ex) {
+                gapMap = new HashMap<>();
+            }
+            gapMap.put("detailedReport", report);
+            match.setSkillGapJson(objectMapper.writeValueAsString(gapMap));
+            aiJobMatchRepository.save(match);
+            log.info(">> [AiJobMatchService] Đã lưu báo cáo AI chi tiết vào Database Cache cho candidateId={} jobId={}",
+                    candidateId, jobId);
         } catch (Exception ex) {
             log.warn(">> [AiJobMatchService] Lỗi khi lưu cache detailedReport vào DB: {}", ex.getMessage());
         }
