@@ -172,6 +172,16 @@ public class AiInterviewServiceImpl implements AiInterviewService {
      * Tìm kiếm gói đang kích hoạt (ACTIVE, còn hạn) của Candidate từ bảng `subscriptions` JOIN `subscription_plans` trên Supabase.
      * Sử dụng bộ nhớ đệm (In-Memory Cache) để tránh lặp lại hàng chục queries chậm chạp sang Supabase.
      */
+    public static void invalidateUserPlanCache(Long userId) {
+        if (userId != null) {
+            USER_PLAN_CACHE.remove(userId);
+            CANDIDATE_HISTORY_CACHE.remove(userId);
+        } else {
+            USER_PLAN_CACHE.clear();
+            CANDIDATE_HISTORY_CACHE.clear();
+        }
+    }
+
     public com.hiremate.entity.SubscriptionPlan resolveActiveOrFreePlan(User candidate) {
         if (candidate != null) {
             CachedPlanEntry cached = USER_PLAN_CACHE.get(candidate.getUserId());

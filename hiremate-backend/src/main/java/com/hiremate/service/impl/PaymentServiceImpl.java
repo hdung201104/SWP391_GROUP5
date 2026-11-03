@@ -846,6 +846,9 @@ public class PaymentServiceImpl implements PaymentService {
                     .build();
 
             subscriptionRepository.save(subscription);
+            try {
+                com.hiremate.service.impl.AiInterviewServiceImpl.invalidateUserPlanCache(order.getUser().getUserId());
+            } catch (Exception ignored) {}
             log.info("ĐÃ KÍCH HOẠT THÀNH CÔNG GÓI {} cho tài khoản {} (Hạn dùng: {} ngày)",
                     plan.getPlanName(), order.getUser().getEmail(), durationDays);
 
