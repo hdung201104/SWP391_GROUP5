@@ -82,35 +82,45 @@ public class DataInitializer implements CommandLineRunner {
         try {
             if (subscriptionPlanRepository.count() == 0) {
                 List<com.hiremate.entity.SubscriptionPlan> defaultPlans = List.of(
-                        // 1. Candidate Plans
+                        // 1. Candidate Plans (Free -> Plus -> Pro -> Ace)
                         com.hiremate.entity.SubscriptionPlan.builder()
-                                .planName("Ứng viên Miễn phí (Candidate Free)")
+                                .planName("Free Candidate")
                                 .targetRole("CANDIDATE")
                                 .planType("INTERVIEW_PRACTICE")
                                 .price(java.math.BigDecimal.ZERO)
                                 .durationDays(365)
                                 .quotaLimit(2)
-                                .description("Gói trải nghiệm phỏng vấn AI cơ bản [PERMS:{\"interviewLimit\":2,\"atsScanLimit\":3,\"canViewFullFeedback\":false,\"supportLevel\":\"Cơ bản\"}]")
+                                .description("Trải nghiệm tìm việc & luyện phỏng vấn AI cơ bản [PERMS:{\"interviewLimit\":2,\"maxQ\":3,\"maxDur\":300,\"fullStar\":false,\"roadmap\":false,\"personas\":\"HR_MANAGER\",\"voices\":\"vi-native\",\"coachHints\":1,\"cvLimit\":2,\"aiSummaryLimit\":1,\"cvJdReportLimit\":3}]")
                                 .isActive(true)
                                 .build(),
                         com.hiremate.entity.SubscriptionPlan.builder()
-                                .planName("Ứng viên Chuyên nghiệp (Candidate Pro)")
+                                .planName("Practice Plus")
                                 .targetRole("CANDIDATE")
                                 .planType("INTERVIEW_PRACTICE")
-                                .price(new java.math.BigDecimal("99000"))
-                                .durationDays(30)
-                                .quotaLimit(20)
-                                .description("Luyện phỏng vấn AI không giới hạn chủ đề, chấm điểm chi tiết [PERMS:{\"interviewLimit\":20,\"atsScanLimit\":30,\"canViewFullFeedback\":true,\"supportLevel\":\"Ưu tiên\"}]")
+                                .price(new java.math.BigDecimal("49000"))
+                                .durationDays(7)
+                                .quotaLimit(5)
+                                .description("Luyện phỏng vấn theo tuần, mở 100% đáp án STAR và lộ trình [PERMS:{\"interviewLimit\":5,\"maxQ\":5,\"maxDur\":600,\"fullStar\":true,\"roadmap\":true,\"personas\":\"HR_MANAGER,TECH_LEAD\",\"voices\":\"vi-native,eleven-alice\",\"coachHints\":3,\"cvLimit\":5,\"aiSummaryLimit\":5,\"cvJdReportLimit\":15}]")
                                 .isActive(true)
                                 .build(),
                         com.hiremate.entity.SubscriptionPlan.builder()
-                                .planName("Đột phá Sự nghiệp (Candidate Premium)")
+                                .planName("Practice Pro")
                                 .targetRole("CANDIDATE")
-                                .planType("COMBO")
-                                .price(new java.math.BigDecimal("199000"))
-                                .durationDays(90)
-                                .quotaLimit(100)
-                                .description("Gói tối ưu sự nghiệp toàn diện, phỏng vấn AI chuyên sâu không giới hạn [PERMS:{\"interviewLimit\":100,\"atsScanLimit\":100,\"canViewFullFeedback\":true,\"supportLevel\":\"VIP 24/7\"}]")
+                                .planType("INTERVIEW_PRACTICE")
+                                .price(new java.math.BigDecimal("149000"))
+                                .durationDays(30)
+                                .quotaLimit(15)
+                                .description("Luyện phỏng vấn chuyên sâu, phân tích giọng nói WPM và mở mẫu CV VIP [PERMS:{\"interviewLimit\":15,\"maxQ\":7,\"maxDur\":900,\"fullStar\":true,\"roadmap\":true,\"personas\":\"HR_MANAGER,TECH_LEAD,STRICT_DIRECTOR\",\"voices\":\"vi-native,eleven-alice,eleven-george\",\"coachHints\":999,\"cvLimit\":999,\"aiSummaryLimit\":999,\"cvJdReportLimit\":999,\"voiceBiometrics\":true}]")
+                                .isActive(true)
+                                .build(),
+                        com.hiremate.entity.SubscriptionPlan.builder()
+                                .planName("Career Ace")
+                                .targetRole("CANDIDATE")
+                                .planType("INTERVIEW_PRACTICE")
+                                .price(new java.math.BigDecimal("249000"))
+                                .durationDays(30)
+                                .quotaLimit(999)
+                                .description("Không giới hạn phỏng vấn AI, Marathon 8 câu và độc quyền Face/Gaze Biometrics [PERMS:{\"interviewLimit\":999,\"maxQ\":8,\"maxDur\":1200,\"fullStar\":true,\"roadmap\":true,\"personas\":\"HR_MANAGER,TECH_LEAD,STRICT_DIRECTOR\",\"voices\":\"vi-native,eleven-alice,eleven-george\",\"coachHints\":999,\"cvLimit\":999,\"aiSummaryLimit\":999,\"cvJdReportLimit\":999,\"voiceBiometrics\":true,\"webcamBiometrics\":true}]")
                                 .isActive(true)
                                 .build(),
 
@@ -157,7 +167,7 @@ public class DataInitializer implements CommandLineRunner {
                                 .build()
                 );
                 subscriptionPlanRepository.saveAll(defaultPlans);
-                log.info(">> [DataInitializer] Đã khởi tạo thành công 7 gói dịch vụ phân hạng chuẩn cho Ứng viên & Nhà tuyển dụng.");
+                log.info(">> [DataInitializer] Đã khởi tạo thành công 8 gói dịch vụ phân hạng chuẩn cho Ứng viên & Nhà tuyển dụng.");
             }
         } catch (Exception e) {
             log.warn(">> [DataInitializer] Lỗi khởi tạo gói dịch vụ mặc định: {}", e.getMessage());

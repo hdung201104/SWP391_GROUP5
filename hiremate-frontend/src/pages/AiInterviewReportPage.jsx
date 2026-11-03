@@ -618,6 +618,27 @@ export default function AiInterviewReportPage({
   const candidateAudioRef = useRef(null);
   const [toast, setToast] = useState('');
 
+  // Subscription Quota & Tiers for Candidate
+  const [quotaInfo, setQuotaInfo] = useState(null);
+
+  useEffect(() => {
+    interviewApi.getQuotaStatus()
+      .then((res) => {
+        const q = res?.data?.data || res?.data;
+        if (q) setQuotaInfo(q);
+      })
+      .catch((e) => console.warn('Could not load interview quota status:', e));
+  }, [user]);
+
+  const planPrice = Number(quotaInfo?.price) || 0;
+  const planName = quotaInfo?.planName || session?.planName || 'Free Candidate';
+  const isPaidPlan = Boolean(quotaInfo?.isPaidPlan || planPrice > 0 || session?.isPaidPlan);
+  const isAce = planPrice >= 200000 || planName.toLowerCase().includes('ace') || planName.toLowerCase().includes('career');
+  const isProOrAce = isAce || planPrice >= 100000 || planName.toLowerCase().includes('pro');
+  const isPlusOrHigher = isProOrAce || isPaidPlan || planName.toLowerCase().includes('plus');
+  const unlockFullStar = quotaInfo?.unlockFullStar ?? session?.unlockFullStar ?? isPlusOrHigher;
+  const unlockRoadmapStages = quotaInfo?.unlockRoadmapStages ?? session?.unlockRoadmapStages ?? isPlusOrHigher;
+
   const showToast = (msg) => {
     setToast(msg);
     setTimeout(() => setToast(''), 3000);
@@ -1894,6 +1915,31 @@ export default function AiInterviewReportPage({
             {/* ================================================================= */}
             {/* KHỐI A: PHÂN TÍCH NGỮ ĐIỆU GIỌNG NÓI & ĐỘ LƯU LOÁT                */}
             {/* ================================================================= */}
+            {!isProOrAce ? (
+              <div className="bg-white rounded-3xl border border-purple-200/90 p-8 shadow-xs text-center space-y-4 relative overflow-hidden bg-gradient-to-br from-indigo-50/40 via-white to-purple-50/40">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-100 text-indigo-700 flex items-center justify-center mx-auto shadow-2xs">
+                  <span className="material-symbols-outlined text-2xl">lock</span>
+                </div>
+                <div className="space-y-1">
+                  <span className="px-3 py-1 rounded-full text-[11px] font-extrabold bg-indigo-700 text-white uppercase tracking-wider">
+                    Đặc Quyền Gói Practice Pro (149k) &amp; Career Ace
+                  </span>
+                  <h4 className="text-base sm:text-lg font-extrabold text-slate-900 mt-2">
+                    Khối A: Phân Tích Sinh Trắc Học Giọng Nói &amp; Độ Lưu Loát AI
+                  </h4>
+                  <p className="text-xs text-slate-600 max-w-md mx-auto leading-relaxed">
+                    Hệ thống đo lường khách quan tốc độ nói (WPM), cao độ âm sắc (Pitch F0 Hz), kiểm soát từ đệm ngập ngừng (&quot;à, ừm&quot;) và độ sâu câu trả lời. Nâng cấp lên gói <strong>Practice Pro (149.000đ/30 ngày)</strong> để mở khóa trọn bộ phân tích giọng nói!
+                  </p>
+                </div>
+                <a
+                  href="#/pricing"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-[#32247b] hover:from-indigo-700 hover:to-[#261b5f] text-white text-xs font-bold shadow-md transition-all cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-sm">workspace_premium</span>
+                  <span>Nâng Cấp Practice Pro (149k)</span>
+                </a>
+              </div>
+            ) : (
             <div className="bg-white rounded-3xl border border-slate-200/90 p-6 sm:p-7 shadow-xs space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-2">
                 <div className="flex items-center gap-2.5">
@@ -2044,10 +2090,36 @@ export default function AiInterviewReportPage({
                 </div>
               </div>
             </div>
+            )}
 
             {/* ================================================================= */}
             {/* KHỐI B: AI QUÉT KHUÔN MẶT, ÁNH MẮT & BIỂU CẢM                     */}
             {/* ================================================================= */}
+            {!isAce ? (
+              <div className="bg-white rounded-3xl border border-purple-200/90 p-8 shadow-xs text-center space-y-4 relative overflow-hidden bg-gradient-to-br from-purple-50/40 via-white to-amber-50/40">
+                <div className="w-12 h-12 rounded-2xl bg-purple-100 text-[#32247b] flex items-center justify-center mx-auto shadow-2xs">
+                  <span className="material-symbols-outlined text-2xl">lock</span>
+                </div>
+                <div className="space-y-1">
+                  <span className="px-3 py-1 rounded-full text-[11px] font-extrabold bg-[#32247b] text-white uppercase tracking-wider">
+                    Độc Quyền Gói Career Ace (249k) 👑
+                  </span>
+                  <h4 className="text-base sm:text-lg font-extrabold text-slate-900 mt-2">
+                    Khối B: AI Quét Khuôn Mặt, Tiếp Xúc Ánh Mắt &amp; Biểu Cảm Webcam
+                  </h4>
+                  <p className="text-xs text-slate-600 max-w-md mx-auto leading-relaxed">
+                    Độc quyền cho gói cao cấp nhất: Theo dõi tỷ lệ tiếp xúc mắt qua Camera (Eye Contact %), phân bổ cảm xúc (Tự tin, Tập trung, Căng thẳng) và đánh giá tư thế ngồi chuẩn phong thái phỏng vấn chuyên nghiệp.
+                  </p>
+                </div>
+                <a
+                  href="#/pricing"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#32247b] to-[#5b48bd] hover:from-[#261b5f] hover:to-[#4a3a9c] text-white text-xs font-bold shadow-md transition-all cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-sm">workspace_premium</span>
+                  <span>Mở Khóa Toàn Diện Với Career Ace (249k)</span>
+                </a>
+              </div>
+            ) : (
             <div className="bg-white rounded-3xl border border-slate-200/90 p-6 sm:p-7 shadow-xs space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-2">
                 <div className="flex items-center gap-2.5">
@@ -2200,6 +2272,7 @@ export default function AiInterviewReportPage({
                 </div>
               )}
             </div>
+            )}
 
           </div>
         )}
@@ -2448,6 +2521,44 @@ export default function AiInterviewReportPage({
                       {/* ============================================== */}
                       {/* CỘT PHẢI: CHUẨN MỰC ĐIỂM 10 (MÔ HÌNH STAR)     */}
                       {/* ============================================== */}
+                      {!unlockFullStar && idx > 0 ? (
+                        <div className="rounded-2xl bg-gradient-to-br from-[#faf9fe] to-purple-50/60 p-5 border-l-4 border-purple-400 space-y-3.5 flex flex-col justify-between relative overflow-hidden">
+                          <div className="flex items-center justify-between pb-2 border-b border-purple-100">
+                            <div className="flex items-center gap-1.5">
+                              <span className="material-symbols-outlined text-base text-purple-600 font-bold">stars</span>
+                              <h5 className="text-xs sm:text-sm font-bold text-slate-800">
+                                Gợi Ý Câu Trả Lời Mẫu Điểm 10 (STAR)
+                              </h5>
+                            </div>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-100 text-purple-800 border border-purple-200">
+                              KHÓA GÓI FREE
+                            </span>
+                          </div>
+
+                          <div className="p-4 rounded-xl bg-white border border-purple-100 shadow-2xs text-center space-y-2.5 my-auto">
+                            <div className="w-10 h-10 rounded-full bg-purple-100 text-[#32247b] flex items-center justify-center mx-auto">
+                              <span className="material-symbols-outlined text-xl">lock</span>
+                            </div>
+                            <h6 className="text-xs sm:text-sm font-bold text-slate-900">
+                              Đáp án mẫu STAR &amp; Chiến lược Điểm 10 đã bị khóa
+                            </h6>
+                            <p className="text-[11px] text-slate-600 max-w-xs mx-auto leading-relaxed">
+                              Tài khoản Miễn phí được trải nghiệm đáp án mẫu ở <strong>Câu 1</strong>. Nâng cấp lên gói <strong>Practice Plus (49.000đ/7 ngày)</strong> để mở khóa 100% barem đáp án mẫu STAR cho tất cả các câu hỏi!
+                            </p>
+                            <a
+                              href="#/pricing"
+                              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-[#32247b] to-[#5b48bd] text-white text-xs font-bold shadow-xs hover:shadow-md transition-all cursor-pointer"
+                            >
+                              <span className="material-symbols-outlined text-xs">workspace_premium</span>
+                              <span>Mở Khóa Toàn Bộ Đáp Án STAR (49k)</span>
+                            </a>
+                          </div>
+
+                          <div className="pt-2 border-t border-purple-100 text-[10px] text-slate-500 text-center">
+                            Áp dụng cho mọi câu hỏi từ câu số 2 trở đi
+                          </div>
+                        </div>
+                      ) : (
                       <div className="rounded-2xl bg-[#faf9fe] p-4 sm:p-5 border-l-4 border-[#32247b] space-y-3.5 flex flex-col justify-between">
                         {/* Header Mẫu Điểm 10 */}
                         <div className="flex items-center justify-between gap-2 pb-2 border-b border-purple-100">
@@ -2546,6 +2657,7 @@ export default function AiInterviewReportPage({
                           ))}
                         </div>
                       </div>
+                      )}
                     </div>
 
                   </div>
@@ -2561,6 +2673,31 @@ export default function AiInterviewReportPage({
             </div>
 
             {/* KHUNG KẾ HOẠCH CẢI THIỆN TRỰC TIẾP TỪ PHIÊN PHỎNG VẤN NÀY (ACTIONABLE STUDY PLAN Ở CUỐI TAB 3) */}
+            {!unlockRoadmapStages ? (
+              <div className="bg-white rounded-3xl border border-purple-200/90 p-8 shadow-xs text-center space-y-4 mt-8 relative overflow-hidden bg-gradient-to-br from-purple-50/40 via-white to-indigo-50/40">
+                <div className="w-12 h-12 rounded-2xl bg-purple-100 text-[#32247b] flex items-center justify-center mx-auto shadow-2xs">
+                  <span className="material-symbols-outlined text-2xl">lock</span>
+                </div>
+                <div className="space-y-1">
+                  <span className="px-3 py-1 rounded-full text-[11px] font-extrabold bg-[#32247b] text-white uppercase tracking-wider">
+                    Đặc Quyền Gói Practice Plus Trở Lên
+                  </span>
+                  <h3 className="text-base sm:text-lg font-extrabold text-slate-900 mt-2">
+                    Kế Hoạch Cải Thiện 3 Trọng Tâm &amp; Lộ Trình Luyện Tập
+                  </h3>
+                  <p className="text-xs text-slate-600 max-w-md mx-auto leading-relaxed">
+                    Kế hoạch hành động chi tiết khắc phục câu yếu nhất, nâng cấp từ khóa và chiến lược thi lại được may đo tự động từ câu trả lời của bạn. Nâng cấp lên gói <strong>Practice Plus (49.000đ/7 ngày)</strong> để mở khóa toàn bộ kế hoạch!
+                  </p>
+                </div>
+                <a
+                  href="#/pricing"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#32247b] to-[#5b48bd] hover:from-[#261b5f] hover:to-[#4a3a9c] text-white text-xs font-bold shadow-md transition-all cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-sm">workspace_premium</span>
+                  <span>Mở Khóa Lộ Trình Cải Thiện (49k)</span>
+                </a>
+              </div>
+            ) : (
             <div className="bg-white rounded-3xl border border-slate-200/90 p-6 sm:p-7 shadow-xs space-y-6 mt-8">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-2">
                 <div className="flex items-center gap-2.5">
@@ -2730,6 +2867,7 @@ export default function AiInterviewReportPage({
                 </div>
               </div>
             </div>
+            )}
 
           </div>
         )}

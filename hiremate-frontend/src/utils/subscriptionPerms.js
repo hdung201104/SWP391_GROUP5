@@ -123,17 +123,28 @@ export const getRecruiterPerms = (planName = '', quotaLimit = 3, price = 0) => {
 export const getDefaultPermissions = (role, planName = '', quotaLimit = 3, price = 0) => {
   const isCand = String(role || '').toUpperCase() === 'CANDIDATE';
   const name = String(planName || '').toLowerCase();
-  const isFree = price === 0 || name.includes('free') || (name.includes('basic') && price === 0);
+  const numPrice = Number(price || 0);
+  const isFree = numPrice === 0 || name.includes('free') || (name.includes('basic') && numPrice === 0);
 
   if (isCand) {
+    const isAce = !isFree && (name.includes('ace') || name.includes('career') || numPrice >= 200000 || quotaLimit >= 999);
+    const isPro = !isFree && !isAce && (name.includes('pro') || numPrice >= 100000 || (quotaLimit >= 15 && quotaLimit < 999));
+    const isPlus = !isFree && !isAce && !isPro && (name.includes('plus') || numPrice > 0 || quotaLimit >= 5);
+
     return {
-      maxQuestions: isFree ? 3 : 7,
-      maxDurationMinutes: isFree ? 5 : 15,
-      allowedPersonas: isFree ? ['HR_MANAGER'] : ['HR_MANAGER', 'TECH_LEAD', 'STRICT_DIRECTOR'],
-      allowedVoices: isFree ? ['vi-native'] : ['vi-native', 'eleven-alice', 'eleven-george'],
-      coachHints: isFree ? 1 : 999,
+      maxQuestions: isFree ? 3 : isPlus ? 5 : isPro ? 7 : 8,
+      maxDurationMinutes: isFree ? 5 : isPlus ? 10 : isPro ? 15 : 20,
+      allowedPersonas: isFree ? ['HR_MANAGER'] : isPlus ? ['HR_MANAGER', 'TECH_LEAD'] : ['HR_MANAGER', 'TECH_LEAD', 'STRICT_DIRECTOR'],
+      allowedVoices: isFree ? ['vi-native'] : isPlus ? ['vi-native', 'eleven-alice'] : ['vi-native', 'eleven-alice', 'eleven-george'],
+      coachHints: isFree ? 1 : isPlus ? 3 : 999,
       unlockFullStar: !isFree,
       unlockRoadmap: !isFree,
+      voiceBiometrics: isPro || isAce,
+      webcamBiometrics: isAce,
+      maxCvLimit: isFree ? 2 : isPlus ? 5 : 999,
+      aiSummaryLimit: isFree ? 1 : isPlus ? 5 : 999,
+      cvJdReportLimit: isFree ? 3 : isPlus ? 15 : 999,
+      cvTemplate: (isPro || isAce) ? ['executive', 'harvard', 'modern'] : ['executive', 'harvard'],
       atsCvAnalysis: true,
     };
   }

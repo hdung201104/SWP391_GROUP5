@@ -277,10 +277,15 @@ public class AiInterviewServiceImpl implements AiInterviewService {
         String desc = plan != null ? plan.getDescription() : null;
 
         int quotaLimit;
-        if (plan != null && plan.getQuotaLimit() != null && plan.getQuotaLimit() > 0) {
-            quotaLimit = plan.getQuotaLimit();
+        String pNameUpper = planName.toUpperCase();
+        if (pNameUpper.contains("ACE") || pNameUpper.contains("CAREER")) {
+            quotaLimit = 999;
+        } else if (pNameUpper.contains("PRO")) {
+            quotaLimit = (plan != null && plan.getQuotaLimit() != null && plan.getQuotaLimit() > 0) ? plan.getQuotaLimit() : 15;
+        } else if (pNameUpper.contains("PLUS")) {
+            quotaLimit = (plan != null && plan.getQuotaLimit() != null && plan.getQuotaLimit() > 0) ? plan.getQuotaLimit() : 5;
         } else {
-            quotaLimit = isPaid ? 10 : 2;
+            quotaLimit = (plan != null && plan.getQuotaLimit() != null && plan.getQuotaLimit() > 0) ? plan.getQuotaLimit() : 2;
         }
 
         // Ưu tiên customQuota của subscription đang kích hoạt nếu Admin đã cấu hình riêng cho ứng viên
@@ -344,7 +349,6 @@ public class AiInterviewServiceImpl implements AiInterviewService {
 
         LocalDateTime startOfDay = java.time.LocalDate.now().atStartOfDay();
         String endDateStr = null;
-        long usedCount;
 
         List<com.hiremate.entity.Subscription> activeSubs = (candidate != null && subscriptionRepository != null)
                 ? subscriptionRepository.findActiveCandidateSubscriptions(
@@ -353,15 +357,13 @@ public class AiInterviewServiceImpl implements AiInterviewService {
 
         com.hiremate.entity.Subscription currentSub = activeSubs.isEmpty() ? null : activeSubs.get(0);
 
-        if (isPaid && currentSub != null && currentSub.getStartDate() != null && currentSub.getEndDate() != null) {
-            // Gói trả phí (ví dụ Practice Plus: 10 lượt / 30 ngày): Tính tổng số lượt phỏng vấn đã dùng trong toàn bộ thời hạn gói
-            usedCount = sessionRepository.countSessionsInPeriod(
-                    candidate.getUserId(), currentSub.getStartDate(), currentSub.getEndDate());
+        if (currentSub != null && currentSub.getEndDate() != null) {
             endDateStr = currentSub.getEndDate().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
-        } else {
-            // Gói miễn phí: Tính số lượt phỏng vấn thực hiện trong ngày hôm nay (reset sau 00:00)
-            usedCount = sessionRepository.countActiveOrCompletedSessionsToday(candidate.getUserId(), startOfDay);
         }
+
+        // SỬA LỖI ĐẾM LƯỢT: Tất cả các gói (cả Free và Trả phí) đều tính số phiên hoàn thành trong ngày hôm nay theo countActiveOrCompletedSessionsToday
+        // Đảm bảo gói Practice Plus (49k) được 5 buổi/ngày (35 buổi/tuần), không bị trừ gộp cả kỳ hạn
+        long usedCount = sessionRepository.countActiveOrCompletedSessionsToday(candidate.getUserId(), startOfDay);
 
         long remainingToday = quotaLimit >= 999 ? 999 : Math.max(0, quotaLimit - usedCount);
         boolean isQuotaExceeded = (candidate.getRole() != com.hiremate.enums.UserRole.ADMIN) && (quotaLimit < 999) && (usedCount >= quotaLimit);

@@ -1917,32 +1917,42 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
         int maxQuota = 3; // Ứng viên Free được miễn phí tối đa 3 lượt yêu cầu AI viết báo cáo chuyên sâu
         int remainingQuota = maxQuota;
 
-        if (subscriptionRepository != null) {
-            List<com.hiremate.entity.Subscription> activeSubs = subscriptionRepository.findActiveCandidateSubscriptions(
-                    candidateId, com.hiremate.enums.SubscriptionStatus.ACTIVE, java.time.LocalDateTime.now());
-            if (!activeSubs.isEmpty() && activeSubs.get(0).getPlan() != null) {
-                com.hiremate.entity.SubscriptionPlan plan = activeSubs.get(0).getPlan();
-                tierName = plan.getPlanName();
-                String pNameUpper = tierName.toUpperCase();
-                if (pNameUpper.contains("ACE") || pNameUpper.contains("VIP")) {
-                    tier = "ACE";
-                } else if (pNameUpper.contains("PRO")) {
-                    tier = "PRO";
-                } else if (pNameUpper.contains("PLUS")) {
-                    tier = "PLUS";
-                }
+        List<com.hiremate.entity.Subscription> activeSubs = (subscriptionRepository != null)
+                ? subscriptionRepository.findActiveCandidateSubscriptions(
+                        candidateId, com.hiremate.enums.SubscriptionStatus.ACTIVE, java.time.LocalDateTime.now())
+                : java.util.Collections.emptyList();
+
+        if (!activeSubs.isEmpty() && activeSubs.get(0).getPlan() != null) {
+            com.hiremate.entity.SubscriptionPlan plan = activeSubs.get(0).getPlan();
+            tierName = plan.getPlanName();
+            String pNameUpper = tierName.toUpperCase();
+            if (pNameUpper.contains("ACE") || pNameUpper.contains("CAREER") || pNameUpper.contains("VIP")) {
+                tier = "ACE";
                 isUnlimited = true;
                 remainingQuota = -1;
+            } else if (pNameUpper.contains("PRO")) {
+                tier = "PRO";
+                isUnlimited = true;
+                remainingQuota = -1;
+            } else if (pNameUpper.contains("PLUS")) {
+                tier = "PLUS";
+                maxQuota = 15;
+                isUnlimited = false;
             }
         }
 
-        // Nếu là gói Free, tính số lượng báo cáo chi tiết mà candidate này đã từng yêu cầu AI tạo trong DB
+        // Nếu là gói có giới hạn (Free: 3 lượt dùng thử, Plus: 15 lượt / tuần)
         if (!isUnlimited) {
             long usedCount = 0;
             List<AiJobMatch> candidateMatches = aiJobMatchRepository.findByCandidate_CandidateIdOrderByMatchingScoreDesc(candidateId);
+            java.time.LocalDateTime subStart = (tier.equals("PLUS") && !activeSubs.isEmpty() && activeSubs.get(0).getStartDate() != null)
+                    ? activeSubs.get(0).getStartDate() : null;
+
             for (AiJobMatch m : candidateMatches) {
                 if (m.getSkillGapJson() != null && m.getSkillGapJson().contains("\"detailedReport\"")) {
-                    usedCount++;
+                    if (subStart == null || (m.getCreatedAt() != null && m.getCreatedAt().isAfter(subStart))) {
+                        usedCount++;
+                    }
                 }
             }
             remainingQuota = Math.max(0, maxQuota - (int) usedCount);
@@ -2005,7 +2015,7 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
             if (!isUnlimited && remainingQuota <= 0) {
                 throw new com.hiremate.exception.BadRequestException(
                         "Bạn đã sử dụng hết " + maxQuota + " lượt phân tích AI chuyên sâu của gói " + tierName + 
-                        ". Vui lòng nâng cấp lên gói Practice Plus hoặc Practice Pro để mở khóa phân tích báo cáo không giới hạn!"
+                        ". Vui lòng nâng cấp lên gói Practice Pro hoặc Career Ace để mở khóa phân tích báo cáo không giới hạn!"
                 );
             }
 

@@ -450,6 +450,40 @@ export default function CandidateProfilePage({ user }) {
   const [upgradeModalMessage, setUpgradeModalMessage] = useState('');
   const [aiAtsUsageCount, setAiAtsUsageCount] = useState(0);
 
+  // Persistent localStorage trackers for AI Summary Rewrite (Free: 1 trial, Plus: 5/week, Pro/Ace: Unlimited)
+  const getAiSummaryUsage = () => {
+    if (!user?.userId) return 0;
+    const now = new Date();
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    const weekNumber = Math.ceil((((now - startOfYear) / 86400000) + startOfYear.getDay() + 1) / 7);
+    const weekKey = `hiremate_ai_summary_user_${user.userId}_w${now.getFullYear()}_${weekNumber}`;
+    const freeKey = `hiremate_ai_summary_free_user_${user.userId}`;
+
+    if (isPlus) {
+      return parseInt(localStorage.getItem(weekKey) || '0', 10);
+    }
+    return parseInt(localStorage.getItem(freeKey) || '0', 10);
+  };
+
+  const incrementAiSummaryUsage = () => {
+    if (!user?.userId) return;
+    const now = new Date();
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    const weekNumber = Math.ceil((((now - startOfYear) / 86400000) + startOfYear.getDay() + 1) / 7);
+    const weekKey = `hiremate_ai_summary_user_${user.userId}_w${now.getFullYear()}_${weekNumber}`;
+    const freeKey = `hiremate_ai_summary_free_user_${user.userId}`;
+
+    if (isPlus) {
+      const cur = parseInt(localStorage.getItem(weekKey) || '0', 10);
+      localStorage.setItem(weekKey, String(cur + 1));
+      setAiAtsUsageCount(cur + 1);
+    } else {
+      const cur = parseInt(localStorage.getItem(freeKey) || '0', 10);
+      localStorage.setItem(freeKey, String(cur + 1));
+      setAiAtsUsageCount(cur + 1);
+    }
+  };
+
   useEffect(() => {
     skillApi.getAllSkills().then(res => {
       const raw = res?.data || res;
@@ -466,6 +500,12 @@ export default function CandidateProfilePage({ user }) {
       })
       .catch((e) => console.warn('Could not load quota status:', e));
   }, [user]);
+
+  useEffect(() => {
+    if (user?.userId) {
+      setAiAtsUsageCount(getAiSummaryUsage());
+    }
+  }, [user?.userId, isPlus]);
 
   const isAdmin = user?.role === 'ADMIN';
   const planPrice = Number(quotaInfo?.price) || 0;
@@ -546,12 +586,20 @@ export default function CandidateProfilePage({ user }) {
     showToast('🎉 Đã nhân bản thêm 1 phiên bản CV mới! Bạn có thể chỉnh sửa ngay.');
   };
 
-  // Gemini AI Polish Summary
+  // Gemini AI Polish Summary (Free: 1 trial, Plus: 5/week, Pro/Ace: Unlimited)
   const handleRewriteBioWithGemini = async () => {
-    if (!isAdmin && !isPaidPlan && aiAtsUsageCount >= 1) {
-      setUpgradeModalMessage(`Gói "${planName}" chỉ hỗ trợ 1 lượt AI Tinh Chỉnh ATS mỗi phiên làm việc. Hãy nâng cấp gói Practice Plus / Pro để sử dụng tính năng AI tinh chỉnh không giới hạn!`);
-      setUpgradeModalOpen(true);
-      return;
+    if (!isAdmin && !isProOrAce) {
+      const currentUsage = getAiSummaryUsage();
+      const limit = isPlus ? 5 : 1;
+      if (currentUsage >= limit) {
+        if (isPlus) {
+          setUpgradeModalMessage(`Gói "${planName}" cho phép tối đa 5 lượt AI Tinh Chỉnh Tóm tắt CV mỗi tuần (Bạn đã sử dụng ${currentUsage}/5 lượt trong tuần này). Hãy nâng cấp lên gói Practice Pro hoặc Career Ace để sử dụng tính năng này KHÔNG GIỚI HẠN!`);
+        } else {
+          setUpgradeModalMessage(`Tài khoản Miễn phí chỉ được dùng thử 1 lượt AI Tinh Chỉnh Tóm tắt CV chuẩn ATS. Hãy nâng cấp lên gói Practice Plus (5 lượt/tuần) hoặc Practice Pro để tinh chỉnh không giới hạn!`);
+        }
+        setUpgradeModalOpen(true);
+        return;
+      }
     }
     setIsRewritingBio(true);
     showToast('Gemini AI đang tối ưu hóa từ khóa theo tiêu chuẩn ATS cho phiên bản này...');
@@ -571,7 +619,7 @@ export default function CandidateProfilePage({ user }) {
       const newBio = res?.data?.data?.summary || res?.data?.summary || res?.data;
       if (newBio && typeof newBio === 'string' && newBio.trim()) {
         setCvData(prev => ({ ...prev, summary: newBio.trim() }));
-        setAiAtsUsageCount(prev => prev + 1);
+        incrementAiSummaryUsage();
         showToast('✨ Gemini AI đã nâng cấp bản tóm tắt đạt chuẩn ATS 100%!');
         setTimeout(() => handleSaveProfile(), 400);
       } else {
@@ -583,7 +631,7 @@ export default function CandidateProfilePage({ user }) {
       const title = cvData.targetTitle || 'Chuyên viên';
       const fallbackBio = `${title} với tinh thần trách nhiệm cao và tư duy giải pháp chuyên sâu. Sở hữu năng lực thực chiến vững vàng${skillsTop ? ` về ${skillsTop}` : ''}, khả năng tối ưu hóa quy trình làm việc và thích ứng nhanh với môi trường công nghệ mới. Cam kết đóng góp tích cực vào hiệu suất chung của đội ngũ và mang lại giá trị bền vững cho tổ chức.`;
       setCvData(prev => ({ ...prev, summary: fallbackBio }));
-      setAiAtsUsageCount(prev => prev + 1);
+      incrementAiSummaryUsage();
       showToast('✨ Đã tinh chỉnh bản tóm tắt đạt chuẩn ATS dựa trên kỹ năng thực tế!');
     } finally {
       setIsRewritingBio(false);
@@ -1762,8 +1810,8 @@ export default function CandidateProfilePage({ user }) {
                       <button
                         key={tpl.id}
                         onClick={() => {
-                          if (tpl.id === 'modern' && !isAdmin && !isPaidPlan) {
-                            setUpgradeModalMessage(`Mẫu bố cục "Hiện Đại (VIP)" là đặc quyền dành riêng cho gói Practice Plus và Practice Pro. Hãy nâng cấp để mở khóa toàn bộ mẫu thiết kế CV chuẩn ATS!`);
+                          if (tpl.id === 'modern' && !isAdmin && !isProOrAce) {
+                            setUpgradeModalMessage(`Mẫu bố cục "Hiện Đại (VIP)" là đặc quyền dành riêng cho gói Practice Pro (149k) và Career Ace (249k). Hãy nâng cấp để mở khóa toàn bộ mẫu thiết kế CV cao cấp chuẩn ATS!`);
                             setUpgradeModalOpen(true);
                             return;
                           }
@@ -4764,8 +4812,8 @@ export default function CandidateProfilePage({ user }) {
                       key={tpl.id}
                       type="button"
                       onClick={() => {
-                        if (tpl.id === 'modern' && !isAdmin && !isPaidPlan) {
-                          setUpgradeModalMessage(`Mẫu thiết kế CV "Hiện Đại (Modern VIP)" là đặc quyền dành riêng cho gói Practice Plus và Practice Pro. Hãy nâng cấp để xuất bản CV chuẩn thiết kế cao cấp!`);
+                        if (tpl.id === 'modern' && !isAdmin && !isProOrAce) {
+                          setUpgradeModalMessage(`Mẫu thiết kế CV "Hiện Đại (Modern VIP)" là đặc quyền dành riêng cho gói Practice Pro (149k) và Career Ace (249k). Hãy nâng cấp để xuất bản CV chuẩn thiết kế cao cấp!`);
                           setUpgradeModalOpen(true);
                           return;
                         }

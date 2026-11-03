@@ -21,18 +21,21 @@ const CANDIDATE_SUBSCRIPTION_PLANS = [
       { text: 'Người phỏng vấn: HR Manager (Giọng Việt chuẩn)', highlight: false },
       { text: '1 Lượt gợi ý trả lời AI Coach / buổi', highlight: false },
       { text: 'Xem điểm tổng quan & Đáp án mẫu STAR câu 1', highlight: false },
-      { text: 'Lưu trữ tối đa 2 bản CV & Quét điểm ATS cơ bản', highlight: false },
+      { text: 'Lưu trữ tối đa 2 bản CV & 2 Mẫu CV (2 Cột, Harvard)', highlight: false },
+      { text: 'AI Viết lại Tóm tắt CV: Dùng thử 1 lượt', highlight: false },
+      { text: 'Báo cáo Đối soát CV – JD: Dùng thử 3 việc', highlight: false },
     ],
     missingFeatures: [
-      'Mở khóa Tech Lead, Giám đốc & Giọng đọc ElevenLabs AI',
-      'Phỏng vấn chuyên sâu 5 - 8 câu/buổi & Gợi ý AI Coach vô hạn',
-      'Mở khóa 100% Barem đáp án STAR & Lộ trình cải thiện',
+      'Mở khóa Tech Lead, Giám đốc & Giọng ElevenLabs AI',
+      'Mở khóa 100% Barem đáp án STAR & Kế hoạch cải thiện',
+      'Sinh trắc học Giọng nói (WPM, Pitch) & Face Webcam',
+      'Mẫu CV Hiện Đại VIP & Lưu trữ CV không giới hạn',
     ]
   },
   {
     id: 'CANDIDATE_PLUS',
     name: 'Practice Plus',
-    tagline: 'Luyện phỏng vấn AI tự tin theo tuần, mở rộng kho CV & nhận gợi ý câu trả lời chuẩn STAR.',
+    tagline: 'Luyện phỏng vấn AI tự tin theo tuần, mở rộng kho CV & mở khóa 100% đáp án STAR + Lộ trình.',
     monthlyPrice: 49000,
     yearlyPrice: 49000,
     badgeText: 'TIẾT KIỆM ⭐',
@@ -42,22 +45,25 @@ const CANDIDATE_SUBSCRIPTION_PLANS = [
     isCurrent: false,
     durationDays: 7,
     features: [
-      { text: '10 Phiên phỏng vấn AI Voice / ngày (Trong 7 ngày)', highlight: true },
+      { text: '5 Phiên phỏng vấn AI Voice / ngày (35 buổi / tuần)', highlight: true },
       { text: 'Cấu trúc 5 câu hỏi tiêu chuẩn / buổi (Tối đa 10 phút)', highlight: true },
       { text: 'Mở khóa thêm Phong cách Tech Lead & Giọng ElevenLabs Alice', highlight: true },
       { text: '3 Lượt gợi ý trả lời AI Coach / buổi', highlight: true },
-      { text: 'Mở khóa 100% Đáp án mẫu STAR & Lộ trình cải thiện', highlight: true },
-      { text: 'Lưu trữ tối đa 5 bản CV & AI Tinh chỉnh từ khóa ATS', highlight: true },
+      { text: 'Mở khóa 100% Barem đáp án STAR & Kế hoạch cải thiện 3 trọng tâm', highlight: true },
+      { text: 'Lưu trữ tối đa 5 bản CV (2 Mẫu CV chuẩn ATS)', highlight: true },
+      { text: 'AI Viết lại Tóm tắt CV: 5 lượt / tuần', highlight: true },
+      { text: 'Báo cáo Đối soát CV – JD Chuyên sâu: 15 việc / tuần', highlight: true },
     ],
     missingFeatures: [
-      'Phỏng vấn chuyên sâu 7 - 8 câu/buổi cùng Giám đốc Khắt khe',
-      'Gợi ý AI Coach không giới hạn & Lưu trữ CV vô hạn',
+      'Phỏng vấn cùng Giám đốc Khắt khe & Giọng ElevenLabs George',
+      'Phân tích Sinh trắc học Giọng nói (WPM, Pitch) & Webcam Face',
+      'Mở khóa Mẫu CV Hiện Đại VIP & Kho CV không giới hạn',
     ]
   },
   {
     id: 'CANDIDATE_PRO',
     name: 'Practice Pro',
-    tagline: 'Luyện phỏng vấn AI chuyên sâu, tối ưu CV chuẩn ATS không giới hạn & nổi bật trước HR.',
+    tagline: 'Luyện phỏng vấn chuyên sâu, Sinh trắc học Giọng nói WPM/Pitch F0 & mở khóa mẫu CV VIP.',
     monthlyPrice: 149000,
     yearlyPrice: 99000, // ~33% off
     badgeText: 'PHỔ BIẾN NHẤT 🔥',
@@ -67,21 +73,26 @@ const CANDIDATE_SUBSCRIPTION_PLANS = [
     isCurrent: false,
     durationDays: 30,
     features: [
-      { text: '30 Phiên phỏng vấn AI Voice / ngày (Trong 30 ngày)', highlight: true },
-      { text: 'Cấu trúc 7 câu hỏi chuyên sâu / buổi (Tối đa 15 phút)', highlight: true },
-      { text: 'Mở khóa đủ 3 Phong cách: HR, Tech Lead & Giám đốc Khắt khe', highlight: true },
-      { text: 'Mở khóa đủ 3 Giọng đọc ElevenLabs Turbo (Alice & George)', highlight: true },
+      { text: '15 Phiên phỏng vấn AI Voice / ngày (450 buổi / tháng)', highlight: true },
+      { text: 'Cấu trúc 7 câu hỏi đào sâu / buổi (Tối đa 15 phút)', highlight: true },
+      { text: 'Đủ 3 Phong cách: HR, Tech Lead & Giám đốc Khắt khe', highlight: true },
+      { text: 'Đủ 3 Giọng đọc ElevenLabs AI (Alice & George)', highlight: true },
       { text: 'Gợi ý trả lời AI Coach KHÔNG GIỚI HẠN trong buổi thi', highlight: true },
-      { text: 'Lưu trữ CV & AI Tinh chỉnh ATS KHÔNG GIỚI HẠN + Biểu đồ Delta', highlight: true },
+      { text: 'Phân tích Sinh trắc học Giọng nói AI (WPM, Pitch F0, Từ đệm)', highlight: true },
+      { text: 'Mở khóa 100% Barem đáp án STAR & Kế hoạch cải thiện', highlight: true },
+      { text: 'Mở toàn bộ 3 Mẫu CV chuẩn A4 (+ Mẫu Hiện Đại VIP)', highlight: true },
+      { text: 'Kho CV, AI Tinh chỉnh ATS & Báo cáo CV – JD KHÔNG GIỚI HẠN', highlight: true },
     ],
     missingFeatures: [
-      'Không giới hạn số phiên/ngày & Chế độ Marathon 8 câu (20 phút)',
+      'Không giới hạn số phiên phỏng vấn/ngày (999 buổi)',
+      'Độc quyền Chế độ Marathon 8 câu hỏi áp lực cao (20 phút)',
+      'Độc quyền AI Quét Khuôn mặt, Tiếp xúc Ánh mắt & Biểu cảm Webcam',
     ]
   },
   {
     id: 'CANDIDATE_ACE',
     name: 'Career Ace',
-    tagline: 'Gói đặc quyền tối thượng dành cho nhân sự muốn chinh phục công ty đa quốc gia & mức lương Top 5%.',
+    tagline: 'Gói đặc quyền tối thượng: Không giới hạn phỏng vấn, chế độ Marathon & Sinh trắc học Webcam.',
     monthlyPrice: 249000,
     yearlyPrice: 179000, // ~28% off
     badgeText: 'CAO CẤP & VIP 👑',
@@ -91,12 +102,14 @@ const CANDIDATE_SUBSCRIPTION_PLANS = [
     isCurrent: false,
     durationDays: 30,
     features: [
-      { text: 'KHÔNG GIỚI HẠN số phiên phỏng vấn AI Voice mỗi ngày', highlight: true },
-      { text: 'Chế độ Marathon 8 câu hỏi áp lực cao / buổi (Tối đa 20 phút)', highlight: true },
+      { text: 'KHÔNG GIỚI HẠN số phiên phỏng vấn AI Voice mỗi ngày (999)', highlight: true },
+      { text: 'Độc quyền Chế độ Marathon 8 câu hỏi áp lực cao (Tối đa 20 phút)', highlight: true },
+      { text: 'Độc quyền AI Quét Khuôn Mặt, Tiếp Xúc Ánh Mắt & Biểu Cảm Webcam', highlight: true },
+      { text: 'Trọn bộ Phân tích Sinh trắc học Giọng nói (WPM, Pitch F0, Từ đệm)', highlight: true },
       { text: 'Trọn bộ 3 Phong cách phỏng vấn & 3 Giọng đọc ElevenLabs AI', highlight: true },
-      { text: 'Trợ lý AI Coach gợi ý trả lời & Phân tích giọng nói toàn diện', highlight: true },
-      { text: 'Mở khóa 100% Barem đáp án mẫu STAR, Biểu đồ Delta & Lộ trình', highlight: true },
-      { text: 'Không giới hạn kho lưu trữ CV, Quét ATS & Toàn bộ mẫu CV A4', highlight: true },
+      { text: 'Trợ lý AI Coach gợi ý trả lời KHÔNG GIỚI HẠN', highlight: true },
+      { text: 'Mở khóa 100% Barem đáp án mẫu STAR, Kế hoạch & Thi lại đối chiếu', highlight: true },
+      { text: 'Không giới hạn kho lưu trữ CV, toàn bộ mẫu CV A4 VIP & Báo cáo CV – JD', highlight: true },
     ],
     missingFeatures: []
   }
@@ -133,12 +146,16 @@ const CANDIDATE_ADDONS = [
 ];
 
 const COMPARISON_ROWS = [
-  { feature: 'Số phiên phỏng vấn AI Voice / ngày', free: '2 Phiên / ngày', plus: '10 Phiên / ngày (Trong 7 ngày)', pro: '30 Phiên / ngày (Trong 30 ngày)', ace: 'Không giới hạn / ngày' },
-  { feature: 'Cấu trúc câu hỏi & Thời lượng / buổi', free: '3 câu (Tối đa 5 phút)', plus: '5 câu tiêu chuẩn (10 phút)', pro: '7 câu chuyên sâu (15 phút)', ace: '8 câu Marathon (20 phút)' },
-  { feature: 'Người phỏng vấn & Giọng đọc AI', free: 'HR Manager (Giọng Việt)', plus: 'HR & Tech Lead (ElevenLabs Alice)', pro: '3 Phong cách & Giọng ElevenLabs (Alice & George)', ace: 'Trọn bộ 3 Phong cách & Giọng ElevenLabs Turbo' },
+  { feature: 'Số phiên phỏng vấn AI Voice / ngày', free: '2 Phiên / ngày', plus: '5 Phiên / ngày (35 buổi / tuần)', pro: '15 Phiên / ngày (450 buổi / tháng)', ace: 'Không giới hạn (999)' },
+  { feature: 'Cấu trúc câu hỏi & Thời lượng / buổi', free: '3 câu (Tối đa 5 phút)', plus: '5 câu tiêu chuẩn (10 phút)', pro: '7 câu đào sâu (15 phút)', ace: '8 câu Marathon (20 phút)' },
+  { feature: 'Người phỏng vấn & Giọng đọc AI', free: 'HR Manager (Giọng Việt)', plus: 'HR & Tech Lead (Giọng Alice)', pro: '3 Phong cách & Giọng Alice/George', ace: 'Trọn bộ 3 Phong cách & Giọng ElevenLabs' },
   { feature: 'Gợi ý trả lời AI Coach / buổi', free: '1 Lượt / buổi', plus: '3 Lượt / buổi', pro: 'Không giới hạn', ace: 'Không giới hạn' },
-  { feature: 'Barem đáp án STAR, Biểu đồ Delta & Lộ trình', free: 'Điểm tổng quan & STAR câu 1', plus: '100% Đáp án STAR & Lộ trình', pro: '100% STAR & Biểu đồ Delta đa phiên', ace: '100% Barem STAR, Biểu đồ Delta & Lộ trình' },
-  { feature: 'Lưu trữ CV & AI Tinh chỉnh từ khóa ATS', free: 'Tối đa 2 bản CV & Điểm ATS', plus: 'Tối đa 5 bản CV & AI Tinh chỉnh ATS', pro: 'Không giới hạn CV & AI ATS', ace: 'Không giới hạn kho CV & Toàn bộ mẫu A4' },
+  { feature: 'Đáp án mẫu STAR & Kế hoạch cải thiện', free: 'Chỉ mở Câu 1 (Khóa câu 2+)', plus: '100% Barem STAR & Lộ trình 3 trọng tâm', pro: '100% Barem STAR & Lộ trình 3 trọng tâm', ace: '100% Barem STAR & So sánh thi lại' },
+  { feature: 'Sinh trắc học Giọng nói AI (WPM, Pitch, Từ đệm)', free: 'Khóa', plus: 'Khóa', pro: 'Mở khóa toàn diện', ace: 'Mở khóa toàn diện' },
+  { feature: 'Sinh trắc học Ánh mắt & Biểu cảm Webcam', free: 'Khóa', plus: 'Khóa', pro: 'Khóa', ace: 'Độc quyền Career Ace' },
+  { feature: 'Kho lưu trữ CV & Mẫu CV Online A4', free: '2 Bản CV (2 Mẫu cơ bản)', plus: '5 Bản CV (2 Mẫu cơ bản)', pro: 'Không giới hạn CV (Mở Mẫu VIP)', ace: 'Không giới hạn CV (Mở Mẫu VIP)' },
+  { feature: 'AI Tinh chỉnh Tóm tắt CV chuẩn ATS', free: 'Dùng thử 1 lượt', plus: '5 Lượt / tuần', pro: 'Không giới hạn', ace: 'Không giới hạn' },
+  { feature: 'Báo cáo Đối soát Chuyên sâu CV – JD', free: 'Dùng thử 3 việc', plus: '15 Việc / tuần', pro: 'Không giới hạn', ace: 'Không giới hạn' },
 ];
 
 const CANDIDATE_FAQS = [
@@ -184,18 +201,19 @@ const getCandidateEnrichedFeatures = (planName, monthlyPrice, quotaLimit, descri
   // Cấp độ 1: PRACTICE PLUS (Giá từ 1 đến dưới 100k, ví dụ Practice Plus 49.000đ / 7 ngày)
   if (price < 100000 || name.includes('plus')) {
     return {
-      tagline: 'Luyện phỏng vấn AI tự tin theo tuần, mở rộng kho CV & nhận gợi ý câu trả lời chuẩn STAR.',
+      tagline: 'Luyện phỏng vấn AI tự tin theo tuần, mở rộng kho CV & mở khóa 100% đáp án STAR + Lộ trình.',
       features: [
-        { text: `${quota > 0 ? quota : 10} Phiên phỏng vấn AI Voice / ngày (Trong 7 ngày)`, highlight: true },
+        { text: `${quota > 0 ? quota : 5} Phiên phỏng vấn AI Voice / ngày (35 buổi / tuần)`, highlight: true },
         { text: 'Cấu trúc 5 câu hỏi tiêu chuẩn / buổi (Tối đa 10 phút)', highlight: true },
         { text: 'Mở khóa thêm Phong cách Tech Lead & Giọng ElevenLabs Alice', highlight: true },
         { text: '3 Lượt gợi ý trả lời AI Coach / buổi', highlight: true },
-        { text: 'Mở khóa 100% Đáp án mẫu STAR & Lộ trình cải thiện', highlight: true },
-        { text: 'Lưu trữ tối đa 5 bản CV & AI Tinh chỉnh từ khóa ATS', highlight: true },
+        { text: 'Mở khóa 100% Đáp án mẫu STAR & Kế hoạch cải thiện 3 trọng tâm', highlight: true },
+        { text: 'Lưu trữ tối đa 5 bản CV & 15 Báo cáo đối soát CV – JD / tuần', highlight: true },
       ],
       missingFeatures: [
-        'Phỏng vấn chuyên sâu 7 - 8 câu/buổi cùng Giám đốc Khắt khe',
-        'Gợi ý AI Coach không giới hạn & Lưu trữ CV vô hạn',
+        'Phỏng vấn chuyên sâu cùng Giám đốc Khắt khe & Giọng George',
+        'Sinh trắc học Giọng nói (WPM, Pitch) & Face Webcam',
+        'Mẫu CV Hiện Đại VIP & Lưu trữ CV không giới hạn',
       ]
     };
   }
@@ -203,17 +221,19 @@ const getCandidateEnrichedFeatures = (planName, monthlyPrice, quotaLimit, descri
   // Cấp độ 2: PRACTICE PRO (Giá từ 100k đến dưới 200k, ví dụ Practice Pro 149.000đ / 30 ngày)
   if (price < 200000 || name.includes('pro')) {
     return {
-      tagline: 'Luyện phỏng vấn AI chuyên sâu, tối ưu CV chuẩn ATS không giới hạn & nổi bật trước HR.',
+      tagline: 'Luyện phỏng vấn chuyên sâu, Sinh trắc học Giọng nói WPM/Pitch F0 & mở khóa mẫu CV VIP.',
       features: [
-        { text: `${quota > 0 ? quota : 30} Phiên phỏng vấn AI Voice / ngày (Trong 30 ngày)`, highlight: true },
-        { text: 'Cấu trúc 7 câu hỏi chuyên sâu / buổi (Tối đa 15 phút)', highlight: true },
+        { text: `${quota > 0 ? quota : 15} Phiên phỏng vấn AI Voice / ngày (450 buổi / tháng)`, highlight: true },
+        { text: 'Cấu trúc 7 câu hỏi đào sâu / buổi (Tối đa 15 phút)', highlight: true },
         { text: 'Mở khóa đủ 3 Phong cách: HR, Tech Lead & Giám đốc Khắt khe', highlight: true },
-        { text: 'Mở khóa đủ 3 Giọng đọc ElevenLabs Turbo (Alice & George)', highlight: true },
+        { text: 'Phân tích Sinh trắc học Giọng nói AI (WPM, Pitch F0, Từ đệm)', highlight: true },
         { text: 'Gợi ý trả lời AI Coach KHÔNG GIỚI HẠN trong buổi thi', highlight: true },
-        { text: 'Lưu trữ CV & AI Tinh chỉnh ATS KHÔNG GIỚI HẠN + Biểu đồ Delta', highlight: true },
+        { text: 'Mở đủ 3 Mẫu CV (+ Mẫu VIP) & Báo cáo CV – JD KHÔNG GIỚI HẠN', highlight: true },
       ],
       missingFeatures: [
-        'Không giới hạn số phiên/ngày & Chế độ Marathon 8 câu (20 phút)',
+        'Không giới hạn số phiên phỏng vấn/ngày (999 buổi)',
+        'Độc quyền Chế độ Marathon 8 câu hỏi áp lực cao (20 phút)',
+        'Độc quyền AI Quét Khuôn mặt, Tiếp xúc Ánh mắt & Biểu cảm Webcam',
       ]
     };
   }
