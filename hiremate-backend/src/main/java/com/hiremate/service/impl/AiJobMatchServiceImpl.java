@@ -631,6 +631,52 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
     }
 
     @Override
+    @Transactional
+    public AiJobMatchResponse evaluateJobWithCv(Long jobId, Long cvId, User candidateUser) {
+        Job job = jobRepository.findById(jobId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy tin tuyển dụng: " + jobId));
+
+        Candidate candidate = candidateRepository.findById(candidateUser.getUserId())
+                .orElseThrow(() -> new IllegalStateException("Không tìm thấy hồ sơ ứng viên: " + candidateUser.getUserId()));
+
+        Cv targetCv;
+        if (cvId != null) {
+            targetCv = cvRepository.findById(cvId)
+                    .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy CV: " + cvId));
+            if (!targetCv.getCandidateId().equals(candidate.getCandidateId())) {
+                throw new org.springframework.security.access.AccessDeniedException("Bạn không có quyền đánh giá bằng CV của người khác");
+            }
+        } else {
+            targetCv = cvRepository.findByCandidateIdAndIsDefaultTrue(candidate.getCandidateId())
+                    .orElseGet(() -> {
+                        List<Cv> cvs = cvRepository.findByCandidateId(candidate.getCandidateId());
+                        return cvs.isEmpty() ? null : cvs.get(0);
+                    });
+        }
+
+        // Chấm điểm tức thì (force AI compute = true, lưu vào cache ai_job_matches)
+        return calculateAndSaveMatch(candidate, job, targetCv, true);
+    }
+
+    private boolean isAuthorizedRecruiterForJob(Job job, User user) {
+        if (user == null || job == null) return false;
+        if (user.getRole() == com.hiremate.enums.UserRole.ADMIN) {
+            return true;
+        }
+        if (job.getRecruiter() != null && job.getRecruiter().getRecruiterId().equals(user.getUserId())) {
+            return true;
+        }
+        if (job.getCompany() != null && recruiterRepository != null) {
+            Optional<Recruiter> recOpt = recruiterRepository.findById(user.getUserId());
+            if (recOpt.isPresent() && recOpt.get().getCompany() != null
+                    && recOpt.get().getCompany().getCompanyId().equals(job.getCompany().getCompanyId())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
     public List<AiJobMatchResponse> getMatchesForJob(Long jobId, User recruiterUser) {
         Job job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new IllegalArgumentException("Job not found: " + jobId));
