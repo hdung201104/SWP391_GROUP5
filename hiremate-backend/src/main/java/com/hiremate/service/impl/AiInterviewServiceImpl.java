@@ -74,7 +74,16 @@ public class AiInterviewServiceImpl implements AiInterviewService {
             int start = desc.indexOf("[PERMS:") + 7;
             int end = desc.indexOf("]", start);
             if (end > start) {
-                String permsStr = desc.substring(start, end);
+                String permsStr = desc.substring(start, end).trim();
+                // 1. Hỗ trợ định dạng chuẩn JSON [PERMS:{"key":value,...}]
+                if (permsStr.startsWith("{") && permsStr.endsWith("}")) {
+                    com.fasterxml.jackson.databind.JsonNode root = objectMapper.readTree(permsStr);
+                    com.fasterxml.jackson.databind.JsonNode node = root.get(key);
+                    if (node != null && !node.isNull()) {
+                        return node.isTextual() ? node.asText() : node.toString();
+                    }
+                }
+                // 2. Hỗ trợ định dạng chuỗi key=value [PERMS:k1=v1;k2=v2]
                 for (String part : permsStr.split(";")) {
                     String[] kv = part.split("=");
                     if (kv.length == 2 && kv[0].trim().equalsIgnoreCase(key)) {

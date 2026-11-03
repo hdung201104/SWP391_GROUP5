@@ -640,6 +640,9 @@ public class AdminServiceImpl implements AdminService {
                             .remainingAiTests(basicPlan.getQuotaLimit() != null ? basicPlan.getQuotaLimit() : 3)
                             .build();
                     subscriptionRepository.save(newSub);
+                    if (order.getUser() != null) {
+                        com.hiremate.service.impl.AiInterviewServiceImpl.invalidateUserPlanCache(order.getUser().getUserId());
+                    }
                 }
             }
         } else if (order.getUser() != null && plan != null) {
@@ -669,6 +672,9 @@ public class AdminServiceImpl implements AdminService {
                     .build();
 
             subscriptionRepository.save(subscription);
+            if (order.getUser() != null) {
+                com.hiremate.service.impl.AiInterviewServiceImpl.invalidateUserPlanCache(order.getUser().getUserId());
+            }
             log.info(">> [AdminService] Kích hoạt subscription cho user: {}, gói: {} (Hạn dùng: {} ngày, Quota: {})",
                     order.getUser().getEmail(), plan.getPlanName(), durationDays, defaultQuota);
         }
@@ -984,6 +990,9 @@ public class AdminServiceImpl implements AdminService {
                 .build();
 
         subscriptionRepository.save(newSub);
+
+        // Vô hiệu hóa cache phân quyền phỏng vấn AI ngay lập tức cho ứng viên
+        com.hiremate.service.impl.AiInterviewServiceImpl.invalidateUserPlanCache(userId);
 
         log.info(">> [AdminService] Admin đã gán trực tiếp hạng mức '{}' cho user {} ({}) trong {} ngày, customQuota={}.",
                 plan.getPlanName(), user.getEmail(), user.getUserId(), duration, customQuota);

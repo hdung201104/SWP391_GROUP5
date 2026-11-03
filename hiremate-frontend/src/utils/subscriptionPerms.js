@@ -31,19 +31,42 @@ export const parseSubscriptionPermissions = (subscription, targetRole = 'RECRUIT
       // Check if JSON format: [PERMS:{"aiMatching":true,...}]
       if (permsStr.startsWith('{') && permsStr.endsWith('}')) {
         const jsonPerms = JSON.parse(permsStr);
-        return {
-          ...defaultPerms,
-          ...jsonPerms,
-          jobPostingQuota: jsonPerms.jobPostingQuota || jsonPerms.jobQuota || defaultPerms.jobPostingQuota,
-          cvViewLimit: defaultPerms.cvViewLimit,
-          canSeeAiAnalysis: defaultPerms.canSeeAiAnalysis,
-          batchAction: defaultPerms.batchAction,
-          exportReport: defaultPerms.exportReport,
-          aiMatching: jsonPerms.aiMatching !== undefined ? Boolean(jsonPerms.aiMatching) : defaultPerms.aiMatching,
-          unlockDirectContact: defaultPerms.unlockDirectContact,
-          featuredJobBadge: jsonPerms.featuredJobBadge !== undefined ? Boolean(jsonPerms.featuredJobBadge) : defaultPerms.featuredJobBadge,
-          autoEmail: defaultPerms.autoEmail,
-        };
+        if (isCandidate) {
+          return {
+            ...defaultPerms,
+            ...jsonPerms,
+            maxQuestions: jsonPerms.maxQ || jsonPerms.maxQuestions || defaultPerms.maxQuestions,
+            maxDurationMinutes: jsonPerms.maxDur ? Math.round(Number(jsonPerms.maxDur) / 60) : (jsonPerms.maxDurationMinutes || defaultPerms.maxDurationMinutes),
+            allowedPersonas: jsonPerms.personas ? (Array.isArray(jsonPerms.personas) ? jsonPerms.personas : jsonPerms.personas.split(',').map(s => s.trim())) : defaultPerms.allowedPersonas,
+            allowedVoices: jsonPerms.voices ? (Array.isArray(jsonPerms.voices) ? jsonPerms.voices : jsonPerms.voices.split(',').map(s => s.trim())) : defaultPerms.allowedVoices,
+            coachHints: jsonPerms.coachHints !== undefined ? Number(jsonPerms.coachHints) : defaultPerms.coachHints,
+            unlockFullStar: jsonPerms.fullStar !== undefined ? Boolean(jsonPerms.fullStar) : (jsonPerms.unlockFullStar !== undefined ? Boolean(jsonPerms.unlockFullStar) : defaultPerms.unlockFullStar),
+            unlockRoadmap: jsonPerms.roadmap !== undefined ? Boolean(jsonPerms.roadmap) : (jsonPerms.unlockRoadmap !== undefined ? Boolean(jsonPerms.unlockRoadmap) : defaultPerms.unlockRoadmap),
+            maxCvLimit: jsonPerms.cvLimit !== undefined ? Number(jsonPerms.cvLimit) : (jsonPerms.maxCvLimit !== undefined ? Number(jsonPerms.maxCvLimit) : defaultPerms.maxCvLimit),
+            aiSummaryLimit: jsonPerms.aiSummaryLimit !== undefined ? Number(jsonPerms.aiSummaryLimit) : defaultPerms.aiSummaryLimit,
+            cvJdReportLimit: jsonPerms.cvJdReportLimit !== undefined ? Number(jsonPerms.cvJdReportLimit) : defaultPerms.cvJdReportLimit,
+            modernCvTemplate: jsonPerms.modernCvTemplate !== undefined ? Boolean(jsonPerms.modernCvTemplate) : defaultPerms.modernCvTemplate,
+            voiceBiometrics: jsonPerms.voiceBiometrics !== undefined ? Boolean(jsonPerms.voiceBiometrics) : defaultPerms.voiceBiometrics,
+            webcamBiometrics: jsonPerms.webcamBiometrics !== undefined ? Boolean(jsonPerms.webcamBiometrics) : defaultPerms.webcamBiometrics,
+          };
+        } else {
+          return {
+            ...defaultPerms,
+            ...jsonPerms,
+            jobPostingQuota: jsonPerms.jobPostingQuota || jsonPerms.jobQuota || jsonPerms.jobLimit || defaultPerms.jobPostingQuota,
+            jobQuota: jsonPerms.jobPostingQuota || jsonPerms.jobQuota || jsonPerms.jobLimit || defaultPerms.jobPostingQuota,
+            cvViewLimit: jsonPerms.cvViewLimit !== undefined ? Number(jsonPerms.cvViewLimit) : defaultPerms.cvViewLimit,
+            canSeeAiAnalysis: jsonPerms.canSeeAiAnalysis !== undefined ? Boolean(jsonPerms.canSeeAiAnalysis) : defaultPerms.canSeeAiAnalysis,
+            batchAction: jsonPerms.batchAction !== undefined ? Boolean(jsonPerms.batchAction) : defaultPerms.batchAction,
+            exportReport: jsonPerms.exportReport !== undefined ? Boolean(jsonPerms.exportReport) : defaultPerms.exportReport,
+            recalculateAll: jsonPerms.recalculateAll !== undefined ? Boolean(jsonPerms.recalculateAll) : defaultPerms.recalculateAll,
+            aiMatching: jsonPerms.aiMatching !== undefined ? Boolean(jsonPerms.aiMatching) : defaultPerms.aiMatching,
+            unlockDirectContact: jsonPerms.unlockDirectContact !== undefined ? Boolean(jsonPerms.unlockDirectContact) : defaultPerms.unlockDirectContact,
+            featuredJobBadge: jsonPerms.featuredJobBadge !== undefined ? Boolean(jsonPerms.featuredJobBadge) : defaultPerms.featuredJobBadge,
+            autoEmail: jsonPerms.autoEmail !== undefined ? Boolean(jsonPerms.autoEmail) : defaultPerms.autoEmail,
+            teamSeats: jsonPerms.teamSeats !== undefined ? Number(jsonPerms.teamSeats) : defaultPerms.teamSeats,
+          };
+        }
       }
 
       // Semicolon-delimited format: [PERMS:key=value;key2=value2]
@@ -55,6 +78,8 @@ export const parseSubscriptionPermissions = (subscription, targetRole = 'RECRUIT
 
       if (isCandidate) {
         return {
+          ...defaultPerms,
+          interviewQuotaPerDay: dict.interviewLimit ? parseInt(dict.interviewLimit, 10) : defaultPerms.interviewQuotaPerDay,
           maxQuestions: dict.maxQ ? parseInt(dict.maxQ, 10) : defaultPerms.maxQuestions,
           maxDurationMinutes: dict.maxDur ? Math.round(parseInt(dict.maxDur, 10) / 60) : defaultPerms.maxDurationMinutes,
           allowedPersonas: dict.personas ? dict.personas.split(',').map((s) => s.trim()).filter(Boolean) : defaultPerms.allowedPersonas,
@@ -62,22 +87,30 @@ export const parseSubscriptionPermissions = (subscription, targetRole = 'RECRUIT
           coachHints: dict.coachHints !== undefined ? parseInt(dict.coachHints, 10) : defaultPerms.coachHints,
           unlockFullStar: dict.fullStar !== undefined ? dict.fullStar === 'true' : defaultPerms.unlockFullStar,
           unlockRoadmap: dict.roadmap !== undefined ? dict.roadmap === 'true' : defaultPerms.unlockRoadmap,
+          maxCvLimit: dict.maxCvLimit ? parseInt(dict.maxCvLimit, 10) : (dict.cvLimit ? parseInt(dict.cvLimit, 10) : defaultPerms.maxCvLimit),
+          aiSummaryLimit: dict.aiSummaryLimit !== undefined ? parseInt(dict.aiSummaryLimit, 10) : defaultPerms.aiSummaryLimit,
+          cvJdReportLimit: dict.cvJdReportLimit ? parseInt(dict.cvJdReportLimit, 10) : defaultPerms.cvJdReportLimit,
+          modernCvTemplate: dict.modernCvTemplate !== undefined ? dict.modernCvTemplate === 'true' : defaultPerms.modernCvTemplate,
+          voiceBiometrics: dict.voiceBiometrics !== undefined ? dict.voiceBiometrics === 'true' : defaultPerms.voiceBiometrics,
+          webcamBiometrics: dict.webcamBiometrics !== undefined ? dict.webcamBiometrics === 'true' : defaultPerms.webcamBiometrics,
           atsCvAnalysis: true,
         };
       } else {
         const recruiterDefault = getRecruiterPerms(planName, quotaLimit, price);
         return {
           ...recruiterDefault,
-          jobPostingQuota: dict.jobQuota ? parseInt(dict.jobQuota, 10) : recruiterDefault.jobPostingQuota,
-          jobQuota: dict.jobQuota ? parseInt(dict.jobQuota, 10) : recruiterDefault.jobPostingQuota,
+          jobPostingQuota: dict.jobQuota ? parseInt(dict.jobQuota, 10) : (dict.jobLimit ? parseInt(dict.jobLimit, 10) : recruiterDefault.jobPostingQuota),
+          jobQuota: dict.jobQuota ? parseInt(dict.jobQuota, 10) : (dict.jobLimit ? parseInt(dict.jobLimit, 10) : recruiterDefault.jobPostingQuota),
+          cvViewLimit: dict.cvViewLimit !== undefined ? parseInt(dict.cvViewLimit, 10) : (dict.cvQuota !== undefined ? parseInt(dict.cvQuota, 10) : recruiterDefault.cvViewLimit),
+          canSeeAiAnalysis: dict.canSeeAiAnalysis !== undefined ? dict.canSeeAiAnalysis === 'true' : (dict.skillGap !== undefined ? dict.skillGap === 'true' : recruiterDefault.canSeeAiAnalysis),
+          batchAction: dict.batchAction !== undefined ? dict.batchAction === 'true' : (dict.batchActions !== undefined ? dict.batchActions === 'true' : recruiterDefault.batchAction),
+          exportReport: dict.analytics !== undefined ? dict.analytics === 'true' : (dict.exportReport !== undefined ? dict.exportReport === 'true' : recruiterDefault.exportReport),
+          recalculateAll: dict.recalculateAll !== undefined ? dict.recalculateAll === 'true' : recruiterDefault.recalculateAll,
           aiMatching: dict.aiMatch !== undefined ? dict.aiMatch === 'true' : recruiterDefault.aiMatching,
           unlockDirectContact: dict.directCv !== undefined ? dict.directCv === 'true' : recruiterDefault.unlockDirectContact,
-          featuredJobBadge: dict.verifiedBadge !== undefined ? dict.verifiedBadge === 'true' : recruiterDefault.featuredJobBadge,
-          exportReport: dict.analytics !== undefined ? dict.analytics === 'true' : recruiterDefault.exportReport,
-          autoEmail: dict.bulkEmail !== undefined ? dict.bulkEmail === 'true' : recruiterDefault.autoEmail,
-          batchAction: dict.batchAction !== undefined ? dict.batchAction === 'true' : recruiterDefault.batchAction,
-          aiMockInterview: dict.aiMockInterview !== undefined ? dict.aiMockInterview === 'true' : recruiterDefault.aiMockInterview,
-          viewSalaryRange: dict.viewSalaryRange !== undefined ? dict.viewSalaryRange === 'true' : recruiterDefault.viewSalaryRange,
+          featuredJobBadge: dict.verifiedBadge !== undefined ? dict.verifiedBadge === 'true' : (dict.featuredJobBadge !== undefined ? dict.featuredJobBadge === 'true' : recruiterDefault.featuredJobBadge),
+          autoEmail: dict.bulkEmail !== undefined ? dict.bulkEmail === 'true' : (dict.autoEmail !== undefined ? dict.autoEmail === 'true' : recruiterDefault.autoEmail),
+          teamSeats: dict.seats ? parseInt(dict.seats, 10) : (dict.teamSeats ? parseInt(dict.teamSeats, 10) : recruiterDefault.teamSeats),
         };
       }
     }

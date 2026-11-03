@@ -231,7 +231,288 @@ const INITIAL_VOUCHERS = [
   },
 ];
 
+export const CANDIDATE_TIER_PRESETS = [
+  {
+    key: 'free',
+    label: '🟢 Free Candidate (0đ)',
+    planName: 'Free Candidate',
+    planType: 'INTERVIEW_PRACTICE',
+    price: 0,
+    durationDays: 365,
+    quotaLimit: 2,
+    description: 'Trải nghiệm tìm việc & luyện phỏng vấn AI cơ bản',
+    features: [
+      '2 Buổi luyện phỏng vấn AI Voice mỗi ngày (3 câu / 5 phút)',
+      'Hội đồng phỏng vấn: HR Manager (Giọng đọc chuẩn Miền Bắc)',
+      '1 Lượt trợ lý AI Coach gợi ý câu trả lời / buổi',
+      'Xem điểm số tổng quát & Đáp án mẫu STAR câu đầu tiên',
+      'Lưu trữ tối đa 2 bản CV & Dùng thử 1 lượt AI viết tóm tắt',
+      'Dùng thử 3 lượt Báo cáo Đối soát chuyên sâu CV – JD',
+    ],
+    permissions: {
+      interviewQuotaPerDay: 2,
+      maxQuestions: 3,
+      maxDurationMinutes: 5,
+      allowedPersonas: ['HR_MANAGER'],
+      allowedVoices: ['vi-native'],
+      coachHints: 1,
+      unlockFullStar: false,
+      unlockRoadmap: false,
+      maxCvLimit: 2,
+      aiSummaryLimit: 1,
+      cvJdReportLimit: 3,
+      modernCvTemplate: false,
+      voiceBiometrics: false,
+      webcamBiometrics: false,
+      atsCvAnalysis: true,
+    },
+  },
+  {
+    key: 'plus',
+    label: '⚡ Practice Plus (49k / 7d)',
+    planName: 'Practice Plus',
+    planType: 'INTERVIEW_PRACTICE',
+    price: 49000,
+    durationDays: 7,
+    quotaLimit: 5,
+    description: 'Luyện phỏng vấn theo tuần, mở 100% đáp án STAR và lộ trình',
+    features: [
+      '5 Buổi luyện phỏng vấn AI Voice / ngày (5 câu / 10 phút)',
+      'Mở khóa Phong cách Tech Lead & Giọng đọc Song ngữ Alice',
+      '3 Lượt trợ lý AI Coach gợi ý câu trả lời / buổi',
+      'Mở khóa 100% Barem đáp án STAR điểm 10 mọi câu',
+      'Mở khóa Kế hoạch cải thiện kỹ năng 3 giai đoạn (Ngắn - Trung - Dài hạn)',
+      'Lưu trữ 5 bản CV trong kho & 5 lượt AI viết lại tóm tắt / tuần',
+      '15 Lượt Báo cáo Đối soát chuyên sâu CV – JD / tuần',
+    ],
+    permissions: {
+      interviewQuotaPerDay: 5,
+      maxQuestions: 5,
+      maxDurationMinutes: 10,
+      allowedPersonas: ['HR_MANAGER', 'TECH_LEAD'],
+      allowedVoices: ['vi-native', 'eleven-alice'],
+      coachHints: 3,
+      unlockFullStar: true,
+      unlockRoadmap: true,
+      maxCvLimit: 5,
+      aiSummaryLimit: 5,
+      cvJdReportLimit: 15,
+      modernCvTemplate: false,
+      voiceBiometrics: false,
+      webcamBiometrics: false,
+      atsCvAnalysis: true,
+    },
+  },
+  {
+    key: 'pro',
+    label: '🔥 Practice Pro (149k / 30d)',
+    planName: 'Practice Pro',
+    planType: 'INTERVIEW_PRACTICE',
+    price: 149000,
+    durationDays: 30,
+    quotaLimit: 15,
+    description: 'Luyện phỏng vấn chuyên sâu, phân tích giọng nói WPM và mở mẫu CV VIP',
+    features: [
+      '15 Buổi luyện phỏng vấn AI Voice / ngày (7 câu đào sâu / 15 phút)',
+      'Mở trọn bộ 3 Phong cách: HR Manager, Tech Lead & Giám Đốc Khắt Khe',
+      'Mở đủ 3 Giọng đọc AI Studio chuẩn mực (Việt chuẩn, Alice, George)',
+      'Trợ lý AI Coach gợi ý không giới hạn trong phòng thi',
+      'Mở khóa 100% Barem STAR điểm 10 & Lộ trình 3 giai đoạn',
+      'Mở khóa mẫu CV Hiện Đại VIP & Không giới hạn lưu trữ CV',
+      'Không giới hạn AI viết lại tóm tắt CV & Đối soát CV – JD',
+      'Sinh trắc học Giọng nói AI: Tốc độ nói WPM & Độ rung cao độ Pitch F0',
+    ],
+    permissions: {
+      interviewQuotaPerDay: 15,
+      maxQuestions: 7,
+      maxDurationMinutes: 15,
+      allowedPersonas: ['HR_MANAGER', 'TECH_LEAD', 'STRICT_DIRECTOR'],
+      allowedVoices: ['vi-native', 'eleven-alice', 'eleven-george'],
+      coachHints: 999,
+      unlockFullStar: true,
+      unlockRoadmap: true,
+      maxCvLimit: 999,
+      aiSummaryLimit: 999,
+      cvJdReportLimit: 999,
+      modernCvTemplate: true,
+      voiceBiometrics: true,
+      webcamBiometrics: false,
+      atsCvAnalysis: true,
+    },
+  },
+  {
+    key: 'ace',
+    label: '👑 Career Ace (249k / 30d)',
+    planName: 'Career Ace',
+    planType: 'INTERVIEW_PRACTICE',
+    price: 249000,
+    durationDays: 30,
+    quotaLimit: 999,
+    description: 'Không giới hạn phỏng vấn AI, Marathon 8 câu và độc quyền Face/Gaze Biometrics',
+    features: [
+      'KHÔNG GIỚI HẠN số buổi luyện phỏng vấn AI Voice (999 buổi)',
+      'Chế độ Marathon 8 câu hỏi áp lực cao (Thời lượng tối đa 20 phút)',
+      'Trọn bộ 3 Phong cách phỏng vấn & 3 Giọng đọc AI Studio cao cấp',
+      'Trợ lý AI Coach gợi ý không giới hạn & 100% STAR Barem',
+      'Mở mẫu CV Hiện Đại VIP & Không giới hạn kho CV, AI Summary, CV-JD Match',
+      'Sinh trắc học Giọng nói AI: Tốc độ WPM & Cao độ Pitch F0',
+      'ĐỘC QUYỀN ACE: Sinh trắc học Ánh mắt & Cảm xúc khuôn mặt qua Webcam',
+    ],
+    permissions: {
+      interviewQuotaPerDay: 999,
+      maxQuestions: 8,
+      maxDurationMinutes: 20,
+      allowedPersonas: ['HR_MANAGER', 'TECH_LEAD', 'STRICT_DIRECTOR'],
+      allowedVoices: ['vi-native', 'eleven-alice', 'eleven-george'],
+      coachHints: 999,
+      unlockFullStar: true,
+      unlockRoadmap: true,
+      maxCvLimit: 999,
+      aiSummaryLimit: 999,
+      cvJdReportLimit: 999,
+      modernCvTemplate: true,
+      voiceBiometrics: true,
+      webcamBiometrics: true,
+      atsCvAnalysis: true,
+    },
+  },
+];
+
+export const RECRUITER_TIER_PRESETS = [
+  {
+    key: 'free',
+    label: '🟢 Free Recruiter (0đ)',
+    planName: 'Nhà tuyển dụng Cơ bản (Recruiter Basic)',
+    planType: 'JOB_POSTING',
+    price: 0,
+    durationDays: 30,
+    quotaLimit: 3,
+    description: 'Dành cho doanh nghiệp trải nghiệm đăng tin tuyển dụng cơ bản',
+    features: [
+      'Đăng tối đa 3 tin tuyển dụng active đồng thời',
+      'Xem CV online (0 lượt mở khóa thông tin liên hệ / tải CV gốc)',
+      'Thuật toán AI Matching 70/30 chuẩn ATS',
+      'Quản lý ứng viên qua bảng Kanban Pipeline 6 bước',
+      'Phân quyền 1 tài khoản quản trị nhân sự',
+    ],
+    permissions: {
+      jobPostingQuota: 3,
+      cvViewLimit: 0,
+      aiMatching: true,
+      canSeeAiAnalysis: false,
+      batchAction: false,
+      exportReport: false,
+      recalculateAll: false,
+      featuredJobBadge: false,
+      autoEmail: false,
+      kanbanPipeline: true,
+      unlockDirectContact: false,
+      teamSeats: 1,
+    },
+  },
+  {
+    key: 'starter',
+    label: '⚡ Hiring Starter (199k / 30d)',
+    planName: 'Nhà tuyển dụng Khởi nghiệp (Hiring Starter)',
+    planType: 'JOB_POSTING',
+    price: 199000,
+    durationDays: 30,
+    quotaLimit: 10,
+    description: 'Đăng 10 tin tuyển dụng, mở 30 hồ sơ ứng viên và xuất Excel',
+    features: [
+      'Đăng tối đa 10 tin tuyển dụng active trong 30 ngày',
+      'Mở khóa 30 hồ sơ ứng viên (Xem SĐT/Email & Tải CV gốc)',
+      'Thuật toán AI Matching 70/30 tự động',
+      'Xuất danh sách ứng viên ra Excel (.xlsx)',
+      'Quản lý ứng viên Kanban Pipeline & Đặt lịch phỏng vấn',
+      'Phân quyền đội ngũ tối đa 2 tài khoản HR',
+    ],
+    permissions: {
+      jobPostingQuota: 10,
+      cvViewLimit: 30,
+      aiMatching: true,
+      canSeeAiAnalysis: false,
+      batchAction: false,
+      exportReport: true,
+      recalculateAll: false,
+      featuredJobBadge: false,
+      autoEmail: false,
+      kanbanPipeline: true,
+      unlockDirectContact: true,
+      teamSeats: 2,
+    },
+  },
+  {
+    key: 'pro',
+    label: '🔥 Hiring Pro (499k / 30d)',
+    planName: 'Doanh nghiệp Chuyên nghiệp (Hiring Professional)',
+    planType: 'JOB_POSTING',
+    price: 499000,
+    durationDays: 30,
+    quotaLimit: 30,
+    description: 'Đăng 30 tin tuyển dụng, mở 100 CV, trọn bộ Báo cáo AI chuyên sâu và Batch Action',
+    features: [
+      'Đăng tối đa 30 tin tuyển dụng active hoạt động đồng thời',
+      'Mở khóa 100 hồ sơ ứng viên (Xem SĐT/Email & Tải CV gốc)',
+      'MỞ KHÓA Báo Cáo Phân Tích Chuyên Sâu AI (Skill Gap, Ưu/Nhược điểm & Câu hỏi gợi ý)',
+      'Duyệt & chuyển trạng thái ứng viên hàng loạt (Batch Action)',
+      'Xuất danh sách ứng viên ra Excel (.xlsx)',
+      'Gửi email tự động mời phỏng vấn & thông báo kết quả hàng loạt',
+      'Phân quyền đội ngũ tối đa 5 tài khoản HR',
+    ],
+    permissions: {
+      jobPostingQuota: 30,
+      cvViewLimit: 100,
+      aiMatching: true,
+      canSeeAiAnalysis: true,
+      batchAction: true,
+      exportReport: true,
+      recalculateAll: false,
+      featuredJobBadge: false,
+      autoEmail: true,
+      kanbanPipeline: true,
+      unlockDirectContact: true,
+      teamSeats: 5,
+    },
+  },
+  {
+    key: 'elite',
+    label: '👑 Hiring Elite (1.199k / 90d)',
+    planName: 'Tập đoàn Cao cấp (Hiring Enterprise VIP)',
+    planType: 'COMBO',
+    price: 1199000,
+    durationDays: 90,
+    quotaLimit: 999,
+    description: 'Tuyển dụng không giới hạn (999 tin), mở khóa 9.999 CV, trọn bộ Báo cáo AI và độc quyền 1-click Chấm lại AI',
+    features: [
+      'KHÔNG GIỚI HẠN số lượng tin đăng tuyển dụng (999 tin active)',
+      'Mở khóa không giới hạn hồ sơ ứng viên (9.999 CV/tháng)',
+      'MỞ KHÓA Trọn bộ Báo Cáo Phân Tích Chuyên Sâu AI',
+      'ĐỘC QUYỀN ELITE: 1-Click AI Chấm lại toàn bộ hồ sơ bài đăng',
+      'Duyệt hồ sơ hàng loạt (Batch Action) & Xuất Excel',
+      'Huy hiệu Doanh nghiệp VIP & Đẩy Top tin nổi bật 24/7',
+      'Gửi email tự động hàng loạt & Quản trị Kanban',
+      'Không giới hạn tài khoản HR cộng tác (Team Seats)',
+    ],
+    permissions: {
+      jobPostingQuota: 999,
+      cvViewLimit: 9999,
+      aiMatching: true,
+      canSeeAiAnalysis: true,
+      batchAction: true,
+      exportReport: true,
+      recalculateAll: true,
+      featuredJobBadge: true,
+      autoEmail: true,
+      kanbanPipeline: true,
+      unlockDirectContact: true,
+      teamSeats: 999,
+    },
+  },
+];
+
 const INITIAL_PACKAGES = [
+  // 1. RECRUITER PACKAGES (4 Tiers)
   {
     id: 'pkg-1',
     rawId: 1,
@@ -239,39 +520,16 @@ const INITIAL_PACKAGES = [
     targetRole: 'RECRUITER',
     planType: 'JOB_POSTING',
     price: 0,
-    priceText: '0 đ / Miễn phí (365 ngày)',
-    duration: '365 ngày',
-    durationDays: 365,
+    priceText: '0 đ / Miễn phí (30 ngày)',
+    duration: '30 ngày',
+    durationDays: 30,
     quotaLimit: 3,
     subscribersCount: 142,
     sharePercent: '28%',
     status: 'ACTIVE',
     color: '#5b48bd',
-    features: [
-      'Đăng tối đa 3 tin tuyển dụng active đồng thời',
-      'Thuật toán AI Matching 70/30 tự động & phân loại sơ bộ',
-      'Mở khóa xem tối đa 10 hồ sơ CV ứng viên mỗi tháng (che SĐT/Email)',
-      'Quản lý hồ sơ ứng viên qua bảng Kanban Pipeline 6 giai đoạn tiêu chuẩn',
-      'Hạn ngạch sử dụng 365 ngày hoàn toàn miễn phí',
-    ],
-    permissions: {
-      jobPostingQuota: 3,
-      cvUnlockQuota: 10,
-      teamSeats: 1,
-      aiMatching: true,
-      topCandidateFilter: false,
-      skillGapAnalysis: false,
-      aiInterviewQuestions: false,
-      unlockDirectContact: false,
-      viewAiInterviewReport: false,
-      kanbanPipeline: true,
-      batchActions: false,
-      featuredJobBadge: false,
-      exportReport: false,
-      autoEmail: false,
-      confidentialHiring: false,
-      prioritySupport: false,
-    },
+    features: RECRUITER_TIER_PRESETS[0].features,
+    permissions: RECRUITER_TIER_PRESETS[0].permissions,
   },
   {
     id: 'pkg-2',
@@ -288,41 +546,15 @@ const INITIAL_PACKAGES = [
     sharePercent: '22%',
     status: 'ACTIVE',
     color: '#10b981',
-    features: [
-      'Đăng tối đa 10 tin tuyển dụng active trong 30 ngày',
-      'Mở khóa xem 50 CV gốc, đầy đủ SĐT, Email & Portfolio không che',
-      'Thuật toán AI Matching 70/30 & Lọc ứng viên Top 10% xuất sắc',
-      'AI JD Extractor & Phân tích ma trận khoảng trống kỹ năng (Skill Gap)',
-      'Bảng Kanban quản lý tuyển dụng & Đặt lịch phỏng vấn tự động',
-      'AI Gemini gợi ý câu hỏi phỏng vấn theo từng vị trí tuyển dụng',
-      'Xuất danh sách ứng viên và báo cáo tuyển dụng ra file Excel (.xlsx)',
-      'Hỗ trợ phân quyền đội ngũ tối đa 2 tài khoản HR',
-    ],
-    permissions: {
-      jobPostingQuota: 10,
-      cvUnlockQuota: 50,
-      teamSeats: 2,
-      aiMatching: true,
-      topCandidateFilter: true,
-      skillGapAnalysis: true,
-      aiInterviewQuestions: true,
-      unlockDirectContact: true,
-      viewAiInterviewReport: false,
-      kanbanPipeline: true,
-      batchActions: false,
-      featuredJobBadge: false,
-      exportReport: true,
-      autoEmail: false,
-      confidentialHiring: false,
-      prioritySupport: false,
-    },
+    features: RECRUITER_TIER_PRESETS[1].features,
+    permissions: RECRUITER_TIER_PRESETS[1].permissions,
   },
   {
     id: 'pkg-3',
     rawId: 3,
     name: 'Hiring Pro',
     targetRole: 'RECRUITER',
-    planType: 'COMBO',
+    planType: 'JOB_POSTING',
     price: 499000,
     priceText: '499.000 đ / 30 ngày',
     duration: '30 ngày',
@@ -332,35 +564,8 @@ const INITIAL_PACKAGES = [
     sharePercent: '20%',
     status: 'ACTIVE',
     color: '#06b6d4',
-    features: [
-      'Đăng tối đa 30 tin tuyển dụng active hoạt động đồng thời',
-      'Mở khóa xem 200 hồ sơ CV gốc và thông tin liên hệ trực tiếp',
-      'Huy hiệu Doanh nghiệp Verified & Tự động đẩy Top tin tuyển dụng 24/7',
-      'Lọc ứng viên xuất sắc Top 5% theo thuật toán AI ATS Score',
-      'Mở khóa Báo cáo Đánh giá & Thẩm định chi tiết AI Copilot (Ưu điểm, Điểm yếu & Khuyến nghị)',
-      'Duyệt & chuyển trạng thái ứng viên hàng loạt (Batch Stage Actions)',
-      'Gửi email tự động mời phỏng vấn & thông báo kết quả hàng loạt theo mẫu',
-      'Báo cáo Talent Analytics chuyên sâu: Phễu tuyển dụng & Tỉ lệ chuyển đổi',
-      'Phân quyền đội ngũ tối đa 5 tài khoản HR trong công ty',
-    ],
-    permissions: {
-      jobPostingQuota: 30,
-      cvUnlockQuota: 200,
-      teamSeats: 5,
-      aiMatching: true,
-      topCandidateFilter: true,
-      skillGapAnalysis: true,
-      aiInterviewQuestions: true,
-      unlockDirectContact: true,
-      viewAiInterviewReport: true,
-      kanbanPipeline: true,
-      batchActions: true,
-      featuredJobBadge: true,
-      exportReport: true,
-      autoEmail: true,
-      confidentialHiring: false,
-      prioritySupport: false,
-    },
+    features: RECRUITER_TIER_PRESETS[2].features,
+    permissions: RECRUITER_TIER_PRESETS[2].permissions,
   },
   {
     id: 'pkg-4',
@@ -369,44 +574,19 @@ const INITIAL_PACKAGES = [
     targetRole: 'RECRUITER',
     planType: 'COMBO',
     price: 1199000,
-    priceText: '1.199.000 đ / 30 ngày',
-    duration: '30 ngày',
-    durationDays: 30,
+    priceText: '1.199.000 đ / 90 ngày',
+    duration: '90 ngày',
+    durationDays: 90,
     quotaLimit: 999,
     subscribersCount: 31,
     sharePercent: '12%',
     status: 'ACTIVE',
     color: '#f59e0b',
-    features: [
-      'KHÔNG GIỚI HẠN số lượng tin đăng tuyển dụng hoạt động (Unlimited Jobs)',
-      'Mở khóa xem CV & liên hệ trực tiếp toàn bộ kho ứng viên không giới hạn',
-      'Xem trọn vẹn 100% Báo cáo Đánh giá & Đối soát chuyên sâu AI Copilot không giới hạn',
-      'Đẩy Top ưu tiên vị trí số 1 tìm kiếm & Gắn huy hiệu VIP Doanh nghiệp',
-      'Tùy chọn đăng tin bảo mật / Ẩn danh danh tính công ty (Confidential Hiring)',
-      'Trọn bộ công cụ tự động hóa: Gửi email hàng loạt & Đặt lịch phỏng vấn',
-      'Xuất toàn bộ dữ liệu Talent Pool ra Excel, CSV & Báo cáo PDF cao cấp',
-      'Hỗ trợ chuyên viên HR Account Manager phục vụ riêng 24/7',
-      'Không giới hạn số lượng tài khoản HR cộng tác trong tổ chức',
-    ],
-    permissions: {
-      jobPostingQuota: 999,
-      cvUnlockQuota: 999,
-      teamSeats: 999,
-      aiMatching: true,
-      topCandidateFilter: true,
-      skillGapAnalysis: true,
-      aiInterviewQuestions: true,
-      unlockDirectContact: true,
-      viewAiInterviewReport: true,
-      kanbanPipeline: true,
-      batchActions: true,
-      featuredJobBadge: true,
-      exportReport: true,
-      autoEmail: true,
-      confidentialHiring: true,
-      prioritySupport: true,
-    },
+    features: RECRUITER_TIER_PRESETS[3].features,
+    permissions: RECRUITER_TIER_PRESETS[3].permissions,
   },
+
+  // 2. CANDIDATE PACKAGES (4 Tiers)
   {
     id: 'pkg-5',
     rawId: 5,
@@ -422,28 +602,8 @@ const INITIAL_PACKAGES = [
     sharePercent: '45%',
     status: 'ACTIVE',
     color: '#8b5cf6',
-    features: [
-      '2 Phiên luyện phỏng vấn AI Voice Mock Studio mỗi ngày',
-      'Cấu trúc 3 câu hỏi cơ bản / phiên (Thời lượng tối đa 5 phút)',
-      'Hội đồng phỏng vấn: HR Manager Lan Anh (Giọng chuẩn Miền Bắc)',
-      '1 Lượt trợ lý AI Coach gợi ý trả lời / phiên',
-      'Xem điểm tổng quan & Câu trả lời mẫu STAR cho câu đầu tiên',
-      'Ứng tuyển 1-click không giới hạn tới tất cả việc làm mở tuyển',
-    ],
-    permissions: {
-      interviewQuotaPerDay: 2,
-      maxQuestions: 3,
-      maxDurationMinutes: 5,
-      allowedPersonas: ['HR_MANAGER'],
-      allowedVoices: ['vi-native'],
-      coachHints: 1,
-      unlockFullStar: false,
-      unlockRoadmap: false,
-      deltaScoreChart: false,
-      atsCvAnalysis: true,
-      atsScanQuota: 3,
-      topTalentBadge: false,
-    },
+    features: CANDIDATE_TIER_PRESETS[0].features,
+    permissions: CANDIDATE_TIER_PRESETS[0].permissions,
   },
   {
     id: 'pkg-6',
@@ -455,34 +615,13 @@ const INITIAL_PACKAGES = [
     priceText: '49.000 đ / 7 ngày',
     duration: '7 ngày',
     durationDays: 7,
-    quotaLimit: 10,
+    quotaLimit: 5,
     subscribersCount: 94,
     sharePercent: '25%',
     status: 'ACTIVE',
     color: '#ec4899',
-    features: [
-      '10 Phiên luyện phỏng vấn AI Voice / ngày (Trong 7 ngày)',
-      'Cấu trúc 5 câu hỏi tiêu chuẩn / phiên (Thời lượng tối đa 10 phút)',
-      'Mở khóa thêm Phong cách Tech Lead & Giọng đọc ElevenLabs Alice',
-      '3 Lượt trợ lý AI Coach gợi ý trả lời / phiên',
-      'Mở khóa 100% Barem đáp án chuẩn mô hình STAR điểm 10/10',
-      'Mở khóa Lộ trình cải thiện kỹ năng 3 giai đoạn (Ngắn - Trung - Dài)',
-      'Chấm điểm & Tối ưu hóa từ khóa CV chuẩn ATS qua Gemini AI',
-    ],
-    permissions: {
-      interviewQuotaPerDay: 10,
-      maxQuestions: 5,
-      maxDurationMinutes: 10,
-      allowedPersonas: ['HR_MANAGER', 'TECH_LEAD'],
-      allowedVoices: ['vi-native', 'eleven-alice'],
-      coachHints: 3,
-      unlockFullStar: true,
-      unlockRoadmap: true,
-      deltaScoreChart: true,
-      atsCvAnalysis: true,
-      atsScanQuota: 20,
-      topTalentBadge: false,
-    },
+    features: CANDIDATE_TIER_PRESETS[1].features,
+    permissions: CANDIDATE_TIER_PRESETS[1].permissions,
   },
   {
     id: 'pkg-7',
@@ -494,127 +633,83 @@ const INITIAL_PACKAGES = [
     priceText: '149.000 đ / 30 ngày',
     duration: '30 ngày',
     durationDays: 30,
-    quotaLimit: 30,
+    quotaLimit: 15,
     subscribersCount: 78,
-    sharePercent: '22%',
+    sharePercent: '20%',
     status: 'ACTIVE',
     color: '#10b981',
-    features: [
-      '30 Phiên luyện phỏng vấn AI Voice Studio / ngày (Trong 30 ngày)',
-      'Cấu trúc 7 câu hỏi chuyên sâu / phiên (Thời lượng tối đa 15 phút)',
-      'Mở khóa trọn bộ 3 Hội đồng: HR Manager, Tech Lead & Giám Đốc Khắt Khe',
-      'Mở khóa đủ 3 Giọng đọc ElevenLabs AI Turbo (Alice & George)',
-      'Trợ lý AI Coach gợi ý trả lời KHÔNG GIỚI HẠN trong phiên',
-      'Mở khóa 100% Barem STAR, Biểu đồ Delta Score & Lộ trình nghề nghiệp',
-      'Quét & Tối ưu hóa CV chuẩn ATS không giới hạn số lượng',
-    ],
-    permissions: {
-      interviewQuotaPerDay: 30,
-      maxQuestions: 7,
-      maxDurationMinutes: 15,
-      allowedPersonas: ['HR_MANAGER', 'TECH_LEAD', 'STRICT_DIRECTOR'],
-      allowedVoices: ['vi-native', 'eleven-alice', 'eleven-george'],
-      coachHints: 999,
-      unlockFullStar: true,
-      unlockRoadmap: true,
-      deltaScoreChart: true,
-      atsCvAnalysis: true,
-      atsScanQuota: 999,
-      topTalentBadge: true,
-    },
+    features: CANDIDATE_TIER_PRESETS[2].features,
+    permissions: CANDIDATE_TIER_PRESETS[2].permissions,
   },
   {
     id: 'pkg-8',
     rawId: 8,
-    name: 'Career Ace (Combo)',
+    name: 'Career Ace',
     targetRole: 'CANDIDATE',
-    planType: 'COMBO',
-    price: 299000,
-    priceText: '299.000 đ / 90 ngày',
-    duration: '90 ngày',
-    durationDays: 90,
+    planType: 'INTERVIEW_PRACTICE',
+    price: 249000,
+    priceText: '249.000 đ / 30 ngày',
+    duration: '30 ngày',
+    durationDays: 30,
     quotaLimit: 999,
     subscribersCount: 52,
     sharePercent: '18%',
     status: 'ACTIVE',
     color: '#3b82f6',
-    features: [
-      'KHÔNG GIỚI HẠN số phiên luyện phỏng vấn AI Voice Studio (Unlimited)',
-      'Chế độ Marathon 8 - 10 câu hỏi áp lực cao (Tối đa 20 - 30 phút)',
-      'Trọn bộ 3 Phong cách phỏng vấn & 3 Giọng đọc AI Studio cao cấp',
-      'Trợ lý AI Coach không giới hạn & Phân tích âm sắc giọng nói toàn diện',
-      'Mở khóa 100% Barem STAR, Biểu đồ Delta Score & Lộ trình nghề nghiệp',
-      'Huy hiệu "Ứng viên Nổi Bật (Top Talent Badge)" ưu tiên tiếp cận HR VIP',
-      'Fast-track hồ sơ tới các vị trí AI Matching >= 90% của doanh nghiệp hàng đầu',
-    ],
-    permissions: {
-      interviewQuotaPerDay: 999,
-      maxQuestions: 8,
-      maxDurationMinutes: 20,
-      allowedPersonas: ['HR_MANAGER', 'TECH_LEAD', 'STRICT_DIRECTOR'],
-      allowedVoices: ['vi-native', 'eleven-alice', 'eleven-george'],
-      coachHints: 999,
-      unlockFullStar: true,
-      unlockRoadmap: true,
-      deltaScoreChart: true,
-      atsCvAnalysis: true,
-      atsScanQuota: 999,
-      topTalentBadge: true,
-    },
+    features: CANDIDATE_TIER_PRESETS[3].features,
+    permissions: CANDIDATE_TIER_PRESETS[3].permissions,
   },
 ];
 
 const RECRUITER_FEATURE_OPTIONS = [
   'Đăng tin tuyển dụng theo hạn ngạch (Job Posting Quota)',
-  'Thuật toán AI Matching 70/30 tự động & xếp hạng hồ sơ',
-  'Lọc ứng viên Top 5% và Top 10% xuất sắc nhất theo AI Score',
-  'AI JD Extractor & Phân tích ma trận khoảng trống kỹ năng (Skill Gap Matrix)',
-  'AI Gemini gợi ý câu hỏi phỏng vấn chuyên sâu theo JD & CV',
-  'Mở khóa xem đầy đủ CV gốc, số điện thoại & email liên hệ trực tiếp',
-  'Mở khóa Báo cáo Thẩm định & Đánh giá năng lực từ AI Copilot (Ưu điểm, Điểm yếu & Khuyến nghị)',
+  'Hạn mức mở khóa xem CV gốc, SĐT & Email (CV View Limit)',
+  'Thuật toán AI Matching 70/30 tự động & xếp hạng hồ sơ ATS',
+  'Trọn bộ Báo Cáo Phân Tích Chuyên Sâu AI (Skill Gap + Ưu/Nhược điểm + Gợi ý câu hỏi)',
+  'Duyệt & chuyển trạng thái ứng viên hàng loạt (Batch Actions Floating Bar)',
+  'Xuất danh sách ứng viên và báo cáo tuyển dụng ra file Excel (.xlsx)',
+  '1-Click AI Chấm lại toàn bộ hồ sơ bài đăng (Độc quyền Elite)',
+  'Huy hiệu Doanh nghiệp VIP (Verified Employer) & Đẩy Top tin nổi bật 24/7',
   'Quản trị Pipeline Kanban 6 bước & Đặt lịch phỏng vấn tự động',
-  'Duyệt & chuyển trạng thái ứng viên hàng loạt (Batch Actions)',
-  'Gửi email tự động mời phỏng vấn & thông báo kết quả hàng loạt theo mẫu',
-  'Huy hiệu Doanh nghiệp Thẩm định (Verified Employer) & Đẩy Top tin 24/7',
-  'Xuất báo cáo Talent Analytics chuyên sâu ra Excel (.xlsx), CSV, PDF',
-  'Đăng tin tuyển dụng ẩn danh / Bảo mật danh tính công ty (Confidential)',
+  'Gửi email tự động mời phỏng vấn & thông báo kết quả hàng loạt',
   'Phân quyền nhiều tài khoản HR trong cùng công ty (Team Seats)',
-  'Hỗ trợ chuyên viên CSKH & HR Partner riêng phục vụ 24/7',
+  'Hỗ trợ tạo JD bằng AI Gemini & Quét yêu cầu từ file PDF JD',
+  'Hỗ trợ chuyên viên CSKH & Kỹ thuật riêng phục vụ 24/7',
 ];
 
 const CANDIDATE_FEATURE_OPTIONS = [
-  'Luyện phỏng vấn AI Voice Mock Studio theo hạn ngạch',
-  'Cấu trúc câu hỏi phỏng vấn chuẩn quốc tế (3 đến 8 câu / buổi)',
+  'Tìm việc, lưu việc, nộp đơn nhanh, lịch Meet & Ký Offer trực tuyến',
+  'Xem Điểm tương thích AI ATS Match 70/30 theo từng bản CV',
+  'Hạn mức lưu trữ bản CV trong kho (2 bản, 5 bản, Không giới hạn)',
+  'Quét CV PDF/Ảnh (Gemini Vision OCR) & Nhân bản CV',
+  'AI Viết lại Tóm tắt CV chuẩn ATS (Rewrite Summary)',
+  'Mở khóa mẫu CV Hiện Đại VIP (Modern CV Template)',
+  'Báo cáo Đối soát Chuyên sâu CV – JD (Ưu/Nhược điểm + Gợi ý STAR)',
+  'Số buổi luyện phỏng vấn AI Voice tối đa mỗi ngày',
+  'Thời lượng & Độ sâu câu hỏi (3, 5, 7, 8 câu Marathon)',
   'Hội đồng phỏng vấn AI đa phong cách (HR Manager, Tech Lead, Giám đốc Khắt khe)',
   'Đa dạng giọng đọc AI Voice Studio ElevenLabs chuẩn mực (Việt & Anh)',
   'Trợ lý AI Coach gợi ý trả lời trong lúc phỏng vấn trực tiếp',
-  'Báo cáo phân tích câu trả lời chuẩn mô hình STAR điểm 10/10',
-  'Lộ trình cải thiện kỹ năng chuyên sâu 3 giai đoạn (Ngắn - Trung - Dài hạn)',
-  'Biểu đồ Delta Score theo dõi tiến bộ kỹ năng sau các phiên phỏng vấn',
-  'Chấm điểm & tối ưu hóa CV chuyên sâu chuẩn ATS bằng AI Gemini',
-  'Gợi ý từ khóa và chỉnh sửa nội dung CV theo từng JD ứng tuyển',
-  'Xem chi tiết điểm AI Matching 70/30 và Skill Gap với mọi tin tuyển dụng',
-  'Tải xuống CV định dạng PDF chuẩn quốc tế không giới hạn',
-  'Huy hiệu Ứng viên Nổi Bật (Top Talent Badge) gửi tới Nhà tuyển dụng VIP',
-  'Ưu tiên hiển thị hồ sơ trên đầu danh sách tìm kiếm của HR',
-  'Xem chỉ số thị trường lương & xu hướng kỹ năng VIP (Career Insights)',
+  'Mở khóa 100% Đáp án mẫu STAR điểm 10/10 mọi câu hỏi',
+  'Kế hoạch cải thiện kỹ năng 3 giai đoạn (Ngắn - Trung - Dài hạn)',
+  'Sinh trắc học Giọng nói (WPM/Pitch F0) & Ánh mắt Biểu cảm qua Webcam',
 ];
 
 const PERSONA_OPTIONS = [
-  { id: 'HR_MANAGER', label: 'Phỏng Vấn Toàn Diện Tiêu Chuẩn', desc: 'Standard JD & CV - Hỏi kiến thức chuyên môn, dự án CV & thái độ', icon: 'assignment_turned_in' },
-  { id: 'TECH_LEAD', label: 'Xoáy Sâu Tình Huống Thực Chiến', desc: 'Case Study & Problem Solving - Bài toán thực tế, troubleshooting sự cố', icon: 'psychology_alt' },
-  { id: 'STRICT_DIRECTOR', label: 'Phản Biện Áp Lực Cao (Stress Mode)', desc: 'Deep-Grill & Trade-off - Hỏi vặn, đòi số liệu metrics/KPIs & thử thách áp lực', icon: 'crisis_alert' },
+  { id: 'HR_MANAGER', label: 'HR Manager Lan Anh (Tiêu chuẩn)', desc: 'Standard JD & CV - Hỏi kiến thức chuyên môn, dự án & thái độ', icon: 'assignment_turned_in' },
+  { id: 'TECH_LEAD', label: 'Tech Lead Tuấn Minh (Thực chiến)', desc: 'Case Study & Problem Solving - Đào sâu tình huống, troubleshooting', icon: 'psychology_alt' },
+  { id: 'STRICT_DIRECTOR', label: 'Giám Đốc Khắt Khe (Stress Mode)', desc: 'Deep-Grill & Pressure - Hỏi vặn, đòi metrics/KPIs & thử thách áp lực', icon: 'crisis_alert' },
 ];
 
 const VOICE_OPTIONS = [
-  { id: 'vi-native', label: 'Giọng Nữ Chuẩn Mực (Miền Bắc)', desc: 'Phát âm tiếng Việt rõ chữ, tốc độ phản hồi tức thì', icon: 'mic' },
-  { id: 'eleven-alice', label: 'Giọng Nữ Truyền Cảm (Song ngữ)', desc: 'Phù hợp khi phỏng vấn có nhiều thuật ngữ tiếng Anh', icon: 'record_voice_over' },
-  { id: 'eleven-george', label: 'Giọng Nam Trầm Ấm (Điềm tĩnh)', desc: 'Giọng nam trầm, đĩnh đạc, rõ ràng', icon: 'graphic_eq' },
+  { id: 'vi-native', label: 'Giọng Nữ Chuẩn Mực (Miền Bắc)', desc: 'Phát âm tiếng Việt chuẩn, tốc độ phản hồi tức thì', icon: 'mic' },
+  { id: 'eleven-alice', label: 'Giọng Nữ Truyền Cảm (Alice Song ngữ)', desc: 'Phù hợp khi phỏng vấn có nhiều thuật ngữ tiếng Anh', icon: 'record_voice_over' },
+  { id: 'eleven-george', label: 'Giọng Nam Trầm Ấm (George Điềm tĩnh)', desc: 'Giọng nam trầm, đĩnh đạc, bản lĩnh thương trường', icon: 'graphic_eq' },
 ];
 
 function RolePermissionMatrixConfig({ form, setForm, isCand }) {
   const perms = form.permissions || (isCand ? {
-    interviewQuotaPerDay: form.quotaLimit || 10,
+    interviewQuotaPerDay: form.quotaLimit || 5,
     maxQuestions: 5,
     maxDurationMinutes: 10,
     allowedPersonas: ['HR_MANAGER', 'TECH_LEAD'],
@@ -622,27 +717,26 @@ function RolePermissionMatrixConfig({ form, setForm, isCand }) {
     coachHints: 3,
     unlockFullStar: true,
     unlockRoadmap: true,
-    deltaScoreChart: true,
+    maxCvLimit: 5,
+    aiSummaryLimit: 5,
+    cvJdReportLimit: 15,
+    modernCvTemplate: false,
+    voiceBiometrics: false,
+    webcamBiometrics: false,
     atsCvAnalysis: true,
-    atsScanQuota: 20,
-    topTalentBadge: false,
   } : {
     jobPostingQuota: form.quotaLimit || 10,
-    cvUnlockQuota: 50,
+    cvViewLimit: 30,
     teamSeats: 2,
     aiMatching: true,
-    topCandidateFilter: true,
-    skillGapAnalysis: true,
-    aiInterviewQuestions: true,
-    unlockDirectContact: true,
-    viewAiInterviewReport: false,
-    kanbanPipeline: true,
-    batchActions: false,
-    featuredJobBadge: false,
+    canSeeAiAnalysis: false,
+    batchAction: false,
     exportReport: true,
+    recalculateAll: false,
+    featuredJobBadge: false,
     autoEmail: false,
-    confidentialHiring: false,
-    prioritySupport: false,
+    kanbanPipeline: true,
+    unlockDirectContact: true,
   });
 
   const updatePerm = (key, value) => {
@@ -659,7 +753,7 @@ function RolePermissionMatrixConfig({ form, setForm, isCand }) {
     const current = perms[key] || [];
     let updated;
     if (current.includes(item)) {
-      if (current.length <= 1) return; // Luôn giữ tối thiểu 1 lựa chọn
+      if (current.length <= 1) return; // Giữ tối thiểu 1 lựa chọn
       updated = current.filter((x) => x !== item);
     } else {
       updated = [...current, item];
@@ -669,7 +763,7 @@ function RolePermissionMatrixConfig({ form, setForm, isCand }) {
 
   if (isCand) {
     return (
-      <div className="p-5 rounded-2xl bg-gradient-to-br from-amber-50/70 via-orange-50/40 to-white border-2 border-amber-200/80 shadow-xs space-y-5">
+      <div className="p-5 rounded-2xl bg-gradient-to-br from-amber-50/70 via-orange-50/40 to-white border-2 border-amber-200/80 shadow-xs space-y-4">
         <div className="flex items-center justify-between pb-3 border-b border-amber-200/60">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-xs">
@@ -677,289 +771,316 @@ function RolePermissionMatrixConfig({ form, setForm, isCand }) {
             </div>
             <div>
               <span className="font-black text-amber-950 text-xs uppercase tracking-wide block">
-                Ma Trận Phân Quyền AI Mock Interview &amp; Studio (B2C)
+                Ma Trận Phân Quyền Ứng Viên (B2C Tiers Matrix)
               </span>
-              <span className="text-[10px] text-amber-700 font-medium">Cấu hình điều phối quyền hạn phòng phỏng vấn giọng nói AI Studio</span>
+              <span className="text-[10px] text-amber-700 font-medium">Cấu hình điều phối đặc quyền chuẩn 15 chức năng thực tế của HireMate</span>
             </div>
           </div>
           <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
-            Tự động kích hoạt vào Phòng Phỏng vấn &amp; Báo cáo
+            Kích hoạt tự động vào Studio, CV &amp; Báo cáo
           </span>
         </div>
 
         {/* 1. Hạn ngạch phiên & Cấu trúc câu hỏi */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div>
-            <label className="font-bold text-slate-700 block mb-1">
-              Số phiên phỏng vấn / ngày:
-            </label>
-            <div className="flex flex-wrap gap-1">
-              {[2, 5, 10, 30, 999].map((q) => {
-                const isSelected = (perms.interviewQuotaPerDay ?? form.quotaLimit ?? 2) === q;
-                return (
-                  <button
-                    key={q}
-                    type="button"
-                    onClick={() => {
-                      updatePerm('interviewQuotaPerDay', q);
-                      setForm((prev) => ({ ...prev, quotaLimit: q }));
-                    }}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
-                      isSelected
-                        ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
-                        : 'bg-white text-slate-700 border-amber-200 hover:bg-amber-50'
-                    }`}
-                  >
-                    {q === 999 ? '∞ Vô hạn' : `${q} lượt`}
-                  </button>
-                );
-              })}
-            </div>
+        <div className="p-3.5 rounded-xl bg-white border border-amber-200/80 space-y-3">
+          <div className="text-[11px] font-bold text-amber-950 flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-sm text-amber-600">mic</span>
+            <span>1. Phòng Phỏng Vấn AI Voice (AI Mock Interview)</span>
           </div>
 
-          <div>
-            <label className="font-bold text-slate-700 block mb-1">
-              Số câu hỏi tối đa / phiên:
-            </label>
-            <div className="flex flex-wrap gap-1">
-              {[3, 5, 7, 8, 10].map((q) => {
-                const isSelected = (perms.maxQuestions || 3) === q;
-                return (
-                  <button
-                    key={q}
-                    type="button"
-                    onClick={() => updatePerm('maxQuestions', q)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
-                      isSelected
-                        ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
-                        : 'bg-white text-slate-700 border-amber-200 hover:bg-amber-50'
-                    }`}
-                  >
-                    {q} câu {q === 3 ? '(Free)' : q === 5 ? '(Plus)' : q === 7 ? '(Pro)' : '(Marathon)'}
-                  </button>
-                );
-              })}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="text-[11px] font-bold text-slate-700 block mb-1">Số buổi phỏng vấn / ngày:</label>
+              <div className="flex flex-wrap gap-1">
+                {[2, 5, 15, 999].map((q) => {
+                  const isSelected = (perms.interviewQuotaPerDay ?? form.quotaLimit ?? 2) === q;
+                  return (
+                    <button
+                      key={q}
+                      type="button"
+                      onClick={() => {
+                        updatePerm('interviewQuotaPerDay', q);
+                        setForm((prev) => ({ ...prev, quotaLimit: q }));
+                      }}
+                      className={`px-2 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+                        isSelected ? 'bg-amber-600 text-white border-amber-600 shadow-xs' : 'bg-white text-slate-700 border-amber-200 hover:bg-amber-50'
+                      }`}
+                    >
+                      {q === 999 ? '∞ Vô hạn' : `${q} buổi`}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
 
-          <div>
-            <label className="font-bold text-slate-700 block mb-1">
-              Thời lượng tối đa / phiên:
-            </label>
-            <div className="flex flex-wrap gap-1">
-              {[5, 10, 15, 20, 30].map((m) => {
-                const isSelected = (perms.maxDurationMinutes || 5) === m;
-                return (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => updatePerm('maxDurationMinutes', m)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
-                      isSelected
-                        ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
-                        : 'bg-white text-slate-700 border-amber-200 hover:bg-amber-50'
-                    }`}
-                  >
-                    {m} phút {m === 5 ? '(Free)' : m === 10 ? '(Plus)' : m >= 20 ? '(VIP)' : ''}
-                  </button>
-                );
-              })}
+            <div>
+              <label className="text-[11px] font-bold text-slate-700 block mb-1">Số câu hỏi / buổi:</label>
+              <div className="flex flex-wrap gap-1">
+                {[3, 5, 7, 8].map((q) => {
+                  const isSelected = (perms.maxQuestions || 3) === q;
+                  return (
+                    <button
+                      key={q}
+                      type="button"
+                      onClick={() => updatePerm('maxQuestions', q)}
+                      className={`px-2 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+                        isSelected ? 'bg-amber-600 text-white border-amber-600 shadow-xs' : 'bg-white text-slate-700 border-amber-200 hover:bg-amber-50'
+                      }`}
+                    >
+                      {q} câu {q === 3 ? '(Free)' : q === 5 ? '(Plus)' : q === 7 ? '(Pro)' : '(Ace)'}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[11px] font-bold text-slate-700 block mb-1">Thời lượng tối đa / buổi:</label>
+              <div className="flex flex-wrap gap-1">
+                {[5, 10, 15, 20].map((m) => {
+                  const isSelected = (perms.maxDurationMinutes || 5) === m;
+                  return (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => updatePerm('maxDurationMinutes', m)}
+                      className={`px-2 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+                        isSelected ? 'bg-amber-600 text-white border-amber-600 shadow-xs' : 'bg-white text-slate-700 border-amber-200 hover:bg-amber-50'
+                      }`}
+                    >
+                      {m} phút {m === 5 ? '(Free)' : m === 10 ? '(Plus)' : m === 15 ? '(Pro)' : '(Ace)'}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* 2. Personas được phép */}
-        <div>
-          <label className="font-bold text-slate-700 block mb-1.5 flex items-center justify-between">
-            <span>Hội đồng Phỏng vấn AI được cấp quyền mở khóa:</span>
-            <span className="text-[10px] text-amber-700 font-semibold">
-              Đã mở khóa {(perms.allowedPersonas || []).length}/3 người
-            </span>
-          </label>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            {PERSONA_OPTIONS.map((persona) => {
-              const isChecked = (perms.allowedPersonas || ['HR_MANAGER']).includes(persona.id);
-              return (
-                <div
-                  key={persona.id}
-                  onClick={() => toggleArrayPerm('allowedPersonas', persona.id)}
-                  className={`p-2.5 rounded-xl border text-xs cursor-pointer transition-all flex items-start gap-2 ${
-                    isChecked
-                      ? 'bg-white border-amber-500 shadow-xs text-slate-900 ring-1 ring-amber-400'
-                      : 'bg-white/50 border-slate-200 text-slate-400 opacity-60 hover:opacity-100'
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={isChecked}
-                    readOnly
-                    className="mt-0.5 accent-amber-600"
-                  />
-                  <div>
-                    <div className="font-bold flex items-center gap-1 text-slate-900">
-                      <span className="material-symbols-outlined text-sm text-amber-600">{persona.icon}</span>
-                      <span>{persona.label}</span>
-                    </div>
-                    <div className="text-[10px] text-slate-500 leading-tight mt-0.5">{persona.desc}</div>
+        {/* 2. Personas & Voices */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="p-3.5 rounded-xl bg-white border border-amber-200/80 space-y-2">
+            <label className="text-[11px] font-bold text-slate-700 block flex items-center justify-between">
+              <span>Hội đồng Phỏng vấn AI:</span>
+              <span className="text-[10px] text-amber-700 font-semibold">Đã mở {(perms.allowedPersonas || []).length}/3</span>
+            </label>
+            <div className="space-y-1.5">
+              {PERSONA_OPTIONS.map((persona) => {
+                const isChecked = (perms.allowedPersonas || ['HR_MANAGER']).includes(persona.id);
+                return (
+                  <div
+                    key={persona.id}
+                    onClick={() => toggleArrayPerm('allowedPersonas', persona.id)}
+                    className={`p-2 rounded-xl border text-xs cursor-pointer transition-all flex items-center gap-2 ${
+                      isChecked ? 'bg-amber-50/60 border-amber-400 text-slate-900 font-bold' : 'bg-white border-slate-200 text-slate-400 opacity-60'
+                    }`}
+                  >
+                    <input type="checkbox" checked={isChecked} readOnly className="accent-amber-600" />
+                    <span className="material-symbols-outlined text-sm text-amber-600">{persona.icon}</span>
+                    <span className="truncate">{persona.label}</span>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
 
-        {/* 3. Giọng đọc AI Studio được phép */}
-        <div>
-          <label className="font-bold text-slate-700 block mb-1.5 flex items-center justify-between">
-            <span>Giọng đọc AI Voice được mở khóa:</span>
-            <span className="text-[10px] text-amber-700 font-semibold">
-              Đã mở khóa {(perms.allowedVoices || []).length}/3 giọng
-            </span>
-          </label>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            {VOICE_OPTIONS.map((voice) => {
-              const isChecked = (perms.allowedVoices || ['vi-native']).includes(voice.id);
-              return (
-                <div
-                  key={voice.id}
-                  onClick={() => toggleArrayPerm('allowedVoices', voice.id)}
-                  className={`p-2.5 rounded-xl border text-xs cursor-pointer transition-all flex items-start gap-2 ${
-                    isChecked
-                      ? 'bg-white border-amber-500 shadow-xs text-slate-900 ring-1 ring-amber-400'
-                      : 'bg-white/50 border-slate-200 text-slate-400 opacity-60 hover:opacity-100'
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={isChecked}
-                    readOnly
-                    className="mt-0.5 accent-amber-600"
-                  />
-                  <div>
-                    <div className="font-bold flex items-center gap-1 text-slate-900">
-                      <span className="material-symbols-outlined text-sm text-amber-600">{voice.icon}</span>
-                      <span>{voice.label}</span>
-                    </div>
-                    <div className="text-[10px] text-slate-500 leading-tight mt-0.5">{voice.desc}</div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* 4. Coach STAR, Delta & Mở khóa Báo cáo */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
-          {/* Lượt gợi ý Coach */}
-          <div className="p-3 bg-white rounded-xl border border-amber-200 flex flex-col justify-between">
-            <span className="font-bold text-slate-700 block mb-1">Gợi ý Coach STAR / phiên:</span>
-            <div className="flex gap-1">
-              {[1, 3, 999].map((cnt) => {
-                const isSelected = (perms.coachHints ?? 1) === cnt;
+          <div className="p-3.5 rounded-xl bg-white border border-amber-200/80 space-y-2">
+            <label className="text-[11px] font-bold text-slate-700 block flex items-center justify-between">
+              <span>Giọng đọc AI Voice:</span>
+              <span className="text-[10px] text-amber-700 font-semibold">Đã mở {(perms.allowedVoices || []).length}/3</span>
+            </label>
+            <div className="space-y-1.5">
+              {VOICE_OPTIONS.map((voice) => {
+                const isChecked = (perms.allowedVoices || ['vi-native']).includes(voice.id);
                 return (
+                  <div
+                    key={voice.id}
+                    onClick={() => toggleArrayPerm('allowedVoices', voice.id)}
+                    className={`p-2 rounded-xl border text-xs cursor-pointer transition-all flex items-center gap-2 ${
+                      isChecked ? 'bg-amber-50/60 border-amber-400 text-slate-900 font-bold' : 'bg-white border-slate-200 text-slate-400 opacity-60'
+                    }`}
+                  >
+                    <input type="checkbox" checked={isChecked} readOnly className="accent-amber-600" />
+                    <span className="material-symbols-outlined text-sm text-amber-600">{voice.icon}</span>
+                    <span className="truncate">{voice.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* 3. Kho CV, Rewrite & Đối soát CV-JD */}
+        <div className="p-3.5 rounded-xl bg-white border border-amber-200/80 space-y-3">
+          <div className="text-[11px] font-bold text-amber-950 flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-sm text-amber-600">folder_shared</span>
+            <span>2. Kho CV &amp; Tối Ưu ATS</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+            <div>
+              <label className="text-[11px] font-bold text-slate-700 block mb-1">Hạn mức kho CV:</label>
+              <div className="flex gap-1">
+                {[2, 5, 999].map((cnt) => (
+                  <button
+                    key={cnt}
+                    type="button"
+                    onClick={() => updatePerm('maxCvLimit', cnt)}
+                    className={`flex-1 py-1 text-[11px] font-bold rounded-lg border transition-all cursor-pointer ${
+                      (perms.maxCvLimit ?? 2) === cnt ? 'bg-amber-600 text-white border-amber-600' : 'bg-amber-50 text-slate-700 border-amber-200'
+                    }`}
+                  >
+                    {cnt === 999 ? '∞' : `${cnt} bản`}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[11px] font-bold text-slate-700 block mb-1">AI Viết lại Tóm tắt CV:</label>
+              <div className="flex gap-1">
+                {[1, 5, 999].map((cnt) => (
+                  <button
+                    key={cnt}
+                    type="button"
+                    onClick={() => updatePerm('aiSummaryLimit', cnt)}
+                    className={`flex-1 py-1 text-[11px] font-bold rounded-lg border transition-all cursor-pointer ${
+                      (perms.aiSummaryLimit ?? 1) === cnt ? 'bg-amber-600 text-white border-amber-600' : 'bg-amber-50 text-slate-700 border-amber-200'
+                    }`}
+                  >
+                    {cnt === 999 ? '∞' : `${cnt} lượt`}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[11px] font-bold text-slate-700 block mb-1">Báo cáo Đối soát CV – JD:</label>
+              <div className="flex gap-1">
+                {[3, 15, 999].map((cnt) => (
+                  <button
+                    key={cnt}
+                    type="button"
+                    onClick={() => updatePerm('cvJdReportLimit', cnt)}
+                    className={`flex-1 py-1 text-[11px] font-bold rounded-lg border transition-all cursor-pointer ${
+                      (perms.cvJdReportLimit ?? 3) === cnt ? 'bg-amber-600 text-white border-amber-600' : 'bg-amber-50 text-slate-700 border-amber-200'
+                    }`}
+                  >
+                    {cnt === 999 ? '∞' : `${cnt} việc`}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[11px] font-bold text-slate-700 block mb-1">Gợi ý AI Coach / buổi:</label>
+              <div className="flex gap-1">
+                {[1, 3, 999].map((cnt) => (
                   <button
                     key={cnt}
                     type="button"
                     onClick={() => updatePerm('coachHints', cnt)}
                     className={`flex-1 py-1 text-[11px] font-bold rounded-lg border transition-all cursor-pointer ${
-                      isSelected
-                        ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
-                        : 'bg-amber-50 text-slate-700 border-amber-200 hover:bg-amber-100'
+                      (perms.coachHints ?? 1) === cnt ? 'bg-amber-600 text-white border-amber-600' : 'bg-amber-50 text-slate-700 border-amber-200'
                     }`}
                   >
-                    {cnt === 999 ? '∞ Vô hạn' : `${cnt} lượt`}
+                    {cnt === 999 ? '∞' : `${cnt} lần`}
                   </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Toggle Full STAR 10/10 */}
-          <div
-            onClick={() => updatePerm('unlockFullStar', !perms.unlockFullStar)}
-            className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
-              perms.unlockFullStar
-                ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950 shadow-xs'
-                : 'bg-white border-slate-200 text-slate-500'
-            }`}
-          >
-            <div>
-              <div className="font-black flex items-center gap-1 text-emerald-900">
-                <span className="material-symbols-outlined text-sm text-emerald-600">stars</span>
-                <span>Full Barem STAR Điểm 10</span>
+                ))}
               </div>
-              <div className="text-[10px] text-slate-500 leading-tight mt-0.5">
-                {perms.unlockFullStar ? 'Mở khóa 100% tất cả các câu' : 'Khóa: Chỉ xem mẫu câu 1'}
-              </div>
-            </div>
-            <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.unlockFullStar ? 'bg-emerald-600' : 'bg-slate-300'}`}>
-              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.unlockFullStar ? 'translate-x-5' : 'translate-x-0'}`} />
-            </div>
-          </div>
-
-          {/* Toggle Trọn bộ Lộ trình 3 giai đoạn */}
-          <div
-            onClick={() => updatePerm('unlockRoadmap', !perms.unlockRoadmap)}
-            className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
-              perms.unlockRoadmap
-                ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950 shadow-xs'
-                : 'bg-white border-slate-200 text-slate-500'
-            }`}
-          >
-            <div>
-              <div className="font-black flex items-center gap-1 text-emerald-900">
-                <span className="material-symbols-outlined text-sm text-emerald-600">route</span>
-                <span>Lộ trình Trọn vẹn 3 GĐ</span>
-              </div>
-              <div className="text-[10px] text-slate-500 leading-tight mt-0.5">
-                {perms.unlockRoadmap ? 'Đầy đủ Ngắn - Trung - Dài hạn' : 'Khóa: Chỉ xem Giai đoạn 1'}
-              </div>
-            </div>
-            <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.unlockRoadmap ? 'bg-emerald-600' : 'bg-slate-300'}`}>
-              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.unlockRoadmap ? 'translate-x-5' : 'translate-x-0'}`} />
             </div>
           </div>
         </div>
 
-        {/* 5. Phân tích ATS & Huy hiệu Top Talent */}
+        {/* 4. Toggles: Full STAR, Roadmap, CV Template, Biometrics */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           <div
-            onClick={() => updatePerm('deltaScoreChart', !perms.deltaScoreChart)}
+            onClick={() => updatePerm('unlockFullStar', !perms.unlockFullStar)}
             className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
-              perms.deltaScoreChart
-                ? 'bg-white border-amber-500 text-amber-950 shadow-xs ring-1 ring-amber-300'
-                : 'bg-white/60 border-slate-200 text-slate-400'
+              perms.unlockFullStar ? 'bg-white border-emerald-400 text-emerald-950 shadow-xs' : 'bg-white/60 border-slate-200 text-slate-400'
             }`}
           >
             <div>
               <div className="font-bold flex items-center gap-1">
-                <span className="material-symbols-outlined text-sm text-amber-600">trending_up</span>
-                <span>Biểu Đồ Delta Score Sau Phỏng Vấn</span>
+                <span className="material-symbols-outlined text-sm text-emerald-600">stars</span>
+                <span>Full Barem Đáp Án STAR 10/10</span>
               </div>
-              <div className="text-[10px] text-slate-500 mt-0.5">Theo dõi tỷ lệ tiến bộ và so sánh cải thiện qua các phiên</div>
+              <div className="text-[10px] text-slate-500 mt-0.5">{perms.unlockFullStar ? 'Mở 100% tất cả các câu' : 'Chỉ mở câu đầu tiên'}</div>
             </div>
-            <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.deltaScoreChart ? 'bg-amber-600' : 'bg-slate-300'}`}>
-              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.deltaScoreChart ? 'translate-x-5' : 'translate-x-0'}`} />
+            <div className={`w-9 h-5 rounded-full p-0.5 transition-colors ${perms.unlockFullStar ? 'bg-emerald-600' : 'bg-slate-300'}`}>
+              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.unlockFullStar ? 'translate-x-4' : 'translate-x-0'}`} />
             </div>
           </div>
 
           <div
-            onClick={() => updatePerm('topTalentBadge', !perms.topTalentBadge)}
+            onClick={() => updatePerm('unlockRoadmap', !perms.unlockRoadmap)}
             className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
-              perms.topTalentBadge
-                ? 'bg-white border-amber-500 text-amber-950 shadow-xs ring-1 ring-amber-300'
-                : 'bg-white/60 border-slate-200 text-slate-400'
+              perms.unlockRoadmap ? 'bg-white border-emerald-400 text-emerald-950 shadow-xs' : 'bg-white/60 border-slate-200 text-slate-400'
             }`}
           >
             <div>
               <div className="font-bold flex items-center gap-1">
-                <span className="material-symbols-outlined text-sm text-amber-600">workspace_premium</span>
-                <span>Huy Hiệu Ứng Viên Nổi Bật (Top Talent)</span>
+                <span className="material-symbols-outlined text-sm text-emerald-600">route</span>
+                <span>Lộ Trình Cải Thiện 3 Giai Đoạn</span>
               </div>
-              <div className="text-[10px] text-slate-500 mt-0.5">Gắn huy hiệu nổi bật và ưu tiên xuất hiện trước Recruiter VIP</div>
+              <div className="text-[10px] text-slate-500 mt-0.5">{perms.unlockRoadmap ? 'Mở đủ Ngắn - Trung - Dài hạn' : 'Chỉ mở Giai đoạn 1'}</div>
             </div>
-            <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.topTalentBadge ? 'bg-amber-600' : 'bg-slate-300'}`}>
-              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.topTalentBadge ? 'translate-x-5' : 'translate-x-0'}`} />
+            <div className={`w-9 h-5 rounded-full p-0.5 transition-colors ${perms.unlockRoadmap ? 'bg-emerald-600' : 'bg-slate-300'}`}>
+              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.unlockRoadmap ? 'translate-x-4' : 'translate-x-0'}`} />
+            </div>
+          </div>
+
+          <div
+            onClick={() => updatePerm('modernCvTemplate', !perms.modernCvTemplate)}
+            className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
+              perms.modernCvTemplate ? 'bg-white border-amber-500 text-amber-950 shadow-xs' : 'bg-white/60 border-slate-200 text-slate-400'
+            }`}
+          >
+            <div>
+              <div className="font-bold flex items-center gap-1">
+                <span className="material-symbols-outlined text-sm text-amber-600">article</span>
+                <span>Mở Khóa Mẫu CV Hiện Đại VIP</span>
+              </div>
+              <div className="text-[10px] text-slate-500 mt-0.5">{perms.modernCvTemplate ? 'Mở đủ 3 mẫu (+ Hiện Đại VIP)' : '2 mẫu tiêu chuẩn (2 Cột & Harvard)'}</div>
+            </div>
+            <div className={`w-9 h-5 rounded-full p-0.5 transition-colors ${perms.modernCvTemplate ? 'bg-amber-600' : 'bg-slate-300'}`}>
+              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.modernCvTemplate ? 'translate-x-4' : 'translate-x-0'}`} />
+            </div>
+          </div>
+
+          <div
+            onClick={() => updatePerm('voiceBiometrics', !perms.voiceBiometrics)}
+            className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
+              perms.voiceBiometrics ? 'bg-white border-amber-500 text-amber-950 shadow-xs' : 'bg-white/60 border-slate-200 text-slate-400'
+            }`}
+          >
+            <div>
+              <div className="font-bold flex items-center gap-1">
+                <span className="material-symbols-outlined text-sm text-amber-600">graphic_eq</span>
+                <span>Sinh Trắc Học Giọng Nói (WPM / Pitch F0)</span>
+              </div>
+              <div className="text-[10px] text-slate-500 mt-0.5">Phân tích tốc độ nói, độ ngân rung và âm lượng cao độ</div>
+            </div>
+            <div className={`w-9 h-5 rounded-full p-0.5 transition-colors ${perms.voiceBiometrics ? 'bg-amber-600' : 'bg-slate-300'}`}>
+              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.voiceBiometrics ? 'translate-x-4' : 'translate-x-0'}`} />
+            </div>
+          </div>
+
+          <div
+            onClick={() => updatePerm('webcamBiometrics', !perms.webcamBiometrics)}
+            className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between sm:col-span-2 ${
+              perms.webcamBiometrics ? 'bg-white border-purple-500 text-purple-950 shadow-xs ring-1 ring-purple-300' : 'bg-white/60 border-slate-200 text-slate-400'
+            }`}
+          >
+            <div>
+              <div className="font-bold flex items-center gap-1">
+                <span className="material-symbols-outlined text-sm text-purple-600">videocam</span>
+                <span>Sinh Trắc Học Ánh Mắt &amp; Cảm Xúc Webcam (Độc quyền Ace)</span>
+              </div>
+              <div className="text-[10px] text-slate-500 mt-0.5">Theo dõi độ tập trung ánh mắt (Eye Gaze) và phân tích vi biểu cảm khuôn mặt qua camera</div>
+            </div>
+            <div className={`w-9 h-5 rounded-full p-0.5 transition-colors ${perms.webcamBiometrics ? 'bg-purple-600' : 'bg-slate-300'}`}>
+              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.webcamBiometrics ? 'translate-x-4' : 'translate-x-0'}`} />
             </div>
           </div>
         </div>
@@ -969,7 +1090,7 @@ function RolePermissionMatrixConfig({ form, setForm, isCand }) {
 
   // RECRUITER PERMISSIONS MATRIX (B2B)
   return (
-    <div className="p-5 rounded-2xl bg-gradient-to-br from-purple-50/70 via-indigo-50/40 to-white border-2 border-purple-200/80 shadow-xs space-y-5">
+    <div className="p-5 rounded-2xl bg-gradient-to-br from-purple-50/70 via-indigo-50/40 to-white border-2 border-purple-200/80 shadow-xs space-y-4">
       <div className="flex items-center justify-between pb-3 border-b border-purple-200/60">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-xl bg-[#5b48bd] text-white flex items-center justify-center shadow-xs">
@@ -977,28 +1098,24 @@ function RolePermissionMatrixConfig({ form, setForm, isCand }) {
           </div>
           <div>
             <span className="font-black text-[#1e1b4b] text-xs uppercase tracking-wide block">
-              Ma Trận Phân Quyền Tuyển Dụng &amp; AI Matching Toàn Diện (B2B)
+              Ma Trận Phân Quyền Doanh Nghiệp (B2B Tiers Matrix)
             </span>
-            <span className="text-[10px] text-slate-500 font-medium">Áp dụng trực tiếp vào Hệ thống Quản trị &amp; Pipeline Nhà Tuyển Dụng</span>
+            <span className="text-[10px] text-slate-500 font-medium">Chuẩn hóa 13 nghiệp vụ SaaS thực tế, bảo vệ quyền riêng tư ứng viên</span>
           </div>
         </div>
         <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-purple-100 text-[#5b48bd] border border-purple-200">
-          Quy chuẩn phân quyền Doanh nghiệp 4 Nhóm
+          Quy chuẩn 4 Gói (Free &bull; Starter &bull; Pro &bull; Elite)
         </span>
       </div>
 
-      {/* NHÓM 1: HẠN NGẠCH CỐT LÕI & QUY MÔ ĐỘI NGŨ */}
-      <div className="p-4 rounded-xl bg-white border border-purple-100 space-y-3">
-        <div className="flex items-center justify-between text-xs font-bold text-[#1e1b4b]">
-          <span className="flex items-center gap-1.5">
-            <span className="material-symbols-outlined text-sm text-[#5b48bd]">tune</span>
-            <span>1. Hạn Ngạch Tuyển Dụng &amp; Quy Mô Đội Ngũ (Quotas &amp; Seats)</span>
-          </span>
-          <span className="text-[10px] font-mono text-purple-700 bg-purple-50 px-2 py-0.5 rounded">Core Quotas</span>
+      {/* 1. Hạn ngạch Cốt lõi & CV Limit */}
+      <div className="p-3.5 rounded-xl bg-white border border-purple-100 space-y-3">
+        <div className="text-[11px] font-bold text-[#1e1b4b] flex items-center gap-1.5">
+          <span className="material-symbols-outlined text-sm text-[#5b48bd]">tune</span>
+          <span>1. Hạn Ngạch Đăng Tin &amp; Mở Khóa Hồ Sơ CV</span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {/* Quota Tin Đăng */}
           <div>
             <label className="text-[11px] font-bold text-slate-700 block mb-1">Tin tuyển dụng active tối đa:</label>
             <div className="flex flex-wrap gap-1">
@@ -1013,9 +1130,7 @@ function RolePermissionMatrixConfig({ form, setForm, isCand }) {
                       setForm((prev) => ({ ...prev, quotaLimit: q }));
                     }}
                     className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
-                      isSelected
-                        ? 'bg-[#5b48bd] text-white border-[#5b48bd] shadow-xs'
-                        : 'bg-white text-slate-700 border-purple-200 hover:bg-purple-50'
+                      isSelected ? 'bg-[#5b48bd] text-white border-[#5b48bd] shadow-xs' : 'bg-white text-slate-700 border-purple-200 hover:bg-purple-50'
                     }`}
                   >
                     {q === 999 ? '∞ Vô hạn' : `${q} tin`}
@@ -1025,33 +1140,32 @@ function RolePermissionMatrixConfig({ form, setForm, isCand }) {
             </div>
           </div>
 
-          {/* Quota Mở Khóa CV */}
           <div>
-            <label className="text-[11px] font-bold text-slate-700 block mb-1">Mở khóa xem CV chi tiết / tháng:</label>
+            <label className="text-[11px] font-bold text-slate-700 block mb-1">Mở khóa xem SĐT/Email &amp; Tải CV gốc:</label>
             <div className="flex flex-wrap gap-1">
-              {[10, 50, 200, 999].map((q) => {
-                const isSelected = (perms.cvUnlockQuota ?? 50) === q;
+              {[0, 30, 100, 9999].map((q) => {
+                const isSelected = (perms.cvViewLimit ?? 0) === q;
                 return (
                   <button
                     key={q}
                     type="button"
-                    onClick={() => updatePerm('cvUnlockQuota', q)}
+                    onClick={() => {
+                      updatePerm('cvViewLimit', q);
+                      updatePerm('unlockDirectContact', q > 0);
+                    }}
                     className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
-                      isSelected
-                        ? 'bg-[#5b48bd] text-white border-[#5b48bd] shadow-xs'
-                        : 'bg-white text-slate-700 border-purple-200 hover:bg-purple-50'
+                      isSelected ? 'bg-[#5b48bd] text-white border-[#5b48bd] shadow-xs' : 'bg-white text-slate-700 border-purple-200 hover:bg-purple-50'
                     }`}
                   >
-                    {q === 999 ? '∞ Vô hạn' : `${q} CV`}
+                    {q === 9999 ? '∞ 9.999 CV' : q === 0 ? '0 CV (Chỉ xem online)' : `${q} CV/tháng`}
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* Team Seats */}
           <div>
-            <label className="text-[11px] font-bold text-slate-700 block mb-1">Số tài khoản HR đội ngũ (Team Seats):</label>
+            <label className="text-[11px] font-bold text-slate-700 block mb-1">Tài khoản HR đội ngũ (Team Seats):</label>
             <div className="flex flex-wrap gap-1">
               {[1, 2, 5, 999].map((s) => {
                 const isSelected = (perms.teamSeats ?? 1) === s;
@@ -1061,12 +1175,10 @@ function RolePermissionMatrixConfig({ form, setForm, isCand }) {
                     type="button"
                     onClick={() => updatePerm('teamSeats', s)}
                     className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
-                      isSelected
-                        ? 'bg-[#5b48bd] text-white border-[#5b48bd] shadow-xs'
-                        : 'bg-white text-slate-700 border-purple-200 hover:bg-purple-50'
+                      isSelected ? 'bg-[#5b48bd] text-white border-[#5b48bd] shadow-xs' : 'bg-white text-slate-700 border-purple-200 hover:bg-purple-50'
                     }`}
                   >
-                    {s === 999 ? '∞ Không giới hạn' : `${s} HR`}
+                    {s === 999 ? '∞ Vô hạn' : `${s} HR`}
                   </button>
                 );
               })}
@@ -1075,222 +1187,136 @@ function RolePermissionMatrixConfig({ form, setForm, isCand }) {
         </div>
       </div>
 
-      {/* NHÓM 2: AI MATCHING & SÀNG LỌC HỒ SƠ */}
-      <div className="p-4 rounded-xl bg-white border border-purple-100 space-y-3">
-        <div className="flex items-center justify-between text-xs font-bold text-[#1e1b4b]">
-          <span className="flex items-center gap-1.5">
-            <span className="material-symbols-outlined text-sm text-indigo-600">psychology</span>
-            <span>2. AI Matching 70/30 &amp; Sàng Lọc Thông Minh (ATS &amp; Gemini AI)</span>
-          </span>
-          <span className="text-[10px] font-mono text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded">AI Engine</span>
+      {/* 2. AI Matching & Báo Cáo Chuyên Sâu */}
+      <div className="p-3.5 rounded-xl bg-white border border-purple-100 space-y-3">
+        <div className="text-[11px] font-bold text-[#1e1b4b] flex items-center gap-1.5">
+          <span className="material-symbols-outlined text-sm text-indigo-600">auto_awesome</span>
+          <span>2. AI ATS Matching &amp; Báo Cáo Phân Tích Chuyên Sâu AI</span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-          {/* Toggle AI Matching 70/30 */}
           <div
             onClick={() => updatePerm('aiMatching', !perms.aiMatching)}
             className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
-              perms.aiMatching
-                ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300'
-                : 'bg-white/60 border-slate-200 text-slate-400'
+              perms.aiMatching ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300' : 'bg-white/60 border-slate-200 text-slate-400'
             }`}
           >
             <div>
               <div className="font-bold flex items-center gap-1">
                 <span className="material-symbols-outlined text-sm text-[#5b48bd]">psychology</span>
-                <span>Thuật Toán AI Matching 70/30 Tự Động</span>
+                <span>Thuật Toán AI Matching 70/30</span>
               </div>
               <div className="text-[10px] text-slate-500 mt-0.5">70% Kỹ năng bắt buộc + 30% Kỹ năng ưu tiên chuẩn ATS</div>
             </div>
-            <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.aiMatching ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
-              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.aiMatching ? 'translate-x-5' : 'translate-x-0'}`} />
+            <div className={`w-9 h-5 rounded-full p-0.5 transition-colors ${perms.aiMatching ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
+              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.aiMatching ? 'translate-x-4' : 'translate-x-0'}`} />
             </div>
           </div>
 
-          {/* Toggle Lọc Top % */}
           <div
-            onClick={() => updatePerm('topCandidateFilter', !perms.topCandidateFilter)}
+            onClick={() => updatePerm('canSeeAiAnalysis', !perms.canSeeAiAnalysis)}
             className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
-              perms.topCandidateFilter
-                ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300'
-                : 'bg-white/60 border-slate-200 text-slate-400'
+              perms.canSeeAiAnalysis ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300' : 'bg-white/60 border-slate-200 text-slate-400'
             }`}
           >
             <div>
               <div className="font-bold flex items-center gap-1">
-                <span className="material-symbols-outlined text-sm text-[#5b48bd]">filter_alt</span>
-                <span>Bộ Lọc Ứng Viên Top % (Top 5% &amp; Top 10%)</span>
+                <span className="material-symbols-outlined text-sm text-[#5b48bd]">analytics</span>
+                <span>Trọn Bộ Báo Cáo Phân Tích Chuyên Sâu AI</span>
               </div>
-              <div className="text-[10px] text-slate-500 mt-0.5">Tự động gắn cờ phân loại ứng viên xuất sắc nhất</div>
+              <div className="text-[10px] text-slate-500 mt-0.5">Skill Gap + Ưu/Nhược điểm + Gợi ý câu hỏi PV (Mở từ gói Pro)</div>
             </div>
-            <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.topCandidateFilter ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
-              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.topCandidateFilter ? 'translate-x-5' : 'translate-x-0'}`} />
-            </div>
-          </div>
-
-          {/* Toggle Skill Gap Matrix */}
-          <div
-            onClick={() => updatePerm('skillGapAnalysis', !perms.skillGapAnalysis)}
-            className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
-              perms.skillGapAnalysis
-                ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300'
-                : 'bg-white/60 border-slate-200 text-slate-400'
-            }`}
-          >
-            <div>
-              <div className="font-bold flex items-center gap-1">
-                <span className="material-symbols-outlined text-sm text-[#5b48bd]">grid_view</span>
-                <span>AI JD Extractor &amp; Skill Gap Matrix</span>
-              </div>
-              <div className="text-[10px] text-slate-500 mt-0.5">Trích xuất kỹ năng JD &amp; phân tích khoảng trống kỹ năng</div>
-            </div>
-            <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.skillGapAnalysis ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
-              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.skillGapAnalysis ? 'translate-x-5' : 'translate-x-0'}`} />
-            </div>
-          </div>
-
-          {/* Toggle Gợi Ý Câu Hỏi Phỏng Vấn AI */}
-          <div
-            onClick={() => updatePerm('aiInterviewQuestions', !perms.aiInterviewQuestions)}
-            className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
-              perms.aiInterviewQuestions
-                ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300'
-                : 'bg-white/60 border-slate-200 text-slate-400'
-            }`}
-          >
-            <div>
-              <div className="font-bold flex items-center gap-1">
-                <span className="material-symbols-outlined text-sm text-[#5b48bd]">quiz</span>
-                <span>Gợi Ý Câu Hỏi Phỏng Vấn Theo JD &amp; CV</span>
-              </div>
-              <div className="text-[10px] text-slate-500 mt-0.5">AI sinh câu hỏi phỏng vấn kỹ thuật &amp; tình huống cho từng ứng viên</div>
-            </div>
-            <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.aiInterviewQuestions ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
-              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.aiInterviewQuestions ? 'translate-x-5' : 'translate-x-0'}`} />
+            <div className={`w-9 h-5 rounded-full p-0.5 transition-colors ${perms.canSeeAiAnalysis ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
+              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.canSeeAiAnalysis ? 'translate-x-4' : 'translate-x-0'}`} />
             </div>
           </div>
         </div>
       </div>
 
-      {/* NHÓM 3: HỒ SƠ ỨNG VIÊN & BÁO CÁO THẨM ĐỊNH AI COPILOT */}
-      <div className="p-4 rounded-xl bg-white border border-purple-100 space-y-3">
-        <div className="flex items-center justify-between text-xs font-bold text-[#1e1b4b]">
-          <span className="flex items-center gap-1.5">
-            <span className="material-symbols-outlined text-sm text-emerald-600">contact_page</span>
-            <span>3. Hồ Sơ Ứng Viên &amp; Đánh Giá AI Copilot (Candidate Assessment)</span>
-          </span>
-          <span className="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">Candidate Data</span>
+      {/* 3. Vận Hành Tuyển Dụng: Batch Action, Excel, Chấm Lại AI */}
+      <div className="p-3.5 rounded-xl bg-white border border-purple-100 space-y-3">
+        <div className="text-[11px] font-bold text-[#1e1b4b] flex items-center gap-1.5">
+          <span className="material-symbols-outlined text-sm text-emerald-600">checklist</span>
+          <span>3. Vận Hành Pipeline &amp; Tác Vụ Nâng Cao</span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-          {/* Toggle Xem CV Gốc & SĐT */}
           <div
-            onClick={() => updatePerm('unlockDirectContact', !perms.unlockDirectContact)}
+            onClick={() => updatePerm('batchAction', !perms.batchAction)}
             className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
-              perms.unlockDirectContact
-                ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300'
-                : 'bg-white/60 border-slate-200 text-slate-400'
+              perms.batchAction ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300' : 'bg-white/60 border-slate-200 text-slate-400'
             }`}
           >
             <div>
               <div className="font-bold flex items-center gap-1">
-                <span className="material-symbols-outlined text-sm text-[#5b48bd]">visibility</span>
-                <span>Xem CV Gốc &amp; SĐT/Email Không Che</span>
+                <span className="material-symbols-outlined text-sm text-[#5b48bd]">select_all</span>
+                <span>Duyệt Ứng Viên Hàng Loạt (Batch Action)</span>
               </div>
-              <div className="text-[10px] text-slate-500 mt-0.5">Mở khóa số điện thoại, email, portfolio và tải file CV gốc</div>
+              <div className="text-[10px] text-slate-500 mt-0.5">Floating Action Bar chuyển trạng thái ứng viên hàng loạt (Pro &amp; Elite)</div>
             </div>
-            <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.unlockDirectContact ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
-              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.unlockDirectContact ? 'translate-x-5' : 'translate-x-0'}`} />
+            <div className={`w-9 h-5 rounded-full p-0.5 transition-colors ${perms.batchAction ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
+              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.batchAction ? 'translate-x-4' : 'translate-x-0'}`} />
             </div>
           </div>
 
-          {/* Toggle Báo Cáo Thẩm Định & Đánh Giá AI Copilot */}
           <div
-            onClick={() => {
-              const currentVal = Boolean(perms.aiCopilotReport ?? perms.viewAiInterviewReport);
-              updatePerm('aiCopilotReport', !currentVal);
-              updatePerm('viewAiInterviewReport', !currentVal);
-            }}
+            onClick={() => updatePerm('exportReport', !perms.exportReport)}
             className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
-              (perms.aiCopilotReport ?? perms.viewAiInterviewReport)
-                ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300'
-                : 'bg-white/60 border-slate-200 text-slate-400'
+              perms.exportReport ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300' : 'bg-white/60 border-slate-200 text-slate-400'
             }`}
           >
             <div>
               <div className="font-bold flex items-center gap-1">
-                <span className="material-symbols-outlined text-sm text-[#5b48bd]">psychology</span>
-                <span>Báo Cáo Thẩm Định &amp; Đánh Giá AI Copilot</span>
+                <span className="material-symbols-outlined text-sm text-[#5b48bd]">table_view</span>
+                <span>Xuất Danh Sách Ứng Viên Ra Excel (.xlsx)</span>
               </div>
-              <div className="text-[10px] text-slate-500 mt-0.5">Phân tích chi tiết ưu điểm, điểm yếu và khuyến nghị tuyển dụng bám sát JD</div>
+              <div className="text-[10px] text-slate-500 mt-0.5">Tải file bảng tính danh sách ứng viên (Mở từ gói Starter)</div>
             </div>
-            <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${(perms.aiCopilotReport ?? perms.viewAiInterviewReport) ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
-              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${(perms.aiCopilotReport ?? perms.viewAiInterviewReport) ? 'translate-x-5' : 'translate-x-0'}`} />
+            <div className={`w-9 h-5 rounded-full p-0.5 transition-colors ${perms.exportReport ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
+              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.exportReport ? 'translate-x-4' : 'translate-x-0'}`} />
             </div>
           </div>
 
-          {/* Toggle Kanban Pipeline */}
           <div
-            onClick={() => updatePerm('kanbanPipeline', !perms.kanbanPipeline)}
+            onClick={() => updatePerm('recalculateAll', !perms.recalculateAll)}
             className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
-              perms.kanbanPipeline
-                ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300'
-                : 'bg-white/60 border-slate-200 text-slate-400'
+              perms.recalculateAll ? 'bg-white border-amber-500 text-amber-950 shadow-xs ring-1 ring-amber-300' : 'bg-white/60 border-slate-200 text-slate-400'
             }`}
           >
             <div>
               <div className="font-bold flex items-center gap-1">
-                <span className="material-symbols-outlined text-sm text-[#5b48bd]">view_kanban</span>
-                <span>Kanban Pipeline &amp; Đặt Lịch Phỏng Vấn</span>
+                <span className="material-symbols-outlined text-sm text-amber-600">sync</span>
+                <span>1-Click AI Chấm Lại Toàn Bộ Hồ Sơ</span>
               </div>
-              <div className="text-[10px] text-slate-500 mt-0.5">Kéo thả ứng viên qua 6 bước tuyển dụng và gửi lịch phỏng vấn</div>
+              <div className="text-[10px] text-slate-500 mt-0.5">Độc quyền Elite: Quét lại toàn bộ hồ sơ theo bộ kỹ năng JD mới cập nhật</div>
             </div>
-            <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.kanbanPipeline ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
-              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.kanbanPipeline ? 'translate-x-5' : 'translate-x-0'}`} />
+            <div className={`w-9 h-5 rounded-full p-0.5 transition-colors ${perms.recalculateAll ? 'bg-amber-600' : 'bg-slate-300'}`}>
+              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.recalculateAll ? 'translate-x-4' : 'translate-x-0'}`} />
             </div>
           </div>
 
-          {/* Toggle Batch Actions */}
           <div
-            onClick={() => updatePerm('batchActions', !perms.batchActions)}
+            onClick={() => updatePerm('featuredJobBadge', !perms.featuredJobBadge)}
             className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
-              perms.batchActions
-                ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300'
-                : 'bg-white/60 border-slate-200 text-slate-400'
+              perms.featuredJobBadge ? 'bg-white border-amber-500 text-amber-950 shadow-xs ring-1 ring-amber-300' : 'bg-white/60 border-slate-200 text-slate-400'
             }`}
           >
             <div>
               <div className="font-bold flex items-center gap-1">
-                <span className="material-symbols-outlined text-sm text-[#5b48bd]">checklist</span>
-                <span>Duyệt &amp; Chuyển Trạng Thái Hàng Loạt</span>
+                <span className="material-symbols-outlined text-sm text-amber-600">verified</span>
+                <span>Huy Hiệu Doanh Nghiệp VIP &amp; Đẩy Top</span>
               </div>
-              <div className="text-[10px] text-slate-500 mt-0.5">Thao tác batch move ứng viên qua vòng tiếp theo chỉ với 1 click</div>
+              <div className="text-[10px] text-slate-500 mt-0.5">Tích xanh doanh nghiệp uy tín, ưu tiên hiển thị vị trí số 1 (Elite)</div>
             </div>
-            <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.batchActions ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
-              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.batchActions ? 'translate-x-5' : 'translate-x-0'}`} />
+            <div className={`w-9 h-5 rounded-full p-0.5 transition-colors ${perms.featuredJobBadge ? 'bg-amber-600' : 'bg-slate-300'}`}>
+              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.featuredJobBadge ? 'translate-x-4' : 'translate-x-0'}`} />
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* NHÓM 4: TỰ ĐỘNG HÓA, THƯƠNG HIỆU & BÁO CÁO */}
-      <div className="p-4 rounded-xl bg-white border border-purple-100 space-y-3">
-        <div className="flex items-center justify-between text-xs font-bold text-[#1e1b4b]">
-          <span className="flex items-center gap-1.5">
-            <span className="material-symbols-outlined text-sm text-purple-600">verified</span>
-            <span>4. Tự Động Hóa, Thương Hiệu &amp; Báo Cáo Chuyên Sâu (Automation &amp; Analytics)</span>
-          </span>
-          <span className="text-[10px] font-mono text-purple-700 bg-purple-50 px-2 py-0.5 rounded">Branding &amp; Growth</span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-          {/* Toggle Email Tự Động Hàng Loạt */}
           <div
             onClick={() => updatePerm('autoEmail', !perms.autoEmail)}
             className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
-              perms.autoEmail
-                ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300'
-                : 'bg-white/60 border-slate-200 text-slate-400'
+              perms.autoEmail ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300' : 'bg-white/60 border-slate-200 text-slate-400'
             }`}
           >
             <div>
@@ -1298,73 +1324,28 @@ function RolePermissionMatrixConfig({ form, setForm, isCand }) {
                 <span className="material-symbols-outlined text-sm text-[#5b48bd]">forward_to_inbox</span>
                 <span>Gửi Email Mời Phỏng Vấn Hàng Loạt</span>
               </div>
-              <div className="text-[10px] text-slate-500 mt-0.5">Tích hợp gửi email tự động kèm địa điểm, link phỏng vấn</div>
+              <div className="text-[10px] text-slate-500 mt-0.5">Tự động gửi email mời phỏng vấn và thông báo kết quả theo template</div>
             </div>
-            <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.autoEmail ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
-              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.autoEmail ? 'translate-x-5' : 'translate-x-0'}`} />
+            <div className={`w-9 h-5 rounded-full p-0.5 transition-colors ${perms.autoEmail ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
+              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.autoEmail ? 'translate-x-4' : 'translate-x-0'}`} />
             </div>
           </div>
 
-          {/* Toggle Huy Hiệu Verified & Đẩy Top Tin */}
           <div
-            onClick={() => updatePerm('featuredJobBadge', !perms.featuredJobBadge)}
+            onClick={() => updatePerm('kanbanPipeline', !perms.kanbanPipeline)}
             className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
-              perms.featuredJobBadge
-                ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300'
-                : 'bg-white/60 border-slate-200 text-slate-400'
+              perms.kanbanPipeline ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300' : 'bg-white/60 border-slate-200 text-slate-400'
             }`}
           >
             <div>
               <div className="font-bold flex items-center gap-1">
-                <span className="material-symbols-outlined text-sm text-[#5b48bd]">verified</span>
-                <span>Huy Hiệu Verified &amp; Đẩy Top Tin 24/7</span>
+                <span className="material-symbols-outlined text-sm text-[#5b48bd]">view_kanban</span>
+                <span>Quản Trị Kanban Pipeline 6 Bước &amp; Lịch</span>
               </div>
-              <div className="text-[10px] text-slate-500 mt-0.5">Gắn tích xanh doanh nghiệp uy tín, ưu tiên vị trí số 1 tìm kiếm</div>
+              <div className="text-[10px] text-slate-500 mt-0.5">Kéo thả ứng viên qua 6 bước tuyển dụng và đặt lịch hẹn</div>
             </div>
-            <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.featuredJobBadge ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
-              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.featuredJobBadge ? 'translate-x-5' : 'translate-x-0'}`} />
-            </div>
-          </div>
-
-          {/* Toggle Xuất Báo Cáo Analytics */}
-          <div
-            onClick={() => updatePerm('exportReport', !perms.exportReport)}
-            className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
-              perms.exportReport
-                ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300'
-                : 'bg-white/60 border-slate-200 text-slate-400'
-            }`}
-          >
-            <div>
-              <div className="font-bold flex items-center gap-1">
-                <span className="material-symbols-outlined text-sm text-[#5b48bd]">analytics</span>
-                <span>Xuất Báo Cáo Talent Analytics (Excel/PDF)</span>
-              </div>
-              <div className="text-[10px] text-slate-500 mt-0.5">Phân tích chuyển đổi phễu tuyển dụng và xuất file Excel chuyên sâu</div>
-            </div>
-            <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.exportReport ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
-              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.exportReport ? 'translate-x-5' : 'translate-x-0'}`} />
-            </div>
-          </div>
-
-          {/* Toggle Tuyển Dụng Ẩn Danh & Hỗ Trợ 24/7 */}
-          <div
-            onClick={() => updatePerm('confidentialHiring', !perms.confidentialHiring)}
-            className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
-              perms.confidentialHiring
-                ? 'bg-white border-[#5b48bd] text-[#1e1b4b] shadow-xs ring-1 ring-purple-300'
-                : 'bg-white/60 border-slate-200 text-slate-400'
-            }`}
-          >
-            <div>
-              <div className="font-bold flex items-center gap-1">
-                <span className="material-symbols-outlined text-sm text-[#5b48bd]">visibility_off</span>
-                <span>Đăng Tin Ẩn Danh / Bảo Mật Doanh Nghiệp</span>
-              </div>
-              <div className="text-[10px] text-slate-500 mt-0.5">Tùy chọn che giấu tên thương hiệu và thông tin nhạy cảm khi tuyển dụng</div>
-            </div>
-            <div className={`w-10 h-5 rounded-full p-0.5 transition-colors ${perms.confidentialHiring ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
-              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.confidentialHiring ? 'translate-x-5' : 'translate-x-0'}`} />
+            <div className={`w-9 h-5 rounded-full p-0.5 transition-colors ${perms.kanbanPipeline ? 'bg-[#5b48bd]' : 'bg-slate-300'}`}>
+              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${perms.kanbanPipeline ? 'translate-x-4' : 'translate-x-0'}`} />
             </div>
           </div>
         </div>
@@ -1486,81 +1467,71 @@ const INITIAL_JOBS = [
  */
 export const serializePermissionsToDescription = (perms, features = []) => {
   if (!perms) return (features || []).join(';');
-  const pairs = [
-    `maxQ=${perms.maxQuestions || 3}`,
-    `maxDur=${(perms.maxDurationMinutes || 5) * 60}`,
-    `personas=${(perms.allowedPersonas || ['HR_MANAGER']).join(',')}`,
-    `voices=${(perms.allowedVoices || ['vi-native']).join(',')}`,
-    `coachHints=${perms.coachHints ?? 1}`,
-    `fullStar=${Boolean(perms.unlockFullStar)}`,
-    `roadmap=${Boolean(perms.unlockRoadmap)}`,
-    `deltaChart=${Boolean(perms.deltaScoreChart ?? true)}`,
-    `atsScanQuota=${perms.atsScanQuota || 3}`,
-    `topTalent=${Boolean(perms.topTalentBadge)}`,
-    `jobQuota=${perms.jobPostingQuota || 3}`,
-    `cvQuota=${perms.cvUnlockQuota || 10}`,
-    `seats=${perms.teamSeats || 1}`,
-    `aiMatch=${Boolean(perms.aiMatching ?? true)}`,
-    `topFilter=${Boolean(perms.topCandidateFilter)}`,
-    `skillGap=${Boolean(perms.skillGapAnalysis)}`,
-    `aiQuestions=${Boolean(perms.aiInterviewQuestions)}`,
-    `directCv=${Boolean(perms.unlockDirectContact)}`,
-    `voiceReport=${Boolean(perms.viewAiInterviewReport)}`,
-    `kanban=${Boolean(perms.kanbanPipeline ?? true)}`,
-    `batchActions=${Boolean(perms.batchActions)}`,
-    `verifiedBadge=${Boolean(perms.featuredJobBadge)}`,
-    `analytics=${Boolean(perms.exportReport)}`,
-    `bulkEmail=${Boolean(perms.autoEmail)}`,
-    `confidential=${Boolean(perms.confidentialHiring)}`,
-    `support=${Boolean(perms.prioritySupport)}`,
-  ];
-  const tag = `[PERMS:${pairs.join(';')}]`;
   const cleanFeatures = (features || []).filter((f) => !f.startsWith('[PERMS:'));
+
+  const isCand = perms.interviewQuotaPerDay !== undefined || perms.maxQuestions !== undefined || perms.allowedPersonas !== undefined;
+
+  let payload = {};
+  if (isCand) {
+    payload = {
+      interviewLimit: perms.interviewQuotaPerDay ?? 2,
+      maxQ: perms.maxQuestions ?? 3,
+      maxDur: (perms.maxDurationMinutes ?? 5) * 60,
+      personas: Array.isArray(perms.allowedPersonas) ? perms.allowedPersonas.join(',') : (perms.allowedPersonas || 'HR_MANAGER'),
+      voices: Array.isArray(perms.allowedVoices) ? perms.allowedVoices.join(',') : (perms.allowedVoices || 'vi-native'),
+      coachHints: perms.coachHints ?? 1,
+      fullStar: Boolean(perms.unlockFullStar),
+      roadmap: Boolean(perms.unlockRoadmap),
+      cvLimit: perms.maxCvLimit ?? 2,
+      aiSummaryLimit: perms.aiSummaryLimit ?? 1,
+      cvJdReportLimit: perms.cvJdReportLimit ?? 3,
+      modernCvTemplate: Boolean(perms.modernCvTemplate),
+      voiceBiometrics: Boolean(perms.voiceBiometrics),
+      webcamBiometrics: Boolean(perms.webcamBiometrics),
+    };
+  } else {
+    payload = {
+      jobLimit: perms.jobPostingQuota ?? 3,
+      jobQuota: perms.jobPostingQuota ?? 3,
+      jobPostingQuota: perms.jobPostingQuota ?? 3,
+      cvViewLimit: perms.cvViewLimit ?? 0,
+      aiMatching: Boolean(perms.aiMatching ?? true),
+      canSeeAiAnalysis: Boolean(perms.canSeeAiAnalysis),
+      batchAction: Boolean(perms.batchAction),
+      exportReport: Boolean(perms.exportReport),
+      recalculateAll: Boolean(perms.recalculateAll),
+      featuredJobBadge: Boolean(perms.featuredJobBadge),
+      autoEmail: Boolean(perms.autoEmail),
+      kanbanPipeline: Boolean(perms.kanbanPipeline ?? true),
+      teamSeats: perms.teamSeats ?? 1,
+      unlockDirectContact: Boolean((perms.cvViewLimit ?? 0) > 0 || perms.unlockDirectContact),
+    };
+  }
+
+  const tag = `[PERMS:${JSON.stringify(payload)}]`;
   return `${tag} ${cleanFeatures.join(';')}`.trim();
 };
 
-/**
- * Helper: Trích xuất phân quyền chi tiết từ cột description trên Supabase (hoặc suy luận fallback theo hạng mức)
- */
 export const parsePermissionsFromDescription = (desc = '', targetRole = 'CANDIDATE', quotaLimit = 2, planName = '') => {
   const isCand = String(targetRole || '').toUpperCase() === 'CANDIDATE';
   const name = String(planName || '').toLowerCase();
-  const isFree = name.includes('free') || quotaLimit <= 2;
-  const isPlus = name.includes('plus') || quotaLimit <= 10;
-  const isPro = name.includes('pro') || name.includes('ace') || quotaLimit >= 30;
-  const isElite = name.includes('elite') || name.includes('enterprise') || quotaLimit >= 999;
+  const numQuota = Number(quotaLimit || 0);
 
-  const defaultPerms = isCand ? {
-    interviewQuotaPerDay: isFree ? 2 : isPlus ? 10 : isPro ? 30 : 999,
-    maxQuestions: isFree ? 3 : isPlus ? 5 : isPro ? 7 : 8,
-    maxDurationMinutes: isFree ? 5 : isPlus ? 10 : isPro ? 15 : 20,
-    allowedPersonas: isFree ? ['HR_MANAGER'] : isPlus ? ['HR_MANAGER', 'TECH_LEAD'] : ['HR_MANAGER', 'TECH_LEAD', 'STRICT_DIRECTOR'],
-    allowedVoices: isFree ? ['vi-native'] : isPlus ? ['vi-native', 'eleven-alice'] : ['vi-native', 'eleven-alice', 'eleven-george'],
-    coachHints: isFree ? 1 : isPlus ? 3 : 999,
-    unlockFullStar: !isFree,
-    unlockRoadmap: !isFree,
-    deltaScoreChart: !isFree,
-    atsCvAnalysis: true,
-    atsScanQuota: isFree ? 3 : isPlus ? 20 : 999,
-    topTalentBadge: isPro || isElite,
-  } : {
-    jobPostingQuota: quotaLimit || (isFree ? 3 : isPlus ? 10 : isPro ? 30 : 999),
-    cvUnlockQuota: isFree ? 10 : isPlus ? 50 : isPro ? 200 : 999,
-    teamSeats: isFree ? 1 : isPlus ? 2 : isPro ? 5 : 999,
-    aiMatching: true,
-    topCandidateFilter: !isFree,
-    skillGapAnalysis: !isFree,
-    aiInterviewQuestions: !isFree,
-    unlockDirectContact: !isFree,
-    viewAiInterviewReport: isPro || isElite,
-    kanbanPipeline: true,
-    batchActions: isPro || isElite,
-    featuredJobBadge: isPro || isElite,
-    exportReport: !isFree,
-    autoEmail: isPro || isElite,
-    confidentialHiring: isElite,
-    prioritySupport: isElite,
-  };
+  const defaultCand = (() => {
+    if (name.includes('ace') || name.includes('career') || numQuota >= 999) return CANDIDATE_TIER_PRESETS[3].permissions;
+    if (name.includes('pro') || (numQuota >= 15 && numQuota < 999)) return CANDIDATE_TIER_PRESETS[2].permissions;
+    if (name.includes('plus') || (numQuota >= 5 && numQuota < 15)) return CANDIDATE_TIER_PRESETS[1].permissions;
+    return CANDIDATE_TIER_PRESETS[0].permissions;
+  })();
+
+  const defaultRec = (() => {
+    if (name.includes('elite') || name.includes('enterprise') || numQuota >= 999) return RECRUITER_TIER_PRESETS[3].permissions;
+    if (name.includes('pro') || (numQuota >= 30 && numQuota < 999)) return RECRUITER_TIER_PRESETS[2].permissions;
+    if (name.includes('starter') || (numQuota >= 10 && numQuota < 30)) return RECRUITER_TIER_PRESETS[1].permissions;
+    return RECRUITER_TIER_PRESETS[0].permissions;
+  })();
+
+  const defaultPerms = isCand ? { ...defaultCand } : { ...defaultRec };
 
   if (!desc || !desc.includes('[PERMS:')) {
     return defaultPerms;
@@ -1570,7 +1541,50 @@ export const parsePermissionsFromDescription = (desc = '', targetRole = 'CANDIDA
     const start = desc.indexOf('[PERMS:') + 7;
     const end = desc.indexOf(']', start);
     if (end > start) {
-      const permsStr = desc.substring(start, end);
+      const permsStr = desc.substring(start, end).trim();
+
+      // JSON format
+      if (permsStr.startsWith('{') && permsStr.endsWith('}')) {
+        const j = JSON.parse(permsStr);
+        if (isCand) {
+          return {
+            ...defaultPerms,
+            interviewQuotaPerDay: j.interviewLimit ?? j.interviewQuotaPerDay ?? defaultPerms.interviewQuotaPerDay,
+            maxQuestions: j.maxQ ?? j.maxQuestions ?? defaultPerms.maxQuestions,
+            maxDurationMinutes: j.maxDur ? Math.round(Number(j.maxDur) / 60) : (j.maxDurationMinutes ?? defaultPerms.maxDurationMinutes),
+            allowedPersonas: j.personas ? (Array.isArray(j.personas) ? j.personas : j.personas.split(',').map(s => s.trim())) : defaultPerms.allowedPersonas,
+            allowedVoices: j.voices ? (Array.isArray(j.voices) ? j.voices : j.voices.split(',').map(s => s.trim())) : defaultPerms.allowedVoices,
+            coachHints: j.coachHints ?? defaultPerms.coachHints,
+            unlockFullStar: j.fullStar !== undefined ? Boolean(j.fullStar) : (j.unlockFullStar !== undefined ? Boolean(j.unlockFullStar) : defaultPerms.unlockFullStar),
+            unlockRoadmap: j.roadmap !== undefined ? Boolean(j.roadmap) : (j.unlockRoadmap !== undefined ? Boolean(j.unlockRoadmap) : defaultPerms.unlockRoadmap),
+            maxCvLimit: j.cvLimit ?? j.maxCvLimit ?? defaultPerms.maxCvLimit,
+            aiSummaryLimit: j.aiSummaryLimit ?? defaultPerms.aiSummaryLimit,
+            cvJdReportLimit: j.cvJdReportLimit ?? defaultPerms.cvJdReportLimit,
+            modernCvTemplate: j.modernCvTemplate !== undefined ? Boolean(j.modernCvTemplate) : defaultPerms.modernCvTemplate,
+            voiceBiometrics: j.voiceBiometrics !== undefined ? Boolean(j.voiceBiometrics) : defaultPerms.voiceBiometrics,
+            webcamBiometrics: j.webcamBiometrics !== undefined ? Boolean(j.webcamBiometrics) : defaultPerms.webcamBiometrics,
+            atsCvAnalysis: true,
+          };
+        } else {
+          return {
+            ...defaultPerms,
+            jobPostingQuota: j.jobPostingQuota ?? j.jobQuota ?? j.jobLimit ?? defaultPerms.jobPostingQuota,
+            cvViewLimit: j.cvViewLimit !== undefined ? Number(j.cvViewLimit) : defaultPerms.cvViewLimit,
+            aiMatching: j.aiMatching !== undefined ? Boolean(j.aiMatching) : defaultPerms.aiMatching,
+            canSeeAiAnalysis: j.canSeeAiAnalysis !== undefined ? Boolean(j.canSeeAiAnalysis) : defaultPerms.canSeeAiAnalysis,
+            batchAction: j.batchAction !== undefined ? Boolean(j.batchAction) : defaultPerms.batchAction,
+            exportReport: j.exportReport !== undefined ? Boolean(j.exportReport) : defaultPerms.exportReport,
+            recalculateAll: j.recalculateAll !== undefined ? Boolean(j.recalculateAll) : defaultPerms.recalculateAll,
+            featuredJobBadge: j.featuredJobBadge !== undefined ? Boolean(j.featuredJobBadge) : defaultPerms.featuredJobBadge,
+            autoEmail: j.autoEmail !== undefined ? Boolean(j.autoEmail) : defaultPerms.autoEmail,
+            kanbanPipeline: j.kanbanPipeline !== undefined ? Boolean(j.kanbanPipeline) : defaultPerms.kanbanPipeline,
+            teamSeats: j.teamSeats !== undefined ? Number(j.teamSeats) : defaultPerms.teamSeats,
+            unlockDirectContact: Boolean((j.cvViewLimit !== undefined ? Number(j.cvViewLimit) : defaultPerms.cvViewLimit) > 0 || j.unlockDirectContact),
+          };
+        }
+      }
+
+      // Semicolon format fallback
       const dict = {};
       permsStr.split(';').forEach((p) => {
         const [k, v] = p.split('=');
@@ -1579,7 +1593,8 @@ export const parsePermissionsFromDescription = (desc = '', targetRole = 'CANDIDA
 
       if (isCand) {
         return {
-          interviewQuotaPerDay: quotaLimit || (dict.maxQ ? (parseInt(dict.maxQ, 10) >= 8 ? 999 : parseInt(dict.maxQ, 10) >= 7 ? 30 : 10) : defaultPerms.interviewQuotaPerDay),
+          ...defaultPerms,
+          interviewQuotaPerDay: dict.interviewLimit ? parseInt(dict.interviewLimit, 10) : defaultPerms.interviewQuotaPerDay,
           maxQuestions: dict.maxQ ? parseInt(dict.maxQ, 10) : defaultPerms.maxQuestions,
           maxDurationMinutes: dict.maxDur ? Math.round(parseInt(dict.maxDur, 10) / 60) : defaultPerms.maxDurationMinutes,
           allowedPersonas: dict.personas ? dict.personas.split(',').map((s) => s.trim()).filter(Boolean) : defaultPerms.allowedPersonas,
@@ -1587,29 +1602,28 @@ export const parsePermissionsFromDescription = (desc = '', targetRole = 'CANDIDA
           coachHints: dict.coachHints !== undefined ? parseInt(dict.coachHints, 10) : defaultPerms.coachHints,
           unlockFullStar: dict.fullStar !== undefined ? dict.fullStar === 'true' : defaultPerms.unlockFullStar,
           unlockRoadmap: dict.roadmap !== undefined ? dict.roadmap === 'true' : defaultPerms.unlockRoadmap,
-          deltaScoreChart: dict.deltaChart !== undefined ? dict.deltaChart === 'true' : defaultPerms.deltaScoreChart,
+          maxCvLimit: dict.cvLimit ? parseInt(dict.cvLimit, 10) : (dict.maxCvLimit ? parseInt(dict.maxCvLimit, 10) : defaultPerms.maxCvLimit),
+          aiSummaryLimit: dict.aiSummaryLimit !== undefined ? parseInt(dict.aiSummaryLimit, 10) : defaultPerms.aiSummaryLimit,
+          cvJdReportLimit: dict.cvJdReportLimit ? parseInt(dict.cvJdReportLimit, 10) : defaultPerms.cvJdReportLimit,
+          modernCvTemplate: dict.modernCvTemplate !== undefined ? dict.modernCvTemplate === 'true' : defaultPerms.modernCvTemplate,
+          voiceBiometrics: dict.voiceBiometrics !== undefined ? dict.voiceBiometrics === 'true' : defaultPerms.voiceBiometrics,
+          webcamBiometrics: dict.webcamBiometrics !== undefined ? dict.webcamBiometrics === 'true' : defaultPerms.webcamBiometrics,
           atsCvAnalysis: true,
-          atsScanQuota: dict.atsScanQuota ? parseInt(dict.atsScanQuota, 10) : defaultPerms.atsScanQuota,
-          topTalentBadge: dict.topTalent !== undefined ? dict.topTalent === 'true' : defaultPerms.topTalentBadge,
         };
       } else {
         return {
-          jobPostingQuota: dict.jobQuota ? parseInt(dict.jobQuota, 10) : defaultPerms.jobPostingQuota,
-          cvUnlockQuota: dict.cvQuota ? parseInt(dict.cvQuota, 10) : defaultPerms.cvUnlockQuota,
-          teamSeats: dict.seats ? parseInt(dict.seats, 10) : defaultPerms.teamSeats,
+          ...defaultPerms,
+          jobPostingQuota: dict.jobQuota ? parseInt(dict.jobQuota, 10) : (dict.jobLimit ? parseInt(dict.jobLimit, 10) : defaultPerms.jobPostingQuota),
+          cvViewLimit: dict.cvViewLimit !== undefined ? parseInt(dict.cvViewLimit, 10) : (dict.cvQuota !== undefined ? parseInt(dict.cvQuota, 10) : defaultPerms.cvViewLimit),
+          canSeeAiAnalysis: dict.canSeeAiAnalysis !== undefined ? dict.canSeeAiAnalysis === 'true' : (dict.skillGap !== undefined ? dict.skillGap === 'true' : defaultPerms.canSeeAiAnalysis),
+          batchAction: dict.batchAction !== undefined ? dict.batchAction === 'true' : (dict.batchActions !== undefined ? dict.batchActions === 'true' : defaultPerms.batchAction),
+          exportReport: dict.analytics !== undefined ? dict.analytics === 'true' : (dict.exportReport !== undefined ? dict.exportReport === 'true' : defaultPerms.exportReport),
+          recalculateAll: dict.recalculateAll !== undefined ? dict.recalculateAll === 'true' : defaultPerms.recalculateAll,
           aiMatching: dict.aiMatch !== undefined ? dict.aiMatch === 'true' : defaultPerms.aiMatching,
-          topCandidateFilter: dict.topFilter !== undefined ? dict.topFilter === 'true' : defaultPerms.topCandidateFilter,
-          skillGapAnalysis: dict.skillGap !== undefined ? dict.skillGap === 'true' : defaultPerms.skillGapAnalysis,
-          aiInterviewQuestions: dict.aiQuestions !== undefined ? dict.aiQuestions === 'true' : defaultPerms.aiInterviewQuestions,
-          unlockDirectContact: dict.directCv !== undefined ? dict.directCv === 'true' : defaultPerms.unlockDirectContact,
-          viewAiInterviewReport: dict.voiceReport !== undefined ? dict.voiceReport === 'true' : defaultPerms.viewAiInterviewReport,
-          kanbanPipeline: dict.kanban !== undefined ? dict.kanban === 'true' : defaultPerms.kanbanPipeline,
-          batchActions: dict.batchActions !== undefined ? dict.batchActions === 'true' : defaultPerms.batchActions,
-          featuredJobBadge: dict.verifiedBadge !== undefined ? dict.verifiedBadge === 'true' : defaultPerms.featuredJobBadge,
-          exportReport: dict.analytics !== undefined ? dict.analytics === 'true' : defaultPerms.exportReport,
-          autoEmail: dict.bulkEmail !== undefined ? dict.bulkEmail === 'true' : defaultPerms.autoEmail,
-          confidentialHiring: dict.confidential !== undefined ? dict.confidential === 'true' : defaultPerms.confidentialHiring,
-          prioritySupport: dict.support !== undefined ? dict.support === 'true' : defaultPerms.prioritySupport,
+          featuredJobBadge: dict.verifiedBadge !== undefined ? dict.verifiedBadge === 'true' : (dict.featuredJobBadge !== undefined ? dict.featuredJobBadge === 'true' : defaultPerms.featuredJobBadge),
+          autoEmail: dict.bulkEmail !== undefined ? dict.bulkEmail === 'true' : (dict.autoEmail !== undefined ? dict.autoEmail === 'true' : defaultPerms.autoEmail),
+          teamSeats: dict.seats ? parseInt(dict.seats, 10) : (dict.teamSeats ? parseInt(dict.teamSeats, 10) : defaultPerms.teamSeats),
+          unlockDirectContact: Boolean((dict.cvViewLimit !== undefined ? parseInt(dict.cvViewLimit, 10) : defaultPerms.cvViewLimit) > 0 || dict.directCv === 'true'),
         };
       }
     }
@@ -1619,9 +1633,6 @@ export const parsePermissionsFromDescription = (desc = '', targetRole = 'CANDIDA
   return defaultPerms;
 };
 
-/**
- * Reusable Executive Pagination Bar for HireMate Admin & Recruiter Dashboards
- */
 function PaginationBar({ currentPage, totalItems, pageSize = 8, onPageChange, label = 'mục' }) {
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   if (totalItems === 0) return null;
@@ -2646,27 +2657,15 @@ export default function AdminDashboardPage({ user, onLogout }) {
   const [packageSearch, setPackageSearch] = useState('');
   const [showCreatePackageModal, setShowCreatePackageModal] = useState(false);
   const [newPackageForm, setNewPackageForm] = useState({
-    planName: '',
+    planName: RECRUITER_TIER_PRESETS[1].planName,
     targetRole: 'RECRUITER',
-    planType: 'COMBO',
-    price: 499000,
+    planType: 'JOB_POSTING',
+    price: RECRUITER_TIER_PRESETS[1].price,
     durationDays: 30,
     quotaLimit: 10,
-    description: '',
-    features: [
-      'Đăng tin tuyển dụng theo hạn ngạch',
-      'Thuật toán AI Matching 70/30 tự động',
-      'Lọc ứng viên Top 5% xuất sắc nhất',
-      'Mở khóa xem CV & thông tin liên hệ đầy đủ',
-    ],
-    permissions: {
-      jobPostingQuota: 10,
-      aiMatching: true,
-      unlockDirectContact: true,
-      featuredJobBadge: false,
-      exportReport: true,
-      autoEmail: false,
-    },
+    description: RECRUITER_TIER_PRESETS[1].description,
+    features: [...RECRUITER_TIER_PRESETS[1].features],
+    permissions: { ...RECRUITER_TIER_PRESETS[1].permissions },
   });
   const [editPackageForm, setEditPackageForm] = useState(null);
 
@@ -6215,20 +6214,23 @@ export default function AdminDashboardPage({ user, onLogout }) {
 
                         {/* Dynamic System Entitlements Badges */}
                         {(() => {
-                          const p = pkg.permissions || parsePermissionsFromDescription('', pkg.targetRole, pkg.quotaLimit, pkg.name);
+                          const p = pkg.permissions || parsePermissionsFromDescription(pkg.description, pkg.targetRole, pkg.quotaLimit, pkg.name);
                           if (isCand) {
                             return (
                               <div className="mt-3 p-2.5 rounded-xl bg-amber-50/50 border border-amber-200/70 text-[11px] space-y-1.5">
                                 <div className="text-[10px] font-black text-amber-900 uppercase tracking-wider flex items-center gap-1">
                                   <span className="material-symbols-outlined text-xs">verified_user</span>
-                                  <span>Đặc quyền phòng phỏng vấn AI Studio:</span>
+                                  <span>Đặc quyền phân hạng ứng viên:</span>
                                 </div>
                                 <div className="flex flex-wrap gap-1">
                                   <span className="px-2 py-0.5 rounded-md bg-white border border-amber-300 text-amber-900 font-bold">
-                                    {p.maxQuestions || 3} câu/phiên
+                                    {p.interviewQuotaPerDay === 999 ? '∞ Buổi PV' : `${p.interviewQuotaPerDay || pkg.quotaLimit || 2} buổi/ngày`}
                                   </span>
                                   <span className="px-2 py-0.5 rounded-md bg-white border border-amber-300 text-amber-900 font-bold">
-                                    {p.maxDurationMinutes || 5} phút/phiên
+                                    {p.maxQuestions || 3} câu/buổi
+                                  </span>
+                                  <span className="px-2 py-0.5 rounded-md bg-white border border-amber-300 text-amber-900 font-bold">
+                                    {p.maxDurationMinutes || 5} phút/buổi
                                   </span>
                                   <span className="px-2 py-0.5 rounded-md bg-white border border-amber-300 text-amber-900 font-bold">
                                     {p.allowedPersonas?.length || 1}/3 Personas
@@ -6237,7 +6239,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
                                     {p.allowedVoices?.length || 1}/3 Giọng đọc
                                   </span>
                                   <span className="px-2 py-0.5 rounded-md bg-white border border-amber-300 text-amber-900 font-bold">
-                                    {p.coachHints === 999 ? '∞ Gợi ý Coach' : `${p.coachHints || 1} gợi ý Coach`}
+                                    {p.coachHints === 999 ? '∞ Gợi ý Coach' : `${p.coachHints || 1} gợi ý`}
                                   </span>
                                   <span className={`px-2 py-0.5 rounded-md border font-bold ${p.unlockFullStar ? 'bg-emerald-100 border-emerald-300 text-emerald-900' : 'bg-slate-100 border-slate-300 text-slate-500'}`}>
                                     {p.unlockFullStar ? 'Full STAR 10/10' : 'STAR mẫu câu 1'}
@@ -6245,6 +6247,22 @@ export default function AdminDashboardPage({ user, onLogout }) {
                                   <span className={`px-2 py-0.5 rounded-md border font-bold ${p.unlockRoadmap ? 'bg-emerald-100 border-emerald-300 text-emerald-900' : 'bg-slate-100 border-slate-300 text-slate-500'}`}>
                                     {p.unlockRoadmap ? 'Trọn bộ 3 GĐ' : 'Lộ trình GĐ 1'}
                                   </span>
+                                  <span className="px-2 py-0.5 rounded-md bg-white border border-amber-300 text-amber-900 font-bold">
+                                    Kho CV: {p.maxCvLimit === 999 ? '∞ Vô hạn' : `${p.maxCvLimit || 2} bản`}
+                                  </span>
+                                  <span className={`px-2 py-0.5 rounded-md border font-bold ${p.modernCvTemplate ? 'bg-purple-100 border-purple-300 text-[#5b48bd]' : 'bg-slate-100 border-slate-300 text-slate-500'}`}>
+                                    {p.modernCvTemplate ? 'Mẫu CV VIP' : 'CV Tiêu chuẩn'}
+                                  </span>
+                                  {p.voiceBiometrics && (
+                                    <span className="px-2 py-0.5 rounded-md border font-bold bg-amber-100 border-amber-300 text-amber-900">
+                                      Voice Biometrics
+                                    </span>
+                                  )}
+                                  {p.webcamBiometrics && (
+                                    <span className="px-2 py-0.5 rounded-md border font-bold bg-purple-100 border-purple-300 text-[#5b48bd]">
+                                      Webcam Biometrics
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                             );
@@ -6259,17 +6277,26 @@ export default function AdminDashboardPage({ user, onLogout }) {
                                 <span className={`px-2 py-0.5 rounded-md border font-bold ${p.aiMatching ? 'bg-purple-100 border-purple-300 text-[#5b48bd]' : 'bg-slate-100 border-slate-300 text-slate-400'}`}>
                                   AI Match 70/30: {p.aiMatching ? 'BẬT' : 'TẮT'}
                                 </span>
-                                <span className={`px-2 py-0.5 rounded-md border font-bold ${p.unlockDirectContact ? 'bg-purple-100 border-purple-300 text-[#5b48bd]' : 'bg-slate-100 border-slate-300 text-slate-400'}`}>
-                                  Xem CV gốc: {p.unlockDirectContact ? 'MỞ' : 'KHÓA'}
+                                <span className={`px-2 py-0.5 rounded-md border font-bold ${p.cvViewLimit > 0 ? 'bg-emerald-100 border-emerald-300 text-emerald-900' : 'bg-slate-100 border-slate-300 text-slate-500'}`}>
+                                  Mở CV: {p.cvViewLimit === 9999 ? '∞ 9.999' : (p.cvViewLimit ? `${p.cvViewLimit} CV/tháng` : '0 CV (Xem online)')}
                                 </span>
-                                <span className={`px-2 py-0.5 rounded-md border font-bold ${p.featuredJobBadge ? 'bg-emerald-100 border-emerald-300 text-emerald-900' : 'bg-slate-100 border-slate-300 text-slate-400'}`}>
-                                  Huy hiệu Top: {p.featuredJobBadge ? 'CÓ' : 'KHÔNG'}
+                                <span className={`px-2 py-0.5 rounded-md border font-bold ${p.canSeeAiAnalysis ? 'bg-emerald-100 border-emerald-300 text-emerald-900' : 'bg-slate-100 border-slate-300 text-slate-400'}`}>
+                                  Báo Cáo AI: {p.canSeeAiAnalysis ? 'MỞ KHÓA' : 'KHÓA'}
+                                </span>
+                                <span className={`px-2 py-0.5 rounded-md border font-bold ${p.batchAction ? 'bg-purple-100 border-purple-300 text-[#5b48bd]' : 'bg-slate-100 border-slate-300 text-slate-400'}`}>
+                                  Duyệt Hàng Loạt: {p.batchAction ? 'MỞ KHÓA' : 'KHÓA'}
                                 </span>
                                 <span className={`px-2 py-0.5 rounded-md border font-bold ${p.exportReport ? 'bg-purple-100 border-purple-300 text-[#5b48bd]' : 'bg-slate-100 border-slate-300 text-slate-400'}`}>
-                                  Xuất Báo Cáo: {p.exportReport ? 'CÓ' : 'KHÔNG'}
+                                  Xuất Excel: {p.exportReport ? 'MỞ KHÓA' : 'KHÓA'}
                                 </span>
-                                <span className={`px-2 py-0.5 rounded-md border font-bold ${p.autoEmail ? 'bg-purple-100 border-purple-300 text-[#5b48bd]' : 'bg-slate-100 border-slate-300 text-slate-400'}`}>
-                                  Email Tự Động: {p.autoEmail ? 'CÓ' : 'KHÔNG'}
+                                <span className={`px-2 py-0.5 rounded-md border font-bold ${p.recalculateAll ? 'bg-amber-100 border-amber-300 text-amber-900' : 'bg-slate-100 border-slate-300 text-slate-400'}`}>
+                                  Chấm Lại AI: {p.recalculateAll ? '1-CLICK ELITE' : 'KHÓA'}
+                                </span>
+                                <span className={`px-2 py-0.5 rounded-md border font-bold ${p.featuredJobBadge ? 'bg-amber-100 border-amber-300 text-amber-900' : 'bg-slate-100 border-slate-300 text-slate-400'}`}>
+                                  Huy Hiệu VIP: {p.featuredJobBadge ? 'CÓ' : 'KHÔNG'}
+                                </span>
+                                <span className="px-2 py-0.5 rounded-md bg-white border border-purple-200 text-[#5b48bd] font-bold">
+                                  Seats: {p.teamSeats || 1} HR
                                 </span>
                               </div>
                             </div>
@@ -10393,6 +10420,42 @@ export default function AdminDashboardPage({ user, onLogout }) {
                 </div>
               </div>
 
+              {/* 1-Click Quick Tier Presets */}
+              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80">
+                <div className="text-[11px] font-bold text-slate-700 mb-1.5 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-sm text-[#5b48bd]">bolt</span>
+                    <span>Điền nhanh theo gói mẫu chuẩn (1-Click Quick Preset):</span>
+                  </span>
+                  <span className="text-[10px] text-slate-400">Tự động cấu hình giá, hạn ngạch &amp; đặc quyền</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                  {(newPackageForm.targetRole === 'CANDIDATE' ? CANDIDATE_TIER_PRESETS : RECRUITER_TIER_PRESETS).map((preset) => (
+                    <button
+                      key={preset.key}
+                      type="button"
+                      onClick={() => {
+                        setNewPackageForm((prev) => ({
+                          ...prev,
+                          planName: preset.planName,
+                          planType: preset.planType,
+                          price: preset.price,
+                          durationDays: preset.durationDays,
+                          quotaLimit: preset.quotaLimit,
+                          description: preset.description,
+                          features: [...preset.features],
+                          permissions: { ...preset.permissions },
+                        }));
+                      }}
+                      className="px-2.5 py-1.5 rounded-xl text-left bg-white border border-slate-200 hover:border-[#5b48bd] hover:bg-purple-50/50 transition-all cursor-pointer shadow-2xs"
+                    >
+                      <div className="font-bold text-[11px] text-[#1e1b4b] truncate">{preset.label}</div>
+                      <div className="text-[10px] text-slate-500 font-semibold">{preset.price === 0 ? 'Miễn phí' : `${preset.price.toLocaleString('vi-VN')} đ`} &bull; {preset.durationDays}d</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Package Name & Type */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -10624,6 +10687,41 @@ export default function AdminDashboardPage({ user, onLogout }) {
             </div>
 
             <div className="space-y-4 text-xs">
+              {/* 1-Click Quick Tier Presets in Edit Modal */}
+              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80">
+                <div className="text-[11px] font-bold text-slate-700 mb-1.5 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-sm text-[#5b48bd]">bolt</span>
+                    <span>Khôi phục hoặc điền theo gói mẫu chuẩn (1-Click Preset):</span>
+                  </span>
+                  <span className="text-[10px] text-slate-400">Đồng bộ đặc quyền chuẩn</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                  {(editPackageForm.targetRole === 'CANDIDATE' ? CANDIDATE_TIER_PRESETS : RECRUITER_TIER_PRESETS).map((preset) => (
+                    <button
+                      key={preset.key}
+                      type="button"
+                      onClick={() => {
+                        setEditPackageForm((prev) => ({
+                          ...prev,
+                          name: preset.planName,
+                          planType: preset.planType,
+                          price: preset.price,
+                          durationDays: preset.durationDays,
+                          quotaLimit: preset.quotaLimit,
+                          features: [...preset.features],
+                          permissions: { ...preset.permissions },
+                        }));
+                      }}
+                      className="px-2.5 py-1.5 rounded-xl text-left bg-white border border-slate-200 hover:border-[#5b48bd] hover:bg-purple-50/50 transition-all cursor-pointer shadow-2xs"
+                    >
+                      <div className="font-bold text-[11px] text-[#1e1b4b] truncate">{preset.label}</div>
+                      <div className="text-[10px] text-slate-500 font-semibold">{preset.price === 0 ? 'Miễn phí' : `${preset.price.toLocaleString('vi-VN')} đ`} &bull; {preset.durationDays}d</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Name & Role */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>

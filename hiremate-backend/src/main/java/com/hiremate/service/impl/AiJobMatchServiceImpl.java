@@ -1939,6 +1939,23 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
                 maxQuota = 15;
                 isUnlimited = false;
             }
+
+            // Hỗ trợ cấu hình tùy chỉnh cvJdReportLimit từ mô tả gói cước do Admin thiết lập
+            if (plan.getDescription() != null && plan.getDescription().contains("cvJdReportLimit")) {
+                try {
+                    java.util.regex.Matcher m = java.util.regex.Pattern.compile("[\"']?cvJdReportLimit[\"']?\\s*[:=]\\s*([0-9]+)").matcher(plan.getDescription());
+                    if (m.find()) {
+                        int customLimit = Integer.parseInt(m.group(1));
+                        if (customLimit >= 999) {
+                            isUnlimited = true;
+                            remainingQuota = -1;
+                        } else if (customLimit > 0) {
+                            maxQuota = customLimit;
+                            isUnlimited = false;
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
         }
 
         // Nếu là gói có giới hạn (Free: 3 lượt dùng thử, Plus: 15 lượt / tuần)
