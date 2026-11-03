@@ -12,6 +12,7 @@ import com.hiremate.service.AiJobMatchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 
@@ -97,12 +98,12 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public AiJobMatchResponse calculateAndSaveMatch(Candidate candidate, Job job, Cv cv) {
         return calculateAndSaveMatch(candidate, job, cv, false);
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public AiJobMatchResponse calculateAndSaveMatch(Candidate candidate, Job job, Cv cv, boolean enableGemini) {
         // Cache rule: Check if already calculated
         Optional<AiJobMatch> existing = aiJobMatchRepository
@@ -1536,6 +1537,7 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
                                     notesStr, com.hiremate.dto.response.AiDetailedEvaluationReport.class
                             );
                             if (appReport != null && appReport.getMatchingScore() != null) {
+                                appReport.setIsReportCached(true);
                                 log.info(">> [AiJobMatchService] Trả về báo cáo AI từ applications.evaluation_notes cho candidateId={} jobId={} (0ms, 0 Token)",
                                         candidateId, jobId);
                                 return appReport;
@@ -1562,6 +1564,7 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
                                         root.get("detailedReport"), com.hiremate.dto.response.AiDetailedEvaluationReport.class
                                 );
                                 if (cachedReport != null && cachedReport.getMatchingScore() != null) {
+                                    cachedReport.setIsReportCached(true);
                                     log.info(">> [AiJobMatchService] Trả về báo cáo AI từ DB CACHE cho candidateId={} jobId={} (0ms, 0 AI token)",
                                             candidateId, jobId);
                                     return cachedReport;

@@ -1526,6 +1526,10 @@ export default function CandidateEvaluationPage({
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-[#5b48bd] border border-purple-200">
                       {cand.aiFitAssessment || cand.aiReport?.matchTier || 'Chuẩn ATS'}
                     </span>
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
+                      <span className="material-symbols-outlined text-[12px] text-emerald-600">database</span>
+                      <span>✓ Đã lưu CSDL</span>
+                    </span>
                   </h3>
                   <p className="text-[10px] text-slate-400 font-medium">
                     Phân tích đa chiều: Ưu điểm, Tiêu chí chưa đạt &amp; Khuyến nghị tuyển dụng

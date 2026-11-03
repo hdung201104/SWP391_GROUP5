@@ -391,7 +391,7 @@ public class ApplicationServiceImpl implements ApplicationService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public List<ApplicationResponse> getJobApplications(Long jobId, ApplicationStatus status, User user) {
         Job job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new IllegalArgumentException("Job not found: " + jobId));
@@ -423,6 +423,16 @@ public class ApplicationServiceImpl implements ApplicationService {
         List<ApplicationResponse> list = new ArrayList<>(apps.size());
         for (Application app : apps) {
             Float score = (app.getCandidate() != null) ? matchScoreMap.get(app.getCandidate().getCandidateId()) : null;
+            if (score == null && app.getCandidate() != null && app.getJob() != null && aiJobMatchService != null) {
+                try {
+                    com.hiremate.dto.response.AiJobMatchResponse computed = aiJobMatchService.calculateAndSaveMatch(app.getCandidate(), app.getJob(), app.getCv());
+                    if (computed != null && computed.getMatchingScore() != null) {
+                        score = computed.getMatchingScore();
+                    }
+                } catch (Exception ex) {
+                    log.warn("Non-blocking auto-compute ATS score for applicant failed: {}", ex.getMessage());
+                }
+            }
             list.add(mapToResponse(app, score));
         }
 

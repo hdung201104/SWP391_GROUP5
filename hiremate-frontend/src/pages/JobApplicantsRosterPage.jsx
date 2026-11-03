@@ -1147,6 +1147,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
 
   const handleResetAllFilters = () => {
     setActiveFilter('ALL');
+    setRankingFilter('ALL');
     setSearchQuery('');
     setScoreFilter('ALL');
     setExpFilter('ALL');
@@ -1933,18 +1934,39 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                 <span className="material-symbols-outlined text-4xl text-slate-400">person_search</span>
                 <h3 className="text-base font-bold text-slate-900">Không tìm thấy hồ sơ phù hợp</h3>
                 <p className="text-xs text-slate-500 max-w-md mx-auto">
-                  Không có ứng viên nào khớp với bộ lọc hoặc từ khoá tìm kiếm của bạn. Hãy thử thay đổi bộ lọc trạng thái hoặc từ khoá.
+                  {rankingFilter === 'TOP_10' && activeFilter !== 'ALL'
+                    ? `Hiện chưa có ứng viên nào trong Top 10 ở trạng thái "${activeFilter}". Hãy chọn "Tất Cả CV" để xem các ứng viên khác.`
+                    : 'Không có ứng viên nào khớp với bộ lọc hoặc từ khoá tìm kiếm của bạn. Hãy thử thay đổi bộ lọc trạng thái hoặc từ khoá.'}
                 </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveFilter('ALL');
-                    setSearchQuery('');
-                  }}
-                  className="px-5 py-2 rounded-xl bg-[#221d47] hover:bg-purple-800 text-white text-xs font-semibold transition-all cursor-pointer shadow-sm"
-                >
-                  Xoá bộ lọc &amp; xem tất cả
-                </button>
+                <div className="flex items-center justify-center gap-2 pt-2 flex-wrap">
+                  {rankingFilter !== 'ALL' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRankingFilter('ALL');
+                        setCurrentPage(1);
+                      }}
+                      className="px-4 py-2 rounded-xl bg-purple-100 hover:bg-purple-200 text-[#5b48bd] text-xs font-bold transition-all cursor-pointer shadow-2xs"
+                    >
+                      Mở rộng xem tất cả CV ({candidates.length})
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveFilter('ALL');
+                      setRankingFilter('ALL');
+                      setSearchQuery('');
+                      setScoreFilter('ALL');
+                      setExpFilter('ALL');
+                      setSkillFilter('ALL');
+                      setCurrentPage(1);
+                    }}
+                    className="px-5 py-2 rounded-xl bg-[#221d47] hover:bg-purple-800 text-white text-xs font-semibold transition-all cursor-pointer shadow-sm"
+                  >
+                    Xoá toàn bộ bộ lọc
+                  </button>
+                </div>
               </div>
             ) : (
               <>
