@@ -1777,95 +1777,103 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                       })}
                     </div>
 
-                    {/* Smooth Continuous SVG Flow Chamber (Tapering Geometric Horizontal Stream) */}
-                    <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-slate-50 via-purple-50/30 to-indigo-50/20 border border-purple-100/90 shadow-2xs space-y-3">
-                      <div className="flex items-center justify-between text-xs font-bold text-slate-700 pb-2 border-b border-purple-100/80 flex-wrap gap-2">
-                        <span className="flex items-center gap-2">
-                          <span className="w-5 h-5 rounded-md bg-[#5b48bd] text-white flex items-center justify-center font-bold">
-                            <span className="material-symbols-outlined text-[13px]">timeline</span>
+                    {/* Modern Pipeline Stepper & Segmented Conversion Funnel */}
+                    <div className="p-5 sm:p-6 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-4">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+                            <span className="material-symbols-outlined text-lg">insights</span>
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-sm text-slate-900">
+                              Phân Bổ Tỷ Trọng &amp; Chuyển Đổi Thực Tế Qua 5 Chặng Tuyển Dụng
+                            </h4>
+                            <p className="text-xs text-slate-500 font-sans mt-0.5">
+                              Tỷ lệ giữ chân ứng viên qua từng vòng đánh giá và tỷ lệ chuyển đổi chung: <strong className="text-emerald-700 font-bold">{totalConversionRate}%</strong>
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            Chốt deal: {s5Count} nhân sự
                           </span>
-                          <span className="text-[#221d47]">Dòng Chảy Tỷ Lệ Tinh Gọn &amp; Chuyển Đổi Thực Tế</span>
-                        </span>
-                        <div className="flex items-center gap-2 sm:gap-4 text-[11px] text-slate-600 flex-wrap">
-                          <span>Đầu vào: <strong className="text-indigo-700">{s1Count} CV</strong></span>
-                          <span>→</span>
-                          <span>Đạt AI: <strong className="text-[#5b48bd]">{s2Count}</strong></span>
-                          <span>→</span>
-                          <span>Phỏng vấn: <strong className="text-pink-600">{s3Count}</strong></span>
-                          <span>→</span>
-                          <span>Offer: <strong className="text-amber-600">{s4Count}</strong></span>
-                          <span>→</span>
-                          <span>Đã tuyển: <strong className="text-emerald-700">{s5Count} nhân sự</strong></span>
                         </div>
                       </div>
 
-                      {/* SVG Geometric Funnel Flow */}
-                      <div className="w-full h-12 relative px-2">
-                        <svg className="w-full h-full overflow-visible" viewBox="0 0 1000 48" preserveAspectRatio="none">
-                          <defs>
-                            <linearGradient id="aiExecutiveFunnelGrad" x1="0" y1="0" x2="1" y2="0">
-                              <stop offset="0%" stopColor="#4f46e5" stopOpacity="0.85" />
-                              <stop offset="25%" stopColor="#7c3aed" stopOpacity="0.85" />
-                              <stop offset="50%" stopColor="#ec4899" stopOpacity="0.85" />
-                              <stop offset="75%" stopColor="#f59e0b" stopOpacity="0.85" />
-                              <stop offset="100%" stopColor="#10b981" stopOpacity="0.85" />
-                            </linearGradient>
-                          </defs>
-
-                          {(() => {
-                            const h1 = Math.max(5, (s1Pct / 100) * 22);
-                            const h2 = Math.max(5, (s2Pct / 100) * 22);
-                            const h3 = Math.max(5, (s3Pct / 100) * 22);
-                            const h4 = Math.max(5, (s4Pct / 100) * 22);
-                            const h5 = Math.max(5, (s5Pct / 100) * 22);
-
-                            const dFlow = `
-                              M 0,${24 - h1}
-                              C 120,${24 - h1} 130,${24 - h2} 250,${24 - h2}
-                              C 370,${24 - h2} 380,${24 - h3} 500,${24 - h3}
-                              C 620,${24 - h3} 630,${24 - h4} 750,${24 - h4}
-                              C 870,${24 - h4} 880,${24 - h5} 1000,${24 - h5}
-                              L 1000,${24 + h5}
-                              C 880,${24 + h5} 870,${24 + h4} 750,${24 + h4}
-                              C 630,${24 + h4} 620,${24 + h3} 500,${24 + h3}
-                              C 380,${24 + h3} 370,${24 + h2} 250,${24 + h2}
-                              C 130,${24 + h2} 120,${24 + h1} 0,${24 + h1}
-                              Z
-                            `;
-
-                            return (
-                              <g>
-                                {/* Flow Fill */}
-                                <path d={dFlow} fill="url(#aiExecutiveFunnelGrad)" />
-                                
-                                {/* Centerline Guidance */}
-                                <line x1="0" y1="24" x2="1000" y2="24" stroke="#ffffff" strokeWidth="1.5" strokeDasharray="4 4" strokeOpacity="0.6" />
-
-                                {/* 5 Stage Checkpoint Nodes */}
-                                {[
-                                  { x: 5, y: 24, fill: '#4f46e5' },
-                                  { x: 250, y: 24, fill: '#7c3aed' },
-                                  { x: 500, y: 24, fill: '#ec4899' },
-                                  { x: 750, y: 24, fill: '#f59e0b' },
-                                  { x: 995, y: 24, fill: '#10b981' },
-                                ].map((node, nIdx) => (
-                                  <g key={nIdx}>
-                                    <circle cx={node.x} cy={node.y} r="5.5" fill="#ffffff" stroke={node.fill} strokeWidth="2.5" />
-                                  </g>
-                                ))}
-                              </g>
-                            );
-                          })()}
-                        </svg>
+                      {/* Proportional Segmented Pipeline Bar */}
+                      <div className="space-y-1.5">
+                        <div className="w-full h-3.5 bg-slate-100 rounded-full overflow-hidden flex p-0.5 gap-1 shadow-inner">
+                          <div style={{ width: `${Math.max(s1Pct, s1Count > 0 ? 12 : 0)}%` }} className="h-full bg-indigo-500 rounded-full transition-all duration-500" title={`Chặng 1 - Tiếp nhận: ${s1Count} CV (${s1Pct}%)`} />
+                          <div style={{ width: `${Math.max(s2Pct, s2Count > 0 ? 10 : 0)}%` }} className="h-full bg-purple-500 rounded-full transition-all duration-500" title={`Chặng 2 - Đạt AI: ${s2Count} CV (${s2Pct}%)`} />
+                          <div style={{ width: `${Math.max(s3Pct, s3Count > 0 ? 8 : 0)}%` }} className="h-full bg-pink-500 rounded-full transition-all duration-500" title={`Chặng 3 - Phỏng vấn: ${s3Count} CV (${s3Pct}%)`} />
+                          <div style={{ width: `${Math.max(s4Pct, s4Count > 0 ? 6 : 0)}%` }} className="h-full bg-amber-500 rounded-full transition-all duration-500" title={`Chặng 4 - Gửi Offer: ${s4Count} CV (${s4Pct}%)`} />
+                          <div style={{ width: `${Math.max(s5Pct, s5Count > 0 ? 6 : 0)}%` }} className="h-full bg-emerald-500 rounded-full transition-all duration-500" title={`Chặng 5 - Đã tuyển: ${s5Count} nhân sự (${s5Pct}%)`} />
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] font-medium text-slate-500 pt-0.5 px-0.5">
+                          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-indigo-500" /> Tiếp nhận ({s1Count})</span>
+                          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-purple-500" /> Đạt AI ({s2Count})</span>
+                          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-pink-500" /> Phỏng vấn ({s3Count})</span>
+                          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500" /> Offer ({s4Count})</span>
+                          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Đã tuyển ({s5Count})</span>
+                        </div>
                       </div>
 
-                      {/* Bottom Legend of Stages */}
-                      <div className="grid grid-cols-5 text-center text-[10px] font-bold text-slate-500 pt-1">
-                        <div>Chặng 01 ({s1Pct}%)</div>
-                        <div>Chặng 02 ({s2Pct}%)</div>
-                        <div>Chặng 03 ({s3Pct}%)</div>
-                        <div>Chặng 04 ({s4Pct}%)</div>
-                        <div>Chặng 05 ({s5Pct}%)</div>
+                      {/* 5 Progression Step Metric Cards with Transition Rates */}
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 pt-1">
+                        <div
+                          onClick={() => setSelectedFunnelStage(selectedFunnelStage === 'APPLIED' ? null : 'APPLIED')}
+                          className={`p-3 rounded-xl border transition-all cursor-pointer text-center ${
+                            selectedFunnelStage === 'APPLIED' ? 'bg-indigo-50/80 border-indigo-400 ring-2 ring-indigo-200' : 'bg-slate-50/70 border-slate-200/80 hover:bg-white hover:shadow-xs'
+                          }`}
+                        >
+                          <div className="text-[10px] font-bold text-indigo-700 uppercase tracking-wide">01. Tiếp Nhận</div>
+                          <div className="text-xl font-bold text-slate-900 mt-0.5">{s1Count} <span className="text-xs font-normal text-slate-400">CV</span></div>
+                          <div className="text-[10px] text-slate-500 mt-1">Đầu vào 100%</div>
+                        </div>
+
+                        <div
+                          onClick={() => setSelectedFunnelStage(selectedFunnelStage === 'SCREENING' ? null : 'SCREENING')}
+                          className={`p-3 rounded-xl border transition-all cursor-pointer text-center ${
+                            selectedFunnelStage === 'SCREENING' ? 'bg-purple-50/80 border-purple-400 ring-2 ring-purple-200' : 'bg-slate-50/70 border-slate-200/80 hover:bg-white hover:shadow-xs'
+                          }`}
+                        >
+                          <div className="text-[10px] font-bold text-purple-700 uppercase tracking-wide">02. Đạt Chuẩn AI</div>
+                          <div className="text-xl font-bold text-purple-700 mt-0.5">{s2Count} <span className="text-xs font-normal text-slate-400">CV</span></div>
+                          <div className="text-[10px] text-purple-600 mt-1 font-medium">{s1Count > 0 ? Math.round((s2Count / s1Count) * 100) : 0}% lọc đạt</div>
+                        </div>
+
+                        <div
+                          onClick={() => setSelectedFunnelStage(selectedFunnelStage === 'INTERVIEWING' ? null : 'INTERVIEWING')}
+                          className={`p-3 rounded-xl border transition-all cursor-pointer text-center ${
+                            selectedFunnelStage === 'INTERVIEWING' ? 'bg-pink-50/80 border-pink-400 ring-2 ring-pink-200' : 'bg-slate-50/70 border-slate-200/80 hover:bg-white hover:shadow-xs'
+                          }`}
+                        >
+                          <div className="text-[10px] font-bold text-pink-700 uppercase tracking-wide">03. Phỏng Vấn</div>
+                          <div className="text-xl font-bold text-pink-700 mt-0.5">{s3Count} <span className="text-xs font-normal text-slate-400">UV</span></div>
+                          <div className="text-[10px] text-pink-600 mt-1 font-medium">{s2Count > 0 ? Math.round((s3Count / s2Count) * 100) : 0}% từ vòng AI</div>
+                        </div>
+
+                        <div
+                          onClick={() => setSelectedFunnelStage(selectedFunnelStage === 'OFFERED' ? null : 'OFFERED')}
+                          className={`p-3 rounded-xl border transition-all cursor-pointer text-center ${
+                            selectedFunnelStage === 'OFFERED' ? 'bg-amber-50/80 border-amber-400 ring-2 ring-amber-200' : 'bg-slate-50/70 border-slate-200/80 hover:bg-white hover:shadow-xs'
+                          }`}
+                        >
+                          <div className="text-[10px] font-bold text-amber-700 uppercase tracking-wide">04. Gửi Offer</div>
+                          <div className="text-xl font-bold text-amber-700 mt-0.5">{s4Count} <span className="text-xs font-normal text-slate-400">gói</span></div>
+                          <div className="text-[10px] text-amber-600 mt-1 font-medium">{s3Count > 0 ? Math.round((s4Count / s3Count) * 100) : 0}% chốt offer</div>
+                        </div>
+
+                        <div
+                          onClick={() => setSelectedFunnelStage(selectedFunnelStage === 'HIRED' ? null : 'HIRED')}
+                          className={`p-3 rounded-xl border transition-all cursor-pointer text-center ${
+                            selectedFunnelStage === 'HIRED' ? 'bg-emerald-50/80 border-emerald-400 ring-2 ring-emerald-200' : 'bg-slate-50/70 border-slate-200/80 hover:bg-white hover:shadow-xs'
+                          }`}
+                        >
+                          <div className="text-[10px] font-bold text-emerald-700 uppercase tracking-wide">05. Đã Tuyển</div>
+                          <div className="text-xl font-bold text-emerald-700 mt-0.5">{s5Count} <span className="text-xs font-normal text-slate-400">người</span></div>
+                          <div className="text-[10px] text-emerald-600 mt-1 font-bold">{totalConversionRate}% toàn phễu</div>
+                        </div>
                       </div>
                     </div>
 
@@ -2000,121 +2008,153 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
                 </div>
               </div>
 
-              {/* 4 Executive KPI Metric Cards with Mini Sparkline Wave Curves */}
+              {/* 4 Executive KPI Metric Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-                {/* Card 1: Tổng hồ sơ miền */}
-                <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-2xs flex flex-col justify-between space-y-3 relative overflow-hidden">
+                {/* Card 1: Tổng hồ sơ tiếp nhận */}
+                <div className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between space-y-3 relative overflow-hidden group">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-2xl bg-purple-100/80 text-[#5b48bd] flex items-center justify-center shrink-0">
+                      <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center shrink-0">
                         <span className="material-symbols-outlined text-xl">groups</span>
                       </div>
                       <div>
-                        <div className="text-xs font-bold text-slate-500">Tổng hồ sơ miền</div>
+                        <div className="text-xs font-medium text-slate-500">Tổng hồ sơ tiếp nhận</div>
                         <div className="text-2xl sm:text-3xl font-black text-slate-900 mt-0.5 flex items-baseline gap-1">
-                          {totalAppsCount} <span className="text-xs font-medium text-slate-400">CVs</span>
+                          {totalAppsCount} <span className="text-xs font-normal text-slate-400">CV</span>
                         </div>
                       </div>
                     </div>
-                    {/* Blue Sparkline Wave */}
-                    <div className="shrink-0 opacity-90">
-                      <svg className="w-16 h-8" viewBox="0 0 60 25" fill="none">
-                        <path d="M2 20 C 15 18, 25 5, 40 12 C 50 16, 55 4, 58 6" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                        <path d="M2 20 C 15 18, 25 5, 40 12 C 50 16, 55 4, 58 6 L 58 25 L 2 25 Z" fill="rgba(59, 130, 246, 0.12)" />
+                    {/* Micro Sparkline */}
+                    <div className="shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
+                      <svg className="w-14 h-8" viewBox="0 0 56 28" fill="none">
+                        <path d="M2 24 C 14 22, 24 8, 38 14 C 46 18, 50 6, 54 4" stroke="#3b82f6" strokeWidth="2.2" strokeLinecap="round" />
+                        <path d="M2 24 C 14 22, 24 8, 38 14 C 46 18, 50 6, 54 4 L 54 28 L 2 28 Z" fill="url(#kpiGradBlue)" />
+                        <defs>
+                          <linearGradient id="kpiGradBlue" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.18" />
+                            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.01" />
+                          </linearGradient>
+                        </defs>
                       </svg>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600">
-                    <span>&uarr; +12%</span>
-                    <span className="text-slate-400 font-normal">So với tuần trước</span>
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <span className="px-1.5 py-0.5 rounded text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60 flex items-center gap-0.5">
+                      <span className="material-symbols-outlined text-[12px]">trending_up</span> +12%
+                    </span>
+                    <span className="text-slate-400 font-normal">So với chu kỳ trước</span>
                   </div>
                 </div>
 
                 {/* Card 2: Đạt chuẩn AI (≥70%) */}
-                <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-2xs flex flex-col justify-between space-y-3 relative overflow-hidden">
+                <div className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between space-y-3 relative overflow-hidden group">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-2xl bg-purple-100/80 text-[#7c3aed] flex items-center justify-center shrink-0">
+                      <div className="w-11 h-11 rounded-xl bg-purple-50 text-purple-600 border border-purple-100 flex items-center justify-center shrink-0">
                         <span className="material-symbols-outlined text-xl">auto_awesome</span>
                       </div>
                       <div>
-                        <div className="text-xs font-bold text-slate-500">Đạt chuẩn AI (&ge;70%)</div>
+                        <div className="text-xs font-medium text-slate-500">Đạt chuẩn AI (&ge;70%)</div>
                         <div className="text-2xl sm:text-3xl font-black text-slate-900 mt-0.5 flex items-baseline gap-1">
-                          {passedAiCount} <span className="text-xs font-bold text-[#7c3aed]">({aiQualifiedPercent}%)</span>
+                          {passedAiCount} <span className="text-xs font-bold text-purple-600">({aiQualifiedPercent}%)</span>
                         </div>
                       </div>
                     </div>
-                    {/* Purple Sparkline Wave */}
-                    <div className="shrink-0 opacity-90">
-                      <svg className="w-16 h-8" viewBox="0 0 60 25" fill="none">
-                        <path d="M2 22 C 15 20, 22 15, 35 8 C 45 3, 52 14, 58 4" stroke="#8b5cf6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                        <path d="M2 22 C 15 20, 22 15, 35 8 C 45 3, 52 14, 58 4 L 58 25 L 2 25 Z" fill="rgba(139, 92, 246, 0.12)" />
+                    {/* Micro Sparkline */}
+                    <div className="shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
+                      <svg className="w-14 h-8" viewBox="0 0 56 28" fill="none">
+                        <path d="M2 22 C 14 20, 22 14, 34 8 C 42 4, 48 12, 54 4" stroke="#8b5cf6" strokeWidth="2.2" strokeLinecap="round" />
+                        <path d="M2 22 C 14 20, 22 14, 34 8 C 42 4, 48 12, 54 4 L 54 28 L 2 28 Z" fill="url(#kpiGradPurple)" />
+                        <defs>
+                          <linearGradient id="kpiGradPurple" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.18" />
+                            <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.01" />
+                          </linearGradient>
+                        </defs>
                       </svg>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600">
-                    <span>&uarr; 25%</span>
-                    <span className="text-slate-400 font-normal">So với tuần trước</span>
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <span className="px-1.5 py-0.5 rounded text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60 flex items-center gap-0.5">
+                      <span className="material-symbols-outlined text-[12px]">trending_up</span> +25%
+                    </span>
+                    <span className="text-slate-400 font-normal">Chất lượng ứng viên tăng</span>
                   </div>
                 </div>
 
                 {/* Card 3: Ứng viên phỏng vấn */}
-                <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-2xs flex flex-col justify-between space-y-3 relative overflow-hidden">
+                <div className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between space-y-3 relative overflow-hidden group">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-2xl bg-orange-100/80 text-orange-600 flex items-center justify-center shrink-0">
+                      <div className="w-11 h-11 rounded-xl bg-orange-50 text-orange-600 border border-orange-100 flex items-center justify-center shrink-0">
                         <span className="material-symbols-outlined text-xl">person</span>
                       </div>
                       <div>
-                        <div className="text-xs font-bold text-slate-500">Ứng viên phỏng vấn</div>
+                        <div className="text-xs font-medium text-slate-500">Ứng viên phỏng vấn</div>
                         <div className="text-2xl sm:text-3xl font-black text-slate-900 mt-0.5 flex items-baseline gap-1">
-                          {interviewCount} <span className="text-xs font-bold text-orange-500">({interviewPercent}%)</span>
+                          {interviewCount} <span className="text-xs font-bold text-orange-600">({interviewPercent}%)</span>
                         </div>
                       </div>
                     </div>
-                    {/* Orange Sparkline Wave */}
-                    <div className="shrink-0 opacity-90">
-                      <svg className="w-16 h-8" viewBox="0 0 60 25" fill="none">
-                        <path d="M2 18 C 15 15, 25 18, 40 10 C 50 5, 54 8, 58 12" stroke="#f97316" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                        <path d="M2 18 C 15 15, 25 18, 40 10 C 50 5, 54 8, 58 12 L 58 25 L 2 25 Z" fill="rgba(249, 115, 22, 0.12)" />
+                    {/* Micro Sparkline */}
+                    <div className="shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
+                      <svg className="w-14 h-8" viewBox="0 0 56 28" fill="none">
+                        <path d="M2 18 C 14 15, 24 18, 36 10 C 44 6, 50 9, 54 12" stroke="#f97316" strokeWidth="2.2" strokeLinecap="round" />
+                        <path d="M2 18 C 14 15, 24 18, 36 10 C 44 6, 50 9, 54 12 L 54 28 L 2 28 Z" fill="url(#kpiGradOrange)" />
+                        <defs>
+                          <linearGradient id="kpiGradOrange" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#f97316" stopOpacity="0.18" />
+                            <stop offset="100%" stopColor="#f97316" stopOpacity="0.01" />
+                          </linearGradient>
+                        </defs>
                       </svg>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400">
-                    <span>&rarr; 0%</span>
-                    <span className="text-slate-400 font-normal">So với tuần trước</span>
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <span className="px-1.5 py-0.5 rounded text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-0.5">
+                      <span className="material-symbols-outlined text-[12px]">schedule</span> Đang điều phối
+                    </span>
+                    <span className="text-slate-400 font-normal">{interviewCount} buổi xếp lịch</span>
                   </div>
                 </div>
 
                 {/* Card 4: Đỉnh tải tuyển dụng */}
-                <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-2xs flex flex-col justify-between space-y-3 relative overflow-hidden">
+                <div className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between space-y-3 relative overflow-hidden group">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-2xl bg-emerald-100/80 text-emerald-600 flex items-center justify-center shrink-0">
+                      <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center shrink-0">
                         <span className="material-symbols-outlined text-xl">trending_up</span>
                       </div>
                       <div className="max-w-[140px]">
-                        <div className="text-xs font-bold text-slate-500">Đỉnh tải tuyển dụng</div>
+                        <div className="text-xs font-medium text-slate-500">Đỉnh tải tuyển dụng</div>
                         <div className="text-lg sm:text-xl font-black text-slate-900 mt-0.5 truncate" title={peakVelocityPeriod?.displayName || peakVelocityPeriod?.label || 'Tuần 2 (08 - 14)'}>
                           {peakVelocityPeriod?.displayName || peakVelocityPeriod?.label || 'Tuần 2 (08 - 14)'}
                         </div>
                       </div>
                     </div>
-                    {/* Green Sparkline Wave */}
-                    <div className="shrink-0 opacity-90">
-                      <svg className="w-16 h-8" viewBox="0 0 60 25" fill="none">
-                        <path d="M2 22 C 15 20, 28 8, 42 14 C 50 18, 54 6, 58 4" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                        <path d="M2 22 C 15 20, 28 8, 42 14 C 50 18, 54 6, 58 4 L 58 25 L 2 25 Z" fill="rgba(16, 185, 129, 0.12)" />
+                    {/* Micro Sparkline */}
+                    <div className="shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
+                      <svg className="w-14 h-8" viewBox="0 0 56 28" fill="none">
+                        <path d="M2 20 C 14 18, 26 8, 38 12 C 46 16, 50 6, 54 4" stroke="#10b981" strokeWidth="2.2" strokeLinecap="round" />
+                        <path d="M2 20 C 14 18, 26 8, 38 12 C 46 16, 50 6, 54 4 L 54 28 L 2 28 Z" fill="url(#kpiGradGreen)" />
+                        <defs>
+                          <linearGradient id="kpiGradGreen" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#10b981" stopOpacity="0.18" />
+                            <stop offset="100%" stopColor="#10b981" stopOpacity="0.01" />
+                          </linearGradient>
+                        </defs>
                       </svg>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600">
-                    <span>&uarr; 8%</span>
-                    <span className="text-slate-400 font-normal">So với tuần trước</span>
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <span className="px-1.5 py-0.5 rounded text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60 flex items-center gap-0.5">
+                      <span className="material-symbols-outlined text-[12px]">bolt</span> {peakVelocityPeriod?.total || 0} hồ sơ
+                    </span>
+                    <span className="text-slate-400 font-normal">Mật độ nộp cao nhất</span>
                   </div>
                 </div>
               </div>
-
+              
               {/* Main Two-Column Layout (Left 8 Cols Area Chart & Quick Insight / Right 4 Cols Donut & Details) */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                 {/* ===================== LEFT COLUMN (8 COLS) ===================== */}

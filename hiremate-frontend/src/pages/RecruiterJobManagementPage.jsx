@@ -2430,126 +2430,102 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
             return (
             <div
               key={job.id}
-              className={`flex flex-col h-full p-5 sm:p-5.5 rounded-[24px] bg-white border transition-all duration-300 group font-sans shadow-xs hover:shadow-xl ${
+              className={`flex flex-col h-full p-5 sm:p-5.5 rounded-2xl bg-white border transition-all duration-200 group font-sans shadow-xs hover:shadow-md ${
                 deadlineInfo.isExpired
-                  ? 'border-rose-200 hover:border-rose-300 bg-gradient-to-b from-rose-50/15 via-white to-white'
+                  ? 'border-rose-200/90 hover:border-rose-300 bg-rose-50/10'
                   : deadlineInfo.isExpiringSoon
-                  ? 'border-amber-200 hover:border-amber-300 bg-gradient-to-b from-amber-50/15 via-white to-white'
-                  : 'border-slate-200/90 hover:border-purple-300'
+                  ? 'border-amber-200/90 hover:border-amber-300 bg-amber-50/10'
+                  : 'border-slate-200/90 hover:border-slate-300'
               }`}
             >
-              {/* Top / Main Body (Stretches smoothly) */}
+              {/* Top / Main Body */}
               <div className="flex flex-col gap-3">
-                {/* 1. Header Row: Badges, Code & Author Status */}
-                <div className="flex items-center justify-between gap-2 flex-wrap min-h-[26px]">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {/* Status Badge */}
+                {/* 1. Header Row: Status, Code & Author Status */}
+                <div className="flex items-center justify-between gap-2 flex-wrap min-h-[28px]">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Consolidated Status Badge */}
                     {job.approvalStatus === 'PENDING' ? (
                       <span
-                        className="px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide border flex items-center gap-1 bg-amber-50 text-amber-700 border-amber-200"
-                        title="Tin đang chờ Ban Quản Trị Admin kiểm duyệt trước khi hiển thị công khai trên cổng việc làm"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200"
+                        title="Tin đang chờ Ban Quản Trị kiểm duyệt trước khi hiển thị công khai"
                       >
                         <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                        <span>Chờ Admin Duyệt</span>
+                        <span>Chờ Admin duyệt</span>
                       </span>
                     ) : job.approvalStatus === 'REJECTED' ? (
                       <span
-                        className="px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide border flex items-center gap-1 bg-rose-50 text-rose-700 border-rose-200"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-800 border border-rose-200"
                         title={`Tin bị từ chối duyệt: ${job.moderationNote || 'Chưa đạt chuẩn nội dung'}`}
                       >
                         <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                        <span>Bị Từ Chối Duyệt</span>
+                        <span>Bị từ chối duyệt</span>
+                      </span>
+                    ) : job.status === 'ACTIVE' ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        <span>Đang mở tuyển</span>
+                        <span className="text-emerald-300">•</span>
+                        <span className="font-medium text-emerald-700">{deadlineInfo.label}</span>
                       </span>
                     ) : (
-                      <span
-                        className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide border flex items-center gap-1 ${
-                          job.status === 'ACTIVE'
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            : job.status === 'CLOSED'
-                            ? 'bg-rose-50 text-rose-700 border-rose-200'
-                            : 'bg-slate-100 text-slate-600 border-slate-200'
-                        }`}
-                      >
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full ${
-                            job.status === 'ACTIVE' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
-                          }`}
-                        />
-                        <span>{job.badgeText}</span>
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                        <span>Tạm dừng tuyển</span>
                       </span>
                     )}
 
-                    {/* Deadline Badge */}
-                    <span
-                      className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide border flex items-center gap-1 shadow-2xs ${deadlineInfo.badgeClass}`}
-                      title={deadlineInfo.deadlineFormatted ? `Hạn chót: ${deadlineInfo.deadlineFormatted}` : 'Không giới hạn thời gian'}
-                    >
-                      <span className="material-symbols-outlined text-[13px]">
-                        {deadlineInfo.isExpired ? 'event_busy' : deadlineInfo.isExpiringSoon ? 'alarm' : 'schedule'}
-                      </span>
-                      <span>{deadlineInfo.label}</span>
-                    </span>
-
-                    {/* Code */}
-                    <span className="px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold bg-slate-100/90 text-slate-600 border border-slate-200/70">
+                    {/* Job Code */}
+                    <span className="px-2 py-0.5 rounded-md text-[11px] font-mono font-medium text-slate-500 bg-slate-100/90 border border-slate-200/70">
                       {job.code}
                     </span>
                   </div>
 
-                  {/* Right Header: Author & Approval Status */}
+                  {/* Right Header: Author & Status Action */}
                   <div className="flex items-center gap-2">
                     {canEditOrManageJob(job) ? (
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-[#5b48bd] border border-purple-200/80 flex items-center gap-1" title="Tin thuộc chi nhánh hoặc quyền quản lý của bạn">
-                        <span className="material-symbols-outlined text-[12px] text-[#5b48bd]">verified</span>
+                      <span className="px-2 py-0.5 rounded-md text-[11px] font-medium text-slate-600 bg-slate-100 border border-slate-200/80 flex items-center gap-1" title="Tin thuộc quyền quản lý của bạn">
+                        <span className="material-symbols-outlined text-[13px] text-slate-500">person</span>
                         <span>{String(job.recruiterId) === String(user?.userId || user?.id) ? 'Bài của tôi' : (job.branchName || 'Chi nhánh của tôi')}</span>
                       </span>
                     ) : (
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 text-amber-800 border border-amber-200/80 flex items-center gap-1" title={`Thuộc ${job.branchName || 'chi nhánh khác'} • Phụ trách: ${job.recruiterName || 'Đồng nghiệp'}`}>
-                        <span className="material-symbols-outlined text-[12px] text-amber-600">lock</span>
+                      <span className="px-2 py-0.5 rounded-md text-[11px] font-medium text-slate-400 bg-slate-50 border border-slate-200/60 flex items-center gap-1" title={`Thuộc ${job.branchName || 'chi nhánh khác'}`}>
+                        <span className="material-symbols-outlined text-[13px]">lock</span>
                         <span>{job.branchName || 'Chi nhánh khác'} (Chỉ xem)</span>
                       </span>
                     )}
 
-                    {/* Toggle Approval & Pause Button */}
-                    {job.approvalStatus === 'PENDING' ? (
-                      <span className="shrink-0 flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                        <span>Chờ duyệt</span>
-                      </span>
-                    ) : job.approvalStatus === 'REJECTED' ? (
-                      <span className="shrink-0 flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
-                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                        <span>Từ chối</span>
-                      </span>
-                    ) : (
+                    {/* Toggle Status Action */}
+                    {job.approvalStatus === 'APPROVED' && canEditOrManageJob(job) && (
                       <button
                         type="button"
                         onClick={() => handleToggleStatus(job.id)}
-                        className={`shrink-0 flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold border transition-all cursor-pointer ${
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
                           job.status === 'ACTIVE'
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                            : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
+                            ? 'bg-white hover:bg-slate-50 text-slate-600 border-slate-200 hover:text-slate-900'
+                            : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200'
                         }`}
-                        title="Bấm để Tạm dừng / Tiếp tục tuyển"
+                        title={job.status === 'ACTIVE' ? 'Bấm để tạm dừng nhận hồ sơ' : 'Bấm để tiếp tục mở tuyển'}
                       >
-                        <span className={`w-1.5 h-1.5 rounded-full ${job.status === 'ACTIVE' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
-                        <span>{job.status === 'ACTIVE' ? 'Đang tuyển' : 'Tạm dừng'}</span>
+                        <span className="material-symbols-outlined text-[14px]">
+                          {job.status === 'ACTIVE' ? 'pause_circle' : 'play_circle'}
+                        </span>
+                        <span>{job.status === 'ACTIVE' ? 'Tạm dừng' : 'Mở lại'}</span>
                       </button>
                     )}
                   </div>
                 </div>
 
-                {/* 2. Job Title - Exact same height on all cards */}
+                {/* 2. Job Title */}
                 <div className="min-h-[28px] flex items-center">
                   <h2
                     onClick={() => {
                       window.location.hash = `#/jobs/${job.id}`;
                     }}
-                    className="text-lg lg:text-xl font-bold text-slate-900 group-hover:text-[#5b48bd] transition-colors cursor-pointer flex items-center gap-2 leading-snug line-clamp-1"
+                    className="text-lg font-bold text-slate-900 group-hover:text-indigo-600 transition-colors cursor-pointer flex items-center gap-1.5 leading-snug line-clamp-1"
                     title={job.title}
                   >
                     <span className="capitalize truncate">{job.title}</span>
-                    <span className="material-symbols-outlined text-[18px] text-slate-400 group-hover:text-[#5b48bd] transition-colors shrink-0">open_in_new</span>
+                    <span className="material-symbols-outlined text-[18px] text-slate-400 group-hover:text-indigo-600 transition-colors shrink-0">open_in_new</span>
                   </h2>
                 </div>
 
@@ -2570,37 +2546,37 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                   </div>
                 )}
 
-                {/* 3. Primary Meta Row: Salary, Location, Company - Exact same height */}
+                {/* 3. Primary Meta Row: Salary, Location, Company, Branch - Cohesive enterprise slate palette */}
                 <div className="flex flex-wrap items-center gap-2 min-h-[28px]">
                   {/* Salary */}
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-50 text-amber-800 border border-amber-200/80 font-bold text-xs">
-                    <span className="material-symbols-outlined text-[15px] text-amber-600">payments</span>
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 text-slate-900 border border-slate-200/80 font-semibold text-xs">
+                    <span className="material-symbols-outlined text-[15px] text-slate-500">payments</span>
                     <span>{job.salary}</span>
                   </div>
 
                   {/* Location */}
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100 text-slate-700 border border-slate-200/60 font-medium text-xs">
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 text-slate-700 border border-slate-200/80 font-medium text-xs">
                     <span className="material-symbols-outlined text-[15px] text-slate-500">location_on</span>
                     <span>{job.location}</span>
                   </div>
 
                   {/* Domain/Company */}
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-purple-50 text-purple-800 border border-purple-100 font-medium text-xs">
-                    <span className="material-symbols-outlined text-[15px] text-[#5b48bd]">{job.domainIcon}</span>
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 text-slate-700 border border-slate-200/80 font-medium text-xs">
+                    <span className="material-symbols-outlined text-[15px] text-slate-500">{job.domainIcon || 'business'}</span>
                     <span>{job.domain}</span>
                   </div>
 
                   {/* Branch & HR in charge badge */}
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-blue-50/80 text-blue-900 border border-blue-200/70 font-semibold text-xs" title={`Chi nhánh: ${job.branchName || 'Trụ sở chính'} • HR phụ trách: ${job.recruiterName || 'Chuyên viên HR'}`}>
-                    <span className="material-symbols-outlined text-[15px] text-blue-600">apartment</span>
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 text-slate-700 border border-slate-200/80 font-medium text-xs" title={`Chi nhánh: ${job.branchName || 'Trụ sở chính'} • HR phụ trách: ${job.recruiterName || 'Chuyên viên HR'}`}>
+                    <span className="material-symbols-outlined text-[15px] text-slate-500">apartment</span>
                     <span className="truncate max-w-[120px]">{job.branchName || 'Trụ sở chính'}</span>
-                    <span className="text-blue-300">•</span>
-                    <span className="text-blue-700 font-normal truncate max-w-[90px]">{job.recruiterName || 'HR'}</span>
+                    <span className="text-slate-300">•</span>
+                    <span className="text-slate-500 truncate max-w-[90px]">{job.recruiterName || 'HR'}</span>
                   </div>
                 </div>
 
-                {/* Overdue Alert Banner or Active Status Note - Fixed min-h-[42px] for perfect balance across cards */}
-                {deadlineInfo.isExpired ? (
+                {/* Overdue Alert Banner ONLY if Expired (No redundant active banner) */}
+                {deadlineInfo.isExpired && (
                   <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-xs gap-2 min-h-[42px]">
                     <div className="flex items-center gap-1.5 min-w-0">
                       <span className="material-symbols-outlined text-rose-600 text-[17px] shrink-0">warning</span>
@@ -2611,58 +2587,46 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                     <button
                       type="button"
                       onClick={() => handleQuickExtend(job.id, 30)}
-                      className="shrink-0 px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-[11px] shadow-xs flex items-center gap-1 cursor-pointer transition-transform hover:scale-105"
+                      className="shrink-0 px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-[11px] shadow-xs flex items-center gap-1 cursor-pointer transition-colors"
                       title="Gia hạn thêm 30 ngày cho tin này"
                     >
                       <span className="material-symbols-outlined text-[13px]">update</span>
                       <span>Gia hạn +30 ngày</span>
                     </button>
                   </div>
-                ) : (
-                  <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-emerald-50/50 border border-emerald-200/70 text-emerald-950 text-xs gap-2 min-h-[42px]">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="material-symbols-outlined text-emerald-600 text-[17px] shrink-0">check_circle</span>
-                      <span className="truncate font-medium">
-                        <strong>Đang mở tuyển:</strong> {deadlineInfo.label || 'Sẵn sàng tiếp nhận hồ sơ ứng viên.'}
-                      </span>
-                    </div>
-                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 shrink-0">
-                      Đang nhận CV
-                    </span>
-                  </div>
                 )}
 
-                {/* 4. Skills 70/30 Matrix Preview (Capped & Balanced) */}
-                <div className="space-y-1.5 pt-2 border-t border-slate-100 min-h-[66px] flex flex-col justify-center">
-                  <div className="flex items-center gap-1.5 flex-wrap text-xs">
-                    <span className="text-[10px] uppercase font-black text-[#5b48bd] tracking-wider shrink-0 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-100">
-                      Bắt buộc (70%):
+                {/* 4. Skills 70/30 Matrix Preview (Subtle, Clean) */}
+                <div className="space-y-1.5 pt-2 border-t border-slate-100 min-h-[58px] flex flex-col justify-center">
+                  <div className="flex items-center gap-2 flex-wrap text-xs">
+                    <span className="text-[10px] uppercase font-bold text-slate-700 tracking-wider shrink-0 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                      Bắt buộc (70%)
                     </span>
                     <div className="flex flex-wrap items-center gap-1.5">
                       {job.mandatorySkills.slice(0, 3).map((sk) => (
-                        <span key={sk} className="px-2.5 py-0.5 rounded-lg text-[11px] font-semibold bg-purple-50/70 text-purple-900 border border-purple-200/60 truncate max-w-[150px]">
+                        <span key={sk} className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-50 text-slate-800 border border-slate-200 truncate max-w-[150px]">
                           {sk}
                         </span>
                       ))}
                       {job.mandatorySkills.length > 3 && (
-                        <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-purple-100 text-[#5b48bd]" title={job.mandatorySkills.slice(3).join(', ')}>
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200" title={job.mandatorySkills.slice(3).join(', ')}>
                           +{job.mandatorySkills.length - 3}
                         </span>
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5 flex-wrap text-xs">
-                    <span className="text-[10px] uppercase font-black text-emerald-700 tracking-wider shrink-0 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
-                      Ưu tiên (30%):
+                  <div className="flex items-center gap-2 flex-wrap text-xs">
+                    <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider shrink-0 bg-slate-50 px-2 py-0.5 rounded border border-slate-200/70">
+                      Ưu tiên (30%)
                     </span>
                     <div className="flex flex-wrap items-center gap-1.5">
                       {job.preferredSkills.slice(0, 2).map((sk) => (
-                        <span key={sk} className="px-2.5 py-0.5 rounded-lg text-[11px] font-medium bg-emerald-50/70 text-emerald-900 border border-emerald-200/60 truncate max-w-[150px]">
+                        <span key={sk} className="px-2 py-0.5 rounded-md text-[11px] font-normal text-slate-600 bg-white border border-slate-200/80 truncate max-w-[150px]">
                           {sk}
                         </span>
                       ))}
                       {job.preferredSkills.length > 2 && (
-                        <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-emerald-100 text-emerald-700" title={job.preferredSkills.slice(2).join(', ')}>
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-normal bg-slate-50 text-slate-500 border border-slate-200/70" title={job.preferredSkills.slice(2).join(', ')}>
                           +{job.preferredSkills.length - 2}
                         </span>
                       )}
@@ -2671,27 +2635,27 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                 </div>
               </div>
 
-              {/* Bottom Section: Highlight Stats Box & Action Bar (Pinned perfectly to bottom) */}
+              {/* Bottom Section: Highlight Stats Box & Action Bar (Pinned cleanly to bottom) */}
               <div className="mt-auto pt-3.5 space-y-3">
                 {/* 5. Highlight Stats Box: Hồ sơ & AI Match metrics */}
-                <div className="p-3 sm:p-3.5 rounded-2xl bg-gradient-to-r from-purple-50/60 via-slate-50 to-indigo-50/40 flex items-center justify-between gap-3 border border-purple-100/70 min-h-[58px]">
+                <div className="p-3 sm:p-3.5 rounded-xl bg-slate-50/90 flex items-center justify-between gap-3 border border-slate-200/80 min-h-[58px]">
                   <div className="flex items-center gap-4 sm:gap-6">
                     <div>
-                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Hồ sơ đã nộp</div>
-                      <div className="text-xl sm:text-2xl font-black text-slate-900 mt-0.5 flex items-baseline gap-1">
-                        {job.totalApplicants} <span className="text-xs font-normal text-slate-400">CVs</span>
+                      <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Hồ sơ đã nộp</div>
+                      <div className="text-xl sm:text-2xl font-bold text-slate-900 mt-0.5 flex items-baseline gap-1">
+                        {job.totalApplicants} <span className="text-xs font-normal text-slate-400">CV</span>
                       </div>
                     </div>
 
-                    <div className="h-8 w-px bg-purple-200/60" />
+                    <div className="h-8 w-px bg-slate-200" />
 
                     <div>
-                      <div className="text-[10px] font-bold text-[#5b48bd] uppercase tracking-wide flex items-center gap-1">
-                        <span className="material-symbols-outlined text-[13px] text-[#5b48bd]">auto_awesome</span>
+                      <div className="text-[10px] font-semibold text-indigo-700 uppercase tracking-wider flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[13px] text-indigo-600">auto_awesome</span>
                         AI Match &gt; 80%
                       </div>
-                      <div className="text-xl sm:text-2xl font-black text-[#5b48bd] mt-0.5 flex items-baseline gap-1">
-                        {job.aiMatchHighCount} <span className="text-xs font-semibold text-[#5b48bd]/80">ứng viên</span>
+                      <div className="text-xl sm:text-2xl font-bold text-indigo-700 mt-0.5 flex items-baseline gap-1">
+                        {job.aiMatchHighCount} <span className="text-xs font-normal text-slate-500">ứng viên</span>
                       </div>
                     </div>
                   </div>
@@ -2704,7 +2668,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                         job.topCandidateAvatars.map((av, idx) => (
                           <img
                             key={idx}
-                            className="w-7 h-7 rounded-full object-cover ring-2 ring-white shadow-2xs inline-block"
+                            className="w-7 h-7 rounded-full object-cover ring-2 ring-white shadow-xs inline-block"
                             src={av}
                             alt="Candidate avatar"
                           />
@@ -2716,19 +2680,19 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                   </div>
                 </div>
 
-                {/* 6. Action Bar - Identical, balanced, single row with no huge gaps or offset buttons */}
+                {/* 6. Action Bar */}
                 <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
-                  {/* Secondary Actions (Xem, Sửa, Link, Xóa) */}
+                  {/* Secondary Actions (Xem, Báo cáo, Sửa, Nhân bản, Link, Xóa) */}
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <button
                       onClick={() => {
                         window.location.hash = `#/jobs/${job.id}`;
                       }}
-                      className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-white hover:bg-purple-50 text-slate-700 hover:text-[#5b48bd] text-xs font-semibold transition-all flex items-center gap-1 border border-slate-200 hover:border-purple-200 cursor-pointer shadow-2xs shrink-0"
+                      className="px-2.5 sm:px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 text-xs font-medium transition-colors flex items-center gap-1 border border-slate-200 cursor-pointer shadow-2xs shrink-0"
                       type="button"
                       title="Xem chi tiết bài đăng tuyển dụng"
                     >
-                      <span className="material-symbols-outlined text-[15px] text-[#5b48bd]">visibility</span>
+                      <span className="material-symbols-outlined text-[15px] text-slate-500">visibility</span>
                       <span>Xem bài</span>
                     </button>
 
@@ -2736,11 +2700,11 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                       onClick={() => {
                         window.location.hash = '#/recruiter-dashboard';
                       }}
-                      className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-white hover:bg-purple-50 text-slate-700 hover:text-[#5b48bd] text-xs font-semibold transition-all flex items-center gap-1 border border-slate-200 hover:border-purple-200 cursor-pointer shadow-2xs shrink-0"
+                      className="px-2.5 sm:px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 text-xs font-medium transition-colors flex items-center gap-1 border border-slate-200 cursor-pointer shadow-2xs shrink-0"
                       type="button"
                       title="Xem Báo cáo phân tích tuyển dụng"
                     >
-                      <span className="material-symbols-outlined text-[15px] text-[#5b48bd]">analytics</span>
+                      <span className="material-symbols-outlined text-[15px] text-slate-500">analytics</span>
                       <span>Báo cáo</span>
                     </button>
 
@@ -2750,7 +2714,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                         const reqStr = String(job.requirements || '');
                         handleOpenEditModal(job);
                       }}
-                      className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-white hover:bg-purple-50 text-slate-700 hover:text-[#5b48bd] text-xs font-semibold transition-all flex items-center gap-1 border border-slate-200 hover:border-purple-200 cursor-pointer shadow-2xs shrink-0"
+                      className="px-2.5 sm:px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 text-xs font-medium transition-colors flex items-center gap-1 border border-slate-200 cursor-pointer shadow-2xs shrink-0"
                       type="button"
                     >
                       <span className="material-symbols-outlined text-[15px] text-slate-500">edit</span>
@@ -2760,7 +2724,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                     <button
                       type="button"
                       onClick={() => triggerToast(`Bạn không thể chỉnh sửa tin này. Tin thuộc ${job.branchName || 'chi nhánh khác'} do chuyên viên ${job.recruiterName || 'khác'} phụ trách!`)}
-                      className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-50 text-slate-400 text-xs font-medium flex items-center gap-1 border border-slate-200 cursor-not-allowed shadow-2xs shrink-0 opacity-70"
+                      className="px-2.5 sm:px-3 py-1.5 rounded-lg bg-slate-50 text-slate-400 text-xs font-medium flex items-center gap-1 border border-slate-200 cursor-not-allowed shadow-2xs shrink-0 opacity-70"
                       title={`Chỉ chuyên viên phụ trách hoặc cùng chi nhánh ${job.branchName || ''} mới được chỉnh sửa`}
                     >
                       <span className="material-symbols-outlined text-[15px] text-slate-400">lock</span>
@@ -2770,17 +2734,17 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
 
                     <button
                       onClick={() => handleCloneJob(job.id, job.title)}
-                      className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 text-xs font-semibold transition-all flex items-center gap-1 border border-slate-200 hover:border-emerald-200 cursor-pointer shadow-2xs shrink-0"
+                      className="px-2.5 sm:px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 text-xs font-medium transition-colors flex items-center gap-1 border border-slate-200 cursor-pointer shadow-2xs shrink-0"
                       type="button"
                       title="Nhân bản / Tạo bản sao từ tin tuyển dụng này"
                     >
-                      <span className="material-symbols-outlined text-[15px] text-emerald-600">content_copy</span>
+                      <span className="material-symbols-outlined text-[15px] text-slate-500">content_copy</span>
                       <span>Nhân bản</span>
                     </button>
 
                     <button
                       onClick={() => handleCopyLink(job.id, job.code)}
-                      className="p-1.5 rounded-xl bg-white hover:bg-purple-50 text-slate-500 hover:text-[#5b48bd] transition-all border border-slate-200 hover:border-purple-200 cursor-pointer shadow-2xs flex items-center justify-center shrink-0"
+                      className="p-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-900 transition-colors border border-slate-200 cursor-pointer shadow-2xs flex items-center justify-center shrink-0"
                       title="Sao chép link ứng tuyển"
                       type="button"
                     >
@@ -2790,7 +2754,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                     {canDeleteJob(job) ? (
                       <button
                         onClick={() => setJobToDelete(job)}
-                        className="p-1.5 rounded-xl bg-white hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-all border border-slate-200 hover:border-rose-200 cursor-pointer shadow-2xs flex items-center justify-center shrink-0"
+                        className="p-1.5 rounded-lg bg-white hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-colors border border-slate-200 hover:border-rose-200 cursor-pointer shadow-2xs flex items-center justify-center shrink-0"
                         title="Xóa vĩnh viễn tin tuyển dụng này"
                         type="button"
                       >
@@ -2799,7 +2763,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                     ) : (
                       <button
                         onClick={() => triggerToast(`Bạn không có quyền xóa tin này. Tin do chuyên viên ${job.recruiterName || 'khác'} đăng!`)}
-                        className="p-1.5 rounded-xl bg-slate-50 text-slate-300 transition-all border border-slate-200 cursor-not-allowed shadow-2xs flex items-center justify-center shrink-0 opacity-60"
+                        className="p-1.5 rounded-lg bg-slate-50 text-slate-300 transition-colors border border-slate-200 cursor-not-allowed shadow-2xs flex items-center justify-center shrink-0 opacity-60"
                         title={`Tin này do ${job.recruiterName || 'chuyên viên khác'} đăng`}
                         type="button"
                       >
@@ -2815,7 +2779,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                         onClick={() => {
                           window.location.hash = `#/applicants-management?jobId=${job.id}`;
                         }}
-                        className="px-3.5 sm:px-4 py-1.5 rounded-xl bg-gradient-to-r from-[#5b48bd] to-[#7c66dc] hover:from-[#47369f] hover:to-[#6852ca] text-white text-xs font-bold tracking-wide shadow-sm hover:shadow transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+                        className="px-3.5 sm:px-4 py-1.5 rounded-lg bg-[#5b48bd] hover:bg-[#4a39a6] text-white text-xs font-semibold shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
                         type="button"
                       >
                         <span className="material-symbols-outlined text-[15px]">group</span>
@@ -2825,7 +2789,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                     ) : (
                       <button
                         onClick={() => triggerToast('⚠️ Bài đăng thuộc chi nhánh khác - Chỉ HR cùng chi nhánh hoặc Head HR mới có quyền truy cập danh sách ứng viên')}
-                        className="px-3.5 sm:px-4 py-1.5 rounded-xl bg-slate-100 text-slate-400 border border-slate-200 text-xs font-semibold flex items-center gap-1.5 cursor-not-allowed whitespace-nowrap shrink-0 opacity-70"
+                        className="px-3.5 sm:px-4 py-1.5 rounded-lg bg-slate-100 text-slate-400 border border-slate-200 text-xs font-semibold flex items-center gap-1.5 cursor-not-allowed whitespace-nowrap shrink-0 opacity-70"
                         title="Bài đăng thuộc chi nhánh khác - Chỉ HR cùng chi nhánh hoặc Head HR mới có quyền truy cập danh sách ứng viên"
                         type="button"
                       >
