@@ -383,7 +383,7 @@ export default function CvViewModal({
                 /* Native PDF Document Frame (Optimal Zoom, Sidebar Navigation & Toolbar) */
                 <div className="w-full h-full flex-1 rounded-2xl bg-[#323639] border border-slate-700 shadow-inner overflow-hidden flex flex-col relative">
                   <iframe
-                    src={blobUrl?.includes('#') ? blobUrl : `${blobUrl}#page=1&view=FitH&toolbar=1&navpanes=1`}
+                    src={blobUrl?.includes('#') ? blobUrl : `${blobUrl}#page=1&view=Fit&toolbar=1&navpanes=0`}
                     title={fileName}
                     className="w-full h-full flex-1 border-0 rounded-2xl bg-[#323639]"
                   />

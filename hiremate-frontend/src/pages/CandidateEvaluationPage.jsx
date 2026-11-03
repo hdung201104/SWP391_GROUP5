@@ -213,7 +213,7 @@ export default function CandidateEvaluationPage({
   const [cvMimeType, setCvMimeType] = useState('application/pdf');
   const [isPdfLoading, setIsPdfLoading] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(100);
-  const [layoutRatio, setLayoutRatio] = useState('wide-cv'); // 'wide-cv' (4:8) | 'balanced' (5:7)
+  const [layoutRatio, setLayoutRatio] = useState('balanced'); // 'wide-cv' (4:8) | 'balanced' (5:7)
 
   // Modals state
   const [showInterviewModal, setShowInterviewModal] = useState(false);
@@ -455,6 +455,7 @@ export default function CandidateEvaluationPage({
       let appStatus = 'REVIEWING';
       let effectiveAppId = parsedAppId || null;
       let resolvedCandId = parsedCandId || null;
+      isWithdrawn = false;
 
       let profileData = null;
       let jobData = null;
@@ -2092,8 +2093,8 @@ export default function CandidateEvaluationPage({
                           key={`${pdfBlobUrl}-${zoomLevel}`}
                           src={
                             pdfBlobUrl.includes('#')
-                              ? pdfBlobUrl.replace(/#.*$/, '#page=1&view=FitH&toolbar=1&navpanes=1')
-                              : `${pdfBlobUrl}#page=1&view=FitH&toolbar=1&navpanes=1`
+                              ? pdfBlobUrl.replace(/#.*$/, '#page=1&view=Fit&toolbar=1&navpanes=0')
+                              : `${pdfBlobUrl}#page=1&view=Fit&toolbar=1&navpanes=0`
                           }
                           title={`CV - ${cand.name}`}
                           style={{
