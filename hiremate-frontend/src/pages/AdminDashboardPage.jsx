@@ -9603,7 +9603,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
       {/* ========================================================= */}
       {selectedCompanyDossier && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/75 backdrop-blur-xs animate-fade-in font-sans">
-          <div className="bg-white max-w-6xl w-full rounded-3xl shadow-2xl border border-purple-100 flex flex-col max-h-[94vh] overflow-hidden">
+          <div className="bg-white w-[96vw] max-w-7xl 2xl:max-w-[1550px] h-[94vh] max-h-[96vh] rounded-3xl shadow-2xl border border-purple-100 flex flex-col overflow-hidden">
             {/* Modal Header */}
             <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-4 bg-slate-50/50">
               <div className="flex items-center gap-3.5 min-w-0">
@@ -9659,8 +9659,8 @@ export default function AdminDashboardPage({ user, onLogout }) {
 
             {/* Modal Body: Split-View 2 Columns */}
             <div className="grid grid-cols-1 lg:grid-cols-12 flex-1 overflow-hidden">
-              {/* CỘT TRÁI (col-span-5): Hồ sơ pháp lý & Thẩm định */}
-              <div className="lg:col-span-5 p-5 border-r border-slate-100 overflow-y-auto space-y-4 flex flex-col justify-between bg-white">
+              {/* CỘT TRÁI (col-span-3 / col-span-4): Hồ sơ pháp lý & Thẩm định */}
+              <div className="lg:col-span-4 xl:col-span-3 p-5 border-r border-slate-100 overflow-y-auto space-y-4 flex flex-col justify-between bg-white">
                 <div className="space-y-4">
                   <div>
                     <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5 flex items-center gap-1.5">
@@ -9841,8 +9841,8 @@ export default function AdminDashboardPage({ user, onLogout }) {
                 </div>
               </div>
 
-              {/* CỘT PHẢI (col-span-7): Trình xem tài liệu trực tiếp (Document Inline Viewer) */}
-              <div className="lg:col-span-7 p-4 bg-slate-900/5 flex flex-col justify-between overflow-hidden">
+              {/* CỘT PHẢI (col-span-8 / col-span-9): Trình xem tài liệu trực tiếp Rộng Rãi To Rõ */}
+              <div className="lg:col-span-8 xl:col-span-9 p-4 bg-slate-900/5 flex flex-col justify-between overflow-hidden">
                 {/* Header Viewer Toolbar */}
                 <div className="p-3 bg-white rounded-2xl border border-slate-200 shadow-xs mb-3 flex items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-2 min-w-0">
