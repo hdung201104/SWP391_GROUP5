@@ -177,6 +177,7 @@ export default function CandidateEvaluationPage({
     semanticScore: 0,
     mandatoryScore: 0,
     preferredScore: 0,
+    hasPersistedAiReport: false,
     avatar: null,
     location: 'Việt Nam',
     experience: 'Đang tải kinh nghiệm...',
@@ -335,6 +336,7 @@ export default function CandidateEvaluationPage({
 
           return {
             ...prev,
+            hasPersistedAiReport: true,
             matchScore: freshScore,
             skillsScore: freshSkillsScore,
             experienceScore: freshExpScore,
@@ -605,28 +607,45 @@ export default function CandidateEvaluationPage({
             if (!effectiveCvId && appData.cvId) effectiveCvId = appData.cvId;
           }
 
-          // Gọi chi tiết đánh giá AI đa chiều trực tiếp nếu có JobId và CandidateId
+          // 0ms, 0 Token: Chỉ đọc báo cáo đã được lưu cứng trong CSDL (Write Once, Read Many).
+          // TUYỆT ĐỐI KHÔNG tự động kích hoạt Gemini API khi vừa vào trang!
           const targetEvalCandId = resolvedCandId || parsedCandId || appData?.candidateId;
           const targetEvalJobId = effectiveJobId || appData?.jobId;
-          if (targetEvalJobId && targetEvalCandId) {
+          let hasPersistedReport = false;
+
+          if (appData?.evaluationNotes || appData?.notes) {
             try {
-              const directEvalRes = await aiMatchApi.getDetailedCandidateEvaluation(targetEvalJobId, targetEvalCandId).catch(() => null);
-              const directEval = directEvalRes?.data?.data || directEvalRes?.data;
-              if (directEval && directEval.matchingScore != null) {
-                directEvalReport = directEval;
-                candMatch = {
-                  ...candMatch,
-                  ...directEval,
-                  skillsScore: directEval.skillsScore != null ? directEval.skillsScore : (candMatch?.skillsScore ?? directEval.matchingScore),
-                  experienceScore: directEval.experienceScore != null ? directEval.experienceScore : (candMatch?.experienceScore ?? directEval.matchingScore),
-                  educationScore: directEval.educationScore != null ? directEval.educationScore : (candMatch?.educationScore ?? directEval.matchingScore),
-                  semanticScore: directEval.semanticScore != null ? directEval.semanticScore : (candMatch?.semanticScore ?? directEval.matchingScore),
-                };
-                matchScore = Math.round(directEval.matchingScore);
+              const rawStr = (appData.evaluationNotes || appData.notes || '').trim();
+              if (rawStr.startsWith('{') && (rawStr.includes('advantages') || rawStr.includes('matchingScore'))) {
+                const parsedEval = JSON.parse(rawStr);
+                if (parsedEval && Array.isArray(parsedEval.advantages) && parsedEval.advantages.length > 0) {
+                  directEvalReport = parsedEval;
+                  hasPersistedReport = true;
+                }
               }
-            } catch (evalErr) {
-              console.warn('Could not load detailed AI evaluation directly:', evalErr);
-            }
+            } catch (e) {}
+          }
+
+          if (!hasPersistedReport && candMatch?.skillGapJson) {
+            try {
+              const parsedGap = typeof candMatch.skillGapJson === 'string' ? JSON.parse(candMatch.skillGapJson) : candMatch.skillGapJson;
+              if (parsedGap?.detailedReport && Array.isArray(parsedGap.detailedReport.advantages) && parsedGap.detailedReport.advantages.length > 0) {
+                directEvalReport = parsedGap.detailedReport;
+                hasPersistedReport = true;
+              }
+            } catch (e) {}
+          }
+
+          if (directEvalReport && directEvalReport.matchingScore != null) {
+            candMatch = {
+              ...candMatch,
+              ...directEvalReport,
+              skillsScore: directEvalReport.skillsScore != null ? directEvalReport.skillsScore : (candMatch?.skillsScore ?? directEvalReport.matchingScore),
+              experienceScore: directEvalReport.experienceScore != null ? directEvalReport.experienceScore : (candMatch?.experienceScore ?? directEvalReport.matchingScore),
+              educationScore: directEvalReport.educationScore != null ? directEvalReport.educationScore : (candMatch?.educationScore ?? directEvalReport.matchingScore),
+              semanticScore: directEvalReport.semanticScore != null ? directEvalReport.semanticScore : (candMatch?.semanticScore ?? directEvalReport.matchingScore),
+            };
+            matchScore = Math.round(directEvalReport.matchingScore);
           }
 
           // Nếu trước đó chưa load được profileData mà giờ đã có resolvedCandId
@@ -737,10 +756,14 @@ export default function CandidateEvaluationPage({
         candidateAvatar = candidateAvatar || profileData?.avatarUrl || appData?.candidateAvatar;
         jobTitle = jobTitle || jobData?.title || appData?.jobTitle || (effectiveJobId ? `Vị trí Tuyển Dụng #${effectiveJobId}` : 'Vị trí Tuyển Dụng');
 
-        // Lấy danh sách kỹ năng thực tế
+        // Lấy danh sách kỹ năng thực tế (Đa tầng fallback từ CV parsedData, detectedSkills, parsedJson, profileData)
       let cleanSkills = [];
       if (parsedJson?.skills && Array.isArray(parsedJson.skills) && parsedJson.skills.length > 0) {
         cleanSkills = parsedJson.skills.filter((s) => typeof s === 'string' && s.trim().length > 1);
+      } else if (cvData?.detectedSkills && Array.isArray(cvData.detectedSkills) && cvData.detectedSkills.length > 0) {
+        cleanSkills = cvData.detectedSkills.filter(Boolean);
+      } else if (cvData?.parsedData?.skills && Array.isArray(cvData.parsedData.skills) && cvData.parsedData.skills.length > 0) {
+        cleanSkills = cvData.parsedData.skills.filter(Boolean);
       } else if (profileData?.skills && Array.isArray(profileData.skills) && profileData.skills.length > 0) {
         cleanSkills = profileData.skills.map((s) => s.skillName || s.name || s).filter(Boolean);
       }
@@ -760,14 +783,21 @@ export default function CandidateEvaluationPage({
         ];
       }
 
-      // Lấy kinh nghiệm làm việc thực tế của ứng viên
+      // Lấy kinh nghiệm làm việc thực tế của ứng viên (Fallback toàn diện: parsedJson, cvData.parsedData, cvData.experiencesJson, profileData)
       let experiences = [];
       if (parsedJson?.experiences && Array.isArray(parsedJson.experiences) && parsedJson.experiences.length > 0) {
         experiences = parsedJson.experiences;
+      } else if (cvData?.parsedData?.experiences && Array.isArray(cvData.parsedData.experiences) && cvData.parsedData.experiences.length > 0) {
+        experiences = cvData.parsedData.experiences;
+      } else if (cvData?.experiencesJson) {
+        try {
+          const expArr = typeof cvData.experiencesJson === 'string' ? JSON.parse(cvData.experiencesJson) : cvData.experiencesJson;
+          if (Array.isArray(expArr) && expArr.length > 0) experiences = expArr;
+        } catch (ignored) {}
       } else if (profileData?.experiencesJson) {
         try {
           const expArr = typeof profileData.experiencesJson === 'string' ? JSON.parse(profileData.experiencesJson) : profileData.experiencesJson;
-          if (Array.isArray(expArr)) experiences = expArr;
+          if (Array.isArray(expArr) && expArr.length > 0) experiences = expArr;
         } catch (ignored) {}
       }
 
@@ -775,10 +805,17 @@ export default function CandidateEvaluationPage({
       let educations = [];
       if (parsedJson?.educations && Array.isArray(parsedJson.educations) && parsedJson.educations.length > 0) {
         educations = parsedJson.educations;
+      } else if (cvData?.parsedData?.educations && Array.isArray(cvData.parsedData.educations) && cvData.parsedData.educations.length > 0) {
+        educations = cvData.parsedData.educations;
+      } else if (cvData?.educationsJson) {
+        try {
+          const eduArr = typeof cvData.educationsJson === 'string' ? JSON.parse(cvData.educationsJson) : cvData.educationsJson;
+          if (Array.isArray(eduArr) && eduArr.length > 0) educations = eduArr;
+        } catch (ignored) {}
       } else if (profileData?.educationsJson) {
         try {
           const eduArr = typeof profileData.educationsJson === 'string' ? JSON.parse(profileData.educationsJson) : profileData.educationsJson;
-          if (Array.isArray(eduArr)) educations = eduArr;
+          if (Array.isArray(eduArr) && eduArr.length > 0) educations = eduArr;
         } catch (ignored) {}
       }
 
@@ -786,10 +823,17 @@ export default function CandidateEvaluationPage({
       let certifications = [];
       if (parsedJson?.certifications && Array.isArray(parsedJson.certifications) && parsedJson.certifications.length > 0) {
         certifications = parsedJson.certifications;
+      } else if (cvData?.parsedData?.certifications && Array.isArray(cvData.parsedData.certifications) && cvData.parsedData.certifications.length > 0) {
+        certifications = cvData.parsedData.certifications;
+      } else if (cvData?.certificationsJson) {
+        try {
+          const certArr = typeof cvData.certificationsJson === 'string' ? JSON.parse(cvData.certificationsJson) : cvData.certificationsJson;
+          if (Array.isArray(certArr) && certArr.length > 0) certifications = certArr;
+        } catch (ignored) {}
       } else if (profileData?.certificationsJson) {
         try {
           const certArr = typeof profileData.certificationsJson === 'string' ? JSON.parse(profileData.certificationsJson) : profileData.certificationsJson;
-          if (Array.isArray(certArr)) certifications = certArr;
+          if (Array.isArray(certArr) && certArr.length > 0) certifications = certArr;
         } catch (ignored) {}
       }
 
@@ -797,10 +841,17 @@ export default function CandidateEvaluationPage({
       let languages = [];
       if (parsedJson?.languages && Array.isArray(parsedJson.languages) && parsedJson.languages.length > 0) {
         languages = parsedJson.languages;
+      } else if (cvData?.parsedData?.languages && Array.isArray(cvData.parsedData.languages) && cvData.parsedData.languages.length > 0) {
+        languages = cvData.parsedData.languages;
+      } else if (cvData?.languagesJson) {
+        try {
+          const langArr = typeof cvData.languagesJson === 'string' ? JSON.parse(cvData.languagesJson) : cvData.languagesJson;
+          if (Array.isArray(langArr) && langArr.length > 0) languages = langArr;
+        } catch (ignored) {}
       } else if (profileData?.languagesJson) {
         try {
           const langArr = typeof profileData.languagesJson === 'string' ? JSON.parse(profileData.languagesJson) : profileData.languagesJson;
-          if (Array.isArray(langArr)) languages = langArr;
+          if (Array.isArray(langArr) && langArr.length > 0) languages = langArr;
         } catch (ignored) {}
       }
 
@@ -808,18 +859,26 @@ export default function CandidateEvaluationPage({
       let projects = [];
       if (parsedJson?.projects && Array.isArray(parsedJson.projects) && parsedJson.projects.length > 0) {
         projects = parsedJson.projects;
+      } else if (cvData?.parsedData?.projects && Array.isArray(cvData.parsedData.projects) && cvData.parsedData.projects.length > 0) {
+        projects = cvData.parsedData.projects;
+      } else if (cvData?.projectsJson) {
+        try {
+          const projArr = typeof cvData.projectsJson === 'string' ? JSON.parse(cvData.projectsJson) : cvData.projectsJson;
+          if (Array.isArray(projArr) && projArr.length > 0) projects = projArr;
+        } catch (ignored) {}
       } else if (profileData?.projectsJson) {
         try {
           const projArr = typeof profileData.projectsJson === 'string' ? JSON.parse(profileData.projectsJson) : profileData.projectsJson;
-          if (Array.isArray(projArr)) projects = projArr;
+          if (Array.isArray(projArr) && projArr.length > 0) projects = projArr;
         } catch (ignored) {}
       }
 
-      // 4 Trụ cột ATS từ kết quả AI Match thực tế (tuyệt đối không biến 0 thành số giả)
-      const skillsScore = appData?.skillsScore != null ? Number(appData.skillsScore) : (candMatch?.skillsScore != null ? Number(candMatch.skillsScore) : (parsedJson?.skillsScore ?? Math.round(matchScore)));
-      const experienceScore = appData?.experienceScore != null ? Number(appData.experienceScore) : (candMatch?.experienceScore != null ? Number(candMatch.experienceScore) : (parsedJson?.experienceScore ?? Math.round(matchScore)));
-      const educationScore = appData?.educationScore != null ? Number(appData.educationScore) : (candMatch?.educationScore != null ? Number(candMatch.educationScore) : (parsedJson?.educationScore ?? Math.round(matchScore)));
-      const semanticScore = appData?.semanticScore != null ? Number(appData.semanticScore) : (candMatch?.semanticScore != null ? Number(candMatch.semanticScore) : (parsedJson?.semanticScore ?? Math.round(matchScore)));
+      // 4 Trụ cột ATS từ kết quả AI Match thực tế (Đồng bộ chuẩn xác từ DB, không bao giờ để 0%)
+      const resolvedMatchScore = matchScore > 0 ? matchScore : (appData?.matchingScore ? Math.round(appData.matchingScore) : (candMatch?.matchingScore ? Math.round(candMatch.matchingScore) : 0));
+      const skillsScore = appData?.skillsScore != null ? Number(appData.skillsScore) : (candMatch?.skillsScore != null ? Number(candMatch.skillsScore) : (parsedJson?.skillsScore ?? resolvedMatchScore));
+      const experienceScore = appData?.experienceScore != null ? Number(appData.experienceScore) : (candMatch?.experienceScore != null ? Number(candMatch.experienceScore) : (parsedJson?.experienceScore ?? resolvedMatchScore));
+      const educationScore = appData?.educationScore != null ? Number(appData.educationScore) : (candMatch?.educationScore != null ? Number(candMatch.educationScore) : (parsedJson?.educationScore ?? resolvedMatchScore));
+      const semanticScore = appData?.semanticScore != null ? Number(appData.semanticScore) : (candMatch?.semanticScore != null ? Number(candMatch.semanticScore) : (parsedJson?.semanticScore ?? resolvedMatchScore));
 
       // Đồng bộ ghi chú HR bền vững theo applicationId thực tế
       if (effectiveAppId) {
@@ -896,6 +955,7 @@ export default function CandidateEvaluationPage({
           jobId: targetEvalJobId || effectiveJobId || parsedJobId,
           applicationId: effectiveAppId,
           isWithdrawn,
+          hasPersistedAiReport: hasPersistedReport,
           initialTemplate: initialTpl,
           name: candidateName,
           title: parsedJson?.headline || profileData?.headline || (jobTitle ? `${jobTitle} • Ứng viên` : 'Chuyên viên'),
@@ -1513,148 +1573,186 @@ export default function CandidateEvaluationPage({
             </div>
           </div>
 
-          {/* Card B.2: Báo Cáo Đánh Giá & Thẩm Định Chi Tiết Từ AI Copilot */}
+          {/* Card B.2: Báo Cáo Đánh Giá & Thẩm Định Chi Tiết Từ AI Copilot (2 Trạng Thái: Chưa Có Báo Cáo / Đã Lưu CSDL) */}
           <div className="bg-white border border-slate-200/80 rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-purple-50 text-[#5b48bd] flex items-center justify-center font-bold">
-                  <span className="material-symbols-outlined text-lg">psychology</span>
+            {!cand.hasPersistedAiReport ? (
+              /* ========================================================================= */
+              /* TRẠNG THÁI 1: CHƯA CÓ BÁO CÁO TRONG CSDL (Chi phí: 0 Token, 0ms khi tải trang) */
+              /* ========================================================================= */
+              <div className="bg-gradient-to-br from-purple-50/80 via-indigo-50/40 to-white border-2 border-dashed border-purple-200/90 rounded-3xl p-6 sm:p-8 text-center space-y-4 shadow-2xs">
+                <div className="w-14 h-14 rounded-2xl bg-purple-100 text-[#5b48bd] flex items-center justify-center mx-auto shadow-2xs">
+                  <span className="material-symbols-outlined text-3xl">psychology</span>
                 </div>
-                <div>
-                  <h3 className="font-extrabold text-sm text-[#1e1b4b] flex items-center gap-2">
-                    <span>Báo Cáo Đánh Giá Chi Tiết AI Copilot</span>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-[#5b48bd] border border-purple-200">
-                      {cand.aiFitAssessment || cand.aiReport?.matchTier || 'Chuẩn ATS'}
-                    </span>
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
-                      <span className="material-symbols-outlined text-[12px] text-emerald-600">database</span>
-                      <span>✓ Đã lưu CSDL</span>
-                    </span>
+                <div className="max-w-md mx-auto space-y-1.5">
+                  <h3 className="font-extrabold text-base text-[#1e1b4b]">
+                    Báo Cáo Phân Tích Chuyên Sâu (Gemini AI)
                   </h3>
-                  <p className="text-[10px] text-slate-400 font-medium">
-                    Phân tích đa chiều: Ưu điểm, Tiêu chí chưa đạt &amp; Khuyến nghị tuyển dụng
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Hệ thống áp dụng kiến trúc <strong>Lưu Cứng Vào CSDL (Write Once, Read Many)</strong>.
+                    Bấm nút bên dưới để yêu cầu AI thẩm định sâu đa chiều (Ưu/Nhược điểm, Skill Gap, Gợi ý phỏng vấn). Sau khi thẩm định, báo cáo sẽ được lưu vĩnh viễn (0ms, 0 Token cho các lần truy cập sau).
                   </p>
                 </div>
-              </div>
-
-              <button
-                type="button"
-                disabled={isReScoring}
-                onClick={handleReScoreCandidate}
-                className="px-3 py-1 rounded-xl bg-purple-50 hover:bg-purple-100 text-[#5b48bd] border border-purple-200 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
-                title="Kích hoạt AI đối soát chuyên sâu & chấm lại kỹ hơn hồ sơ CV này"
-              >
-                <span className={`material-symbols-outlined text-[13px] ${isReScoring ? 'animate-spin' : ''}`}>
-                  {isReScoring ? 'sync' : 'auto_awesome'}
-                </span>
-                <span>{isReScoring ? 'Đang chấm...' : 'Chấm Lại Bằng AI'}</span>
-              </button>
-            </div>
-
-            {/* 1. Ưu Điểm & Năng Lực Phù Hợp */}
-            <div className="p-4 rounded-2xl bg-emerald-50/40 border border-emerald-200/80 space-y-3">
-              <div className="flex items-center justify-between pb-2 border-b border-emerald-100">
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-emerald-600 text-base">check_circle</span>
-                  <h4 className="text-xs font-bold text-emerald-950 uppercase tracking-wide">
-                    1. Ưu Điểm &amp; Năng Lực Phù Hợp ({cand.aiReport?.advantages?.length || 0})
-                  </h4>
+                <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    disabled={isReScoring}
+                    onClick={handleReScoreCandidate}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-[#5b48bd] to-indigo-600 hover:from-[#47369f] hover:to-indigo-700 text-white font-extrabold text-xs shadow-md hover:shadow-lg transition-all cursor-pointer hover:scale-105"
+                  >
+                    <span className={"material-symbols-outlined text-base " + (isReScoring ? "animate-spin" : "")}>
+                      {isReScoring ? 'sync' : 'auto_awesome'}
+                    </span>
+                    <span>{isReScoring ? 'AI Đang Thẩm Định Chuyên Sâu...' : '🤖 Yêu Cầu AI Phân Tích Sâu (Lưu Vào CSDL)'}</span>
+                  </button>
                 </div>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                  Phù Hợp
-                </span>
               </div>
-
-              <div className="space-y-2.5">
-                {(cand.aiReport?.advantages || []).map((item, idx) => (
-                  <div key={idx} className="p-3 rounded-xl bg-white border border-emerald-100 shadow-2xs space-y-1 text-xs">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                        {item.category || 'Kỹ năng chuyên môn'}
-                      </span>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                        {item.assessment || 'Đạt chuẩn'}
-                      </span>
+            ) : (
+              /* ========================================================================= */
+              /* TRẠNG THÁI 2: ĐÃ CÓ BÁO CÁO LƯU TRONG CSDL (Hiển thị ngay lập tức, 0ms)    */
+              /* ========================================================================= */
+              <>
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-purple-50 text-[#5b48bd] flex items-center justify-center font-bold">
+                      <span className="material-symbols-outlined text-lg">psychology</span>
                     </div>
-                    <div className="font-bold text-slate-900 text-xs pt-0.5">{item.title}</div>
-                    {item.jobMatch && (
-                      <div className="text-[11px] text-slate-700">
-                        <strong className="text-emerald-900">🎯 Đáp ứng yêu cầu JD: </strong>
-                        <span>{sanitizeEvidenceText(item.jobMatch)}</span>
+                    <div>
+                      <h3 className="font-extrabold text-sm text-[#1e1b4b] flex items-center gap-2">
+                        <span>Báo Cáo Đánh Giá Chi Tiết AI Copilot</span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-[#5b48bd] border border-purple-200">
+                          {cand.aiFitAssessment || cand.aiReport?.matchTier || 'Chuẩn ATS'}
+                        </span>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
+                          <span className="material-symbols-outlined text-[12px] text-emerald-600">database</span>
+                          <span>✓ Đã lưu CSDL (0 Token)</span>
+                        </span>
+                      </h3>
+                      <p className="text-[10px] text-slate-400 font-medium">
+                        Phân tích đa chiều: Ưu điểm, Tiêu chí chưa đạt &amp; Khuyến nghị tuyển dụng
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={isReScoring}
+                    onClick={handleReScoreCandidate}
+                    className="px-3 py-1 rounded-xl bg-purple-50 hover:bg-purple-100 text-[#5b48bd] border border-purple-200 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+                    title="Kích hoạt AI đối soát chuyên sâu & chấm lại kỹ hơn hồ sơ CV này"
+                  >
+                    <span className={"material-symbols-outlined text-[13px] " + (isReScoring ? "animate-spin" : "")}>
+                      {isReScoring ? 'sync' : 'auto_awesome'}
+                    </span>
+                    <span>{isReScoring ? 'Đang chấm...' : '🔄 Thẩm định lại bằng AI'}</span>
+                  </button>
+                </div>
+
+                {/* 1. Ưu Điểm & Năng Lực Phù Hợp */}
+                <div className="p-4 rounded-2xl bg-emerald-50/40 border border-emerald-200/80 space-y-3">
+                  <div className="flex items-center justify-between pb-2 border-b border-emerald-100">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-emerald-600 text-base">check_circle</span>
+                      <h4 className="text-xs font-bold text-emerald-950 uppercase tracking-wide">
+                        1. Ưu Điểm &amp; Năng Lực Phù Hợp ({cand.aiReport?.advantages?.length || 0})
+                      </h4>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                      Phù Hợp
+                    </span>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    {(cand.aiReport?.advantages || []).map((item, idx) => (
+                      <div key={idx} className="p-3 rounded-xl bg-white border border-emerald-100 shadow-2xs space-y-1 text-xs">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            {item.category || 'Kỹ năng chuyên môn'}
+                          </span>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                            {item.assessment || 'Đạt chuẩn'}
+                          </span>
+                        </div>
+                        <div className="font-bold text-slate-900 text-xs pt-0.5">{item.title}</div>
+                        {item.jobMatch && (
+                          <div className="text-[11px] text-slate-700">
+                            <strong className="text-emerald-900">🎯 Đáp ứng yêu cầu JD: </strong>
+                            <span>{sanitizeEvidenceText(item.jobMatch)}</span>
+                          </div>
+                        )}
+                        {item.cvEvidence && (
+                          <div className="p-2 rounded-lg bg-slate-50 border border-slate-100 text-[11px] text-slate-600 leading-relaxed font-normal">
+                            <strong className="text-slate-800">📄 Minh chứng thực tế từ CV: </strong>
+                            <span>{sanitizeEvidenceText(item.cvEvidence)}</span>
+                          </div>
+                        )}
                       </div>
-                    )}
-                    {item.cvEvidence && (
-                      <div className="p-2 rounded-lg bg-slate-50 border border-slate-100 text-[11px] text-slate-600 leading-relaxed font-normal">
-                        <strong className="text-slate-800">📄 Minh chứng thực tế từ CV: </strong>
-                        <span>{sanitizeEvidenceText(item.cvEvidence)}</span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 2. Điểm Yếu & Tiêu Chí Chưa Đạt */}
+                <div className="p-4 rounded-2xl bg-amber-50/40 border border-amber-200/80 space-y-3">
+                  <div className="flex items-center justify-between pb-2 border-b border-amber-100">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-amber-600 text-base">warning</span>
+                      <h4 className="text-xs font-bold text-amber-950 uppercase tracking-wide">
+                        2. Điểm Yếu &amp; Tiêu Chí Chưa Đạt ({cand.aiReport?.disadvantages?.length || 0})
+                      </h4>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                      Cần Lưu Ý
+                    </span>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    {(!cand.aiReport?.disadvantages || cand.aiReport.disadvantages.length === 0) ? (
+                      <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-center space-y-1">
+                        <span className="material-symbols-outlined text-emerald-600 text-xl">verified</span>
+                        <p className="text-xs font-bold text-emerald-900">Không có điểm yếu nghiêm trọng</p>
+                        <p className="text-[11px] text-emerald-700">Ứng viên đáp ứng trọn vẹn mọi yêu cầu cốt lõi của bài tuyển dụng!</p>
                       </div>
+                    ) : (
+                      cand.aiReport.disadvantages.map((item, idx) => (
+                        <div key={idx} className="p-3 rounded-xl bg-white border border-amber-200/70 shadow-2xs space-y-1 text-xs">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-200">
+                              {item.category || 'Kỹ năng còn thiếu'}
+                            </span>
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-800 border border-rose-200">
+                              {item.severity || 'Cần lưu ý'}
+                            </span>
+                          </div>
+                          <div className="font-bold text-slate-900 text-xs pt-0.5">{item.title}</div>
+                          {item.jobRequirement && (
+                            <div className="text-[11px] text-slate-700">
+                              <strong className="text-amber-950">📌 Yêu cầu bài tuyển dụng: </strong>
+                              <span>{sanitizeEvidenceText(item.jobRequirement)}</span>
+                            </div>
+                          )}
+                          {item.cvShortfall && (
+                            <div className="p-2 rounded-lg bg-amber-50/60 border border-amber-100 text-[11px] text-amber-950 leading-relaxed font-normal">
+                              <strong className="text-amber-900">⚠️ Hiện trạng trong CV: </strong>
+                              <span>{sanitizeEvidenceText(item.cvShortfall)}</span>
+                            </div>
+                          )}
+                        </div>
+                      ))
                     )}
                   </div>
-                ))}
-              </div>
-            </div>
-
-            {/* 2. Điểm Yếu & Tiêu Chí Chưa Đạt */}
-            <div className="p-4 rounded-2xl bg-amber-50/40 border border-amber-200/80 space-y-3">
-              <div className="flex items-center justify-between pb-2 border-b border-amber-100">
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-amber-600 text-base">warning</span>
-                  <h4 className="text-xs font-bold text-amber-950 uppercase tracking-wide">
-                    2. Điểm Yếu &amp; Tiêu Chí Chưa Đạt ({cand.aiReport?.disadvantages?.length || 0})
-                  </h4>
                 </div>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                  Cần Lưu Ý
-                </span>
-              </div>
 
-              <div className="space-y-2.5">
-                {(!cand.aiReport?.disadvantages || cand.aiReport.disadvantages.length === 0) ? (
-                  <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-center space-y-1">
-                    <span className="material-symbols-outlined text-emerald-600 text-xl">verified</span>
-                    <p className="text-xs font-bold text-emerald-900">Không có điểm yếu nghiêm trọng</p>
-                    <p className="text-[11px] text-emerald-700">Ứng viên đáp ứng trọn vẹn mọi yêu cầu cốt lõi của bài tuyển dụng!</p>
+                {/* 3. Nhận Định Chuyên Môn & Khuyến Nghị Tuyển Dụng */}
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-50/80 via-indigo-50/40 to-white border border-purple-200/80 space-y-2.5">
+                  <div className="flex items-center gap-2 text-xs font-extrabold text-[#5b48bd]">
+                    <span className="material-symbols-outlined text-base">psychology</span>
+                    <span>Khuyến Nghị Tuyển Dụng Từ AI Copilot</span>
                   </div>
-                ) : (
-                  cand.aiReport.disadvantages.map((item, idx) => (
-                    <div key={idx} className="p-3 rounded-xl bg-white border border-amber-200/70 shadow-2xs space-y-1 text-xs">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-200">
-                          {item.category || 'Kỹ năng còn thiếu'}
-                        </span>
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-800 border border-rose-200">
-                          {item.severity || 'Cần lưu ý'}
-                        </span>
-                      </div>
-                      <div className="font-bold text-slate-900 text-xs pt-0.5">{item.title}</div>
-                      {item.jobRequirement && (
-                        <div className="text-[11px] text-slate-700">
-                          <strong className="text-amber-950">📌 Yêu cầu bài tuyển dụng: </strong>
-                          <span>{sanitizeEvidenceText(item.jobRequirement)}</span>
-                        </div>
-                      )}
-                      {item.cvShortfall && (
-                        <div className="p-2 rounded-lg bg-amber-50/60 border border-amber-100 text-[11px] text-amber-950 leading-relaxed font-normal">
-                          <strong className="text-amber-900">⚠️ Hiện trạng trong CV: </strong>
-                          <span>{sanitizeEvidenceText(item.cvShortfall)}</span>
-                        </div>
-                      )}
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
-            {/* 3. Nhận Định Chuyên Môn & Khuyến Nghị Tuyển Dụng */}
-            <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-50/80 via-indigo-50/40 to-white border border-purple-200/80 space-y-2.5">
-              <div className="flex items-center gap-2 text-xs font-extrabold text-[#5b48bd]">
-                <span className="material-symbols-outlined text-base">psychology</span>
-                <span>Khuyến Nghị Tuyển Dụng Từ AI Copilot</span>
-              </div>
-              <p className="text-xs text-slate-700 leading-relaxed font-medium">
-                {sanitizeEvidenceText(cand.aiReport?.executiveRecommendation || 'Khuyến nghị HR mời ứng viên tham gia phỏng vấn chuyên sâu để đánh giá thái độ học hỏi và thẩm định năng lực thực tế.')}
-              </p>
-            </div>
+                  <p className="text-xs text-slate-700 leading-relaxed font-medium">
+                    {sanitizeEvidenceText(cand.aiReport?.executiveRecommendation || 'Khuyến nghị HR mời ứng viên tham gia phỏng vấn chuyên sâu để đánh giá thái độ học hỏi và thẩm định năng lực thực tế.')}
+                  </p>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Card C: HR Decision & Action Box */}
@@ -1938,29 +2036,30 @@ export default function CandidateEvaluationPage({
                       </div>
                     </div>
                   ) : (
-                    <div className="w-full flex-1 flex flex-col items-center justify-start overflow-auto p-2 sm:p-4 bg-slate-200/70 rounded-2xl min-h-[750px]">
+                    <div className="w-full flex-1 flex flex-col items-center justify-start overflow-auto p-1 sm:p-3 bg-slate-100 rounded-2xl min-h-[780px]">
                       <div
                         style={{
-                          width: `${Math.max(320, Math.round(720 * (zoomLevel / 100)))}px`,
+                          width: zoomLevel === 100 ? '100%' : (zoomLevel + '%'),
                           maxWidth: '100%',
+                          minHeight: '880px',
                           transition: 'width 0.15s ease-out',
                         }}
-                        className="mx-auto rounded-2xl shadow-xl border border-slate-300 overflow-hidden bg-white flex flex-col"
+                        className="w-full mx-auto rounded-2xl shadow-lg border border-slate-200 overflow-hidden bg-white flex flex-col"
                       >
                         <iframe
-                          key={`${pdfBlobUrl}-${zoomLevel}`}
+                          key={pdfBlobUrl + '-' + zoomLevel}
                           src={
                             pdfBlobUrl.includes('#')
-                              ? pdfBlobUrl.replace(/#.*$/, `#page=1&view=Fit&zoom=${zoomLevel}&toolbar=1&navpanes=0`)
-                              : `${pdfBlobUrl}#page=1&view=Fit&zoom=${zoomLevel}&toolbar=1&navpanes=0`
+                              ? pdfBlobUrl.replace(/#.*$/, '#page=1&view=FitH&toolbar=1&navpanes=0')
+                              : (pdfBlobUrl + '#page=1&view=FitH&toolbar=1&navpanes=0')
                           }
-                          title={`CV - ${cand.name}`}
+                          title={'CV - ' + cand.name}
                           style={{
                             width: '100%',
-                            height: '860px',
+                            height: '880px',
                             border: 'none',
                           }}
-                          className="bg-white"
+                          className="w-full bg-white"
                         />
                       </div>
                     </div>

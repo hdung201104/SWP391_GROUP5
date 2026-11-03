@@ -37,6 +37,7 @@ public class ApplicationServiceImpl implements ApplicationService {
     private final com.hiremate.service.NotificationService notificationService;
     private final com.hiremate.service.AiJobMatchService aiJobMatchService;
     private final com.hiremate.service.EmailService emailService;
+    private static final com.fasterxml.jackson.databind.ObjectMapper OBJECT_MAPPER = new com.fasterxml.jackson.databind.ObjectMapper();
     private final Map<Long, CachedApplications> candidateAppsCache = new java.util.concurrent.ConcurrentHashMap<>();
 
     private record CachedApplications(List<ApplicationResponse> data, long timestamp) {}
@@ -817,14 +818,69 @@ public class ApplicationServiceImpl implements ApplicationService {
 
         // Lấy AI matching score từ override hoặc cache (KHÔNG gọi lại Gemini API)
         Float score = overrideScore;
-        if (score == null && job != null && candidate != null) {
+        Float skillsScore = null;
+        Float experienceScore = null;
+        Float educationScore = null;
+        Float semanticScore = null;
+
+        if (job != null && candidate != null) {
             Optional<AiJobMatch> match = aiJobMatchRepository
                     .findByCandidate_CandidateIdAndJob_JobId(
                             candidate.getCandidateId(),
                             job.getJobId());
             if (match.isPresent()) {
-                score = match.get().getMatchingScore();
+                AiJobMatch m = match.get();
+                if (score == null) {
+                    score = m.getMatchingScore();
+                }
+                if (m.getSkillGapJson() != null && !m.getSkillGapJson().isBlank()) {
+                    try {
+                        com.fasterxml.jackson.databind.JsonNode gapNode = OBJECT_MAPPER.readTree(m.getSkillGapJson());
+                        if (gapNode.has("skillsScore") && !gapNode.get("skillsScore").isNull()) {
+                            skillsScore = (float) gapNode.get("skillsScore").asDouble();
+                        }
+                        if (gapNode.has("experienceScore") && !gapNode.get("experienceScore").isNull()) {
+                            experienceScore = (float) gapNode.get("experienceScore").asDouble();
+                        }
+                        if (gapNode.has("educationScore") && !gapNode.get("educationScore").isNull()) {
+                            educationScore = (float) gapNode.get("educationScore").asDouble();
+                        }
+                        if (gapNode.has("semanticScore") && !gapNode.get("semanticScore").isNull()) {
+                            semanticScore = (float) gapNode.get("semanticScore").asDouble();
+                        }
+                    } catch (Exception ignored) {}
+                }
             }
+        }
+
+        // Nếu có evaluationNotes dạng JSON chứa các điểm số chi tiết
+        if (app.getEvaluationNotes() != null && app.getEvaluationNotes().trim().startsWith("{")) {
+            try {
+                com.fasterxml.jackson.databind.JsonNode evalNode = OBJECT_MAPPER.readTree(app.getEvaluationNotes().trim());
+                if (evalNode.has("matchingScore") && !evalNode.get("matchingScore").isNull() && score == null) {
+                    score = (float) evalNode.get("matchingScore").asDouble();
+                }
+                if (evalNode.has("skillsScore") && !evalNode.get("skillsScore").isNull() && skillsScore == null) {
+                    skillsScore = (float) evalNode.get("skillsScore").asDouble();
+                }
+                if (evalNode.has("experienceScore") && !evalNode.get("experienceScore").isNull() && experienceScore == null) {
+                    experienceScore = (float) evalNode.get("experienceScore").asDouble();
+                }
+                if (evalNode.has("educationScore") && !evalNode.get("educationScore").isNull() && educationScore == null) {
+                    educationScore = (float) evalNode.get("educationScore").asDouble();
+                }
+                if (evalNode.has("semanticScore") && !evalNode.get("semanticScore").isNull() && semanticScore == null) {
+                    semanticScore = (float) evalNode.get("semanticScore").asDouble();
+                }
+            } catch (Exception ignored) {}
+        }
+
+        // Fallback an toàn: nếu đã có điểm tổng thể matchingScore nhưng các trụ cột chưa được tách riêng
+        if (score != null) {
+            if (skillsScore == null) skillsScore = score;
+            if (experienceScore == null) experienceScore = score;
+            if (educationScore == null) educationScore = score;
+            if (semanticScore == null) semanticScore = score;
         }
 
         boolean isWithdrawn = app.getStatus() == ApplicationStatus.REJECTED
@@ -871,6 +927,10 @@ public class ApplicationServiceImpl implements ApplicationService {
                 .status(app.getStatus())
                 .coverLetter(app.getCoverLetter())
                 .matchingScore(score)
+                .skillsScore(skillsScore)
+                .experienceScore(experienceScore)
+                .educationScore(educationScore)
+                .semanticScore(semanticScore)
                 .evaluationNotes(app.getEvaluationNotes())
                 .notes(app.getEvaluationNotes())
                 .rejectionReason(app.getRejectionReason())

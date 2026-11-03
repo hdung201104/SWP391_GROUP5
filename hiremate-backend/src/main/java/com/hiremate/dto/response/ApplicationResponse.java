@@ -30,6 +30,10 @@ public class ApplicationResponse {
     private ApplicationStatus status;
     private String coverLetter;
     private Float matchingScore;
+    private Float skillsScore;
+    private Float experienceScore;
+    private Float educationScore;
+    private Float semanticScore;
     private String evaluationNotes;
     private String notes;
     private String rejectionReason;
@@ -69,6 +73,10 @@ public class ApplicationResponse {
         private ApplicationStatus status;
         private String coverLetter;
         private Float matchingScore;
+        private Float skillsScore;
+        private Float experienceScore;
+        private Float educationScore;
+        private Float semanticScore;
         private LocalDateTime createdAt;
 
         public ApplicationResponseBuilder applicationId(Long applicationId) {
@@ -166,6 +174,26 @@ public class ApplicationResponse {
             return this;
         }
 
+        public ApplicationResponseBuilder skillsScore(Float skillsScore) {
+            this.skillsScore = skillsScore;
+            return this;
+        }
+
+        public ApplicationResponseBuilder experienceScore(Float experienceScore) {
+            this.experienceScore = experienceScore;
+            return this;
+        }
+
+        public ApplicationResponseBuilder educationScore(Float educationScore) {
+            this.educationScore = educationScore;
+            return this;
+        }
+
+        public ApplicationResponseBuilder semanticScore(Float semanticScore) {
+            this.semanticScore = semanticScore;
+            return this;
+        }
+
         private String evaluationNotes;
         private String notes;
         private String rejectionReason;
@@ -235,6 +263,7 @@ public class ApplicationResponse {
                     candidateName, candidateEmail, candidatePhone, candidateAvatar, withdrawnByCandidate, offerDeclinedByCandidate,
                     recruiterId, recruiterName, recruiterEmail,
                     cvId, cvUrl, status, coverLetter, matchingScore,
+                    skillsScore, experienceScore, educationScore, semanticScore,
                     evaluationNotes, notes, rejectionReason, createdAt,
                     jobStatus, companyStatus, companyVerified, companyBlocked, companyRejectionReason, jobClosed
             );

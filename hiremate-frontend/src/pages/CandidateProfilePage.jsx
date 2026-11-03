@@ -394,8 +394,13 @@ export default function CandidateProfilePage({ user }) {
   const fetchRecommendations = async () => {
     try {
       setLoadingRecommendations(true);
-      const res = await jobApi.getRecommendations({ minMatch: 50, limit: 4 });
-      const list = res?.data || res || [];
+      let res = await jobApi.getRecommendations({ minMatch: 50, limit: 4 });
+      let list = res?.data || res || [];
+      if (!Array.isArray(list) || list.length === 0) {
+        // Fallback: nếu chưa có việc làm nào đạt >= 50% match, thử minMatch: 0 để luôn lấy các việc làm tiềm năng nhất
+        res = await jobApi.getRecommendations({ minMatch: 0, limit: 4 });
+        list = res?.data || res || [];
+      }
       if (Array.isArray(list)) {
         setRecommendedJobs(list);
       }
