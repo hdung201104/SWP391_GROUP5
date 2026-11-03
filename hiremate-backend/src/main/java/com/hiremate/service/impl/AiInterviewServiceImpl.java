@@ -143,12 +143,20 @@ public class AiInterviewServiceImpl implements AiInterviewService {
 
     private static class CachedPlanEntry {
         final com.hiremate.entity.SubscriptionPlan plan;
+        final LocalDateTime subEndDate;
         final long timestamp;
-        CachedPlanEntry(com.hiremate.entity.SubscriptionPlan plan) {
+        CachedPlanEntry(com.hiremate.entity.SubscriptionPlan plan, LocalDateTime subEndDate) {
             this.plan = plan;
+            this.subEndDate = subEndDate;
             this.timestamp = System.currentTimeMillis();
         }
+        CachedPlanEntry(com.hiremate.entity.SubscriptionPlan plan) {
+            this(plan, null);
+        }
         boolean isExpired() {
+            if (subEndDate != null && LocalDateTime.now().isAfter(subEndDate)) {
+                return true; // Hết hạn gói dịch vụ ngay lập tức khi chạm mốc endDate
+            }
             return System.currentTimeMillis() - timestamp > 60_000L; // 60 giây TTL
         }
     }
@@ -194,8 +202,9 @@ public class AiInterviewServiceImpl implements AiInterviewService {
             List<com.hiremate.entity.Subscription> activeSubs = subscriptionRepository.findActiveCandidateSubscriptions(
                     candidate.getUserId(), com.hiremate.enums.SubscriptionStatus.ACTIVE, LocalDateTime.now());
             if (!activeSubs.isEmpty() && activeSubs.get(0).getPlan() != null) {
-                com.hiremate.entity.SubscriptionPlan p = activeSubs.get(0).getPlan();
-                USER_PLAN_CACHE.put(candidate.getUserId(), new CachedPlanEntry(p));
+                com.hiremate.entity.Subscription activeSub = activeSubs.get(0);
+                com.hiremate.entity.SubscriptionPlan p = activeSub.getPlan();
+                USER_PLAN_CACHE.put(candidate.getUserId(), new CachedPlanEntry(p, activeSub.getEndDate()));
                 return p;
             }
         }
