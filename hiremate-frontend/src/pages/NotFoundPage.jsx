@@ -27,7 +27,7 @@ export default function NotFoundPage({ onGoHome }) {
           <button
             onClick={() => {
               if (onGoHome) onGoHome();
-              else window.location.hash = '#/';
+              else window.location.href = '/#/';
             }}
             className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-primary text-on-primary font-label font-bold text-xs uppercase tracking-wider shadow-[0_0_16px_rgba(255,45,120,0.5)] hover:bg-primary-container transition-all cursor-pointer flex items-center justify-center gap-1.5"
           >

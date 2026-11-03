@@ -4296,7 +4296,7 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
                   <button
                     onClick={() => {
                       if (onNavigate) onNavigate('candidate-pricing');
-                      else window.location.href = '/candidate-pricing';
+                      else window.location.hash = '#/candidate-pricing';
                     }}
                     className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
                   >
@@ -4308,7 +4308,7 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
                 <button
                   onClick={() => {
                     if (onNavigate) onNavigate('candidate-pricing');
-                    else window.location.href = '/candidate-pricing';
+                    else window.location.hash = '#/candidate-pricing';
                   }}
                   className="px-4 py-2 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 border border-purple-400/30 text-purple-200 hover:text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
                 >
@@ -6546,7 +6546,7 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
                 onClick={() => {
                   setIsQuotaModalOpen(false);
                   if (onNavigate) onNavigate('candidate-pricing');
-                  else window.location.href = '/candidate-pricing';
+                  else window.location.hash = '#/candidate-pricing';
                 }}
                 className="w-full sm:flex-1 py-3.5 px-5 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 hover:from-amber-600 hover:to-rose-600 text-white font-extrabold text-sm shadow-xl shadow-orange-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer transform hover:-translate-y-0.5 active:translate-y-0"
               >

@@ -86,6 +86,18 @@ function AppContent() {
   });
 
   const getRoute = () => {
+    // Sanitize dirty pathname if any (e.g. /candidate-pricing#/?tab=jobs)
+    if (typeof window !== 'undefined' && window.location.pathname && window.location.pathname !== '/' && !window.location.pathname.startsWith('/api')) {
+      const cleanPath = window.location.pathname.replace(/^\//, '');
+      const currentHash = window.location.hash || '';
+      if (currentHash && currentHash !== '#/') {
+        window.history.replaceState(null, '', '/' + currentHash + window.location.search);
+        return currentHash;
+      } else {
+        window.history.replaceState(null, '', '/#' + cleanPath + window.location.search);
+        return '#/' + cleanPath;
+      }
+    }
     return window.location.hash || '#/';
   };
 
@@ -479,18 +491,22 @@ function AppContent() {
       route === '#/' ||
       route === '' ||
       route === '#' ||
-      route.includes('job-search') ||
+      route.startsWith('#/?') ||
       route.startsWith('#/jobs') ||
+      route.startsWith('#/job-search') ||
+      route.includes('job-search') ||
       route.startsWith('#/companies') ||
       route.startsWith('#/company') ||
-      route.includes('tim-viec')
+      route.includes('tim-viec') ||
+      route.includes('tab=jobs') ||
+      route.includes('tab=companies')
     ) {
       return <HomePage user={user} />;
     }
 
     // Fallback: If route starts with #/ but is not recognized, show 404
     if (route.startsWith('#/') && route.length > 2) {
-      return <NotFoundPage onGoHome={() => { window.location.hash = '#/'; }} />;
+      return <NotFoundPage onGoHome={() => { window.location.href = '/#/'; }} />;
     }
 
     // Default: HomePage (Job Discovery for Candidate & Guest)

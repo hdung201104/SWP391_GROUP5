@@ -557,7 +557,7 @@ export default function CandidateApplicationsPage({ user }) {
             <span>Luyện Phỏng Vấn AI</span>
           </a>
           <a
-            href="#/?tab=jobs"
+            href="#/" onClick={(e) => { e.preventDefault(); window.location.hash = '#/'; }}
             className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-[#221d47] to-[#5b48bd] hover:from-[#1b1739] hover:to-[#47369f] text-white font-bold text-xs transition-all flex items-center gap-2 cursor-pointer shadow-md hover:shadow-lg"
           >
             <span className="material-symbols-outlined text-base">travel_explore</span>
@@ -921,7 +921,7 @@ export default function CandidateApplicationsPage({ user }) {
               </p>
             </div>
             <a
-              href="#/?tab=jobs"
+              href="#/" onClick={(e) => { e.preventDefault(); window.location.hash = '#/'; }}
               className="inline-flex items-center gap-2 px-6 py-2.5 rounded-2xl bg-[#5b48bd] hover:bg-[#47369f] text-white text-xs font-bold shadow-md cursor-pointer"
             >
               <span className="material-symbols-outlined text-sm">search</span>
@@ -1039,7 +1039,7 @@ export default function CandidateApplicationsPage({ user }) {
               </p>
             </div>
             <a
-              href="#/?tab=jobs"
+              href="#/" onClick={(e) => { e.preventDefault(); window.location.hash = '#/'; }}
               className="inline-flex items-center gap-2 px-6 py-2.5 rounded-2xl bg-gradient-to-r from-[#221d47] to-[#5b48bd] hover:from-[#1b1739] hover:to-[#47369f] text-white text-xs font-bold shadow-md cursor-pointer"
             >
               <span className="material-symbols-outlined text-sm">travel_explore</span>
