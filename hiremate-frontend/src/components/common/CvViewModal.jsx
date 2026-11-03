@@ -23,6 +23,7 @@ export default function CvViewModal({
   candidateName = 'Ứng viên',
   atsScore = null,
   candidateData = null,
+  canDownload = true,
 }) {
   if (!isOpen) return null;
 
@@ -172,6 +173,10 @@ export default function CvViewModal({
 
   // Xử lý tải CV về máy tính
   const handleDownload = async () => {
+    if (!canDownload) {
+      alert('Tài khoản Free không hỗ trợ tải trực tiếp CV gốc. Vui lòng nâng cấp gói Hiring Starter (199.000đ) hoặc Pro để tải hồ sơ!');
+      return;
+    }
     try {
       setDownloading(true);
       const rawName = (fileName || `CV_${candidateName || 'Ung_Vien'}`).replace(/[\s/\\?%*:|"<>]+/g, '_');
@@ -227,6 +232,10 @@ export default function CvViewModal({
   };
 
   const handleOpenNewTab = () => {
+    if (!canDownload) {
+      alert('Tài khoản Free không hỗ trợ tải trực tiếp CV gốc. Vui lòng nâng cấp gói Hiring Starter (199.000đ) hoặc Pro để tải hồ sơ!');
+      return;
+    }
     if (blobUrl) {
       window.open(blobUrl, '_blank');
     }

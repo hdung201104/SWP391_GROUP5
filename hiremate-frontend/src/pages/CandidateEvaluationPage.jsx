@@ -285,6 +285,11 @@ export default function CandidateEvaluationPage({
   // AI Re-Score State & Handler
   const [isReScoring, setIsReScoring] = useState(false);
   const handleReScoreCandidate = async () => {
+    if (!isProOrHigher) {
+      triggerToast('Tính năng yêu cầu AI thẩm định sâu và viết báo cáo đối soát chi tiết chỉ mở khóa từ gói Hiring Pro (499.000đ) trở lên!');
+      window.location.hash = '#/recruiter-pricing';
+      return;
+    }
     const targetJobId = cand.jobId || parsedJobId;
     const targetCandId = cand.id || parsedCandId;
     if (!targetCandId || !targetJobId) {
@@ -1437,7 +1442,16 @@ export default function CandidateEvaluationPage({
                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Email liên hệ</span>
                 <span className="font-semibold text-slate-800 truncate block flex items-center gap-1">
                   <span className="material-symbols-outlined text-[14px] text-slate-400">mail</span>
-                  <span className="truncate">{cand.email}</span>
+                  <span className="truncate">
+                    {canDownloadCv ? (
+                      cand.email
+                    ) : (
+                      <span className="text-slate-400 italic font-normal flex items-center gap-1">
+                        <span className="material-symbols-outlined text-xs">lock</span>
+                        <span>••••••@••••• (Nâng cấp)</span>
+                      </span>
+                    )}
+                  </span>
                 </span>
               </div>
 
@@ -1445,7 +1459,16 @@ export default function CandidateEvaluationPage({
                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Số điện thoại</span>
                 <span className="font-semibold text-slate-800 truncate block flex items-center gap-1">
                   <span className="material-symbols-outlined text-[14px] text-slate-400">call</span>
-                  <span>{cand.phone}</span>
+                  <span>
+                    {canDownloadCv ? (
+                      cand.phone
+                    ) : (
+                      <span className="text-slate-400 italic font-normal flex items-center gap-1">
+                        <span className="material-symbols-outlined text-xs">lock</span>
+                        <span>•••••••••• (Nâng cấp)</span>
+                      </span>
+                    )}
+                  </span>
                 </span>
               </div>
 
@@ -1626,7 +1649,33 @@ export default function CandidateEvaluationPage({
 
           {/* Card B.2: Báo Cáo Đánh Giá & Thẩm Định Chi Tiết Từ AI Copilot (2 Trạng Thái: Chưa Có Báo Cáo / Đã Lưu CSDL) */}
           <div className="bg-white border border-slate-200/80 rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
-            {!cand.hasPersistedAiReport ? (
+            {!isProOrHigher ? (
+              <div className="bg-gradient-to-br from-purple-50/80 via-indigo-50/40 to-white border-2 border-dashed border-purple-200/90 rounded-3xl p-6 sm:p-8 text-center space-y-4 shadow-2xs">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#5b48bd] to-indigo-600 text-white flex items-center justify-center mx-auto shadow-md">
+                  <span className="material-symbols-outlined text-3xl">lock</span>
+                </div>
+                <div className="max-w-md mx-auto space-y-1.5">
+                  <h3 className="font-extrabold text-base text-[#1e1b4b]">
+                    Mở Khóa Báo Cáo Phân Tích Chuyên Sâu AI (Copilot Đọc Hộ CV)
+                  </h3>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Trọn bộ <strong>Báo Cáo Phân Tích Chuyên Sâu AI</strong> (Ưu điểm, Điểm yếu/Tiêu chí chưa đạt, Minh chứng trích xuất từ CV, Skill Gap và Khuyến nghị tuyển dụng) chỉ mở khóa độc quyền từ gói <strong>Hiring Pro (499.000đ)</strong> trở lên. Gói Free và Hiring Starter cần tự đọc và đánh giá CV ứng viên.
+                  </p>
+                </div>
+                <div className="pt-2 flex items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.location.hash = '#/recruiter-pricing';
+                    }}
+                    className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-[#5b48bd] to-indigo-600 hover:from-[#4a39a7] hover:to-indigo-700 text-white font-extrabold text-xs shadow-md hover:shadow-lg transition-all cursor-pointer hover:scale-105"
+                  >
+                    <span className="material-symbols-outlined text-base">workspace_premium</span>
+                    <span>Nâng Cấp Lên Hiring Pro (499.000đ) Ngay</span>
+                  </button>
+                </div>
+              </div>
+            ) : !cand.hasPersistedAiReport ? (
               /* ========================================================================= */
               /* TRẠNG THÁI 1: CHƯA CÓ BÁO CÁO TRONG CSDL (Chi phí: 0 Token, 0ms khi tải trang) */
               /* ========================================================================= */
@@ -1996,17 +2045,19 @@ export default function CandidateEvaluationPage({
                 </div>
               )}
 
-              <button
-                type="button"
-                onClick={handleDownloadCv}
-                className="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold flex items-center gap-1 cursor-pointer transition-all shadow-2xs"
-                title="Tải file CV gốc về máy tính"
-              >
-                <span className="material-symbols-outlined text-sm">download</span>
-                <span className="hidden sm:inline">Tải CV</span>
-              </button>
+              {canDownloadCv && (
+                <button
+                  type="button"
+                  onClick={handleDownloadCv}
+                  className="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold flex items-center gap-1 cursor-pointer transition-all shadow-2xs"
+                  title="Tải file CV gốc về máy tính"
+                >
+                  <span className="material-symbols-outlined text-sm">download</span>
+                  <span className="hidden sm:inline">Tải CV</span>
+                </button>
+              )}
 
-              {pdfBlobUrl && (
+              {pdfBlobUrl && canDownloadCv && (
                 <a
                   href={pdfBlobUrl}
                   target="_blank"

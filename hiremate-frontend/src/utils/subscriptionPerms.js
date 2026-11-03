@@ -98,7 +98,7 @@ export const getRecruiterPerms = (planName = '', quotaLimit = 3, price = 0) => {
   const isFree = numPrice <= 0 && (!isEnterprise && !isPro && !isStarter || name.includes('free') || name.includes('hiring basic'));
 
   const jobPostingQuota = isEnterprise ? 999 : isPro ? 30 : isStarter ? 10 : 3;
-  const cvViewLimit = isEnterprise ? 9999 : isPro ? 100 : isStarter ? 25 : 5;
+  const cvViewLimit = isEnterprise ? 9999 : isPro ? 100 : isStarter ? 30 : 0;
   const durationDays = isEnterprise ? 90 : 30;
 
   return {
@@ -108,14 +108,13 @@ export const getRecruiterPerms = (planName = '', quotaLimit = 3, price = 0) => {
     cvViewLimit,
     durationDays,
     aiMatching: true,
-    canSeeAiAnalysis: !isFree,
+    canSeeAiAnalysis: isPro || isEnterprise,
     canDownloadCv: !isFree,
     unlockDirectContact: !isFree,
     featuredJobBadge: isEnterprise,
     exportReport: !isFree,
     autoEmail: isPro || isEnterprise,
     batchAction: isPro || isEnterprise,
-    aiMockInterview: isPro || isEnterprise,
     viewSalaryRange: true,
   };
 };

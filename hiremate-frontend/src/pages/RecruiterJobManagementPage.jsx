@@ -292,14 +292,27 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
   const subscriptionPerms = parseSubscriptionPermissions(recruiterSubscription, 'RECRUITER');
   const planPrice = Number(recruiterSubscription?.price || 0);
   const planName = recruiterSubscription?.planName || 'Free Recruiter';
-  const isFreeRecruiter = !isAdmin && (!recruiterSubscription || (!subscriptionPerms.aiMatching && (planPrice === 0 || planName.toLowerCase().includes('free'))));
+  const isFreeRecruiter = !isAdmin && (!recruiterSubscription || !recruiterSubscription.active || planPrice === 0 || planName.toLowerCase().includes('free') || planName.toLowerCase().includes('basic'));
 
   const checkAiJdQuota = () => {
+    if (!isFreeRecruiter) return true;
+    const today = new Date().toISOString().split('T')[0];
+    const key = `hiremate_ai_jd_usage_${today}_${user?.userId || user?.id || 'default'}`;
+    const currentUsage = parseInt(localStorage.getItem(key) || '0', 10);
+    if (currentUsage >= 2) {
+      setQuotaModalMessage('Bạn đã sử dụng hết 2 lượt dùng thử tính năng AI Phân Tích JD & Đề Xuất Kỹ Năng trong ngày của gói Free Recruiter. Vui lòng nâng cấp lên gói Hiring Starter (199.000đ) để sử dụng KHÔNG GIỚI HẠN tính năng AI trích xuất JD tự động!');
+      setShowQuotaExceededModal(true);
+      return false;
+    }
     return true;
   };
 
   const incrementAiJdQuota = () => {
-    // Không chặn giới hạn ảo
+    if (!isFreeRecruiter) return;
+    const today = new Date().toISOString().split('T')[0];
+    const key = `hiremate_ai_jd_usage_${today}_${user?.userId || user?.id || 'default'}`;
+    const currentUsage = parseInt(localStorage.getItem(key) || '0', 10);
+    localStorage.setItem(key, String(currentUsage + 1));
   };
 
   useEffect(() => {

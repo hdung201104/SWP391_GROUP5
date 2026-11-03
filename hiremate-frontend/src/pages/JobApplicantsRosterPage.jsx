@@ -381,10 +381,10 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
     recruiterTier = 'BASIC';
   }
 
-  // Hiring Starter (199k) trở lên mở khóa: Xuất Excel, Xem Skill Gap Matrix chi tiết
+  // Hiring Starter (199k) trở lên mở khóa: Xuất Excel
   const isStarterOrHigher = isAdmin || ['STARTER', 'PROFESSIONAL', 'ENTERPRISE'].includes(recruiterTier) || Boolean(subscriptionPerms.exportReport) || (isPaidRecruiter && (planPrice >= 199000 || quotaLimit >= 10));
-  // Hiring Pro (499k) và Hiring Elite (1.199k) mở khóa toàn bộ Báo cáo AI Voice Mock Interview của ứng viên & Batch Action
-  const isProOrHigher = isAdmin || ['PROFESSIONAL', 'ENTERPRISE'].includes(recruiterTier) || Boolean(subscriptionPerms.aiMockInterview) || Boolean(subscriptionPerms.unlockDirectContact) || (isPaidRecruiter && (planPrice > 250000 || quotaLimit >= 30));
+  // Hiring Pro (499k) và Hiring Elite (1.199k) mở khóa toàn bộ Báo cáo Phân Tích Chuyên Sâu AI & Batch Action
+  const isProOrHigher = isAdmin || ['PROFESSIONAL', 'ENTERPRISE'].includes(recruiterTier) || (isPaidRecruiter && (planPrice > 250000 || quotaLimit >= 30));
 
   // Toast feedback
   const [toastMessage, setToastMessage] = useState('');
@@ -544,6 +544,17 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
     }
 
     if (!unlockedCandidateIds.includes(cand.candidateId)) {
+      const quota = subscriptionPerms.cvViewLimit || (recruiterTier === 'PROFESSIONAL' ? 100 : recruiterTier === 'ENTERPRISE' ? 9999 : 30);
+      if (!isAdmin && recruiterTier !== 'ENTERPRISE' && unlockedCandidateIds.length >= quota) {
+        setShowRecruiterUpgradeModal(true);
+        setRecruiterUpgradeContent({
+          title: 'Đã Đạt Hạn Mức Mở Khóa Hồ Sơ',
+          message: `Gói dịch vụ của bạn đã đạt giới hạn mở khóa tối đa ${quota} hồ sơ ứng viên/tháng. Vui lòng nâng cấp lên gói cao hơn để mở khóa thêm ứng viên tiềm năng!`,
+          targetPlan: recruiterTier === 'STARTER' ? 'Hiring Pro (100 hồ sơ)' : 'Hiring Elite (Không giới hạn)',
+        });
+        return;
+      }
+
       const next = [...unlockedCandidateIds, cand.candidateId];
       setUnlockedCandidateIds(next);
       try {
@@ -1080,6 +1091,15 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
 
   // Chấm lại toàn bộ danh sách CV của cả bài đăng tuyển dụng bằng AI
   const handleRecalculateAi = async () => {
+    if (!isAdmin && recruiterTier !== 'ENTERPRISE') {
+      setRecruiterUpgradeContent({
+        title: 'Độc Quyền Gói Hiring Elite (1.199.000đ)',
+        message: 'Tính năng AI chấm lại & tái quét toàn bộ hồ sơ ứng viên của bài đăng (1-click Recalculate) là đặc quyền cao cấp nhất dành riêng cho gói Hiring Elite. Vui lòng nâng cấp gói để sử dụng!',
+        targetPlan: 'Hiring Elite'
+      });
+      setShowRecruiterUpgradeModal(true);
+      return;
+    }
     try {
       setIsRescanning(true);
       triggerToast('Đang yêu cầu AI chấm lại toàn bộ danh sách CV của bài đăng tuyển dụng này...');
@@ -2540,17 +2560,17 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                 </div>
 
                 {/* 2 & 3. Hai Khối Trọng Tâm: Ưu Điểm vs Điểm Yếu & Khuyến Nghị Tuyển Dụng AI */}
-                {!isStarterOrHigher ? (
+                {!isProOrHigher ? (
                   <div className="relative rounded-2xl overflow-hidden border border-purple-200/90 p-8 bg-gradient-to-br from-purple-50/70 via-white to-indigo-50/50 text-center space-y-4 shadow-sm my-3">
                     <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#5b48bd] to-indigo-600 text-white flex items-center justify-center mx-auto shadow-md">
                       <span className="material-symbols-outlined text-2xl">lock</span>
                     </div>
                     <div className="max-w-md mx-auto space-y-2">
                       <h3 className="text-base font-bold text-[#1e1b4b]">
-                        Mở Khóa Báo Cáo Phân Tích Skill Gap &amp; Khuyến Nghị Tuyển Dụng AI
+                        Mở Khóa Báo Cáo Phân Tích Chuyên Sâu AI (Copilot Đọc Hộ CV)
                       </h3>
                       <p className="text-xs text-slate-600 leading-relaxed">
-                        Tài khoản <strong>Free Recruiter</strong> chỉ xem được Điểm % Phù hợp tổng thể. Báo cáo phân tích chuyên sâu Ưu/Nhược điểm bám sát JD và khuyến nghị tuyển dụng chuẩn ATS chỉ dành riêng cho gói <strong>Hiring Starter (199.000đ)</strong> hoặc <strong>Hiring Pro / Elite</strong>.
+                        Tài khoản <strong>Free</strong> và <strong>Hiring Starter</strong> chỉ xem được Điểm % ATS và Ma trận trụ cột. Trọn bộ <strong>Báo Cáo Phân Tích Chuyên Sâu AI</strong> (Ưu/Nhược điểm, Bằng chứng trích xuất từ CV, Skill Gap và Khuyến nghị tuyển dụng) chỉ mở khóa độc quyền từ gói <strong>Hiring Pro (499.000đ)</strong> hoặc <strong>Hiring Elite</strong>.
                       </p>
                     </div>
                     <div className="flex items-center justify-center gap-3 pt-1">
@@ -2562,7 +2582,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                         className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#5b48bd] to-indigo-600 hover:from-[#4a39a7] hover:to-indigo-700 text-white text-xs font-bold shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center gap-2"
                       >
                         <span className="material-symbols-outlined text-base">workspace_premium</span>
-                        <span>Nâng Cấp Gói Tuyển Dụng Ngay</span>
+                        <span>Nâng Cấp Lên Hiring Pro (499.000đ) Ngay</span>
                       </button>
                     </div>
                   </div>
@@ -2820,6 +2840,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
           candidateData={viewingCvCandidate}
           jobTitle={jobDetails?.title || viewingCvCandidate.jobTitle}
           status={viewingCvCandidate.status}
+          canDownload={isStarterOrHigher || isAdmin}
         />
       )}
 

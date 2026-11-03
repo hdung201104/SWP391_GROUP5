@@ -587,6 +587,24 @@ public class PaymentServiceImpl implements PaymentService {
             }
         }
 
+        // Kế thừa gói dịch vụ của Head Recruiter (Chủ công ty) nếu HR chi nhánh chưa có gói riêng:
+        if (sub == null && user.getRole() == com.hiremate.enums.UserRole.RECRUITER && recruiterRepository != null) {
+            com.hiremate.entity.Recruiter currentRecruiter = recruiterRepository.findById(user.getUserId()).orElse(null);
+            if (currentRecruiter != null && currentRecruiter.getCompany() != null) {
+                com.hiremate.entity.Company comp = currentRecruiter.getCompany();
+                Long headRecruiterId = comp.getRecruiterId();
+                if (headRecruiterId != null && !headRecruiterId.equals(user.getUserId())) {
+                    Subscription headSub = subscriptionRepository.findFirstByUser_UserIdAndStatusOrderByCreatedAtDesc(
+                            headRecruiterId, SubscriptionStatus.ACTIVE).orElse(null);
+                    if (headSub != null && (headSub.getEndDate() == null || LocalDateTime.now().isBefore(headSub.getEndDate()))) {
+                        sub = headSub;
+                        log.info(">> [PaymentService] HR Chi nhánh {} ({}) kế thừa gói dịch vụ đang hoạt động ({}) từ Head Recruiter #{}",
+                                user.getEmail(), user.getUserId(), sub.getPlan() != null ? sub.getPlan().getPlanName() : "ACTIVE", headRecruiterId);
+                    }
+                }
+            }
+        }
+
         if (sub == null) {
             return com.hiremate.dto.response.SubscriptionResponse.inactive();
         }
