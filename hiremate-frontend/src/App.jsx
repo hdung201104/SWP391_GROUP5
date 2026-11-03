@@ -235,6 +235,11 @@ function AppContent() {
       taxCode: authData.taxCode,
       bio: authData.bio,
       address: authData.address,
+      dateOfBirth: authData.dateOfBirth,
+      gender: authData.gender,
+      githubUrl: authData.githubUrl,
+      headline: authData.headline,
+      location: authData.location || authData.address,
     };
     localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);

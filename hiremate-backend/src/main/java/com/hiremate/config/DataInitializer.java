@@ -47,6 +47,8 @@ public class DataInitializer implements CommandLineRunner {
             jdbcTemplate.execute("ALTER TABLE companies ADD COLUMN IF NOT EXISTS license_doc_name VARCHAR(255);");
             jdbcTemplate.execute("ALTER TABLE companies ADD COLUMN IF NOT EXISTS legal_representative VARCHAR(150);");
             jdbcTemplate.execute("ALTER TABLE companies ADD COLUMN IF NOT EXISTS rejection_reason TEXT;");
+            jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS github_url VARCHAR(300);");
+            jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS date_of_birth VARCHAR(20);");
             jdbcTemplate.execute("ALTER TABLE companies ADD COLUMN IF NOT EXISTS verified_at TIMESTAMP;");
 
             jdbcTemplate.execute("ALTER TABLE recruiters ADD COLUMN IF NOT EXISTS branch_name VARCHAR(200);");

@@ -74,12 +74,46 @@ public class AuthServiceImpl implements AuthService {
             throw new BadRequestException("Không thể đăng ký tài khoản với vai trò Quản trị viên (ADMIN) qua cổng công khai.");
         }
 
+        String regEmail = request.getEmail().toLowerCase().trim();
+        if (!regEmail.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$")) {
+            throw new IllegalArgumentException("Địa chỉ email không đúng định dạng (Ví dụ: name@example.com)");
+        }
+
+        String cleanPhone = null;
+        if (request.getPhone() != null && !request.getPhone().isBlank()) {
+            cleanPhone = request.getPhone().trim().replaceAll("[\\s.-]", "");
+            if (!cleanPhone.matches("^(0|\\+84)[35789]\\d{8}$")) {
+                throw new IllegalArgumentException("Số điện thoại không đúng định dạng di động Việt Nam (10 chữ số, bắt đầu bằng 03, 05, 07, 08, 09. Ví dụ: 0912345678)");
+            }
+        }
+
+        String cleanDob = null;
+        if (request.getDateOfBirth() != null && !request.getDateOfBirth().isBlank()) {
+            String rawDob = request.getDateOfBirth().trim();
+            try {
+                java.time.LocalDate dob = java.time.LocalDate.parse(rawDob);
+                java.time.LocalDate today = java.time.LocalDate.now();
+                if (dob.isAfter(today)) {
+                    throw new IllegalArgumentException("Ngày sinh không thể ở tương lai (" + rawDob + ")");
+                }
+                if (dob.isAfter(today.minusYears(14))) {
+                    throw new IllegalArgumentException("Độ tuổi ứng viên phải từ 14 tuổi trở lên");
+                }
+                if (dob.isBefore(java.time.LocalDate.of(1920, 1, 1))) {
+                    throw new IllegalArgumentException("Ngày sinh không hợp lệ");
+                }
+                cleanDob = rawDob;
+            } catch (java.time.format.DateTimeParseException e) {
+                throw new IllegalArgumentException("Định dạng ngày sinh không hợp lệ (chuẩn YYYY-MM-DD)");
+            }
+        }
+
         User user = User.builder()
-                .email(request.getEmail().toLowerCase().trim())
+                .email(regEmail)
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .fullName(request.getFullName())
-                .phone(request.getPhone())
-                .dateOfBirth(request.getDateOfBirth() != null && !request.getDateOfBirth().isBlank() ? request.getDateOfBirth().trim() : null)
+                .phone(cleanPhone)
+                .dateOfBirth(cleanDob)
                 .address(request.getAddress() != null && !request.getAddress().isBlank() ? request.getAddress().trim() : (request.getLocation() != null ? request.getLocation().trim() : null))
                 .bio(request.getBio() != null && !request.getBio().isBlank() ? request.getBio().trim() : null)
                 .githubUrl(request.getGithubUrl() != null && !request.getGithubUrl().isBlank() ? request.getGithubUrl().trim() : null)
@@ -623,12 +657,41 @@ public class AuthServiceImpl implements AuthService {
                 ? request.getPassword().trim()
                 : ("GoogleOAuth2_" + UUID.randomUUID());
 
+        String cleanGooglePhone = null;
+        if (request.getPhone() != null && !request.getPhone().isBlank()) {
+            cleanGooglePhone = request.getPhone().trim().replaceAll("[\\s.-]", "");
+            if (!cleanGooglePhone.matches("^(0|\\+84)[35789]\\d{8}$")) {
+                throw new IllegalArgumentException("Số điện thoại không đúng định dạng di động Việt Nam (10 chữ số, bắt đầu bằng 03, 05, 07, 08, 09. Ví dụ: 0912345678)");
+            }
+        }
+
+        String cleanGoogleDob = null;
+        if (request.getDateOfBirth() != null && !request.getDateOfBirth().isBlank()) {
+            String rawDob = request.getDateOfBirth().trim();
+            try {
+                java.time.LocalDate dob = java.time.LocalDate.parse(rawDob);
+                java.time.LocalDate today = java.time.LocalDate.now();
+                if (dob.isAfter(today)) {
+                    throw new IllegalArgumentException("Ngày sinh không thể ở tương lai (" + rawDob + ")");
+                }
+                if (dob.isAfter(today.minusYears(14))) {
+                    throw new IllegalArgumentException("Độ tuổi ứng viên phải từ 14 tuổi trở lên");
+                }
+                if (dob.isBefore(java.time.LocalDate.of(1920, 1, 1))) {
+                    throw new IllegalArgumentException("Ngày sinh không hợp lệ");
+                }
+                cleanGoogleDob = rawDob;
+            } catch (java.time.format.DateTimeParseException e) {
+                throw new IllegalArgumentException("Định dạng ngày sinh không hợp lệ (chuẩn YYYY-MM-DD)");
+            }
+        }
+
         User user = User.builder()
                 .email(email)
                 .passwordHash(passwordEncoder.encode(rawPassword))
                 .fullName(request.getFullName())
-                .phone(request.getPhone())
-                .dateOfBirth(request.getDateOfBirth() != null && !request.getDateOfBirth().isBlank() ? request.getDateOfBirth().trim() : null)
+                .phone(cleanGooglePhone)
+                .dateOfBirth(cleanGoogleDob)
                 .address(request.getAddress() != null && !request.getAddress().isBlank() ? request.getAddress().trim() : null)
                 .bio(request.getBio() != null && !request.getBio().isBlank() ? request.getBio().trim() : null)
                 .githubUrl(request.getGithubUrl() != null && !request.getGithubUrl().isBlank() ? request.getGithubUrl().trim() : null)

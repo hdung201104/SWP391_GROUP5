@@ -2364,7 +2364,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
   const [skillSearchQuery, setSkillSearchQuery] = useState('');
   const [isSubmittingSkill, setIsSubmittingSkill] = useState(false);
   const [deletingSkillId, setDeletingSkillId] = useState(null);
-  const [settingsSubTab, setSettingsSubTab] = useState('all');
+  const [settingsSubTab, setSettingsSubTab] = useState('quota_rules');
   const [aiIndustryInput, setAiIndustryInput] = useState('');
   const [isGeneratingIndustrySkills, setIsGeneratingIndustrySkills] = useState(false);
   const [lastAiGeneratedIndustryResult, setLastAiGeneratedIndustryResult] = useState(null);
@@ -4065,7 +4065,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
                   </span>
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-purple-50 text-[#5b48bd] border border-purple-200">
                     <span className="material-symbols-outlined text-xs">auto_awesome</span>
-                    Gemini 1.5 Flash AI Engine: Active
+                    Gemini 2.5 Flash AI Engine: Active
                   </span>
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
                     <span className="material-symbols-outlined text-xs">qr_code_2</span>
@@ -7049,7 +7049,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 mt-1">
-                    Quản lý trọng số so khớp AI Matching 70/30, Từ điển kỹ năng gốc (Master Skills), AI Mock Interview Studio, hạn mức miễn phí và cổng VietQR Napas 247.
+                    Trung tâm điều phối quy chế kiểm duyệt sàn (UC-33/UC-34), cổng thanh toán tự động PayOS/VietQR, danh mục Master Skills và phòng lab cân chỉnh thuật toán AI Matching.
                   </p>
                 </div>
               </div>
@@ -7087,12 +7087,12 @@ export default function AdminDashboardPage({ user, onLogout }) {
             {/* SUB-TABS NAVIGATION BAR CHO CẤU HÌNH HỆ THỐNG */}
             <div className="bg-white p-2 rounded-2xl border border-purple-100 shadow-xs flex items-center gap-1.5 overflow-x-auto scrollbar-thin">
               {[
+                { id: 'quota_rules', label: '1. Kiểm Duyệt & Vận Hành Sàn', icon: 'verified_user' },
+                { id: 'vietqr_smtp', label: '2. Cổng Thanh Toán & Hạ Tầng', icon: 'payments' },
+                { id: 'skills', label: '3. Từ Điển Kỹ Năng Master', icon: 'psychology', count: skillsList.length },
+                { id: 'ai_matching', label: '4. AI Matching Benchmark', icon: 'auto_graph' },
+                { id: 'interview', label: '5. Nhật Ký Phỏng Vấn AI', icon: 'record_voice_over', count: interviewsList.length },
                 { id: 'all', label: 'Tất Cả Cấu Hình', icon: 'dashboard_customize' },
-                { id: 'ai_matching', label: '1. Ma Trận ATS Matching', icon: 'auto_graph' },
-                { id: 'skills', label: '2. Từ Điển Kỹ Năng', icon: 'psychology', count: skillsList.length },
-                { id: 'interview', label: '3. Nhật Ký Phỏng Vấn AI', icon: 'record_voice_over', count: interviewsList.length },
-                { id: 'quota_rules', label: '4. Kiểm Duyệt 2 Lớp & Gói Khởi Đầu', icon: 'security' },
-                { id: 'vietqr_smtp', label: '5. VietQR & Email SMTP', icon: 'qr_code_2' },
               ].map((tab) => {
                 const isActive = settingsSubTab === tab.id;
                 return (
@@ -7121,1573 +7121,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
             </div>
 
             {/* ========================================================= */}
-            {/* KHỐI 1: MA TRẬN CHẤM ĐIỂM CV & SO KHỚP CHUẨN ATS QUỐC TẾ   */}
-            {/* ========================================================= */}
-            {(settingsSubTab === 'all' || settingsSubTab === 'ai_matching') && (
-            <div className="p-6 rounded-[28px] bg-white border border-purple-100 shadow-sm space-y-6">
-              {/* Header section */}
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between pb-4 border-b border-purple-100 gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-700 flex items-center justify-center shrink-0 shadow-xs">
-                    <span className="material-symbols-outlined text-2xl">auto_graph</span>
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-[#1e1b4b] flex items-center gap-2">
-                      Khối 1: Ma Trận Chấm Điểm CV &amp; So Khớp Ứng Viên Chuẩn ATS Quốc Tế
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                        Live AI Gemini • Multi-Criteria ATS
-                      </span>
-                    </h3>
-                    <p className="text-xs text-slate-500 max-w-3xl">
-                      Mô hình chấm điểm đa chiều chuẩn ngành (TopCV, VietnamWorks, LinkedIn Recruiter, Greenhouse). Đánh giá toàn diện 4 trụ cột: <strong>Kỹ năng ({skillsWeight}%)</strong> + <strong>Kinh nghiệm ({experienceWeight}%)</strong> + <strong>Học vấn ({educationWeight}%)</strong> + <strong>Dự án Ngữ nghĩa ({semanticWeight}%)</strong>. Hỗ trợ tự động chuyển trọng số thông minh theo cấp bậc công việc (Intern vs Senior).
-                    </p>
-                  </div>
-                </div>
-                <div className="px-3.5 py-2 rounded-xl bg-purple-50 text-[#5b48bd] font-mono font-bold text-xs border border-purple-100 self-start lg:self-auto flex items-center gap-1.5 shrink-0 shadow-2xs">
-                  <span className="material-symbols-outlined text-[16px]">calculate</span>
-                  <span>ATS = {skillsWeight}% Kỹ năng + {experienceWeight}% Kinh nghiệm + {educationWeight}% Học vấn + {semanticWeight}% AI</span>
-                </div>
-              </div>
-
-              {/* Preset Selection & Smart Adaptive Weighting Toolbar */}
-              <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-50/70 via-indigo-50/40 to-white border border-purple-100 space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <span className="text-xs font-bold text-[#1e1b4b] flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-sm text-[#5b48bd]">tune</span>
-                    <span>Thư Viện Bộ Trọng Số Chấm Điểm Tuyển Dụng (ATS Presets):</span>
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-bold text-slate-600">Thích ứng tự động theo JD:</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const next = !adaptiveRoleWeighting;
-                        setAdaptiveRoleWeighting(next);
-                        handleRunAiMatchSimulation(selectedSimJobId, selectedSimCandidateId, null, true);
-                        triggerToast(next ? 'Đã bật Tự động thích ứng trọng số theo cấp bậc JD (Intern vs Senior)' : 'Đã chuyển sang cố định theo Preset được chọn', 'info');
-                      }}
-                      className={`w-11 h-6 rounded-full transition-colors cursor-pointer p-0.5 shrink-0 ${
-                        adaptiveRoleWeighting ? 'bg-[#5b48bd]' : 'bg-slate-300'
-                      }`}
-                      title="Tự động áp dụng trọng số phù hợp theo cấp bậc (Intern vs Senior)"
-                    >
-                      <div
-                        className={`w-5 h-5 rounded-full bg-white transition-transform ${
-                          adaptiveRoleWeighting ? 'translate-x-5' : 'translate-x-0'
-                        }`}
-                      ></div>
-                    </button>
-                    <span className={`text-[10px] font-bold font-mono px-2 py-0.5 rounded-full ${
-                      adaptiveRoleWeighting ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500'
-                    }`}>
-                      {adaptiveRoleWeighting ? 'BẬT (Khuyên dùng)' : 'TẮT'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Preset Options Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
-                  {[
-                    {
-                      id: 'ATS_STANDARD',
-                      title: 'Chuẩn ATS Doanh Nghiệp',
-                      sub: '40% Kỹ năng • 30% Kinh nghiệm • 15% Học vấn • 15% AI',
-                      weights: { skills: 40, exp: 30, edu: 15, sem: 15 },
-                      tag: 'Mặc định ngành IT',
-                      icon: 'domain',
-                    },
-                    {
-                      id: 'INTERN_FRESHER',
-                      title: 'Thực Tập & Mới Tốt Nghiệp',
-                      sub: '45% Kỹ năng • 10% Kinh nghiệm • 30% Học vấn • 15% Tiềm năng',
-                      weights: { skills: 45, exp: 10, edu: 30, sem: 15 },
-                      tag: 'Intern / Fresher / Trainee',
-                      icon: 'school',
-                    },
-                    {
-                      id: 'SENIOR_LEAD',
-                      title: 'Senior & Tech Lead',
-                      sub: '45% Kinh nghiệm • 35% Kỹ năng • 15% Dự án • 5% Bằng cấp',
-                      weights: { skills: 35, exp: 45, edu: 5, sem: 15 },
-                      tag: 'Senior / Lead / Quản lý',
-                      icon: 'workspace_premium',
-                    },
-                    {
-                      id: 'CUSTOM',
-                      title: 'Tùy Biến Trọng Số Thủ Công',
-                      sub: 'Hiệu chỉnh 4 thanh trượt tự do theo tiêu chí riêng của Admin',
-                      weights: { skills: skillsWeight, exp: experienceWeight, edu: educationWeight, sem: semanticWeight },
-                      tag: 'Custom Matrix',
-                      icon: 'tune',
-                    },
-                  ].map((p) => {
-                    const isSelected = matchingPreset === p.id;
-                    return (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => {
-                          setMatchingPreset(p.id);
-                          if (p.id !== 'CUSTOM') {
-                            setSkillsWeight(p.weights.skills);
-                            setExperienceWeight(p.weights.exp);
-                            setEducationWeight(p.weights.edu);
-                            setSemanticWeight(p.weights.sem);
-                            handleRunAiMatchSimulation(selectedSimJobId, selectedSimCandidateId, p.weights, true);
-                          }
-                        }}
-                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between space-y-2 ${
-                          isSelected
-                            ? 'bg-white border-[#5b48bd] shadow-sm ring-2 ring-[#5b48bd]/20'
-                            : 'bg-white/80 border-slate-200 hover:border-purple-200 hover:bg-white'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm ${
-                            isSelected ? 'bg-[#5b48bd] text-white' : 'bg-slate-100 text-slate-600'
-                          }`}>
-                            <span className="material-symbols-outlined text-[16px]">{p.icon}</span>
-                          </span>
-                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
-                            isSelected ? 'bg-purple-100 text-[#5b48bd]' : 'bg-slate-100 text-slate-500'
-                          }`}>
-                            {p.tag}
-                          </span>
-                        </div>
-                        <div>
-                          <div className={`text-xs font-bold ${isSelected ? 'text-[#5b48bd]' : 'text-slate-800'}`}>
-                            {p.title}
-                          </div>
-                          <p className="text-[10px] text-slate-500 mt-0.5 leading-tight">
-                            {p.sub}
-                          </p>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Main 2-column Grid */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                {/* Left 5 cols: Live Simulation Controller & Job/Candidate Pickers */}
-                <div className="lg:col-span-5 space-y-4">
-                  {/* Active 4-Pillar Weight Specs Info Cards */}
-                  <div className="grid grid-cols-2 gap-2.5">
-                    <div className="p-3 rounded-xl bg-indigo-50/50 border border-indigo-100 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-indigo-950 flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[14px] text-indigo-600">code</span>
-                          Kỹ Năng Chuyên Môn
-                        </span>
-                        <span className="text-xs font-mono font-black text-indigo-700 bg-white px-2 py-0.5 rounded-md border border-indigo-200">
-                          {skillsWeight}%
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-slate-500 leading-tight">
-                        Cốt lõi vòng lọc CV (Tech Stack, Hard Skills, Preferred Skills).
-                      </p>
-                    </div>
-
-                    <div className="p-3 rounded-xl bg-emerald-50/50 border border-emerald-100 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-emerald-950 flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[14px] text-emerald-600">history_edu</span>
-                          Kinh Nghiệm &amp; Cấp Bậc
-                        </span>
-                        <span className="text-xs font-mono font-black text-emerald-700 bg-white px-2 py-0.5 rounded-md border border-emerald-200">
-                          {experienceWeight}%
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-slate-500 leading-tight">
-                        Số năm làm việc thực tế &amp; độ tương thích cấp bậc chức danh.
-                      </p>
-                    </div>
-
-                    <div className="p-3 rounded-xl bg-amber-50/50 border border-amber-100 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-amber-950 flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[14px] text-amber-600">school</span>
-                          Học Vấn &amp; Chứng Chỉ
-                        </span>
-                        <span className="text-xs font-mono font-black text-amber-700 bg-white px-2 py-0.5 rounded-md border border-amber-200">
-                          {educationWeight}%
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-slate-500 leading-tight">
-                        Bằng cử nhân/kỹ sư CNTT, chứng chỉ quốc tế (AWS, ISTQB, v.v.).
-                      </p>
-                    </div>
-
-                    <div className="p-3 rounded-xl bg-purple-50/50 border border-purple-100 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-purple-950 flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[14px] text-purple-600">psychology</span>
-                          Dự Án &amp; Ngữ Nghĩa AI
-                        </span>
-                        <span className="text-xs font-mono font-black text-purple-700 bg-white px-2 py-0.5 rounded-md border border-purple-200">
-                          {semanticWeight}%
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-slate-500 leading-tight">
-                        Độ tương thích ngữ cảnh, trách nhiệm dự án &amp; tiềm năng phát triển.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Custom Weight Adjustment Sliders (Khi chọn preset CUSTOM) */}
-                  {matchingPreset === 'CUSTOM' && (
-                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3 animate-fade-in">
-                      <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                        <span className="text-xs font-bold text-slate-800">Hiệu Chỉnh 4 Trục Trọng Số (Tổng phải = 100%)</span>
-                        <span className={`text-xs font-mono font-bold ${
-                          (skillsWeight + experienceWeight + educationWeight + semanticWeight) === 100
-                            ? 'text-emerald-600' : 'text-rose-600 animate-pulse'
-                        }`}>
-                          Tổng: {skillsWeight + experienceWeight + educationWeight + semanticWeight}%
-                        </span>
-                      </div>
-
-                      <div className="space-y-2 text-xs">
-                        <div>
-                          <div className="flex justify-between text-[11px] font-medium text-slate-600 mb-1">
-                            <span>1. Kỹ năng chuyên môn</span>
-                            <span className="font-mono font-bold text-indigo-700">{skillsWeight}%</span>
-                          </div>
-                          <input
-                            type="range" min="10" max="70" step="5" value={skillsWeight}
-                            onChange={(e) => {
-                              const val = Number(e.target.value);
-                              setSkillsWeight(val);
-                              handleRunAiMatchSimulation(selectedSimJobId, selectedSimCandidateId, { skills: val, exp: experienceWeight, edu: educationWeight, sem: semanticWeight }, true);
-                            }}
-                            className="w-full accent-indigo-600 h-1.5 bg-slate-200 rounded-lg cursor-pointer"
-                          />
-                        </div>
-
-                        <div>
-                          <div className="flex justify-between text-[11px] font-medium text-slate-600 mb-1">
-                            <span>2. Kinh nghiệm &amp; Cấp bậc</span>
-                            <span className="font-mono font-bold text-emerald-700">{experienceWeight}%</span>
-                          </div>
-                          <input
-                            type="range" min="5" max="60" step="5" value={experienceWeight}
-                            onChange={(e) => {
-                              const val = Number(e.target.value);
-                              setExperienceWeight(val);
-                              handleRunAiMatchSimulation(selectedSimJobId, selectedSimCandidateId, { skills: skillsWeight, exp: val, edu: educationWeight, sem: semanticWeight }, true);
-                            }}
-                            className="w-full accent-emerald-600 h-1.5 bg-slate-200 rounded-lg cursor-pointer"
-                          />
-                        </div>
-
-                        <div>
-                          <div className="flex justify-between text-[11px] font-medium text-slate-600 mb-1">
-                            <span>3. Học vấn &amp; Bằng cấp</span>
-                            <span className="font-mono font-bold text-amber-700">{educationWeight}%</span>
-                          </div>
-                          <input
-                            type="range" min="5" max="40" step="5" value={educationWeight}
-                            onChange={(e) => {
-                              const val = Number(e.target.value);
-                              setEducationWeight(val);
-                              handleRunAiMatchSimulation(selectedSimJobId, selectedSimCandidateId, { skills: skillsWeight, exp: experienceWeight, edu: val, sem: semanticWeight }, true);
-                            }}
-                            className="w-full accent-amber-600 h-1.5 bg-slate-200 rounded-lg cursor-pointer"
-                          />
-                        </div>
-
-                        <div>
-                          <div className="flex justify-between text-[11px] font-medium text-slate-600 mb-1">
-                            <span>4. Dự án &amp; Ngữ nghĩa AI</span>
-                            <span className="font-mono font-bold text-purple-700">{semanticWeight}%</span>
-                          </div>
-                          <input
-                            type="range" min="5" max="30" step="5" value={semanticWeight}
-                            onChange={(e) => {
-                              const val = Number(e.target.value);
-                              setSemanticWeight(val);
-                              handleRunAiMatchSimulation(selectedSimJobId, selectedSimCandidateId, { skills: skillsWeight, exp: experienceWeight, edu: educationWeight, sem: val }, true);
-                            }}
-                            className="w-full accent-purple-600 h-1.5 bg-slate-200 rounded-lg cursor-pointer"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Real Job Selector */}
-                  <div className="p-4 rounded-2xl bg-white border border-purple-100 shadow-2xs space-y-2">
-                    <label className="text-xs font-bold text-[#1e1b4b] flex items-center justify-between">
-                      <span className="flex items-center gap-1.5">
-                        <span className="material-symbols-outlined text-[15px] text-[#5b48bd]">work</span>
-                        1. Chọn Tin Tuyển Dụng Thực Tế (Job JD):
-                      </span>
-                      <span className="text-[10px] text-slate-400 font-normal">
-                        {(jobsList.length > 0 ? jobsList : INITIAL_JOBS).length} tin sẵn sàng
-                      </span>
-                    </label>
-                    <select
-                      value={selectedSimJobId}
-                      onChange={(e) => {
-                        const newJid = Number(e.target.value);
-                        setSelectedSimJobId(newJid);
-                        handleRunAiMatchSimulation(newJid, selectedSimCandidateId, null, true);
-                      }}
-                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 text-xs font-medium text-slate-800 focus:outline-hidden focus:border-[#5b48bd] focus:bg-white transition-all cursor-pointer"
-                    >
-                      {(jobsList.length > 0 ? jobsList : INITIAL_JOBS).map((j) => (
-                        <option key={j.jobId || j.id} value={j.jobId || j.id}>
-                          #{j.jobId || j.id} - {j.title} ({j.companyName || j.company || 'Doanh nghiệp'})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Real Candidate Selector */}
-                  <div className="p-4 rounded-2xl bg-white border border-purple-100 shadow-2xs space-y-2">
-                    <label className="text-xs font-bold text-[#1e1b4b] flex items-center justify-between">
-                      <span className="flex items-center gap-1.5">
-                        <span className="material-symbols-outlined text-[15px] text-indigo-600">person_search</span>
-                        2. Chọn Hồ Sơ Ứng Viên Thực Tế (Candidate CV):
-                      </span>
-                      <span className="text-[10px] text-slate-400 font-normal">
-                        {usersList.filter((u) => u.role === 'CANDIDATE').length || INITIAL_USERS.filter((u) => u.role === 'CANDIDATE').length} ứng viên
-                      </span>
-                    </label>
-                    <select
-                      value={selectedSimCandidateId}
-                      onChange={(e) => {
-                        const newCid = Number(e.target.value);
-                        setSelectedSimCandidateId(newCid);
-                        handleRunAiMatchSimulation(selectedSimJobId, newCid, null, true);
-                      }}
-                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 text-xs font-medium text-slate-800 focus:outline-hidden focus:border-[#5b48bd] focus:bg-white transition-all cursor-pointer"
-                    >
-                      {(usersList.filter((u) => u.role === 'CANDIDATE').length > 0
-                        ? usersList.filter((u) => u.role === 'CANDIDATE')
-                        : INITIAL_USERS.filter((u) => u.role === 'CANDIDATE')
-                      ).map((u) => (
-                        <option key={u.id} value={u.id}>
-                          #{u.id} - {u.name} ({u.email})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Action CTA Button */}
-                  <button
-                    type="button"
-                    disabled={isSimulating}
-                    onClick={() => handleRunAiMatchSimulation()}
-                    className={`w-full py-3.5 px-4 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer ${
-                      isSimulating
-                        ? 'bg-purple-300 text-white cursor-not-allowed'
-                        : 'bg-linear-to-r from-[#5b48bd] to-indigo-600 hover:from-[#4a39a7] hover:to-indigo-700 text-white shadow-indigo-200 hover:scale-[1.01]'
-                    }`}
-                  >
-                    {isSimulating ? (
-                      <>
-                        <span className="material-symbols-outlined text-sm animate-spin">sync</span>
-                        <span>Đang kích hoạt Gemini AI Matcher &amp; Phân Tích ATS...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="material-symbols-outlined text-base">bolt</span>
-                        <span>Kích Hoạt Phân Tích So Khớp Chuẩn ATS (Gemini ATS Matcher)</span>
-                      </>
-                    )}
-                  </button>
-
-                  {/* Rationale Notice */}
-                  <div className="p-3.5 rounded-2xl bg-purple-50/60 border border-purple-100 flex items-start gap-2.5">
-                    <span className="material-symbols-outlined text-sm text-[#5b48bd] mt-0.5 shrink-0">verified</span>
-                    <p className="text-[11px] text-slate-600 leading-relaxed">
-                      <strong className="text-[#5b48bd]">Công thức chuẩn tuyển dụng thực tế:</strong> Không áp 1 tỷ lệ cứng nhắc cho mọi vị trí. Với vị trí <em>Intern/Fresher</em>, ứng viên không bị phạt nặng vì thiếu năm kinh nghiệm mà được đánh giá cao qua nền tảng <em>Học vấn</em> và <em>Kỹ năng</em>.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Right 7 cols: Live Matching Intelligence Hub */}
-                <div className="lg:col-span-7 bg-slate-50/70 p-5 rounded-2xl border border-slate-200/80 space-y-4">
-                  {(() => {
-                    const mandMatchedCount = liveSimResult?.matchedMandatorySkills?.length || 0;
-                    const mandMissingCount = liveSimResult?.missingMandatorySkills?.length || 0;
-                    const mandTotalCount = Math.max(1, mandMatchedCount + mandMissingCount);
-
-                    const prefMatchedCount = liveSimResult?.matchedPreferredSkills?.length || 0;
-                    const prefMissingCount = liveSimResult?.missingPreferredSkills?.length || 0;
-                    const prefTotalCount = Math.max(1, prefMatchedCount + prefMissingCount);
-
-                    const wSkills = liveSimResult?.appliedWeights?.skills || skillsWeight;
-                    const wExp = liveSimResult?.appliedWeights?.exp || experienceWeight;
-                    const wEdu = liveSimResult?.appliedWeights?.edu || educationWeight;
-                    const wSem = liveSimResult?.appliedWeights?.sem || semanticWeight;
-
-                    const scoreSkills = liveSimResult?.skillsScore != null ? Number(liveSimResult.skillsScore) : 80.0;
-                    const scoreExp = liveSimResult?.experienceScore != null ? Number(liveSimResult.experienceScore) : 85.0;
-                    const scoreEdu = liveSimResult?.educationScore != null ? Number(liveSimResult.educationScore) : 92.0;
-                    const scoreSem = liveSimResult?.semanticScore != null ? Number(liveSimResult.semanticScore) : 84.0;
-
-                    const ptsSkills = Number(((scoreSkills * wSkills) / 100).toFixed(1));
-                    const ptsExp = Number(((scoreExp * wExp) / 100).toFixed(1));
-                    const ptsEdu = Number(((scoreEdu * wEdu) / 100).toFixed(1));
-                    const ptsSem = Number(((scoreSem * wSem) / 100).toFixed(1));
-
-                    const displayTotalScore = liveSimResult?.matchingScore != null
-                      ? Number(liveSimResult.matchingScore).toFixed(1)
-                      : Number((ptsSkills + ptsExp + ptsEdu + ptsSem).toFixed(1));
-
-                    const isTopTier = Number(displayTotalScore) >= 80;
-                    const isStandard = Number(displayTotalScore) >= 60 && Number(displayTotalScore) < 80;
-
-                    return (
-                      <div className="space-y-4">
-                        {/* Status bar */}
-                        <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                          <div className="flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                            <span className="text-xs font-black uppercase tracking-wider text-slate-700">
-                              Bảng Phân Tích So Khớp Chuẩn ATS Quốc Tế
-                            </span>
-                          </div>
-                          <span className="text-[10px] font-mono font-bold text-slate-500 bg-white px-2.5 py-0.5 rounded-full border border-slate-200">
-                            Match ID: #{liveSimResult?.matchId || 'SIM-901'}
-                          </span>
-                        </div>
-
-                        {/* Selected Pair Summary Header */}
-                        <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                          <div>
-                            <span className="text-[10px] text-slate-400 font-bold uppercase block tracking-wider">
-                              Vị trí tuyển dụng đang xét
-                            </span>
-                            <h4 className="text-xs font-bold text-[#1e1b4b] line-clamp-1">
-                              {liveSimResult?.jobTitle || 'Senior Java Backend Engineer'}
-                            </h4>
-                            <span className="text-[11px] text-slate-500 font-medium">
-                              Doanh nghiệp: <strong className="text-[#5b48bd]">{liveSimResult?.companyName || 'FPT Software'}</strong>
-                            </span>
-                          </div>
-                          <div className="sm:text-right border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100">
-                            <span className="text-[10px] text-slate-400 font-bold uppercase block tracking-wider">
-                              Ứng viên so khớp
-                            </span>
-                            <span className="text-xs font-bold text-indigo-950 block">
-                              {liveSimResult?.candidateName || 'Trần Hoàng Nam'}
-                            </span>
-                            <span className="text-[10px] font-mono text-slate-400">
-                              ID: #{liveSimResult?.candidateId || selectedSimCandidateId}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Applied Formula Banner */}
-                        <div className="bg-indigo-50/70 border border-indigo-100 rounded-xl px-3.5 py-2 flex items-center justify-between text-xs">
-                          <div className="flex items-center gap-2">
-                            <span className="material-symbols-outlined text-sm text-indigo-700">rule</span>
-                            <span className="font-bold text-indigo-950 text-[11px]">
-                              {liveSimResult?.matchingFormula || 'Chuẩn ATS Doanh Nghiệp (40% Kỹ năng - 30% Kinh nghiệm - 15% Học vấn - 15% AI)'}
-                            </span>
-                          </div>
-                          <span className="text-[10px] font-mono font-bold text-indigo-700 bg-white px-2 py-0.5 rounded border border-indigo-200">
-                            Adaptive ATS
-                          </span>
-                        </div>
-
-                        {/* Live Score Display Card */}
-                        <div className="bg-white p-4 rounded-xl border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
-                          <div>
-                            <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">
-                              Điểm So Khớp Tổng Hợp Chuẩn ATS
-                            </span>
-                            <div className="text-3xl font-black font-mono text-[#5b48bd] mt-0.5 flex items-baseline gap-1">
-                              {displayTotalScore}%
-                              <span className="text-xs font-normal text-slate-400">/ 100%</span>
-                            </div>
-                          </div>
-                          <div className="sm:text-right space-y-1">
-                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold inline-flex items-center gap-1 ${
-                              isTopTier
-                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                : isStandard
-                                ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                                : 'bg-amber-50 text-amber-700 border border-amber-200'
-                            }`}>
-                              <span className="material-symbols-outlined text-[13px]">
-                                {isTopTier ? 'star' : isStandard ? 'verified' : 'priority_high'}
-                              </span>
-                              {isTopTier ? '⭐ Phù Hợp Xuất Sắc (Ready for Offer)' : isStandard ? '✨ Phù Hợp Tiêu Chuẩn (Passed Screening)' : '⚠️ Cần Trau Dồi Kỹ Năng'}
-                            </span>
-                            <div className="text-[11px] font-mono text-slate-500 leading-tight">
-                              Tổng 4 trụ cột: {ptsSkills}% + {ptsExp}% + {ptsEdu}% + {ptsSem}% = <strong>{displayTotalScore}%</strong>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* 4-Pillar Visual Progress Breakdown */}
-                        <div className="bg-white p-4 rounded-xl border border-slate-200/80 space-y-3">
-                          <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
-                            Chi Tiết Đánh Giá 4 Trụ Cột Tuyển Dụng:
-                          </span>
-
-                          <div className="space-y-2.5 text-xs">
-                            {/* Pillar 1: Skills */}
-                            <div className="space-y-1">
-                              <div className="flex justify-between items-center text-[11px]">
-                                <span className="font-bold text-slate-700 flex items-center gap-1">
-                                  <span className="w-2 h-2 rounded-full bg-indigo-600"></span>
-                                  1. Kỹ Năng Chuyên Môn (Tech Stack)
-                                </span>
-                                <span className="font-mono text-slate-600">
-                                  <strong className="text-indigo-700">{scoreSkills}%</strong> × {wSkills}% = <strong>+{ptsSkills}%</strong>
-                                </span>
-                              </div>
-                              <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                                <div className="h-full bg-indigo-600 rounded-full transition-all duration-300" style={{ width: `${scoreSkills}%` }}></div>
-                              </div>
-                            </div>
-
-                            {/* Pillar 2: Experience */}
-                            <div className="space-y-1">
-                              <div className="flex justify-between items-center text-[11px]">
-                                <span className="font-bold text-slate-700 flex items-center gap-1">
-                                  <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
-                                  2. Kinh Nghiệm Thực Tế &amp; Cấp Bậc
-                                </span>
-                                <span className="font-mono text-slate-600">
-                                  <strong className="text-emerald-700">{scoreExp}%</strong> × {wExp}% = <strong>+{ptsExp}%</strong>
-                                </span>
-                              </div>
-                              <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                                <div className="h-full bg-emerald-600 rounded-full transition-all duration-300" style={{ width: `${scoreExp}%` }}></div>
-                              </div>
-                            </div>
-
-                            {/* Pillar 3: Education */}
-                            <div className="space-y-1">
-                              <div className="flex justify-between items-center text-[11px]">
-                                <span className="font-bold text-slate-700 flex items-center gap-1">
-                                  <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-                                  3. Học Vấn &amp; Bằng Cấp / Chứng Chỉ
-                                </span>
-                                <span className="font-mono text-slate-600">
-                                  <strong className="text-amber-700">{scoreEdu}%</strong> × {wEdu}% = <strong>+{ptsEdu}%</strong>
-                                </span>
-                              </div>
-                              <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                                <div className="h-full bg-amber-500 rounded-full transition-all duration-300" style={{ width: `${scoreEdu}%` }}></div>
-                              </div>
-                            </div>
-
-                            {/* Pillar 4: Semantic AI */}
-                            <div className="space-y-1">
-                              <div className="flex justify-between items-center text-[11px]">
-                                <span className="font-bold text-slate-700 flex items-center gap-1">
-                                  <span className="w-2 h-2 rounded-full bg-purple-600"></span>
-                                  4. Dự Án &amp; Đánh Giá Ngữ Nghĩa AI
-                                </span>
-                                <span className="font-mono text-slate-600">
-                                  <strong className="text-purple-700">{scoreSem}%</strong> × {wSem}% = <strong>+{ptsSem}%</strong>
-                                </span>
-                              </div>
-                              <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                                <div className="h-full bg-purple-600 rounded-full transition-all duration-300" style={{ width: `${scoreSem}%` }}></div>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Visual Stacked Progress Bar */}
-                          <div className="pt-2 border-t border-slate-100 space-y-1">
-                            <div className="w-full h-3 bg-slate-200 rounded-full overflow-hidden flex">
-                              <div className="h-full bg-indigo-600 transition-all duration-300" style={{ width: `${ptsSkills}%` }} title={`Kỹ năng: +${ptsSkills}%`}></div>
-                              <div className="h-full bg-emerald-600 transition-all duration-300" style={{ width: `${ptsExp}%` }} title={`Kinh nghiệm: +${ptsExp}%`}></div>
-                              <div className="h-full bg-amber-500 transition-all duration-300" style={{ width: `${ptsEdu}%` }} title={`Học vấn: +${ptsEdu}%`}></div>
-                              <div className="h-full bg-purple-600 transition-all duration-300" style={{ width: `${ptsSem}%` }} title={`Dự án AI: +${ptsSem}%`}></div>
-                            </div>
-                            <div className="flex justify-between text-[10px] text-slate-400 font-medium">
-                              <span className="text-indigo-600 font-bold">■ Kỹ năng: +{ptsSkills}%</span>
-                              <span className="text-emerald-600 font-bold">■ Kinh nghiệm: +{ptsExp}%</span>
-                              <span className="text-amber-600 font-bold">■ Học vấn: +{ptsEdu}%</span>
-                              <span className="text-purple-600 font-bold">■ Dự án: +{ptsSem}%</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* 4-Quadrant Skill Gap Analysis */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          {/* 1. Matched Mandatory */}
-                          <div className="bg-white p-3 rounded-xl border border-indigo-100/80 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[11px] font-bold text-indigo-950 flex items-center gap-1">
-                                <span className="material-symbols-outlined text-[14px] text-emerald-600">check_circle</span>
-                                Bắt Buộc Đã Khớp ({mandMatchedCount}):
-                              </span>
-                              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
-                                Đạt chuẩn
-                              </span>
-                            </div>
-                            <div className="flex flex-wrap gap-1">
-                              {liveSimResult?.matchedMandatorySkills && liveSimResult.matchedMandatorySkills.length > 0 ? (
-                                liveSimResult.matchedMandatorySkills.map((s, idx) => (
-                                  <span key={idx} className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 text-[10px] font-bold font-mono">
-                                    {s} ✓
-                                  </span>
-                                ))
-                              ) : (
-                                <span className="text-[10px] text-slate-400 italic">Chưa khớp kỹ năng nào</span>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* 2. Missing Mandatory */}
-                          <div className="bg-white p-3 rounded-xl border border-rose-100/80 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[11px] font-bold text-rose-950 flex items-center gap-1">
-                                <span className="material-symbols-outlined text-[14px] text-rose-600">cancel</span>
-                                Bắt Buộc Còn Thiếu ({mandMissingCount}):
-                              </span>
-                              <span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded">
-                                Lỗ hổng kỹ năng
-                              </span>
-                            </div>
-                            <div className="flex flex-wrap gap-1">
-                              {liveSimResult?.missingMandatorySkills && liveSimResult.missingMandatorySkills.length > 0 ? (
-                                liveSimResult.missingMandatorySkills.map((s, idx) => (
-                                  <span key={idx} className="px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 text-[10px] font-bold font-mono">
-                                    {s} ✗
-                                  </span>
-                                ))
-                              ) : (
-                                <span className="text-[10px] text-emerald-600 font-bold">Đầy đủ 100% kỹ năng bắt buộc!</span>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* 3. Matched Preferred */}
-                          <div className="bg-white p-3 rounded-xl border border-emerald-100/80 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[11px] font-bold text-emerald-950 flex items-center gap-1">
-                                <span className="material-symbols-outlined text-[14px] text-emerald-600">stars</span>
-                                Ưu Tiên Đã Có ({prefMatchedCount}):
-                              </span>
-                              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
-                                Điểm cộng
-                              </span>
-                            </div>
-                            <div className="flex flex-wrap gap-1">
-                              {liveSimResult?.matchedPreferredSkills && liveSimResult.matchedPreferredSkills.length > 0 ? (
-                                liveSimResult.matchedPreferredSkills.map((s, idx) => (
-                                  <span key={idx} className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-bold font-mono">
-                                    {s} ✓
-                                  </span>
-                                ))
-                              ) : (
-                                <span className="text-[10px] text-slate-400 italic">Chưa có kỹ năng cộng điểm</span>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* 4. Missing Preferred */}
-                          <div className="bg-white p-3 rounded-xl border border-slate-200/80 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
-                                <span className="material-symbols-outlined text-[14px] text-slate-400">help</span>
-                                Ưu Tiên Chưa Có ({prefMissingCount}):
-                              </span>
-                              <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
-                                Cơ hội bứt phá
-                              </span>
-                            </div>
-                            <div className="flex flex-wrap gap-1">
-                              {liveSimResult?.missingPreferredSkills && liveSimResult.missingPreferredSkills.length > 0 ? (
-                                liveSimResult.missingPreferredSkills.map((s, idx) => (
-                                  <span key={idx} className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-bold font-mono">
-                                    {s} ✗
-                                  </span>
-                                ))
-                              ) : (
-                                <span className="text-[10px] text-slate-400 italic">Không có kỹ năng thiếu</span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* AI Gemini 2-Way Reasoning Card */}
-                        {liveSimResult?.aiReasoning && (
-                          <div className="p-4 rounded-xl bg-purple-50/70 border border-purple-100 text-xs text-slate-700 space-y-2">
-                            <span className="text-[10px] font-bold text-[#5b48bd] uppercase tracking-wider flex items-center gap-1.5">
-                              <span className="material-symbols-outlined text-[15px]">psychology</span>
-                              Nhận Xét &amp; Đánh Giá Đa Chiều Từ AI Gemini (2-Way Perspective):
-                            </span>
-                            <div className="whitespace-pre-line text-[11px] leading-relaxed font-normal text-slate-700 bg-white/70 p-3 rounded-lg border border-purple-100/60">
-                              {liveSimResult.aiReasoning}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-                </div>
-              </div>
-
-              {/* Bottom: Recent AI Matches Audit Feed from PostgreSQL table ai_job_matches */}
-              {aiMatchesHistory.length > 0 && (
-                <div className="pt-4 border-t border-purple-100 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-sm text-[#5b48bd]">history</span>
-                      <span className="text-xs font-bold text-[#1e1b4b]">
-                        Lịch Sử Các Phiên So Khớp AI Trong Hệ Thống (Bảng ai_job_matches - {aiMatchesHistory.length} bản ghi)
-                      </span>
-                    </div>
-                    <span className="text-[10px] text-slate-400">
-                      Bấm vào hàng để đưa dữ liệu lên bộ kiểm tra trực quan
-                    </span>
-                  </div>
-
-                  <div className="overflow-x-auto rounded-xl border border-slate-200">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-slate-50 border-b border-slate-200 text-[10px] text-slate-500 uppercase font-bold">
-                        <tr>
-                          <th className="px-3 py-2">Match ID</th>
-                          <th className="px-3 py-2">Ứng Viên</th>
-                          <th className="px-3 py-2">Vị Trí Tuyển Dụng</th>
-                          <th className="px-3 py-2">Bộ Tiêu Chí ATS</th>
-                          <th className="px-3 py-2 text-center">Điểm So Khớp</th>
-                          <th className="px-3 py-2 text-center">Trạng Thái</th>
-                          <th className="px-3 py-2 text-right">Hành Động</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 bg-white">
-                        {aiMatchesHistory.slice(0, 5).map((m) => (
-                          <tr
-                            key={m.matchId || Math.random()}
-                            onClick={() => {
-                              setLiveSimResult(m);
-                              if (m.jobId) setSelectedSimJobId(m.jobId);
-                              if (m.candidateId) setSelectedSimCandidateId(m.candidateId);
-                            }}
-                            className="hover:bg-purple-50/50 cursor-pointer transition-colors"
-                          >
-                            <td className="px-3 py-2 font-mono text-[10px] text-slate-500">
-                              #{m.matchId}
-                            </td>
-                            <td className="px-3 py-2 font-bold text-[#1e1b4b]">
-                              {m.candidateName || `Ứng viên #${m.candidateId}`}
-                            </td>
-                            <td className="px-3 py-2 text-slate-700 font-medium">
-                              <div>{m.jobTitle || `Job #${m.jobId}`}</div>
-                              <div className="text-[10px] text-slate-400">{m.companyName || '-'}</div>
-                            </td>
-                            <td className="px-3 py-2">
-                              <span className="text-[10px] font-mono text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200 line-clamp-1 max-w-[200px]" title={m.matchingFormula}>
-                                {m.matchingFormula || 'Chuẩn ATS Doanh Nghiệp'}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2 text-center">
-                              <span className={`px-2 py-0.5 rounded-full font-mono font-bold text-[10px] ${
-                                Number(m.matchingScore) >= 80
-                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                  : Number(m.matchingScore) >= 60
-                                  ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                                  : 'bg-amber-50 text-amber-700 border border-amber-200'
-                              }`}>
-                                {m.matchingScore}%
-                              </span>
-                            </td>
-                            <td className="px-3 py-2 text-center">
-                              <span className="text-[10px] font-mono text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-100">
-                                {m.status || 'CACHED'}
-                              </span>
-                            </td>
-                            <td className="px-3 py-2 text-right">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setLiveSimResult(m);
-                                  if (m.jobId) setSelectedSimJobId(m.jobId);
-                                  if (m.candidateId) setSelectedSimCandidateId(m.candidateId);
-                                }}
-                                className="px-2.5 py-1 rounded-lg text-[10px] font-bold text-[#5b48bd] bg-purple-50 hover:bg-[#5b48bd] hover:text-white transition-all cursor-pointer"
-                              >
-                                Xem Chi Tiết
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </div>
-            )}
-
-            {/* ========================================================= */}
-            {/* KHỐI 2: MASTER SKILLS DICTIONARY (BẢNG SKILLS SUPABASE)   */}
-            {/* ========================================================= */}
-            {(settingsSubTab === 'all' || settingsSubTab === 'skills') && (
-            <div className="p-6 rounded-[28px] bg-white border border-purple-100 shadow-sm space-y-6">
-              {/* Header */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-purple-100 gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/20">
-                    <span className="material-symbols-outlined text-xl">smart_toy</span>
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-base font-bold text-[#1e1b4b]">
-                        Khối 2: 🤖 Trung Tâm Từ Điển Kỹ Năng AI Đa Ngành (AI Self-Evolving Skill Taxonomy)
-                      </h3>
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
-                        {skillsList.length} Kỹ Năng Supabase
-                      </span>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                        AI Chuẩn Hóa Tự Động
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Tự động hóa 100% việc chuẩn hóa tên gọi, phân loại nhóm ngành và mở rộng vốn từ vựng kỹ năng cho toàn bộ hệ thống từ JD, CV và AI Generator.
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={fetchSkillsList}
-                  disabled={loadingSkills}
-                  className="px-3.5 py-2 rounded-full bg-purple-50 hover:bg-purple-100 text-[#5b48bd] font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-all border border-purple-200 self-start sm:self-auto disabled:opacity-50"
-                  title="Tải lại từ CSDL Supabase"
-                >
-                  <span className={`material-symbols-outlined text-sm ${loadingSkills ? 'animate-spin' : ''}`}>sync</span>
-                  <span>{loadingSkills ? 'Đang đồng bộ...' : 'Đồng bộ Supabase'}</span>
-                </button>
-              </div>
-
-              {/* Sub-block 0: 🤖 KHỐI AI KHỞI TẠO BỘ KỸ NĂNG THEO NGÀNH NGHỀ 1-CLICK */}
-              <div className="p-5 rounded-2xl bg-gradient-to-r from-indigo-950 via-purple-950 to-slate-900 text-white shadow-lg space-y-4 border border-indigo-500/20 relative overflow-hidden">
-                <div className="flex items-center justify-between gap-3 flex-wrap relative z-10">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-indigo-500/30 text-indigo-300 flex items-center justify-center border border-indigo-400/30">
-                      <span className="material-symbols-outlined text-lg text-yellow-300">auto_awesome</span>
-                    </div>
-                    <div>
-                      <h4 className="font-extrabold text-sm text-white flex items-center gap-2">
-                        <span>AI Thiết Kế &amp; Đề Xuất Bộ Kỹ Năng Đa Ngành (Xem &amp; Chọn Lọc Trước Khi Nạp)</span>
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/40 text-indigo-200 border border-indigo-400/30">Gemini 2.5 Flash</span>
-                      </h4>
-                      <p className="text-[11px] text-slate-300">
-                        Nhập tên bất kỳ ngành nghề nào (Marketing, Kế toán, Giảng viên đại học, Y tế, Xây dựng...). AI sẽ gợi ý 10 - 15 kỹ năng chuẩn ngành để bạn chọn lọc trước khi nạp vào CSDL Supabase!
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Input & Action Bar */}
-                <div className="flex flex-col sm:flex-row items-center gap-2.5 relative z-10">
-                  <div className="relative flex-1 w-full">
-                    <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-base">
-                      category
-                    </span>
-                    <input
-                      type="text"
-                      placeholder="Nhập tên ngành nghề (VD: Giảng viên đại học, Digital Marketing, Kế toán Kiểm toán, Y tế...)"
-                      value={aiIndustryInput}
-                      onChange={(e) => setAiIndustryInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          handleAiGenerateIndustrySkills();
-                        }
-                      }}
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 focus:bg-white/20 border border-white/20 focus:border-indigo-400 text-xs text-white placeholder-slate-400 focus:outline-none transition-all font-sans"
-                    />
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => handleAiGenerateIndustrySkills()}
-                    disabled={isGeneratingIndustrySkills || !aiIndustryInput.trim()}
-                    className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:from-indigo-600 hover:to-pink-600 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0 hover:scale-[1.02]"
-                  >
-                    {isGeneratingIndustrySkills ? (
-                      <>
-                        <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                        <span>AI Đang Thiết Kế Kỹ Năng...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="material-symbols-outlined text-sm text-yellow-300">auto_awesome</span>
-                        <span>✨ AI Đề Xuất Kỹ Năng (Xem &amp; Chọn)</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                {/* Quick Industry Presets */}
-                <div className="flex items-center gap-1.5 flex-wrap pt-1 relative z-10 text-[11px]">
-                  <span className="text-slate-400 text-[10px] font-semibold flex items-center gap-1">
-                    <span className="material-symbols-outlined text-[13px] text-yellow-400">tips_and_updates</span>
-                    <span>Gợi ý ngành nghề phổ biến:</span>
-                  </span>
-                  {[
-                    'Giảng viên Đại học',
-                    'Luật sư & Pháp chế',
-                    'Y tế & Dược phẩm',
-                    'Kế toán Kiểm toán',
-                    'Kỹ thuật Xây dựng & Kiến trúc',
-                    'Quản trị Chuỗi cung ứng (Logistics)',
-                    'Digital Marketing',
-                    'Nhân sự & Tuyển dụng (HR)',
-                    'Thiết kế Đồ họa & UI/UX',
-                    'Nhà hàng & Khách sạn (F&B)',
-                    'Cơ khí & Tự động hóa',
-                    'Bất động sản & Quản trị Tòa nhà',
-                    'Chăm sóc Khách hàng (CSKH)',
-                    'Trí tuệ nhân tạo & Data'
-                  ].map((ind) => (
-                    <button
-                      key={ind}
-                      type="button"
-                      onClick={() => {
-                        setAiIndustryInput(ind);
-                        handleAiGenerateIndustrySkills(ind);
-                      }}
-                      className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-indigo-500/40 border border-white/10 hover:border-indigo-400/50 text-indigo-200 hover:text-white transition-all cursor-pointer text-[10px] font-medium"
-                    >
-                      + {ind}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Live Result Details */}
-                {lastAiGeneratedIndustryResult && (
-                  <div className="mt-3 p-3.5 rounded-xl bg-white/10 border border-white/20 text-xs space-y-2 animate-fade-in relative z-10">
-                    <div className="flex items-center justify-between flex-wrap gap-2">
-                      <span className="font-bold text-emerald-300 flex items-center gap-1.5">
-                        <span className="material-symbols-outlined text-sm text-emerald-400">check_circle</span>
-                        Đã sinh thành công {lastAiGeneratedIndustryResult.totalGenerated} kỹ năng cho ngành: <strong>{lastAiGeneratedIndustryResult.industry}</strong>
-                      </span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/30 text-emerald-200 border border-emerald-400/30 font-semibold">
-                        + {lastAiGeneratedIndustryResult.newlyCreatedCount} Kỹ năng mới nạp Supabase
-                      </span>
-                    </div>
-
-                    <div className="flex flex-wrap gap-1.5 pt-1">
-                      {Array.isArray(lastAiGeneratedIndustryResult.skills) && lastAiGeneratedIndustryResult.skills.map((sk, idx) => (
-                        <span
-                          key={`gen-${idx}`}
-                          className="px-2 py-0.5 rounded-md bg-white/15 text-slate-100 border border-white/10 text-[10px] font-medium flex items-center gap-1"
-                        >
-                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>
-                          <span>{sk.name}</span>
-                          <span className="text-[9px] text-indigo-300">({sk.category})</span>
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Sub-block A: Form Thêm Kỹ Năng Thủ Công */}
-              <form onSubmit={handleCreateSkill} className="p-5 rounded-2xl bg-gradient-to-r from-purple-50/50 via-indigo-50/30 to-purple-50/50 border border-purple-100 space-y-4">
-                <div className="flex items-center gap-2 text-xs font-bold text-[#1e1b4b]">
-                  <span className="material-symbols-outlined text-base text-[#5b48bd]">add_circle</span>
-                  <span>Thêm Kỹ Năng Thủ Công Vào Danh Mục Hệ Thống</span>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 items-end">
-                  {/* Skill Name */}
-                  <div className="md:col-span-4 space-y-1">
-                    <label className="text-[11px] font-bold text-slate-700 block">
-                      Tên Kỹ Năng <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="VD: Java, Spring Boot, ReactJS, Docker..."
-                      value={newSkillName}
-                      onChange={(e) => setNewSkillName(e.target.value)}
-                      className="w-full bg-white border border-purple-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-[#5b48bd] focus:ring-1 focus:ring-[#5b48bd]"
-                    />
-                  </div>
-
-                  {/* Category - Tự do nhập hoặc chọn từ danh sách gợi ý */}
-                  <div className="md:col-span-3 space-y-1">
-                    <div className="flex items-center justify-between">
-                      <label className="text-[11px] font-bold text-slate-700 block">
-                        Nhóm Ngành (Category) <span className="text-slate-400 font-normal">(Tùy chọn)</span>
-                      </label>
-                      <span className="text-[10px] text-[#5b48bd] font-medium">Tự do gõ / chọn</span>
-                    </div>
-                    <input
-                      type="text"
-                      list="skill-category-datalist"
-                      placeholder="VD: Backend, Frontend, QA, Marketing..."
-                      value={newSkillCategory}
-                      onChange={(e) => setNewSkillCategory(e.target.value)}
-                      className="w-full bg-white border border-purple-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-[#5b48bd] focus:ring-1 focus:ring-[#5b48bd]"
-                    />
-                    <datalist id="skill-category-datalist">
-                      <option value="BACKEND">BACKEND (Lập trình Backend)</option>
-                      <option value="FRONTEND">FRONTEND (Lập trình Giao diện)</option>
-                      <option value="DATABASE">DATABASE (Cơ sở dữ liệu)</option>
-                      <option value="DEVOPS_CLOUD">DEVOPS_CLOUD (DevOps &amp; Đám mây)</option>
-                      <option value="MOBILE">MOBILE (Lập trình Di động)</option>
-                      <option value="AI_DATA">AI_DATA (Trí tuệ nhân tạo &amp; Dữ liệu)</option>
-                      <option value="QA_TESTING">QA_TESTING (Kiểm thử phần mềm)</option>
-                      <option value="CYBER_SECURITY">CYBER_SECURITY (An toàn thông tin)</option>
-                      <option value="BUSINESS_BA">BUSINESS_BA (Phân tích nghiệp vụ)</option>
-                      <option value="DESIGN_UIUX">DESIGN_UIUX (Thiết kế đồ họa &amp; UI/UX)</option>
-                      <option value="MARKETING">MARKETING (Tiếp thị &amp; Truyền thông)</option>
-                      <option value="SALES">SALES (Kinh doanh &amp; Bán hàng)</option>
-                      <option value="FINANCE">FINANCE (Tài chính &amp; Kế toán)</option>
-                      <option value="HR_ADMIN">HR_ADMIN (Nhân sự &amp; Hành chính)</option>
-                      <option value="SOFT_SKILL">SOFT_SKILL (Kỹ năng mềm)</option>
-                      <option value="GENERAL">GENERAL (Chuyên môn chung)</option>
-                    </datalist>
-                  </div>
-
-                  {/* Aliases */}
-                  <div className="md:col-span-3 space-y-1">
-                    <label className="text-[11px] font-bold text-slate-700 block">
-                      Từ Đồng Nghĩa / Aliases <span className="text-slate-400 font-normal">(Tùy chọn)</span>
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="VD: Java 17, Java 21, Core Java"
-                      value={newSkillAliases}
-                      onChange={(e) => setNewSkillAliases(e.target.value)}
-                      className="w-full bg-white border border-purple-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-[#5b48bd] focus:ring-1 focus:ring-[#5b48bd]"
-                    />
-                  </div>
-
-                  {/* Submit Button */}
-                  <div className="md:col-span-2">
-                    <button
-                      type="submit"
-                      disabled={isSubmittingSkill || !newSkillName.trim()}
-                      className="w-full px-4 py-2.5 rounded-xl bg-[#5b48bd] hover:bg-[#4a39a7] text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all shadow-md shadow-purple-200 disabled:opacity-50"
-                    >
-                      {isSubmittingSkill ? (
-                        <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                      ) : (
-                        <span className="material-symbols-outlined text-sm">add</span>
-                      )}
-                      <span>Thêm Kỹ Năng</span>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
-                  <span className="material-symbols-outlined text-xs text-emerald-600">verified</span>
-                  <span>Kiểm tra chống trùng lặp tên kỹ năng (Case-insensitive) tự động trước khi lưu vào Supabase.</span>
-                </div>
-              </form>
-
-              {/* Sub-block B: Danh Sách & Bộ Lọc Kỹ Năng Hiện Có */}
-              <div className="space-y-4">
-                {/* Search Bar & Category Tabs */}
-                <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-                  {/* Category Pills tự động sinh từ dữ liệu thực tế */}
-                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
-                    {(() => {
-                      const dynamicCats = Array.from(new Set(
-                        skillsList.map(s => (s.category || 'GENERAL').toUpperCase())
-                      )).filter(Boolean);
-                      const allCats = ['ALL', ...dynamicCats];
-                      return allCats.map((catKey) => {
-                        const isActive = skillCategoryFilter === catKey;
-                        const count = catKey === 'ALL'
-                          ? skillsList.length
-                          : skillsList.filter(s => (s.category || 'GENERAL').toUpperCase() === catKey).length;
-                        return (
-                          <button
-                            key={catKey}
-                            type="button"
-                            onClick={() => setSkillCategoryFilter(catKey)}
-                            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
-                              isActive
-                                ? 'bg-[#5b48bd] text-white shadow-xs'
-                                : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
-                            }`}
-                          >
-                            <span>{catKey === 'ALL' ? 'Tất cả' : catKey}</span>
-                            <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-                              isActive ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
-                            }`}>
-                              {count}
-                            </span>
-                          </button>
-                        );
-                      });
-                    })()}
-                  </div>
-
-                  {/* Search Input */}
-                  <div className="relative min-w-[240px]">
-                    <span className="material-symbols-outlined absolute left-3 top-2.5 text-slate-400 text-sm">search</span>
-                    <input
-                      type="text"
-                      placeholder="Tìm nhanh kỹ năng..."
-                      value={skillSearchQuery}
-                      onChange={(e) => setSkillSearchQuery(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-full pl-9 pr-8 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-[#5b48bd] focus:bg-white"
-                    />
-                    {skillSearchQuery && (
-                      <button
-                        type="button"
-                        onClick={() => setSkillSearchQuery('')}
-                        className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 text-xs cursor-pointer"
-                      >
-                        ×
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Skills Badges Grid */}
-                {(() => {
-                  const filtered = skillsList.filter((sk) => {
-                    if (skillCategoryFilter !== 'ALL') {
-                      const c = (sk.category || '').toUpperCase();
-                      const f = skillCategoryFilter.toUpperCase();
-                      if (f === 'DEVOPS_CLOUD') {
-                        if (!c.includes('DEVOPS') && !c.includes('CLOUD')) return false;
-                      } else if (f === 'AI_DATA') {
-                        if (!c.includes('AI') && !c.includes('DATA')) return false;
-                      } else if (f === 'BUSINESS_BA') {
-                        if (!c.includes('BUSINESS') && !c.includes('BA')) return false;
-                      } else if (f === 'SOFT_SKILL') {
-                        if (!c.includes('SOFT')) return false;
-                      } else {
-                        if (!c.includes(f)) return false;
-                      }
-                    }
-                    if (skillSearchQuery.trim()) {
-                      const q = skillSearchQuery.toLowerCase();
-                      const inName = (sk.skillName || '').toLowerCase().includes(q);
-                      const inAliases = (sk.aliases || '').toLowerCase().includes(q);
-                      const inCat = (sk.category || '').toLowerCase().includes(q);
-                      if (!inName && !inAliases && !inCat) return false;
-                    }
-                    return true;
-                  });
-
-                  const getCatBadgeStyle = (category) => {
-                    const c = (category || '').toUpperCase();
-                    if (c.includes('BACKEND')) return 'bg-indigo-50 text-indigo-700 border-indigo-200';
-                    if (c.includes('FRONTEND')) return 'bg-sky-50 text-sky-700 border-sky-200';
-                    if (c.includes('DATABASE')) return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-                    if (c.includes('DEVOPS') || c.includes('CLOUD')) return 'bg-amber-50 text-amber-700 border-amber-200';
-                    if (c.includes('MOBILE')) return 'bg-rose-50 text-rose-700 border-rose-200';
-                    if (c.includes('AI') || c.includes('DATA')) return 'bg-purple-50 text-purple-700 border-purple-200';
-                    if (c.includes('BUSINESS') || c.includes('BA')) return 'bg-blue-50 text-blue-700 border-blue-200';
-                    if (c.includes('SOFT')) return 'bg-teal-50 text-teal-700 border-teal-200';
-                    return 'bg-slate-100 text-slate-700 border-slate-200';
-                  };
-
-                  if (loadingSkills) {
-                    return (
-                      <div className="py-12 text-center text-slate-400 space-y-2">
-                        <span className="w-6 h-6 border-2 border-[#5b48bd] border-t-transparent rounded-full animate-spin inline-block"></span>
-                        <div className="text-xs">Đang tải danh mục kỹ năng từ Supabase...</div>
-                      </div>
-                    );
-                  }
-
-                  if (filtered.length === 0) {
-                    return (
-                      <div className="py-10 text-center text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-1">
-                        <span className="material-symbols-outlined text-3xl text-slate-300">search_off</span>
-                        <div className="text-xs font-semibold">Không tìm thấy kỹ năng nào phù hợp</div>
-                        <div className="text-[11px] text-slate-400">Thử tìm với từ khóa khác hoặc bấm nút "+ Thêm Kỹ Năng" bên trên.</div>
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium px-1">
-                        <span>Hiển thị <strong>{filtered.length}</strong> / {skillsList.length} kỹ năng thực tế</span>
-                        <span className="text-slate-400 italic">Bấm vào dấu × trên tag để xóa kỹ năng khỏi CSDL Supabase</span>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2 max-h-[360px] overflow-y-auto p-3 bg-slate-50/70 rounded-2xl border border-slate-200/80 scrollbar-thin">
-                        {filtered.map((sk) => {
-                          const badgeColor = getCatBadgeStyle(sk.category);
-                          const isDeleting = deletingSkillId === sk.skillId;
-                          return (
-                            <span
-                              key={sk.skillId}
-                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border shadow-2xs group transition-all hover:shadow-xs bg-white ${badgeColor}`}
-                              title={sk.aliases ? `Từ đồng nghĩa: ${sk.aliases}` : `Kỹ năng: ${sk.skillName}`}
-                            >
-                              <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70"></span>
-                              <span className="font-bold text-slate-800">{sk.skillName}</span>
-                              <span className="text-[9px] uppercase tracking-wider font-mono opacity-60">({sk.category || 'TECH'})</span>
-                              <button
-                                type="button"
-                                disabled={isDeleting}
-                                onClick={() => handleDeleteSkill(sk.skillId, sk.skillName)}
-                                className="w-4 h-4 rounded-full hover:bg-rose-500 hover:text-white text-slate-400 flex items-center justify-center transition-colors cursor-pointer text-xs ml-0.5"
-                                title={`Xóa "${sk.skillName}" khỏi Supabase`}
-                              >
-                                {isDeleting ? (
-                                  <span className="w-2.5 h-2.5 border border-rose-500 border-t-transparent rounded-full animate-spin"></span>
-                                ) : (
-                                  '×'
-                                )}
-                              </button>
-                            </span>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
-            </div>
-            )}
-
-            {/* ========================================================= */}
-            {/* KHỐI 3: NHẬT KÝ & ĐÁNH GIÁ PHIÊN PHỎNG VẤN AI (AUDIT & LOGS) */}
-            {/* ========================================================= */}
-            {(settingsSubTab === 'all' || settingsSubTab === 'interview') && (
-            <div className="p-6 rounded-[28px] bg-white border border-purple-100 shadow-sm space-y-6">
-              {/* Header Khối 3 */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-purple-100 gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-xl">record_voice_over</span>
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-[#1e1b4b]">
-                      Khối 3: Nhật Ký &amp; Đánh Giá Phiên Phỏng Vấn AI (AI Interview Studio Audit &amp; Logs)
-                    </h3>
-                    <p className="text-xs text-slate-500">
-                      Theo dõi danh sách các phiên luyện tập phỏng vấn AI thực tế của ứng viên, kiểm tra chất lượng câu hỏi sinh động từ Gemini, phân tích điểm số đánh giá và chỉ số tiến bộ thực tế (table: interview_sessions &amp; practice_progress_logs).
-                    </p>
-                  </div>
-                </div>
-                <div className="px-3.5 py-1.5 rounded-xl bg-amber-50 text-amber-800 font-mono font-bold text-xs border border-amber-200 self-start sm:self-auto">
-                  Chỉ số Delta: score_after - score_before (table: practice_progress_logs)
-                </div>
-              </div>
-
-              {/* Thẻ Thống Kê Tổng Quan Phỏng Vấn AI */}
-              {(() => {
-                const totalSessions = interviewsList.length;
-                const avgScore = totalSessions > 0
-                  ? (interviewsList.reduce((acc, i) => acc + (Number(i.overallScore) || 0), 0) / totalSessions).toFixed(1)
-                  : '81.5';
-                const retrySessions = interviewsList.filter((i) => i.sessionType === 'PRACTICE_RETRY' || (i.improvementDelta != null && i.improvementDelta > 0));
-                const avgDelta = retrySessions.length > 0
-                  ? (retrySessions.reduce((acc, i) => acc + (Number(i.improvementDelta) || 0), 0) / retrySessions.length).toFixed(1)
-                  : '16.5';
-
-                return (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {/* Stat 1: Tổng phiên */}
-                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between">
-                      <div>
-                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Tổng Phiên Phỏng Vấn</span>
-                        <div className="text-2xl font-black text-[#1e1b4b] mt-1 font-mono">{totalSessions} <span className="text-xs font-normal text-slate-400">phiên</span></div>
-                        <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-0.5 mt-0.5">
-                          <span className="material-symbols-outlined text-[13px]">check_circle</span>
-                          AI Gemini sinh động 100%
-                        </span>
-                      </div>
-                      <div className="w-10 h-10 rounded-xl bg-purple-100 text-[#5b48bd] flex items-center justify-center">
-                        <span className="material-symbols-outlined text-xl">psychology</span>
-                      </div>
-                    </div>
-
-                    {/* Stat 2: Điểm TB */}
-                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between">
-                      <div>
-                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Điểm Đánh Giá TB</span>
-                        <div className="text-2xl font-black text-[#5b48bd] mt-1 font-mono">{avgScore} <span className="text-xs font-normal text-slate-400">/100đ</span></div>
-                        <span className="text-[10px] text-slate-500 font-medium">Thang đo năng lực quốc tế</span>
-                      </div>
-                      <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
-                        <span className="material-symbols-outlined text-xl">hotel_class</span>
-                      </div>
-                    </div>
-
-                    {/* Stat 3: Chỉ số Delta */}
-                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between">
-                      <div>
-                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Tiến Bộ Delta Trung Bình</span>
-                        <div className="text-2xl font-black text-emerald-600 mt-1 font-mono">+{avgDelta}%</div>
-                        <span className="text-[10px] text-slate-500 font-medium">score_after - score_before</span>
-                      </div>
-                      <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                        <span className="material-symbols-outlined text-xl">trending_up</span>
-                      </div>
-                    </div>
-
-                    {/* Stat 4: Model AI */}
-                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Mô Hình Gemini Vận Hành</span>
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-1.5 pt-0.5">
-                        {[
-                          { id: 'gemini-3-flash-preview', label: '3.0 Flash ★' },
-                          { id: 'gemini-3.1-pro-preview', label: '3.1 Pro' },
-                        ].map((m) => (
-                          <button
-                            key={m.id}
-                            type="button"
-                            onClick={() => setAiModel(m.id)}
-                            className={`py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                              aiModel === m.id
-                                ? 'bg-[#5b48bd] text-white shadow-xs'
-                                : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
-                            }`}
-                          >
-                            {m.label}
-                          </button>
-                        ))}
-                      </div>
-                      <p className="text-[10px] text-slate-400 truncate">
-                        {aiModel === 'gemini-3-flash-preview' ? 'Siêu tốc <600ms & Tối ưu quota' : 'Suy luận logic sâu nhất'}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Thanh Công Cụ Tìm Kiếm & Bộ Lọc Phiên Phỏng Vấn */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
-                <div className="flex items-center gap-2 flex-wrap">
-                  {[
-                    { id: 'ALL', label: 'Tất Cả Phiên', count: interviewsList.length },
-                    { id: 'MOCK', label: 'Khởi Tạo Mới (MOCK)', count: interviewsList.filter(i => i.sessionType === 'MOCK' || !i.sessionType).length },
-                    { id: 'RETRY', label: 'Luyện Lại (RETRY)', count: interviewsList.filter(i => i.sessionType === 'PRACTICE_RETRY').length },
-                    { id: 'HIGH_SCORE', label: 'Điểm Cao (≥80đ)', count: interviewsList.filter(i => (Number(i.overallScore) || 0) >= 80).length },
-                  ].map((tab) => {
-                    const isActive = interviewTypeFilter === tab.id;
-                    return (
-                      <button
-                        key={tab.id}
-                        type="button"
-                        onClick={() => {
-                          setInterviewTypeFilter(tab.id);
-                          setInterviewPage(1);
-                        }}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                          isActive
-                            ? 'bg-[#5b48bd] text-white shadow-xs'
-                            : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
-                        }`}
-                      >
-                        <span>{tab.label}</span>
-                        <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-                          isActive ? 'bg-white/20 text-white' : 'bg-white text-slate-600'
-                        }`}>
-                          {tab.count}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div className="relative min-w-[240px]">
-                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
-                    search
-                  </span>
-                  <input
-                    type="text"
-                    placeholder="Tìm tên ứng viên, vị trí..."
-                    value={interviewSearchQuery}
-                    onChange={(e) => {
-                      setInterviewSearchQuery(e.target.value);
-                      setInterviewPage(1);
-                    }}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-[#5b48bd]"
-                  />
-                </div>
-              </div>
-
-              {/* Bảng Danh Sách Các Phiên Phỏng Vấn AI Thực Tế */}
-              {(() => {
-                const filtered = interviewsList.filter((item) => {
-                  const matchSearch = !interviewSearchQuery ||
-                    (item.candidateName && item.candidateName.toLowerCase().includes(interviewSearchQuery.toLowerCase())) ||
-                    (item.candidateEmail && item.candidateEmail.toLowerCase().includes(interviewSearchQuery.toLowerCase())) ||
-                    (item.targetPosition && item.targetPosition.toLowerCase().includes(interviewSearchQuery.toLowerCase())) ||
-                    String(item.sessionId).includes(interviewSearchQuery);
-
-                  if (!matchSearch) return false;
-
-                  if (interviewTypeFilter === 'MOCK') return item.sessionType === 'MOCK' || !item.sessionType;
-                  if (interviewTypeFilter === 'RETRY') return item.sessionType === 'PRACTICE_RETRY';
-                  if (interviewTypeFilter === 'HIGH_SCORE') return (Number(item.overallScore) || 0) >= 80;
-                  return true;
-                });
-
-                const pageSize = 4;
-                const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-                const curPage = Math.min(interviewPage, totalPages);
-                const paginatedInterviews = filtered.slice((curPage - 1) * pageSize, curPage * pageSize);
-
-                if (filtered.length === 0) {
-                  return (
-                    <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                      <span className="material-symbols-outlined text-4xl text-slate-300">record_voice_over</span>
-                      <p className="text-xs text-slate-500 font-bold mt-2">Không tìm thấy phiên phỏng vấn AI nào phù hợp với bộ lọc</p>
-                    </div>
-                  );
-                }
-
-                return (
-                  <div className="space-y-3">
-                    <div className="overflow-x-auto rounded-2xl border border-slate-200/80">
-                      <table className="w-full text-left border-collapse text-xs">
-                        <thead>
-                          <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-bold text-[11px] uppercase tracking-wider">
-                            <th className="py-3 px-4">Mã Phiên / Ngày</th>
-                            <th className="py-3 px-4">Ứng Viên</th>
-                            <th className="py-3 px-4">Vị Trí Phỏng Vấn</th>
-                            <th className="py-3 px-4">Chế Độ</th>
-                            <th className="py-3 px-4 text-center">Điểm Đánh Giá AI</th>
-                            <th className="py-3 px-4 text-center">Chỉ Số Delta</th>
-                            <th className="py-3 px-4 text-center">Số Câu</th>
-                            <th className="py-3 px-4 text-right">Chi Tiết &amp; Lời Giải AI</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 bg-white">
-                          {paginatedInterviews.map((iv) => {
-                            const score = Number(iv.overallScore) || 0;
-                            const isRetry = iv.sessionType === 'PRACTICE_RETRY';
-                            const delta = iv.improvementDelta != null ? Number(iv.improvementDelta) : null;
-                            const dateStr = iv.startedAt ? new Date(iv.startedAt).toLocaleDateString('vi-VN', {
-                              day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
-                            }) : 'Gần đây';
-
-                            return (
-                              <tr key={iv.sessionId || iv.id} className="hover:bg-purple-50/30 transition-colors">
-                                <td className="py-3 px-4 font-mono font-bold text-slate-700">
-                                  <div>#IV-{iv.sessionId || iv.id}</div>
-                                  <div className="text-[10px] text-slate-400 font-normal font-sans">{dateStr}</div>
-                                </td>
-                                <td className="py-3 px-4">
-                                  <div className="flex items-center gap-2.5">
-                                    <div className="w-8 h-8 rounded-full bg-purple-100 text-[#5b48bd] font-extrabold flex items-center justify-center shrink-0">
-                                      {(iv.candidateName || 'U').charAt(0).toUpperCase()}
-                                    </div>
-                                    <div>
-                                      <div className="font-bold text-[#1e1b4b]">{iv.candidateName || 'Ứng viên'}</div>
-                                      <div className="text-[11px] text-slate-400">{iv.candidateEmail || 'candidate@gmail.com'}</div>
-                                    </div>
-                                  </div>
-                                </td>
-                                <td className="py-3 px-4 font-semibold text-slate-800">
-                                  <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-mono text-[11px]">
-                                    {iv.targetPosition || 'Software Engineer'}
-                                  </span>
-                                </td>
-                                <td className="py-3 px-4">
-                                  {isRetry ? (
-                                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-purple-100 text-[#5b48bd] border border-purple-200 flex items-center gap-1 w-max">
-                                      <span className="material-symbols-outlined text-xs">replay</span>
-                                      Luyện Lại (Retry)
-                                    </span>
-                                  ) : (
-                                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1 w-max">
-                                      <span className="material-symbols-outlined text-xs">play_circle</span>
-                                      Khởi Tạo Mới
-                                    </span>
-                                  )}
-                                </td>
-                                <td className="py-3 px-4 text-center">
-                                  <div className="inline-flex items-center gap-1.5">
-                                    <span className={`text-sm font-black font-mono ${
-                                      score >= 85 ? 'text-emerald-600' : score >= 70 ? 'text-[#5b48bd]' : 'text-amber-600'
-                                    }`}>
-                                      {score.toFixed(1)}
-                                    </span>
-                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                                      score >= 85 ? 'bg-emerald-50 text-emerald-700' : score >= 70 ? 'bg-purple-50 text-[#5b48bd]' : 'bg-amber-50 text-amber-700'
-                                    }`}>
-                                      {score >= 85 ? 'Xuất Sắc' : score >= 70 ? 'Đạt Yêu Cầu' : 'Cần Rèn Luyện'}
-                                    </span>
-                                  </div>
-                                </td>
-                                <td className="py-3 px-4 text-center font-mono font-bold">
-                                  {delta != null ? (
-                                    <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[11px] ${
-                                      delta >= 0 ? 'bg-emerald-50 text-emerald-700 font-black' : 'bg-rose-50 text-rose-700'
-                                    }`}>
-                                      <span className="material-symbols-outlined text-xs">{delta >= 0 ? 'arrow_upward' : 'arrow_downward'}</span>
-                                      {delta >= 0 ? `+${delta}%` : `${delta}%`}
-                                    </span>
-                                  ) : (
-                                    <span className="text-slate-400 text-xs">-</span>
-                                  )}
-                                </td>
-                                <td className="py-3 px-4 text-center font-mono text-slate-600 font-bold">
-                                  {iv.questionCount || (iv.details ? iv.details.length : 3)} câu
-                                </td>
-                                <td className="py-3 px-4 text-right">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleViewInterviewDetail(iv)}
-                                    className="px-3 py-1.5 rounded-xl bg-purple-50 hover:bg-[#5b48bd] text-[#5b48bd] hover:text-white font-bold text-xs transition-all cursor-pointer inline-flex items-center gap-1 border border-purple-200/60 shadow-2xs"
-                                  >
-                                    <span className="material-symbols-outlined text-[14px]">visibility</span>
-                                    <span>Xem chi tiết câu hỏi</span>
-                                  </button>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    {/* Pagination Controls */}
-                    {totalPages > 1 && (
-                      <div className="flex items-center justify-between pt-2">
-                        <span className="text-xs text-slate-500 font-medium">
-                          Hiển thị {(curPage - 1) * pageSize + 1} - {Math.min(curPage * pageSize, filtered.length)} trên tổng số {filtered.length} phiên phỏng vấn
-                        </span>
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            disabled={curPage <= 1}
-                            onClick={() => setInterviewPage(p => Math.max(1, p - 1))}
-                            className="px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-100 disabled:opacity-40 cursor-pointer"
-                          >
-                            Trước
-                          </button>
-                          <span className="px-3 py-1 text-xs font-bold font-mono text-[#5b48bd]">
-                            {curPage} / {totalPages}
-                          </span>
-                          <button
-                            type="button"
-                            disabled={curPage >= totalPages}
-                            onClick={() => setInterviewPage(p => Math.min(totalPages, p + 1))}
-                            className="px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-100 disabled:opacity-40 cursor-pointer"
-                          >
-                            Tiếp
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-            </div>
-            )}
-
-            {/* ========================================================= */}
-            {/* KHỐI 4: HẠN MỨC GÓI MIỄN PHÍ & QUY TẮC KIỂM DUYỆT        */}
+            {/* KHỐI 1: HẠN MỨC GÓI MIỄN PHÍ VÀ QUY TẮC KIỂM DUYỆT 2 LỚP & QUY TẮC KIỂM DUYỆT        */}
             {/* ========================================================= */}
             {(settingsSubTab === 'all' || settingsSubTab === 'quota_rules') && (
             <div className="p-6 sm:p-7 rounded-[28px] bg-white border border-purple-100 shadow-sm space-y-6">
@@ -8699,7 +7133,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
                   </div>
                   <div>
                     <h3 className="text-base font-bold text-[#1e1b4b] flex items-center gap-2">
-                      Khối 4: Quản Trị Kiểm Duyệt 2 Lớp &amp; Chính Sách Gói Khởi Đầu
+                      Khối 1: Quản Trị Kiểm Duyệt 2 Lớp &amp; Chính Sách Gói Khởi Đầu
                       <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
                         Quy trình 2 lớp bảo vệ • Chuẩn UC-33 &amp; UC-34
                       </span>
@@ -9024,7 +7458,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
             )}
 
             {/* ========================================================= */}
-            {/* KHỐI 5: QUẢN TRỊ CỔNG THANH TOÁN TỰ ĐỘNG & TÀI KHOẢN NGÂN HÀNG (PAYOS & VIETQR) */}
+            {/* KHỐI 2: QUẢN TRỊ CỔNG THANH TOÁN TỰ ĐỘNG VÀ TÀI KHOẢN NGÂN HÀNG TỰ ĐỘNG & TÀI KHOẢN NGÂN HÀNG (PAYOS & VIETQR) */}
             {/* ========================================================= */}
             {(settingsSubTab === 'all' || settingsSubTab === 'vietqr_smtp') && (
             <div className="p-6 rounded-[28px] bg-white border border-purple-100 shadow-sm space-y-6">
@@ -9036,7 +7470,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
                   </div>
                   <div>
                     <h3 className="text-base font-bold text-[#1e1b4b] flex items-center gap-2">
-                      Khối 5: Quản Trị Cổng Thanh Toán Tự Động &amp; Tài Khoản Ngân Hàng Giao Dịch
+                      Khối 2: Quản Trị Cổng Thanh Toán Tự Động &amp; Tài Khoản Ngân Hàng Giao Dịch
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                         PayOS Napas 24/7
                       </span>
@@ -9540,6 +7974,1588 @@ export default function AdminDashboardPage({ user, onLogout }) {
             </div>
             )}
 
+            {/* KHỐI 3: MASTER SKILLS DICTIONARY (BẢNG SKILLS SUPABASE)   */}
+            {/* ========================================================= */}
+            {(settingsSubTab === 'all' || settingsSubTab === 'skills') && (
+            <div className="p-6 rounded-[28px] bg-white border border-purple-100 shadow-sm space-y-6">
+              {/* Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-purple-100 gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/20">
+                    <span className="material-symbols-outlined text-xl">smart_toy</span>
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-base font-bold text-[#1e1b4b]">
+                        Khối 2: 🤖 Trung Tâm Từ Điển Kỹ Năng AI Đa Ngành (AI Self-Evolving Skill Taxonomy)
+                      </h3>
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
+                        {skillsList.length} Kỹ Năng Supabase
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        AI Chuẩn Hóa Tự Động
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Tự động hóa 100% việc chuẩn hóa tên gọi, phân loại nhóm ngành và mở rộng vốn từ vựng kỹ năng cho toàn bộ hệ thống từ JD, CV và AI Generator.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={fetchSkillsList}
+                  disabled={loadingSkills}
+                  className="px-3.5 py-2 rounded-full bg-purple-50 hover:bg-purple-100 text-[#5b48bd] font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-all border border-purple-200 self-start sm:self-auto disabled:opacity-50"
+                  title="Tải lại từ CSDL Supabase"
+                >
+                  <span className={`material-symbols-outlined text-sm ${loadingSkills ? 'animate-spin' : ''}`}>sync</span>
+                  <span>{loadingSkills ? 'Đang đồng bộ...' : 'Đồng bộ Supabase'}</span>
+                </button>
+              </div>
+
+              {/* Sub-block 0: 🤖 KHỐI AI KHỞI TẠO BỘ KỸ NĂNG THEO NGÀNH NGHỀ 1-CLICK */}
+              <div className="p-5 rounded-2xl bg-gradient-to-r from-indigo-950 via-purple-950 to-slate-900 text-white shadow-lg space-y-4 border border-indigo-500/20 relative overflow-hidden">
+                <div className="flex items-center justify-between gap-3 flex-wrap relative z-10">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-indigo-500/30 text-indigo-300 flex items-center justify-center border border-indigo-400/30">
+                      <span className="material-symbols-outlined text-lg text-yellow-300">auto_awesome</span>
+                    </div>
+                    <div>
+                      <h4 className="font-extrabold text-sm text-white flex items-center gap-2">
+                        <span>AI Thiết Kế &amp; Đề Xuất Bộ Kỹ Năng Đa Ngành (Xem &amp; Chọn Lọc Trước Khi Nạp)</span>
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/40 text-indigo-200 border border-indigo-400/30">Gemini 2.5 Flash</span>
+                      </h4>
+                      <p className="text-[11px] text-slate-300">
+                        Nhập tên bất kỳ ngành nghề nào (Marketing, Kế toán, Giảng viên đại học, Y tế, Xây dựng...). AI sẽ gợi ý 10 - 15 kỹ năng chuẩn ngành để bạn chọn lọc trước khi nạp vào CSDL Supabase!
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Input & Action Bar */}
+                <div className="flex flex-col sm:flex-row items-center gap-2.5 relative z-10">
+                  <div className="relative flex-1 w-full">
+                    <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-base">
+                      category
+                    </span>
+                    <input
+                      type="text"
+                      placeholder="Nhập tên ngành nghề (VD: Giảng viên đại học, Digital Marketing, Kế toán Kiểm toán, Y tế...)"
+                      value={aiIndustryInput}
+                      onChange={(e) => setAiIndustryInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAiGenerateIndustrySkills();
+                        }
+                      }}
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 focus:bg-white/20 border border-white/20 focus:border-indigo-400 text-xs text-white placeholder-slate-400 focus:outline-none transition-all font-sans"
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleAiGenerateIndustrySkills()}
+                    disabled={isGeneratingIndustrySkills || !aiIndustryInput.trim()}
+                    className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:from-indigo-600 hover:to-pink-600 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0 hover:scale-[1.02]"
+                  >
+                    {isGeneratingIndustrySkills ? (
+                      <>
+                        <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                        <span>AI Đang Thiết Kế Kỹ Năng...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="material-symbols-outlined text-sm text-yellow-300">auto_awesome</span>
+                        <span>✨ AI Đề Xuất Kỹ Năng (Xem &amp; Chọn)</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Quick Industry Presets */}
+                <div className="flex items-center gap-1.5 flex-wrap pt-1 relative z-10 text-[11px]">
+                  <span className="text-slate-400 text-[10px] font-semibold flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[13px] text-yellow-400">tips_and_updates</span>
+                    <span>Gợi ý ngành nghề phổ biến:</span>
+                  </span>
+                  {[
+                    'Giảng viên Đại học',
+                    'Luật sư & Pháp chế',
+                    'Y tế & Dược phẩm',
+                    'Kế toán Kiểm toán',
+                    'Kỹ thuật Xây dựng & Kiến trúc',
+                    'Quản trị Chuỗi cung ứng (Logistics)',
+                    'Digital Marketing',
+                    'Nhân sự & Tuyển dụng (HR)',
+                    'Thiết kế Đồ họa & UI/UX',
+                    'Nhà hàng & Khách sạn (F&B)',
+                    'Cơ khí & Tự động hóa',
+                    'Bất động sản & Quản trị Tòa nhà',
+                    'Chăm sóc Khách hàng (CSKH)',
+                    'Trí tuệ nhân tạo & Data'
+                  ].map((ind) => (
+                    <button
+                      key={ind}
+                      type="button"
+                      onClick={() => {
+                        setAiIndustryInput(ind);
+                        handleAiGenerateIndustrySkills(ind);
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-indigo-500/40 border border-white/10 hover:border-indigo-400/50 text-indigo-200 hover:text-white transition-all cursor-pointer text-[10px] font-medium"
+                    >
+                      + {ind}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Live Result Details */}
+                {lastAiGeneratedIndustryResult && (
+                  <div className="mt-3 p-3.5 rounded-xl bg-white/10 border border-white/20 text-xs space-y-2 animate-fade-in relative z-10">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <span className="font-bold text-emerald-300 flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-sm text-emerald-400">check_circle</span>
+                        Đã sinh thành công {lastAiGeneratedIndustryResult.totalGenerated} kỹ năng cho ngành: <strong>{lastAiGeneratedIndustryResult.industry}</strong>
+                      </span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/30 text-emerald-200 border border-emerald-400/30 font-semibold">
+                        + {lastAiGeneratedIndustryResult.newlyCreatedCount} Kỹ năng mới nạp Supabase
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {Array.isArray(lastAiGeneratedIndustryResult.skills) && lastAiGeneratedIndustryResult.skills.map((sk, idx) => (
+                        <span
+                          key={`gen-${idx}`}
+                          className="px-2 py-0.5 rounded-md bg-white/15 text-slate-100 border border-white/10 text-[10px] font-medium flex items-center gap-1"
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>
+                          <span>{sk.name}</span>
+                          <span className="text-[9px] text-indigo-300">({sk.category})</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Sub-block A: Form Thêm Kỹ Năng Thủ Công */}
+              <form onSubmit={handleCreateSkill} className="p-5 rounded-2xl bg-gradient-to-r from-purple-50/50 via-indigo-50/30 to-purple-50/50 border border-purple-100 space-y-4">
+                <div className="flex items-center gap-2 text-xs font-bold text-[#1e1b4b]">
+                  <span className="material-symbols-outlined text-base text-[#5b48bd]">add_circle</span>
+                  <span>Thêm Kỹ Năng Thủ Công Vào Danh Mục Hệ Thống</span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 items-end">
+                  {/* Skill Name */}
+                  <div className="md:col-span-4 space-y-1">
+                    <label className="text-[11px] font-bold text-slate-700 block">
+                      Tên Kỹ Năng <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="VD: Java, Spring Boot, ReactJS, Docker..."
+                      value={newSkillName}
+                      onChange={(e) => setNewSkillName(e.target.value)}
+                      className="w-full bg-white border border-purple-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-[#5b48bd] focus:ring-1 focus:ring-[#5b48bd]"
+                    />
+                  </div>
+
+                  {/* Category - Tự do nhập hoặc chọn từ danh sách gợi ý */}
+                  <div className="md:col-span-3 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-bold text-slate-700 block">
+                        Nhóm Ngành (Category) <span className="text-slate-400 font-normal">(Tùy chọn)</span>
+                      </label>
+                      <span className="text-[10px] text-[#5b48bd] font-medium">Tự do gõ / chọn</span>
+                    </div>
+                    <input
+                      type="text"
+                      list="skill-category-datalist"
+                      placeholder="VD: Backend, Frontend, QA, Marketing..."
+                      value={newSkillCategory}
+                      onChange={(e) => setNewSkillCategory(e.target.value)}
+                      className="w-full bg-white border border-purple-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-[#5b48bd] focus:ring-1 focus:ring-[#5b48bd]"
+                    />
+                    <datalist id="skill-category-datalist">
+                      <option value="BACKEND">BACKEND (Lập trình Backend)</option>
+                      <option value="FRONTEND">FRONTEND (Lập trình Giao diện)</option>
+                      <option value="DATABASE">DATABASE (Cơ sở dữ liệu)</option>
+                      <option value="DEVOPS_CLOUD">DEVOPS_CLOUD (DevOps &amp; Đám mây)</option>
+                      <option value="MOBILE">MOBILE (Lập trình Di động)</option>
+                      <option value="AI_DATA">AI_DATA (Trí tuệ nhân tạo &amp; Dữ liệu)</option>
+                      <option value="QA_TESTING">QA_TESTING (Kiểm thử phần mềm)</option>
+                      <option value="CYBER_SECURITY">CYBER_SECURITY (An toàn thông tin)</option>
+                      <option value="BUSINESS_BA">BUSINESS_BA (Phân tích nghiệp vụ)</option>
+                      <option value="DESIGN_UIUX">DESIGN_UIUX (Thiết kế đồ họa &amp; UI/UX)</option>
+                      <option value="MARKETING">MARKETING (Tiếp thị &amp; Truyền thông)</option>
+                      <option value="SALES">SALES (Kinh doanh &amp; Bán hàng)</option>
+                      <option value="FINANCE">FINANCE (Tài chính &amp; Kế toán)</option>
+                      <option value="HR_ADMIN">HR_ADMIN (Nhân sự &amp; Hành chính)</option>
+                      <option value="SOFT_SKILL">SOFT_SKILL (Kỹ năng mềm)</option>
+                      <option value="GENERAL">GENERAL (Chuyên môn chung)</option>
+                    </datalist>
+                  </div>
+
+                  {/* Aliases */}
+                  <div className="md:col-span-3 space-y-1">
+                    <label className="text-[11px] font-bold text-slate-700 block">
+                      Từ Đồng Nghĩa / Aliases <span className="text-slate-400 font-normal">(Tùy chọn)</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="VD: Java 17, Java 21, Core Java"
+                      value={newSkillAliases}
+                      onChange={(e) => setNewSkillAliases(e.target.value)}
+                      className="w-full bg-white border border-purple-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-[#5b48bd] focus:ring-1 focus:ring-[#5b48bd]"
+                    />
+                  </div>
+
+                  {/* Submit Button */}
+                  <div className="md:col-span-2">
+                    <button
+                      type="submit"
+                      disabled={isSubmittingSkill || !newSkillName.trim()}
+                      className="w-full px-4 py-2.5 rounded-xl bg-[#5b48bd] hover:bg-[#4a39a7] text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all shadow-md shadow-purple-200 disabled:opacity-50"
+                    >
+                      {isSubmittingSkill ? (
+                        <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                      ) : (
+                        <span className="material-symbols-outlined text-sm">add</span>
+                      )}
+                      <span>Thêm Kỹ Năng</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
+                  <span className="material-symbols-outlined text-xs text-emerald-600">verified</span>
+                  <span>Kiểm tra chống trùng lặp tên kỹ năng (Case-insensitive) tự động trước khi lưu vào Supabase.</span>
+                </div>
+              </form>
+
+              {/* Sub-block B: Danh Sách & Bộ Lọc Kỹ Năng Hiện Có */}
+              <div className="space-y-4">
+                {/* Search Bar & Category Tabs */}
+                <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+                  {/* Category Pills tự động sinh từ dữ liệu thực tế */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+                    {(() => {
+                      const dynamicCats = Array.from(new Set(
+                        skillsList.map(s => (s.category || 'GENERAL').toUpperCase())
+                      )).filter(Boolean);
+                      const allCats = ['ALL', ...dynamicCats];
+                      return allCats.map((catKey) => {
+                        const isActive = skillCategoryFilter === catKey;
+                        const count = catKey === 'ALL'
+                          ? skillsList.length
+                          : skillsList.filter(s => (s.category || 'GENERAL').toUpperCase() === catKey).length;
+                        return (
+                          <button
+                            key={catKey}
+                            type="button"
+                            onClick={() => setSkillCategoryFilter(catKey)}
+                            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
+                              isActive
+                                ? 'bg-[#5b48bd] text-white shadow-xs'
+                                : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                            }`}
+                          >
+                            <span>{catKey === 'ALL' ? 'Tất cả' : catKey}</span>
+                            <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                              isActive ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+                            }`}>
+                              {count}
+                            </span>
+                          </button>
+                        );
+                      });
+                    })()}
+                  </div>
+
+                  {/* Search Input */}
+                  <div className="relative min-w-[240px]">
+                    <span className="material-symbols-outlined absolute left-3 top-2.5 text-slate-400 text-sm">search</span>
+                    <input
+                      type="text"
+                      placeholder="Tìm nhanh kỹ năng..."
+                      value={skillSearchQuery}
+                      onChange={(e) => setSkillSearchQuery(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-full pl-9 pr-8 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-[#5b48bd] focus:bg-white"
+                    />
+                    {skillSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setSkillSearchQuery('')}
+                        className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 text-xs cursor-pointer"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Skills Badges Grid */}
+                {(() => {
+                  const filtered = skillsList.filter((sk) => {
+                    if (skillCategoryFilter !== 'ALL') {
+                      const c = (sk.category || '').toUpperCase();
+                      const f = skillCategoryFilter.toUpperCase();
+                      if (f === 'DEVOPS_CLOUD') {
+                        if (!c.includes('DEVOPS') && !c.includes('CLOUD')) return false;
+                      } else if (f === 'AI_DATA') {
+                        if (!c.includes('AI') && !c.includes('DATA')) return false;
+                      } else if (f === 'BUSINESS_BA') {
+                        if (!c.includes('BUSINESS') && !c.includes('BA')) return false;
+                      } else if (f === 'SOFT_SKILL') {
+                        if (!c.includes('SOFT')) return false;
+                      } else {
+                        if (!c.includes(f)) return false;
+                      }
+                    }
+                    if (skillSearchQuery.trim()) {
+                      const q = skillSearchQuery.toLowerCase();
+                      const inName = (sk.skillName || '').toLowerCase().includes(q);
+                      const inAliases = (sk.aliases || '').toLowerCase().includes(q);
+                      const inCat = (sk.category || '').toLowerCase().includes(q);
+                      if (!inName && !inAliases && !inCat) return false;
+                    }
+                    return true;
+                  });
+
+                  const getCatBadgeStyle = (category) => {
+                    const c = (category || '').toUpperCase();
+                    if (c.includes('BACKEND')) return 'bg-indigo-50 text-indigo-700 border-indigo-200';
+                    if (c.includes('FRONTEND')) return 'bg-sky-50 text-sky-700 border-sky-200';
+                    if (c.includes('DATABASE')) return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                    if (c.includes('DEVOPS') || c.includes('CLOUD')) return 'bg-amber-50 text-amber-700 border-amber-200';
+                    if (c.includes('MOBILE')) return 'bg-rose-50 text-rose-700 border-rose-200';
+                    if (c.includes('AI') || c.includes('DATA')) return 'bg-purple-50 text-purple-700 border-purple-200';
+                    if (c.includes('BUSINESS') || c.includes('BA')) return 'bg-blue-50 text-blue-700 border-blue-200';
+                    if (c.includes('SOFT')) return 'bg-teal-50 text-teal-700 border-teal-200';
+                    return 'bg-slate-100 text-slate-700 border-slate-200';
+                  };
+
+                  if (loadingSkills) {
+                    return (
+                      <div className="py-12 text-center text-slate-400 space-y-2">
+                        <span className="w-6 h-6 border-2 border-[#5b48bd] border-t-transparent rounded-full animate-spin inline-block"></span>
+                        <div className="text-xs">Đang tải danh mục kỹ năng từ Supabase...</div>
+                      </div>
+                    );
+                  }
+
+                  if (filtered.length === 0) {
+                    return (
+                      <div className="py-10 text-center text-slate-400 bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-1">
+                        <span className="material-symbols-outlined text-3xl text-slate-300">search_off</span>
+                        <div className="text-xs font-semibold">Không tìm thấy kỹ năng nào phù hợp</div>
+                        <div className="text-[11px] text-slate-400">Thử tìm với từ khóa khác hoặc bấm nút "+ Thêm Kỹ Năng" bên trên.</div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium px-1">
+                        <span>Hiển thị <strong>{filtered.length}</strong> / {skillsList.length} kỹ năng thực tế</span>
+                        <span className="text-slate-400 italic">Bấm vào dấu × trên tag để xóa kỹ năng khỏi CSDL Supabase</span>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2 max-h-[360px] overflow-y-auto p-3 bg-slate-50/70 rounded-2xl border border-slate-200/80 scrollbar-thin">
+                        {filtered.map((sk) => {
+                          const badgeColor = getCatBadgeStyle(sk.category);
+                          const isDeleting = deletingSkillId === sk.skillId;
+                          return (
+                            <span
+                              key={sk.skillId}
+                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border shadow-2xs group transition-all hover:shadow-xs bg-white ${badgeColor}`}
+                              title={sk.aliases ? `Từ đồng nghĩa: ${sk.aliases}` : `Kỹ năng: ${sk.skillName}`}
+                            >
+                              <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70"></span>
+                              <span className="font-bold text-slate-800">{sk.skillName}</span>
+                              <span className="text-[9px] uppercase tracking-wider font-mono opacity-60">({sk.category || 'TECH'})</span>
+                              <button
+                                type="button"
+                                disabled={isDeleting}
+                                onClick={() => handleDeleteSkill(sk.skillId, sk.skillName)}
+                                className="w-4 h-4 rounded-full hover:bg-rose-500 hover:text-white text-slate-400 flex items-center justify-center transition-colors cursor-pointer text-xs ml-0.5"
+                                title={`Xóa "${sk.skillName}" khỏi Supabase`}
+                              >
+                                {isDeleting ? (
+                                  <span className="w-2.5 h-2.5 border border-rose-500 border-t-transparent rounded-full animate-spin"></span>
+                                ) : (
+                                  '×'
+                                )}
+                              </button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+            )}
+
+            {/* ========================================================= */}
+            {/* KHỐI 4: PHÒNG LAB MÔ PHỎNG VÀ CÂN CHỈNH THUẬT TOÁN SO KHỚP AI   */}
+            {/* ========================================================= */}
+            {(settingsSubTab === 'all' || settingsSubTab === 'ai_matching') && (
+            <div className="p-6 rounded-[28px] bg-white border border-purple-100 shadow-sm space-y-6">
+              {/* Header section */}
+                            {/* Platform Governance & Sandbox Notice */}
+              <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200/90 flex items-start gap-3">
+                <span className="material-symbols-outlined text-amber-600 text-xl mt-0.5 shrink-0">admin_panel_settings</span>
+                <div className="text-xs text-amber-950 space-y-1">
+                  <div className="font-bold flex items-center gap-2">
+                    <span className="text-amber-900">Quy Chuẩn Nghiệp Vụ Quản Trị Sàn (Platform Baseline &amp; AI Benchmark Sandbox):</span>
+                    <span className="px-2 py-0.5 rounded text-[10px] bg-amber-200/70 text-amber-900 font-mono font-bold">UC-AI Platform Baseline</span>
+                  </div>
+                  <p className="text-[11px] text-amber-900/90 leading-relaxed">
+                    • <strong>Platform Baseline:</strong> Các tỷ lệ trọng số dưới đây đóng vai trò là khung tham chiếu chuẩn mặc định của toàn hệ thống khi Nhà tuyển dụng tạo Job mà không thiết lập riêng. Khi HR tạo tin tuyển dụng cụ thể, hệ thống sẽ ưu tiên áp dụng cấu hình trọng số riêng của Job đó.
+                    <br />
+                    • <strong>AI Benchmark Simulator:</strong> Bảng phân tích bên phải là môi trường Sandbox độc lập để Admin kiểm định chất lượng và độ nhạy của mô hình AI Gemini trên hồ sơ chuẩn hóa, hoàn toàn không can thiệp hay sửa đổi hồ sơ ứng tuyển thực tế của doanh nghiệp.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between pb-4 border-b border-purple-100 gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-700 flex items-center justify-center shrink-0 shadow-xs">
+                    <span className="material-symbols-outlined text-2xl">auto_graph</span>
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-[#1e1b4b] flex items-center gap-2">
+                      Khối 4: Phòng Lab Mô Phỏng &amp; Cân Chỉnh Thuật Toán So Khớp AI (AI Benchmark Sandbox &amp; Baseline)
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                        AI Benchmark Sandbox • Platform Baseline
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-500 max-w-3xl">
+                      Mô hình chấm điểm đa chiều chuẩn ngành (TopCV, VietnamWorks, LinkedIn Recruiter, Greenhouse). Đánh giá toàn diện 4 trụ cột: <strong>Kỹ năng ({skillsWeight}%)</strong> + <strong>Kinh nghiệm ({experienceWeight}%)</strong> + <strong>Học vấn ({educationWeight}%)</strong> + <strong>Dự án Ngữ nghĩa ({semanticWeight}%)</strong>. Hỗ trợ tự động chuyển trọng số thông minh theo cấp bậc công việc (Intern vs Senior).
+                    </p>
+                  </div>
+                </div>
+                <div className="px-3.5 py-2 rounded-xl bg-purple-50 text-[#5b48bd] font-mono font-bold text-xs border border-purple-100 self-start lg:self-auto flex items-center gap-1.5 shrink-0 shadow-2xs">
+                  <span className="material-symbols-outlined text-[16px]">calculate</span>
+                  <span>ATS = {skillsWeight}% Kỹ năng + {experienceWeight}% Kinh nghiệm + {educationWeight}% Học vấn + {semanticWeight}% AI</span>
+                </div>
+              </div>
+
+              {/* Preset Selection & Smart Adaptive Weighting Toolbar */}
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-50/70 via-indigo-50/40 to-white border border-purple-100 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <span className="text-xs font-bold text-[#1e1b4b] flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-sm text-[#5b48bd]">tune</span>
+                    <span>Thư Viện Bộ Trọng Số Chấm Điểm Tuyển Dụng (ATS Presets):</span>
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold text-slate-600">Thích ứng tự động theo JD:</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = !adaptiveRoleWeighting;
+                        setAdaptiveRoleWeighting(next);
+                        handleRunAiMatchSimulation(selectedSimJobId, selectedSimCandidateId, null, true);
+                        triggerToast(next ? 'Đã bật Tự động thích ứng trọng số theo cấp bậc JD (Intern vs Senior)' : 'Đã chuyển sang cố định theo Preset được chọn', 'info');
+                      }}
+                      className={`w-11 h-6 rounded-full transition-colors cursor-pointer p-0.5 shrink-0 ${
+                        adaptiveRoleWeighting ? 'bg-[#5b48bd]' : 'bg-slate-300'
+                      }`}
+                      title="Tự động áp dụng trọng số phù hợp theo cấp bậc (Intern vs Senior)"
+                    >
+                      <div
+                        className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                          adaptiveRoleWeighting ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      ></div>
+                    </button>
+                    <span className={`text-[10px] font-bold font-mono px-2 py-0.5 rounded-full ${
+                      adaptiveRoleWeighting ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-500'
+                    }`}>
+                      {adaptiveRoleWeighting ? 'BẬT (Khuyên dùng)' : 'TẮT'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Preset Options Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                  {[
+                    {
+                      id: 'ATS_STANDARD',
+                      title: 'Chuẩn ATS Doanh Nghiệp',
+                      sub: '40% Kỹ năng • 30% Kinh nghiệm • 15% Học vấn • 15% AI',
+                      weights: { skills: 40, exp: 30, edu: 15, sem: 15 },
+                      tag: 'Mặc định ngành IT',
+                      icon: 'domain',
+                    },
+                    {
+                      id: 'INTERN_FRESHER',
+                      title: 'Thực Tập & Mới Tốt Nghiệp',
+                      sub: '45% Kỹ năng • 10% Kinh nghiệm • 30% Học vấn • 15% Tiềm năng',
+                      weights: { skills: 45, exp: 10, edu: 30, sem: 15 },
+                      tag: 'Intern / Fresher / Trainee',
+                      icon: 'school',
+                    },
+                    {
+                      id: 'SENIOR_LEAD',
+                      title: 'Senior & Tech Lead',
+                      sub: '45% Kinh nghiệm • 35% Kỹ năng • 15% Dự án • 5% Bằng cấp',
+                      weights: { skills: 35, exp: 45, edu: 5, sem: 15 },
+                      tag: 'Senior / Lead / Quản lý',
+                      icon: 'workspace_premium',
+                    },
+                    {
+                      id: 'CUSTOM',
+                      title: 'Tùy Biến Trọng Số Thủ Công',
+                      sub: 'Hiệu chỉnh 4 thanh trượt tự do theo tiêu chí riêng của Admin',
+                      weights: { skills: skillsWeight, exp: experienceWeight, edu: educationWeight, sem: semanticWeight },
+                      tag: 'Custom Matrix',
+                      icon: 'tune',
+                    },
+                  ].map((p) => {
+                    const isSelected = matchingPreset === p.id;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => {
+                          setMatchingPreset(p.id);
+                          if (p.id !== 'CUSTOM') {
+                            setSkillsWeight(p.weights.skills);
+                            setExperienceWeight(p.weights.exp);
+                            setEducationWeight(p.weights.edu);
+                            setSemanticWeight(p.weights.sem);
+                            handleRunAiMatchSimulation(selectedSimJobId, selectedSimCandidateId, p.weights, true);
+                          }
+                        }}
+                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between space-y-2 ${
+                          isSelected
+                            ? 'bg-white border-[#5b48bd] shadow-sm ring-2 ring-[#5b48bd]/20'
+                            : 'bg-white/80 border-slate-200 hover:border-purple-200 hover:bg-white'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm ${
+                            isSelected ? 'bg-[#5b48bd] text-white' : 'bg-slate-100 text-slate-600'
+                          }`}>
+                            <span className="material-symbols-outlined text-[16px]">{p.icon}</span>
+                          </span>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                            isSelected ? 'bg-purple-100 text-[#5b48bd]' : 'bg-slate-100 text-slate-500'
+                          }`}>
+                            {p.tag}
+                          </span>
+                        </div>
+                        <div>
+                          <div className={`text-xs font-bold ${isSelected ? 'text-[#5b48bd]' : 'text-slate-800'}`}>
+                            {p.title}
+                          </div>
+                          <p className="text-[10px] text-slate-500 mt-0.5 leading-tight">
+                            {p.sub}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Main 2-column Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                {/* Left 5 cols: Live Simulation Controller & Job/Candidate Pickers */}
+                <div className="lg:col-span-5 space-y-4">
+                  {/* Active 4-Pillar Weight Specs Info Cards */}
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="p-3 rounded-xl bg-indigo-50/50 border border-indigo-100 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-indigo-950 flex items-center gap-1">
+                          <span className="material-symbols-outlined text-[14px] text-indigo-600">code</span>
+                          Kỹ Năng Chuyên Môn
+                        </span>
+                        <span className="text-xs font-mono font-black text-indigo-700 bg-white px-2 py-0.5 rounded-md border border-indigo-200">
+                          {skillsWeight}%
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 leading-tight">
+                        Cốt lõi vòng lọc CV (Tech Stack, Hard Skills, Preferred Skills).
+                      </p>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-emerald-50/50 border border-emerald-100 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-emerald-950 flex items-center gap-1">
+                          <span className="material-symbols-outlined text-[14px] text-emerald-600">history_edu</span>
+                          Kinh Nghiệm &amp; Cấp Bậc
+                        </span>
+                        <span className="text-xs font-mono font-black text-emerald-700 bg-white px-2 py-0.5 rounded-md border border-emerald-200">
+                          {experienceWeight}%
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 leading-tight">
+                        Số năm làm việc thực tế &amp; độ tương thích cấp bậc chức danh.
+                      </p>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-amber-50/50 border border-amber-100 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-amber-950 flex items-center gap-1">
+                          <span className="material-symbols-outlined text-[14px] text-amber-600">school</span>
+                          Học Vấn &amp; Chứng Chỉ
+                        </span>
+                        <span className="text-xs font-mono font-black text-amber-700 bg-white px-2 py-0.5 rounded-md border border-amber-200">
+                          {educationWeight}%
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 leading-tight">
+                        Bằng cử nhân/kỹ sư CNTT, chứng chỉ quốc tế (AWS, ISTQB, v.v.).
+                      </p>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-purple-50/50 border border-purple-100 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-purple-950 flex items-center gap-1">
+                          <span className="material-symbols-outlined text-[14px] text-purple-600">psychology</span>
+                          Dự Án &amp; Ngữ Nghĩa AI
+                        </span>
+                        <span className="text-xs font-mono font-black text-purple-700 bg-white px-2 py-0.5 rounded-md border border-purple-200">
+                          {semanticWeight}%
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 leading-tight">
+                        Độ tương thích ngữ cảnh, trách nhiệm dự án &amp; tiềm năng phát triển.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Custom Weight Adjustment Sliders (Khi chọn preset CUSTOM) */}
+                  {matchingPreset === 'CUSTOM' && (
+                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3 animate-fade-in">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                        <span className="text-xs font-bold text-slate-800">Hiệu Chỉnh 4 Trục Trọng Số (Tổng phải = 100%)</span>
+                        <span className={`text-xs font-mono font-bold ${
+                          (skillsWeight + experienceWeight + educationWeight + semanticWeight) === 100
+                            ? 'text-emerald-600' : 'text-rose-600 animate-pulse'
+                        }`}>
+                          Tổng: {skillsWeight + experienceWeight + educationWeight + semanticWeight}%
+                        </span>
+                      </div>
+
+                      <div className="space-y-2 text-xs">
+                        <div>
+                          <div className="flex justify-between text-[11px] font-medium text-slate-600 mb-1">
+                            <span>1. Kỹ năng chuyên môn</span>
+                            <span className="font-mono font-bold text-indigo-700">{skillsWeight}%</span>
+                          </div>
+                          <input
+                            type="range" min="10" max="70" step="5" value={skillsWeight}
+                            onChange={(e) => {
+                              const val = Number(e.target.value);
+                              setSkillsWeight(val);
+                              handleRunAiMatchSimulation(selectedSimJobId, selectedSimCandidateId, { skills: val, exp: experienceWeight, edu: educationWeight, sem: semanticWeight }, true);
+                            }}
+                            className="w-full accent-indigo-600 h-1.5 bg-slate-200 rounded-lg cursor-pointer"
+                          />
+                        </div>
+
+                        <div>
+                          <div className="flex justify-between text-[11px] font-medium text-slate-600 mb-1">
+                            <span>2. Kinh nghiệm &amp; Cấp bậc</span>
+                            <span className="font-mono font-bold text-emerald-700">{experienceWeight}%</span>
+                          </div>
+                          <input
+                            type="range" min="5" max="60" step="5" value={experienceWeight}
+                            onChange={(e) => {
+                              const val = Number(e.target.value);
+                              setExperienceWeight(val);
+                              handleRunAiMatchSimulation(selectedSimJobId, selectedSimCandidateId, { skills: skillsWeight, exp: val, edu: educationWeight, sem: semanticWeight }, true);
+                            }}
+                            className="w-full accent-emerald-600 h-1.5 bg-slate-200 rounded-lg cursor-pointer"
+                          />
+                        </div>
+
+                        <div>
+                          <div className="flex justify-between text-[11px] font-medium text-slate-600 mb-1">
+                            <span>3. Học vấn &amp; Bằng cấp</span>
+                            <span className="font-mono font-bold text-amber-700">{educationWeight}%</span>
+                          </div>
+                          <input
+                            type="range" min="5" max="40" step="5" value={educationWeight}
+                            onChange={(e) => {
+                              const val = Number(e.target.value);
+                              setEducationWeight(val);
+                              handleRunAiMatchSimulation(selectedSimJobId, selectedSimCandidateId, { skills: skillsWeight, exp: experienceWeight, edu: val, sem: semanticWeight }, true);
+                            }}
+                            className="w-full accent-amber-600 h-1.5 bg-slate-200 rounded-lg cursor-pointer"
+                          />
+                        </div>
+
+                        <div>
+                          <div className="flex justify-between text-[11px] font-medium text-slate-600 mb-1">
+                            <span>4. Dự án &amp; Ngữ nghĩa AI</span>
+                            <span className="font-mono font-bold text-purple-700">{semanticWeight}%</span>
+                          </div>
+                          <input
+                            type="range" min="5" max="30" step="5" value={semanticWeight}
+                            onChange={(e) => {
+                              const val = Number(e.target.value);
+                              setSemanticWeight(val);
+                              handleRunAiMatchSimulation(selectedSimJobId, selectedSimCandidateId, { skills: skillsWeight, exp: experienceWeight, edu: educationWeight, sem: val }, true);
+                            }}
+                            className="w-full accent-purple-600 h-1.5 bg-slate-200 rounded-lg cursor-pointer"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Real Job Selector */}
+                  <div className="p-4 rounded-2xl bg-white border border-purple-100 shadow-2xs space-y-2">
+                    <label className="text-xs font-bold text-[#1e1b4b] flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-[15px] text-[#5b48bd]">work</span>
+                        1. Chọn Tin Tuyển Dụng Thực Tế (Job JD):
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-normal">
+                        {(jobsList.length > 0 ? jobsList : INITIAL_JOBS).length} tin sẵn sàng
+                      </span>
+                    </label>
+                    <select
+                      value={selectedSimJobId}
+                      onChange={(e) => {
+                        const newJid = Number(e.target.value);
+                        setSelectedSimJobId(newJid);
+                        handleRunAiMatchSimulation(newJid, selectedSimCandidateId, null, true);
+                      }}
+                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 text-xs font-medium text-slate-800 focus:outline-hidden focus:border-[#5b48bd] focus:bg-white transition-all cursor-pointer"
+                    >
+                      {(jobsList.length > 0 ? jobsList : INITIAL_JOBS).map((j) => (
+                        <option key={j.jobId || j.id} value={j.jobId || j.id}>
+                          #{j.jobId || j.id} - {j.title} ({j.companyName || j.company || 'Doanh nghiệp'})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Real Candidate Selector */}
+                  <div className="p-4 rounded-2xl bg-white border border-purple-100 shadow-2xs space-y-2">
+                    <label className="text-xs font-bold text-[#1e1b4b] flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-[15px] text-indigo-600">person_search</span>
+                        2. Chọn Hồ Sơ Ứng Viên Thực Tế (Candidate CV):
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-normal">
+                        {usersList.filter((u) => u.role === 'CANDIDATE').length || INITIAL_USERS.filter((u) => u.role === 'CANDIDATE').length} ứng viên
+                      </span>
+                    </label>
+                    <select
+                      value={selectedSimCandidateId}
+                      onChange={(e) => {
+                        const newCid = Number(e.target.value);
+                        setSelectedSimCandidateId(newCid);
+                        handleRunAiMatchSimulation(selectedSimJobId, newCid, null, true);
+                      }}
+                      className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 text-xs font-medium text-slate-800 focus:outline-hidden focus:border-[#5b48bd] focus:bg-white transition-all cursor-pointer"
+                    >
+                      {(usersList.filter((u) => u.role === 'CANDIDATE').length > 0
+                        ? usersList.filter((u) => u.role === 'CANDIDATE')
+                        : INITIAL_USERS.filter((u) => u.role === 'CANDIDATE')
+                      ).map((u) => (
+                        <option key={u.id} value={u.id}>
+                          #{u.id} - {u.name} ({u.email})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Action CTA Button */}
+                  <button
+                    type="button"
+                    disabled={isSimulating}
+                    onClick={() => handleRunAiMatchSimulation()}
+                    className={`w-full py-3.5 px-4 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer ${
+                      isSimulating
+                        ? 'bg-purple-300 text-white cursor-not-allowed'
+                        : 'bg-linear-to-r from-[#5b48bd] to-indigo-600 hover:from-[#4a39a7] hover:to-indigo-700 text-white shadow-indigo-200 hover:scale-[1.01]'
+                    }`}
+                  >
+                    {isSimulating ? (
+                      <>
+                        <span className="material-symbols-outlined text-sm animate-spin">sync</span>
+                        <span>Đang kích hoạt Gemini AI Matcher &amp; Phân Tích ATS...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="material-symbols-outlined text-base">bolt</span>
+                        <span>Kích Hoạt Phân Tích So Khớp Chuẩn ATS (Gemini ATS Matcher)</span>
+                      </>
+                    )}
+                  </button>
+
+                  {/* Rationale Notice */}
+                  <div className="p-3.5 rounded-2xl bg-purple-50/60 border border-purple-100 flex items-start gap-2.5">
+                    <span className="material-symbols-outlined text-sm text-[#5b48bd] mt-0.5 shrink-0">verified</span>
+                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                      <strong className="text-[#5b48bd]">Công thức chuẩn tuyển dụng thực tế:</strong> Không áp 1 tỷ lệ cứng nhắc cho mọi vị trí. Với vị trí <em>Intern/Fresher</em>, ứng viên không bị phạt nặng vì thiếu năm kinh nghiệm mà được đánh giá cao qua nền tảng <em>Học vấn</em> và <em>Kỹ năng</em>.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Right 7 cols: Live Matching Intelligence Hub */}
+                <div className="lg:col-span-7 bg-slate-50/70 p-5 rounded-2xl border border-slate-200/80 space-y-4">
+                  {(() => {
+                    const mandMatchedCount = liveSimResult?.matchedMandatorySkills?.length || 0;
+                    const mandMissingCount = liveSimResult?.missingMandatorySkills?.length || 0;
+                    const mandTotalCount = Math.max(1, mandMatchedCount + mandMissingCount);
+
+                    const prefMatchedCount = liveSimResult?.matchedPreferredSkills?.length || 0;
+                    const prefMissingCount = liveSimResult?.missingPreferredSkills?.length || 0;
+                    const prefTotalCount = Math.max(1, prefMatchedCount + prefMissingCount);
+
+                    const wSkills = liveSimResult?.appliedWeights?.skills || skillsWeight;
+                    const wExp = liveSimResult?.appliedWeights?.exp || experienceWeight;
+                    const wEdu = liveSimResult?.appliedWeights?.edu || educationWeight;
+                    const wSem = liveSimResult?.appliedWeights?.sem || semanticWeight;
+
+                    const scoreSkills = liveSimResult?.skillsScore != null ? Number(liveSimResult.skillsScore) : 80.0;
+                    const scoreExp = liveSimResult?.experienceScore != null ? Number(liveSimResult.experienceScore) : 85.0;
+                    const scoreEdu = liveSimResult?.educationScore != null ? Number(liveSimResult.educationScore) : 92.0;
+                    const scoreSem = liveSimResult?.semanticScore != null ? Number(liveSimResult.semanticScore) : 84.0;
+
+                    const ptsSkills = Number(((scoreSkills * wSkills) / 100).toFixed(1));
+                    const ptsExp = Number(((scoreExp * wExp) / 100).toFixed(1));
+                    const ptsEdu = Number(((scoreEdu * wEdu) / 100).toFixed(1));
+                    const ptsSem = Number(((scoreSem * wSem) / 100).toFixed(1));
+
+                    const displayTotalScore = liveSimResult?.matchingScore != null
+                      ? Number(liveSimResult.matchingScore).toFixed(1)
+                      : Number((ptsSkills + ptsExp + ptsEdu + ptsSem).toFixed(1));
+
+                    const isTopTier = Number(displayTotalScore) >= 80;
+                    const isStandard = Number(displayTotalScore) >= 60 && Number(displayTotalScore) < 80;
+
+                    return (
+                      <div className="space-y-4">
+                        {/* Status bar */}
+                        <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                            <span className="text-xs font-black uppercase tracking-wider text-slate-700">
+                              Mô Phỏng Kiểm Thử Thuật Toán (AI Benchmark Sandbox)
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-mono font-bold text-slate-500 bg-white px-2.5 py-0.5 rounded-full border border-slate-200">
+                            Mẫu Thử Nghiệm • Match ID: #{liveSimResult?.matchId || 'SIM-901'}
+                          </span>
+                        </div>
+
+                        {/* Selected Pair Summary Header */}
+                        <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                          <div>
+                            <span className="text-[10px] text-slate-400 font-bold uppercase block tracking-wider">
+                              Mẫu JD Kiểm Thử (Benchmark Job)
+                            </span>
+                            <h4 className="text-xs font-bold text-[#1e1b4b] line-clamp-1">
+                              {liveSimResult?.jobTitle || 'Senior Java Backend Engineer'}
+                            </h4>
+                            <span className="text-[11px] text-slate-500 font-medium">
+                              Doanh nghiệp: <strong className="text-[#5b48bd]">{liveSimResult?.companyName || 'FPT Software'}</strong>
+                            </span>
+                          </div>
+                          <div className="sm:text-right border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100">
+                            <span className="text-[10px] text-slate-400 font-bold uppercase block tracking-wider">
+                              Ứng Viên Mẫu (Benchmark Candidate)
+                            </span>
+                            <span className="text-xs font-bold text-indigo-950 block">
+                              {liveSimResult?.candidateName || 'Trần Hoàng Nam'}
+                            </span>
+                            <span className="text-[10px] font-mono text-slate-400">
+                              ID: #{liveSimResult?.candidateId || selectedSimCandidateId}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Applied Formula Banner */}
+                        <div className="bg-indigo-50/70 border border-indigo-100 rounded-xl px-3.5 py-2 flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-2">
+                            <span className="material-symbols-outlined text-sm text-indigo-700">rule</span>
+                            <span className="font-bold text-indigo-950 text-[11px]">
+                              {liveSimResult?.matchingFormula || 'Chuẩn ATS Doanh Nghiệp (40% Kỹ năng - 30% Kinh nghiệm - 15% Học vấn - 15% AI)'}
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-mono font-bold text-indigo-700 bg-white px-2 py-0.5 rounded border border-indigo-200">
+                            Adaptive ATS
+                          </span>
+                        </div>
+
+                        {/* Live Score Display Card */}
+                        <div className="bg-white p-4 rounded-xl border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                          <div>
+                            <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">
+                              Điểm So Khớp Tổng Hợp Chuẩn ATS
+                            </span>
+                            <div className="text-3xl font-black font-mono text-[#5b48bd] mt-0.5 flex items-baseline gap-1">
+                              {displayTotalScore}%
+                              <span className="text-xs font-normal text-slate-400">/ 100%</span>
+                            </div>
+                          </div>
+                          <div className="sm:text-right space-y-1">
+                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold inline-flex items-center gap-1 ${
+                              isTopTier
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                : isStandard
+                                ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                                : 'bg-amber-50 text-amber-700 border border-amber-200'
+                            }`}>
+                              <span className="material-symbols-outlined text-[13px]">
+                                {isTopTier ? 'star' : isStandard ? 'verified' : 'priority_high'}
+                              </span>
+                              {isTopTier ? '⭐ Phù Hợp Xuất Sắc (Ready for Offer)' : isStandard ? '✨ Phù Hợp Tiêu Chuẩn (Passed Screening)' : '⚠️ Cần Trau Dồi Kỹ Năng'}
+                            </span>
+                            <div className="text-[11px] font-mono text-slate-500 leading-tight">
+                              Tổng 4 trụ cột: {ptsSkills}% + {ptsExp}% + {ptsEdu}% + {ptsSem}% = <strong>{displayTotalScore}%</strong>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 4-Pillar Visual Progress Breakdown */}
+                        <div className="bg-white p-4 rounded-xl border border-slate-200/80 space-y-3">
+                          <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
+                            Chi Tiết Đánh Giá 4 Trụ Cột Tuyển Dụng:
+                          </span>
+
+                          <div className="space-y-2.5 text-xs">
+                            {/* Pillar 1: Skills */}
+                            <div className="space-y-1">
+                              <div className="flex justify-between items-center text-[11px]">
+                                <span className="font-bold text-slate-700 flex items-center gap-1">
+                                  <span className="w-2 h-2 rounded-full bg-indigo-600"></span>
+                                  1. Kỹ Năng Chuyên Môn (Tech Stack)
+                                </span>
+                                <span className="font-mono text-slate-600">
+                                  <strong className="text-indigo-700">{scoreSkills}%</strong> × {wSkills}% = <strong>+{ptsSkills}%</strong>
+                                </span>
+                              </div>
+                              <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                                <div className="h-full bg-indigo-600 rounded-full transition-all duration-300" style={{ width: `${scoreSkills}%` }}></div>
+                              </div>
+                            </div>
+
+                            {/* Pillar 2: Experience */}
+                            <div className="space-y-1">
+                              <div className="flex justify-between items-center text-[11px]">
+                                <span className="font-bold text-slate-700 flex items-center gap-1">
+                                  <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
+                                  2. Kinh Nghiệm Thực Tế &amp; Cấp Bậc
+                                </span>
+                                <span className="font-mono text-slate-600">
+                                  <strong className="text-emerald-700">{scoreExp}%</strong> × {wExp}% = <strong>+{ptsExp}%</strong>
+                                </span>
+                              </div>
+                              <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                                <div className="h-full bg-emerald-600 rounded-full transition-all duration-300" style={{ width: `${scoreExp}%` }}></div>
+                              </div>
+                            </div>
+
+                            {/* Pillar 3: Education */}
+                            <div className="space-y-1">
+                              <div className="flex justify-between items-center text-[11px]">
+                                <span className="font-bold text-slate-700 flex items-center gap-1">
+                                  <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                                  3. Học Vấn &amp; Bằng Cấp / Chứng Chỉ
+                                </span>
+                                <span className="font-mono text-slate-600">
+                                  <strong className="text-amber-700">{scoreEdu}%</strong> × {wEdu}% = <strong>+{ptsEdu}%</strong>
+                                </span>
+                              </div>
+                              <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                                <div className="h-full bg-amber-500 rounded-full transition-all duration-300" style={{ width: `${scoreEdu}%` }}></div>
+                              </div>
+                            </div>
+
+                            {/* Pillar 4: Semantic AI */}
+                            <div className="space-y-1">
+                              <div className="flex justify-between items-center text-[11px]">
+                                <span className="font-bold text-slate-700 flex items-center gap-1">
+                                  <span className="w-2 h-2 rounded-full bg-purple-600"></span>
+                                  4. Dự Án &amp; Đánh Giá Ngữ Nghĩa AI
+                                </span>
+                                <span className="font-mono text-slate-600">
+                                  <strong className="text-purple-700">{scoreSem}%</strong> × {wSem}% = <strong>+{ptsSem}%</strong>
+                                </span>
+                              </div>
+                              <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                                <div className="h-full bg-purple-600 rounded-full transition-all duration-300" style={{ width: `${scoreSem}%` }}></div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Visual Stacked Progress Bar */}
+                          <div className="pt-2 border-t border-slate-100 space-y-1">
+                            <div className="w-full h-3 bg-slate-200 rounded-full overflow-hidden flex">
+                              <div className="h-full bg-indigo-600 transition-all duration-300" style={{ width: `${ptsSkills}%` }} title={`Kỹ năng: +${ptsSkills}%`}></div>
+                              <div className="h-full bg-emerald-600 transition-all duration-300" style={{ width: `${ptsExp}%` }} title={`Kinh nghiệm: +${ptsExp}%`}></div>
+                              <div className="h-full bg-amber-500 transition-all duration-300" style={{ width: `${ptsEdu}%` }} title={`Học vấn: +${ptsEdu}%`}></div>
+                              <div className="h-full bg-purple-600 transition-all duration-300" style={{ width: `${ptsSem}%` }} title={`Dự án AI: +${ptsSem}%`}></div>
+                            </div>
+                            <div className="flex justify-between text-[10px] text-slate-400 font-medium">
+                              <span className="text-indigo-600 font-bold">■ Kỹ năng: +{ptsSkills}%</span>
+                              <span className="text-emerald-600 font-bold">■ Kinh nghiệm: +{ptsExp}%</span>
+                              <span className="text-amber-600 font-bold">■ Học vấn: +{ptsEdu}%</span>
+                              <span className="text-purple-600 font-bold">■ Dự án: +{ptsSem}%</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 4-Quadrant Skill Gap Analysis */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {/* 1. Matched Mandatory */}
+                          <div className="bg-white p-3 rounded-xl border border-indigo-100/80 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-bold text-indigo-950 flex items-center gap-1">
+                                <span className="material-symbols-outlined text-[14px] text-emerald-600">check_circle</span>
+                                Bắt Buộc Đã Khớp ({mandMatchedCount}):
+                              </span>
+                              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
+                                Đạt chuẩn
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {liveSimResult?.matchedMandatorySkills && liveSimResult.matchedMandatorySkills.length > 0 ? (
+                                liveSimResult.matchedMandatorySkills.map((s, idx) => (
+                                  <span key={idx} className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 text-[10px] font-bold font-mono">
+                                    {s} ✓
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-[10px] text-slate-400 italic">Chưa khớp kỹ năng nào</span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* 2. Missing Mandatory */}
+                          <div className="bg-white p-3 rounded-xl border border-rose-100/80 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-bold text-rose-950 flex items-center gap-1">
+                                <span className="material-symbols-outlined text-[14px] text-rose-600">cancel</span>
+                                Bắt Buộc Còn Thiếu ({mandMissingCount}):
+                              </span>
+                              <span className="text-[10px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded">
+                                Lỗ hổng kỹ năng
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {liveSimResult?.missingMandatorySkills && liveSimResult.missingMandatorySkills.length > 0 ? (
+                                liveSimResult.missingMandatorySkills.map((s, idx) => (
+                                  <span key={idx} className="px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 text-[10px] font-bold font-mono">
+                                    {s} ✗
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-[10px] text-emerald-600 font-bold">Đầy đủ 100% kỹ năng bắt buộc!</span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* 3. Matched Preferred */}
+                          <div className="bg-white p-3 rounded-xl border border-emerald-100/80 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-bold text-emerald-950 flex items-center gap-1">
+                                <span className="material-symbols-outlined text-[14px] text-emerald-600">stars</span>
+                                Ưu Tiên Đã Có ({prefMatchedCount}):
+                              </span>
+                              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
+                                Điểm cộng
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {liveSimResult?.matchedPreferredSkills && liveSimResult.matchedPreferredSkills.length > 0 ? (
+                                liveSimResult.matchedPreferredSkills.map((s, idx) => (
+                                  <span key={idx} className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-bold font-mono">
+                                    {s} ✓
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-[10px] text-slate-400 italic">Chưa có kỹ năng cộng điểm</span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* 4. Missing Preferred */}
+                          <div className="bg-white p-3 rounded-xl border border-slate-200/80 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                                <span className="material-symbols-outlined text-[14px] text-slate-400">help</span>
+                                Ưu Tiên Chưa Có ({prefMissingCount}):
+                              </span>
+                              <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                                Cơ hội bứt phá
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {liveSimResult?.missingPreferredSkills && liveSimResult.missingPreferredSkills.length > 0 ? (
+                                liveSimResult.missingPreferredSkills.map((s, idx) => (
+                                  <span key={idx} className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-bold font-mono">
+                                    {s} ✗
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-[10px] text-slate-400 italic">Không có kỹ năng thiếu</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* AI Gemini 2-Way Reasoning Card */}
+                        {liveSimResult?.aiReasoning && (
+                          <div className="p-4 rounded-xl bg-purple-50/70 border border-purple-100 text-xs text-slate-700 space-y-2">
+                            <span className="text-[10px] font-bold text-[#5b48bd] uppercase tracking-wider flex items-center gap-1.5">
+                              <span className="material-symbols-outlined text-[15px]">psychology</span>
+                              Nhận Xét &amp; Đánh Giá Đa Chiều Từ AI Gemini (2-Way Perspective):
+                            </span>
+                            <div className="whitespace-pre-line text-[11px] leading-relaxed font-normal text-slate-700 bg-white/70 p-3 rounded-lg border border-purple-100/60">
+                              {liveSimResult.aiReasoning}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              {/* Bottom: Recent AI Matches Audit Feed from PostgreSQL table ai_job_matches */}
+              {aiMatchesHistory.length > 0 && (
+                <div className="pt-4 border-t border-purple-100 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-sm text-[#5b48bd]">history</span>
+                      <span className="text-xs font-bold text-[#1e1b4b]">
+                        Lịch Sử Các Phiên So Khớp AI Trong Hệ Thống (Bảng ai_job_matches - {aiMatchesHistory.length} bản ghi)
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-slate-400">
+                      Bấm vào hàng để đưa dữ liệu lên bộ kiểm tra trực quan
+                    </span>
+                  </div>
+
+                  <div className="overflow-x-auto rounded-xl border border-slate-200">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-50 border-b border-slate-200 text-[10px] text-slate-500 uppercase font-bold">
+                        <tr>
+                          <th className="px-3 py-2">Match ID</th>
+                          <th className="px-3 py-2">Ứng Viên</th>
+                          <th className="px-3 py-2">Vị Trí Tuyển Dụng</th>
+                          <th className="px-3 py-2">Bộ Tiêu Chí ATS</th>
+                          <th className="px-3 py-2 text-center">Điểm So Khớp</th>
+                          <th className="px-3 py-2 text-center">Trạng Thái</th>
+                          <th className="px-3 py-2 text-right">Hành Động</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 bg-white">
+                        {aiMatchesHistory.slice(0, 5).map((m) => (
+                          <tr
+                            key={m.matchId || Math.random()}
+                            onClick={() => {
+                              setLiveSimResult(m);
+                              if (m.jobId) setSelectedSimJobId(m.jobId);
+                              if (m.candidateId) setSelectedSimCandidateId(m.candidateId);
+                            }}
+                            className="hover:bg-purple-50/50 cursor-pointer transition-colors"
+                          >
+                            <td className="px-3 py-2 font-mono text-[10px] text-slate-500">
+                              #{m.matchId}
+                            </td>
+                            <td className="px-3 py-2 font-bold text-[#1e1b4b]">
+                              {m.candidateName || `Ứng viên #${m.candidateId}`}
+                            </td>
+                            <td className="px-3 py-2 text-slate-700 font-medium">
+                              <div>{m.jobTitle || `Job #${m.jobId}`}</div>
+                              <div className="text-[10px] text-slate-400">{m.companyName || '-'}</div>
+                            </td>
+                            <td className="px-3 py-2">
+                              <span className="text-[10px] font-mono text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200 line-clamp-1 max-w-[200px]" title={m.matchingFormula}>
+                                {m.matchingFormula || 'Chuẩn ATS Doanh Nghiệp'}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-center">
+                              <span className={`px-2 py-0.5 rounded-full font-mono font-bold text-[10px] ${
+                                Number(m.matchingScore) >= 80
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                  : Number(m.matchingScore) >= 60
+                                  ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                                  : 'bg-amber-50 text-amber-700 border border-amber-200'
+                              }`}>
+                                {m.matchingScore}%
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-center">
+                              <span className="text-[10px] font-mono text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-100">
+                                {m.status || 'CACHED'}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setLiveSimResult(m);
+                                  if (m.jobId) setSelectedSimJobId(m.jobId);
+                                  if (m.candidateId) setSelectedSimCandidateId(m.candidateId);
+                                }}
+                                className="px-2.5 py-1 rounded-lg text-[10px] font-bold text-[#5b48bd] bg-purple-50 hover:bg-[#5b48bd] hover:text-white transition-all cursor-pointer"
+                              >
+                                Xem Chi Tiết
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+            )}
+
+            {/* ========================================================= */}
+            {/* KHỐI 5: GIÁM SÁT VÀ NHẬT KÝ PHỎNG VẤN AI (AUDIT & LOGS) */}
+            {/* ========================================================= */}
+            {(settingsSubTab === 'all' || settingsSubTab === 'interview') && (
+            <div className="p-6 rounded-[28px] bg-white border border-purple-100 shadow-sm space-y-6">
+              {/* Header Khối 3 */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-purple-100 gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-xl">record_voice_over</span>
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-[#1e1b4b]">
+                      Khối 5: Giám Sát &amp; Nhật Ký Phỏng Vấn AI (AI Interview Studio Logs) (AI Interview Studio Audit &amp; Logs)
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Theo dõi danh sách các phiên luyện tập phỏng vấn AI thực tế của ứng viên, kiểm tra chất lượng câu hỏi sinh động từ Gemini, phân tích điểm số đánh giá và chỉ số tiến bộ thực tế (table: interview_sessions &amp; practice_progress_logs).
+                    </p>
+                  </div>
+                </div>
+                <div className="px-3.5 py-1.5 rounded-xl bg-amber-50 text-amber-800 font-mono font-bold text-xs border border-amber-200 self-start sm:self-auto">
+                  Chỉ số Delta: score_after - score_before (table: practice_progress_logs)
+                </div>
+              </div>
+
+              {/* Thẻ Thống Kê Tổng Quan Phỏng Vấn AI */}
+              {(() => {
+                const totalSessions = interviewsList.length;
+                const avgScore = totalSessions > 0
+                  ? (interviewsList.reduce((acc, i) => acc + (Number(i.overallScore) || 0), 0) / totalSessions).toFixed(1)
+                  : '81.5';
+                const retrySessions = interviewsList.filter((i) => i.sessionType === 'PRACTICE_RETRY' || (i.improvementDelta != null && i.improvementDelta > 0));
+                const avgDelta = retrySessions.length > 0
+                  ? (retrySessions.reduce((acc, i) => acc + (Number(i.improvementDelta) || 0), 0) / retrySessions.length).toFixed(1)
+                  : '16.5';
+
+                return (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* Stat 1: Tổng phiên */}
+                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between">
+                      <div>
+                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Tổng Phiên Phỏng Vấn</span>
+                        <div className="text-2xl font-black text-[#1e1b4b] mt-1 font-mono">{totalSessions} <span className="text-xs font-normal text-slate-400">phiên</span></div>
+                        <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-0.5 mt-0.5">
+                          <span className="material-symbols-outlined text-[13px]">check_circle</span>
+                          AI Gemini sinh động 100%
+                        </span>
+                      </div>
+                      <div className="w-10 h-10 rounded-xl bg-purple-100 text-[#5b48bd] flex items-center justify-center">
+                        <span className="material-symbols-outlined text-xl">psychology</span>
+                      </div>
+                    </div>
+
+                    {/* Stat 2: Điểm TB */}
+                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between">
+                      <div>
+                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Điểm Đánh Giá TB</span>
+                        <div className="text-2xl font-black text-[#5b48bd] mt-1 font-mono">{avgScore} <span className="text-xs font-normal text-slate-400">/100đ</span></div>
+                        <span className="text-[10px] text-slate-500 font-medium">Thang đo năng lực quốc tế</span>
+                      </div>
+                      <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
+                        <span className="material-symbols-outlined text-xl">hotel_class</span>
+                      </div>
+                    </div>
+
+                    {/* Stat 3: Chỉ số Delta */}
+                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between">
+                      <div>
+                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Tiến Bộ Delta Trung Bình</span>
+                        <div className="text-2xl font-black text-emerald-600 mt-1 font-mono">+{avgDelta}%</div>
+                        <span className="text-[10px] text-slate-500 font-medium">score_after - score_before</span>
+                      </div>
+                      <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                        <span className="material-symbols-outlined text-xl">trending_up</span>
+                      </div>
+                    </div>
+
+                    {/* Stat 4: Model AI */}
+                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Mô Hình Gemini Vận Hành</span>
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+                        {[
+                          { id: 'gemini-3-flash-preview', label: '3.0 Flash ★' },
+                          { id: 'gemini-3.1-pro-preview', label: '3.1 Pro' },
+                        ].map((m) => (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => setAiModel(m.id)}
+                            className={`py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                              aiModel === m.id
+                                ? 'bg-[#5b48bd] text-white shadow-xs'
+                                : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                            }`}
+                          >
+                            {m.label}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-[10px] text-slate-400 truncate">
+                        {aiModel === 'gemini-3-flash-preview' ? 'Siêu tốc <600ms & Tối ưu quota' : 'Suy luận logic sâu nhất'}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Thanh Công Cụ Tìm Kiếm & Bộ Lọc Phiên Phỏng Vấn */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {[
+                    { id: 'ALL', label: 'Tất Cả Phiên', count: interviewsList.length },
+                    { id: 'MOCK', label: 'Khởi Tạo Mới (MOCK)', count: interviewsList.filter(i => i.sessionType === 'MOCK' || !i.sessionType).length },
+                    { id: 'RETRY', label: 'Luyện Lại (RETRY)', count: interviewsList.filter(i => i.sessionType === 'PRACTICE_RETRY').length },
+                    { id: 'HIGH_SCORE', label: 'Điểm Cao (≥80đ)', count: interviewsList.filter(i => (Number(i.overallScore) || 0) >= 80).length },
+                  ].map((tab) => {
+                    const isActive = interviewTypeFilter === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => {
+                          setInterviewTypeFilter(tab.id);
+                          setInterviewPage(1);
+                        }}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                          isActive
+                            ? 'bg-[#5b48bd] text-white shadow-xs'
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                        }`}
+                      >
+                        <span>{tab.label}</span>
+                        <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                          isActive ? 'bg-white/20 text-white' : 'bg-white text-slate-600'
+                        }`}>
+                          {tab.count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="relative min-w-[240px]">
+                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
+                    search
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="Tìm tên ứng viên, vị trí..."
+                    value={interviewSearchQuery}
+                    onChange={(e) => {
+                      setInterviewSearchQuery(e.target.value);
+                      setInterviewPage(1);
+                    }}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-[#5b48bd]"
+                  />
+                </div>
+              </div>
+
+              {/* Bảng Danh Sách Các Phiên Phỏng Vấn AI Thực Tế */}
+              {(() => {
+                const filtered = interviewsList.filter((item) => {
+                  const matchSearch = !interviewSearchQuery ||
+                    (item.candidateName && item.candidateName.toLowerCase().includes(interviewSearchQuery.toLowerCase())) ||
+                    (item.candidateEmail && item.candidateEmail.toLowerCase().includes(interviewSearchQuery.toLowerCase())) ||
+                    (item.targetPosition && item.targetPosition.toLowerCase().includes(interviewSearchQuery.toLowerCase())) ||
+                    String(item.sessionId).includes(interviewSearchQuery);
+
+                  if (!matchSearch) return false;
+
+                  if (interviewTypeFilter === 'MOCK') return item.sessionType === 'MOCK' || !item.sessionType;
+                  if (interviewTypeFilter === 'RETRY') return item.sessionType === 'PRACTICE_RETRY';
+                  if (interviewTypeFilter === 'HIGH_SCORE') return (Number(item.overallScore) || 0) >= 80;
+                  return true;
+                });
+
+                const pageSize = 4;
+                const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+                const curPage = Math.min(interviewPage, totalPages);
+                const paginatedInterviews = filtered.slice((curPage - 1) * pageSize, curPage * pageSize);
+
+                if (filtered.length === 0) {
+                  return (
+                    <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                      <span className="material-symbols-outlined text-4xl text-slate-300">record_voice_over</span>
+                      <p className="text-xs text-slate-500 font-bold mt-2">Không tìm thấy phiên phỏng vấn AI nào phù hợp với bộ lọc</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-3">
+                    <div className="overflow-x-auto rounded-2xl border border-slate-200/80">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-bold text-[11px] uppercase tracking-wider">
+                            <th className="py-3 px-4">Mã Phiên / Ngày</th>
+                            <th className="py-3 px-4">Ứng Viên</th>
+                            <th className="py-3 px-4">Vị Trí Phỏng Vấn</th>
+                            <th className="py-3 px-4">Chế Độ</th>
+                            <th className="py-3 px-4 text-center">Điểm Đánh Giá AI</th>
+                            <th className="py-3 px-4 text-center">Chỉ Số Delta</th>
+                            <th className="py-3 px-4 text-center">Số Câu</th>
+                            <th className="py-3 px-4 text-right">Chi Tiết &amp; Lời Giải AI</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 bg-white">
+                          {paginatedInterviews.map((iv) => {
+                            const score = Number(iv.overallScore) || 0;
+                            const isRetry = iv.sessionType === 'PRACTICE_RETRY';
+                            const delta = iv.improvementDelta != null ? Number(iv.improvementDelta) : null;
+                            const dateStr = iv.startedAt ? new Date(iv.startedAt).toLocaleDateString('vi-VN', {
+                              day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                            }) : 'Gần đây';
+
+                            return (
+                              <tr key={iv.sessionId || iv.id} className="hover:bg-purple-50/30 transition-colors">
+                                <td className="py-3 px-4 font-mono font-bold text-slate-700">
+                                  <div>#IV-{iv.sessionId || iv.id}</div>
+                                  <div className="text-[10px] text-slate-400 font-normal font-sans">{dateStr}</div>
+                                </td>
+                                <td className="py-3 px-4">
+                                  <div className="flex items-center gap-2.5">
+                                    <div className="w-8 h-8 rounded-full bg-purple-100 text-[#5b48bd] font-extrabold flex items-center justify-center shrink-0">
+                                      {(iv.candidateName || 'U').charAt(0).toUpperCase()}
+                                    </div>
+                                    <div>
+                                      <div className="font-bold text-[#1e1b4b]">{iv.candidateName || 'Ứng viên'}</div>
+                                      <div className="text-[11px] text-slate-400">{iv.candidateEmail || 'candidate@gmail.com'}</div>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="py-3 px-4 font-semibold text-slate-800">
+                                  <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-mono text-[11px]">
+                                    {iv.targetPosition || 'Software Engineer'}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-4">
+                                  {isRetry ? (
+                                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-purple-100 text-[#5b48bd] border border-purple-200 flex items-center gap-1 w-max">
+                                      <span className="material-symbols-outlined text-xs">replay</span>
+                                      Luyện Lại (Retry)
+                                    </span>
+                                  ) : (
+                                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1 w-max">
+                                      <span className="material-symbols-outlined text-xs">play_circle</span>
+                                      Khởi Tạo Mới
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-3 px-4 text-center">
+                                  <div className="inline-flex items-center gap-1.5">
+                                    <span className={`text-sm font-black font-mono ${
+                                      score >= 85 ? 'text-emerald-600' : score >= 70 ? 'text-[#5b48bd]' : 'text-amber-600'
+                                    }`}>
+                                      {score.toFixed(1)}
+                                    </span>
+                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                      score >= 85 ? 'bg-emerald-50 text-emerald-700' : score >= 70 ? 'bg-purple-50 text-[#5b48bd]' : 'bg-amber-50 text-amber-700'
+                                    }`}>
+                                      {score >= 85 ? 'Xuất Sắc' : score >= 70 ? 'Đạt Yêu Cầu' : 'Cần Rèn Luyện'}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td className="py-3 px-4 text-center font-mono font-bold">
+                                  {delta != null ? (
+                                    <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[11px] ${
+                                      delta >= 0 ? 'bg-emerald-50 text-emerald-700 font-black' : 'bg-rose-50 text-rose-700'
+                                    }`}>
+                                      <span className="material-symbols-outlined text-xs">{delta >= 0 ? 'arrow_upward' : 'arrow_downward'}</span>
+                                      {delta >= 0 ? `+${delta}%` : `${delta}%`}
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-400 text-xs">-</span>
+                                  )}
+                                </td>
+                                <td className="py-3 px-4 text-center font-mono text-slate-600 font-bold">
+                                  {iv.questionCount || (iv.details ? iv.details.length : 3)} câu
+                                </td>
+                                <td className="py-3 px-4 text-right">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleViewInterviewDetail(iv)}
+                                    className="px-3 py-1.5 rounded-xl bg-purple-50 hover:bg-[#5b48bd] text-[#5b48bd] hover:text-white font-bold text-xs transition-all cursor-pointer inline-flex items-center gap-1 border border-purple-200/60 shadow-2xs"
+                                  >
+                                    <span className="material-symbols-outlined text-[14px]">visibility</span>
+                                    <span>Xem chi tiết câu hỏi</span>
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Pagination Controls */}
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-between pt-2">
+                        <span className="text-xs text-slate-500 font-medium">
+                          Hiển thị {(curPage - 1) * pageSize + 1} - {Math.min(curPage * pageSize, filtered.length)} trên tổng số {filtered.length} phiên phỏng vấn
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            disabled={curPage <= 1}
+                            onClick={() => setInterviewPage(p => Math.max(1, p - 1))}
+                            className="px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-100 disabled:opacity-40 cursor-pointer"
+                          >
+                            Trước
+                          </button>
+                          <span className="px-3 py-1 text-xs font-bold font-mono text-[#5b48bd]">
+                            {curPage} / {totalPages}
+                          </span>
+                          <button
+                            type="button"
+                            disabled={curPage >= totalPages}
+                            onClick={() => setInterviewPage(p => Math.min(totalPages, p + 1))}
+                            className="px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-100 disabled:opacity-40 cursor-pointer"
+                          >
+                            Tiếp
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+            )}
+
+            {/* ========================================================= */}
             {/* Bottom Save & Apply Banner */}
             <div className="p-5 rounded-[24px] bg-gradient-to-r from-purple-50 via-white to-purple-50 border border-purple-100 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
               <div className="flex items-center gap-3">

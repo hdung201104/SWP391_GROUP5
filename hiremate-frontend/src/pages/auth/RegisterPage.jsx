@@ -1,4 +1,4 @@
-import { HIREMATE_LOGO_URL } from '../../constants/branding';
+﻿import { HIREMATE_LOGO_URL } from '../../constants/branding';
 import React, { useState } from 'react';
 import authApi from '../../api/authApi';
 import companyApi from '../../api/companyApi';
@@ -257,6 +257,9 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
     setErrorMsg('');
     setSuccessMsg('');
 
+    const phoneRegex = /^(0|\+84)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9\d)\d{7}$/;
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
     if (role === 'CANDIDATE') {
       if (!candName.trim()) {
         setErrorMsg('Vui lòng nhập họ và tên ứng viên.');
@@ -265,6 +268,26 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
       if (!candPhone.trim()) {
         setErrorMsg('Vui lòng nhập số điện thoại liên hệ.');
         return;
+      }
+      const cleanPhone = candPhone.trim().replace(/[\s.-]/g, '');
+      if (!phoneRegex.test(cleanPhone)) {
+        setErrorMsg('Số điện thoại không đúng định dạng di động Việt Nam (10 chữ số, ví dụ: 0912345678).');
+        return;
+      }
+      if (candDob) {
+        const dobDate = new Date(candDob);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (dobDate > today) {
+          setErrorMsg('Ngày sinh không thể ở tương lai.');
+          return;
+        }
+        const minAgeDate = new Date();
+        minAgeDate.setFullYear(minAgeDate.getFullYear() - 14);
+        if (dobDate > minAgeDate) {
+          setErrorMsg('Độ tuổi ứng viên phải từ 14 tuổi trở lên.');
+          return;
+        }
       }
     } else {
       if (!recName.trim()) {
@@ -279,6 +302,11 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
         setErrorMsg('Vui lòng nhập số điện thoại liên hệ của công ty.');
         return;
       }
+      const cleanRecPhone = recPhone.trim().replace(/[\s.-]/g, '');
+      if (!phoneRegex.test(cleanRecPhone)) {
+        setErrorMsg('Số điện thoại công ty không đúng định dạng di động Việt Nam (10 chữ số, ví dụ: 0912345678).');
+        return;
+      }
       if (!selectedCompany && !taxCode.trim()) {
         setErrorMsg('Vui lòng nhập Mã số thuế doanh nghiệp (MST).');
         return;
@@ -289,8 +317,8 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
       }
     }
 
-    if (!targetEmail) {
-      setErrorMsg('Vui lòng nhập địa chỉ email hợp lệ.');
+    if (!targetEmail || !emailRegex.test(targetEmail)) {
+      setErrorMsg('Địa chỉ email không đúng định dạng (Ví dụ: name@example.com).');
       return;
     }
 
@@ -769,6 +797,8 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
                       <input
                         type="date"
                         value={candDob}
+                        max={new Date().toISOString().split('T')[0]}
+                        min="1920-01-01"
                         onChange={(e) => setCandDob(e.target.value)}
                         className="w-full pl-10 pr-3 py-2.5 bg-purple-50/40 border border-purple-100 focus:border-[#5b48bd] focus:bg-white focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] focus:outline-none transition-all font-sans"
                       />

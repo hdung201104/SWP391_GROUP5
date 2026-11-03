@@ -396,7 +396,7 @@ export default function CandidateProfilePage({ user }) {
       setLoadingRecommendations(true);
       const res = await jobApi.getRecommendations({ minMatch: 50, limit: 4 });
       const list = res?.data || res || [];
-      if (Array.isArray(list) && list.length > 0) {
+      if (Array.isArray(list)) {
         setRecommendedJobs(list);
       }
     } catch (err) {
@@ -1068,6 +1068,8 @@ export default function CandidateProfilePage({ user }) {
       const resolvedPhone = cvData.phone || currentCandidate.phone || user?.phone || '';
       const resolvedAddress = cvData.location || currentCandidate.location || user?.address || 'Việt Nam';
 
+      const resolvedGithub = cvData.githubUrl !== undefined ? cvData.githubUrl : (profileData?.githubUrl || user?.githubUrl);
+
       await candidateApi.updateProfile({
         fullName: resolvedFullName,
         phone: resolvedPhone,
@@ -1075,6 +1077,7 @@ export default function CandidateProfilePage({ user }) {
         location: resolvedAddress,
         headline: cvData.targetTitle,
         bio: cvData.summary,
+        githubUrl: resolvedGithub ? resolvedGithub.trim() : undefined,
         experiencesJson: JSON.stringify(cvData.experiences || []),
         educationsJson: JSON.stringify(cvData.education || []),
         projectsJson: JSON.stringify(cvData.projects || []),
@@ -1090,6 +1093,7 @@ export default function CandidateProfilePage({ user }) {
             fullName: resolvedFullName,
             phone: resolvedPhone,
             address: resolvedAddress,
+            githubUrl: resolvedGithub || parsed.githubUrl,
           };
           localStorage.setItem('user', JSON.stringify(updatedUser));
           window.dispatchEvent(new Event('storage'));
@@ -1265,13 +1269,13 @@ export default function CandidateProfilePage({ user }) {
         statusText: '🎉 Quét thành công! Đã bóc tách dữ liệu vào Bản CV Trực Tuyến.'
       }));
 
-      setTimeout(() => {
+      setTimeout(async () => {
         setScanState({ isScanning: false, step: 1, fileName: '', progress: 0, statusText: '' });
         setIsCustomCreated(true);
         setActiveTab('resume');
         showToast(`🎉 AI đã quét và bóc tách thành công tệp "${file.name}"!`);
-        fetchRecommendations();
         setShowRecommendationModal(true);
+        await fetchRecommendations();
       }, 700);
 
     } catch (err) {
@@ -2032,6 +2036,16 @@ export default function CandidateProfilePage({ user }) {
                                 placeholder="Ngày sinh (DD/MM/YYYY)"
                               />
                             </div>
+                            <div className="flex items-center gap-2">
+                              <span className="material-symbols-outlined text-sm text-slate-500 shrink-0">code</span>
+                              <input
+                                type="text"
+                                value={cvData.githubUrl !== undefined ? cvData.githubUrl : (currentCandidate.github !== 'Chưa liên kết' ? currentCandidate.github : '')}
+                                onChange={(e) => setCvData({ ...cvData, githubUrl: e.target.value })}
+                                className="w-full text-xs bg-white border border-botanical-stone rounded-lg px-2 py-1 text-slate-800 focus:border-botanical-sage focus:ring-1 focus:ring-botanical-sage/20"
+                                placeholder="GitHub URL (https://github.com/username)"
+                              />
+                            </div>
                           </div>
                         ) : (
                           <>
@@ -2051,6 +2065,22 @@ export default function CandidateProfilePage({ user }) {
                               <span className="material-symbols-outlined text-sm text-slate-500 shrink-0">cake</span>
                               <span className="font-medium">{cvData.dob || currentCandidate.dob}</span>
                             </div>
+                            {currentCandidate.github && currentCandidate.github !== 'Chưa liên kết' && (
+                              <div className="flex items-center gap-2.5 pt-0.5">
+                                <span className="material-symbols-outlined text-sm text-slate-500 shrink-0">code</span>
+                                <a
+                                  href={currentCandidate.github.startsWith('http') ? currentCandidate.github : `https://${currentCandidate.github}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="font-medium truncate hover:underline flex items-center gap-1"
+                                  style={{ color: livingTheme.primary }}
+                                  title="Trang GitHub dự án của ứng viên"
+                                >
+                                  <span>{currentCandidate.github.replace(/^https?:\/\/(www\.)?github\.com\//, '@')}</span>
+                                  <span className="material-symbols-outlined text-xs">open_in_new</span>
+                                </a>
+                              </div>
+                            )}
                             <div className="flex items-center gap-2.5 pt-1">
                               <span className="material-symbols-outlined text-sm text-slate-500 shrink-0">link</span>
                               <span className="font-medium truncate hover:underline" style={{ color: livingTheme.primary }}>{currentCandidate.linkedin}</span>
@@ -4482,7 +4512,7 @@ export default function CandidateProfilePage({ user }) {
 
                 <div className="text-right sm:border-l sm:border-purple-200 sm:pl-4">
                   <span className="text-[10px] font-mono font-bold text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full">
-                    Gemini 1.5 Flash Vision
+                    Gemini 2.5 Flash / ATS Engine
                   </span>
                   <p className="text-[11px] text-slate-400 mt-1">Đã đồng bộ vào Bản CV</p>
                 </div>
@@ -4524,7 +4554,12 @@ export default function CandidateProfilePage({ user }) {
 
               {/* Matched Jobs List */}
               <div className="space-y-3 mb-5 max-h-[42vh] overflow-y-auto pr-1">
-                {recommendedJobs.length === 0 ? (
+                {loadingRecommendations ? (
+                  <div className="py-8 text-center text-xs text-purple-700 bg-purple-50/50 rounded-2xl flex flex-col items-center justify-center gap-2 border border-purple-100">
+                    <span className="material-symbols-outlined animate-spin text-2xl text-[#5b48bd]">sync</span>
+                    <span className="font-semibold">AI đang phân tích và tìm kiếm việc làm phù hợp nhất...</span>
+                  </div>
+                ) : recommendedJobs.length === 0 ? (
                   <div className="py-8 text-center text-xs text-slate-400 bg-purple-50/40 rounded-2xl">
                     Đang đồng bộ dữ liệu so khớp, bạn có thể duyệt việc làm tại Trang chủ!
                   </div>

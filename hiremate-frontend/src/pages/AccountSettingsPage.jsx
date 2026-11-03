@@ -334,6 +334,50 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
       return;
     }
 
+    // Validate email format
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (email && email.trim() && !emailRegex.test(email.trim())) {
+      triggerToast('Định dạng email không hợp lệ (Ví dụ: name@example.com)');
+      return;
+    }
+
+    // Validate Vietnamese phone number format
+    const phoneRegex = /^(0|\+84)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9\d)\d{7}$/;
+    const cleanPhone = (phone || '').trim().replace(/[\s.-]/g, '');
+    if (cleanPhone && !phoneRegex.test(cleanPhone)) {
+      triggerToast('Số điện thoại không đúng định dạng di động Việt Nam (10 chữ số, ví dụ: 0912345678 hoặc 0378123456)');
+      return;
+    }
+
+    // Validate Date of Birth (No future dates & reasonable working age)
+    if (isRoleCandidate && dob) {
+      const dobDate = new Date(dob);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (dobDate > today) {
+        triggerToast('Ngày sinh không thể ở tương lai');
+        return;
+      }
+      const minAgeDate = new Date();
+      minAgeDate.setFullYear(minAgeDate.getFullYear() - 14);
+      if (dobDate > minAgeDate) {
+        triggerToast('Ứng viên phải từ 14 tuổi trở lên');
+        return;
+      }
+      const maxAgeDate = new Date();
+      maxAgeDate.setFullYear(maxAgeDate.getFullYear() - 100);
+      if (dobDate < maxAgeDate) {
+        triggerToast('Ngày sinh không hợp lệ');
+        return;
+      }
+    }
+
+    if (!fullName.trim()) {
+      triggerToast('Vui lòng không để trống họ và tên');
+      return;
+    }
+
     try {
       await authApi.updateProfile({
         fullName: fullName.trim(),
@@ -342,7 +386,7 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
         gender: isRoleCandidate ? gender : null,
         address: isRoleRecruiter ? officeLocation : address,
         bio: personalBio,
-        githubUrl: isRoleCandidate ? githubUrl.trim() : null,
+        githubUrl: isRoleCandidate ? (githubUrl.trim() || null) : null,
         linkedinUrl: isRoleRecruiter ? linkedinUrl.trim() : null,
       });
     } catch {
@@ -359,7 +403,7 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
       gender: isRoleCandidate ? gender : user?.gender,
       address: isRoleRecruiter ? officeLocation : address,
       bio: personalBio,
-      githubUrl: isRoleCandidate ? githubUrl.trim() : '',
+      githubUrl: isRoleCandidate ? (githubUrl.trim() || user?.githubUrl || '') : '',
       linkedinUrl: isRoleRecruiter ? linkedinUrl.trim() : (user?.linkedinUrl || ''),
       companyName: companyName.trim(),
       recruiterTitle: recruiterTitle.trim(),
@@ -1471,9 +1515,15 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                       <input
                         type="email"
                         value={email}
+                        readOnly={isEmailVerified}
+                        disabled={isEmailVerified}
                         onChange={(e) => setEmail(e.target.value)}
                         required
-                        className="w-full pl-11 pr-4 py-2.5 bg-[#f8f7ff] border border-purple-100 rounded-2xl text-xs sm:text-sm text-[#1e1b4b] focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 focus:outline-none transition-all font-sans font-medium"
+                        className={`w-full pl-11 pr-4 py-2.5 border rounded-2xl text-xs sm:text-sm font-sans font-medium transition-all ${
+                          isEmailVerified
+                            ? 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed select-none'
+                            : 'bg-[#f8f7ff] border-purple-100 text-[#1e1b4b] focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 focus:outline-none'
+                        }`}
                       />
                     </div>
                   </div>
@@ -1506,6 +1556,8 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                       <input
                         type="date"
                         value={dob || ''}
+                        max={new Date().toISOString().split('T')[0]}
+                        min="1920-01-01"
                         onChange={(e) => setDob(e.target.value)}
                         className="w-full pl-11 pr-4 py-2.5 bg-[#f8f7ff] border border-purple-100 rounded-2xl text-xs sm:text-sm text-[#1e1b4b] focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 focus:outline-none transition-all font-sans font-medium"
                       />

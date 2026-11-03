@@ -1845,9 +1845,10 @@ public class GeminiAiServiceImpl implements GeminiAiService {
         if (primaryModel != null && !primaryModel.isBlank()) {
             modelsToTry.add(primaryModel.trim());
         }
+        if (!modelsToTry.contains("gemini-3.5-flash-lite")) modelsToTry.add("gemini-3.5-flash-lite");
+        if (!modelsToTry.contains("gemini-3-flash-preview")) modelsToTry.add("gemini-3-flash-preview");
         if (!modelsToTry.contains("gemini-2.5-flash")) modelsToTry.add("gemini-2.5-flash");
         if (!modelsToTry.contains("gemini-2.0-flash")) modelsToTry.add("gemini-2.0-flash");
-        if (!modelsToTry.contains("gemini-1.5-flash")) modelsToTry.add("gemini-1.5-flash");
 
         for (String model : modelsToTry) {
             try {
@@ -2452,7 +2453,8 @@ public class GeminiAiServiceImpl implements GeminiAiService {
                     || u.contains("LANGUAGE") || u.contains("ACHIEVEMENT") || u.contains("HỌC VẤN") || u.contains("KINH NGHIỆM")
                     || u.contains("KỸ NĂNG") || u.contains("MỤC TIÊU") || u.contains("LIÊN HỆ") || u.contains("THÔNG TIN")
                     || u.contains("DỰ ÁN") || u.contains("CHỨNG CHỈ") || u.contains("HOẠT ĐỘNG") || u.contains("&")
-                    || u.contains("|") || u.contains("/") || u.contains("RESUME") || u.contains("CURRICULUM VITAE");
+                    || u.contains("|") || u.contains("/") || u.contains("RESUME") || u.contains("CURRICULUM VITAE")
+                    || u.contains("STACK") || u.contains("TECHNICAL");
         };
 
         // Ưu tiên 1: Tìm tên riêng tiếng Việt viết hoa (TitleCase hoặc ALL-CAPS, 2-4 từ) có chức danh liền kề
@@ -2461,7 +2463,8 @@ public class GeminiAiServiceImpl implements GeminiAiService {
             if (l.contains("@") || l.contains("•") || l.contains("CV") || l.contains("github.com") 
                     || l.toLowerCase().startsWith("tiếng") || l.toLowerCase().startsWith("cisco")
                     || l.toLowerCase().startsWith("british") || l.toLowerCase().startsWith("japan")
-                    || l.toLowerCase().startsWith("nam •") || l.toLowerCase().startsWith("nữ •")) {
+                    || l.toLowerCase().startsWith("nam •") || l.toLowerCase().startsWith("nữ •")
+                    || l.toUpperCase().contains("STACK") || l.toUpperCase().contains("TECHNICAL")) {
                 continue;
             }
             if (isCvSectionHeader.test(l)) continue;
@@ -2473,11 +2476,13 @@ public class GeminiAiServiceImpl implements GeminiAiService {
                 if (i + 1 < lines.size()) {
                     String next = lines.get(i + 1);
                     String nu = next.toUpperCase();
+                    String nuNoSpace = next.replaceAll("\\s+", "").toUpperCase();
                     if (nu.contains("DEVELOPER") || nu.contains("KỸ SƯ") || nu.contains("ENGINEER") 
                             || nu.contains("ANALYST") || nu.contains("CHUYÊN VIÊN") || nu.contains("MANAGER")
                             || nu.contains("GIÁM ĐỐC") || nu.contains("TRƯỞNG PHÒNG") || nu.contains("LEAD")
                             || nu.contains("REPRESENTATIVE") || nu.contains("SALES") || nu.contains("CONSULTANT")
-                            || nu.contains("DESIGNER") || nu.contains("INTERN") || nu.contains("BRSE")) {
+                            || nu.contains("DESIGNER") || nu.contains("INTERN") || nu.contains("BRSE")
+                            || nuNoSpace.contains("REPRESENTATIVE") || nuNoSpace.contains("SALES")) {
                         detectedName = l;
                         detectedHeadline = next;
                         break;

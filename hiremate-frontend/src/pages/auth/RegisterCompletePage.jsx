@@ -1,4 +1,4 @@
-import { HIREMATE_LOGO_URL } from '../../constants/branding';
+﻿import { HIREMATE_LOGO_URL } from '../../constants/branding';
 import React, { useState, useEffect } from 'react';
 import { 
   User, 
@@ -273,8 +273,11 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
     setErrorMessage('');
     setSuccessMessage('');
 
-    if (!email.trim()) {
-      setErrorMessage('Email không được để trống.');
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    const phoneRegex = /^(0|\+84)(3[2-9]|5[2689]|7[06-9]|8[1-9]|9\d)\d{7}$/;
+
+    if (!email.trim() || !emailRegex.test(email.trim())) {
+      setErrorMessage('Email không đúng định dạng hợp lệ (Ví dụ: name@example.com).');
       return;
     }
     if (!fullName.trim()) {
@@ -284,6 +287,26 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
     if (!phone.trim()) {
       setErrorMessage('Vui lòng cung cấp số điện thoại liên lạc.');
       return;
+    }
+    const cleanPhone = phone.trim().replace(/[\s.-]/g, '');
+    if (!phoneRegex.test(cleanPhone)) {
+      setErrorMessage('Số điện thoại không đúng định dạng di động Việt Nam (10 chữ số, ví dụ: 0912345678).');
+      return;
+    }
+    if (dateOfBirth) {
+      const dobDate = new Date(dateOfBirth);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (dobDate > today) {
+        setErrorMessage('Ngày sinh không thể ở tương lai.');
+        return;
+      }
+      const minAgeDate = new Date();
+      minAgeDate.setFullYear(minAgeDate.getFullYear() - 14);
+      if (dobDate > minAgeDate) {
+        setErrorMessage('Độ tuổi ứng viên phải từ 14 tuổi trở lên.');
+        return;
+      }
     }
 
     if (!password.trim()) {
@@ -700,6 +723,8 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
                       <input
                         type="date"
                         value={dateOfBirth}
+                        max={new Date().toISOString().split('T')[0]}
+                        min="1920-01-01"
                         onChange={(e) => setDateOfBirth(e.target.value)}
                         className="w-full pl-10 pr-3 py-2.5 bg-white border border-purple-100 focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] placeholder-slate-400 focus:outline-none transition-all font-sans"
                       />

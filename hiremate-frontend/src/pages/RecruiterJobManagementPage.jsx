@@ -3122,7 +3122,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                     </h2>
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/60 shadow-2xs">
                       <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-pulse"></span>
-                      Gemini 1.5 Multimodal • Chuẩn 70/30 ATS
+                      Gemini 2.5 Multimodal • Chuẩn 70/30 ATS
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 mt-0.5 truncate font-medium">

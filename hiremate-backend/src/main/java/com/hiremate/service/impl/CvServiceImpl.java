@@ -509,14 +509,22 @@ public class CvServiceImpl implements CvService {
         com.hiremate.dto.ai.AiCvAnalysis analysis = null;
         String textToAnalyze = cv.getParsedText();
 
-        // 1. Nếu cv.getParsedJson() (hoặc cv.getAiAnalysisJson()) đã có sẵn JSON hợp lệ (ví dụ từ Gemini Vision OCR lúc upload),
+        // 1. Nếu cv.getParsedJson() đã có sẵn JSON hợp lệ và KHÔNG phải dữ liệu fallback lỗi (ví dụ không bị Technical Stack),
         // hãy tái sử dụng và parse trực tiếp thay vì gọi lại Gemini API lần thứ 2
         if (cv.getParsedJson() != null && !cv.getParsedJson().isBlank() && cv.getParsedJson().trim().startsWith("{")) {
-            try {
-                analysis = geminiAiService.parseCvAnalysisJson(cv.getParsedJson(), textToAnalyze);
-                log.info(">> [CvService] Tái sử dụng kết quả phân tích JSON đã lưu trữ cho CV ID: {}", cvId);
-            } catch (Exception e) {
-                log.warn(">> [CvService] Parse cached parsedJson failed, fallback to fresh analysis: {}", e.getMessage());
+            String existingJson = cv.getParsedJson().toUpperCase();
+            boolean isCorruptedFallback = existingJson.contains("\"FULL_NAME\": \"TECHNICAL STACK\"")
+                    || existingJson.contains("\"FULLNAME\": \"TECHNICAL STACK\"")
+                    || existingJson.contains("A PROACTIVE, DETAIL-ORIENTED, AND");
+            if (!isCorruptedFallback) {
+                try {
+                    analysis = geminiAiService.parseCvAnalysisJson(cv.getParsedJson(), textToAnalyze);
+                    log.info(">> [CvService] Tái sử dụng kết quả phân tích JSON đã lưu trữ cho CV ID: {}", cvId);
+                } catch (Exception e) {
+                    log.warn(">> [CvService] Parse cached parsedJson failed, fallback to fresh analysis: {}", e.getMessage());
+                }
+            } else {
+                log.info(">> [CvService] Phát hiện cached parsedJson là fallback lỗi, tiến hành phân tích mới bằng Gemini AI...");
             }
         }
 
@@ -1188,12 +1196,14 @@ public class CvServiceImpl implements CvService {
         if (u.contains("CỦA BẠN") || u.equalsIgnoreCase("ỨNG VIÊN TUYỂN DỤNG") || u.equalsIgnoreCase("RESUME") || u.equalsIgnoreCase("CURRICULUM VITAE")) {
             return false;
         }
-        // Blacklist common CV section headers
+        // Blacklist common CV section headers and non-person phrases
         if (u.contains("ANALYSIS") || u.contains("MODELING") || u.contains("ABOUT ME") || u.contains("EDUCATION")
                 || u.contains("SKILL") || u.contains("EXPERIENCE") || u.contains("PROJECT") || u.contains("CERTIFICATION")
                 || u.contains("LANGUAGE") || u.contains("ACHIEVEMENT") || u.contains("HỌC VẤN") || u.contains("KINH NGHIỆM")
                 || u.contains("KỸ NĂNG") || u.contains("MỤC TIÊU") || u.contains("LIÊN HỆ") || u.contains("THÔNG TIN")
-                || u.contains("DỰ ÁN") || u.contains("CHỨNG CHỈ") || u.contains("HOẠT ĐỘNG") || u.contains("&")) {
+                || u.contains("DỰ ÁN") || u.contains("CHỨNG CHỈ") || u.contains("HOẠT ĐỘNG") || u.contains("&")
+                || u.contains("STACK") || u.contains("TECHNICAL") || u.contains("DEVELOPER") || u.contains("ENGINEER")
+                || u.contains("PROFILE") || u.contains("SUMMARY") || u.contains("OVERVIEW") || u.contains("OBJECTIVE")) {
             return false;
         }
         return name.matches("^[A-ZÀ-Ỹa-zà-ỹ]{2,}(?:\\s+[A-ZÀ-Ỹa-zà-ỹ]{2,}){1,4}$");

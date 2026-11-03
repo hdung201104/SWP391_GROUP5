@@ -59,8 +59,38 @@ public class UserServiceImpl implements UserService {
 
         // Cập nhật các trường trên bảng users (base class)
         user.setFullName(request.getFullName().trim());
-        if (request.getPhone() != null) user.setPhone(request.getPhone().trim());
-        if (request.getDateOfBirth() != null) user.setDateOfBirth(request.getDateOfBirth().trim());
+
+        if (request.getPhone() != null && !request.getPhone().isBlank()) {
+            String cleanPhone = request.getPhone().trim().replaceAll("[\\s.-]", "");
+            if (!cleanPhone.matches("^(0|\\+84)[35789]\\d{8}$")) {
+                throw new IllegalArgumentException("Số điện thoại không đúng định dạng di động Việt Nam (10 chữ số, bắt đầu bằng 03, 05, 07, 08, 09. Ví dụ: 0912345678)");
+            }
+            user.setPhone(cleanPhone);
+        } else if (request.getPhone() != null && request.getPhone().isBlank()) {
+            user.setPhone(null);
+        }
+
+        if (request.getDateOfBirth() != null && !request.getDateOfBirth().isBlank()) {
+            String rawDob = request.getDateOfBirth().trim();
+            try {
+                java.time.LocalDate dob = java.time.LocalDate.parse(rawDob);
+                java.time.LocalDate today = java.time.LocalDate.now();
+                if (dob.isAfter(today)) {
+                    throw new IllegalArgumentException("Ngày sinh không thể ở tương lai (" + rawDob + ")");
+                }
+                if (dob.isAfter(today.minusYears(14))) {
+                    throw new IllegalArgumentException("Ứng viên phải từ 14 tuổi trở lên");
+                }
+                if (dob.isBefore(java.time.LocalDate.of(1920, 1, 1))) {
+                    throw new IllegalArgumentException("Ngày sinh không hợp lệ");
+                }
+                user.setDateOfBirth(rawDob);
+            } catch (java.time.format.DateTimeParseException e) {
+                throw new IllegalArgumentException("Định dạng ngày sinh không hợp lệ (chuẩn YYYY-MM-DD)");
+            }
+        } else if (request.getDateOfBirth() != null && request.getDateOfBirth().isBlank()) {
+            user.setDateOfBirth(null);
+        }
 
         String effectiveAddress = null;
         if (request.getAddress() != null && !request.getAddress().trim().isEmpty()) {
@@ -73,7 +103,9 @@ public class UserServiceImpl implements UserService {
         }
 
         if (request.getBio() != null) user.setBio(request.getBio().trim());
-        if (request.getGithubUrl() != null) user.setGithubUrl(request.getGithubUrl().trim());
+        if (request.getGithubUrl() != null && !request.getGithubUrl().trim().isEmpty()) {
+            user.setGithubUrl(request.getGithubUrl().trim());
+        }
 
         User savedUser = userRepository.save(user);
         if (userCacheService != null) {
