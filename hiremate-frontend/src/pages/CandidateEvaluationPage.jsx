@@ -443,29 +443,28 @@ export default function CandidateEvaluationPage({
     const fetchCandidateData = async () => {
       setIsLoading(true);
 
-      let candidateName = '';
-      let candidateEmail = '';
-      let candidatePhone = '';
-      let candidateAvatar = null;
-      let jobTitle = '';
-      let matchScore = 0;
-      let effectiveJobId = parsedJobId || null;
-      let effectiveCvId = parsedCvId || null;
-      let cvUrl = '#';
-      let appStatus = 'REVIEWING';
-      let effectiveAppId = parsedAppId || null;
-      let resolvedCandId = parsedCandId || null;
-      isWithdrawn = false;
-
-      let profileData = null;
-      let jobData = null;
-      let appData = null;
-      let cvData = null;
-      let candMatch = null;
-      let directEvalReport = null;
-      let hasPersistedReport = false;
-
       try {
+        let candidateName = '';
+        let candidateEmail = '';
+        let candidatePhone = '';
+        let candidateAvatar = null;
+        let jobTitle = '';
+        let matchScore = 0;
+        let effectiveJobId = parsedJobId || null;
+        let effectiveCvId = parsedCvId || null;
+        let cvUrl = '#';
+        let appStatus = 'REVIEWING';
+        let effectiveAppId = parsedAppId || null;
+        let resolvedCandId = parsedCandId || null;
+        let isWithdrawn = false;
+
+        let profileData = null;
+        let jobData = null;
+        let appData = null;
+        let cvData = null;
+        let candMatch = null;
+        let directEvalReport = null;
+        let hasPersistedReport = false;
         // 1. Nếu có appId, gọi API lấy chi tiết đơn để lấy jobId, cvId, candidateId chính xác
         if (effectiveAppId) {
           try {
@@ -683,7 +682,7 @@ export default function CandidateEvaluationPage({
           }
 
           // Cập nhật từ appData nếu có
-          let isWithdrawn = false;
+          isWithdrawn = false;
           if (appData) {
             effectiveAppId = appData.applicationId;
             candidateName = appData.candidateName || candidateName;
