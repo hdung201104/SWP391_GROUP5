@@ -2078,15 +2078,16 @@ export default function CandidateEvaluationPage({
                       </div>
                     </div>
                   ) : (
-                    <div className="w-full h-full flex-1 flex flex-col items-center justify-center overflow-hidden bg-[#323639]">
+                    <div className="w-full h-[840px] min-h-[840px] flex flex-col overflow-auto bg-[#323639]">
                       <div
                         style={{
                           width: zoomLevel === 100 ? '100%' : `${zoomLevel}%`,
-                          maxWidth: '100%',
-                          height: '100%',
+                          minWidth: '100%',
+                          height: '840px',
+                          minHeight: '840px',
                           transition: 'width 0.15s ease-out',
                         }}
-                        className="w-full h-full overflow-hidden flex flex-col bg-[#323639]"
+                        className="w-full h-[840px] min-h-[840px] flex flex-col bg-[#323639] mx-auto"
                       >
                         <iframe
                           key={`${pdfBlobUrl}-${zoomLevel}`}
@@ -2098,10 +2099,11 @@ export default function CandidateEvaluationPage({
                           title={`CV - ${cand.name}`}
                           style={{
                             width: '100%',
-                            height: '100%',
+                            height: '840px',
+                            minHeight: '840px',
                             border: 'none',
                           }}
-                          className="w-full h-full bg-[#323639] flex-1"
+                          className="w-full h-[840px] min-h-[840px] block border-0 bg-[#323639]"
                         />
                       </div>
                     </div>
