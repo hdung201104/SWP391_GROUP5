@@ -109,9 +109,10 @@ public class AuthController {
 
     @PostMapping("/forgot-password")
     public ResponseEntity<ApiResponse<Map<String, String>>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
-        authService.forgotPassword(request);
+        String generatedOtp = authService.forgotPassword(request);
         Map<String, String> data = new java.util.HashMap<>();
         data.put("email", request.getEmail());
+        data.put("otpDevHint", generatedOtp);
         return ResponseEntity.ok(ApiResponse.ok("Mã OTP khôi phục mật khẩu đã được gửi đến email", data));
     }
 

@@ -3,6 +3,8 @@ package com.hiremate.service.impl;
 import com.hiremate.service.EmailService;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
+import jakarta.mail.internet.InternetAddress;
+import jakarta.mail.internet.MimeUtility;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -36,13 +38,13 @@ public class EmailServiceImpl implements EmailService {
         String subject;
         String purposeText;
         if ("REGISTER".equalsIgnoreCase(purpose)) {
-            subject = "[HireMate AI] Mã Xác Nhận Đăng Ký Tài Khoản";
+            subject = "[HireMate AI] " + otp + " là mã xác nhận đăng ký tài khoản của bạn";
             purposeText = "xác nhận đăng ký tài khoản mới trên nền tảng tuyển dụng thông minh HireMate AI";
         } else if ("CHANGE_PASSWORD".equalsIgnoreCase(purpose)) {
-            subject = "[HireMate AI] Mã Xác Thực Cập Nhật Mật Khẩu";
+            subject = "[HireMate AI] " + otp + " là mã xác thực cập nhật mật khẩu của bạn";
             purposeText = "xác thực yêu cầu cập nhật mật khẩu cho tài khoản HireMate AI của bạn";
         } else {
-            subject = "[HireMate AI] Mã Khôi Phục Mật Khẩu";
+            subject = "[HireMate AI] " + otp + " là mã khôi phục mật khẩu của bạn";
             purposeText = "khôi phục mật khẩu đăng nhập cho tài khoản của bạn";
         }
 
@@ -462,13 +464,31 @@ public class EmailServiceImpl implements EmailService {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, StandardCharsets.UTF_8.name());
 
-            helper.setFrom(fromEmail, "HireMate AI Platform");
+            helper.setFrom(new InternetAddress(fromEmail, "HireMate AI Platform", StandardCharsets.UTF_8.name()));
+            helper.setReplyTo(fromEmail, "HireMate AI Support");
             helper.setTo(toEmail);
-            helper.setSubject(subject);
+            String safeSubject = (subject != null && !subject.isBlank()) ? subject : "[HireMate AI] Mã Xác Thực Bảo Mật";
+            message.setSubject(MimeUtility.encodeText(safeSubject, StandardCharsets.UTF_8.name(), "B"));
             helper.setText(htmlContent, true);
 
+            message.setHeader("MIME-Version", "1.0");
+            message.setHeader("Content-Type", "text/html; charset=UTF-8");
+            message.setHeader("X-Priority", "1");
+            message.setHeader("X-MSMail-Priority", "High");
+            message.setHeader("Importance", "High");
+            message.setHeader("X-Mailer", "HireMate AI Notification Engine 1.0");
+            message.setHeader("Precedence", "bulk");
+
             mailSender.send(message);
-            log.info(">> [EmailService] ĐÃ GỬI THÀNH CÔNG email thực tế đến: {}", toEmail);
+            log.info(">> [EmailService] ĐÃ GỬI THÀNH CÔNG email thực tế đến: {} [Tiêu đề: {}]", toEmail, safeSubject);
+        } catch (jakarta.mail.AuthenticationFailedException authEx) {
+            log.error("==========================================================================");
+            log.error(">> [EmailService] LỖI XÁC THỰC GMAIL SMTP KHI GỬI ĐẾN: {}", toEmail);
+            log.error(">> Chi tiết: {}", authEx.getMessage());
+            log.error(">> NGUYÊN NHÂN: Gmail yêu cầu 'MẬT KHẨU ỨNG DỤNG' (App Password 16 ký tự).");
+            log.error(">> Mật khẩu tài khoản thông thường bị Gmail từ chối (534 5.7.9 Application-specific password required).");
+            log.error(">> HƯỚNG DẪN: Truy cập myaccount.google.com -> Bảo mật -> Xác minh 2 bước -> Mật khẩu ứng dụng -> Tạo và dán vào SPRING_MAIL_PASSWORD trong file .env!");
+            log.error("==========================================================================");
         } catch (MessagingException e) {
             log.error(">> [EmailService] Lỗi tạo định dạng MIME email: {}", e.getMessage());
         } catch (Exception e) {

@@ -46,11 +46,15 @@ spring:
     password: ${SPRING_MAIL_PASSWORD:}
     properties:
       mail:
+        mime:
+          charset: UTF-8
         smtp:
           auth: true
           starttls:
             enable: true
             required: true
+          ssl:
+            trust: smtp.gmail.com
           connectiontimeout: 10000
           timeout: 10000
           writetimeout: 10000
