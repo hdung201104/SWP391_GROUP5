@@ -450,6 +450,15 @@ export default function CandidateProfilePage({ user }) {
   const [upgradeModalMessage, setUpgradeModalMessage] = useState('');
   const [aiAtsUsageCount, setAiAtsUsageCount] = useState(0);
 
+  const isAdmin = user?.role === 'ADMIN';
+  const planPrice = Number(quotaInfo?.price) || 0;
+  const planName = quotaInfo?.planName || 'Free Candidate';
+  const isPaidPlan = Boolean(quotaInfo?.isPaidPlan || planPrice > 0);
+  const isProOrAce = planPrice >= 100000 || planName.toLowerCase().includes('pro') || planName.toLowerCase().includes('ace') || planName.toLowerCase().includes('vip');
+  const isPlus = (planPrice > 0 && planPrice < 100000) || planName.toLowerCase().includes('plus');
+  const maxCvLimit = isAdmin ? Infinity : isProOrAce ? Infinity : isPlus ? 5 : 2;
+  const maxCvLimitStr = maxCvLimit === Infinity ? 'Không giới hạn' : `${maxCvLimit}`;
+
   // Persistent localStorage trackers for AI Summary Rewrite (Free: 1 trial, Plus: 5/week, Pro/Ace: Unlimited)
   const getAiSummaryUsage = () => {
     if (!user?.userId) return 0;
@@ -506,15 +515,6 @@ export default function CandidateProfilePage({ user }) {
       setAiAtsUsageCount(getAiSummaryUsage());
     }
   }, [user?.userId, isPlus]);
-
-  const isAdmin = user?.role === 'ADMIN';
-  const planPrice = Number(quotaInfo?.price) || 0;
-  const planName = quotaInfo?.planName || 'Free Candidate';
-  const isPaidPlan = Boolean(quotaInfo?.isPaidPlan || planPrice > 0);
-  const isProOrAce = planPrice >= 100000 || planName.toLowerCase().includes('pro') || planName.toLowerCase().includes('ace') || planName.toLowerCase().includes('vip');
-  const isPlus = (planPrice > 0 && planPrice < 100000) || planName.toLowerCase().includes('plus');
-  const maxCvLimit = isAdmin ? Infinity : isProOrAce ? Infinity : isPlus ? 5 : 2;
-  const maxCvLimitStr = maxCvLimit === Infinity ? 'Không giới hạn' : `${maxCvLimit}`;
 
   const showToast = (msg) => {
     setToastMessage(msg);

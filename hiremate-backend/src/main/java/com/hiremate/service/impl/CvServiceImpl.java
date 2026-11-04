@@ -490,10 +490,80 @@ public class CvServiceImpl implements CvService {
     }
 
     @Override
+    @Transactional
     public CvResponse getCvById(Long cvId) {
         Cv cv = cvRepository.findById(cvId)
                 .orElseThrow(() -> new IllegalArgumentException("CV not found: " + cvId));
+        if (cv.getParsedJson() == null || cv.getParsedJson().isBlank() || "{}".equals(cv.getParsedJson().trim())) {
+            ensureCvParsed(cv);
+        }
         return mapToResponse(cv);
+    }
+
+    private void ensureCvParsed(Cv cv) {
+        if (cv == null) return;
+        if (cv.getParsedJson() != null && !cv.getParsedJson().isBlank() && !"{}".equals(cv.getParsedJson().trim())) {
+            return;
+        }
+
+        String textToAnalyze = cv.getParsedText();
+        byte[] fileBytes = null;
+
+        // Nếu chưa có parsedText mà có fileUrl -> thử đọc từ file lưu trữ
+        if ((textToAnalyze == null || textToAnalyze.isBlank()) && cv.getFileUrl() != null) {
+            try {
+                fileBytes = fileStorageService.loadFileAsBytes(cv.getFileUrl());
+                if (fileBytes != null && fileBytes.length > 0) {
+                    String fileType = cv.getFileType() != null ? cv.getFileType().toLowerCase() : "pdf";
+                    if ("pdf".equals(fileType)) {
+                        try (org.apache.pdfbox.pdmodel.PDDocument doc = org.apache.pdfbox.Loader.loadPDF(fileBytes)) {
+                            org.apache.pdfbox.text.PDFTextStripper stripper = new org.apache.pdfbox.text.PDFTextStripper();
+                            stripper.setSortByPosition(true);
+                            String raw = stripper.getText(doc);
+                            if (raw != null && !raw.isBlank()) {
+                                textToAnalyze = raw.trim();
+                                cv.setParsedText(textToAnalyze);
+                            }
+                        } catch (Exception ex) {
+                            log.warn(">> [CvService] PDF text extraction failed for CV {}: {}", cv.getCvId(), ex.getMessage());
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.warn(">> [CvService] Could not load file bytes for CV {}: {}", cv.getCvId(), e.getMessage());
+            }
+        }
+
+        com.hiremate.dto.ai.AiCvAnalysis analysis = null;
+        if (textToAnalyze != null && !textToAnalyze.isBlank()) {
+            try {
+                analysis = geminiAiService.analyzeCv(textToAnalyze);
+            } catch (Exception e) {
+                log.warn(">> [CvService] Gemini analyzeCv failed for CV {}: {}", cv.getCvId(), e.getMessage());
+            }
+        } else if (fileBytes != null && fileBytes.length > 0 && cv.getFileType() != null && cv.getFileType().matches("(?i)png|jpe?g|webp")) {
+            try {
+                String mimeType = "image/" + (cv.getFileType().equalsIgnoreCase("jpg") ? "jpeg" : cv.getFileType().toLowerCase());
+                analysis = geminiAiService.analyzeCvImage(fileBytes, mimeType);
+            } catch (Exception e) {
+                log.warn(">> [CvService] Gemini analyzeCvImage failed for CV {}: {}", cv.getCvId(), e.getMessage());
+            }
+        }
+
+        if (analysis != null) {
+            if (analysis.getRawJson() != null && !analysis.getRawJson().isBlank()) {
+                cv.setParsedJson(analysis.getRawJson());
+            }
+            if (analysis.getSummary() != null && !analysis.getSummary().isBlank()) {
+                cv.setSummary(analysis.getSummary().trim());
+            }
+            try {
+                cvRepository.save(cv);
+                log.info(">> [CvService] Tự động trích xuất và lưu parsedJson thành công cho CV ID: {}", cv.getCvId());
+            } catch (Exception ex) {
+                log.warn(">> [CvService] Không thể lưu auto-parsed CV {}: {}", cv.getCvId(), ex.getMessage());
+            }
+        }
     }
 
     @Override
@@ -1022,23 +1092,35 @@ public class CvServiceImpl implements CvService {
             }
         }
 
-        // 2. Chỉ khi parsedData thiếu, mới fallback sang Candidate và User Profile
+        // 2. Chỉ khi parsedData thiếu, mới fallback sang Candidate và User Profile (Tránh ghi đè chéo bản CV upload riêng)
         if (cv.getCandidateId() != null) {
+            boolean isUploadedResumeFile = cv.getFileUrl() != null && !cv.getFileUrl().isBlank();
             var cand = prefetchedCand != null ? prefetchedCand : candidateRepository.findByCandidateId(cv.getCandidateId()).orElse(null);
             if (cand != null) {
                 if (headline == null || headline.isBlank()) headline = cand.getHeadline();
                 if (experienceYears == null) experienceYears = cand.getExperienceYears();
-                if (educationsJson == null || educationsJson.isBlank() || "[]".equals(educationsJson)) educationsJson = cand.getEducationsJson();
-                if (experiencesJson == null || experiencesJson.isBlank() || "[]".equals(experiencesJson)) experiencesJson = cand.getExperiencesJson();
-                if (projectsJson == null || projectsJson.isBlank() || "[]".equals(projectsJson)) projectsJson = cand.getProjectsJson();
-                if (address == null || address.isBlank()) address = cand.getLocation();
+                if (!isUploadedResumeFile) {
+                    if (educationsJson == null || educationsJson.isBlank() || "[]".equals(educationsJson)) educationsJson = cand.getEducationsJson();
+                    if (experiencesJson == null || experiencesJson.isBlank() || "[]".equals(experiencesJson)) experiencesJson = cand.getExperiencesJson();
+                    if (projectsJson == null || projectsJson.isBlank() || "[]".equals(projectsJson)) projectsJson = cand.getProjectsJson();
+                    if (address == null || address.isBlank()) address = cand.getLocation();
+                }
             }
             User candUser = prefetchedUser != null ? prefetchedUser : userRepository.findById(cv.getCandidateId()).orElse(null);
             if (candUser != null) {
-                if (fullName == null || fullName.isBlank()) fullName = candUser.getFullName();
-                if (phone == null || phone.isBlank()) phone = candUser.getPhone();
-                if (email == null || email.isBlank()) email = candUser.getEmail();
-                if (address == null || address.isBlank()) address = candUser.getAddress();
+                if (!isUploadedResumeFile) {
+                    if (fullName == null || fullName.isBlank()) fullName = candUser.getFullName();
+                    if (phone == null || phone.isBlank()) phone = candUser.getPhone();
+                    if (email == null || email.isBlank()) email = candUser.getEmail();
+                    if (address == null || address.isBlank()) address = candUser.getAddress();
+                } else {
+                    if (fullName == null || fullName.isBlank()) {
+                        fullName = cv.getFileName() != null ? cv.getFileName().replaceFirst("\\.[^.]+$", "").replaceAll("[-_]", " ") : candUser.getFullName();
+                    }
+                    if (phone == null || phone.isBlank()) phone = candUser.getPhone();
+                    if (email == null || email.isBlank()) email = candUser.getEmail();
+                    if (address == null || address.isBlank()) address = candUser.getAddress();
+                }
             }
         }
 
