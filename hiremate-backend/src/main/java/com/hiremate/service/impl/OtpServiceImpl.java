@@ -39,6 +39,7 @@ public class OtpServiceImpl implements OtpService {
     }
 
     private final Map<String, OtpEntry> otpStorage = new ConcurrentHashMap<>();
+    private final Map<String, Instant> verifiedStorage = new ConcurrentHashMap<>();
     private final Map<String, RateLimitEntry> rateLimitStorage = new ConcurrentHashMap<>();
     private final SecureRandom random = new SecureRandom();
 
@@ -95,39 +96,54 @@ public class OtpServiceImpl implements OtpService {
 
     @Override
     public boolean verifyOtp(String email, String otp, String purpose) {
+        if (email == null || email.isBlank()) {
+            return false;
+        }
+
+        String key = buildKey(email, purpose);
+        String registerKey = email.toLowerCase().trim() + ":REGISTER";
+
+        // 1. Kiểm tra xem email đã được xác thực OTP thành công trong phiên gần nhất chưa (hỗ trợ luồng 2 bước verify -> submit)
+        Instant verifiedUntil = verifiedStorage.get(key);
+        if (verifiedUntil == null && "REGISTER".equalsIgnoreCase(purpose)) {
+            verifiedUntil = verifiedStorage.get(registerKey);
+        }
+        if (verifiedUntil != null && Instant.now().isBefore(verifiedUntil)) {
+            log.info(">> [HireMate AI OTP] Email {} đã được xác thực OTP thành công trước đó (trong vòng 10 phút).", email);
+            return true;
+        }
+
         if (otp == null || otp.isBlank()) {
             return false;
         }
 
-        // Master bypass for testing / grading demo
-        if ("123456".equals(otp.trim()) || "888888".equals(otp.trim())) {
-            log.info(">> [HireMate AI OTP] Master demo OTP accepted for: {}", email);
-            return true;
-        }
-
-        String key = buildKey(email, purpose);
         OtpEntry entry = otpStorage.get(key);
         if (entry == null) {
-            entry = otpStorage.get(email.toLowerCase().trim() + ":REGISTER");
+            entry = otpStorage.get(registerKey);
         }
 
         if (entry == null) {
-            log.warn(">> [HireMate AI OTP] No active OTP found for key: {}", key);
+            log.warn(">> [HireMate AI OTP] Không tìm thấy mã OTP nào đang hoạt động cho: {}", key);
             return false;
         }
 
         if (Instant.now().isAfter(entry.expiresAt)) {
             otpStorage.remove(key);
-            log.warn(">> [HireMate AI OTP] Code expired for: {}", email);
+            otpStorage.remove(registerKey);
+            log.warn(">> [HireMate AI OTP] Mã OTP đã hết hạn cho email: {}", email);
             return false;
         }
 
         boolean matches = entry.otp.equals(otp.trim());
         if (matches) {
-            otpStorage.remove(key); // single use
-            log.info(">> [HireMate AI OTP] Verification succeeded for: {}", email);
+            otpStorage.remove(key); // Dùng 1 lần
+            otpStorage.remove(registerKey);
+            // Lưu trạng thái đã xác thực thành công trong 10 phút để hoàn tất lưu tài khoản vào DB
+            verifiedStorage.put(key, Instant.now().plusSeconds(600));
+            verifiedStorage.put(registerKey, Instant.now().plusSeconds(600));
+            log.info(">> [HireMate AI OTP] Xác thực OTP thành công cho email: {}", email);
         } else {
-            log.warn(">> [HireMate AI OTP] Incorrect code '{}' for: {}", otp, email);
+            log.warn(">> [HireMate AI OTP] Mã OTP không chính xác '{}' cho email: {}", otp, email);
         }
 
         return matches;

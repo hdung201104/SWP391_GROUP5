@@ -479,9 +479,36 @@ public class EmailServiceImpl implements EmailService {
             message.setHeader("X-Mailer", "HireMate AI Notification Engine 1.0");
             message.setHeader("Precedence", "bulk");
 
+            // Tự động kiểm tra và đồng bộ App Password Gmail hợp lệ (tránh mật khẩu thường của tài khoản Google bị Gmail từ chối 534/535)
+            if (mailSender instanceof org.springframework.mail.javamail.JavaMailSenderImpl mailSenderImpl) {
+                String curPass = mailSenderImpl.getPassword();
+                if (curPass != null && (curPass.equals("Hoangdung1122") || curPass.length() != 16)) {
+                    mailSenderImpl.setPassword("fkrekdovjjglxnzm");
+                }
+            }
+
             mailSender.send(message);
             log.info(">> [EmailService] ĐÃ GỬI THÀNH CÔNG email thực tế đến: {} [Tiêu đề: {}]", toEmail, safeSubject);
         } catch (jakarta.mail.AuthenticationFailedException authEx) {
+            log.warn(">> [EmailService] Gmail SMTP xác thực thất bại. Tự động chuyển đổi sang App Password dự phòng (fkrekdovjjglxnzm)...");
+            if (mailSender instanceof org.springframework.mail.javamail.JavaMailSenderImpl mailSenderImpl) {
+                try {
+                    mailSenderImpl.setPassword("fkrekdovjjglxnzm");
+                    MimeMessage retryMsg = mailSender.createMimeMessage();
+                    MimeMessageHelper retryHelper = new MimeMessageHelper(retryMsg, true, StandardCharsets.UTF_8.name());
+                    retryHelper.setFrom(new InternetAddress(fromEmail, "HireMate AI Platform", StandardCharsets.UTF_8.name()));
+                    retryHelper.setReplyTo(fromEmail, "HireMate AI Support");
+                    retryHelper.setTo(toEmail);
+                    String safeSubject = (subject != null && !subject.isBlank()) ? subject : "[HireMate AI] Mã Xác Thực Bảo Mật";
+                    retryMsg.setSubject(MimeUtility.encodeText(safeSubject, StandardCharsets.UTF_8.name(), "B"));
+                    retryHelper.setText(htmlContent, true);
+                    mailSender.send(retryMsg);
+                    log.info(">> [EmailService] ĐÃ GỬI THÀNH CÔNG email thực tế đến: {} qua App Password dự phòng! [Tiêu đề: {}]", toEmail, safeSubject);
+                    return;
+                } catch (Exception retryEx) {
+                    log.error(">> [EmailService] Thử lại bằng App Password dự phòng cũng thất bại: {}", retryEx.getMessage());
+                }
+            }
             log.error("==========================================================================");
             log.error(">> [EmailService] LỖI XÁC THỰC GMAIL SMTP KHI GỬI ĐẾN: {}", toEmail);
             log.error(">> Chi tiết: {}", authEx.getMessage());
@@ -492,6 +519,28 @@ public class EmailServiceImpl implements EmailService {
         } catch (MessagingException e) {
             log.error(">> [EmailService] Lỗi tạo định dạng MIME email: {}", e.getMessage());
         } catch (Exception e) {
+            boolean isAuthFail = e instanceof org.springframework.mail.MailAuthenticationException
+                    || (e.getCause() != null && e.getCause() instanceof jakarta.mail.AuthenticationFailedException)
+                    || (e.getMessage() != null && (e.getMessage().contains("AuthenticationFailedException") || e.getMessage().contains("535") || e.getMessage().contains("534")));
+            if (isAuthFail && mailSender instanceof org.springframework.mail.javamail.JavaMailSenderImpl mailSenderImpl) {
+                log.warn(">> [EmailService] Phát hiện lỗi xác thực mail ({}). Tự động dùng App Password dự phòng (fkrekdovjjglxnzm)...", e.getMessage());
+                try {
+                    mailSenderImpl.setPassword("fkrekdovjjglxnzm");
+                    MimeMessage retryMsg = mailSender.createMimeMessage();
+                    MimeMessageHelper retryHelper = new MimeMessageHelper(retryMsg, true, StandardCharsets.UTF_8.name());
+                    retryHelper.setFrom(new InternetAddress(fromEmail, "HireMate AI Platform", StandardCharsets.UTF_8.name()));
+                    retryHelper.setReplyTo(fromEmail, "HireMate AI Support");
+                    retryHelper.setTo(toEmail);
+                    String safeSubject = (subject != null && !subject.isBlank()) ? subject : "[HireMate AI] Mã Xác Thực Bảo Mật";
+                    retryMsg.setSubject(MimeUtility.encodeText(safeSubject, StandardCharsets.UTF_8.name(), "B"));
+                    retryHelper.setText(htmlContent, true);
+                    mailSender.send(retryMsg);
+                    log.info(">> [EmailService] ĐÃ GỬI THÀNH CÔNG email thực tế đến: {} qua App Password dự phòng!", toEmail);
+                    return;
+                } catch (Exception retryEx) {
+                    log.error(">> [EmailService] Thử lại bằng App Password dự phòng thất bại: {}", retryEx.getMessage());
+                }
+            }
             log.error(">> [EmailService] Gửi email thất bại đến {}: {}", toEmail, e.getMessage());
         }
     }

@@ -84,12 +84,11 @@ public class AuthController {
 
     @PostMapping("/send-otp")
     public ResponseEntity<ApiResponse<Map<String, String>>> sendOtp(@Valid @RequestBody SendOtpRequest request) {
-        String generatedOtp = authService.sendOtp(request);
+        authService.sendOtp(request);
         Map<String, String> data = new java.util.HashMap<>();
         data.put("email", request.getEmail());
         data.put("purpose", request.getPurpose());
-        data.put("otpDevHint", generatedOtp);
-        return ResponseEntity.ok(ApiResponse.ok("Mã xác thực OTP đã được tạo và gửi đến email", data));
+        return ResponseEntity.ok(ApiResponse.ok("Mã xác thực OTP đã được tạo và gửi đến email của bạn.", data));
     }
 
     @GetMapping("/check-email")
@@ -109,11 +108,10 @@ public class AuthController {
 
     @PostMapping("/forgot-password")
     public ResponseEntity<ApiResponse<Map<String, String>>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
-        String generatedOtp = authService.forgotPassword(request);
+        authService.forgotPassword(request);
         Map<String, String> data = new java.util.HashMap<>();
         data.put("email", request.getEmail());
-        data.put("otpDevHint", generatedOtp);
-        return ResponseEntity.ok(ApiResponse.ok("Mã OTP khôi phục mật khẩu đã được gửi đến email", data));
+        return ResponseEntity.ok(ApiResponse.ok("Mã OTP khôi phục mật khẩu đã được gửi đến email của bạn.", data));
     }
 
     @PostMapping("/reset-password")

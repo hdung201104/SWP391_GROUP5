@@ -1,4 +1,4 @@
-﻿import { HIREMATE_LOGO_URL } from '../../constants/branding';
+import { HIREMATE_LOGO_URL } from '../../constants/branding';
 import React, { useState, useEffect } from 'react';
 import { 
   User, 
@@ -68,7 +68,6 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
-  const [devOtpHint, setDevOtpHint] = useState('');
 
   // Candidate-specific fields
   const [headline, setHeadline] = useState('');
@@ -253,13 +252,9 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
         return;
       }
 
-      const res = await authApi.sendOtp({ email: email.trim(), purpose: 'REGISTER' });
+      await authApi.sendOtp({ email: email.trim(), purpose: 'REGISTER' });
       setOtpSent(true);
       setResendCooldown(60);
-      const hint = res?.data?.data?.otpDevHint || res?.data?.otpDevHint || res?.otpDevHint;
-      if (hint) {
-        setDevOtpHint(hint);
-      }
       setSuccessMessage(`Đã gửi mã xác thực OTP 6 số đến email ${email}. Vui lòng kiểm tra hộp thư (cả mục Spam)!`);
     } catch (err) {
       setErrorMessage(err.message || 'Không thể gửi mã OTP. Vui lòng thử lại sau giây lát.');
@@ -1318,27 +1313,15 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
                     maxLength={6}
                     value={otpCode}
                     onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                    placeholder="Nhập 6 số OTP (Ví dụ: 123456)"
+                    placeholder="Nhập 6 số OTP từ Gmail"
                     autoComplete="one-time-code"
                     required
-                    className="w-full pl-10 pr-24 py-2.5 bg-white border border-purple-100 focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] tracking-widest font-mono placeholder:tracking-normal placeholder-slate-400 focus:outline-none transition-all"
+                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-purple-100 focus:border-[#5b48bd] focus:ring-2 focus:ring-[#5b48bd]/20 rounded-full text-sm text-[#221d47] tracking-widest font-mono placeholder:tracking-normal placeholder-slate-400 focus:outline-none transition-all"
                   />
-                  {devOtpHint && (
-                    <button
-                      type="button"
-                      onClick={() => setOtpCode(devOtpHint)}
-                      className="absolute right-2 px-2.5 py-1 bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-900 text-xs font-bold rounded-full transition-all cursor-pointer"
-                    >
-                      Điền {devOtpHint}
-                    </button>
-                  )}
                 </div>
 
                 <div className="flex flex-wrap items-center justify-between gap-1 text-[11px] text-slate-500">
-                  <span>Mã OTP tự động gửi đến email của bạn. Mã test demo: <span className="text-[#5b48bd] font-mono font-bold">123456</span> hoặc <span className="text-[#5b48bd] font-mono font-bold">888888</span>.</span>
-                  {devOtpHint && (
-                    <span className="text-amber-700 font-medium">Mã vừa tạo: <strong className="font-mono">{devOtpHint}</strong></span>
-                  )}
+                  <span>Mã OTP bảo mật đã được gửi đến email của bạn. Vui lòng kiểm tra Hộp thư đến (Inbox) hoặc Thư rác (Spam).</span>
                 </div>
               </div>
             </div>

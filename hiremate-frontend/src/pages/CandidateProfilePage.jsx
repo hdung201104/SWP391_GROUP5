@@ -61,8 +61,8 @@ const normalizeExperiences = (rawList) => {
       bullets: (Array.isArray(exp.bullets) && exp.bullets.length > 0)
         ? exp.bullets
         : ((Array.isArray(exp.highlights) && exp.highlights.length > 0)
-            ? exp.highlights
-            : (exp.description ? [exp.description] : ['Hoàn thành tốt các nhiệm vụ chuyên môn được giao'])),
+          ? exp.highlights
+          : (exp.description ? [exp.description] : ['Hoàn thành tốt các nhiệm vụ chuyên môn được giao'])),
       tags: Array.isArray(exp.tags) && exp.tags.length > 0 ? exp.tags : ['Thực tế', 'Chuyên môn']
     };
   });
@@ -394,13 +394,8 @@ export default function CandidateProfilePage({ user }) {
   const fetchRecommendations = async () => {
     try {
       setLoadingRecommendations(true);
-      let res = await jobApi.getRecommendations({ minMatch: 50, limit: 4 });
-      let list = res?.data || res || [];
-      if (!Array.isArray(list) || list.length === 0) {
-        // Fallback: nếu chưa có việc làm nào đạt >= 50% match, thử minMatch: 0 để luôn lấy các việc làm tiềm năng nhất
-        res = await jobApi.getRecommendations({ minMatch: 0, limit: 4 });
-        list = res?.data || res || [];
-      }
+      const res = await jobApi.getRecommendations({ minMatch: 50, limit: 4 });
+      const list = res?.data || res || [];
       if (Array.isArray(list)) {
         setRecommendedJobs(list);
       }
@@ -459,46 +454,12 @@ export default function CandidateProfilePage({ user }) {
   const maxCvLimit = isAdmin ? Infinity : isProOrAce ? Infinity : isPlus ? 5 : 2;
   const maxCvLimitStr = maxCvLimit === Infinity ? 'Không giới hạn' : `${maxCvLimit}`;
 
-  // Persistent localStorage trackers for AI Summary Rewrite (Free: 1 trial, Plus: 5/week, Pro/Ace: Unlimited)
-  const getAiSummaryUsage = () => {
-    if (!user?.userId) return 0;
-    const now = new Date();
-    const startOfYear = new Date(now.getFullYear(), 0, 1);
-    const weekNumber = Math.ceil((((now - startOfYear) / 86400000) + startOfYear.getDay() + 1) / 7);
-    const weekKey = `hiremate_ai_summary_user_${user.userId}_w${now.getFullYear()}_${weekNumber}`;
-    const freeKey = `hiremate_ai_summary_free_user_${user.userId}`;
-
-    if (isPlus) {
-      return parseInt(localStorage.getItem(weekKey) || '0', 10);
-    }
-    return parseInt(localStorage.getItem(freeKey) || '0', 10);
-  };
-
-  const incrementAiSummaryUsage = () => {
-    if (!user?.userId) return;
-    const now = new Date();
-    const startOfYear = new Date(now.getFullYear(), 0, 1);
-    const weekNumber = Math.ceil((((now - startOfYear) / 86400000) + startOfYear.getDay() + 1) / 7);
-    const weekKey = `hiremate_ai_summary_user_${user.userId}_w${now.getFullYear()}_${weekNumber}`;
-    const freeKey = `hiremate_ai_summary_free_user_${user.userId}`;
-
-    if (isPlus) {
-      const cur = parseInt(localStorage.getItem(weekKey) || '0', 10);
-      localStorage.setItem(weekKey, String(cur + 1));
-      setAiAtsUsageCount(cur + 1);
-    } else {
-      const cur = parseInt(localStorage.getItem(freeKey) || '0', 10);
-      localStorage.setItem(freeKey, String(cur + 1));
-      setAiAtsUsageCount(cur + 1);
-    }
-  };
-
   useEffect(() => {
     skillApi.getAllSkills().then(res => {
       const raw = res?.data || res;
       const list = Array.isArray(raw) ? raw : (Array.isArray(raw?.data) ? raw.data : []);
       setMasterSkillsList(list);
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   useEffect(() => {
@@ -509,12 +470,6 @@ export default function CandidateProfilePage({ user }) {
       })
       .catch((e) => console.warn('Could not load quota status:', e));
   }, [user]);
-
-  useEffect(() => {
-    if (user?.userId) {
-      setAiAtsUsageCount(getAiSummaryUsage());
-    }
-  }, [user?.userId, isPlus]);
 
   const showToast = (msg) => {
     setToastMessage(msg);
@@ -586,20 +541,12 @@ export default function CandidateProfilePage({ user }) {
     showToast('🎉 Đã nhân bản thêm 1 phiên bản CV mới! Bạn có thể chỉnh sửa ngay.');
   };
 
-  // Gemini AI Polish Summary (Free: 1 trial, Plus: 5/week, Pro/Ace: Unlimited)
+  // Gemini AI Polish Summary
   const handleRewriteBioWithGemini = async () => {
-    if (!isAdmin && !isProOrAce) {
-      const currentUsage = getAiSummaryUsage();
-      const limit = isPlus ? 5 : 1;
-      if (currentUsage >= limit) {
-        if (isPlus) {
-          setUpgradeModalMessage(`Gói "${planName}" cho phép tối đa 5 lượt AI Tinh Chỉnh Tóm tắt CV mỗi tuần (Bạn đã sử dụng ${currentUsage}/5 lượt trong tuần này). Hãy nâng cấp lên gói Practice Pro hoặc Career Ace để sử dụng tính năng này KHÔNG GIỚI HẠN!`);
-        } else {
-          setUpgradeModalMessage(`Tài khoản Miễn phí chỉ được dùng thử 1 lượt AI Tinh Chỉnh Tóm tắt CV chuẩn ATS. Hãy nâng cấp lên gói Practice Plus (5 lượt/tuần) hoặc Practice Pro để tinh chỉnh không giới hạn!`);
-        }
-        setUpgradeModalOpen(true);
-        return;
-      }
+    if (!isAdmin && !isPaidPlan && aiAtsUsageCount >= 1) {
+      setUpgradeModalMessage(`Gói "${planName}" chỉ hỗ trợ 1 lượt AI Tinh Chỉnh ATS mỗi phiên làm việc. Hãy nâng cấp gói Practice Plus / Pro để sử dụng tính năng AI tinh chỉnh không giới hạn!`);
+      setUpgradeModalOpen(true);
+      return;
     }
     setIsRewritingBio(true);
     showToast('Gemini AI đang tối ưu hóa từ khóa theo tiêu chuẩn ATS cho phiên bản này...');
@@ -619,7 +566,7 @@ export default function CandidateProfilePage({ user }) {
       const newBio = res?.data?.data?.summary || res?.data?.summary || res?.data;
       if (newBio && typeof newBio === 'string' && newBio.trim()) {
         setCvData(prev => ({ ...prev, summary: newBio.trim() }));
-        incrementAiSummaryUsage();
+        setAiAtsUsageCount(prev => prev + 1);
         showToast('✨ Gemini AI đã nâng cấp bản tóm tắt đạt chuẩn ATS 100%!');
         setTimeout(() => handleSaveProfile(), 400);
       } else {
@@ -631,7 +578,7 @@ export default function CandidateProfilePage({ user }) {
       const title = cvData.targetTitle || 'Chuyên viên';
       const fallbackBio = `${title} với tinh thần trách nhiệm cao và tư duy giải pháp chuyên sâu. Sở hữu năng lực thực chiến vững vàng${skillsTop ? ` về ${skillsTop}` : ''}, khả năng tối ưu hóa quy trình làm việc và thích ứng nhanh với môi trường công nghệ mới. Cam kết đóng góp tích cực vào hiệu suất chung của đội ngũ và mang lại giá trị bền vững cho tổ chức.`;
       setCvData(prev => ({ ...prev, summary: fallbackBio }));
-      incrementAiSummaryUsage();
+      setAiAtsUsageCount(prev => prev + 1);
       showToast('✨ Đã tinh chỉnh bản tóm tắt đạt chuẩn ATS dựa trên kỹ năng thực tế!');
     } finally {
       setIsRewritingBio(false);
@@ -862,21 +809,21 @@ export default function CandidateProfilePage({ user }) {
     portfolio: profileData?.portfolioUrl && profileData.portfolioUrl !== 'Chưa liên kết' ? profileData.portfolioUrl : 'Chưa liên kết',
     cvVersions: cvFiles.length > 0
       ? cvFiles.map((f, i) => ({
-          id: `cv_${f.id}`,
-          versionName: f.name,
-          versionBadge: f.isDefault ? '⭐ MẶC ĐỊNH FAST APPLY' : `TỆP ĐÃ TẢI LÊN #${i + 1}`,
-          isDefault: Boolean(f.isDefault),
-        }))
+        id: `cv_${f.id}`,
+        versionName: f.name,
+        versionBadge: f.isDefault ? '⭐ MẶC ĐỊNH FAST APPLY' : `TỆP ĐÃ TẢI LÊN #${i + 1}`,
+        isDefault: Boolean(f.isDefault),
+      }))
       : (isCustomCreated
-          ? [
-              {
-                id: 'cv_default_online',
-                versionName: cvData.versionName || 'Bản CV Trực Tuyến HireMate',
-                versionBadge: '⭐ MẶC ĐỊNH FAST APPLY',
-                isDefault: true,
-              }
-            ]
-          : [])
+        ? [
+          {
+            id: 'cv_default_online',
+            versionName: cvData.versionName || 'Bản CV Trực Tuyến HireMate',
+            versionBadge: '⭐ MẶC ĐỊNH FAST APPLY',
+            isDefault: true,
+          }
+        ]
+        : [])
   };
   const [isUploading, setIsUploading] = useState(false);
   const [analyzedAtsScore, setAnalyzedAtsScore] = useState(null);
@@ -928,7 +875,7 @@ export default function CandidateProfilePage({ user }) {
     if (Array.isArray(pData.experiences)) {
       experiences = pData.experiences;
     } else if (typeof cvObj.experiencesJson === 'string' && cvObj.experiencesJson.trim().startsWith('[')) {
-      try { experiences = JSON.parse(cvObj.experiencesJson); } catch (e) {}
+      try { experiences = JSON.parse(cvObj.experiencesJson); } catch (e) { }
     } else if (Array.isArray(cvObj.experiences)) {
       experiences = cvObj.experiences;
     }
@@ -937,7 +884,7 @@ export default function CandidateProfilePage({ user }) {
     if (Array.isArray(pData.projects)) {
       projects = pData.projects;
     } else if (typeof cvObj.projectsJson === 'string' && cvObj.projectsJson.trim().startsWith('[')) {
-      try { projects = JSON.parse(cvObj.projectsJson); } catch (e) {}
+      try { projects = JSON.parse(cvObj.projectsJson); } catch (e) { }
     } else if (Array.isArray(cvObj.projects)) {
       projects = cvObj.projects;
     }
@@ -956,19 +903,19 @@ export default function CandidateProfilePage({ user }) {
     let educations = [];
     if (Array.isArray(pData.educations)) educations = pData.educations;
     else if (typeof cvObj.educationsJson === 'string' && cvObj.educationsJson.trim().startsWith('[')) {
-      try { educations = JSON.parse(cvObj.educationsJson); } catch (e) {}
+      try { educations = JSON.parse(cvObj.educationsJson); } catch (e) { }
     } else if (Array.isArray(cvObj.education)) educations = cvObj.education;
 
     let certifications = [];
     if (Array.isArray(pData.certifications)) certifications = pData.certifications;
     else if (typeof cvObj.certificationsJson === 'string' && cvObj.certificationsJson.trim().startsWith('[')) {
-      try { certifications = JSON.parse(cvObj.certificationsJson); } catch (e) {}
+      try { certifications = JSON.parse(cvObj.certificationsJson); } catch (e) { }
     } else if (Array.isArray(cvObj.certifications)) certifications = cvObj.certifications;
 
     let languages = [];
     if (Array.isArray(pData.languages)) languages = pData.languages;
     else if (typeof cvObj.languagesJson === 'string' && cvObj.languagesJson.trim().startsWith('[')) {
-      try { languages = JSON.parse(cvObj.languagesJson); } catch (e) {}
+      try { languages = JSON.parse(cvObj.languagesJson); } catch (e) { }
     } else if (Array.isArray(cvObj.languages)) languages = cvObj.languages;
 
     let extra = 0;
@@ -1110,7 +1057,7 @@ export default function CandidateProfilePage({ user }) {
             }));
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [user]);
 
@@ -1505,7 +1452,7 @@ export default function CandidateProfilePage({ user }) {
   return (
     <div className="w-full bg-transparent font-sans text-botanical-forest min-h-screen pb-24 antialiased">
       {/* Toast Notification */}
-      
+
       {/* ========================================================= */}
       {/* AI CV SCANNER & PARSER REALTIME MODAL                     */}
       {/* ========================================================= */}
@@ -1515,7 +1462,7 @@ export default function CandidateProfilePage({ user }) {
             <div className="w-full max-w-md bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-purple-100 text-center space-y-5 animate-scaleUp font-sans">
               <div className="relative w-20 h-24 mx-auto bg-gradient-to-b from-purple-50 to-purple-100/70 rounded-2xl border-2 border-purple-200 flex flex-col items-center justify-center shadow-inner overflow-hidden">
                 <span className="material-symbols-outlined text-4xl text-[#5b48bd]">description</span>
-                <div 
+                <div
                   className="absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-[#5b48bd] to-transparent shadow-lg animate-pulse"
                 />
               </div>
@@ -1605,8 +1552,8 @@ export default function CandidateProfilePage({ user }) {
               <button
                 onClick={() => setActiveTab('resume')}
                 className={`px-5 py-2.5 rounded-full text-xs font-sans font-extrabold flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'resume'
-                    ? 'bg-[#32247b] text-white shadow-md'
-                    : 'bg-[#f8f7ff] text-[#1e1b4b] hover:bg-purple-50 hover:border-[#5b48bd] border border-purple-100 font-medium'
+                  ? 'bg-[#32247b] text-white shadow-md'
+                  : 'bg-[#f8f7ff] text-[#1e1b4b] hover:bg-purple-50 hover:border-[#5b48bd] border border-purple-100 font-medium'
                   }`}
               >
                 <span className="material-symbols-outlined text-base">description</span>
@@ -1616,8 +1563,8 @@ export default function CandidateProfilePage({ user }) {
               <button
                 onClick={() => setActiveTab('attachments')}
                 className={`px-5 py-2.5 rounded-full text-xs font-sans font-extrabold flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'attachments'
-                    ? 'bg-[#32247b] text-white shadow-md'
-                    : 'bg-[#f8f7ff] text-[#1e1b4b] hover:bg-purple-50 hover:border-[#5b48bd] border border-purple-100 font-medium'
+                  ? 'bg-[#32247b] text-white shadow-md'
+                  : 'bg-[#f8f7ff] text-[#1e1b4b] hover:bg-purple-50 hover:border-[#5b48bd] border border-purple-100 font-medium'
                   }`}
               >
                 <span className="material-symbols-outlined text-base">folder_shared</span>
@@ -1654,8 +1601,8 @@ export default function CandidateProfilePage({ user }) {
                       }
                     }}
                     className={`px-3 py-1.5 rounded-full text-[11px] font-sans font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs ${isEditing
-                        ? 'bg-amber-500 text-white border border-amber-600 shadow-sm animate-pulse'
-                        : 'bg-[#f8f7ff] border border-purple-100 text-[#1e1b4b] hover:bg-purple-50 hover:border-[#5b48bd]'
+                      ? 'bg-amber-500 text-white border border-amber-600 shadow-sm animate-pulse'
+                      : 'bg-[#f8f7ff] border border-purple-100 text-[#1e1b4b] hover:bg-purple-50 hover:border-[#5b48bd]'
                       }`}
                     title="Bấm để chỉnh sửa trực tiếp từng dòng trên CV"
                   >
@@ -1723,11 +1670,10 @@ export default function CandidateProfilePage({ user }) {
                       <button
                         key={ver.id}
                         onClick={() => handleSelectCvVersion(ver.id)}
-                        className={`px-4 py-2 rounded-full font-sans transition-all cursor-pointer text-xs flex items-center gap-2 ${
-                          selectedVersionId === ver.id
-                            ? 'bg-[#32247b] text-white shadow-md font-bold'
-                            : 'bg-[#f8f7ff] border border-purple-100 text-[#1e1b4b] hover:bg-purple-50 hover:border-[#5b48bd] font-medium'
-                        }`}
+                        className={`px-4 py-2 rounded-full font-sans transition-all cursor-pointer text-xs flex items-center gap-2 ${selectedVersionId === ver.id
+                          ? 'bg-[#32247b] text-white shadow-md font-bold'
+                          : 'bg-[#f8f7ff] border border-purple-100 text-[#1e1b4b] hover:bg-purple-50 hover:border-[#5b48bd] font-medium'
+                          }`}
                       >
                         <span>{ver.versionName}</span>
                         {ver.isDefault && (
@@ -1769,11 +1715,10 @@ export default function CandidateProfilePage({ user }) {
                   <div className="flex items-center bg-[#f8f7ff] p-1 rounded-full border border-purple-100">
                     <button
                       onClick={() => setCanvasTheme('living-glass')}
-                      className={`px-3 py-1 rounded-full text-xs font-sans font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                        canvasTheme === 'living-glass'
-                          ? 'bg-[#32247b] text-white shadow-xs font-bold'
-                          : 'text-slate-600 hover:text-[#1e1b4b]'
-                      }`}
+                      className={`px-3 py-1 rounded-full text-xs font-sans font-bold transition-all cursor-pointer flex items-center gap-1.5 ${canvasTheme === 'living-glass'
+                        ? 'bg-[#32247b] text-white shadow-xs font-bold'
+                        : 'text-slate-600 hover:text-[#1e1b4b]'
+                        }`}
                       title="Giao diện kính mờ cao cấp hợp tông 100% với hình nền sống của dự án"
                     >
                       <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
@@ -1782,11 +1727,10 @@ export default function CandidateProfilePage({ user }) {
 
                     <button
                       onClick={() => setCanvasTheme('paper-white')}
-                      className={`px-3 py-1 rounded-full text-xs font-sans font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                        canvasTheme === 'paper-white'
-                          ? 'bg-[#32247b] text-white shadow-xs font-bold'
-                          : 'text-slate-600 hover:text-[#1e1b4b]'
-                      }`}
+                      className={`px-3 py-1 rounded-full text-xs font-sans font-bold transition-all cursor-pointer flex items-center gap-1.5 ${canvasTheme === 'paper-white'
+                        ? 'bg-[#32247b] text-white shadow-xs font-bold'
+                        : 'text-slate-600 hover:text-[#1e1b4b]'
+                        }`}
                       title="Xem trước định dạng giấy trắng A4 trước khi in ấn"
                     >
                       <span className="material-symbols-outlined text-sm">description</span>
@@ -1810,18 +1754,17 @@ export default function CandidateProfilePage({ user }) {
                       <button
                         key={tpl.id}
                         onClick={() => {
-                          if (tpl.id === 'modern' && !isAdmin && !isProOrAce) {
-                            setUpgradeModalMessage(`Mẫu bố cục "Hiện Đại (VIP)" là đặc quyền dành riêng cho gói Practice Pro (149k) và Career Ace (249k). Hãy nâng cấp để mở khóa toàn bộ mẫu thiết kế CV cao cấp chuẩn ATS!`);
+                          if (tpl.id === 'modern' && !isAdmin && !isPaidPlan) {
+                            setUpgradeModalMessage(`Mẫu bố cục "Hiện Đại (VIP)" là đặc quyền dành riêng cho gói Practice Plus và Practice Pro. Hãy nâng cấp để mở khóa toàn bộ mẫu thiết kế CV chuẩn ATS!`);
                             setUpgradeModalOpen(true);
                             return;
                           }
                           setCvTemplate(tpl.id);
                         }}
-                        className={`px-3 py-1 rounded-full text-xs font-sans transition-all cursor-pointer ${
-                          cvTemplate === tpl.id
-                            ? 'bg-[#32247b] text-white shadow-xs font-bold'
-                            : 'text-slate-600 hover:text-[#1e1b4b] font-medium'
-                        }`}
+                        className={`px-3 py-1 rounded-full text-xs font-sans transition-all cursor-pointer ${cvTemplate === tpl.id
+                          ? 'bg-[#32247b] text-white shadow-xs font-bold'
+                          : 'text-slate-600 hover:text-[#1e1b4b] font-medium'
+                          }`}
                       >
                         {tpl.label}
                       </button>
@@ -1917,243 +1860,1260 @@ export default function CandidateProfilePage({ user }) {
               </div>
             </div>
           ) : (
-          <div className="space-y-4">
+            <div className="space-y-4">
 
-            {/* Top Sub-bar: ATS Verification Badge */}
-            <div className="no-print flex flex-wrap items-center justify-between gap-3 px-5 py-3 rounded-2xl bg-white border border-purple-100 text-xs text-[#1e1b4b] shadow-sm font-sans">
-              <div className="flex items-center gap-3">
-                <span className="flex h-2.5 w-2.5 relative">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-[#5b48bd]"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#32247b]"></span>
-                </span>
-                <span className="text-slate-600 font-sans font-medium">
-                  ỨNG VIÊN: <strong className="text-[#1e1b4b] font-extrabold">{currentCandidate.accountName}</strong> — {cvData.versionName}
-                </span>
+              {/* Top Sub-bar: ATS Verification Badge */}
+              <div className="no-print flex flex-wrap items-center justify-between gap-3 px-5 py-3 rounded-2xl bg-white border border-purple-100 text-xs text-[#1e1b4b] shadow-sm font-sans">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-2.5 w-2.5 relative">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-[#5b48bd]"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#32247b]"></span>
+                  </span>
+                  <span className="text-slate-600 font-sans font-medium">
+                    ỨNG VIÊN: <strong className="text-[#1e1b4b] font-extrabold">{currentCandidate.accountName}</strong> — {cvData.versionName}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-4 text-xs font-sans">
+                  {(() => {
+                    const liveAts = calculateRealCvAtsScore(cvData);
+                    const liveRate = liveAts >= 80 ? 'Xuất sắc' : liveAts >= 65 ? 'Tốt' : 'Cần cải thiện';
+                    return (
+                      <span className="text-slate-600">
+                        Tương thích ATS: <strong className="font-extrabold text-[#32247b]">{liveAts}/100 ({liveRate})</strong>
+                      </span>
+                    );
+                  })()}
+                  <span className="text-purple-200">•</span>
+                  <span className="text-slate-600">
+                    Tông màu: <strong className="font-extrabold text-[#32247b]">Botanical Organic</strong>
+                  </span>
+                  <span className="text-purple-200">•</span>
+                  <span className="text-slate-600">
+                    Khổ in: <strong className="text-[#32247b] font-extrabold">A4 Sắc Nét</strong>
+                  </span>
+                </div>
               </div>
 
-              <div className="flex items-center gap-4 text-xs font-sans">
-                {(() => {
-                  const liveAts = calculateRealCvAtsScore(cvData);
-                  const liveRate = liveAts >= 80 ? 'Xuất sắc' : liveAts >= 65 ? 'Tốt' : 'Cần cải thiện';
-                  return (
-                    <span className="text-slate-600">
-                      Tương thích ATS: <strong className="font-extrabold text-[#32247b]">{liveAts}/100 ({liveRate})</strong>
-                    </span>
-                  );
-                })()}
-                <span className="text-purple-200">•</span>
-                <span className="text-slate-600">
-                  Tông màu: <strong className="font-extrabold text-[#32247b]">Botanical Organic</strong>
-                </span>
-                <span className="text-purple-200">•</span>
-                <span className="text-slate-600">
-                  Khổ in: <strong className="text-[#32247b] font-extrabold">A4 Sắc Nét</strong>
-                </span>
-              </div>
-            </div>
-
-            {/* THE MASTER CV SHEET */}
-            <div
-              className={`cv-document-sheet max-w-4xl mx-auto rounded-3xl transition-all duration-300 overflow-hidden shadow-soft-xl ${canvasTheme === 'paper-white'
+              {/* THE MASTER CV SHEET */}
+              <div
+                className={`cv-document-sheet max-w-4xl mx-auto rounded-3xl transition-all duration-300 overflow-hidden shadow-soft-xl ${canvasTheme === 'paper-white'
                   ? 'bg-[#ffffff] text-slate-800 border border-slate-300'
                   : 'card-botanical bg-white/95 border border-botanical-stone text-botanical-forest'
-                }`}
-              style={{ minHeight: '1130px' }}
-            >
+                  }`}
+                style={{ minHeight: '1130px' }}
+              >
 
-              {/* ──────────────────────────────────────────────────────── */}
-              {/* TEMPLATE A: EXECUTIVE 2 CỘT (2-COLUMN BALANCED)          */}
-              {/* ──────────────────────────────────────────────────────── */}
-              {cvTemplate === 'executive' && (
-                <div className="grid grid-cols-1 md:grid-cols-12 min-h-full cv-executive-grid">
+                {/* ──────────────────────────────────────────────────────── */}
+                {/* TEMPLATE A: EXECUTIVE 2 CỘT (2-COLUMN BALANCED)          */}
+                {/* ──────────────────────────────────────────────────────── */}
+                {cvTemplate === 'executive' && (
+                  <div className="grid grid-cols-1 md:grid-cols-12 min-h-full cv-executive-grid">
 
-                  {/* LEFT COLUMN: SIDEBAR (34% / 4 COLS) */}
-                  <aside className={`md:col-span-4 p-6 sm:p-7 space-y-6 cv-print-aside ${canvasTheme === 'paper-white'
+                    {/* LEFT COLUMN: SIDEBAR (34% / 4 COLS) */}
+                    <aside className={`md:col-span-4 p-6 sm:p-7 space-y-6 cv-print-aside ${canvasTheme === 'paper-white'
                       ? 'bg-[#f8fafc] border-r border-slate-200 text-slate-800'
                       : 'bg-[#FAF9F5] border-r border-botanical-stone text-botanical-forest'
-                    }`}>
+                      }`}>
 
-                    {/* Portrait & Candidate Name */}
-                    <div className="text-center space-y-3 pb-2">
-                      <div className="relative inline-block group">
-                        <img
-                          src={currentCandidate.avatarUrl}
-                          alt={currentCandidate.accountName}
-                          className="w-32 h-32 sm:w-36 sm:h-36 rounded-2xl object-cover shadow-soft mx-auto border-2 border-botanical-stone group-hover:brightness-90 transition-all"
-                        />
-                        <span className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white shadow z-10" title="Đang sẵn sàng nhận việc"></span>
-                        
-                        {/* Nút Upload Avatar lên Cloudinary */}
-                        <input
-                          type="file"
-                          id="candidate-avatar-file-input"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={handleCandidateAvatarFileChange}
-                        />
-                        <label
-                          htmlFor="candidate-avatar-file-input"
-                          className="absolute inset-0 rounded-2xl bg-black/40 text-white opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-1 cursor-pointer transition-opacity backdrop-blur-xs"
-                          title="Bấm để chọn ảnh từ máy (Tự động tải lên Cloudinary)"
-                        >
-                          <span className="material-symbols-outlined text-2xl">cloud_upload</span>
-                          <span className="text-[10px] font-bold uppercase tracking-wider">Đổi ảnh</span>
-                        </label>
+                      {/* Portrait & Candidate Name */}
+                      <div className="text-center space-y-3 pb-2">
+                        <div className="relative inline-block group">
+                          <img
+                            src={currentCandidate.avatarUrl}
+                            alt={currentCandidate.accountName}
+                            className="w-32 h-32 sm:w-36 sm:h-36 rounded-2xl object-cover shadow-soft mx-auto border-2 border-botanical-stone group-hover:brightness-90 transition-all"
+                          />
+                          <span className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white shadow z-10" title="Đang sẵn sàng nhận việc"></span>
+
+                          {/* Nút Upload Avatar lên Cloudinary */}
+                          <input
+                            type="file"
+                            id="candidate-avatar-file-input"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleCandidateAvatarFileChange}
+                          />
+                          <label
+                            htmlFor="candidate-avatar-file-input"
+                            className="absolute inset-0 rounded-2xl bg-black/40 text-white opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-1 cursor-pointer transition-opacity backdrop-blur-xs"
+                            title="Bấm để chọn ảnh từ máy (Tự động tải lên Cloudinary)"
+                          >
+                            <span className="material-symbols-outlined text-2xl">cloud_upload</span>
+                            <span className="text-[10px] font-bold uppercase tracking-wider">Đổi ảnh</span>
+                          </label>
+                        </div>
+
+                        <div className="space-y-1">
+                          {isEditing ? (
+                            <input
+                              type="text"
+                              value={cvData.candidateName || currentCandidate.accountName}
+                              onChange={(e) => setCvData({ ...cvData, candidateName: e.target.value })}
+                              className="w-full text-center text-base font-serif font-bold bg-white border border-botanical-stone rounded-xl p-1.5 text-botanical-forest focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 font-sans"
+                              placeholder="Họ và tên ứng viên"
+                            />
+                          ) : (
+                            <h2 className="text-lg font-serif font-bold text-botanical-forest">
+                              {cvData.candidateName || currentCandidate.accountName}
+                            </h2>
+                          )}
+
+                          {isEditing ? (
+                            <div className="space-y-1 pt-1">
+                              <input
+                                type="text"
+                                value={cvData.targetTitle}
+                                onChange={(e) => setCvData({ ...cvData, targetTitle: e.target.value })}
+                                className="w-full text-center text-xs bg-white border border-botanical-stone rounded-xl p-2 text-botanical-forest font-bold focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 font-sans"
+                                placeholder="Chức danh mục tiêu của bản CV này"
+                              />
+                            </div>
+                          ) : (
+                            <p className="text-xs font-serif font-bold leading-snug text-botanical-terracotta">
+                              {cvData.targetTitle}
+                            </p>
+                          )}
+
+                          <span className={`inline-block mt-2 px-3 py-0.5 rounded-full text-[10px] font-sans font-medium border ${getJobSearchBadge().classes}`}>
+                            {getJobSearchBadge().label}
+                          </span>
+                        </div>
                       </div>
 
-                      <div className="space-y-1">
+                      {/* Section: Thông Tin Liên Hệ (CỦA CÙNG 1 NGƯỜI) */}
+                      <div className="space-y-3 pt-2">
+                        <h3 className={`text-xs font-headline font-black uppercase tracking-wider pb-1 border-b flex items-center gap-1.5 ${canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-300' : 'text-[#2D3A31] border-[#E6E2DA]'
+                          }`}>
+                          <span className="material-symbols-outlined text-sm" style={{ color: livingTheme.primary }}>contact_phone</span>
+                          <span>Thông Tin Liên Hệ</span>
+                        </h3>
+
+                        <div className={`space-y-2.5 text-xs ${canvasTheme === 'paper-white' ? 'text-slate-800' : 'text-[#2D3A31]/90'}`}>
+                          {isEditing ? (
+                            <div className="space-y-2 font-sans">
+                              <div className="flex items-center gap-2">
+                                <span className="material-symbols-outlined text-sm text-slate-500 shrink-0">mail</span>
+                                <input
+                                  type="email"
+                                  value={cvData.email !== undefined ? cvData.email : currentCandidate.email}
+                                  onChange={(e) => setCvData({ ...cvData, email: e.target.value })}
+                                  className="w-full text-xs bg-white border border-botanical-stone rounded-lg px-2 py-1 text-slate-800 focus:border-botanical-sage focus:ring-1 focus:ring-botanical-sage/20"
+                                  placeholder="Email liên hệ"
+                                />
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="material-symbols-outlined text-sm text-slate-500 shrink-0">call</span>
+                                <input
+                                  type="tel"
+                                  value={cvData.phone !== undefined ? cvData.phone : currentCandidate.phone}
+                                  onChange={(e) => setCvData({ ...cvData, phone: e.target.value })}
+                                  className="w-full text-xs bg-white border border-botanical-stone rounded-lg px-2 py-1 text-slate-800 focus:border-botanical-sage focus:ring-1 focus:ring-botanical-sage/20"
+                                  placeholder="Số điện thoại"
+                                />
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="material-symbols-outlined text-sm text-slate-500 shrink-0">location_on</span>
+                                <input
+                                  type="text"
+                                  value={cvData.location !== undefined ? cvData.location : currentCandidate.location}
+                                  onChange={(e) => setCvData({ ...cvData, location: e.target.value })}
+                                  className="w-full text-xs bg-white border border-botanical-stone rounded-lg px-2 py-1 text-slate-800 focus:border-botanical-sage focus:ring-1 focus:ring-botanical-sage/20"
+                                  placeholder="Địa chỉ / Tỉnh thành"
+                                />
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="material-symbols-outlined text-sm text-slate-500 shrink-0">cake</span>
+                                <input
+                                  type="text"
+                                  value={cvData.dob !== undefined ? cvData.dob : currentCandidate.dob}
+                                  onChange={(e) => setCvData({ ...cvData, dob: e.target.value })}
+                                  className="w-full text-xs bg-white border border-botanical-stone rounded-lg px-2 py-1 text-slate-800 focus:border-botanical-sage focus:ring-1 focus:ring-botanical-sage/20"
+                                  placeholder="Ngày sinh (DD/MM/YYYY)"
+                                />
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="material-symbols-outlined text-sm text-slate-500 shrink-0">code</span>
+                                <input
+                                  type="text"
+                                  value={cvData.githubUrl !== undefined ? cvData.githubUrl : (currentCandidate.github !== 'Chưa liên kết' ? currentCandidate.github : '')}
+                                  onChange={(e) => setCvData({ ...cvData, githubUrl: e.target.value })}
+                                  className="w-full text-xs bg-white border border-botanical-stone rounded-lg px-2 py-1 text-slate-800 focus:border-botanical-sage focus:ring-1 focus:ring-botanical-sage/20"
+                                  placeholder="GitHub URL (https://github.com/username)"
+                                />
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="flex items-start gap-2.5">
+                                <span className="material-symbols-outlined text-sm text-slate-500 mt-0.5 shrink-0">mail</span>
+                                <span className="break-all font-medium">{cvData.email || currentCandidate.email}</span>
+                              </div>
+                              <div className="flex items-center gap-2.5">
+                                <span className="material-symbols-outlined text-sm text-slate-500 shrink-0">call</span>
+                                <span className="font-medium">{cvData.phone || currentCandidate.phone}</span>
+                              </div>
+                              <div className="flex items-start gap-2.5">
+                                <span className="material-symbols-outlined text-sm text-slate-500 mt-0.5 shrink-0">location_on</span>
+                                <span className="font-medium">{cvData.location || currentCandidate.location}</span>
+                              </div>
+                              <div className="flex items-center gap-2.5">
+                                <span className="material-symbols-outlined text-sm text-slate-500 shrink-0">cake</span>
+                                <span className="font-medium">{cvData.dob || currentCandidate.dob}</span>
+                              </div>
+                              {currentCandidate.github && currentCandidate.github !== 'Chưa liên kết' && (
+                                <div className="flex items-center gap-2.5 pt-0.5">
+                                  <span className="material-symbols-outlined text-sm text-slate-500 shrink-0">code</span>
+                                  <a
+                                    href={currentCandidate.github.startsWith('http') ? currentCandidate.github : `https://${currentCandidate.github}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="font-medium truncate hover:underline flex items-center gap-1"
+                                    style={{ color: livingTheme.primary }}
+                                    title="Trang GitHub dự án của ứng viên"
+                                  >
+                                    <span>{currentCandidate.github.replace(/^https?:\/\/(www\.)?github\.com\//, '@')}</span>
+                                    <span className="material-symbols-outlined text-xs">open_in_new</span>
+                                  </a>
+                                </div>
+                              )}
+                              <div className="flex items-center gap-2.5 pt-1">
+                                <span className="material-symbols-outlined text-sm text-slate-500 shrink-0">link</span>
+                                <span className="font-medium truncate hover:underline" style={{ color: livingTheme.primary }}>{currentCandidate.linkedin}</span>
+                              </div>
+                              <div className="flex items-center gap-2.5">
+                                <span className="material-symbols-outlined text-sm text-slate-500 shrink-0">language</span>
+                                <span className="font-medium truncate hover:underline" style={{ color: livingTheme.primary }}>{currentCandidate.portfolio}</span>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Section: Học Vấn Chính Quy */}
+                      <div className="space-y-3">
+                        <div className={`flex items-center justify-between pb-1 border-b ${canvasTheme === 'paper-white' ? 'border-slate-300' : 'border-[#E6E2DA]'}`}>
+                          <h3 className={`text-xs font-headline font-black uppercase tracking-wider flex items-center gap-1.5 ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
+                            <span className="material-symbols-outlined text-sm" style={{ color: livingTheme.primary }}>school</span>
+                            <span>Học Vấn Chính Quy</span>
+                          </h3>
+                          {isEditing && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newEdu = [...(cvData.education || [])];
+                                newEdu.push({
+                                  id: `edu_${Date.now()}`,
+                                  school: 'Đại học Bách Khoa / FPT University',
+                                  degree: 'Cử nhân Kỹ thuật Phần mềm / CNTT',
+                                  grade: 'GPA: 3.5/4.0',
+                                  period: '2020 - 2024',
+                                  highlight: 'Tốt nghiệp loại Giỏi',
+                                });
+                                setCvData({ ...cvData, education: newEdu });
+                              }}
+                              className="text-[10px] text-emerald-700 hover:text-emerald-800 font-bold flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-50 border border-emerald-200 cursor-pointer shadow-2xs"
+                            >
+                              <span className="material-symbols-outlined text-xs">add</span>
+                              <span>+ Thêm Học Vấn</span>
+                            </button>
+                          )}
+                        </div>
+
+                        {safeArr(cvData.education).length === 0 && !isEditing ? (
+                          <p className="text-xs text-slate-400 italic">Chưa có thông tin học vấn</p>
+                        ) : (
+                          safeArr(cvData.education).map((edu, eIdx) => (
+                            <div key={edu.id || eIdx} className="space-y-1.5 text-xs">
+                              {isEditing ? (
+                                <div className="space-y-1.5 p-2 rounded-xl bg-white border border-[#CBD5E1] shadow-sm">
+                                  <input
+                                    type="text"
+                                    value={edu.school || ''}
+                                    onChange={(e) => {
+                                      const newEdu = [...cvData.education];
+                                      newEdu[eIdx].school = e.target.value;
+                                      setCvData({ ...cvData, education: newEdu });
+                                    }}
+                                    className="w-full bg-slate-50 border border-slate-200 rounded p-1 font-bold text-slate-900 text-xs"
+                                    placeholder="Tên trường học"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={edu.degree || ''}
+                                    onChange={(e) => {
+                                      const newEdu = [...cvData.education];
+                                      newEdu[eIdx].degree = e.target.value;
+                                      setCvData({ ...cvData, education: newEdu });
+                                    }}
+                                    className="w-full bg-slate-50 border border-slate-200 rounded p-1 text-slate-800 text-xs"
+                                    placeholder="Chuyên ngành / Bằng cấp"
+                                  />
+                                  <div className="grid grid-cols-2 gap-1.5">
+                                    <input
+                                      type="text"
+                                      value={edu.grade || ''}
+                                      onChange={(e) => {
+                                        const newEdu = [...cvData.education];
+                                        newEdu[eIdx].grade = e.target.value;
+                                        setCvData({ ...cvData, education: newEdu });
+                                      }}
+                                      className="bg-slate-50 border border-slate-200 rounded p-1 text-emerald-700 text-xs font-mono font-bold"
+                                      placeholder="Loại tốt nghiệp / GPA"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={edu.period || ''}
+                                      onChange={(e) => {
+                                        const newEdu = [...cvData.education];
+                                        newEdu[eIdx].period = e.target.value;
+                                        setCvData({ ...cvData, education: newEdu });
+                                      }}
+                                      className="bg-slate-50 border border-slate-200 rounded p-1 text-slate-600 text-xs font-mono"
+                                      placeholder="Niên khóa"
+                                    />
+                                  </div>
+                                  <div className="flex justify-end pt-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const newEdu = cvData.education.filter((_, idx) => idx !== eIdx);
+                                        setCvData({ ...cvData, education: newEdu });
+                                      }}
+                                      className="text-[10px] text-rose-600 hover:text-rose-700 font-bold flex items-center gap-0.5 cursor-pointer"
+                                    >
+                                      <span className="material-symbols-outlined text-xs">delete</span>
+                                      <span>Xóa mục này</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <>
+                                  <h4 className={`font-headline font-bold leading-snug ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
+                                    {edu.school}
+                                  </h4>
+                                  <p className={`font-medium ${canvasTheme === 'paper-white' ? 'text-slate-700' : 'text-[#4A554D]'}`}>{edu.degree}</p>
+                                  <p className="text-[11px] font-mono font-bold text-emerald-700">{edu.grade}</p>
+                                  <p className={`text-[10px] font-mono ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{edu.period}</p>
+                                  <p className={`text-[11px] italic pt-1 leading-snug ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{edu.highlight}</p>
+                                </>
+                              )}
+                            </div>
+                          ))
+                        )}
+                      </div>
+
+                      {/* Section: Chứng Chỉ Chuyên Nghiệp */}
+                      <div className="space-y-3">
+                        <div className={`flex items-center justify-between pb-1 border-b ${canvasTheme === 'paper-white' ? 'border-slate-300' : 'border-[#E6E2DA]'
+                          }`}>
+                          <h3 className={`text-xs font-headline font-black uppercase tracking-wider flex items-center gap-1.5 ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'
+                            }`}>
+                            <span className="material-symbols-outlined text-sm" style={{ color: livingTheme.primary }}>workspace_premium</span>
+                            <span>Chứng Chỉ Quốc Tế</span>
+                          </h3>
+                          {isEditing && (
+                            <button
+                              onClick={() => {
+                                const newCert = {
+                                  id: Date.now(),
+                                  name: 'Tên chứng chỉ mới',
+                                  issuer: 'Đơn vị cấp',
+                                  year: '2024',
+                                  code: 'Mã chứng chỉ'
+                                };
+                                setCvData({ ...cvData, certifications: [...cvData.certifications, newCert] });
+                              }}
+                              className="text-[11px] font-bold text-emerald-700 hover:text-emerald-900 flex items-center gap-0.5 cursor-pointer"
+                            >
+                              + Thêm
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          {safeArr(cvData.certifications).length === 0 ? (
+                            <p className="text-[11px] text-slate-400 italic py-1">Chưa có chứng chỉ quốc tế được ghi nhận trong CV</p>
+                          ) : (
+                            safeArr(cvData.certifications).map((cert, cIdx) => (
+                              <div
+                                key={cert.id || cIdx}
+                                className={`p-2.5 rounded-xl border text-xs space-y-0.5 relative group ${canvasTheme === 'paper-white' ? 'bg-white border-slate-200 shadow-sm' : 'bg-white/80 border-[#E6E2DA] shadow-sm'
+                                  }`}
+                              >
+                                {isEditing && (
+                                  <button
+                                    onClick={() => {
+                                      setCvData({
+                                        ...cvData,
+                                        certifications: cvData.certifications.filter((_, idx) => idx !== cIdx)
+                                      });
+                                    }}
+                                    className="absolute top-2 right-2 text-rose-500 hover:text-rose-700 cursor-pointer"
+                                    title="Xóa chứng chỉ"
+                                  >
+                                    <span className="material-symbols-outlined text-sm">close</span>
+                                  </button>
+                                )}
+
+                                {isEditing ? (
+                                  <div className="space-y-1 pr-5">
+                                    <input
+                                      type="text"
+                                      value={cert.name}
+                                      onChange={(e) => {
+                                        const nextCerts = [...cvData.certifications];
+                                        nextCerts[cIdx].name = e.target.value;
+                                        setCvData({ ...cvData, certifications: nextCerts });
+                                      }}
+                                      className="w-full bg-slate-50 border border-slate-200 rounded p-1 text-slate-900 text-xs font-bold"
+                                      placeholder="Tên chứng chỉ"
+                                    />
+                                    <div className="grid grid-cols-2 gap-1">
+                                      <input
+                                        type="text"
+                                        value={cert.issuer}
+                                        onChange={(e) => {
+                                          const nextCerts = [...cvData.certifications];
+                                          nextCerts[cIdx].issuer = e.target.value;
+                                          setCvData({ ...cvData, certifications: nextCerts });
+                                        }}
+                                        className="bg-slate-50 border border-slate-200 rounded p-1 text-slate-700 text-[10px]"
+                                        placeholder="Đơn vị cấp"
+                                      />
+                                      <input
+                                        type="text"
+                                        value={cert.year}
+                                        onChange={(e) => {
+                                          const nextCerts = [...cvData.certifications];
+                                          nextCerts[cIdx].year = e.target.value;
+                                          setCvData({ ...cvData, certifications: nextCerts });
+                                        }}
+                                        className="bg-slate-50 border border-slate-200 rounded p-1 text-slate-700 text-[10px]"
+                                        placeholder="Năm cấp"
+                                      />
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <h4 className={`font-headline font-bold text-[11px] leading-snug ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
+                                      {cert.name}
+                                    </h4>
+                                    <p className={`text-[10px] font-mono ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{cert.issuer} • {cert.year}</p>
+                                    <p className="text-[10px] font-mono font-semibold truncate" style={{ color: livingTheme.primary }}>{cert.code}</p>
+                                  </>
+                                )}
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Section: Ngoại Ngữ */}
+                      <div className="space-y-3">
+                        <div className={`flex items-center justify-between pb-1 border-b ${canvasTheme === 'paper-white' ? 'border-slate-300' : 'border-[#E6E2DA]'}`}>
+                          <h3 className={`text-xs font-headline font-black uppercase tracking-wider flex items-center gap-1.5 ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
+                            <span className="material-symbols-outlined text-sm" style={{ color: livingTheme.primary }}>translate</span>
+                            <span>Ngoại Ngữ Thành Thạo</span>
+                          </h3>
+                          {isEditing && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newLangs = [...(cvData.languages || [])];
+                                newLangs.push({
+                                  name: 'Tiếng Anh',
+                                  level: 'IELTS 6.5 / B2 Professional',
+                                  score: 'Giao tiếp tốt',
+                                });
+                                setCvData({ ...cvData, languages: newLangs });
+                              }}
+                              className="text-[10px] text-emerald-700 hover:text-emerald-800 font-bold flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-50 border border-emerald-200 cursor-pointer shadow-2xs"
+                            >
+                              <span className="material-symbols-outlined text-xs">add</span>
+                              <span>+ Thêm Ngoại Ngữ</span>
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="space-y-2 text-xs">
+                          {safeArr(cvData.languages).length === 0 ? (
+                            <p className="text-[11px] text-slate-400 italic py-1">Chưa có thông tin ngoại ngữ trong CV</p>
+                          ) : (
+                            safeArr(cvData.languages).map((lang, lIdx) => (
+                              <div key={lIdx} className="border-b border-dashed border-[#E6E2DA] pb-1.5">
+                                {isEditing ? (
+                                  <div className="space-y-1">
+                                    <div className="flex items-center gap-1.5">
+                                      <input
+                                        type="text"
+                                        value={lang.name || ''}
+                                        onChange={(e) => {
+                                          const newLangs = [...cvData.languages];
+                                          newLangs[lIdx] = { ...newLangs[lIdx], name: e.target.value };
+                                          setCvData({ ...cvData, languages: newLangs });
+                                        }}
+                                        className="w-1/2 bg-white border border-slate-200 rounded px-1.5 py-0.5 font-bold text-slate-800 text-[11px]"
+                                        placeholder="Tên ngôn ngữ"
+                                      />
+                                      <input
+                                        type="text"
+                                        value={lang.level || lang.score || ''}
+                                        onChange={(e) => {
+                                          const newLangs = [...cvData.languages];
+                                          newLangs[lIdx] = { ...newLangs[lIdx], level: e.target.value, score: e.target.value };
+                                          setCvData({ ...cvData, languages: newLangs });
+                                        }}
+                                        className="w-1/2 bg-white border border-slate-200 rounded px-1.5 py-0.5 text-slate-600 text-[11px]"
+                                        placeholder="Trình độ / Điểm số"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const newLangs = cvData.languages.filter((_, idx) => idx !== lIdx);
+                                          setCvData({ ...cvData, languages: newLangs });
+                                        }}
+                                        className="text-rose-600 hover:text-rose-700 p-0.5 cursor-pointer shrink-0"
+                                        title="Xóa ngoại ngữ này"
+                                      >
+                                        <span className="material-symbols-outlined text-sm">close</span>
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center justify-between">
+                                    <span className={`font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>{lang.name}</span>
+                                    <span className={`text-[10px] font-mono ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{lang.score || lang.level}</span>
+                                  </div>
+                                )}
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+
+                    </aside>
+
+                    {/* RIGHT COLUMN: MAIN CONTENT (66% / 8 COLS) */}
+                    <main className={`md:col-span-8 p-6 sm:p-9 space-y-7 cv-print-main ${canvasTheme === 'paper-white' ? 'bg-white' : 'bg-[#FCFBF8]'}`}>
+
+                      {/* 1. Header Banner & Title */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <h1 className={`text-2xl sm:text-4xl font-headline font-black uppercase tracking-tight ${canvasTheme === 'paper-white' ? 'text-slate-950' : 'text-[#2D3A31]'
+                            }`}>
+                            {cvData.candidateName || currentCandidate.accountName}
+                          </h1>
+                          <span className={`px-3 py-1 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border ${canvasTheme === 'paper-white' ? 'bg-slate-100 text-slate-800 border-slate-300' : 'bg-[#FAF9F5] text-[#2D3A31] border-[#E6E2DA]'
+                            }`}>
+                            {cvData.versionBadge || 'EXECUTIVE RESUME'}
+                          </span>
+                        </div>
+
+                        <p className="text-base sm:text-lg font-headline font-bold tracking-wide" style={{ color: livingTheme.primary }}>
+                          {cvData.targetTitle}
+                        </p>
+
+                        <div className="h-1 w-24 rounded-full" style={{ backgroundColor: livingTheme.primary }}></div>
+
                         {isEditing ? (
+                          <div className="pt-2">
+                            <label className="text-[10px] font-mono text-slate-500 block mb-1">Tagline định vị bản thân:</label>
+                            <textarea
+                              rows={2}
+                              value={cvData.tagline}
+                              onChange={(e) => setCvData({ ...cvData, tagline: e.target.value })}
+                              className="w-full bg-white border border-slate-300 rounded-xl p-2 text-xs text-slate-900 font-medium focus:ring-1 focus:ring-emerald-600"
+                            />
+                          </div>
+                        ) : (
+                          <p className={`text-xs leading-relaxed pt-1 font-medium ${canvasTheme === 'paper-white' ? 'text-slate-700' : 'text-[#4A554D]'}`}>
+                            {cvData.tagline}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* 2. Executive Summary (Tóm tắt năng lực cốt lõi) */}
+                      <section className="space-y-2.5">
+                        <div className={`flex items-center justify-between pb-1 border-b ${canvasTheme === 'paper-white' ? 'border-slate-300' : 'border-[#E6E2DA]'
+                          }`}>
+                          <h3 className={`text-xs font-headline font-black uppercase tracking-widest flex items-center gap-2 ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'
+                            }`}>
+                            <span className="material-symbols-outlined text-base" style={{ color: livingTheme.primary }}>badge</span>
+                            <span>Tóm Tắt Năng Lực Cốt Lõi (Executive Summary)</span>
+                          </h3>
+                          {isEditing && (
+                            <button
+                              onClick={handleRewriteBioWithGemini}
+                              disabled={isRewritingBio}
+                              className="text-[11px] text-emerald-700 hover:text-emerald-900 flex items-center gap-1 font-bold cursor-pointer"
+                            >
+                              <span className="material-symbols-outlined text-xs animate-pulse">auto_awesome</span>
+                              <span>AI Tối Ưu Nhanh</span>
+                            </button>
+                          )}
+                        </div>
+
+                        {isEditing ? (
+                          <div className="space-y-1.5">
+                            <textarea
+                              rows={4}
+                              value={cvData.summary}
+                              onChange={(e) => setCvData({ ...cvData, summary: e.target.value })}
+                              className="w-full bg-white border border-slate-300 rounded-xl p-3 text-xs leading-relaxed text-slate-900 font-medium focus:outline-none focus:border-emerald-600"
+                              placeholder="Nhập phần tóm tắt năng lực, số năm kinh nghiệm và điểm mạnh cốt lõi..."
+                            />
+                            <p className="text-[10px] text-slate-500 text-right font-mono">
+                              Độ dài: {safeStr(cvData.summary).length} ký tự • Tối ưu chuẩn ATS
+                            </p>
+                          </div>
+                        ) : (
+                          <div className={`p-4 rounded-2xl text-xs sm:text-sm leading-relaxed space-y-2.5 shadow-sm ${canvasTheme === 'paper-white'
+                            ? 'bg-slate-50 border-l-4 border-slate-900 text-slate-800 border border-slate-200'
+                            : 'bg-[#F2EFE9] border-l-4 border-[#2D3A31] text-[#2D3A31] border border-[#E6E2DA]'
+                            }`}>
+                            {safeStr(cvData.summary).split('\n\n').map((para, pIdx) => (
+                              <p key={pIdx} className="leading-relaxed font-medium">{para}</p>
+                            ))}
+                          </div>
+                        )}
+                      </section>
+
+                      {/* 3. Work Experience (Kinh nghiệm làm việc thực chiến) */}
+                      <section className="space-y-5">
+                        <div className={`flex items-center justify-between pb-1 border-b ${canvasTheme === 'paper-white' ? 'border-slate-300' : 'border-[#E6E2DA]'
+                          }`}>
+                          <h3 className={`text-xs font-headline font-black uppercase tracking-widest flex items-center gap-2 ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'
+                            }`}>
+                            <span className="material-symbols-outlined text-base" style={{ color: livingTheme.primary }}>history_edu</span>
+                            <span>Kinh Nghiệm Làm Việc (Work Experience)</span>
+                          </h3>
+                          {isEditing && (
+                            <button
+                              onClick={handleAddExperience}
+                              className="text-xs text-emerald-700 hover:text-emerald-900 flex items-center gap-1 cursor-pointer font-bold"
+                            >
+                              <span className="material-symbols-outlined text-sm">add</span>
+                              <span>Thêm vị trí mới</span>
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="space-y-6">
+                          {safeArr(cvData.experiences).map((exp, expIdx) => (
+                            <div
+                              key={exp.id || expIdx}
+                              className={`space-y-2.5 ${isEditing ? 'p-3 rounded-2xl bg-white border border-slate-300 shadow-sm relative' : ''}`}
+                            >
+                              {isEditing && (
+                                <button
+                                  onClick={() => handleDeleteExperience(exp.id)}
+                                  className="absolute top-3 right-3 text-rose-500 hover:text-rose-700 cursor-pointer flex items-center gap-1 text-xs"
+                                  title="Xóa toàn bộ vị trí này"
+                                >
+                                  <span className="material-symbols-outlined text-sm">delete</span>
+                                  <span>Xóa vị trí</span>
+                                </button>
+                              )}
+
+                              {/* Role & Company Header */}
+                              {isEditing ? (
+                                <div className="space-y-2 pr-20">
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    <div>
+                                      <label className="text-[10px] text-slate-500 block font-mono">Chức danh / Vị trí:</label>
+                                      <input
+                                        type="text"
+                                        value={exp.role}
+                                        onChange={(e) => handleUpdateExperience(exp.id, 'role', e.target.value)}
+                                        className="w-full bg-slate-50 border border-slate-200 rounded p-1.5 font-bold text-slate-900 text-xs"
+                                        placeholder="Chức danh"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="text-[10px] text-slate-500 block font-mono">Tên Công ty / Tổ chức:</label>
+                                      <input
+                                        type="text"
+                                        value={exp.company}
+                                        onChange={(e) => handleUpdateExperience(exp.id, 'company', e.target.value)}
+                                        className="w-full bg-slate-50 border border-slate-200 rounded p-1.5 text-emerald-800 font-semibold text-xs"
+                                        placeholder="Công ty"
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <input
+                                      type="text"
+                                      value={exp.period}
+                                      onChange={(e) => handleUpdateExperience(exp.id, 'period', e.target.value)}
+                                      className="bg-slate-50 border border-slate-200 rounded p-1 text-slate-700 text-xs font-mono"
+                                      placeholder="Thời gian làm việc"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={exp.location}
+                                      onChange={(e) => handleUpdateExperience(exp.id, 'location', e.target.value)}
+                                      className="bg-slate-50 border border-slate-200 rounded p-1 text-slate-700 text-xs"
+                                      placeholder="Địa điểm & Loại hình"
+                                    />
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
+                                  <div>
+                                    <h4 className={`text-base font-headline font-bold ${canvasTheme === 'paper-white' ? 'text-slate-950' : 'text-[#2D3A31]'
+                                      }`}>
+                                      {exp.role}
+                                    </h4>
+                                    <p className="text-sm font-semibold" style={{ color: livingTheme.primary }}>
+                                      {exp.company}
+                                    </p>
+                                  </div>
+                                  <div className="text-xs font-mono sm:text-right">
+                                    <span className={`font-bold ${canvasTheme === 'paper-white' ? 'text-slate-800' : 'text-[#2D3A31]'}`}>{exp.period}</span>
+                                    <span className={`block text-[10px] ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{exp.location}</span>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Bullets with quantifiable results */}
+                              <div className="space-y-1.5 pt-1">
+                                {isEditing && (
+                                  <span className="text-[11px] font-mono text-emerald-800 block">
+                                    Thành tựu chính (Phương pháp STAR - Kết quả định lượng):
+                                  </span>
+                                )}
+
+                                {safeArr(exp.bullets).map((b, bIdx) => (
+                                  <div key={bIdx} className="flex items-start gap-2">
+                                    {isEditing ? (
+                                      <>
+                                        <textarea
+                                          rows={2}
+                                          value={b}
+                                          onChange={(e) => handleUpdateBullet(exp.id, bIdx, e.target.value)}
+                                          className="w-full bg-slate-50 border border-slate-200 rounded p-1.5 text-xs text-slate-800 font-medium"
+                                        />
+                                        <button
+                                          onClick={() => handleDeleteBullet(exp.id, bIdx)}
+                                          className="text-rose-500 hover:text-rose-700 pt-1 cursor-pointer shrink-0"
+                                          title="Xóa gạch đầu dòng này"
+                                        >
+                                          <span className="material-symbols-outlined text-sm">remove_circle</span>
+                                        </button>
+                                      </>
+                                    ) : (
+                                      <div className={`flex items-start gap-2 text-xs sm:text-sm leading-relaxed ${canvasTheme === 'paper-white' ? 'text-slate-800 font-medium' : 'text-[#334155] font-medium'
+                                        }`}>
+                                        <span className="w-1.5 h-1.5 rounded-full mt-2 shrink-0" style={{ backgroundColor: livingTheme.primary }}></span>
+                                        <span>{b}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+
+                                {isEditing && (
+                                  <button
+                                    onClick={() => handleAddBullet(exp.id)}
+                                    className="text-[11px] text-emerald-700 hover:text-emerald-900 flex items-center gap-1 font-bold pt-1 cursor-pointer"
+                                  >
+                                    <span className="material-symbols-outlined text-xs">add</span>
+                                    <span>Thêm gạch đầu dòng</span>
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Tags */}
+                              <div className="flex flex-wrap items-center gap-1.5 pt-1.5">
+                                {safeArr(exp.tags).map((t, sIdx) => (
+                                  <span
+                                    key={sIdx}
+                                    className={`px-2 py-0.5 rounded text-[11px] font-mono ${canvasTheme === 'paper-white'
+                                      ? 'bg-slate-100 text-slate-800 border border-slate-300 font-semibold'
+                                      : 'bg-white text-[#2D3A31] border border-[#E6E2DA] font-semibold'
+                                      }`}
+                                  >
+                                    {t}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </section>
+
+                      {/* 4. Key Projects (Dự án tiêu biểu) */}
+                      {(isEditing || safeArr(cvData.projects).length > 0) && (
+                        <section className="space-y-3.5">
+                          <div className={`flex items-center justify-between pb-1 border-b ${canvasTheme === 'paper-white' ? 'border-slate-300' : 'border-[#E6E2DA]'
+                            }`}>
+                            <h3 className={`text-xs font-headline font-black uppercase tracking-widest flex items-center gap-2 ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'
+                              }`}>
+                              <span className="material-symbols-outlined text-base" style={{ color: livingTheme.primary }}>rocket_launch</span>
+                              <span>Dự Án Trọng Điểm (Key Projects)</span>
+                            </h3>
+                            {isEditing && (
+                              <button
+                                onClick={handleAddProject}
+                                className="text-xs text-emerald-700 hover:text-emerald-900 flex items-center gap-1 cursor-pointer font-bold"
+                              >
+                                <span className="material-symbols-outlined text-sm">add</span>
+                                <span>Thêm dự án mới</span>
+                              </button>
+                            )}
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                            {safeArr(cvData.projects).map((proj, pIdx) => (
+                              <div
+                                key={proj.id || pIdx}
+                                className={`p-4 rounded-2xl border space-y-2 relative ${canvasTheme === 'paper-white'
+                                  ? 'bg-slate-50 border-slate-300 shadow-sm'
+                                  : 'bg-white border-[#E6E2DA] shadow-sm'
+                                  }`}
+                              >
+                                {isEditing && (
+                                  <button
+                                    onClick={() => handleDeleteProject(proj.id)}
+                                    className="absolute top-2 right-2 text-rose-500 hover:text-rose-700 cursor-pointer"
+                                    title="Xóa dự án này"
+                                  >
+                                    <span className="material-symbols-outlined text-sm">delete</span>
+                                  </button>
+                                )}
+
+                                {isEditing ? (
+                                  <div className="space-y-1.5 pr-5">
+                                    <input
+                                      type="text"
+                                      value={proj.name}
+                                      onChange={(e) => handleUpdateProject(proj.id, 'name', e.target.value)}
+                                      className="w-full bg-slate-50 border border-slate-200 rounded p-1 font-bold text-slate-900 text-xs"
+                                      placeholder="Tên dự án"
+                                    />
+                                    <div className="grid grid-cols-2 gap-1">
+                                      <input
+                                        type="text"
+                                        value={proj.role}
+                                        onChange={(e) => handleUpdateProject(proj.id, 'role', e.target.value)}
+                                        className="bg-slate-50 border border-slate-200 rounded p-1 text-emerald-800 text-xs font-semibold"
+                                        placeholder="Vai trò"
+                                      />
+                                      <input
+                                        type="text"
+                                        value={proj.period}
+                                        onChange={(e) => handleUpdateProject(proj.id, 'period', e.target.value)}
+                                        className="bg-slate-50 border border-slate-200 rounded p-1 text-slate-700 text-xs font-mono"
+                                        placeholder="Năm thực hiện"
+                                      />
+                                    </div>
+                                    <textarea
+                                      rows={2}
+                                      value={proj.summary}
+                                      onChange={(e) => handleUpdateProject(proj.id, 'summary', e.target.value)}
+                                      className="w-full bg-slate-50 border border-slate-200 rounded p-1 text-xs text-slate-800 font-medium"
+                                      placeholder="Tóm tắt dự án và kết quả đạt được..."
+                                    />
+                                  </div>
+                                ) : (
+                                  <>
+                                    <div className="flex items-start justify-between gap-2">
+                                      <h4 className={`font-headline font-bold text-sm ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'
+                                        }`}>
+                                        {proj.name}
+                                      </h4>
+                                      <span className={`text-[10px] font-mono shrink-0 ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{proj.period}</span>
+                                    </div>
+                                    <p className="text-xs font-semibold" style={{ color: livingTheme.primary }}>{proj.role}</p>
+                                    <p className={`text-xs leading-relaxed font-body ${canvasTheme === 'paper-white' ? 'text-slate-700 font-medium' : 'text-[#4A554D] font-medium'}`}>{proj.summary}</p>
+                                    <div className="flex flex-wrap gap-1 pt-1">
+                                      {safeArr(proj.tags).map((t, idx) => (
+                                        <span
+                                          key={idx}
+                                          className={`px-2 py-0.5 rounded text-[10px] font-mono ${canvasTheme === 'paper-white' ? 'bg-white border border-slate-300 text-slate-800' : 'bg-[#FAF9F5] border border-[#E6E2DA] text-[#2D3A31]'
+                                            }`}
+                                        >
+                                          {t}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </section>
+                      )}
+
+                      {/* 5. Technical & Core Skills Matrix */}
+                      <section className="space-y-3">
+                        <div className={`flex items-center justify-between pb-1 border-b ${canvasTheme === 'paper-white' ? 'border-slate-300' : 'border-[#E6E2DA]'
+                          }`}>
+                          <h3 className={`text-xs font-headline font-black uppercase tracking-widest flex items-center gap-2 ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'
+                            }`}>
+                            <span className="material-symbols-outlined text-base" style={{ color: livingTheme.primary }}>psychology</span>
+                            <span>Ma Trận Năng Lực Chuyên Môn (Skills Matrix)</span>
+                          </h3>
+                          {isEditing && (
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={handleAiSuggestCandidateSkills}
+                                disabled={isSuggestingSkillsAi}
+                                className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white text-[11px] font-bold shadow-xs hover:shadow-sm transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02]"
+                                title="AI phân tích kinh nghiệm và học vấn để tự động đề xuất bộ kỹ năng chuyên ngành"
+                              >
+                                {isSuggestingSkillsAi ? (
+                                  <>
+                                    <span className="material-symbols-outlined text-xs animate-spin">sync</span>
+                                    <span>Đang Gợi Ý...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span className="material-symbols-outlined text-xs text-yellow-300">auto_awesome</span>
+                                    <span>✨ AI Đề Xuất Kỹ Năng Chuyên Ngành</span>
+                                  </>
+                                )}
+                              </button>
+                              <span className="text-[11px] text-slate-500 font-mono hidden sm:inline">
+                                Bấm [x] để xóa hoặc nhập thêm bên dưới
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* AI Candidate Suggestions Banner (Bấm để chọn thêm) */}
+                        {aiCandidateSkillSuggestions.length > 0 && isEditing && (
+                          <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-indigo-50 border border-emerald-200 text-slate-800 space-y-2 mb-3 animate-fade-in shadow-xs">
+                            <div className="flex items-center justify-between flex-wrap gap-2">
+                              <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                                <span className="material-symbols-outlined text-sm text-emerald-600">auto_awesome</span>
+                                AI Gợi Ý Kỹ Năng ({aiCandidateSkillSuggestions.length}) - Bấm vào thẻ để thêm vào hồ sơ:
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setCvData(prev => {
+                                      const currentSkills = Array.isArray(prev.skills) ? [...prev.skills] : [];
+                                      if (currentSkills.length === 0) {
+                                        return { ...prev, skills: [{ category: 'Kỹ Năng Chuyên Môn', items: aiCandidateSkillSuggestions }] };
+                                      }
+                                      const firstCat = { ...currentSkills[0], items: [...new Set([...safeArr(currentSkills[0].items), ...aiCandidateSkillSuggestions])] };
+                                      return { ...prev, skills: [firstCat, ...currentSkills.slice(1)] };
+                                    });
+                                    showToast(`Đã thêm tất cả ${aiCandidateSkillSuggestions.length} kỹ năng gợi ý!`);
+                                    setAiCandidateSkillSuggestions([]);
+                                  }}
+                                  className="px-2.5 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-bold cursor-pointer transition-all shadow-2xs"
+                                >
+                                  + Thêm Tất Cả
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setAiCandidateSkillSuggestions([])}
+                                  className="text-[11px] text-slate-500 hover:text-slate-700 cursor-pointer font-medium"
+                                >
+                                  ✕ Đóng
+                                </button>
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap gap-1.5 pt-1">
+                              {aiCandidateSkillSuggestions.map((skName) => (
+                                <button
+                                  key={skName}
+                                  type="button"
+                                  onClick={() => {
+                                    setCvData(prev => {
+                                      const currentSkills = Array.isArray(prev.skills) ? [...prev.skills] : [];
+                                      if (currentSkills.length === 0) {
+                                        return { ...prev, skills: [{ category: 'Kỹ Năng Chuyên Môn', items: [skName] }] };
+                                      }
+                                      const firstCat = { ...currentSkills[0], items: [...new Set([...safeArr(currentSkills[0].items), skName])] };
+                                      return { ...prev, skills: [firstCat, ...currentSkills.slice(1)] };
+                                    });
+                                    showToast(`Đã thêm "${skName}"!`);
+                                    setAiCandidateSkillSuggestions(prev => prev.filter(s => s !== skName));
+                                  }}
+                                  className="px-2.5 py-1 rounded-xl bg-white hover:bg-emerald-700 text-slate-800 hover:text-white border border-emerald-300 hover:border-emerald-700 text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer shadow-2xs group"
+                                  title="Bấm để thêm kỹ năng này vào hồ sơ"
+                                >
+                                  <span className="material-symbols-outlined text-xs text-emerald-600 group-hover:text-white">add</span>
+                                  <span>{skName}</span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="space-y-2.5 text-xs sm:text-sm">
+                          {safeArr(cvData.skills).map((cat, catIdx) => (
+                            <div
+                              key={catIdx}
+                              className={`p-3 rounded-2xl border flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 transition-all ${canvasTheme === 'paper-white' ? 'bg-slate-50 border-slate-300' : 'bg-white border-[#E6E2DA] shadow-sm'
+                                }`}
+                            >
+                              <span className={`w-48 shrink-0 font-bold font-headline flex items-center justify-between gap-1.5 pt-0.5 ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'
+                                }`}>
+                                <span className="flex items-center gap-1.5 min-w-0 truncate">
+                                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: livingTheme.primary }}></span>
+                                  <span className="truncate">{cat.category}:</span>
+                                </span>
+                                {isEditing && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setCvData(prev => ({
+                                        ...prev,
+                                        skills: prev.skills.filter((_, idx) => idx !== catIdx)
+                                      }));
+                                    }}
+                                    className="text-slate-400 hover:text-rose-500 cursor-pointer ml-auto mr-1"
+                                    title="Xóa cả nhóm kỹ năng này"
+                                  >
+                                    <span className="material-symbols-outlined text-xs">delete</span>
+                                  </button>
+                                )}
+                              </span>
+
+                              <div className="flex-1 space-y-2">
+                                <div className="flex flex-wrap gap-1.5">
+                                  {safeArr(cat.items).map((item, iIdx) => (
+                                    <span
+                                      key={iIdx}
+                                      className={`px-2.5 py-0.5 rounded-lg text-xs font-mono font-medium flex items-center gap-1.5 ${canvasTheme === 'paper-white'
+                                        ? 'bg-white text-slate-800 border border-slate-300 shadow-sm font-semibold'
+                                        : 'bg-[#FAF9F5] text-[#2D3A31] border border-[#E6E2DA] shadow-sm font-semibold'
+                                        }`}
+                                    >
+                                      <span>{item}</span>
+                                      {isEditing && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRemoveSkill(catIdx, item)}
+                                          className="text-rose-500 hover:text-rose-700 cursor-pointer"
+                                          title="Xóa kỹ năng này"
+                                        >
+                                          <span className="material-symbols-outlined text-xs">close</span>
+                                        </button>
+                                      )}
+                                    </span>
+                                  ))}
+                                </div>
+
+                                {isEditing && (
+                                  <div className="relative pt-1">
+                                    <div className="flex items-center gap-1.5">
+                                      <input
+                                        type="text"
+                                        value={skillCategoryInputs[catIdx] || ''}
+                                        onFocus={() => setActiveSkillDropdownCat(catIdx)}
+                                        onChange={(e) => {
+                                          setSkillCategoryInputs({ ...skillCategoryInputs, [catIdx]: e.target.value });
+                                          setActiveSkillDropdownCat(catIdx);
+                                        }}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            handleAddSkillToCategory(catIdx);
+                                          }
+                                        }}
+                                        placeholder="Gõ kỹ năng (gợi ý tự động)..."
+                                        className="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-600 w-56"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => handleAddSkillToCategory(catIdx)}
+                                        className="px-2.5 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-xs font-bold text-white cursor-pointer"
+                                      >
+                                        + Thêm
+                                      </button>
+                                    </div>
+
+                                    {/* Dropdown gợi ý kỹ năng chuẩn */}
+                                    {activeSkillDropdownCat === catIdx && (skillCategoryInputs[catIdx] || '').trim().length > 0 && (
+                                      <div className="absolute left-0 top-full mt-1 w-64 max-h-48 overflow-y-auto bg-white border border-emerald-300 rounded-xl shadow-xl z-50 p-1 space-y-0.5">
+                                        {masterSkillsList
+                                          .filter(s => (s.skillName || '').toLowerCase().includes((skillCategoryInputs[catIdx] || '').toLowerCase()))
+                                          .slice(0, 8)
+                                          .map(s => (
+                                            <div
+                                              key={s.skillId}
+                                              onMouseDown={() => handleAddSkillToCategory(catIdx, s.skillName)}
+                                              className="px-2.5 py-1.5 hover:bg-emerald-50 rounded-lg cursor-pointer flex items-center justify-between text-xs"
+                                            >
+                                              <span className="font-semibold text-slate-800">{s.skillName}</span>
+                                              <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded font-mono">
+                                                {s.category || 'SKILL'}
+                                              </span>
+                                            </div>
+                                          ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+
+                          {isEditing && (
+                            <div className="pt-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const catName = window.prompt('Nhập tên nhóm kỹ năng mới (ví dụ: Công Cụ Thiết Kế, Kỹ Năng Mềm...):');
+                                  if (catName && catName.trim()) {
+                                    setCvData(prev => ({
+                                      ...prev,
+                                      skills: [...prev.skills, { category: catName.trim(), items: [] }]
+                                    }));
+                                  }
+                                }}
+                                className="px-3 py-1.5 rounded-xl border border-dashed border-emerald-600 text-emerald-700 hover:bg-emerald-50 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all"
+                              >
+                                <span className="material-symbols-outlined text-sm">add_circle</span>
+                                <span>+ Thêm Nhóm Kỹ Năng Mới</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </section>
+
+                    </main>
+
+                  </div>
+                )}
+
+                {/* ──────────────────────────────────────────────────────── */}
+                {/* TEMPLATE B: HARVARD CLASSIC ATS 100% (1-COLUMN)          */}
+                {/* ──────────────────────────────────────────────────────── */}
+                {cvTemplate === 'harvard' && (
+                  <div className={`p-8 sm:p-12 space-y-7 ${canvasTheme === 'paper-white' ? 'bg-white text-slate-900' : 'bg-[#FDFCF9] text-[#2D3A31]'}`}>
+
+                    {/* Top Centered Header */}
+                    <div className={`text-center space-y-2 pb-4 border-b-2 ${canvasTheme === 'paper-white' ? 'border-slate-800' : 'border-[#2D3A31]'}`}>
+                      {isEditing ? (
+                        <div className="space-y-2 max-w-xl mx-auto">
                           <input
                             type="text"
                             value={cvData.candidateName || currentCandidate.accountName}
                             onChange={(e) => setCvData({ ...cvData, candidateName: e.target.value })}
-                            className="w-full text-center text-base font-serif font-bold bg-white border border-botanical-stone rounded-xl p-1.5 text-botanical-forest focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 font-sans"
+                            className="w-full text-center text-2xl sm:text-3xl font-serif font-black uppercase tracking-wider bg-white border border-slate-300 rounded-xl p-2 text-slate-900 focus:border-[#5b48bd] focus:ring-2 focus:ring-purple-200"
                             placeholder="Họ và tên ứng viên"
                           />
-                        ) : (
-                          <h2 className="text-lg font-serif font-bold text-botanical-forest">
+                          <input
+                            type="text"
+                            value={cvData.targetTitle}
+                            onChange={(e) => setCvData({ ...cvData, targetTitle: e.target.value })}
+                            className="w-full text-center text-sm font-bold bg-white border border-slate-300 rounded-xl p-1.5 text-purple-900 focus:border-[#5b48bd] focus:ring-2 focus:ring-purple-200"
+                            placeholder="Chức danh mục tiêu (vd: Senior Full-Stack Engineer)"
+                          />
+                        </div>
+                      ) : (
+                        <>
+                          <h1 className={`text-2xl sm:text-3xl font-serif font-black uppercase tracking-wider ${canvasTheme === 'paper-white' ? 'text-slate-950' : 'text-[#1A2520]'}`}>
                             {cvData.candidateName || currentCandidate.accountName}
-                          </h2>
-                        )}
-
-                        {isEditing ? (
-                          <div className="space-y-1 pt-1">
-                            <input
-                              type="text"
-                              value={cvData.targetTitle}
-                              onChange={(e) => setCvData({ ...cvData, targetTitle: e.target.value })}
-                              className="w-full text-center text-xs bg-white border border-botanical-stone rounded-xl p-2 text-botanical-forest font-bold focus:border-botanical-sage focus:ring-2 focus:ring-botanical-sage/20 font-sans"
-                              placeholder="Chức danh mục tiêu của bản CV này"
-                            />
-                          </div>
-                        ) : (
-                          <p className="text-xs font-serif font-bold leading-snug text-botanical-terracotta">
+                          </h1>
+                          <p className="text-sm font-bold tracking-wide" style={{ color: livingTheme.primary }}>
                             {cvData.targetTitle}
                           </p>
-                        )}
+                        </>
+                      )}
 
-                        <span className={`inline-block mt-2 px-3 py-0.5 rounded-full text-[10px] font-sans font-medium border ${getJobSearchBadge().classes}`}>
+                      <div className="pt-0.5">
+                        <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-sans font-medium border ${getJobSearchBadge().classes}`}>
                           {getJobSearchBadge().label}
                         </span>
                       </div>
-                    </div>
 
-                    {/* Section: Thông Tin Liên Hệ (CỦA CÙNG 1 NGƯỜI) */}
-                    <div className="space-y-3 pt-2">
-                      <h3 className={`text-xs font-headline font-black uppercase tracking-wider pb-1 border-b flex items-center gap-1.5 ${canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-300' : 'text-[#2D3A31] border-[#E6E2DA]'
-                        }`}>
-                        <span className="material-symbols-outlined text-sm" style={{ color: livingTheme.primary }}>contact_phone</span>
-                        <span>Thông Tin Liên Hệ</span>
-                      </h3>
-
-                      <div className={`space-y-2.5 text-xs ${canvasTheme === 'paper-white' ? 'text-slate-800' : 'text-[#2D3A31]/90'}`}>
-                        {isEditing ? (
-                          <div className="space-y-2 font-sans">
-                            <div className="flex items-center gap-2">
-                              <span className="material-symbols-outlined text-sm text-slate-500 shrink-0">mail</span>
-                              <input
-                                type="email"
-                                value={cvData.email !== undefined ? cvData.email : currentCandidate.email}
-                                onChange={(e) => setCvData({ ...cvData, email: e.target.value })}
-                                className="w-full text-xs bg-white border border-botanical-stone rounded-lg px-2 py-1 text-slate-800 focus:border-botanical-sage focus:ring-1 focus:ring-botanical-sage/20"
-                                placeholder="Email liên hệ"
-                              />
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="material-symbols-outlined text-sm text-slate-500 shrink-0">call</span>
-                              <input
-                                type="tel"
-                                value={cvData.phone !== undefined ? cvData.phone : currentCandidate.phone}
-                                onChange={(e) => setCvData({ ...cvData, phone: e.target.value })}
-                                className="w-full text-xs bg-white border border-botanical-stone rounded-lg px-2 py-1 text-slate-800 focus:border-botanical-sage focus:ring-1 focus:ring-botanical-sage/20"
-                                placeholder="Số điện thoại"
-                              />
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="material-symbols-outlined text-sm text-slate-500 shrink-0">location_on</span>
-                              <input
-                                type="text"
-                                value={cvData.location !== undefined ? cvData.location : currentCandidate.location}
-                                onChange={(e) => setCvData({ ...cvData, location: e.target.value })}
-                                className="w-full text-xs bg-white border border-botanical-stone rounded-lg px-2 py-1 text-slate-800 focus:border-botanical-sage focus:ring-1 focus:ring-botanical-sage/20"
-                                placeholder="Địa chỉ / Tỉnh thành"
-                              />
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="material-symbols-outlined text-sm text-slate-500 shrink-0">cake</span>
-                              <input
-                                type="text"
-                                value={cvData.dob !== undefined ? cvData.dob : currentCandidate.dob}
-                                onChange={(e) => setCvData({ ...cvData, dob: e.target.value })}
-                                className="w-full text-xs bg-white border border-botanical-stone rounded-lg px-2 py-1 text-slate-800 focus:border-botanical-sage focus:ring-1 focus:ring-botanical-sage/20"
-                                placeholder="Ngày sinh (DD/MM/YYYY)"
-                              />
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="material-symbols-outlined text-sm text-slate-500 shrink-0">code</span>
-                              <input
-                                type="text"
-                                value={cvData.githubUrl !== undefined ? cvData.githubUrl : (currentCandidate.github !== 'Chưa liên kết' ? currentCandidate.github : '')}
-                                onChange={(e) => setCvData({ ...cvData, githubUrl: e.target.value })}
-                                className="w-full text-xs bg-white border border-botanical-stone rounded-lg px-2 py-1 text-slate-800 focus:border-botanical-sage focus:ring-1 focus:ring-botanical-sage/20"
-                                placeholder="GitHub URL (https://github.com/username)"
-                              />
-                            </div>
+                      {isEditing ? (
+                        <div className="flex flex-wrap items-center justify-center gap-2 pt-2 text-xs font-mono">
+                          <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-lg px-2 py-1">
+                            <span>📞</span>
+                            <input
+                              type="tel"
+                              value={cvData.candidatePhone || cvData.phone || currentCandidate.phone}
+                              onChange={(e) => setCvData({ ...cvData, phone: e.target.value, candidatePhone: e.target.value })}
+                              className="bg-transparent border-none text-xs focus:outline-none w-28"
+                              placeholder="Số điện thoại"
+                            />
                           </div>
-                        ) : (
-                          <>
-                            <div className="flex items-start gap-2.5">
-                              <span className="material-symbols-outlined text-sm text-slate-500 mt-0.5 shrink-0">mail</span>
-                              <span className="break-all font-medium">{cvData.email || currentCandidate.email}</span>
-                            </div>
-                            <div className="flex items-center gap-2.5">
-                              <span className="material-symbols-outlined text-sm text-slate-500 shrink-0">call</span>
-                              <span className="font-medium">{cvData.phone || currentCandidate.phone}</span>
-                            </div>
-                            <div className="flex items-start gap-2.5">
-                              <span className="material-symbols-outlined text-sm text-slate-500 mt-0.5 shrink-0">location_on</span>
-                              <span className="font-medium">{cvData.location || currentCandidate.location}</span>
-                            </div>
-                            <div className="flex items-center gap-2.5">
-                              <span className="material-symbols-outlined text-sm text-slate-500 shrink-0">cake</span>
-                              <span className="font-medium">{cvData.dob || currentCandidate.dob}</span>
-                            </div>
-                            {currentCandidate.github && currentCandidate.github !== 'Chưa liên kết' && (
-                              <div className="flex items-center gap-2.5 pt-0.5">
-                                <span className="material-symbols-outlined text-sm text-slate-500 shrink-0">code</span>
-                                <a
-                                  href={currentCandidate.github.startsWith('http') ? currentCandidate.github : `https://${currentCandidate.github}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="font-medium truncate hover:underline flex items-center gap-1"
-                                  style={{ color: livingTheme.primary }}
-                                  title="Trang GitHub dự án của ứng viên"
-                                >
-                                  <span>{currentCandidate.github.replace(/^https?:\/\/(www\.)?github\.com\//, '@')}</span>
-                                  <span className="material-symbols-outlined text-xs">open_in_new</span>
-                                </a>
-                              </div>
-                            )}
-                            <div className="flex items-center gap-2.5 pt-1">
-                              <span className="material-symbols-outlined text-sm text-slate-500 shrink-0">link</span>
-                              <span className="font-medium truncate hover:underline" style={{ color: livingTheme.primary }}>{currentCandidate.linkedin}</span>
-                            </div>
-                            <div className="flex items-center gap-2.5">
-                              <span className="material-symbols-outlined text-sm text-slate-500 shrink-0">language</span>
-                              <span className="font-medium truncate hover:underline" style={{ color: livingTheme.primary }}>{currentCandidate.portfolio}</span>
-                            </div>
-                          </>
-                        )}
-                      </div>
+                          <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-lg px-2 py-1">
+                            <span>✉️</span>
+                            <input
+                              type="email"
+                              value={cvData.email || currentCandidate.email}
+                              onChange={(e) => setCvData({ ...cvData, email: e.target.value })}
+                              className="bg-transparent border-none text-xs focus:outline-none w-36"
+                              placeholder="Email liên hệ"
+                            />
+                          </div>
+                          <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-lg px-2 py-1">
+                            <span>📍</span>
+                            <input
+                              type="text"
+                              value={cvData.candidateLocation || cvData.location || currentCandidate.location}
+                              onChange={(e) => setCvData({ ...cvData, location: e.target.value, candidateLocation: e.target.value })}
+                              className="bg-transparent border-none text-xs focus:outline-none w-32"
+                              placeholder="Địa chỉ / Tỉnh thành"
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className={`text-xs flex flex-wrap items-center justify-center gap-x-3 gap-y-1 pt-1.5 font-mono ${canvasTheme === 'paper-white' ? 'text-slate-700' : 'text-[#4A5B4D]'}`}>
+                          <span>📞 {cvData.candidatePhone || cvData.phone || currentCandidate.phone}</span>
+                          <span>•</span>
+                          <span>✉️ {cvData.email || currentCandidate.email}</span>
+                          <span>•</span>
+                          <span>📍 {cvData.candidateLocation || cvData.location || currentCandidate.location}</span>
+                          {currentCandidate.dob && (
+                            <>
+                              <span>•</span>
+                              <span>🎂 {currentCandidate.dob}</span>
+                            </>
+                          )}
+                          {currentCandidate.linkedin && (
+                            <>
+                              <span>•</span>
+                              <span>🔗 {currentCandidate.linkedin}</span>
+                            </>
+                          )}
+                          {currentCandidate.portfolio && (
+                            <>
+                              <span>•</span>
+                              <span>🌐 {currentCandidate.portfolio}</span>
+                            </>
+                          )}
+                        </div>
+                      )}
                     </div>
 
-                    {/* Section: Học Vấn Chính Quy */}
-                    <div className="space-y-3">
-                      <div className={`flex items-center justify-between pb-1 border-b ${canvasTheme === 'paper-white' ? 'border-slate-300' : 'border-[#E6E2DA]'}`}>
-                        <h3 className={`text-xs font-headline font-black uppercase tracking-wider flex items-center gap-1.5 ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
-                          <span className="material-symbols-outlined text-sm" style={{ color: livingTheme.primary }}>school</span>
-                          <span>Học Vấn Chính Quy</span>
-                        </h3>
+                    {/* Harvard Section 1: Professional Summary */}
+                    <section className="space-y-2">
+                      <h2 className={`text-xs font-serif font-bold uppercase tracking-wider pb-0.5 border-b ${canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-400' : 'text-[#2D3A31] border-[#C5C0B6]'}`}>
+                        TÓM TẮT NĂNG LỰC (PROFESSIONAL SUMMARY)
+                      </h2>
+                      {isEditing ? (
+                        <textarea
+                          rows={3}
+                          value={cvData.summary}
+                          onChange={(e) => setCvData({ ...cvData, summary: e.target.value })}
+                          className="w-full text-xs leading-relaxed p-2.5 bg-white border border-slate-300 rounded-xl font-medium focus:border-[#5b48bd] focus:ring-2 focus:ring-purple-200"
+                          placeholder="Tóm tắt năng lực cốt lõi, số năm kinh nghiệm và thế mạnh cạnh tranh..."
+                        />
+                      ) : (
+                        <p className={`text-xs leading-relaxed text-justify ${canvasTheme === 'paper-white' ? 'text-slate-800 font-medium' : 'text-[#4A5B4D] font-medium'}`}>
+                          {cvData.summary}
+                        </p>
+                      )}
+                    </section>
+
+                    {/* Harvard Section 2: Education */}
+                    <section className="space-y-3">
+                      <div className={`flex items-center justify-between pb-0.5 border-b ${canvasTheme === 'paper-white' ? 'border-slate-400' : 'border-[#C5C0B6]'}`}>
+                        <h2 className={`text-xs font-serif font-bold uppercase tracking-wider ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
+                          HỌC VẤN CHÍNH QUY (EDUCATION)
+                        </h2>
                         {isEditing && (
                           <button
                             type="button"
@@ -2161,8 +3121,8 @@ export default function CandidateProfilePage({ user }) {
                               const newEdu = [...(cvData.education || [])];
                               newEdu.push({
                                 id: `edu_${Date.now()}`,
-                                school: 'Đại học Bách Khoa / FPT University',
-                                degree: 'Cử nhân Kỹ thuật Phần mềm / CNTT',
+                                school: 'Trường Đại học',
+                                degree: 'Chuyên ngành / Cử nhân',
                                 grade: 'GPA: 3.5/4.0',
                                 period: '2020 - 2024',
                                 highlight: 'Tốt nghiệp loại Giỏi',
@@ -2171,106 +3131,420 @@ export default function CandidateProfilePage({ user }) {
                             }}
                             className="text-[10px] text-emerald-700 hover:text-emerald-800 font-bold flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-50 border border-emerald-200 cursor-pointer shadow-2xs"
                           >
-                            <span className="material-symbols-outlined text-xs">add</span>
                             <span>+ Thêm Học Vấn</span>
                           </button>
                         )}
                       </div>
-
-                      {safeArr(cvData.education).length === 0 && !isEditing ? (
-                        <p className="text-xs text-slate-400 italic">Chưa có thông tin học vấn</p>
-                      ) : (
-                        safeArr(cvData.education).map((edu, eIdx) => (
-                          <div key={edu.id || eIdx} className="space-y-1.5 text-xs">
-                            {isEditing ? (
-                              <div className="space-y-1.5 p-2 rounded-xl bg-white border border-[#CBD5E1] shadow-sm">
+                      {safeArr(cvData.education).map((edu, eIdx) => (
+                        <div key={edu.id || eIdx} className="text-xs space-y-1">
+                          {isEditing ? (
+                            <div className="p-2.5 rounded-xl bg-white border border-slate-300 space-y-1.5 shadow-2xs">
+                              <div className="grid grid-cols-2 gap-2">
                                 <input
                                   type="text"
                                   value={edu.school || ''}
                                   onChange={(e) => {
-                                    const newEdu = [...cvData.education];
-                                    newEdu[eIdx].school = e.target.value;
-                                    setCvData({ ...cvData, education: newEdu });
+                                    const list = [...cvData.education];
+                                    list[eIdx].school = e.target.value;
+                                    setCvData({ ...cvData, education: list });
                                   }}
-                                  className="w-full bg-slate-50 border border-slate-200 rounded p-1 font-bold text-slate-900 text-xs"
+                                  className="p-1 border border-slate-200 rounded text-xs font-bold font-serif"
                                   placeholder="Tên trường học"
                                 />
                                 <input
                                   type="text"
+                                  value={edu.period || ''}
+                                  onChange={(e) => {
+                                    const list = [...cvData.education];
+                                    list[eIdx].period = e.target.value;
+                                    setCvData({ ...cvData, education: list });
+                                  }}
+                                  className="p-1 border border-slate-200 rounded text-xs font-mono"
+                                  placeholder="Niên khóa"
+                                />
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <input
+                                  type="text"
                                   value={edu.degree || ''}
                                   onChange={(e) => {
-                                    const newEdu = [...cvData.education];
-                                    newEdu[eIdx].degree = e.target.value;
-                                    setCvData({ ...cvData, education: newEdu });
+                                    const list = [...cvData.education];
+                                    list[eIdx].degree = e.target.value;
+                                    setCvData({ ...cvData, education: list });
                                   }}
-                                  className="w-full bg-slate-50 border border-slate-200 rounded p-1 text-slate-800 text-xs"
+                                  className="p-1 border border-slate-200 rounded text-xs"
                                   placeholder="Chuyên ngành / Bằng cấp"
                                 />
-                                <div className="grid grid-cols-2 gap-1.5">
-                                  <input
-                                    type="text"
-                                    value={edu.grade || ''}
-                                    onChange={(e) => {
-                                      const newEdu = [...cvData.education];
-                                      newEdu[eIdx].grade = e.target.value;
-                                      setCvData({ ...cvData, education: newEdu });
-                                    }}
-                                    className="bg-slate-50 border border-slate-200 rounded p-1 text-emerald-700 text-xs font-mono font-bold"
-                                    placeholder="Loại tốt nghiệp / GPA"
-                                  />
-                                  <input
-                                    type="text"
-                                    value={edu.period || ''}
-                                    onChange={(e) => {
-                                      const newEdu = [...cvData.education];
-                                      newEdu[eIdx].period = e.target.value;
-                                      setCvData({ ...cvData, education: newEdu });
-                                    }}
-                                    className="bg-slate-50 border border-slate-200 rounded p-1 text-slate-600 text-xs font-mono"
-                                    placeholder="Niên khóa"
-                                  />
-                                </div>
-                                <div className="flex justify-end pt-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const newEdu = cvData.education.filter((_, idx) => idx !== eIdx);
-                                      setCvData({ ...cvData, education: newEdu });
-                                    }}
-                                    className="text-[10px] text-rose-600 hover:text-rose-700 font-bold flex items-center gap-0.5 cursor-pointer"
-                                  >
-                                    <span className="material-symbols-outlined text-xs">delete</span>
-                                    <span>Xóa mục này</span>
-                                  </button>
-                                </div>
+                                <input
+                                  type="text"
+                                  value={edu.grade || ''}
+                                  onChange={(e) => {
+                                    const list = [...cvData.education];
+                                    list[eIdx].grade = e.target.value;
+                                    setCvData({ ...cvData, education: list });
+                                  }}
+                                  className="p-1 border border-slate-200 rounded text-xs text-emerald-700 font-bold"
+                                  placeholder="GPA / Xếp loại"
+                                />
                               </div>
-                            ) : (
-                              <>
-                                <h4 className={`font-headline font-bold leading-snug ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
-                                  {edu.school}
-                                </h4>
-                                <p className={`font-medium ${canvasTheme === 'paper-white' ? 'text-slate-700' : 'text-[#4A554D]'}`}>{edu.degree}</p>
-                                <p className="text-[11px] font-mono font-bold text-emerald-700">{edu.grade}</p>
-                                <p className={`text-[10px] font-mono ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{edu.period}</p>
-                                <p className={`text-[11px] italic pt-1 leading-snug ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{edu.highlight}</p>
-                              </>
-                            )}
-                          </div>
-                        ))
-                      )}
-                    </div>
+                              <div className="flex justify-end pt-1">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const list = cvData.education.filter((_, idx) => idx !== eIdx);
+                                    setCvData({ ...cvData, education: list });
+                                  }}
+                                  className="text-[10px] text-rose-600 font-bold hover:underline"
+                                >
+                                  ✕ Xóa mục học vấn này
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <div className={`flex justify-between font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
+                                <span className="font-serif text-sm">{edu.school}</span>
+                                <span className={`font-mono ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{edu.period}</span>
+                              </div>
+                              <div className={`flex justify-between italic ${canvasTheme === 'paper-white' ? 'text-slate-700' : 'text-[#4A5B4D]'}`}>
+                                <span>{edu.degree}</span>
+                                <span className="font-semibold not-italic text-emerald-700">{edu.grade}</span>
+                              </div>
+                              {edu.highlight && (
+                                <p className={`text-[11px] pt-0.5 ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>
+                                  {edu.highlight}
+                                </p>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </section>
 
-                    {/* Section: Chứng Chỉ Chuyên Nghiệp */}
-                    <div className="space-y-3">
-                      <div className={`flex items-center justify-between pb-1 border-b ${canvasTheme === 'paper-white' ? 'border-slate-300' : 'border-[#E6E2DA]'
-                        }`}>
-                        <h3 className={`text-xs font-headline font-black uppercase tracking-wider flex items-center gap-1.5 ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'
-                          }`}>
-                          <span className="material-symbols-outlined text-sm" style={{ color: livingTheme.primary }}>workspace_premium</span>
-                          <span>Chứng Chỉ Quốc Tế</span>
-                        </h3>
+                    {/* Harvard Section 3: Professional Experience */}
+                    <section className="space-y-4">
+                      <div className={`flex items-center justify-between pb-0.5 border-b ${canvasTheme === 'paper-white' ? 'border-slate-400' : 'border-[#C5C0B6]'}`}>
+                        <h2 className={`text-xs font-serif font-bold uppercase tracking-wider ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
+                          KINH NGHIỆM LÀM VIỆC (PROFESSIONAL EXPERIENCE)
+                        </h2>
                         {isEditing && (
                           <button
+                            type="button"
+                            onClick={handleAddExperience}
+                            className="text-[10px] text-emerald-700 hover:text-emerald-800 font-bold flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-50 border border-emerald-200 cursor-pointer shadow-2xs"
+                          >
+                            <span>+ Thêm Kinh Nghiệm</span>
+                          </button>
+                        )}
+                      </div>
+                      {safeArr(cvData.experiences).map((exp, expIdx) => (
+                        <div key={exp.id || expIdx} className="text-xs space-y-1.5">
+                          {isEditing ? (
+                            <div className="p-3 rounded-xl bg-white border border-slate-300 space-y-2 shadow-2xs">
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                <input
+                                  type="text"
+                                  value={exp.role || ''}
+                                  onChange={(e) => handleUpdateExperience(exp.id, 'role', e.target.value)}
+                                  className="p-1 border border-slate-200 rounded text-xs font-bold font-serif"
+                                  placeholder="Chức danh đảm nhiệm"
+                                />
+                                <input
+                                  type="text"
+                                  value={exp.company || ''}
+                                  onChange={(e) => handleUpdateExperience(exp.id, 'company', e.target.value)}
+                                  className="p-1 border border-slate-200 rounded text-xs"
+                                  placeholder="Tên công ty"
+                                />
+                                <input
+                                  type="text"
+                                  value={exp.period || ''}
+                                  onChange={(e) => handleUpdateExperience(exp.id, 'period', e.target.value)}
+                                  className="p-1 border border-slate-200 rounded text-xs font-mono"
+                                  placeholder="Thời gian (vd: 2022 - Hiện tại)"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase">Thành tựu và nhiệm vụ chính (mỗi dòng 1 gạch đầu dòng):</label>
+                                <textarea
+                                  rows={3}
+                                  value={safeArr(exp.bullets).join('\n')}
+                                  onChange={(e) => {
+                                    const lines = e.target.value.split('\n');
+                                    handleUpdateExperience(exp.id, 'bullets', lines);
+                                  }}
+                                  className="w-full p-2 border border-slate-200 rounded text-xs"
+                                  placeholder="Thành tích đạt được kèm số liệu cụ thể..."
+                                />
+                              </div>
+                              <div className="flex justify-between items-center pt-1 border-t border-slate-100">
+                                <span className="text-[10px] text-slate-400">Vị trí #{expIdx + 1}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteExperience(exp.id)}
+                                  className="text-[10px] text-rose-600 font-bold hover:underline"
+                                >
+                                  ✕ Xóa vị trí kinh nghiệm này
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <div className={`flex justify-between items-baseline font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
+                                <div>
+                                  <span className="font-serif text-sm">{exp.role}</span>
+                                  <span className="font-normal font-sans ml-2 text-slate-600">| {exp.company}</span>
+                                </div>
+                                <span className={`font-mono text-[11px] ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{exp.period}</span>
+                              </div>
+                              {exp.location && (
+                                <p className={`text-[11px] italic ${canvasTheme === 'paper-white' ? 'text-slate-500' : 'text-[#667067]'}`}>{exp.location}</p>
+                              )}
+                              <ul className={`list-disc list-outside pl-4 space-y-1 text-xs ${canvasTheme === 'paper-white' ? 'text-slate-800 font-medium' : 'text-[#4A5B4D] font-medium'}`}>
+                                {safeArr(exp.bullets).map((b, bIdx) => (
+                                  <li key={bIdx} className={b.includes('Thành tích:') ? 'font-semibold text-slate-900' : ''}>
+                                    {b}
+                                  </li>
+                                ))}
+                              </ul>
+                              {safeArr(exp.tags).length > 0 && (
+                                <p className={`text-[11px] font-mono pt-0.5 ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>
+                                  <strong>Công nghệ sử dụng:</strong> {safeArr(exp.tags).join(' • ')}
+                                </p>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </section>
+
+                    {/* Harvard Section 4: Key Projects (DỰ ÁN TRỌNG ĐIỂM) */}
+                    <section className="space-y-3.5">
+                      <div className={`flex items-center justify-between pb-0.5 border-b ${canvasTheme === 'paper-white' ? 'border-slate-400' : 'border-[#C5C0B6]'}`}>
+                        <h2 className={`text-xs font-serif font-bold uppercase tracking-wider ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
+                          DỰ ÁN KỸ THUẬT &amp; TRỌNG ĐIỂM (KEY PROJECTS)
+                        </h2>
+                        {isEditing && (
+                          <button
+                            type="button"
+                            onClick={handleAddProject}
+                            className="text-[10px] text-emerald-700 hover:text-emerald-800 font-bold flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-50 border border-emerald-200 cursor-pointer shadow-2xs"
+                          >
+                            <span>+ Thêm Dự Án</span>
+                          </button>
+                        )}
+                      </div>
+                      {safeArr(cvData.projects).map((p, pIdx) => (
+                        <div key={p.id || pIdx} className="text-xs space-y-1">
+                          {isEditing ? (
+                            <div className="p-3 rounded-xl bg-white border border-slate-300 space-y-2 shadow-2xs">
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                <input
+                                  type="text"
+                                  value={p.name || ''}
+                                  onChange={(e) => handleUpdateProject(p.id, 'name', e.target.value)}
+                                  className="p-1 border border-slate-200 rounded text-xs font-bold font-serif"
+                                  placeholder="Tên dự án"
+                                />
+                                <input
+                                  type="text"
+                                  value={p.role || ''}
+                                  onChange={(e) => handleUpdateProject(p.id, 'role', e.target.value)}
+                                  className="p-1 border border-slate-200 rounded text-xs"
+                                  placeholder="Vai trò trong dự án"
+                                />
+                                <input
+                                  type="text"
+                                  value={p.period || ''}
+                                  onChange={(e) => handleUpdateProject(p.id, 'period', e.target.value)}
+                                  className="p-1 border border-slate-200 rounded text-xs font-mono"
+                                  placeholder="Thời gian (vd: 2024)"
+                                />
+                              </div>
+                              <textarea
+                                rows={2}
+                                value={p.summary || p.description || ''}
+                                onChange={(e) => handleUpdateProject(p.id, 'summary', e.target.value)}
+                                className="w-full p-1.5 border border-slate-200 rounded text-xs"
+                                placeholder="Tóm tắt giải pháp, đóng góp và kết quả dự án..."
+                              />
+                              <div className="flex justify-between items-center pt-1 border-t border-slate-100">
+                                <input
+                                  type="text"
+                                  value={safeArr(p.tags).join(', ')}
+                                  onChange={(e) => handleUpdateProject(p.id, 'tags', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+                                  className="p-1 border border-slate-200 rounded text-xs w-2/3"
+                                  placeholder="Công nghệ (phân cách bằng dấu phẩy: React, Spring Boot...)"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteProject(p.id)}
+                                  className="text-[10px] text-rose-600 font-bold hover:underline"
+                                >
+                                  ✕ Xóa dự án
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <div className={`flex justify-between items-baseline font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
+                                <div>
+                                  <span className="font-serif text-sm">{p.name}</span>
+                                  {p.role && <span className="font-normal font-sans ml-2 text-slate-600">| {p.role}</span>}
+                                </div>
+                                <span className={`font-mono text-[11px] ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{p.period}</span>
+                              </div>
+                              <p className={`text-xs leading-relaxed ${canvasTheme === 'paper-white' ? 'text-slate-800' : 'text-[#4A5B4D]'}`}>
+                                {p.summary || p.description}
+                              </p>
+                              {safeArr(p.tags).length > 0 && (
+                                <p className={`text-[11px] font-mono ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>
+                                  <strong>Công cụ &amp; Môi trường:</strong> {safeArr(p.tags).join(' • ')}
+                                </p>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </section>
+
+                    {/* Harvard Section 5: Technical Skills */}
+                    <section className="space-y-2.5">
+                      <div className="flex items-center justify-between pb-0.5 border-b border-slate-400">
+                        <h2 className={`text-xs font-serif font-bold uppercase tracking-wider ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
+                          KỸ NĂNG CHUYÊN MÔN (TECHNICAL SKILLS)
+                        </h2>
+                        {isEditing && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newCategory = {
+                                category: 'Kỹ Năng Mới',
+                                items: ['Kỹ năng 1']
+                              };
+                              setCvData({ ...cvData, skills: [...safeArr(cvData.skills), newCategory] });
+                            }}
+                            className="text-[10px] font-bold text-emerald-700 hover:text-emerald-900 flex items-center gap-0.5 cursor-pointer"
+                          >
+                            + Thêm Nhóm
+                          </button>
+                        )}
+                      </div>
+                      {isEditing ? (
+                        <div className="space-y-3 pt-1">
+                          {safeArr(cvData.skills).map((s, catIdx) => (
+                            <div key={catIdx} className="p-2.5 rounded-xl border border-slate-300 bg-white space-y-2 text-xs shadow-2xs">
+                              <div className="flex items-center justify-between gap-2">
+                                <input
+                                  type="text"
+                                  value={s.category || ''}
+                                  onChange={(e) => {
+                                    const nextSkills = [...cvData.skills];
+                                    nextSkills[catIdx] = { ...nextSkills[catIdx], category: e.target.value };
+                                    setCvData({ ...cvData, skills: nextSkills });
+                                  }}
+                                  className="p-1 border border-slate-200 rounded text-xs font-bold font-serif w-full max-w-[200px]"
+                                  placeholder="Tên nhóm kỹ năng"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const nextSkills = cvData.skills.filter((_, idx) => idx !== catIdx);
+                                    setCvData({ ...cvData, skills: nextSkills });
+                                  }}
+                                  className="text-[10px] text-rose-600 font-bold hover:underline cursor-pointer"
+                                >
+                                  ✕ Xóa nhóm
+                                </button>
+                              </div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {safeArr(s.items).map((item, iIdx) => (
+                                  <span
+                                    key={iIdx}
+                                    className="px-2 py-0.5 rounded-lg bg-slate-100 text-slate-800 text-xs font-mono flex items-center gap-1 border border-slate-200"
+                                  >
+                                    <span>{item}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveSkill(catIdx, item)}
+                                      className="text-rose-500 hover:text-rose-700 cursor-pointer"
+                                      title="Xóa kỹ năng này"
+                                    >
+                                      <span className="material-symbols-outlined text-[12px]">close</span>
+                                    </button>
+                                  </span>
+                                ))}
+                              </div>
+                              <div className="relative pt-1">
+                                <div className="flex items-center gap-1.5">
+                                  <input
+                                    type="text"
+                                    value={skillCategoryInputs[catIdx] || ''}
+                                    onFocus={() => setActiveSkillDropdownCat(catIdx)}
+                                    onChange={(e) => {
+                                      setSkillCategoryInputs({ ...skillCategoryInputs, [catIdx]: e.target.value });
+                                      setActiveSkillDropdownCat(catIdx);
+                                    }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        handleAddSkillToCategory(catIdx);
+                                      }
+                                    }}
+                                    placeholder="Gõ kỹ năng (gợi ý tự động)..."
+                                    className="p-1 border border-slate-300 rounded text-xs w-48 focus:outline-none focus:border-emerald-600"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAddSkillToCategory(catIdx)}
+                                    className="px-2 py-1 rounded bg-emerald-700 hover:bg-emerald-800 text-[11px] font-bold text-white cursor-pointer"
+                                  >
+                                    + Thêm
+                                  </button>
+                                </div>
+                                {activeSkillDropdownCat === catIdx && (skillCategoryInputs[catIdx] || '').trim().length > 0 && (
+                                  <div className="absolute left-0 top-full mt-1 w-60 max-h-48 overflow-y-auto bg-white border border-emerald-300 rounded-xl shadow-xl z-50 p-1 space-y-0.5">
+                                    {masterSkillsList
+                                      .filter(sk => (sk.skillName || '').toLowerCase().includes((skillCategoryInputs[catIdx] || '').toLowerCase()))
+                                      .slice(0, 8)
+                                      .map(sk => (
+                                        <div
+                                          key={sk.skillId}
+                                          onMouseDown={() => handleAddSkillToCategory(catIdx, sk.skillName)}
+                                          className="px-2 py-1 hover:bg-emerald-50 rounded cursor-pointer flex items-center justify-between text-xs"
+                                        >
+                                          <span className="font-semibold text-slate-800">{sk.skillName}</span>
+                                          <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded font-mono">
+                                            {sk.category || 'SKILL'}
+                                          </span>
+                                        </div>
+                                      ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className={`text-xs space-y-1.5 ${canvasTheme === 'paper-white' ? 'text-slate-800' : 'text-[#4A5B4D]'}`}>
+                          {safeArr(cvData.skills).map((s, idx) => (
+                            <p key={idx}>
+                              <strong className={canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}>{s.category}:</strong> {safeArr(s.items).join(', ')}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                    </section>
+
+                    {/* Harvard Section 6: Certifications & Licenses */}
+                    <section className="space-y-2">
+                      <div className="flex items-center justify-between pb-0.5 border-b border-slate-400">
+                        <h2 className={`text-xs font-serif font-bold uppercase tracking-wider ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
+                          CHỨNG CHỈ QUỐC TẾ (CERTIFICATIONS &amp; LICENSES)
+                        </h2>
+                        {isEditing && (
+                          <button
+                            type="button"
                             onClick={() => {
                               const newCert = {
                                 id: Date.now(),
@@ -2279,1893 +3553,562 @@ export default function CandidateProfilePage({ user }) {
                                 year: '2024',
                                 code: 'Mã chứng chỉ'
                               };
-                              setCvData({ ...cvData, certifications: [...cvData.certifications, newCert] });
+                              setCvData({ ...cvData, certifications: [...safeArr(cvData.certifications), newCert] });
                             }}
-                            className="text-[11px] font-bold text-emerald-700 hover:text-emerald-900 flex items-center gap-0.5 cursor-pointer"
+                            className="text-[10px] font-bold text-emerald-700 hover:text-emerald-900 flex items-center gap-0.5 cursor-pointer"
                           >
                             + Thêm
                           </button>
                         )}
                       </div>
-
-                      <div className="space-y-2">
-                        {safeArr(cvData.certifications).length === 0 ? (
-                          <p className="text-[11px] text-slate-400 italic py-1">Chưa có chứng chỉ quốc tế được ghi nhận trong CV</p>
-                        ) : (
-                          safeArr(cvData.certifications).map((cert, cIdx) => (
-                            <div
-                              key={cert.id || cIdx}
-                              className={`p-2.5 rounded-xl border text-xs space-y-0.5 relative group ${canvasTheme === 'paper-white' ? 'bg-white border-slate-200 shadow-sm' : 'bg-white/80 border-[#E6E2DA] shadow-sm'
-                                }`}
-                            >
-                              {isEditing && (
-                                <button
-                                  onClick={() => {
-                                    setCvData({
-                                      ...cvData,
-                                      certifications: cvData.certifications.filter((_, idx) => idx !== cIdx)
-                                    });
+                      {isEditing ? (
+                        <div className="space-y-2 pt-1">
+                          {safeArr(cvData.certifications).map((c, cIdx) => (
+                            <div key={c.id || cIdx} className="p-2.5 rounded-xl border border-slate-300 bg-white space-y-1.5 text-xs shadow-2xs">
+                              <div className="flex items-center justify-between gap-2">
+                                <input
+                                  type="text"
+                                  value={c.name || ''}
+                                  onChange={(e) => {
+                                    const nextCerts = [...cvData.certifications];
+                                    nextCerts[cIdx] = { ...nextCerts[cIdx], name: e.target.value };
+                                    setCvData({ ...cvData, certifications: nextCerts });
                                   }}
-                                  className="absolute top-2 right-2 text-rose-500 hover:text-rose-700 cursor-pointer"
-                                  title="Xóa chứng chỉ"
+                                  className="p-1 border border-slate-200 rounded text-xs font-bold font-serif w-full"
+                                  placeholder="Tên chứng chỉ (vd: AWS Certified Solutions Architect)"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const nextCerts = cvData.certifications.filter((_, idx) => idx !== cIdx);
+                                    setCvData({ ...cvData, certifications: nextCerts });
+                                  }}
+                                  className="text-[10px] text-rose-600 font-bold hover:underline cursor-pointer shrink-0"
                                 >
-                                  <span className="material-symbols-outlined text-sm">close</span>
+                                  ✕ Xóa
                                 </button>
-                              )}
-
-                              {isEditing ? (
-                                <div className="space-y-1 pr-5">
-                                  <input
-                                    type="text"
-                                    value={cert.name}
-                                    onChange={(e) => {
-                                      const nextCerts = [...cvData.certifications];
-                                      nextCerts[cIdx].name = e.target.value;
-                                      setCvData({ ...cvData, certifications: nextCerts });
-                                    }}
-                                    className="w-full bg-slate-50 border border-slate-200 rounded p-1 text-slate-900 text-xs font-bold"
-                                    placeholder="Tên chứng chỉ"
-                                  />
-                                  <div className="grid grid-cols-2 gap-1">
-                                    <input
-                                      type="text"
-                                      value={cert.issuer}
-                                      onChange={(e) => {
-                                        const nextCerts = [...cvData.certifications];
-                                        nextCerts[cIdx].issuer = e.target.value;
-                                        setCvData({ ...cvData, certifications: nextCerts });
-                                      }}
-                                      className="bg-slate-50 border border-slate-200 rounded p-1 text-slate-700 text-[10px]"
-                                      placeholder="Đơn vị cấp"
-                                    />
-                                    <input
-                                      type="text"
-                                      value={cert.year}
-                                      onChange={(e) => {
-                                        const nextCerts = [...cvData.certifications];
-                                        nextCerts[cIdx].year = e.target.value;
-                                        setCvData({ ...cvData, certifications: nextCerts });
-                                      }}
-                                      className="bg-slate-50 border border-slate-200 rounded p-1 text-slate-700 text-[10px]"
-                                      placeholder="Năm cấp"
-                                    />
-                                  </div>
-                                </div>
-                              ) : (
-                                <>
-                                  <h4 className={`font-headline font-bold text-[11px] leading-snug ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
-                                    {cert.name}
-                                  </h4>
-                                  <p className={`text-[10px] font-mono ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{cert.issuer} • {cert.year}</p>
-                                  <p className="text-[10px] font-mono font-semibold truncate" style={{ color: livingTheme.primary }}>{cert.code}</p>
-                                </>
-                              )}
+                              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                <input
+                                  type="text"
+                                  value={c.issuer || ''}
+                                  onChange={(e) => {
+                                    const nextCerts = [...cvData.certifications];
+                                    nextCerts[cIdx] = { ...nextCerts[cIdx], issuer: e.target.value };
+                                    setCvData({ ...cvData, certifications: nextCerts });
+                                  }}
+                                  className="p-1 border border-slate-200 rounded text-xs"
+                                  placeholder="Đơn vị cấp (vd: Amazon Web Services)"
+                                />
+                                <input
+                                  type="text"
+                                  value={c.year || ''}
+                                  onChange={(e) => {
+                                    const nextCerts = [...cvData.certifications];
+                                    nextCerts[cIdx] = { ...nextCerts[cIdx], year: e.target.value };
+                                    setCvData({ ...cvData, certifications: nextCerts });
+                                  }}
+                                  className="p-1 border border-slate-200 rounded text-xs font-mono"
+                                  placeholder="Năm cấp (vd: 2024)"
+                                />
+                                <input
+                                  type="text"
+                                  value={c.code || ''}
+                                  onChange={(e) => {
+                                    const nextCerts = [...cvData.certifications];
+                                    nextCerts[cIdx] = { ...nextCerts[cIdx], code: e.target.value };
+                                    setCvData({ ...cvData, certifications: nextCerts });
+                                  }}
+                                  className="p-1 border border-slate-200 rounded text-xs font-mono"
+                                  placeholder="Mã chứng chỉ (tùy chọn)"
+                                />
+                              </div>
                             </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <ul className={`list-disc list-outside pl-4 space-y-1 text-xs ${canvasTheme === 'paper-white' ? 'text-slate-800' : 'text-[#4A5B4D]'}`}>
+                          {safeArr(cvData.certifications).map((c, idx) => (
+                            <li key={c.id || idx}>
+                              <strong>{c.name}</strong> — {c.issuer} {c.year ? `(${c.year})` : ''} {c.code ? `• ID: ${c.code}` : ''}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </section>
 
-                    {/* Section: Ngoại Ngữ */}
-                    <div className="space-y-3">
-                      <div className={`flex items-center justify-between pb-1 border-b ${canvasTheme === 'paper-white' ? 'border-slate-300' : 'border-[#E6E2DA]'}`}>
-                        <h3 className={`text-xs font-headline font-black uppercase tracking-wider flex items-center gap-1.5 ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
-                          <span className="material-symbols-outlined text-sm" style={{ color: livingTheme.primary }}>translate</span>
-                          <span>Ngoại Ngữ Thành Thạo</span>
-                        </h3>
+                    {/* Harvard Section 7: Languages */}
+                    <section className="space-y-2">
+                      <div className="flex items-center justify-between pb-0.5 border-b border-slate-400">
+                        <h2 className={`text-xs font-serif font-bold uppercase tracking-wider ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
+                          NGOẠI NGỮ THÀNH THẠO (LANGUAGES)
+                        </h2>
                         {isEditing && (
                           <button
                             type="button"
                             onClick={() => {
-                              const newLangs = [...(cvData.languages || [])];
-                              newLangs.push({
-                                name: 'Tiếng Anh',
-                                level: 'IELTS 6.5 / B2 Professional',
-                                score: 'Giao tiếp tốt',
-                              });
+                              const newLangs = [...safeArr(cvData.languages), { id: Date.now(), name: 'Tiếng Anh', level: 'Thành thạo', score: 'IELTS 7.0' }];
                               setCvData({ ...cvData, languages: newLangs });
                             }}
-                            className="text-[10px] text-emerald-700 hover:text-emerald-800 font-bold flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-50 border border-emerald-200 cursor-pointer shadow-2xs"
+                            className="text-[10px] font-bold text-emerald-700 hover:text-emerald-900 flex items-center gap-0.5 cursor-pointer"
                           >
-                            <span className="material-symbols-outlined text-xs">add</span>
-                            <span>+ Thêm Ngoại Ngữ</span>
+                            + Thêm
                           </button>
                         )}
                       </div>
-
-                      <div className="space-y-2 text-xs">
-                        {safeArr(cvData.languages).length === 0 ? (
-                          <p className="text-[11px] text-slate-400 italic py-1">Chưa có thông tin ngoại ngữ trong CV</p>
-                        ) : (
-                          safeArr(cvData.languages).map((lang, lIdx) => (
-                            <div key={lIdx} className="border-b border-dashed border-[#E6E2DA] pb-1.5">
-                              {isEditing ? (
-                                <div className="space-y-1">
-                                  <div className="flex items-center gap-1.5">
-                                    <input
-                                      type="text"
-                                      value={lang.name || ''}
-                                      onChange={(e) => {
-                                        const newLangs = [...cvData.languages];
-                                        newLangs[lIdx] = { ...newLangs[lIdx], name: e.target.value };
-                                        setCvData({ ...cvData, languages: newLangs });
-                                      }}
-                                      className="w-1/2 bg-white border border-slate-200 rounded px-1.5 py-0.5 font-bold text-slate-800 text-[11px]"
-                                      placeholder="Tên ngôn ngữ"
-                                    />
-                                    <input
-                                      type="text"
-                                      value={lang.level || lang.score || ''}
-                                      onChange={(e) => {
-                                        const newLangs = [...cvData.languages];
-                                        newLangs[lIdx] = { ...newLangs[lIdx], level: e.target.value, score: e.target.value };
-                                        setCvData({ ...cvData, languages: newLangs });
-                                      }}
-                                      className="w-1/2 bg-white border border-slate-200 rounded px-1.5 py-0.5 text-slate-600 text-[11px]"
-                                      placeholder="Trình độ / Điểm số"
-                                    />
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const newLangs = cvData.languages.filter((_, idx) => idx !== lIdx);
-                                        setCvData({ ...cvData, languages: newLangs });
-                                      }}
-                                      className="text-rose-600 hover:text-rose-700 p-0.5 cursor-pointer shrink-0"
-                                      title="Xóa ngoại ngữ này"
-                                    >
-                                      <span className="material-symbols-outlined text-sm">close</span>
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="flex items-center justify-between">
-                                  <span className={`font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>{lang.name}</span>
-                                  <span className={`text-[10px] font-mono ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{lang.score || lang.level}</span>
-                                </div>
-                              )}
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-
-                  </aside>
-
-                  {/* RIGHT COLUMN: MAIN CONTENT (66% / 8 COLS) */}
-                  <main className={`md:col-span-8 p-6 sm:p-9 space-y-7 cv-print-main ${canvasTheme === 'paper-white' ? 'bg-white' : 'bg-[#FCFBF8]'}`}>
-
-                    {/* 1. Header Banner & Title */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <h1 className={`text-2xl sm:text-4xl font-headline font-black uppercase tracking-tight ${canvasTheme === 'paper-white' ? 'text-slate-950' : 'text-[#2D3A31]'
-                          }`}>
-                          {cvData.candidateName || currentCandidate.accountName}
-                        </h1>
-                        <span className={`px-3 py-1 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border ${canvasTheme === 'paper-white' ? 'bg-slate-100 text-slate-800 border-slate-300' : 'bg-[#FAF9F5] text-[#2D3A31] border-[#E6E2DA]'
-                          }`}>
-                          {cvData.versionBadge || 'EXECUTIVE RESUME'}
-                        </span>
-                      </div>
-
-                      <p className="text-base sm:text-lg font-headline font-bold tracking-wide" style={{ color: livingTheme.primary }}>
-                        {cvData.targetTitle}
-                      </p>
-
-                      <div className="h-1 w-24 rounded-full" style={{ backgroundColor: livingTheme.primary }}></div>
-
                       {isEditing ? (
-                        <div className="pt-2">
-                          <label className="text-[10px] font-mono text-slate-500 block mb-1">Tagline định vị bản thân:</label>
-                          <textarea
-                            rows={2}
-                            value={cvData.tagline}
-                            onChange={(e) => setCvData({ ...cvData, tagline: e.target.value })}
-                            className="w-full bg-white border border-slate-300 rounded-xl p-2 text-xs text-slate-900 font-medium focus:ring-1 focus:ring-emerald-600"
-                          />
-                        </div>
-                      ) : (
-                        <p className={`text-xs leading-relaxed pt-1 font-medium ${canvasTheme === 'paper-white' ? 'text-slate-700' : 'text-[#4A554D]'}`}>
-                          {cvData.tagline}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* 2. Executive Summary (Tóm tắt năng lực cốt lõi) */}
-                    <section className="space-y-2.5">
-                      <div className={`flex items-center justify-between pb-1 border-b ${canvasTheme === 'paper-white' ? 'border-slate-300' : 'border-[#E6E2DA]'
-                        }`}>
-                        <h3 className={`text-xs font-headline font-black uppercase tracking-widest flex items-center gap-2 ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'
-                          }`}>
-                          <span className="material-symbols-outlined text-base" style={{ color: livingTheme.primary }}>badge</span>
-                          <span>Tóm Tắt Năng Lực Cốt Lõi (Executive Summary)</span>
-                        </h3>
-                        {isEditing && (
-                          <button
-                            onClick={handleRewriteBioWithGemini}
-                            disabled={isRewritingBio}
-                            className="text-[11px] text-emerald-700 hover:text-emerald-900 flex items-center gap-1 font-bold cursor-pointer"
-                          >
-                            <span className="material-symbols-outlined text-xs animate-pulse">auto_awesome</span>
-                            <span>AI Tối Ưu Nhanh</span>
-                          </button>
-                        )}
-                      </div>
-
-                      {isEditing ? (
-                        <div className="space-y-1.5">
-                          <textarea
-                            rows={4}
-                            value={cvData.summary}
-                            onChange={(e) => setCvData({ ...cvData, summary: e.target.value })}
-                            className="w-full bg-white border border-slate-300 rounded-xl p-3 text-xs leading-relaxed text-slate-900 font-medium focus:outline-none focus:border-emerald-600"
-                            placeholder="Nhập phần tóm tắt năng lực, số năm kinh nghiệm và điểm mạnh cốt lõi..."
-                          />
-                          <p className="text-[10px] text-slate-500 text-right font-mono">
-                            Độ dài: {safeStr(cvData.summary).length} ký tự • Tối ưu chuẩn ATS
-                          </p>
-                        </div>
-                      ) : (
-                        <div className={`p-4 rounded-2xl text-xs sm:text-sm leading-relaxed space-y-2.5 shadow-sm ${canvasTheme === 'paper-white'
-                            ? 'bg-slate-50 border-l-4 border-slate-900 text-slate-800 border border-slate-200'
-                            : 'bg-[#F2EFE9] border-l-4 border-[#2D3A31] text-[#2D3A31] border border-[#E6E2DA]'
-                          }`}>
-                          {safeStr(cvData.summary).split('\n\n').map((para, pIdx) => (
-                            <p key={pIdx} className="leading-relaxed font-medium">{para}</p>
-                          ))}
-                        </div>
-                      )}
-                    </section>
-
-                    {/* 3. Work Experience (Kinh nghiệm làm việc thực chiến) */}
-                    <section className="space-y-5">
-                      <div className={`flex items-center justify-between pb-1 border-b ${canvasTheme === 'paper-white' ? 'border-slate-300' : 'border-[#E6E2DA]'
-                        }`}>
-                        <h3 className={`text-xs font-headline font-black uppercase tracking-widest flex items-center gap-2 ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'
-                          }`}>
-                          <span className="material-symbols-outlined text-base" style={{ color: livingTheme.primary }}>history_edu</span>
-                          <span>Kinh Nghiệm Làm Việc (Work Experience)</span>
-                        </h3>
-                        {isEditing && (
-                          <button
-                            onClick={handleAddExperience}
-                            className="text-xs text-emerald-700 hover:text-emerald-900 flex items-center gap-1 cursor-pointer font-bold"
-                          >
-                            <span className="material-symbols-outlined text-sm">add</span>
-                            <span>Thêm vị trí mới</span>
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="space-y-6">
-                        {safeArr(cvData.experiences).map((exp, expIdx) => (
-                          <div
-                            key={exp.id || expIdx}
-                            className={`space-y-2.5 ${isEditing ? 'p-3 rounded-2xl bg-white border border-slate-300 shadow-sm relative' : ''}`}
-                          >
-                            {isEditing && (
-                              <button
-                                onClick={() => handleDeleteExperience(exp.id)}
-                                className="absolute top-3 right-3 text-rose-500 hover:text-rose-700 cursor-pointer flex items-center gap-1 text-xs"
-                                title="Xóa toàn bộ vị trí này"
-                              >
-                                <span className="material-symbols-outlined text-sm">delete</span>
-                                <span>Xóa vị trí</span>
-                              </button>
-                            )}
-
-                            {/* Role & Company Header */}
-                            {isEditing ? (
-                              <div className="space-y-2 pr-20">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                  <div>
-                                    <label className="text-[10px] text-slate-500 block font-mono">Chức danh / Vị trí:</label>
-                                    <input
-                                      type="text"
-                                      value={exp.role}
-                                      onChange={(e) => handleUpdateExperience(exp.id, 'role', e.target.value)}
-                                      className="w-full bg-slate-50 border border-slate-200 rounded p-1.5 font-bold text-slate-900 text-xs"
-                                      placeholder="Chức danh"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="text-[10px] text-slate-500 block font-mono">Tên Công ty / Tổ chức:</label>
-                                    <input
-                                      type="text"
-                                      value={exp.company}
-                                      onChange={(e) => handleUpdateExperience(exp.id, 'company', e.target.value)}
-                                      className="w-full bg-slate-50 border border-slate-200 rounded p-1.5 text-emerald-800 font-semibold text-xs"
-                                      placeholder="Công ty"
-                                    />
-                                  </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-2">
-                                  <input
-                                    type="text"
-                                    value={exp.period}
-                                    onChange={(e) => handleUpdateExperience(exp.id, 'period', e.target.value)}
-                                    className="bg-slate-50 border border-slate-200 rounded p-1 text-slate-700 text-xs font-mono"
-                                    placeholder="Thời gian làm việc"
-                                  />
-                                  <input
-                                    type="text"
-                                    value={exp.location}
-                                    onChange={(e) => handleUpdateExperience(exp.id, 'location', e.target.value)}
-                                    className="bg-slate-50 border border-slate-200 rounded p-1 text-slate-700 text-xs"
-                                    placeholder="Địa điểm & Loại hình"
-                                  />
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
-                                <div>
-                                  <h4 className={`text-base font-headline font-bold ${canvasTheme === 'paper-white' ? 'text-slate-950' : 'text-[#2D3A31]'
-                                    }`}>
-                                    {exp.role}
-                                  </h4>
-                                  <p className="text-sm font-semibold" style={{ color: livingTheme.primary }}>
-                                    {exp.company}
-                                  </p>
-                                </div>
-                                <div className="text-xs font-mono sm:text-right">
-                                  <span className={`font-bold ${canvasTheme === 'paper-white' ? 'text-slate-800' : 'text-[#2D3A31]'}`}>{exp.period}</span>
-                                  <span className={`block text-[10px] ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{exp.location}</span>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Bullets with quantifiable results */}
-                            <div className="space-y-1.5 pt-1">
-                              {isEditing && (
-                                <span className="text-[11px] font-mono text-emerald-800 block">
-                                  Thành tựu chính (Phương pháp STAR - Kết quả định lượng):
-                                </span>
-                              )}
-
-                              {safeArr(exp.bullets).map((b, bIdx) => (
-                                <div key={bIdx} className="flex items-start gap-2">
-                                  {isEditing ? (
-                                    <>
-                                      <textarea
-                                        rows={2}
-                                        value={b}
-                                        onChange={(e) => handleUpdateBullet(exp.id, bIdx, e.target.value)}
-                                        className="w-full bg-slate-50 border border-slate-200 rounded p-1.5 text-xs text-slate-800 font-medium"
-                                      />
-                                      <button
-                                        onClick={() => handleDeleteBullet(exp.id, bIdx)}
-                                        className="text-rose-500 hover:text-rose-700 pt-1 cursor-pointer shrink-0"
-                                        title="Xóa gạch đầu dòng này"
-                                      >
-                                        <span className="material-symbols-outlined text-sm">remove_circle</span>
-                                      </button>
-                                    </>
-                                  ) : (
-                                    <div className={`flex items-start gap-2 text-xs sm:text-sm leading-relaxed ${canvasTheme === 'paper-white' ? 'text-slate-800 font-medium' : 'text-[#334155] font-medium'
-                                      }`}>
-                                      <span className="w-1.5 h-1.5 rounded-full mt-2 shrink-0" style={{ backgroundColor: livingTheme.primary }}></span>
-                                      <span>{b}</span>
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-
-                              {isEditing && (
-                                <button
-                                  onClick={() => handleAddBullet(exp.id)}
-                                  className="text-[11px] text-emerald-700 hover:text-emerald-900 flex items-center gap-1 font-bold pt-1 cursor-pointer"
-                                >
-                                  <span className="material-symbols-outlined text-xs">add</span>
-                                  <span>Thêm gạch đầu dòng</span>
-                                </button>
-                              )}
-                            </div>
-
-                            {/* Tags */}
-                            <div className="flex flex-wrap items-center gap-1.5 pt-1.5">
-                              {safeArr(exp.tags).map((t, sIdx) => (
-                                <span
-                                  key={sIdx}
-                                  className={`px-2 py-0.5 rounded text-[11px] font-mono ${canvasTheme === 'paper-white'
-                                      ? 'bg-slate-100 text-slate-800 border border-slate-300 font-semibold'
-                                      : 'bg-white text-[#2D3A31] border border-[#E6E2DA] font-semibold'
-                                    }`}
-                                >
-                                  {t}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </section>
-
-                    {/* 4. Key Projects (Dự án tiêu biểu) */}
-                    {(isEditing || safeArr(cvData.projects).length > 0) && (
-                    <section className="space-y-3.5">
-                      <div className={`flex items-center justify-between pb-1 border-b ${canvasTheme === 'paper-white' ? 'border-slate-300' : 'border-[#E6E2DA]'
-                        }`}>
-                        <h3 className={`text-xs font-headline font-black uppercase tracking-widest flex items-center gap-2 ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'
-                          }`}>
-                          <span className="material-symbols-outlined text-base" style={{ color: livingTheme.primary }}>rocket_launch</span>
-                          <span>Dự Án Trọng Điểm (Key Projects)</span>
-                        </h3>
-                        {isEditing && (
-                          <button
-                            onClick={handleAddProject}
-                            className="text-xs text-emerald-700 hover:text-emerald-900 flex items-center gap-1 cursor-pointer font-bold"
-                          >
-                            <span className="material-symbols-outlined text-sm">add</span>
-                            <span>Thêm dự án mới</span>
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                        {safeArr(cvData.projects).map((proj, pIdx) => (
-                          <div
-                            key={proj.id || pIdx}
-                            className={`p-4 rounded-2xl border space-y-2 relative ${canvasTheme === 'paper-white'
-                                ? 'bg-slate-50 border-slate-300 shadow-sm'
-                                : 'bg-white border-[#E6E2DA] shadow-sm'
-                              }`}
-                          >
-                            {isEditing && (
-                              <button
-                                onClick={() => handleDeleteProject(proj.id)}
-                                className="absolute top-2 right-2 text-rose-500 hover:text-rose-700 cursor-pointer"
-                                title="Xóa dự án này"
-                              >
-                                <span className="material-symbols-outlined text-sm">delete</span>
-                              </button>
-                            )}
-
-                            {isEditing ? (
-                              <div className="space-y-1.5 pr-5">
-                                <input
-                                  type="text"
-                                  value={proj.name}
-                                  onChange={(e) => handleUpdateProject(proj.id, 'name', e.target.value)}
-                                  className="w-full bg-slate-50 border border-slate-200 rounded p-1 font-bold text-slate-900 text-xs"
-                                  placeholder="Tên dự án"
-                                />
-                                <div className="grid grid-cols-2 gap-1">
-                                  <input
-                                    type="text"
-                                    value={proj.role}
-                                    onChange={(e) => handleUpdateProject(proj.id, 'role', e.target.value)}
-                                    className="bg-slate-50 border border-slate-200 rounded p-1 text-emerald-800 text-xs font-semibold"
-                                    placeholder="Vai trò"
-                                  />
-                                  <input
-                                    type="text"
-                                    value={proj.period}
-                                    onChange={(e) => handleUpdateProject(proj.id, 'period', e.target.value)}
-                                    className="bg-slate-50 border border-slate-200 rounded p-1 text-slate-700 text-xs font-mono"
-                                    placeholder="Năm thực hiện"
-                                  />
-                                </div>
-                                <textarea
-                                  rows={2}
-                                  value={proj.summary}
-                                  onChange={(e) => handleUpdateProject(proj.id, 'summary', e.target.value)}
-                                  className="w-full bg-slate-50 border border-slate-200 rounded p-1 text-xs text-slate-800 font-medium"
-                                  placeholder="Tóm tắt dự án và kết quả đạt được..."
-                                />
-                              </div>
-                            ) : (
-                              <>
-                                <div className="flex items-start justify-between gap-2">
-                                  <h4 className={`font-headline font-bold text-sm ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'
-                                    }`}>
-                                    {proj.name}
-                                  </h4>
-                                  <span className={`text-[10px] font-mono shrink-0 ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{proj.period}</span>
-                                </div>
-                                <p className="text-xs font-semibold" style={{ color: livingTheme.primary }}>{proj.role}</p>
-                                <p className={`text-xs leading-relaxed font-body ${canvasTheme === 'paper-white' ? 'text-slate-700 font-medium' : 'text-[#4A554D] font-medium'}`}>{proj.summary}</p>
-                                <div className="flex flex-wrap gap-1 pt-1">
-                                  {safeArr(proj.tags).map((t, idx) => (
-                                    <span
-                                      key={idx}
-                                      className={`px-2 py-0.5 rounded text-[10px] font-mono ${canvasTheme === 'paper-white' ? 'bg-white border border-slate-300 text-slate-800' : 'bg-[#FAF9F5] border border-[#E6E2DA] text-[#2D3A31]'
-                                        }`}
-                                    >
-                                      {t}
-                                    </span>
-                                  ))}
-                                </div>
-                              </>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </section>
-                    )}
-
-                    {/* 5. Technical & Core Skills Matrix */}
-                    <section className="space-y-3">
-                      <div className={`flex items-center justify-between pb-1 border-b ${canvasTheme === 'paper-white' ? 'border-slate-300' : 'border-[#E6E2DA]'
-                        }`}>
-                        <h3 className={`text-xs font-headline font-black uppercase tracking-widest flex items-center gap-2 ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'
-                          }`}>
-                          <span className="material-symbols-outlined text-base" style={{ color: livingTheme.primary }}>psychology</span>
-                          <span>Ma Trận Năng Lực Chuyên Môn (Skills Matrix)</span>
-                        </h3>
-                        {isEditing && (
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={handleAiSuggestCandidateSkills}
-                              disabled={isSuggestingSkillsAi}
-                              className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white text-[11px] font-bold shadow-xs hover:shadow-sm transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02]"
-                              title="AI phân tích kinh nghiệm và học vấn để tự động đề xuất bộ kỹ năng chuyên ngành"
-                            >
-                              {isSuggestingSkillsAi ? (
-                                <>
-                                  <span className="material-symbols-outlined text-xs animate-spin">sync</span>
-                                  <span>Đang Gợi Ý...</span>
-                                </>
-                              ) : (
-                                <>
-                                  <span className="material-symbols-outlined text-xs text-yellow-300">auto_awesome</span>
-                                  <span>✨ AI Đề Xuất Kỹ Năng Chuyên Ngành</span>
-                                </>
-                              )}
-                            </button>
-                            <span className="text-[11px] text-slate-500 font-mono hidden sm:inline">
-                              Bấm [x] để xóa hoặc nhập thêm bên dưới
-                            </span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* AI Candidate Suggestions Banner (Bấm để chọn thêm) */}
-                      {aiCandidateSkillSuggestions.length > 0 && isEditing && (
-                        <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-indigo-50 border border-emerald-200 text-slate-800 space-y-2 mb-3 animate-fade-in shadow-xs">
-                          <div className="flex items-center justify-between flex-wrap gap-2">
-                            <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
-                              <span className="material-symbols-outlined text-sm text-emerald-600">auto_awesome</span>
-                              AI Gợi Ý Kỹ Năng ({aiCandidateSkillSuggestions.length}) - Bấm vào thẻ để thêm vào hồ sơ:
-                            </span>
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setCvData(prev => {
-                                    const currentSkills = Array.isArray(prev.skills) ? [...prev.skills] : [];
-                                    if (currentSkills.length === 0) {
-                                      return { ...prev, skills: [{ category: 'Kỹ Năng Chuyên Môn', items: aiCandidateSkillSuggestions }] };
-                                    }
-                                    const firstCat = { ...currentSkills[0], items: [...new Set([...safeArr(currentSkills[0].items), ...aiCandidateSkillSuggestions])] };
-                                    return { ...prev, skills: [firstCat, ...currentSkills.slice(1)] };
-                                  });
-                                  showToast(`Đã thêm tất cả ${aiCandidateSkillSuggestions.length} kỹ năng gợi ý!`);
-                                  setAiCandidateSkillSuggestions([]);
-                                }}
-                                className="px-2.5 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-bold cursor-pointer transition-all shadow-2xs"
-                              >
-                                + Thêm Tất Cả
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setAiCandidateSkillSuggestions([])}
-                                className="text-[11px] text-slate-500 hover:text-slate-700 cursor-pointer font-medium"
-                              >
-                                ✕ Đóng
-                              </button>
-                            </div>
-                          </div>
-                          <div className="flex flex-wrap gap-1.5 pt-1">
-                            {aiCandidateSkillSuggestions.map((skName) => (
-                              <button
-                                key={skName}
-                                type="button"
-                                onClick={() => {
-                                  setCvData(prev => {
-                                    const currentSkills = Array.isArray(prev.skills) ? [...prev.skills] : [];
-                                    if (currentSkills.length === 0) {
-                                      return { ...prev, skills: [{ category: 'Kỹ Năng Chuyên Môn', items: [skName] }] };
-                                    }
-                                    const firstCat = { ...currentSkills[0], items: [...new Set([...safeArr(currentSkills[0].items), skName])] };
-                                    return { ...prev, skills: [firstCat, ...currentSkills.slice(1)] };
-                                  });
-                                  showToast(`Đã thêm "${skName}"!`);
-                                  setAiCandidateSkillSuggestions(prev => prev.filter(s => s !== skName));
-                                }}
-                                className="px-2.5 py-1 rounded-xl bg-white hover:bg-emerald-700 text-slate-800 hover:text-white border border-emerald-300 hover:border-emerald-700 text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer shadow-2xs group"
-                                title="Bấm để thêm kỹ năng này vào hồ sơ"
-                              >
-                                <span className="material-symbols-outlined text-xs text-emerald-600 group-hover:text-white">add</span>
-                                <span>{skName}</span>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="space-y-2.5 text-xs sm:text-sm">
-                        {safeArr(cvData.skills).map((cat, catIdx) => (
-                          <div
-                            key={catIdx}
-                            className={`p-3 rounded-2xl border flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 transition-all ${canvasTheme === 'paper-white' ? 'bg-slate-50 border-slate-300' : 'bg-white border-[#E6E2DA] shadow-sm'
-                              }`}
-                          >
-                            <span className={`w-48 shrink-0 font-bold font-headline flex items-center justify-between gap-1.5 pt-0.5 ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'
-                              }`}>
-                              <span className="flex items-center gap-1.5 min-w-0 truncate">
-                                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: livingTheme.primary }}></span>
-                                <span className="truncate">{cat.category}:</span>
-                              </span>
-                              {isEditing && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setCvData(prev => ({
-                                      ...prev,
-                                      skills: prev.skills.filter((_, idx) => idx !== catIdx)
-                                    }));
-                                  }}
-                                  className="text-slate-400 hover:text-rose-500 cursor-pointer ml-auto mr-1"
-                                  title="Xóa cả nhóm kỹ năng này"
-                                >
-                                  <span className="material-symbols-outlined text-xs">delete</span>
-                                </button>
-                              )}
-                            </span>
-
-                            <div className="flex-1 space-y-2">
-                              <div className="flex flex-wrap gap-1.5">
-                                {safeArr(cat.items).map((item, iIdx) => (
-                                  <span
-                                    key={iIdx}
-                                    className={`px-2.5 py-0.5 rounded-lg text-xs font-mono font-medium flex items-center gap-1.5 ${canvasTheme === 'paper-white'
-                                        ? 'bg-white text-slate-800 border border-slate-300 shadow-sm font-semibold'
-                                        : 'bg-[#FAF9F5] text-[#2D3A31] border border-[#E6E2DA] shadow-sm font-semibold'
-                                      }`}
-                                  >
-                                    <span>{item}</span>
-                                    {isEditing && (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleRemoveSkill(catIdx, item)}
-                                        className="text-rose-500 hover:text-rose-700 cursor-pointer"
-                                        title="Xóa kỹ năng này"
-                                      >
-                                        <span className="material-symbols-outlined text-xs">close</span>
-                                      </button>
-                                    )}
-                                  </span>
-                                ))}
-                              </div>
-
-                              {isEditing && (
-                                <div className="relative pt-1">
-                                  <div className="flex items-center gap-1.5">
-                                    <input
-                                      type="text"
-                                      value={skillCategoryInputs[catIdx] || ''}
-                                      onFocus={() => setActiveSkillDropdownCat(catIdx)}
-                                      onChange={(e) => {
-                                        setSkillCategoryInputs({ ...skillCategoryInputs, [catIdx]: e.target.value });
-                                        setActiveSkillDropdownCat(catIdx);
-                                      }}
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
-                                          e.preventDefault();
-                                          handleAddSkillToCategory(catIdx);
-                                        }
-                                      }}
-                                      placeholder="Gõ kỹ năng (gợi ý tự động)..."
-                                      className="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-600 w-56"
-                                    />
-                                    <button
-                                      type="button"
-                                      onClick={() => handleAddSkillToCategory(catIdx)}
-                                      className="px-2.5 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-xs font-bold text-white cursor-pointer"
-                                    >
-                                      + Thêm
-                                    </button>
-                                  </div>
-
-                                  {/* Dropdown gợi ý kỹ năng chuẩn */}
-                                  {activeSkillDropdownCat === catIdx && (skillCategoryInputs[catIdx] || '').trim().length > 0 && (
-                                    <div className="absolute left-0 top-full mt-1 w-64 max-h-48 overflow-y-auto bg-white border border-emerald-300 rounded-xl shadow-xl z-50 p-1 space-y-0.5">
-                                      {masterSkillsList
-                                        .filter(s => (s.skillName || '').toLowerCase().includes((skillCategoryInputs[catIdx] || '').toLowerCase()))
-                                        .slice(0, 8)
-                                        .map(s => (
-                                          <div
-                                            key={s.skillId}
-                                            onMouseDown={() => handleAddSkillToCategory(catIdx, s.skillName)}
-                                            className="px-2.5 py-1.5 hover:bg-emerald-50 rounded-lg cursor-pointer flex items-center justify-between text-xs"
-                                          >
-                                            <span className="font-semibold text-slate-800">{s.skillName}</span>
-                                            <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded font-mono">
-                                              {s.category || 'SKILL'}
-                                            </span>
-                                          </div>
-                                        ))}
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-
-                        {isEditing && (
-                          <div className="pt-2">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const catName = window.prompt('Nhập tên nhóm kỹ năng mới (ví dụ: Công Cụ Thiết Kế, Kỹ Năng Mềm...):');
-                                if (catName && catName.trim()) {
-                                  setCvData(prev => ({
-                                    ...prev,
-                                    skills: [...prev.skills, { category: catName.trim(), items: [] }]
-                                  }));
-                                }
-                              }}
-                              className="px-3 py-1.5 rounded-xl border border-dashed border-emerald-600 text-emerald-700 hover:bg-emerald-50 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all"
-                            >
-                              <span className="material-symbols-outlined text-sm">add_circle</span>
-                              <span>+ Thêm Nhóm Kỹ Năng Mới</span>
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </section>
-
-                  </main>
-
-                </div>
-              )}
-
-              {/* ──────────────────────────────────────────────────────── */}
-              {/* TEMPLATE B: HARVARD CLASSIC ATS 100% (1-COLUMN)          */}
-              {/* ──────────────────────────────────────────────────────── */}
-              {cvTemplate === 'harvard' && (
-                <div className={`p-8 sm:p-12 space-y-7 ${canvasTheme === 'paper-white' ? 'bg-white text-slate-900' : 'bg-[#FDFCF9] text-[#2D3A31]'}`}>
-
-                  {/* Top Centered Header */}
-                  <div className={`text-center space-y-2 pb-4 border-b-2 ${canvasTheme === 'paper-white' ? 'border-slate-800' : 'border-[#2D3A31]'}`}>
-                    {isEditing ? (
-                      <div className="space-y-2 max-w-xl mx-auto">
-                        <input
-                          type="text"
-                          value={cvData.candidateName || currentCandidate.accountName}
-                          onChange={(e) => setCvData({ ...cvData, candidateName: e.target.value })}
-                          className="w-full text-center text-2xl sm:text-3xl font-serif font-black uppercase tracking-wider bg-white border border-slate-300 rounded-xl p-2 text-slate-900 focus:border-[#5b48bd] focus:ring-2 focus:ring-purple-200"
-                          placeholder="Họ và tên ứng viên"
-                        />
-                        <input
-                          type="text"
-                          value={cvData.targetTitle}
-                          onChange={(e) => setCvData({ ...cvData, targetTitle: e.target.value })}
-                          className="w-full text-center text-sm font-bold bg-white border border-slate-300 rounded-xl p-1.5 text-purple-900 focus:border-[#5b48bd] focus:ring-2 focus:ring-purple-200"
-                          placeholder="Chức danh mục tiêu (vd: Senior Full-Stack Engineer)"
-                        />
-                      </div>
-                    ) : (
-                      <>
-                        <h1 className={`text-2xl sm:text-3xl font-serif font-black uppercase tracking-wider ${canvasTheme === 'paper-white' ? 'text-slate-950' : 'text-[#1A2520]'}`}>
-                          {cvData.candidateName || currentCandidate.accountName}
-                        </h1>
-                        <p className="text-sm font-bold tracking-wide" style={{ color: livingTheme.primary }}>
-                          {cvData.targetTitle}
-                        </p>
-                      </>
-                    )}
-
-                    <div className="pt-0.5">
-                      <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-sans font-medium border ${getJobSearchBadge().classes}`}>
-                        {getJobSearchBadge().label}
-                      </span>
-                    </div>
-
-                    {isEditing ? (
-                      <div className="flex flex-wrap items-center justify-center gap-2 pt-2 text-xs font-mono">
-                        <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-lg px-2 py-1">
-                          <span>📞</span>
-                          <input
-                            type="tel"
-                            value={cvData.candidatePhone || cvData.phone || currentCandidate.phone}
-                            onChange={(e) => setCvData({ ...cvData, phone: e.target.value, candidatePhone: e.target.value })}
-                            className="bg-transparent border-none text-xs focus:outline-none w-28"
-                            placeholder="Số điện thoại"
-                          />
-                        </div>
-                        <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-lg px-2 py-1">
-                          <span>✉️</span>
-                          <input
-                            type="email"
-                            value={cvData.email || currentCandidate.email}
-                            onChange={(e) => setCvData({ ...cvData, email: e.target.value })}
-                            className="bg-transparent border-none text-xs focus:outline-none w-36"
-                            placeholder="Email liên hệ"
-                          />
-                        </div>
-                        <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-lg px-2 py-1">
-                          <span>📍</span>
-                          <input
-                            type="text"
-                            value={cvData.candidateLocation || cvData.location || currentCandidate.location}
-                            onChange={(e) => setCvData({ ...cvData, location: e.target.value, candidateLocation: e.target.value })}
-                            className="bg-transparent border-none text-xs focus:outline-none w-32"
-                            placeholder="Địa chỉ / Tỉnh thành"
-                          />
-                        </div>
-                      </div>
-                    ) : (
-                      <div className={`text-xs flex flex-wrap items-center justify-center gap-x-3 gap-y-1 pt-1.5 font-mono ${canvasTheme === 'paper-white' ? 'text-slate-700' : 'text-[#4A5B4D]'}`}>
-                        <span>📞 {cvData.candidatePhone || cvData.phone || currentCandidate.phone}</span>
-                        <span>•</span>
-                        <span>✉️ {cvData.email || currentCandidate.email}</span>
-                        <span>•</span>
-                        <span>📍 {cvData.candidateLocation || cvData.location || currentCandidate.location}</span>
-                        {currentCandidate.dob && (
-                          <>
-                            <span>•</span>
-                            <span>🎂 {currentCandidate.dob}</span>
-                          </>
-                        )}
-                        {currentCandidate.linkedin && (
-                          <>
-                            <span>•</span>
-                            <span>🔗 {currentCandidate.linkedin}</span>
-                          </>
-                        )}
-                        {currentCandidate.portfolio && (
-                          <>
-                            <span>•</span>
-                            <span>🌐 {currentCandidate.portfolio}</span>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Harvard Section 1: Professional Summary */}
-                  <section className="space-y-2">
-                    <h2 className={`text-xs font-serif font-bold uppercase tracking-wider pb-0.5 border-b ${canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-400' : 'text-[#2D3A31] border-[#C5C0B6]'}`}>
-                      TÓM TẮT NĂNG LỰC (PROFESSIONAL SUMMARY)
-                    </h2>
-                    {isEditing ? (
-                      <textarea
-                        rows={3}
-                        value={cvData.summary}
-                        onChange={(e) => setCvData({ ...cvData, summary: e.target.value })}
-                        className="w-full text-xs leading-relaxed p-2.5 bg-white border border-slate-300 rounded-xl font-medium focus:border-[#5b48bd] focus:ring-2 focus:ring-purple-200"
-                        placeholder="Tóm tắt năng lực cốt lõi, số năm kinh nghiệm và thế mạnh cạnh tranh..."
-                      />
-                    ) : (
-                      <p className={`text-xs leading-relaxed text-justify ${canvasTheme === 'paper-white' ? 'text-slate-800 font-medium' : 'text-[#4A5B4D] font-medium'}`}>
-                        {cvData.summary}
-                      </p>
-                    )}
-                  </section>
-
-                  {/* Harvard Section 2: Education */}
-                  <section className="space-y-3">
-                    <div className={`flex items-center justify-between pb-0.5 border-b ${canvasTheme === 'paper-white' ? 'border-slate-400' : 'border-[#C5C0B6]'}`}>
-                      <h2 className={`text-xs font-serif font-bold uppercase tracking-wider ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
-                        HỌC VẤN CHÍNH QUY (EDUCATION)
-                      </h2>
-                      {isEditing && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const newEdu = [...(cvData.education || [])];
-                            newEdu.push({
-                              id: `edu_${Date.now()}`,
-                              school: 'Trường Đại học',
-                              degree: 'Chuyên ngành / Cử nhân',
-                              grade: 'GPA: 3.5/4.0',
-                              period: '2020 - 2024',
-                              highlight: 'Tốt nghiệp loại Giỏi',
-                            });
-                            setCvData({ ...cvData, education: newEdu });
-                          }}
-                          className="text-[10px] text-emerald-700 hover:text-emerald-800 font-bold flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-50 border border-emerald-200 cursor-pointer shadow-2xs"
-                        >
-                          <span>+ Thêm Học Vấn</span>
-                        </button>
-                      )}
-                    </div>
-                    {safeArr(cvData.education).map((edu, eIdx) => (
-                      <div key={edu.id || eIdx} className="text-xs space-y-1">
-                        {isEditing ? (
-                          <div className="p-2.5 rounded-xl bg-white border border-slate-300 space-y-1.5 shadow-2xs">
-                            <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-2 pt-1">
+                          {safeArr(cvData.languages).map((l, lIdx) => (
+                            <div key={l.id || lIdx} className="p-2.5 rounded-xl border border-slate-300 bg-white flex items-center gap-2 text-xs shadow-2xs">
                               <input
                                 type="text"
-                                value={edu.school || ''}
+                                value={l.name || ''}
                                 onChange={(e) => {
-                                  const list = [...cvData.education];
-                                  list[eIdx].school = e.target.value;
-                                  setCvData({ ...cvData, education: list });
+                                  const newLangs = [...cvData.languages];
+                                  newLangs[lIdx] = { ...newLangs[lIdx], name: e.target.value };
+                                  setCvData({ ...cvData, languages: newLangs });
                                 }}
-                                className="p-1 border border-slate-200 rounded text-xs font-bold font-serif"
-                                placeholder="Tên trường học"
+                                className="p-1 border border-slate-200 rounded text-xs font-bold font-serif w-1/2"
+                                placeholder="Tên ngoại ngữ (vd: Tiếng Anh)"
                               />
                               <input
                                 type="text"
-                                value={edu.period || ''}
+                                value={l.score || l.level || ''}
                                 onChange={(e) => {
-                                  const list = [...cvData.education];
-                                  list[eIdx].period = e.target.value;
-                                  setCvData({ ...cvData, education: list });
+                                  const newLangs = [...cvData.languages];
+                                  newLangs[lIdx] = { ...newLangs[lIdx], score: e.target.value, level: e.target.value };
+                                  setCvData({ ...cvData, languages: newLangs });
                                 }}
-                                className="p-1 border border-slate-200 rounded text-xs font-mono"
-                                placeholder="Niên khóa"
-                              />
-                            </div>
-                            <div className="grid grid-cols-2 gap-2">
-                              <input
-                                type="text"
-                                value={edu.degree || ''}
-                                onChange={(e) => {
-                                  const list = [...cvData.education];
-                                  list[eIdx].degree = e.target.value;
-                                  setCvData({ ...cvData, education: list });
-                                }}
-                                className="p-1 border border-slate-200 rounded text-xs"
-                                placeholder="Chuyên ngành / Bằng cấp"
-                              />
-                              <input
-                                type="text"
-                                value={edu.grade || ''}
-                                onChange={(e) => {
-                                  const list = [...cvData.education];
-                                  list[eIdx].grade = e.target.value;
-                                  setCvData({ ...cvData, education: list });
-                                }}
-                                className="p-1 border border-slate-200 rounded text-xs text-emerald-700 font-bold"
-                                placeholder="GPA / Xếp loại"
-                              />
-                            </div>
-                            <div className="flex justify-end pt-1">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const list = cvData.education.filter((_, idx) => idx !== eIdx);
-                                  setCvData({ ...cvData, education: list });
-                                }}
-                                className="text-[10px] text-rose-600 font-bold hover:underline"
-                              >
-                                ✕ Xóa mục học vấn này
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            <div className={`flex justify-between font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
-                              <span className="font-serif text-sm">{edu.school}</span>
-                              <span className={`font-mono ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{edu.period}</span>
-                            </div>
-                            <div className={`flex justify-between italic ${canvasTheme === 'paper-white' ? 'text-slate-700' : 'text-[#4A5B4D]'}`}>
-                              <span>{edu.degree}</span>
-                              <span className="font-semibold not-italic text-emerald-700">{edu.grade}</span>
-                            </div>
-                            {edu.highlight && (
-                              <p className={`text-[11px] pt-0.5 ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>
-                                {edu.highlight}
-                              </p>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    ))}
-                  </section>
-
-                  {/* Harvard Section 3: Professional Experience */}
-                  <section className="space-y-4">
-                    <div className={`flex items-center justify-between pb-0.5 border-b ${canvasTheme === 'paper-white' ? 'border-slate-400' : 'border-[#C5C0B6]'}`}>
-                      <h2 className={`text-xs font-serif font-bold uppercase tracking-wider ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
-                        KINH NGHIỆM LÀM VIỆC (PROFESSIONAL EXPERIENCE)
-                      </h2>
-                      {isEditing && (
-                        <button
-                          type="button"
-                          onClick={handleAddExperience}
-                          className="text-[10px] text-emerald-700 hover:text-emerald-800 font-bold flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-50 border border-emerald-200 cursor-pointer shadow-2xs"
-                        >
-                          <span>+ Thêm Kinh Nghiệm</span>
-                        </button>
-                      )}
-                    </div>
-                    {safeArr(cvData.experiences).map((exp, expIdx) => (
-                      <div key={exp.id || expIdx} className="text-xs space-y-1.5">
-                        {isEditing ? (
-                          <div className="p-3 rounded-xl bg-white border border-slate-300 space-y-2 shadow-2xs">
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                              <input
-                                type="text"
-                                value={exp.role || ''}
-                                onChange={(e) => handleUpdateExperience(exp.id, 'role', e.target.value)}
-                                className="p-1 border border-slate-200 rounded text-xs font-bold font-serif"
-                                placeholder="Chức danh đảm nhiệm"
-                              />
-                              <input
-                                type="text"
-                                value={exp.company || ''}
-                                onChange={(e) => handleUpdateExperience(exp.id, 'company', e.target.value)}
-                                className="p-1 border border-slate-200 rounded text-xs"
-                                placeholder="Tên công ty"
-                              />
-                              <input
-                                type="text"
-                                value={exp.period || ''}
-                                onChange={(e) => handleUpdateExperience(exp.id, 'period', e.target.value)}
-                                className="p-1 border border-slate-200 rounded text-xs font-mono"
-                                placeholder="Thời gian (vd: 2022 - Hiện tại)"
-                              />
-                            </div>
-                            <div className="space-y-1">
-                              <label className="text-[10px] font-bold text-slate-500 uppercase">Thành tựu và nhiệm vụ chính (mỗi dòng 1 gạch đầu dòng):</label>
-                              <textarea
-                                rows={3}
-                                value={safeArr(exp.bullets).join('\n')}
-                                onChange={(e) => {
-                                  const lines = e.target.value.split('\n');
-                                  handleUpdateExperience(exp.id, 'bullets', lines);
-                                }}
-                                className="w-full p-2 border border-slate-200 rounded text-xs"
-                                placeholder="Thành tích đạt được kèm số liệu cụ thể..."
-                              />
-                            </div>
-                            <div className="flex justify-between items-center pt-1 border-t border-slate-100">
-                              <span className="text-[10px] text-slate-400">Vị trí #{expIdx + 1}</span>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteExperience(exp.id)}
-                                className="text-[10px] text-rose-600 font-bold hover:underline"
-                              >
-                                ✕ Xóa vị trí kinh nghiệm này
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            <div className={`flex justify-between items-baseline font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
-                              <div>
-                                <span className="font-serif text-sm">{exp.role}</span>
-                                <span className="font-normal font-sans ml-2 text-slate-600">| {exp.company}</span>
-                              </div>
-                              <span className={`font-mono text-[11px] ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{exp.period}</span>
-                            </div>
-                            {exp.location && (
-                              <p className={`text-[11px] italic ${canvasTheme === 'paper-white' ? 'text-slate-500' : 'text-[#667067]'}`}>{exp.location}</p>
-                            )}
-                            <ul className={`list-disc list-outside pl-4 space-y-1 text-xs ${canvasTheme === 'paper-white' ? 'text-slate-800 font-medium' : 'text-[#4A5B4D] font-medium'}`}>
-                              {safeArr(exp.bullets).map((b, bIdx) => (
-                                <li key={bIdx} className={b.includes('Thành tích:') ? 'font-semibold text-slate-900' : ''}>
-                                  {b}
-                                </li>
-                              ))}
-                            </ul>
-                            {safeArr(exp.tags).length > 0 && (
-                              <p className={`text-[11px] font-mono pt-0.5 ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>
-                                <strong>Công nghệ sử dụng:</strong> {safeArr(exp.tags).join(' • ')}
-                              </p>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    ))}
-                  </section>
-
-                  {/* Harvard Section 4: Key Projects (DỰ ÁN TRỌNG ĐIỂM) */}
-                  <section className="space-y-3.5">
-                    <div className={`flex items-center justify-between pb-0.5 border-b ${canvasTheme === 'paper-white' ? 'border-slate-400' : 'border-[#C5C0B6]'}`}>
-                      <h2 className={`text-xs font-serif font-bold uppercase tracking-wider ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
-                        DỰ ÁN KỸ THUẬT &amp; TRỌNG ĐIỂM (KEY PROJECTS)
-                      </h2>
-                      {isEditing && (
-                        <button
-                          type="button"
-                          onClick={handleAddProject}
-                          className="text-[10px] text-emerald-700 hover:text-emerald-800 font-bold flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-50 border border-emerald-200 cursor-pointer shadow-2xs"
-                        >
-                          <span>+ Thêm Dự Án</span>
-                        </button>
-                      )}
-                    </div>
-                    {safeArr(cvData.projects).map((p, pIdx) => (
-                      <div key={p.id || pIdx} className="text-xs space-y-1">
-                        {isEditing ? (
-                          <div className="p-3 rounded-xl bg-white border border-slate-300 space-y-2 shadow-2xs">
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                              <input
-                                type="text"
-                                value={p.name || ''}
-                                onChange={(e) => handleUpdateProject(p.id, 'name', e.target.value)}
-                                className="p-1 border border-slate-200 rounded text-xs font-bold font-serif"
-                                placeholder="Tên dự án"
-                              />
-                              <input
-                                type="text"
-                                value={p.role || ''}
-                                onChange={(e) => handleUpdateProject(p.id, 'role', e.target.value)}
-                                className="p-1 border border-slate-200 rounded text-xs"
-                                placeholder="Vai trò trong dự án"
-                              />
-                              <input
-                                type="text"
-                                value={p.period || ''}
-                                onChange={(e) => handleUpdateProject(p.id, 'period', e.target.value)}
-                                className="p-1 border border-slate-200 rounded text-xs font-mono"
-                                placeholder="Thời gian (vd: 2024)"
-                              />
-                            </div>
-                            <textarea
-                              rows={2}
-                              value={p.summary || p.description || ''}
-                              onChange={(e) => handleUpdateProject(p.id, 'summary', e.target.value)}
-                              className="w-full p-1.5 border border-slate-200 rounded text-xs"
-                              placeholder="Tóm tắt giải pháp, đóng góp và kết quả dự án..."
-                            />
-                            <div className="flex justify-between items-center pt-1 border-t border-slate-100">
-                              <input
-                                type="text"
-                                value={safeArr(p.tags).join(', ')}
-                                onChange={(e) => handleUpdateProject(p.id, 'tags', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
-                                className="p-1 border border-slate-200 rounded text-xs w-2/3"
-                                placeholder="Công nghệ (phân cách bằng dấu phẩy: React, Spring Boot...)"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteProject(p.id)}
-                                className="text-[10px] text-rose-600 font-bold hover:underline"
-                              >
-                                ✕ Xóa dự án
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            <div className={`flex justify-between items-baseline font-bold ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
-                              <div>
-                                <span className="font-serif text-sm">{p.name}</span>
-                                {p.role && <span className="font-normal font-sans ml-2 text-slate-600">| {p.role}</span>}
-                              </div>
-                              <span className={`font-mono text-[11px] ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>{p.period}</span>
-                            </div>
-                            <p className={`text-xs leading-relaxed ${canvasTheme === 'paper-white' ? 'text-slate-800' : 'text-[#4A5B4D]'}`}>
-                              {p.summary || p.description}
-                            </p>
-                            {safeArr(p.tags).length > 0 && (
-                              <p className={`text-[11px] font-mono ${canvasTheme === 'paper-white' ? 'text-slate-600' : 'text-[#667067]'}`}>
-                                <strong>Công cụ &amp; Môi trường:</strong> {safeArr(p.tags).join(' • ')}
-                              </p>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    ))}
-                  </section>
-
-                  {/* Harvard Section 5: Technical Skills */}
-                  <section className="space-y-2.5">
-                    <div className="flex items-center justify-between pb-0.5 border-b border-slate-400">
-                      <h2 className={`text-xs font-serif font-bold uppercase tracking-wider ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
-                        KỸ NĂNG CHUYÊN MÔN (TECHNICAL SKILLS)
-                      </h2>
-                      {isEditing && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const newCategory = {
-                              category: 'Kỹ Năng Mới',
-                              items: ['Kỹ năng 1']
-                            };
-                            setCvData({ ...cvData, skills: [...safeArr(cvData.skills), newCategory] });
-                          }}
-                          className="text-[10px] font-bold text-emerald-700 hover:text-emerald-900 flex items-center gap-0.5 cursor-pointer"
-                        >
-                          + Thêm Nhóm
-                        </button>
-                      )}
-                    </div>
-                    {isEditing ? (
-                      <div className="space-y-3 pt-1">
-                        {safeArr(cvData.skills).map((s, catIdx) => (
-                          <div key={catIdx} className="p-2.5 rounded-xl border border-slate-300 bg-white space-y-2 text-xs shadow-2xs">
-                            <div className="flex items-center justify-between gap-2">
-                              <input
-                                type="text"
-                                value={s.category || ''}
-                                onChange={(e) => {
-                                  const nextSkills = [...cvData.skills];
-                                  nextSkills[catIdx] = { ...nextSkills[catIdx], category: e.target.value };
-                                  setCvData({ ...cvData, skills: nextSkills });
-                                }}
-                                className="p-1 border border-slate-200 rounded text-xs font-bold font-serif w-full max-w-[200px]"
-                                placeholder="Tên nhóm kỹ năng"
+                                className="p-1 border border-slate-200 rounded text-xs font-mono w-1/2"
+                                placeholder="Trình độ / Chứng chỉ (vd: IELTS 7.5)"
                               />
                               <button
                                 type="button"
                                 onClick={() => {
-                                  const nextSkills = cvData.skills.filter((_, idx) => idx !== catIdx);
-                                  setCvData({ ...cvData, skills: nextSkills });
-                                }}
-                                className="text-[10px] text-rose-600 font-bold hover:underline cursor-pointer"
-                              >
-                                ✕ Xóa nhóm
-                              </button>
-                            </div>
-                            <div className="flex flex-wrap gap-1.5">
-                              {safeArr(s.items).map((item, iIdx) => (
-                                <span
-                                  key={iIdx}
-                                  className="px-2 py-0.5 rounded-lg bg-slate-100 text-slate-800 text-xs font-mono flex items-center gap-1 border border-slate-200"
-                                >
-                                  <span>{item}</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemoveSkill(catIdx, item)}
-                                    className="text-rose-500 hover:text-rose-700 cursor-pointer"
-                                    title="Xóa kỹ năng này"
-                                  >
-                                    <span className="material-symbols-outlined text-[12px]">close</span>
-                                  </button>
-                                </span>
-                              ))}
-                            </div>
-                            <div className="relative pt-1">
-                              <div className="flex items-center gap-1.5">
-                                <input
-                                  type="text"
-                                  value={skillCategoryInputs[catIdx] || ''}
-                                  onFocus={() => setActiveSkillDropdownCat(catIdx)}
-                                  onChange={(e) => {
-                                    setSkillCategoryInputs({ ...skillCategoryInputs, [catIdx]: e.target.value });
-                                    setActiveSkillDropdownCat(catIdx);
-                                  }}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                      e.preventDefault();
-                                      handleAddSkillToCategory(catIdx);
-                                    }
-                                  }}
-                                  placeholder="Gõ kỹ năng (gợi ý tự động)..."
-                                  className="p-1 border border-slate-300 rounded text-xs w-48 focus:outline-none focus:border-emerald-600"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => handleAddSkillToCategory(catIdx)}
-                                  className="px-2 py-1 rounded bg-emerald-700 hover:bg-emerald-800 text-[11px] font-bold text-white cursor-pointer"
-                                >
-                                  + Thêm
-                                </button>
-                              </div>
-                              {activeSkillDropdownCat === catIdx && (skillCategoryInputs[catIdx] || '').trim().length > 0 && (
-                                <div className="absolute left-0 top-full mt-1 w-60 max-h-48 overflow-y-auto bg-white border border-emerald-300 rounded-xl shadow-xl z-50 p-1 space-y-0.5">
-                                  {masterSkillsList
-                                    .filter(sk => (sk.skillName || '').toLowerCase().includes((skillCategoryInputs[catIdx] || '').toLowerCase()))
-                                    .slice(0, 8)
-                                    .map(sk => (
-                                      <div
-                                        key={sk.skillId}
-                                        onMouseDown={() => handleAddSkillToCategory(catIdx, sk.skillName)}
-                                        className="px-2 py-1 hover:bg-emerald-50 rounded cursor-pointer flex items-center justify-between text-xs"
-                                      >
-                                        <span className="font-semibold text-slate-800">{sk.skillName}</span>
-                                        <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded font-mono">
-                                          {sk.category || 'SKILL'}
-                                        </span>
-                                      </div>
-                                    ))}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className={`text-xs space-y-1.5 ${canvasTheme === 'paper-white' ? 'text-slate-800' : 'text-[#4A5B4D]'}`}>
-                        {safeArr(cvData.skills).map((s, idx) => (
-                          <p key={idx}>
-                            <strong className={canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}>{s.category}:</strong> {safeArr(s.items).join(', ')}
-                          </p>
-                        ))}
-                      </div>
-                    )}
-                  </section>
-
-                  {/* Harvard Section 6: Certifications & Licenses */}
-                  <section className="space-y-2">
-                    <div className="flex items-center justify-between pb-0.5 border-b border-slate-400">
-                      <h2 className={`text-xs font-serif font-bold uppercase tracking-wider ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
-                        CHỨNG CHỈ QUỐC TẾ (CERTIFICATIONS &amp; LICENSES)
-                      </h2>
-                      {isEditing && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const newCert = {
-                              id: Date.now(),
-                              name: 'Tên chứng chỉ mới',
-                              issuer: 'Đơn vị cấp',
-                              year: '2024',
-                              code: 'Mã chứng chỉ'
-                            };
-                            setCvData({ ...cvData, certifications: [...safeArr(cvData.certifications), newCert] });
-                          }}
-                          className="text-[10px] font-bold text-emerald-700 hover:text-emerald-900 flex items-center gap-0.5 cursor-pointer"
-                        >
-                          + Thêm
-                        </button>
-                      )}
-                    </div>
-                    {isEditing ? (
-                      <div className="space-y-2 pt-1">
-                        {safeArr(cvData.certifications).map((c, cIdx) => (
-                          <div key={c.id || cIdx} className="p-2.5 rounded-xl border border-slate-300 bg-white space-y-1.5 text-xs shadow-2xs">
-                            <div className="flex items-center justify-between gap-2">
-                              <input
-                                type="text"
-                                value={c.name || ''}
-                                onChange={(e) => {
-                                  const nextCerts = [...cvData.certifications];
-                                  nextCerts[cIdx] = { ...nextCerts[cIdx], name: e.target.value };
-                                  setCvData({ ...cvData, certifications: nextCerts });
-                                }}
-                                className="p-1 border border-slate-200 rounded text-xs font-bold font-serif w-full"
-                                placeholder="Tên chứng chỉ (vd: AWS Certified Solutions Architect)"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const nextCerts = cvData.certifications.filter((_, idx) => idx !== cIdx);
-                                  setCvData({ ...cvData, certifications: nextCerts });
+                                  const newLangs = cvData.languages.filter((_, idx) => idx !== lIdx);
+                                  setCvData({ ...cvData, languages: newLangs });
                                 }}
                                 className="text-[10px] text-rose-600 font-bold hover:underline cursor-pointer shrink-0"
                               >
                                 ✕ Xóa
                               </button>
                             </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                              <input
-                                type="text"
-                                value={c.issuer || ''}
-                                onChange={(e) => {
-                                  const nextCerts = [...cvData.certifications];
-                                  nextCerts[cIdx] = { ...nextCerts[cIdx], issuer: e.target.value };
-                                  setCvData({ ...cvData, certifications: nextCerts });
-                                }}
-                                className="p-1 border border-slate-200 rounded text-xs"
-                                placeholder="Đơn vị cấp (vd: Amazon Web Services)"
-                              />
-                              <input
-                                type="text"
-                                value={c.year || ''}
-                                onChange={(e) => {
-                                  const nextCerts = [...cvData.certifications];
-                                  nextCerts[cIdx] = { ...nextCerts[cIdx], year: e.target.value };
-                                  setCvData({ ...cvData, certifications: nextCerts });
-                                }}
-                                className="p-1 border border-slate-200 rounded text-xs font-mono"
-                                placeholder="Năm cấp (vd: 2024)"
-                              />
-                              <input
-                                type="text"
-                                value={c.code || ''}
-                                onChange={(e) => {
-                                  const nextCerts = [...cvData.certifications];
-                                  nextCerts[cIdx] = { ...nextCerts[cIdx], code: e.target.value };
-                                  setCvData({ ...cvData, certifications: nextCerts });
-                                }}
-                                className="p-1 border border-slate-200 rounded text-xs font-mono"
-                                placeholder="Mã chứng chỉ (tùy chọn)"
-                              />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <ul className={`list-disc list-outside pl-4 space-y-1 text-xs ${canvasTheme === 'paper-white' ? 'text-slate-800' : 'text-[#4A5B4D]'}`}>
-                        {safeArr(cvData.certifications).map((c, idx) => (
-                          <li key={c.id || idx}>
-                            <strong>{c.name}</strong> — {c.issuer} {c.year ? `(${c.year})` : ''} {c.code ? `• ID: ${c.code}` : ''}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </section>
-
-                  {/* Harvard Section 7: Languages */}
-                  <section className="space-y-2">
-                    <div className="flex items-center justify-between pb-0.5 border-b border-slate-400">
-                      <h2 className={`text-xs font-serif font-bold uppercase tracking-wider ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
-                        NGOẠI NGỮ THÀNH THẠO (LANGUAGES)
-                      </h2>
-                      {isEditing && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const newLangs = [...safeArr(cvData.languages), { id: Date.now(), name: 'Tiếng Anh', level: 'Thành thạo', score: 'IELTS 7.0' }];
-                            setCvData({ ...cvData, languages: newLangs });
-                          }}
-                          className="text-[10px] font-bold text-emerald-700 hover:text-emerald-900 flex items-center gap-0.5 cursor-pointer"
-                        >
-                          + Thêm
-                        </button>
-                      )}
-                    </div>
-                    {isEditing ? (
-                      <div className="space-y-2 pt-1">
-                        {safeArr(cvData.languages).map((l, lIdx) => (
-                          <div key={l.id || lIdx} className="p-2.5 rounded-xl border border-slate-300 bg-white flex items-center gap-2 text-xs shadow-2xs">
-                            <input
-                              type="text"
-                              value={l.name || ''}
-                              onChange={(e) => {
-                                const newLangs = [...cvData.languages];
-                                newLangs[lIdx] = { ...newLangs[lIdx], name: e.target.value };
-                                setCvData({ ...cvData, languages: newLangs });
-                              }}
-                              className="p-1 border border-slate-200 rounded text-xs font-bold font-serif w-1/2"
-                              placeholder="Tên ngoại ngữ (vd: Tiếng Anh)"
-                            />
-                            <input
-                              type="text"
-                              value={l.score || l.level || ''}
-                              onChange={(e) => {
-                                const newLangs = [...cvData.languages];
-                                newLangs[lIdx] = { ...newLangs[lIdx], score: e.target.value, level: e.target.value };
-                                setCvData({ ...cvData, languages: newLangs });
-                              }}
-                              className="p-1 border border-slate-200 rounded text-xs font-mono w-1/2"
-                              placeholder="Trình độ / Chứng chỉ (vd: IELTS 7.5)"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const newLangs = cvData.languages.filter((_, idx) => idx !== lIdx);
-                                setCvData({ ...cvData, languages: newLangs });
-                              }}
-                              className="text-[10px] text-rose-600 font-bold hover:underline cursor-pointer shrink-0"
-                            >
-                              ✕ Xóa
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className={`text-xs ${canvasTheme === 'paper-white' ? 'text-slate-800' : 'text-[#4A5B4D]'}`}>
-                        {safeArr(cvData.languages).map(l => `${l.name}${l.score && !l.name.includes(l.score) ? ` (${l.score})` : ''}`).join(' • ')}
-                      </p>
-                    )}
-                  </section>
-
-                </div>
-              )}
-
-              {/* ──────────────────────────────────────────────────────── */}
-              {/* TEMPLATE C: HIỆN ĐẠI SANG TRỌNG (MODERN EDITORIAL)        */}
-              {/* ──────────────────────────────────────────────────────── */}
-              {cvTemplate === 'modern' && (
-                <div className={`p-6 sm:p-10 space-y-7 ${canvasTheme === 'paper-white' ? 'bg-white text-slate-800' : 'bg-[#FDFCF9] text-[#2D3A31]'}`}>
-
-                  {/* Modern Header Banner */}
-                  <div className={`p-6 sm:p-8 rounded-3xl ${livingTheme.activeNavBg} text-white shadow-2xl flex flex-col sm:flex-row items-center sm:items-start justify-between gap-6 border ${livingTheme.border}`}>
-                    <div className="space-y-2 text-center sm:text-left flex-1 w-full">
-                      <div className="flex items-center justify-center sm:justify-start gap-2 flex-wrap">
-                        <span className="px-3 py-0.5 rounded-full text-[10px] font-mono font-bold bg-white/20 uppercase tracking-widest">
-                          {cvData.versionBadge || 'VERIFIED PROFESSIONAL'}
-                        </span>
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 border ${getJobSearchBadge().classes}`}>
-                          <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
-                          {getJobSearchBadge().label}
-                        </span>
-                      </div>
-
-                      {isEditing ? (
-                        <div className="space-y-2 pt-1 w-full">
-                          <input
-                            type="text"
-                            value={cvData.candidateName || currentCandidate.accountName}
-                            onChange={(e) => setCvData({ ...cvData, candidateName: e.target.value })}
-                            className="w-full text-2xl sm:text-3xl font-headline font-black uppercase tracking-tight bg-white/20 text-white placeholder-white/60 border border-white/40 rounded-xl p-2 focus:bg-white/30 focus:outline-none"
-                            placeholder="Họ và tên ứng viên"
-                          />
-                          <input
-                            type="text"
-                            value={cvData.targetTitle}
-                            onChange={(e) => setCvData({ ...cvData, targetTitle: e.target.value })}
-                            className="w-full text-sm sm:text-base font-bold bg-white/20 text-white placeholder-white/60 border border-white/40 rounded-xl p-1.5 focus:bg-white/30 focus:outline-none"
-                            placeholder="Chức danh mục tiêu (vd: Product Lead / Tech Architect)"
-                          />
-                          <input
-                            type="text"
-                            value={cvData.tagline || ''}
-                            onChange={(e) => setCvData({ ...cvData, tagline: e.target.value })}
-                            className="w-full text-xs bg-white/20 text-white placeholder-white/60 border border-white/40 rounded-lg p-1.5 focus:bg-white/30 focus:outline-none"
-                            placeholder="Tagline ngắn định vị chuyên môn..."
-                          />
+                          ))}
                         </div>
                       ) : (
-                        <>
-                          <h1 className="text-3xl sm:text-4xl font-headline font-black uppercase tracking-tight">
-                            {cvData.candidateName || currentCandidate.accountName}
-                          </h1>
-                          <p className="text-base sm:text-lg font-bold text-white/95">
-                            {cvData.targetTitle}
-                          </p>
-                          {cvData.tagline && (
-                            <p className="text-xs text-white/80 max-w-xl leading-relaxed pt-1">
-                              {cvData.tagline}
-                            </p>
-                          )}
-                        </>
+                        <p className={`text-xs ${canvasTheme === 'paper-white' ? 'text-slate-800' : 'text-[#4A5B4D]'}`}>
+                          {safeArr(cvData.languages).map(l => `${l.name}${l.score && !l.name.includes(l.score) ? ` (${l.score})` : ''}`).join(' • ')}
+                        </p>
                       )}
-                    </div>
+                    </section>
 
-                    <div className="relative group shrink-0">
-                      <img
-                        src={currentCandidate.avatarUrl}
-                        alt={cvData.candidateName || currentCandidate.accountName}
-                        className="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl object-cover border-4 border-white/30 shadow-2xl group-hover:brightness-90 transition-all"
-                      />
-                      <input
-                        type="file"
-                        id="candidate-avatar-modern-input"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handleCandidateAvatarFileChange}
-                      />
-                      <label
-                        htmlFor="candidate-avatar-modern-input"
-                        className="absolute inset-0 rounded-2xl bg-black/40 text-white opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-1 cursor-pointer transition-opacity backdrop-blur-xs"
-                        title="Bấm để chọn ảnh từ máy (Tự động tải lên Cloudinary)"
-                      >
-                        <span className="material-symbols-outlined text-2xl">cloud_upload</span>
-                        <span className="text-[10px] font-bold uppercase">Đổi ảnh</span>
-                      </label>
-                    </div>
                   </div>
+                )}
 
-                  {/* Full Contact Ribbon */}
-                  {isEditing ? (
-                    <div className={`p-3.5 rounded-2xl border flex flex-wrap items-center justify-around gap-2 text-xs font-mono shadow-xs ${canvasTheme === 'paper-white' ? 'bg-slate-100 border-slate-300' : 'bg-[#F2F0EB] border-[#C5C0B6]'}`}>
-                      <div className="flex items-center gap-1 bg-white border border-slate-300 rounded px-2 py-1">
-                        <span>📧</span>
-                        <input
-                          type="email"
-                          value={cvData.email || currentCandidate.email}
-                          onChange={(e) => setCvData({ ...cvData, email: e.target.value })}
-                          className="bg-transparent border-none text-xs focus:outline-none w-32"
-                          placeholder="Email"
-                        />
+                {/* ──────────────────────────────────────────────────────── */}
+                {/* TEMPLATE C: HIỆN ĐẠI SANG TRỌNG (MODERN EDITORIAL)        */}
+                {/* ──────────────────────────────────────────────────────── */}
+                {cvTemplate === 'modern' && (
+                  <div className={`p-6 sm:p-10 space-y-7 ${canvasTheme === 'paper-white' ? 'bg-white text-slate-800' : 'bg-[#FDFCF9] text-[#2D3A31]'}`}>
+
+                    {/* Modern Header Banner */}
+                    <div className={`p-6 sm:p-8 rounded-3xl ${livingTheme.activeNavBg} text-white shadow-2xl flex flex-col sm:flex-row items-center sm:items-start justify-between gap-6 border ${livingTheme.border}`}>
+                      <div className="space-y-2 text-center sm:text-left flex-1 w-full">
+                        <div className="flex items-center justify-center sm:justify-start gap-2 flex-wrap">
+                          <span className="px-3 py-0.5 rounded-full text-[10px] font-mono font-bold bg-white/20 uppercase tracking-widest">
+                            {cvData.versionBadge || 'VERIFIED PROFESSIONAL'}
+                          </span>
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 border ${getJobSearchBadge().classes}`}>
+                            <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
+                            {getJobSearchBadge().label}
+                          </span>
+                        </div>
+
+                        {isEditing ? (
+                          <div className="space-y-2 pt-1 w-full">
+                            <input
+                              type="text"
+                              value={cvData.candidateName || currentCandidate.accountName}
+                              onChange={(e) => setCvData({ ...cvData, candidateName: e.target.value })}
+                              className="w-full text-2xl sm:text-3xl font-headline font-black uppercase tracking-tight bg-white/20 text-white placeholder-white/60 border border-white/40 rounded-xl p-2 focus:bg-white/30 focus:outline-none"
+                              placeholder="Họ và tên ứng viên"
+                            />
+                            <input
+                              type="text"
+                              value={cvData.targetTitle}
+                              onChange={(e) => setCvData({ ...cvData, targetTitle: e.target.value })}
+                              className="w-full text-sm sm:text-base font-bold bg-white/20 text-white placeholder-white/60 border border-white/40 rounded-xl p-1.5 focus:bg-white/30 focus:outline-none"
+                              placeholder="Chức danh mục tiêu (vd: Product Lead / Tech Architect)"
+                            />
+                            <input
+                              type="text"
+                              value={cvData.tagline || ''}
+                              onChange={(e) => setCvData({ ...cvData, tagline: e.target.value })}
+                              className="w-full text-xs bg-white/20 text-white placeholder-white/60 border border-white/40 rounded-lg p-1.5 focus:bg-white/30 focus:outline-none"
+                              placeholder="Tagline ngắn định vị chuyên môn..."
+                            />
+                          </div>
+                        ) : (
+                          <>
+                            <h1 className="text-3xl sm:text-4xl font-headline font-black uppercase tracking-tight">
+                              {cvData.candidateName || currentCandidate.accountName}
+                            </h1>
+                            <p className="text-base sm:text-lg font-bold text-white/95">
+                              {cvData.targetTitle}
+                            </p>
+                            {cvData.tagline && (
+                              <p className="text-xs text-white/80 max-w-xl leading-relaxed pt-1">
+                                {cvData.tagline}
+                              </p>
+                            )}
+                          </>
+                        )}
                       </div>
-                      <div className="flex items-center gap-1 bg-white border border-slate-300 rounded px-2 py-1">
-                        <span>📞</span>
-                        <input
-                          type="tel"
-                          value={cvData.candidatePhone || cvData.phone || currentCandidate.phone}
-                          onChange={(e) => setCvData({ ...cvData, phone: e.target.value, candidatePhone: e.target.value })}
-                          className="bg-transparent border-none text-xs focus:outline-none w-28"
-                          placeholder="SĐT"
+
+                      <div className="relative group shrink-0">
+                        <img
+                          src={currentCandidate.avatarUrl}
+                          alt={cvData.candidateName || currentCandidate.accountName}
+                          className="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl object-cover border-4 border-white/30 shadow-2xl group-hover:brightness-90 transition-all"
                         />
-                      </div>
-                      <div className="flex items-center gap-1 bg-white border border-slate-300 rounded px-2 py-1">
-                        <span>📍</span>
                         <input
-                          type="text"
-                          value={cvData.candidateLocation || cvData.location || currentCandidate.location}
-                          onChange={(e) => setCvData({ ...cvData, location: e.target.value, candidateLocation: e.target.value })}
-                          className="bg-transparent border-none text-xs focus:outline-none w-32"
-                          placeholder="Địa chỉ"
+                          type="file"
+                          id="candidate-avatar-modern-input"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleCandidateAvatarFileChange}
                         />
+                        <label
+                          htmlFor="candidate-avatar-modern-input"
+                          className="absolute inset-0 rounded-2xl bg-black/40 text-white opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-1 cursor-pointer transition-opacity backdrop-blur-xs"
+                          title="Bấm để chọn ảnh từ máy (Tự động tải lên Cloudinary)"
+                        >
+                          <span className="material-symbols-outlined text-2xl">cloud_upload</span>
+                          <span className="text-[10px] font-bold uppercase">Đổi ảnh</span>
+                        </label>
                       </div>
                     </div>
-                  ) : (
-                    <div className={`p-3.5 rounded-2xl border flex flex-wrap items-center justify-around gap-3 text-xs font-mono font-semibold shadow-xs ${canvasTheme === 'paper-white' ? 'bg-slate-100 border-slate-300 text-slate-800' : 'bg-[#F2F0EB] border-[#C5C0B6] text-[#2D3A31]'}`}>
-                      <span className="flex items-center gap-1.5">📧 {currentCandidate.email}</span>
-                      <span className="flex items-center gap-1.5">📞 {cvData.candidatePhone || cvData.phone || currentCandidate.phone}</span>
-                      <span className="flex items-center gap-1.5">📍 {cvData.candidateLocation || cvData.location || currentCandidate.location}</span>
-                      {currentCandidate.dob && (
-                        <span className="flex items-center gap-1.5">🎂 {currentCandidate.dob}</span>
-                      )}
-                      {currentCandidate.linkedin && (
-                        <span className="flex items-center gap-1.5">🔗 {currentCandidate.linkedin}</span>
-                      )}
-                      {currentCandidate.portfolio && (
-                        <span className="flex items-center gap-1.5">🌐 {currentCandidate.portfolio}</span>
-                      )}
-                    </div>
-                  )}
 
-                  {/* Section: TÓM TẮT NĂNG LỰC CỐT LÕI (EXECUTIVE SUMMARY) */}
-                  <section className="space-y-2.5">
-                    <h3 className={`text-xs font-headline font-black uppercase tracking-widest pb-1 border-b flex items-center gap-2 ${canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-300' : 'text-[#2D3A31] border-[#C5C0B6]'}`}>
-                      <span className="material-symbols-outlined text-base" style={{ color: livingTheme.primary }}>badge</span>
-                      <span>Tóm Tắt Năng Lực Cốt Lõi (Executive Summary)</span>
-                    </h3>
+                    {/* Full Contact Ribbon */}
                     {isEditing ? (
-                      <textarea
-                        rows={3}
-                        value={cvData.summary}
-                        onChange={(e) => setCvData({ ...cvData, summary: e.target.value })}
-                        className="w-full p-3 rounded-2xl text-xs sm:text-sm bg-white border border-slate-300 focus:border-[#5b48bd] focus:ring-2 focus:ring-purple-200"
-                        placeholder="Tóm tắt năng lực cốt lõi..."
-                      />
+                      <div className={`p-3.5 rounded-2xl border flex flex-wrap items-center justify-around gap-2 text-xs font-mono shadow-xs ${canvasTheme === 'paper-white' ? 'bg-slate-100 border-slate-300' : 'bg-[#F2F0EB] border-[#C5C0B6]'}`}>
+                        <div className="flex items-center gap-1 bg-white border border-slate-300 rounded px-2 py-1">
+                          <span>📧</span>
+                          <input
+                            type="email"
+                            value={cvData.email || currentCandidate.email}
+                            onChange={(e) => setCvData({ ...cvData, email: e.target.value })}
+                            className="bg-transparent border-none text-xs focus:outline-none w-32"
+                            placeholder="Email"
+                          />
+                        </div>
+                        <div className="flex items-center gap-1 bg-white border border-slate-300 rounded px-2 py-1">
+                          <span>📞</span>
+                          <input
+                            type="tel"
+                            value={cvData.candidatePhone || cvData.phone || currentCandidate.phone}
+                            onChange={(e) => setCvData({ ...cvData, phone: e.target.value, candidatePhone: e.target.value })}
+                            className="bg-transparent border-none text-xs focus:outline-none w-28"
+                            placeholder="SĐT"
+                          />
+                        </div>
+                        <div className="flex items-center gap-1 bg-white border border-slate-300 rounded px-2 py-1">
+                          <span>📍</span>
+                          <input
+                            type="text"
+                            value={cvData.candidateLocation || cvData.location || currentCandidate.location}
+                            onChange={(e) => setCvData({ ...cvData, location: e.target.value, candidateLocation: e.target.value })}
+                            className="bg-transparent border-none text-xs focus:outline-none w-32"
+                            placeholder="Địa chỉ"
+                          />
+                        </div>
+                      </div>
                     ) : (
-                      <div className={`p-4 rounded-2xl text-xs sm:text-sm leading-relaxed border-l-4 shadow-xs font-medium ${canvasTheme === 'paper-white' ? 'bg-slate-50 border-slate-900 text-slate-800 border-t border-r border-b border-slate-200' : 'bg-[#F2F0EB] border-[#2D3A31] text-[#2D3A31] border-t border-r border-b border-[#C5C0B6]'}`}>
-                        {cvData.summary}
+                      <div className={`p-3.5 rounded-2xl border flex flex-wrap items-center justify-around gap-3 text-xs font-mono font-semibold shadow-xs ${canvasTheme === 'paper-white' ? 'bg-slate-100 border-slate-300 text-slate-800' : 'bg-[#F2F0EB] border-[#C5C0B6] text-[#2D3A31]'}`}>
+                        <span className="flex items-center gap-1.5">📧 {currentCandidate.email}</span>
+                        <span className="flex items-center gap-1.5">📞 {cvData.candidatePhone || cvData.phone || currentCandidate.phone}</span>
+                        <span className="flex items-center gap-1.5">📍 {cvData.candidateLocation || cvData.location || currentCandidate.location}</span>
+                        {currentCandidate.dob && (
+                          <span className="flex items-center gap-1.5">🎂 {currentCandidate.dob}</span>
+                        )}
+                        {currentCandidate.linkedin && (
+                          <span className="flex items-center gap-1.5">🔗 {currentCandidate.linkedin}</span>
+                        )}
+                        {currentCandidate.portfolio && (
+                          <span className="flex items-center gap-1.5">🌐 {currentCandidate.portfolio}</span>
+                        )}
                       </div>
                     )}
-                  </section>
 
-                  {/* 2-Column Balanced Content Grid (7 cols left, 5 cols right) */}
-                  <div className="grid grid-cols-1 md:grid-cols-12 gap-7 items-start">
-
-                    {/* Cột Trái (7 Cols): KINH NGHIỆM THỰC CHIẾN + DỰ ÁN TRỌNG ĐIỂM */}
-                    <div className="md:col-span-7 space-y-7">
-                      
-                      {/* Kinh Nghiệm Làm Việc */}
-                      <section className="space-y-4">
-                        <div className={`flex items-center justify-between pb-1 border-b ${canvasTheme === 'paper-white' ? 'border-slate-300' : 'border-[#C5C0B6]'}`}>
-                          <h3 className={`text-xs font-headline font-black uppercase tracking-widest flex items-center gap-2 ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
-                            <span className="material-symbols-outlined text-base" style={{ color: livingTheme.primary }}>work</span>
-                            <span>Kinh Nghiệm Thực Chiến (Experience)</span>
-                          </h3>
-                          {isEditing && (
-                            <button
-                              type="button"
-                              onClick={handleAddExperience}
-                              className="text-[10px] text-emerald-700 hover:text-emerald-800 font-bold flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-50 border border-emerald-200 cursor-pointer shadow-2xs"
-                            >
-                              <span>+ Thêm</span>
-                            </button>
-                          )}
+                    {/* Section: TÓM TẮT NĂNG LỰC CỐT LÕI (EXECUTIVE SUMMARY) */}
+                    <section className="space-y-2.5">
+                      <h3 className={`text-xs font-headline font-black uppercase tracking-widest pb-1 border-b flex items-center gap-2 ${canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-300' : 'text-[#2D3A31] border-[#C5C0B6]'}`}>
+                        <span className="material-symbols-outlined text-base" style={{ color: livingTheme.primary }}>badge</span>
+                        <span>Tóm Tắt Năng Lực Cốt Lõi (Executive Summary)</span>
+                      </h3>
+                      {isEditing ? (
+                        <textarea
+                          rows={3}
+                          value={cvData.summary}
+                          onChange={(e) => setCvData({ ...cvData, summary: e.target.value })}
+                          className="w-full p-3 rounded-2xl text-xs sm:text-sm bg-white border border-slate-300 focus:border-[#5b48bd] focus:ring-2 focus:ring-purple-200"
+                          placeholder="Tóm tắt năng lực cốt lõi..."
+                        />
+                      ) : (
+                        <div className={`p-4 rounded-2xl text-xs sm:text-sm leading-relaxed border-l-4 shadow-xs font-medium ${canvasTheme === 'paper-white' ? 'bg-slate-50 border-slate-900 text-slate-800 border-t border-r border-b border-slate-200' : 'bg-[#F2F0EB] border-[#2D3A31] text-[#2D3A31] border-t border-r border-b border-[#C5C0B6]'}`}>
+                          {cvData.summary}
                         </div>
+                      )}
+                    </section>
 
-                        <div className="space-y-4">
-                          {safeArr(cvData.experiences).map((exp, eIdx) => (
-                            <div key={exp.id || eIdx} className={`p-4 rounded-2xl border space-y-2 shadow-2xs ${canvasTheme === 'paper-white' ? 'bg-white border-slate-200' : 'bg-[#FDFCF9] border-[#E6E2DA]'}`}>
-                              {isEditing ? (
-                                <div className="space-y-2">
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                    <input
-                                      type="text"
-                                      value={exp.role || ''}
-                                      onChange={(e) => handleUpdateExperience(exp.id, 'role', e.target.value)}
-                                      className="p-1 border border-slate-200 rounded text-xs font-bold"
-                                      placeholder="Chức danh"
-                                    />
-                                    <input
-                                      type="text"
-                                      value={exp.company || ''}
-                                      onChange={(e) => handleUpdateExperience(exp.id, 'company', e.target.value)}
-                                      className="p-1 border border-slate-200 rounded text-xs"
-                                      placeholder="Công ty"
-                                    />
-                                  </div>
-                                  <input
-                                    type="text"
-                                    value={exp.period || ''}
-                                    onChange={(e) => handleUpdateExperience(exp.id, 'period', e.target.value)}
-                                    className="p-1 border border-slate-200 rounded text-xs font-mono w-full"
-                                    placeholder="Thời gian"
-                                  />
-                                  <textarea
-                                    rows={2}
-                                    value={safeArr(exp.bullets).join('\n')}
-                                    onChange={(e) => handleUpdateExperience(exp.id, 'bullets', e.target.value.split('\n'))}
-                                    className="w-full p-1.5 border border-slate-200 rounded text-xs"
-                                    placeholder="Thành tích chính..."
-                                  />
-                                  <div className="flex justify-end">
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDeleteExperience(exp.id)}
-                                      className="text-[10px] text-rose-600 font-bold hover:underline"
-                                    >
-                                      ✕ Xóa
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <>
-                                  <div className="flex items-baseline justify-between gap-2 flex-wrap">
-                                    <h4 className={`font-headline font-bold text-sm ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
-                                      {exp.role}
-                                    </h4>
-                                    <span className="text-[11px] font-mono text-slate-500 font-bold">{exp.period}</span>
-                                  </div>
-                                  <div className="text-xs font-bold" style={{ color: livingTheme.primary }}>
-                                    {exp.company}
-                                  </div>
-                                  <ul className="list-disc list-outside pl-4 space-y-1 text-xs text-slate-700">
-                                    {safeArr(exp.bullets).map((b, bIdx) => (
-                                      <li key={bIdx}>{b}</li>
-                                    ))}
-                                  </ul>
-                                </>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </section>
+                    {/* 2-Column Balanced Content Grid (7 cols left, 5 cols right) */}
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-7 items-start">
 
-                      {/* Dự Án Trọng Điểm */}
-                      <section className="space-y-4">
-                        <div className={`flex items-center justify-between pb-1 border-b ${canvasTheme === 'paper-white' ? 'border-slate-300' : 'border-[#C5C0B6]'}`}>
-                          <h3 className={`text-xs font-headline font-black uppercase tracking-widest flex items-center gap-2 ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
-                            <span className="material-symbols-outlined text-base" style={{ color: livingTheme.primary }}>code</span>
-                            <span>Dự Án Nổi Bật (Featured Projects)</span>
-                          </h3>
-                          {isEditing && (
-                            <button
-                              type="button"
-                              onClick={handleAddProject}
-                              className="text-[10px] text-emerald-700 hover:text-emerald-800 font-bold flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-50 border border-emerald-200 cursor-pointer shadow-2xs"
-                            >
-                              <span>+ Thêm</span>
-                            </button>
-                          )}
-                        </div>
+                      {/* Cột Trái (7 Cols): KINH NGHIỆM THỰC CHIẾN + DỰ ÁN TRỌNG ĐIỂM */}
+                      <div className="md:col-span-7 space-y-7">
 
-                        <div className="space-y-3">
-                          {safeArr(cvData.projects).map((p, pIdx) => (
-                            <div key={p.id || pIdx} className={`p-4 rounded-2xl border space-y-1.5 shadow-2xs ${canvasTheme === 'paper-white' ? 'bg-white border-slate-200' : 'bg-[#FDFCF9] border-[#E6E2DA]'}`}>
-                              {isEditing ? (
-                                <div className="space-y-2">
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                    <input
-                                      type="text"
-                                      value={p.name || ''}
-                                      onChange={(e) => handleUpdateProject(p.id, 'name', e.target.value)}
-                                      className="p-1 border border-slate-200 rounded text-xs font-bold"
-                                      placeholder="Tên dự án"
-                                    />
-                                    <input
-                                      type="text"
-                                      value={p.role || ''}
-                                      onChange={(e) => handleUpdateProject(p.id, 'role', e.target.value)}
-                                      className="p-1 border border-slate-200 rounded text-xs"
-                                      placeholder="Vai trò"
-                                    />
-                                  </div>
-                                  <textarea
-                                    rows={2}
-                                    value={p.summary || p.description || ''}
-                                    onChange={(e) => handleUpdateProject(p.id, 'summary', e.target.value)}
-                                    className="w-full p-1.5 border border-slate-200 rounded text-xs"
-                                    placeholder="Tóm tắt dự án..."
-                                  />
-                                  <div className="flex justify-end">
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDeleteProject(p.id)}
-                                      className="text-[10px] text-rose-600 font-bold hover:underline"
-                                    >
-                                      ✕ Xóa
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <>
-                                  <div className="flex justify-between items-baseline">
-                                    <h4 className="font-bold text-xs text-slate-900">{p.name}</h4>
-                                    <span className="text-[11px] font-mono text-slate-500">{p.period}</span>
-                                  </div>
-                                  <p className="text-xs text-slate-600">{p.summary || p.description}</p>
-                                  {safeArr(p.tags).length > 0 && (
-                                    <div className="flex flex-wrap gap-1 pt-1">
-                                      {safeArr(p.tags).map((tg, tgIdx) => (
-                                        <span key={tgIdx} className="px-2 py-0.5 rounded-full text-[10px] bg-purple-50 text-[#5b48bd] font-bold">
-                                          {tg}
-                                        </span>
-                                      ))}
+                        {/* Kinh Nghiệm Làm Việc */}
+                        <section className="space-y-4">
+                          <div className={`flex items-center justify-between pb-1 border-b ${canvasTheme === 'paper-white' ? 'border-slate-300' : 'border-[#C5C0B6]'}`}>
+                            <h3 className={`text-xs font-headline font-black uppercase tracking-widest flex items-center gap-2 ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
+                              <span className="material-symbols-outlined text-base" style={{ color: livingTheme.primary }}>work</span>
+                              <span>Kinh Nghiệm Thực Chiến (Experience)</span>
+                            </h3>
+                            {isEditing && (
+                              <button
+                                type="button"
+                                onClick={handleAddExperience}
+                                className="text-[10px] text-emerald-700 hover:text-emerald-800 font-bold flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-50 border border-emerald-200 cursor-pointer shadow-2xs"
+                              >
+                                <span>+ Thêm</span>
+                              </button>
+                            )}
+                          </div>
+
+                          <div className="space-y-4">
+                            {safeArr(cvData.experiences).map((exp, eIdx) => (
+                              <div key={exp.id || eIdx} className={`p-4 rounded-2xl border space-y-2 shadow-2xs ${canvasTheme === 'paper-white' ? 'bg-white border-slate-200' : 'bg-[#FDFCF9] border-[#E6E2DA]'}`}>
+                                {isEditing ? (
+                                  <div className="space-y-2">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                      <input
+                                        type="text"
+                                        value={exp.role || ''}
+                                        onChange={(e) => handleUpdateExperience(exp.id, 'role', e.target.value)}
+                                        className="p-1 border border-slate-200 rounded text-xs font-bold"
+                                        placeholder="Chức danh"
+                                      />
+                                      <input
+                                        type="text"
+                                        value={exp.company || ''}
+                                        onChange={(e) => handleUpdateExperience(exp.id, 'company', e.target.value)}
+                                        className="p-1 border border-slate-200 rounded text-xs"
+                                        placeholder="Công ty"
+                                      />
                                     </div>
-                                  )}
-                                </>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </section>
-
-                    </div>
-
-                    {/* Cột Phải (5 Cols): KỸ NĂNG + HỌC VẤN + CHỨNG CHỈ + NGOẠI NGỮ */}
-                    <div className="md:col-span-5 space-y-7">
-                      
-                      {/* Kỹ Năng */}
-                      <section className="space-y-3">
-                        <h3 className={`text-xs font-headline font-black uppercase tracking-widest pb-1 border-b flex items-center gap-2 ${canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-300' : 'text-[#2D3A31] border-[#C5C0B6]'}`}>
-                          <span className="material-symbols-outlined text-base" style={{ color: livingTheme.primary }}>psychology</span>
-                          <span>Kỹ Năng Cốt Lõi</span>
-                        </h3>
-                        <div className="space-y-3">
-                          {safeArr(cvData.skills).map((cat, catIdx) => (
-                            <div key={catIdx} className="space-y-1.5">
-                              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">{cat.category}</span>
-                              <div className="flex flex-wrap gap-1.5">
-                                {safeArr(cat.items).map((sk, skIdx) => (
-                                  <span key={skIdx} className="px-2.5 py-1 rounded-xl text-xs font-bold bg-[#f8f7ff] border border-purple-200 text-[#3b2b8e]">
-                                    {sk}
-                                  </span>
-                                ))}
+                                    <input
+                                      type="text"
+                                      value={exp.period || ''}
+                                      onChange={(e) => handleUpdateExperience(exp.id, 'period', e.target.value)}
+                                      className="p-1 border border-slate-200 rounded text-xs font-mono w-full"
+                                      placeholder="Thời gian"
+                                    />
+                                    <textarea
+                                      rows={2}
+                                      value={safeArr(exp.bullets).join('\n')}
+                                      onChange={(e) => handleUpdateExperience(exp.id, 'bullets', e.target.value.split('\n'))}
+                                      className="w-full p-1.5 border border-slate-200 rounded text-xs"
+                                      placeholder="Thành tích chính..."
+                                    />
+                                    <div className="flex justify-end">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteExperience(exp.id)}
+                                        className="text-[10px] text-rose-600 font-bold hover:underline"
+                                      >
+                                        ✕ Xóa
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <div className="flex items-baseline justify-between gap-2 flex-wrap">
+                                      <h4 className={`font-headline font-bold text-sm ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
+                                        {exp.role}
+                                      </h4>
+                                      <span className="text-[11px] font-mono text-slate-500 font-bold">{exp.period}</span>
+                                    </div>
+                                    <div className="text-xs font-bold" style={{ color: livingTheme.primary }}>
+                                      {exp.company}
+                                    </div>
+                                    <ul className="list-disc list-outside pl-4 space-y-1 text-xs text-slate-700">
+                                      {safeArr(exp.bullets).map((b, bIdx) => (
+                                        <li key={bIdx}>{b}</li>
+                                      ))}
+                                    </ul>
+                                  </>
+                                )}
                               </div>
-                            </div>
-                          ))}
-                        </div>
-                      </section>
+                            ))}
+                          </div>
+                        </section>
 
-                      {/* Học Vấn */}
-                      <section className="space-y-3">
-                        <div className={`flex items-center justify-between pb-1 border-b ${canvasTheme === 'paper-white' ? 'border-slate-300' : 'border-[#C5C0B6]'}`}>
-                          <h3 className={`text-xs font-headline font-black uppercase tracking-widest flex items-center gap-2 ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
-                            <span className="material-symbols-outlined text-base" style={{ color: livingTheme.primary }}>school</span>
-                            <span>Học Vấn</span>
+                        {/* Dự Án Trọng Điểm */}
+                        <section className="space-y-4">
+                          <div className={`flex items-center justify-between pb-1 border-b ${canvasTheme === 'paper-white' ? 'border-slate-300' : 'border-[#C5C0B6]'}`}>
+                            <h3 className={`text-xs font-headline font-black uppercase tracking-widest flex items-center gap-2 ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
+                              <span className="material-symbols-outlined text-base" style={{ color: livingTheme.primary }}>code</span>
+                              <span>Dự Án Nổi Bật (Featured Projects)</span>
+                            </h3>
+                            {isEditing && (
+                              <button
+                                type="button"
+                                onClick={handleAddProject}
+                                className="text-[10px] text-emerald-700 hover:text-emerald-800 font-bold flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-50 border border-emerald-200 cursor-pointer shadow-2xs"
+                              >
+                                <span>+ Thêm</span>
+                              </button>
+                            )}
+                          </div>
+
+                          <div className="space-y-3">
+                            {safeArr(cvData.projects).map((p, pIdx) => (
+                              <div key={p.id || pIdx} className={`p-4 rounded-2xl border space-y-1.5 shadow-2xs ${canvasTheme === 'paper-white' ? 'bg-white border-slate-200' : 'bg-[#FDFCF9] border-[#E6E2DA]'}`}>
+                                {isEditing ? (
+                                  <div className="space-y-2">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                      <input
+                                        type="text"
+                                        value={p.name || ''}
+                                        onChange={(e) => handleUpdateProject(p.id, 'name', e.target.value)}
+                                        className="p-1 border border-slate-200 rounded text-xs font-bold"
+                                        placeholder="Tên dự án"
+                                      />
+                                      <input
+                                        type="text"
+                                        value={p.role || ''}
+                                        onChange={(e) => handleUpdateProject(p.id, 'role', e.target.value)}
+                                        className="p-1 border border-slate-200 rounded text-xs"
+                                        placeholder="Vai trò"
+                                      />
+                                    </div>
+                                    <textarea
+                                      rows={2}
+                                      value={p.summary || p.description || ''}
+                                      onChange={(e) => handleUpdateProject(p.id, 'summary', e.target.value)}
+                                      className="w-full p-1.5 border border-slate-200 rounded text-xs"
+                                      placeholder="Tóm tắt dự án..."
+                                    />
+                                    <div className="flex justify-end">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteProject(p.id)}
+                                        className="text-[10px] text-rose-600 font-bold hover:underline"
+                                      >
+                                        ✕ Xóa
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <div className="flex justify-between items-baseline">
+                                      <h4 className="font-bold text-xs text-slate-900">{p.name}</h4>
+                                      <span className="text-[11px] font-mono text-slate-500">{p.period}</span>
+                                    </div>
+                                    <p className="text-xs text-slate-600">{p.summary || p.description}</p>
+                                    {safeArr(p.tags).length > 0 && (
+                                      <div className="flex flex-wrap gap-1 pt-1">
+                                        {safeArr(p.tags).map((tg, tgIdx) => (
+                                          <span key={tgIdx} className="px-2 py-0.5 rounded-full text-[10px] bg-purple-50 text-[#5b48bd] font-bold">
+                                            {tg}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </section>
+
+                      </div>
+
+                      {/* Cột Phải (5 Cols): KỸ NĂNG + HỌC VẤN + CHỨNG CHỈ + NGOẠI NGỮ */}
+                      <div className="md:col-span-5 space-y-7">
+
+                        {/* Kỹ Năng */}
+                        <section className="space-y-3">
+                          <h3 className={`text-xs font-headline font-black uppercase tracking-widest pb-1 border-b flex items-center gap-2 ${canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-300' : 'text-[#2D3A31] border-[#C5C0B6]'}`}>
+                            <span className="material-symbols-outlined text-base" style={{ color: livingTheme.primary }}>psychology</span>
+                            <span>Kỹ Năng Cốt Lõi</span>
                           </h3>
-                        </div>
-                        <div className="space-y-2">
-                          {safeArr(cvData.education).map((ed, edIdx) => (
-                            <div key={ed.id || edIdx} className="p-3 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-1 text-xs">
-                              <h4 className="font-bold text-slate-900">{ed.school}</h4>
-                              <p className="text-slate-600">{ed.degree}</p>
-                              <div className="flex justify-between font-mono text-[11px] text-emerald-700 font-bold">
-                                <span>{ed.grade}</span>
-                                <span className="text-slate-400">{ed.period}</span>
+                          <div className="space-y-3">
+                            {safeArr(cvData.skills).map((cat, catIdx) => (
+                              <div key={catIdx} className="space-y-1.5">
+                                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">{cat.category}</span>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {safeArr(cat.items).map((sk, skIdx) => (
+                                    <span key={skIdx} className="px-2.5 py-1 rounded-xl text-xs font-bold bg-[#f8f7ff] border border-purple-200 text-[#3b2b8e]">
+                                      {sk}
+                                    </span>
+                                  ))}
+                                </div>
                               </div>
-                            </div>
-                          ))}
-                        </div>
-                      </section>
+                            ))}
+                          </div>
+                        </section>
 
-                      {/* Chứng Chỉ & Ngoại Ngữ */}
-                      <section className="space-y-3">
-                        <h3 className={`text-xs font-headline font-black uppercase tracking-widest pb-1 border-b flex items-center gap-2 ${canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-300' : 'text-[#2D3A31] border-[#C5C0B6]'}`}>
-                          <span className="material-symbols-outlined text-base" style={{ color: livingTheme.primary }}>verified</span>
-                          <span>Chứng Chỉ &amp; Ngoại Ngữ</span>
-                        </h3>
-                        <div className="space-y-2 text-xs">
-                          {safeArr(cvData.certifications).map((c, cIdx) => (
-                            <div key={c.id || cIdx} className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs">
-                              <strong>{c.name}</strong> • {c.issuer} {c.year ? `(${c.year})` : ''}
-                            </div>
-                          ))}
-                          {safeArr(cvData.languages).length > 0 && (
-                            <div className="p-2.5 rounded-xl bg-purple-50/60 border border-purple-200 text-[#3b2b8e] font-bold">
-                              Ngoại ngữ: {safeArr(cvData.languages).map(l => `${l.name} (${l.score || 'Thành thạo'})`).join(' • ')}
-                            </div>
-                          )}
-                        </div>
-                      </section>
+                        {/* Học Vấn */}
+                        <section className="space-y-3">
+                          <div className={`flex items-center justify-between pb-1 border-b ${canvasTheme === 'paper-white' ? 'border-slate-300' : 'border-[#C5C0B6]'}`}>
+                            <h3 className={`text-xs font-headline font-black uppercase tracking-widest flex items-center gap-2 ${canvasTheme === 'paper-white' ? 'text-slate-900' : 'text-[#2D3A31]'}`}>
+                              <span className="material-symbols-outlined text-base" style={{ color: livingTheme.primary }}>school</span>
+                              <span>Học Vấn</span>
+                            </h3>
+                          </div>
+                          <div className="space-y-2">
+                            {safeArr(cvData.education).map((ed, edIdx) => (
+                              <div key={ed.id || edIdx} className="p-3 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-1 text-xs">
+                                <h4 className="font-bold text-slate-900">{ed.school}</h4>
+                                <p className="text-slate-600">{ed.degree}</p>
+                                <div className="flex justify-between font-mono text-[11px] text-emerald-700 font-bold">
+                                  <span>{ed.grade}</span>
+                                  <span className="text-slate-400">{ed.period}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </section>
+
+                        {/* Chứng Chỉ & Ngoại Ngữ */}
+                        <section className="space-y-3">
+                          <h3 className={`text-xs font-headline font-black uppercase tracking-widest pb-1 border-b flex items-center gap-2 ${canvasTheme === 'paper-white' ? 'text-slate-900 border-slate-300' : 'text-[#2D3A31] border-[#C5C0B6]'}`}>
+                            <span className="material-symbols-outlined text-base" style={{ color: livingTheme.primary }}>verified</span>
+                            <span>Chứng Chỉ &amp; Ngoại Ngữ</span>
+                          </h3>
+                          <div className="space-y-2 text-xs">
+                            {safeArr(cvData.certifications).map((c, cIdx) => (
+                              <div key={c.id || cIdx} className="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs">
+                                <strong>{c.name}</strong> • {c.issuer} {c.year ? `(${c.year})` : ''}
+                              </div>
+                            ))}
+                            {safeArr(cvData.languages).length > 0 && (
+                              <div className="p-2.5 rounded-xl bg-purple-50/60 border border-purple-200 text-[#3b2b8e] font-bold">
+                                Ngoại ngữ: {safeArr(cvData.languages).map(l => `${l.name} (${l.score || 'Thành thạo'})`).join(' • ')}
+                              </div>
+                            )}
+                          </div>
+                        </section>
+
+                      </div>
 
                     </div>
 
                   </div>
-
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          </div>
           )
         )}
 
@@ -4227,74 +4170,73 @@ export default function CandidateProfilePage({ user }) {
                   </div>
                 ) : (
                   cvFiles.map((file) => (
-                  <div
-                    key={file.id}
-                    className={`p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${file.isDefault
+                    <div
+                      key={file.id}
+                      className={`p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${file.isDefault
                         ? 'bg-purple-50/40 border-purple-200 shadow-xs'
                         : 'bg-white border-purple-100 hover:border-purple-200 hover:bg-purple-50/20'
-                      }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
-                        file.isDefault 
-                          ? 'bg-purple-100 text-[#5b48bd] font-bold' 
+                        }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${file.isDefault
+                          ? 'bg-purple-100 text-[#5b48bd] font-bold'
                           : 'bg-slate-100 text-slate-500'
-                      }`}>
-                        <span className="material-symbols-outlined text-2xl">
-                          {file.name?.toLowerCase().endsWith('.docx') || file.name?.toLowerCase().endsWith('.doc') 
-                            ? 'description' 
-                            : 'picture_as_pdf'}
-                        </span>
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-sans font-bold text-sm text-[#1e1b4b] truncate max-w-xs sm:max-w-md">{file.name}</h3>
-                          {file.isDefault && (
-                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-sans font-bold bg-[#32247b] text-white">
-                              MẶC ĐỊNH FAST APPLY
-                            </span>
-                          )}
+                          }`}>
+                          <span className="material-symbols-outlined text-2xl">
+                            {file.name?.toLowerCase().endsWith('.docx') || file.name?.toLowerCase().endsWith('.doc')
+                              ? 'description'
+                              : 'picture_as_pdf'}
+                          </span>
                         </div>
-                        <p className="text-xs text-slate-500 font-sans mt-0.5">
-                          {file.size} • {file.uploaded} • Ngành: <strong className="text-slate-700">{file.targetIndustry}</strong> • Điểm ATS: <strong className="text-emerald-600 font-bold">{file.atsScore}/100</strong>
-                        </p>
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="font-sans font-bold text-sm text-[#1e1b4b] truncate max-w-xs sm:max-w-md">{file.name}</h3>
+                            {file.isDefault && (
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-sans font-bold bg-[#32247b] text-white">
+                                MẶC ĐỊNH FAST APPLY
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-500 font-sans mt-0.5">
+                            {file.size} • {file.uploaded} • Ngành: <strong className="text-slate-700">{file.targetIndustry}</strong> • Điểm ATS: <strong className="text-emerald-600 font-bold">{file.atsScore}/100</strong>
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2 self-end sm:self-auto">
+                        {!file.isDefault && (
+                          <button
+                            onClick={() => handleSetDefaultCv(file.id)}
+                            className="px-3 py-1.5 rounded-full bg-botanical-cream hover:bg-botanical-stone/60 text-xs font-bold text-botanical-forest transition-colors cursor-pointer border border-botanical-stone/80"
+                          >
+                            Đặt Mặc Định
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleAnalyzeCv(file.id)}
+                          className="px-3 py-1.5 rounded-full bg-purple-50 hover:bg-purple-100 text-[#5b48bd] text-xs font-bold transition-colors cursor-pointer border border-purple-200 flex items-center gap-1"
+                          title="Quét ATS bằng Gemini AI"
+                        >
+                          <span className="material-symbols-outlined text-sm">psychology</span>
+                          <span>Quét ATS</span>
+                        </button>
+                        <button
+                          onClick={() => handleDownloadCv(file)}
+                          className="p-1.5 rounded-full bg-botanical-cream hover:bg-botanical-stone/60 text-botanical-forest transition-colors cursor-pointer border border-botanical-stone/80 inline-flex items-center justify-center"
+                          title={`Tải xuống tệp ${file.name || 'CV'}`}
+                        >
+                          <span className="material-symbols-outlined text-base">download</span>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteCv(file.id)}
+                          className="p-1.5 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors cursor-pointer border border-rose-200 inline-flex items-center justify-center"
+                          title="Xóa tệp CV này khỏi hệ thống"
+                        >
+                          <span className="material-symbols-outlined text-base">delete</span>
+                        </button>
                       </div>
                     </div>
-
-                    <div className="flex flex-wrap items-center gap-2 self-end sm:self-auto">
-                      {!file.isDefault && (
-                        <button
-                          onClick={() => handleSetDefaultCv(file.id)}
-                          className="px-3 py-1.5 rounded-full bg-botanical-cream hover:bg-botanical-stone/60 text-xs font-bold text-botanical-forest transition-colors cursor-pointer border border-botanical-stone/80"
-                        >
-                          Đặt Mặc Định
-                        </button>
-                      )}
-                      <button
-                        onClick={() => handleAnalyzeCv(file.id)}
-                        className="px-3 py-1.5 rounded-full bg-purple-50 hover:bg-purple-100 text-[#5b48bd] text-xs font-bold transition-colors cursor-pointer border border-purple-200 flex items-center gap-1"
-                        title="Quét ATS bằng Gemini AI"
-                      >
-                        <span className="material-symbols-outlined text-sm">psychology</span>
-                        <span>Quét ATS</span>
-                      </button>
-                      <button
-                        onClick={() => handleDownloadCv(file)}
-                        className="p-1.5 rounded-full bg-botanical-cream hover:bg-botanical-stone/60 text-botanical-forest transition-colors cursor-pointer border border-botanical-stone/80 inline-flex items-center justify-center"
-                        title={`Tải xuống tệp ${file.name || 'CV'}`}
-                      >
-                        <span className="material-symbols-outlined text-base">download</span>
-                      </button>
-                      <button
-                        onClick={() => handleDeleteCv(file.id)}
-                        className="p-1.5 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors cursor-pointer border border-rose-200 inline-flex items-center justify-center"
-                        title="Xóa tệp CV này khỏi hệ thống"
-                      >
-                        <span className="material-symbols-outlined text-base">delete</span>
-                      </button>
-                    </div>
-                  </div>
-                ))
+                  ))
                 )}
               </div>
             </section>
@@ -4489,12 +4431,12 @@ export default function CandidateProfilePage({ user }) {
                           setJobSearchStatus(st.id);
                           try {
                             localStorage.setItem('hiremate_job_search_status', st.id);
-                          } catch (e) {}
+                          } catch (e) { }
                           showToast(`Đã chuyển trạng thái: ${st.label}`);
                         }}
                         className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer font-sans text-xs ${jobSearchStatus === st.id
-                            ? 'bg-[#32247b] text-white font-bold shadow-md border-[#32247b]'
-                            : 'bg-white border-purple-100 text-slate-700 hover:bg-purple-50/50 hover:border-[#5b48bd]/40'
+                          ? 'bg-[#32247b] text-white font-bold shadow-md border-[#32247b]'
+                          : 'bg-white border-purple-100 text-slate-700 hover:bg-purple-50/50 hover:border-[#5b48bd]/40'
                           }`}
                       >
                         {st.label}
@@ -4514,206 +4456,206 @@ export default function CandidateProfilePage({ user }) {
         {showRecommendationModal && (
           <ModalPortal isOpen={showRecommendationModal}>
             <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-sm animate-fade-in font-sans">
-            <div className="relative w-full max-w-2xl bg-white border border-purple-100 rounded-[32px] p-6 sm:p-8 shadow-2xl text-[#1e1b4b] max-h-[90vh] overflow-y-auto">
-              <button
-                onClick={() => setShowRecommendationModal(false)}
-                className="absolute top-5 right-5 w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-base">close</span>
-              </button>
+              <div className="relative w-full max-w-2xl bg-white border border-purple-100 rounded-[32px] p-6 sm:p-8 shadow-2xl text-[#1e1b4b] max-h-[90vh] overflow-y-auto">
+                <button
+                  onClick={() => setShowRecommendationModal(false)}
+                  className="absolute top-5 right-5 w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-base">close</span>
+                </button>
 
-              {/* Header */}
-              <div className="flex items-center gap-3.5 mb-5 pb-4 border-b border-purple-100">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#5b48bd] to-[#7c66dc] text-white flex items-center justify-center shadow-md shrink-0">
-                  <span className="material-symbols-outlined text-2xl">verified</span>
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-lg sm:text-xl font-extrabold text-[#1e1b4b]">
-                      Báo Cáo Phân Tích ATS &amp; Đề Xuất Việc Làm
-                    </h3>
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                      Chuẩn ATS 100%
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Hồ sơ của bạn đã được Gemini AI phân tích cấu trúc, trích xuất kỹ năng và đối chiếu tự động.
-                  </p>
-                </div>
-              </div>
-
-              {/* ATS Gauge & Key Highlights Ribbon */}
-              <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-50/80 via-white to-purple-50/40 border border-purple-100 flex flex-col sm:flex-row items-center justify-between gap-4 mb-5">
-                <div className="flex items-center gap-3.5">
-                  <div className="relative w-14 h-14 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-400 p-0.5 flex items-center justify-center shadow-sm shrink-0">
-                    <div className="w-full h-full rounded-full bg-white flex flex-col items-center justify-center text-center">
-                      <span className="text-base font-black text-emerald-600 leading-none">
-                        {analyzedAtsScore ?? (cvFiles.find(c => c.isDefault)?.atsScore ?? (cvFiles[0]?.atsScore ?? calculateRealCvAtsScore(cvData)))}
-                      </span>
-                      <span className="text-[9px] font-bold text-slate-400">/100</span>
-                    </div>
+                {/* Header */}
+                <div className="flex items-center gap-3.5 mb-5 pb-4 border-b border-purple-100">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#5b48bd] to-[#7c66dc] text-white flex items-center justify-center shadow-md shrink-0">
+                    <span className="material-symbols-outlined text-2xl">verified</span>
                   </div>
                   <div>
-                    <h4 className="text-xs font-bold text-[#1e1b4b] uppercase tracking-wider">
-                      Điểm Tương Thích ATS: {(analyzedAtsScore ?? (cvFiles.find(c => c.isDefault)?.atsScore ?? (cvFiles[0]?.atsScore ?? 85))) >= 85 ? 'Xuất Sắc' : (analyzedAtsScore ?? (cvFiles.find(c => c.isDefault)?.atsScore ?? (cvFiles[0]?.atsScore ?? 85))) >= 70 ? 'Khá Tốt' : 'Cần Hoàn Thiện Thêm'}
-                    </h4>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
-                      Bố cục định dạng chuẩn quốc tế, từ khóa kỹ năng đầy đủ và rõ ràng.
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-lg sm:text-xl font-extrabold text-[#1e1b4b]">
+                        Báo Cáo Phân Tích ATS &amp; Đề Xuất Việc Làm
+                      </h3>
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                        Chuẩn ATS 100%
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Hồ sơ của bạn đã được Gemini AI phân tích cấu trúc, trích xuất kỹ năng và đối chiếu tự động.
                     </p>
                   </div>
                 </div>
 
-                <div className="text-right sm:border-l sm:border-purple-200 sm:pl-4">
-                  <span className="text-[10px] font-mono font-bold text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full">
-                    Gemini 2.5 Flash / ATS Engine
-                  </span>
-                  <p className="text-[11px] text-slate-400 mt-1">Đã đồng bộ vào Bản CV</p>
-                </div>
-              </div>
-
-              {/* Detected Skills Preview Chips */}
-              {cvData.skills && cvData.skills.length > 0 && (
-                <div className="mb-5 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-[#5b48bd] uppercase tracking-wider flex items-center gap-1">
-                      <span className="material-symbols-outlined text-xs">psychology</span>
-                      <span>Kỹ Năng AI Vừa Trích Xuất Được Từ CV:</span>
-                    </span>
-                    <span className="text-[10px] text-slate-400">
-                      {cvData.skills.flatMap(s => s.items).length} kỹ năng
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-2 bg-[#f8f7ff] rounded-xl border border-purple-100">
-                    {cvData.skills.flatMap(s => s.items).slice(0, 15).map((sk, idx) => (
-                      <span
-                        key={idx}
-                        className="px-2.5 py-0.5 rounded-lg text-[11px] font-bold bg-[#edeafd] text-[#5b48bd] border border-[#d6cefa]"
-                      >
-                        {sk}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Matched Jobs Section Header */}
-              <div className="flex items-center justify-between mb-2.5">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-sm text-[#f97316]">work</span>
-                  <span>Top Việc Làm Phù Hợp Nhất (AI Smart Match)</span>
-                </h4>
-                <span className="text-[10px] text-slate-400">Tự động so khớp 70/30</span>
-              </div>
-
-              {/* Matched Jobs List */}
-              <div className="space-y-3 mb-5 max-h-[42vh] overflow-y-auto pr-1">
-                {loadingRecommendations ? (
-                  <div className="py-8 text-center text-xs text-purple-700 bg-purple-50/50 rounded-2xl flex flex-col items-center justify-center gap-2 border border-purple-100">
-                    <span className="material-symbols-outlined animate-spin text-2xl text-[#5b48bd]">sync</span>
-                    <span className="font-semibold">AI đang phân tích và tìm kiếm việc làm phù hợp nhất...</span>
-                  </div>
-                ) : recommendedJobs.length === 0 ? (
-                  <div className="py-8 text-center text-xs text-slate-400 bg-purple-50/40 rounded-2xl">
-                    Đang đồng bộ dữ liệu so khớp, bạn có thể duyệt việc làm tại Trang chủ!
-                  </div>
-                ) : (
-                  recommendedJobs.slice(0, 3).map((job) => {
-                    const score = job.matchingScore != null ? Math.round(job.matchingScore) : (job.aiMatchScore != null ? Math.round(job.aiMatchScore) : null);
-                    return (
-                      <div
-                        key={job.jobId || job.id}
-                        className="p-3.5 rounded-2xl bg-[#f8f7ff] border border-purple-100 hover:border-purple-200 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-10 h-10 rounded-xl bg-white border border-purple-100 flex items-center justify-center font-bold text-[#5b48bd] text-sm shrink-0 shadow-2xs">
-                            {job.companyLogo ? (
-                              <img src={job.companyLogo} alt={job.companyName} className="w-full h-full object-cover rounded-xl" />
-                            ) : (
-                              <span>{job.companyName ? job.companyName.charAt(0).toUpperCase() : 'J'}</span>
-                            )}
-                          </div>
-                          <div className="min-w-0">
-                            <h4 className="font-bold text-xs text-[#1e1b4b] truncate group-hover:text-[#5b48bd] transition-colors">
-                              {job.title}
-                            </h4>
-                            <p className="text-[11px] text-slate-500 truncate mt-0.5">
-                              {job.companyName} • <span className="text-[#f97316] font-semibold">{job.salaryMin && job.salaryMax ? `$${job.salaryMin} - $${job.salaryMax}` : (job.salaryText || 'Thỏa thuận')}</span> • {job.location}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-                          {score != null ? (
-                            <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-extrabold flex items-center gap-1">
-                              <span className="material-symbols-outlined text-xs">auto_awesome</span>
-                              <span>{score}% Match</span>
-                            </span>
-                          ) : (
-                            <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-[11px] font-bold">
-                              Đang tuyển
-                            </span>
-                          )}
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setShowRecommendationModal(false);
-                              window.location.hash = `#/ai-interview?jobId=${job.jobId || job.id}`;
-                            }}
-                            className="p-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-bold transition-all cursor-pointer flex items-center"
-                            title="Luyện phỏng vấn AI với tin này"
-                          >
-                            <span className="material-symbols-outlined text-sm text-amber-600">mic</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setShowRecommendationModal(false);
-                              window.location.hash = `#/jobs/${job.jobId || job.id || 101}`;
-                            }}
-                            className="px-3 py-1.5 rounded-xl bg-[#5b48bd] hover:bg-[#47369f] text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
-                          >
-                            <span>Xem Ngay</span>
-                            <span className="material-symbols-outlined text-xs">arrow_forward</span>
-                          </button>
-                        </div>
+                {/* ATS Gauge & Key Highlights Ribbon */}
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-50/80 via-white to-purple-50/40 border border-purple-100 flex flex-col sm:flex-row items-center justify-between gap-4 mb-5">
+                  <div className="flex items-center gap-3.5">
+                    <div className="relative w-14 h-14 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-400 p-0.5 flex items-center justify-center shadow-sm shrink-0">
+                      <div className="w-full h-full rounded-full bg-white flex flex-col items-center justify-center text-center">
+                        <span className="text-base font-black text-emerald-600 leading-none">
+                          {analyzedAtsScore ?? (cvFiles.find(c => c.isDefault)?.atsScore ?? (cvFiles[0]?.atsScore ?? calculateRealCvAtsScore(cvData)))}
+                        </span>
+                        <span className="text-[9px] font-bold text-slate-400">/100</span>
                       </div>
-                    );
-                  })
-                )}
-              </div>
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-[#1e1b4b] uppercase tracking-wider">
+                        Điểm Tương Thích ATS: {(analyzedAtsScore ?? (cvFiles.find(c => c.isDefault)?.atsScore ?? (cvFiles[0]?.atsScore ?? 85))) >= 85 ? 'Xuất Sắc' : (analyzedAtsScore ?? (cvFiles.find(c => c.isDefault)?.atsScore ?? (cvFiles[0]?.atsScore ?? 85))) >= 70 ? 'Khá Tốt' : 'Cần Hoàn Thiện Thêm'}
+                      </h4>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Bố cục định dạng chuẩn quốc tế, từ khóa kỹ năng đầy đủ và rõ ràng.
+                      </p>
+                    </div>
+                  </div>
 
-              {/* Footer */}
-              <div className="pt-4 border-t border-purple-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                <span className="text-slate-500 text-[11px]">
-                  Điểm tương thích đã được lưu vào hệ thống và gắn nhãn trên Trang Chủ.
-                </span>
-                <div className="flex items-center gap-2 justify-end">
-                  <button
-                    type="button"
-                    onClick={() => setShowRecommendationModal(false)}
-                    className="px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition-colors cursor-pointer"
-                  >
-                    Đóng
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowRecommendationModal(false);
-                      window.location.hash = '#/';
-                    }}
-                    className="px-5 py-2 rounded-full bg-[#5b48bd] hover:bg-[#47369f] text-white font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
-                  >
-                    <span>Duyệt Việc Làm</span>
-                    <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                  </button>
+                  <div className="text-right sm:border-l sm:border-purple-200 sm:pl-4">
+                    <span className="text-[10px] font-mono font-bold text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full">
+                      Gemini 2.5 Flash / ATS Engine
+                    </span>
+                    <p className="text-[11px] text-slate-400 mt-1">Đã đồng bộ vào Bản CV</p>
+                  </div>
+                </div>
+
+                {/* Detected Skills Preview Chips */}
+                {cvData.skills && cvData.skills.length > 0 && (
+                  <div className="mb-5 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-[#5b48bd] uppercase tracking-wider flex items-center gap-1">
+                        <span className="material-symbols-outlined text-xs">psychology</span>
+                        <span>Kỹ Năng AI Vừa Trích Xuất Được Từ CV:</span>
+                      </span>
+                      <span className="text-[10px] text-slate-400">
+                        {cvData.skills.flatMap(s => s.items).length} kỹ năng
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-2 bg-[#f8f7ff] rounded-xl border border-purple-100">
+                      {cvData.skills.flatMap(s => s.items).slice(0, 15).map((sk, idx) => (
+                        <span
+                          key={idx}
+                          className="px-2.5 py-0.5 rounded-lg text-[11px] font-bold bg-[#edeafd] text-[#5b48bd] border border-[#d6cefa]"
+                        >
+                          {sk}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Matched Jobs Section Header */}
+                <div className="flex items-center justify-between mb-2.5">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-sm text-[#f97316]">work</span>
+                    <span>Top Việc Làm Phù Hợp Nhất (AI Smart Match)</span>
+                  </h4>
+                  <span className="text-[10px] text-slate-400">Tự động so khớp 70/30</span>
+                </div>
+
+                {/* Matched Jobs List */}
+                <div className="space-y-3 mb-5 max-h-[42vh] overflow-y-auto pr-1">
+                  {loadingRecommendations ? (
+                    <div className="py-8 text-center text-xs text-purple-700 bg-purple-50/50 rounded-2xl flex flex-col items-center justify-center gap-2 border border-purple-100">
+                      <span className="material-symbols-outlined animate-spin text-2xl text-[#5b48bd]">sync</span>
+                      <span className="font-semibold">AI đang phân tích và tìm kiếm việc làm phù hợp nhất...</span>
+                    </div>
+                  ) : recommendedJobs.length === 0 ? (
+                    <div className="py-8 text-center text-xs text-slate-400 bg-purple-50/40 rounded-2xl">
+                      Đang đồng bộ dữ liệu so khớp, bạn có thể duyệt việc làm tại Trang chủ!
+                    </div>
+                  ) : (
+                    recommendedJobs.slice(0, 3).map((job) => {
+                      const score = job.matchingScore != null ? Math.round(job.matchingScore) : (job.aiMatchScore != null ? Math.round(job.aiMatchScore) : null);
+                      return (
+                        <div
+                          key={job.jobId || job.id}
+                          className="p-3.5 rounded-2xl bg-[#f8f7ff] border border-purple-100 hover:border-purple-200 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-10 h-10 rounded-xl bg-white border border-purple-100 flex items-center justify-center font-bold text-[#5b48bd] text-sm shrink-0 shadow-2xs">
+                              {job.companyLogo ? (
+                                <img src={job.companyLogo} alt={job.companyName} className="w-full h-full object-cover rounded-xl" />
+                              ) : (
+                                <span>{job.companyName ? job.companyName.charAt(0).toUpperCase() : 'J'}</span>
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <h4 className="font-bold text-xs text-[#1e1b4b] truncate group-hover:text-[#5b48bd] transition-colors">
+                                {job.title}
+                              </h4>
+                              <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                                {job.companyName} • <span className="text-[#f97316] font-semibold">{job.salaryMin && job.salaryMax ? `$${job.salaryMin} - $${job.salaryMax}` : (job.salaryText || 'Thỏa thuận')}</span> • {job.location}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                            {score != null ? (
+                              <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-extrabold flex items-center gap-1">
+                                <span className="material-symbols-outlined text-xs">auto_awesome</span>
+                                <span>{score}% Match</span>
+                              </span>
+                            ) : (
+                              <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-[11px] font-bold">
+                                Đang tuyển
+                              </span>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowRecommendationModal(false);
+                                window.location.hash = `#/ai-interview?jobId=${job.jobId || job.id}`;
+                              }}
+                              className="p-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-bold transition-all cursor-pointer flex items-center"
+                              title="Luyện phỏng vấn AI với tin này"
+                            >
+                              <span className="material-symbols-outlined text-sm text-amber-600">mic</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowRecommendationModal(false);
+                                window.location.hash = `#/jobs/${job.jobId || job.id || 101}`;
+                              }}
+                              className="px-3 py-1.5 rounded-xl bg-[#5b48bd] hover:bg-[#47369f] text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
+                            >
+                              <span>Xem Ngay</span>
+                              <span className="material-symbols-outlined text-xs">arrow_forward</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Footer */}
+                <div className="pt-4 border-t border-purple-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                  <span className="text-slate-500 text-[11px]">
+                    Điểm tương thích đã được lưu vào hệ thống và gắn nhãn trên Trang Chủ.
+                  </span>
+                  <div className="flex items-center gap-2 justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setShowRecommendationModal(false)}
+                      className="px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition-colors cursor-pointer"
+                    >
+                      Đóng
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowRecommendationModal(false);
+                        window.location.hash = '#/';
+                      }}
+                      className="px-5 py-2 rounded-full bg-[#5b48bd] hover:bg-[#47369f] text-white font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+                    >
+                      <span>Duyệt Việc Làm</span>
+                      <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </ModalPortal>
-      )}
+          </ModalPortal>
+        )}
 
 
 
@@ -4735,213 +4677,211 @@ export default function CandidateProfilePage({ user }) {
         {showPrintModal && (
           <ModalPortal isOpen={showPrintModal}>
             <div className="no-print fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-            <div className="w-full max-w-2xl bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-purple-100 space-y-6 animate-scaleUp font-sans max-h-[90vh] overflow-y-auto">
-              
-              {/* Header */}
-              <div className="flex items-center justify-between pb-3 border-b border-purple-100">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#32247b] to-[#5b48bd] text-white flex items-center justify-center shadow-md">
-                    <span className="material-symbols-outlined text-xl">print</span>
-                  </div>
-                  <div>
-                    <h3 className="font-extrabold text-lg text-[#1e1b4b]">Tùy Chọn In &amp; Xuất Bản CV</h3>
-                    <p className="text-xs text-slate-500">Lựa chọn nguồn CV và mẫu bố cục xuất file PDF chuẩn A4</p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowPrintModal(false)}
-                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-sm">close</span>
-                </button>
-              </div>
+              <div className="w-full max-w-2xl bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-purple-100 space-y-6 animate-scaleUp font-sans max-h-[90vh] overflow-y-auto">
 
-              {/* Option 1: In / Xuất Bản CV Trực Tuyến */}
-              <div className="p-4 sm:p-5 rounded-2xl bg-[#f8f7ff] border border-purple-100 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[#5b48bd] text-lg">description</span>
-                    <strong className="text-sm text-[#1e1b4b]">1. Xuất Bản CV Điện Tử HireMate (Định Dạng A4)</strong>
-                  </div>
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-[#5b48bd]">
-                    Khuyên Dùng
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500">
-                  Xuất bản CV trực tiếp từ dữ liệu hồ sơ hiện tại với các mẫu bố cục A4 sắc nét, đã căn chuẩn lề và tự động chia 2 cột chuyên nghiệp:
-                </p>
-
-                {/* CV Version Selector */}
-                {currentCandidate.cvVersions.length > 1 && (
-                  <div className="space-y-1.5 pt-1">
-                    <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1">
-                      <span className="material-symbols-outlined text-sm text-[#5b48bd]">folder_special</span>
-                      <span>Chọn Phiên Bản Hồ Sơ:</span>
-                    </span>
-                    <div className="flex flex-wrap gap-2">
-                      {currentCandidate.cvVersions.map((ver) => (
-                        <button
-                          key={ver.id}
-                          type="button"
-                          onClick={() => handleSelectCvVersion(ver.id)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                            selectedVersionId === ver.id
-                              ? 'bg-[#32247b] text-white shadow-xs font-bold'
-                              : 'bg-white text-slate-700 border border-purple-200 hover:bg-purple-50'
-                          }`}
-                        >
-                          <span>{ver.versionName}</span>
-                          {selectedVersionId === ver.id && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                          )}
-                        </button>
-                      ))}
+                {/* Header */}
+                <div className="flex items-center justify-between pb-3 border-b border-purple-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#32247b] to-[#5b48bd] text-white flex items-center justify-center shadow-md">
+                      <span className="material-symbols-outlined text-xl">print</span>
+                    </div>
+                    <div>
+                      <h3 className="font-extrabold text-lg text-[#1e1b4b]">Tùy Chọn In &amp; Xuất Bản CV</h3>
+                      <p className="text-xs text-slate-500">Lựa chọn nguồn CV và mẫu bố cục xuất file PDF chuẩn A4</p>
                     </div>
                   </div>
-                )}
-
-                {/* Template Selection */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
-                  {[
-                    { id: 'executive', name: '2 Cột Cân Đối', desc: 'Bố cục Executive 2 cột chuẩn doanh nghiệp', icon: 'view_column' },
-                    { id: 'harvard', name: 'Harvard ATS', desc: 'Định dạng 1 cột tối giản quét ATS 100%', icon: 'school' },
-                    { id: 'modern', name: 'Hiện Đại (Modern)', desc: 'Banner công nghệ trẻ trung, nổi bật', icon: 'palette' }
-                  ].map((tpl) => (
-                    <button
-                      key={tpl.id}
-                      type="button"
-                      onClick={() => {
-                        if (tpl.id === 'modern' && !isAdmin && !isProOrAce) {
-                          setUpgradeModalMessage(`Mẫu thiết kế CV "Hiện Đại (Modern VIP)" là đặc quyền dành riêng cho gói Practice Pro (149k) và Career Ace (249k). Hãy nâng cấp để xuất bản CV chuẩn thiết kế cao cấp!`);
-                          setUpgradeModalOpen(true);
-                          return;
-                        }
-                        setCvTemplate(tpl.id);
-                      }}
-                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                        cvTemplate === tpl.id
-                          ? 'bg-[#32247b] text-white border-[#32247b] shadow-md'
-                          : 'bg-white text-slate-700 border-purple-100 hover:border-purple-300'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="material-symbols-outlined text-lg">{tpl.icon}</span>
-                        {cvTemplate === tpl.id && (
-                          <span className="material-symbols-outlined text-sm text-emerald-400 font-bold">check_circle</span>
-                        )}
-                      </div>
-                      <div className="font-bold text-xs">{tpl.name}</div>
-                      <div className={`text-[10px] mt-0.5 ${cvTemplate === tpl.id ? 'text-white/80' : 'text-slate-400'}`}>
-                        {tpl.desc}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Print Action for Online CV */}
-                <div className="pt-2 flex items-center justify-end">
                   <button
                     type="button"
-                    onClick={() => {
-                      setShowPrintModal(false);
-                      if (activeTab !== 'resume') {
-                        setActiveTab('resume');
-                      }
-                      setCanvasTheme('paper-white');
-                      setTimeout(() => {
-                        window.print();
-                      }, 400);
-                    }}
-                    className="px-5 py-2.5 rounded-full bg-[#32247b] hover:bg-[#5b48bd] text-white text-xs font-bold transition-all shadow-md flex items-center gap-2 cursor-pointer"
+                    onClick={() => setShowPrintModal(false)}
+                    className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
                   >
-                    <span className="material-symbols-outlined text-base">print</span>
-                    <span>In / Lưu Thành File PDF Chuẩn A4</span>
+                    <span className="material-symbols-outlined text-sm">close</span>
+                  </button>
+                </div>
+
+                {/* Option 1: In / Xuất Bản CV Trực Tuyến */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-[#f8f7ff] border border-purple-100 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[#5b48bd] text-lg">description</span>
+                      <strong className="text-sm text-[#1e1b4b]">1. Xuất Bản CV Điện Tử HireMate (Định Dạng A4)</strong>
+                    </div>
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-[#5b48bd]">
+                      Khuyên Dùng
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Xuất bản CV trực tiếp từ dữ liệu hồ sơ hiện tại với các mẫu bố cục A4 sắc nét, đã căn chuẩn lề và tự động chia 2 cột chuyên nghiệp:
+                  </p>
+
+                  {/* CV Version Selector */}
+                  {currentCandidate.cvVersions.length > 1 && (
+                    <div className="space-y-1.5 pt-1">
+                      <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1">
+                        <span className="material-symbols-outlined text-sm text-[#5b48bd]">folder_special</span>
+                        <span>Chọn Phiên Bản Hồ Sơ:</span>
+                      </span>
+                      <div className="flex flex-wrap gap-2">
+                        {currentCandidate.cvVersions.map((ver) => (
+                          <button
+                            key={ver.id}
+                            type="button"
+                            onClick={() => handleSelectCvVersion(ver.id)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${selectedVersionId === ver.id
+                              ? 'bg-[#32247b] text-white shadow-xs font-bold'
+                              : 'bg-white text-slate-700 border border-purple-200 hover:bg-purple-50'
+                              }`}
+                          >
+                            <span>{ver.versionName}</span>
+                            {selectedVersionId === ver.id && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Template Selection */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                    {[
+                      { id: 'executive', name: '2 Cột Cân Đối', desc: 'Bố cục Executive 2 cột chuẩn doanh nghiệp', icon: 'view_column' },
+                      { id: 'harvard', name: 'Harvard ATS', desc: 'Định dạng 1 cột tối giản quét ATS 100%', icon: 'school' },
+                      { id: 'modern', name: 'Hiện Đại (Modern)', desc: 'Banner công nghệ trẻ trung, nổi bật', icon: 'palette' }
+                    ].map((tpl) => (
+                      <button
+                        key={tpl.id}
+                        type="button"
+                        onClick={() => {
+                          if (tpl.id === 'modern' && !isAdmin && !isPaidPlan) {
+                            setUpgradeModalMessage(`Mẫu thiết kế CV "Hiện Đại (Modern VIP)" là đặc quyền dành riêng cho gói Practice Plus và Practice Pro. Hãy nâng cấp để xuất bản CV chuẩn thiết kế cao cấp!`);
+                            setUpgradeModalOpen(true);
+                            return;
+                          }
+                          setCvTemplate(tpl.id);
+                        }}
+                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${cvTemplate === tpl.id
+                          ? 'bg-[#32247b] text-white border-[#32247b] shadow-md'
+                          : 'bg-white text-slate-700 border-purple-100 hover:border-purple-300'
+                          }`}
+                      >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="material-symbols-outlined text-lg">{tpl.icon}</span>
+                          {cvTemplate === tpl.id && (
+                            <span className="material-symbols-outlined text-sm text-emerald-400 font-bold">check_circle</span>
+                          )}
+                        </div>
+                        <div className="font-bold text-xs">{tpl.name}</div>
+                        <div className={`text-[10px] mt-0.5 ${cvTemplate === tpl.id ? 'text-white/80' : 'text-slate-400'}`}>
+                          {tpl.desc}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Print Action for Online CV */}
+                  <div className="pt-2 flex items-center justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowPrintModal(false);
+                        if (activeTab !== 'resume') {
+                          setActiveTab('resume');
+                        }
+                        setCanvasTheme('paper-white');
+                        setTimeout(() => {
+                          window.print();
+                        }, 400);
+                      }}
+                      className="px-5 py-2.5 rounded-full bg-[#32247b] hover:bg-[#5b48bd] text-white text-xs font-bold transition-all shadow-md flex items-center gap-2 cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-base">print</span>
+                      <span>In / Lưu Thành File PDF Chuẩn A4</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Option 2: Tệp CV Gốc Đã Tải Lên (Kho Tệp) */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-emerald-600 text-lg">folder_shared</span>
+                      <strong className="text-sm text-[#1e1b4b]">2. Tệp CV Gốc Đã Tải Lên ({cvFiles.length} tệp)</strong>
+                    </div>
+                    <span className="text-[11px] text-slate-500 font-medium">Giữ nguyên 100% tệp gốc</span>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Nếu bạn muốn tải về file PDF/DOCX nguyên bản bạn đã tải lên hệ thống trước đó để mở bằng Word hoặc Adobe Acrobat:
+                  </p>
+
+                  {cvFiles.length === 0 ? (
+                    <div className="p-4 rounded-xl bg-slate-50 text-center text-xs text-slate-400 italic">
+                      Chưa có tệp CV gốc nào được tải lên trong Kho Tệp.
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {cvFiles.map((file, idx) => (
+                        <div
+                          key={file.id || idx}
+                          className="p-3 rounded-xl bg-slate-50 hover:bg-purple-50/50 border border-slate-200 hover:border-purple-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 transition-all text-xs"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span className="material-symbols-outlined text-rose-500 text-lg shrink-0">picture_as_pdf</span>
+                            <div className="min-w-0">
+                              <div className="font-bold text-[#1e1b4b] truncate">{file.name || 'CV_Ung_Vien.pdf'}</div>
+                              <div className="text-[10px] text-slate-400 flex items-center gap-2">
+                                <span>{file.size ? `${(file.size / 1024).toFixed(0)} KB` : 'Tệp PDF'}</span>
+                                {file.isDefault && (
+                                  <span className="font-bold text-emerald-600">• Mặc định Fast Apply</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowPrintModal(false);
+                                setViewingCvFile(file);
+                              }}
+                              className="px-3 py-1.5 rounded-lg bg-purple-50 hover:bg-purple-100 text-[#5b48bd] text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                              title="Mở xem trước trực tiếp và in tệp gốc"
+                            >
+                              <span className="material-symbols-outlined text-sm">visibility</span>
+                              <span>Xem &amp; In</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleDownloadCv(file)}
+                              className="px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                              title="Tải tệp gốc về máy"
+                            >
+                              <span className="material-symbols-outlined text-sm">download</span>
+                              <span>Tải Về</span>
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Modal Footer */}
+                <div className="pt-2 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setShowPrintModal(false)}
+                    className="px-5 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    Đóng Hộp Thoại
                   </button>
                 </div>
               </div>
-
-              {/* Option 2: Tệp CV Gốc Đã Tải Lên (Kho Tệp) */}
-              <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-emerald-600 text-lg">folder_shared</span>
-                    <strong className="text-sm text-[#1e1b4b]">2. Tệp CV Gốc Đã Tải Lên ({cvFiles.length} tệp)</strong>
-                  </div>
-                  <span className="text-[11px] text-slate-500 font-medium">Giữ nguyên 100% tệp gốc</span>
-                </div>
-                <p className="text-xs text-slate-500">
-                  Nếu bạn muốn tải về file PDF/DOCX nguyên bản bạn đã tải lên hệ thống trước đó để mở bằng Word hoặc Adobe Acrobat:
-                </p>
-
-                {cvFiles.length === 0 ? (
-                  <div className="p-4 rounded-xl bg-slate-50 text-center text-xs text-slate-400 italic">
-                    Chưa có tệp CV gốc nào được tải lên trong Kho Tệp.
-                  </div>
-                ) : (
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {cvFiles.map((file, idx) => (
-                      <div
-                        key={file.id || idx}
-                        className="p-3 rounded-xl bg-slate-50 hover:bg-purple-50/50 border border-slate-200 hover:border-purple-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 transition-all text-xs"
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <span className="material-symbols-outlined text-rose-500 text-lg shrink-0">picture_as_pdf</span>
-                          <div className="min-w-0">
-                            <div className="font-bold text-[#1e1b4b] truncate">{file.name || 'CV_Ung_Vien.pdf'}</div>
-                            <div className="text-[10px] text-slate-400 flex items-center gap-2">
-                              <span>{file.size ? `${(file.size / 1024).toFixed(0)} KB` : 'Tệp PDF'}</span>
-                              {file.isDefault && (
-                                <span className="font-bold text-emerald-600">• Mặc định Fast Apply</span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setShowPrintModal(false);
-                              setViewingCvFile(file);
-                            }}
-                            className="px-3 py-1.5 rounded-lg bg-purple-50 hover:bg-purple-100 text-[#5b48bd] text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
-                            title="Mở xem trước trực tiếp và in tệp gốc"
-                          >
-                            <span className="material-symbols-outlined text-sm">visibility</span>
-                            <span>Xem &amp; In</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => handleDownloadCv(file)}
-                            className="px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
-                            title="Tải tệp gốc về máy"
-                          >
-                            <span className="material-symbols-outlined text-sm">download</span>
-                            <span>Tải Về</span>
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Modal Footer */}
-              <div className="pt-2 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setShowPrintModal(false)}
-                  className="px-5 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
-                >
-                  Đóng Hộp Thoại
-                </button>
-              </div>
             </div>
-          </div>
-        </ModalPortal>
-      )}
+          </ModalPortal>
+        )}
 
         {/* ========================================================= */}
         {/* UPGRADE SUBSCRIPTION MODAL                                */}
@@ -4949,52 +4889,52 @@ export default function CandidateProfilePage({ user }) {
         {upgradeModalOpen && (
           <ModalPortal isOpen={upgradeModalOpen}>
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn font-sans">
-            <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-purple-100 text-center space-y-5 animate-scaleUp">
-              <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-purple-600 via-indigo-600 to-amber-500 text-white flex items-center justify-center mx-auto shadow-lg shadow-purple-200">
-                <span className="material-symbols-outlined text-3xl">workspace_premium</span>
-              </div>
-              <div className="space-y-2">
-                <h3 className="text-xl font-black text-[#1e1b4b]">Nâng Cấp Gói Dịch Vụ Ứng Viên</h3>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  {upgradeModalMessage || 'Tính năng này yêu cầu nâng cấp gói dịch vụ để tiếp tục sử dụng không giới hạn.'}
-                </p>
-              </div>
-              <div className="p-4 rounded-2xl bg-purple-50/70 border border-purple-100 text-left space-y-2 text-xs">
-                <div className="font-bold text-[#32247b] flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-sm">stars</span>
-                  <span>Quyền lợi khi nâng cấp Practice Plus / Pro:</span>
+              <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-purple-100 text-center space-y-5 animate-scaleUp">
+                <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-purple-600 via-indigo-600 to-amber-500 text-white flex items-center justify-center mx-auto shadow-lg shadow-purple-200">
+                  <span className="material-symbols-outlined text-3xl">workspace_premium</span>
                 </div>
-                <ul className="space-y-1 text-slate-700 list-disc list-inside text-[11px]">
-                  <li>Mở rộng kho lưu trữ lên tới 5 bản CV hoặc không giới hạn</li>
-                  <li>Không giới hạn lượt AI Tinh Chỉnh ATS &amp; Từ khóa ngành</li>
-                  <li>Mở khóa toàn bộ mẫu bố cục CV Hiện Đại chuẩn quốc tế</li>
-                  <li>Luyện phỏng vấn thử AI Voice Studio theo ngày</li>
-                </ul>
-              </div>
-              <div className="flex items-center gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setUpgradeModalOpen(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-all cursor-pointer"
-                >
-                  Để Sau
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUpgradeModalOpen(false);
-                    window.location.hash = '#/candidate-pricing';
-                  }}
-                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#5b48bd] to-[#32247b] text-white font-bold text-xs shadow-md hover:opacity-95 transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                >
-                  <span>Nâng Cấp Ngay</span>
-                  <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                </button>
+                <div className="space-y-2">
+                  <h3 className="text-xl font-black text-[#1e1b4b]">Nâng Cấp Gói Dịch Vụ Ứng Viên</h3>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    {upgradeModalMessage || 'Tính năng này yêu cầu nâng cấp gói dịch vụ để tiếp tục sử dụng không giới hạn.'}
+                  </p>
+                </div>
+                <div className="p-4 rounded-2xl bg-purple-50/70 border border-purple-100 text-left space-y-2 text-xs">
+                  <div className="font-bold text-[#32247b] flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-sm">stars</span>
+                    <span>Quyền lợi khi nâng cấp Practice Plus / Pro:</span>
+                  </div>
+                  <ul className="space-y-1 text-slate-700 list-disc list-inside text-[11px]">
+                    <li>Mở rộng kho lưu trữ lên tới 5 bản CV hoặc không giới hạn</li>
+                    <li>Không giới hạn lượt AI Tinh Chỉnh ATS &amp; Từ khóa ngành</li>
+                    <li>Mở khóa toàn bộ mẫu bố cục CV Hiện Đại chuẩn quốc tế</li>
+                    <li>Luyện phỏng vấn thử AI Voice Studio theo ngày</li>
+                  </ul>
+                </div>
+                <div className="flex items-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setUpgradeModalOpen(false)}
+                    className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-all cursor-pointer"
+                  >
+                    Để Sau
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUpgradeModalOpen(false);
+                      window.location.hash = '#/candidate-pricing';
+                    }}
+                    className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#5b48bd] to-[#32247b] text-white font-bold text-xs shadow-md hover:opacity-95 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <span>Nâng Cấp Ngay</span>
+                    <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        </ModalPortal>
-      )}
+          </ModalPortal>
+        )}
 
       </div>
     </div>

@@ -1,4 +1,4 @@
-﻿import { HIREMATE_LOGO_URL } from '../../constants/branding';
+import { HIREMATE_LOGO_URL } from '../../constants/branding';
 import React, { useState } from 'react';
 import authApi from '../../api/authApi';
 import companyApi from '../../api/companyApi';
@@ -54,7 +54,6 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
   const [recDepartment, setRecDepartment] = useState('Phòng Tuyển dụng & Nhân sự');
   const [companyHrPin, setCompanyHrPin] = useState('');
   const [bypassPinRequest, setBypassPinRequest] = useState(false);
-  const [devOtpHint, setDevOtpHint] = useState('');
 
   // Mode tuyển dụng: Gia nhập công ty có sẵn bằng Mã HR PIN hoặc Tạo công ty mới (Trụ sở chính)
   const [recruiterRegisterMode, setRecruiterRegisterMode] = useState('JOIN_EXISTING'); // 'JOIN_EXISTING' | 'NEW_COMPANY'
@@ -349,15 +348,10 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
         return;
       }
 
-      const res = await authApi.sendOtp({
+      await authApi.sendOtp({
         email: targetEmail,
         purpose: 'REGISTER',
       });
-
-      const data = res?.data?.data || res?.data;
-      if (data?.otpDevHint) {
-        setDevOtpHint(data.otpDevHint);
-      }
 
       setOtpError('');
       setOtpCode('');
@@ -375,14 +369,10 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
     setIsResending(true);
     setOtpError('');
     try {
-      const res = await authApi.sendOtp({
+      await authApi.sendOtp({
         email: targetEmail,
         purpose: 'REGISTER',
       });
-      const data = res?.data?.data || res?.data;
-      if (data?.otpDevHint) {
-        setDevOtpHint(data.otpDevHint);
-      }
       setResendCooldown(60);
     } catch (err) {
       setOtpError(err.response?.data?.message || err.message || 'Gửi lại mã thất bại. Vui lòng thử lại sau giây lát.');
@@ -403,18 +393,12 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
     setOtpError('');
 
     try {
-      // 1. Verify OTP
-      try {
-        await authApi.verifyOtp({
-          email: targetEmail,
-          otp: otpCode.trim(),
-          purpose: 'REGISTER',
-        });
-      } catch {
-        if (otpCode.trim() !== '849201' && otpCode.trim() !== '123456') {
-          throw new Error('Mã OTP không hợp lệ hoặc đã hết hạn.');
-        }
-      }
+      // 1. Verify OTP with Backend
+      await authApi.verifyOtp({
+        email: targetEmail,
+        otp: otpCode.trim(),
+        purpose: 'REGISTER',
+      });
 
       // 2. Register User in PostgreSQL
       const payload = role === 'RECRUITER' ? {
@@ -1597,23 +1581,6 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
                 <span>{otpError}</span>
               </div>
             )}
-
-            {devOtpHint && (
-              <div className="p-2.5 rounded-xl bg-purple-50 border border-purple-200 text-[#5b48bd] text-xs font-semibold flex items-center justify-between">
-                <span>Mã xác thực nhanh: <strong className="font-mono text-sm tracking-widest text-[#5b48bd]">{devOtpHint}</strong></span>
-                <button
-                  type="button"
-                  onClick={() => setOtpCode(devOtpHint)}
-                  className="text-[11px] px-2.5 py-1 rounded-lg bg-[#5b48bd] text-white font-bold hover:bg-[#4938a5] cursor-pointer shadow-xs"
-                >
-                  Điền ngay
-                </button>
-              </div>
-            )}
-
-            <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-500 leading-snug">
-              💡 <em>Lưu ý: Bạn cũng có thể dùng mã demo <strong className="text-slate-800 font-mono">123456</strong> để xác thực nhanh trong môi trường phát triển / chấm điểm.</em>
-            </div>
 
             <form onSubmit={handleVerifyAndRegister} className="space-y-4">
               <div className="space-y-1.5">

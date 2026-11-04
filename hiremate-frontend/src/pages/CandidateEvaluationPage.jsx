@@ -379,6 +379,7 @@ export default function CandidateEvaluationPage({
     // Tải trước file PDF/Word bất đồng bộ, không khóa giao diện đánh giá
     const loadPdfPreview = async (targetCvId, targetCvUrl, targetCvMeta) => {
       if (!isMounted) return;
+      setPdfBlobUrl(null);
       setIsPdfLoading(true);
 
       const fn = targetCvMeta?.fileName?.toLowerCase() || '';
@@ -441,6 +442,7 @@ export default function CandidateEvaluationPage({
 
       // Nếu chưa có file PDF hợp lệ, tự động hiển thị tab CV Online ngay tức thì
       if (isMounted) {
+        setPdfBlobUrl(null);
         setCvViewMode('parsed');
         setIsPdfLoading(false);
       }
@@ -448,6 +450,7 @@ export default function CandidateEvaluationPage({
 
     const fetchCandidateData = async () => {
       setIsLoading(true);
+      setPdfBlobUrl(null);
 
       try {
         let candidateName = '';
