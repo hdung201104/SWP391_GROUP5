@@ -124,6 +124,7 @@ export default function CandidateEvaluationPage({
   const parsedJobId = jobId || (hash.match(/jobid=(\d+)/i) ? Number(hash.match(/jobid=(\d+)/i)[1]) : null);
   const parsedCvId = cvId || (hash.match(/cvid=(\d+)/i) ? Number(hash.match(/cvid=(\d+)/i)[1]) : null);
   const parsedAppId = applicationId || (hash.match(/appid=(\d+)/i) ? Number(hash.match(/appid=(\d+)/i)[1]) : null);
+  const parsedAtsScore = hash.match(/atsscore=(\d+)/i) ? Number(hash.match(/atsscore=(\d+)/i)[1]) : null;
 
   const [isLoading, setIsLoading] = useState(true);
 
@@ -170,7 +171,7 @@ export default function CandidateEvaluationPage({
     name: 'Đang tải hồ sơ...',
     title: 'Hồ sơ ứng viên',
     roleSummary: 'HỒ SƠ ĐANG ĐƯỢC ĐỐI SOÁT VỚI TIÊU CHÍ JD',
-    matchScore: 0,
+    matchScore: parsedAtsScore || 0,
     skillsScore: 0,
     experienceScore: 0,
     educationScore: 0,
@@ -654,15 +655,21 @@ export default function CandidateEvaluationPage({
           }
 
           if (directEvalReport && directEvalReport.matchingScore != null) {
+            // Ưu tiên điểm chính thức từ candMatch (ai_job_matches) hoặc appData, tránh bị ghi đè bởi cache cũ
+            const authoritativeScore = candMatch?.matchingScore != null
+              ? candMatch.matchingScore
+              : (appData?.matchingScore != null ? appData.matchingScore : (parsedAtsScore != null ? parsedAtsScore : directEvalReport.matchingScore));
+
             candMatch = {
               ...candMatch,
               ...directEvalReport,
-              skillsScore: directEvalReport.skillsScore != null ? directEvalReport.skillsScore : (candMatch?.skillsScore ?? directEvalReport.matchingScore),
-              experienceScore: directEvalReport.experienceScore != null ? directEvalReport.experienceScore : (candMatch?.experienceScore ?? directEvalReport.matchingScore),
-              educationScore: directEvalReport.educationScore != null ? directEvalReport.educationScore : (candMatch?.educationScore ?? directEvalReport.matchingScore),
-              semanticScore: directEvalReport.semanticScore != null ? directEvalReport.semanticScore : (candMatch?.semanticScore ?? directEvalReport.matchingScore),
+              matchingScore: authoritativeScore,
+              skillsScore: candMatch?.skillsScore != null ? candMatch.skillsScore : (directEvalReport.skillsScore ?? authoritativeScore),
+              experienceScore: candMatch?.experienceScore != null ? candMatch.experienceScore : (directEvalReport.experienceScore ?? authoritativeScore),
+              educationScore: candMatch?.educationScore != null ? candMatch.educationScore : (directEvalReport.educationScore ?? authoritativeScore),
+              semanticScore: candMatch?.semanticScore != null ? candMatch.semanticScore : (directEvalReport.semanticScore ?? authoritativeScore),
             };
-            matchScore = Math.round(directEvalReport.matchingScore);
+            matchScore = Math.round(authoritativeScore);
           }
 
           // Nếu trước đó chưa load được profileData mà giờ đã có resolvedCandId
@@ -915,26 +922,40 @@ export default function CandidateEvaluationPage({
           } catch (ignored) {}
         }
 
-        // 4 Trụ cột ATS từ kết quả AI Match thực tế (Đồng bộ chuẩn xác từ DB, không bao giờ để 0%)
-        const resolvedMatchScore = directEvalReport?.matchingScore != null
-          ? Math.round(directEvalReport.matchingScore)
-          : (matchScore > 0 ? matchScore : (appData?.matchingScore != null ? Math.round(Number(appData.matchingScore)) : (candMatch?.matchingScore != null ? Math.round(Number(candMatch.matchingScore)) : 0)));
+        // 4 Trụ cột ATS từ kết quả AI Match thực tế (Đồng bộ chuẩn xác từ DB, ưu tiên nguồn uy tín ai_job_matches)
+        const resolvedMatchScore = candMatch?.matchingScore != null
+          ? Math.round(Number(candMatch.matchingScore))
+          : (appData?.matchingScore != null
+            ? Math.round(Number(appData.matchingScore))
+            : (parsedAtsScore != null
+              ? Math.round(Number(parsedAtsScore))
+              : (directEvalReport?.matchingScore != null
+                ? Math.round(Number(directEvalReport.matchingScore))
+                : (matchScore > 0 ? matchScore : 0))));
 
-        const skillsScore = directEvalReport?.skillsScore != null
-          ? Math.round(directEvalReport.skillsScore)
-          : (appData?.skillsScore != null ? Math.round(Number(appData.skillsScore)) : (candMatch?.skillsScore != null ? Math.round(Number(candMatch.skillsScore)) : (parsedJson?.skillsScore ?? resolvedMatchScore)));
+        const skillsScore = candMatch?.skillsScore != null
+          ? Math.round(Number(candMatch.skillsScore))
+          : (directEvalReport?.skillsScore != null
+            ? Math.round(directEvalReport.skillsScore)
+            : (appData?.skillsScore != null ? Math.round(Number(appData.skillsScore)) : (parsedJson?.skillsScore ?? resolvedMatchScore)));
 
-        const experienceScore = directEvalReport?.experienceScore != null
-          ? Math.round(directEvalReport.experienceScore)
-          : (appData?.experienceScore != null ? Math.round(Number(appData.experienceScore)) : (candMatch?.experienceScore != null ? Math.round(Number(candMatch.experienceScore)) : (parsedJson?.experienceScore ?? resolvedMatchScore)));
+        const experienceScore = candMatch?.experienceScore != null
+          ? Math.round(Number(candMatch.experienceScore))
+          : (directEvalReport?.experienceScore != null
+            ? Math.round(directEvalReport.experienceScore)
+            : (appData?.experienceScore != null ? Math.round(Number(appData.experienceScore)) : (parsedJson?.experienceScore ?? resolvedMatchScore)));
 
-        const educationScore = directEvalReport?.educationScore != null
-          ? Math.round(directEvalReport.educationScore)
-          : (appData?.educationScore != null ? Math.round(Number(appData.educationScore)) : (candMatch?.educationScore != null ? Math.round(Number(candMatch.educationScore)) : (parsedJson?.educationScore ?? resolvedMatchScore)));
+        const educationScore = candMatch?.educationScore != null
+          ? Math.round(Number(candMatch.educationScore))
+          : (directEvalReport?.educationScore != null
+            ? Math.round(directEvalReport.educationScore)
+            : (appData?.educationScore != null ? Math.round(Number(appData.educationScore)) : (parsedJson?.educationScore ?? resolvedMatchScore)));
 
-        const semanticScore = directEvalReport?.semanticScore != null
-          ? Math.round(directEvalReport.semanticScore)
-          : (appData?.semanticScore != null ? Math.round(Number(appData.semanticScore)) : (candMatch?.semanticScore != null ? Math.round(Number(candMatch.semanticScore)) : (parsedJson?.semanticScore ?? resolvedMatchScore)));
+        const semanticScore = candMatch?.semanticScore != null
+          ? Math.round(Number(candMatch.semanticScore))
+          : (directEvalReport?.semanticScore != null
+            ? Math.round(directEvalReport.semanticScore)
+            : (appData?.semanticScore != null ? Math.round(Number(appData.semanticScore)) : (parsedJson?.semanticScore ?? resolvedMatchScore)));
 
         // Đồng bộ ghi chú HR bền vững theo applicationId thực tế
         if (effectiveAppId) {
@@ -989,7 +1010,7 @@ export default function CandidateEvaluationPage({
         }
 
         const finalReport = (directEvalReport && Array.isArray(directEvalReport.advantages) && directEvalReport.advantages.length > 0)
-          ? directEvalReport
+          ? { ...directEvalReport, matchingScore: resolvedMatchScore, matchTier: assessmentLabel }
           : buildCandidateAiReport({
               matchScore: resolvedMatchScore,
               skillsScore,

@@ -1633,7 +1633,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                       <button
                         type="button"
                         onClick={() => {
-                          window.location.hash = `#/candidate-evaluation?candidateId=${cand.candidateId}&jobId=${jobDetails.id}&appId=${cand.applicationId}&cvId=${cand.cvId || ''}`;
+                          window.location.hash = `#/candidate-evaluation?candidateId=${cand.candidateId}&jobId=${jobDetails.id}&appId=${cand.applicationId}&cvId=${cand.cvId || ''}&atsScore=${cand.matchScore || ''}`;
                         }}
                         className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer bg-slate-900 hover:bg-slate-800 text-white flex items-center gap-1 shadow-2xs"
                         title="Xem hồ sơ chi tiết và thẩm định CV"
@@ -1943,7 +1943,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                     {/* Col 1: Identity & Credentials (26% fixed width on XL) */}
                   <div 
                     onClick={() => {
-                      window.location.hash = `#/candidate-evaluation?candidateId=${cand.candidateId}&jobId=${jobDetails.id}&appId=${cand.applicationId}&cvId=${cand.cvId || ''}`;
+                      window.location.hash = `#/candidate-evaluation?candidateId=${cand.candidateId}&jobId=${jobDetails.id}&appId=${cand.applicationId}&cvId=${cand.cvId || ''}&atsScore=${cand.matchScore || ''}`;
                     }}
                     className="flex items-start gap-3.5 min-w-0 xl:w-[26%] shrink-0 cursor-pointer"
                     title="Nhấp để xem hồ sơ và CV chi tiết của ứng viên này"
@@ -2093,7 +2093,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                     <button
                       type="button"
                       onClick={() => {
-                        window.location.hash = `#/candidate-evaluation?candidateId=${cand.candidateId}&jobId=${jobDetails.id}&appId=${cand.applicationId}&cvId=${cand.cvId || ''}`;
+                        window.location.hash = `#/candidate-evaluation?candidateId=${cand.candidateId}&jobId=${jobDetails.id}&appId=${cand.applicationId}&cvId=${cand.cvId || ''}&atsScore=${cand.matchScore || ''}`;
                       }}
                       className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer bg-gradient-to-r from-[#221d47] to-[#5b48bd] hover:from-[#1b1739] hover:to-[#47369f] text-white shadow-2xs hover:shadow flex items-center gap-1.5 shrink-0"
                       title="Xem hồ sơ chi tiết & đánh giá phỏng vấn"
@@ -2795,7 +2795,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                   <button
                     type="button"
                     onClick={() => {
-                      window.location.hash = `#/candidate-evaluation?candidateId=${selectedCandidateForModal.candidateId}&jobId=${jobDetails.id}&appId=${selectedCandidateForModal.applicationId || selectedCandidateForModal.id}&cvId=${selectedCandidateForModal.cvId || ''}`;
+                      window.location.hash = `#/candidate-evaluation?candidateId=${selectedCandidateForModal.candidateId}&jobId=${jobDetails.id}&appId=${selectedCandidateForModal.applicationId || selectedCandidateForModal.id}&cvId=${selectedCandidateForModal.cvId || ''}&atsScore=${selectedCandidateForModal.matchScore || ''}`;
                     }}
                     className="px-3.5 py-2 rounded-xl text-xs font-bold bg-white hover:bg-purple-50 text-[#5b48bd] border border-purple-200 transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
                   >
