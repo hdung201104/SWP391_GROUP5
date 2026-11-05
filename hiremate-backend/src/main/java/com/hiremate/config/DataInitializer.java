@@ -37,8 +37,20 @@ public class DataInitializer implements CommandLineRunner {
         initPaymentOrders();
     }
 
+    private static volatile boolean schemaInitialized = false;
+
     private void initDatabaseSchema() {
+        if (schemaInitialized) return;
+        schemaInitialized = true;
         try {
+            Integer colCount = jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM information_schema.columns WHERE table_name = 'companies' AND column_name = 'branches_json'",
+                Integer.class
+            );
+            if (colCount != null && colCount > 0) {
+                log.info("Schema already verified and up-to-date in Supabase PostgreSQL. Skipping redundant DDL checks.");
+                return;
+            }
             log.info("Checking & updating schema for multi-branch enterprise & quota credits support...");
             jdbcTemplate.execute("ALTER TABLE companies ADD COLUMN IF NOT EXISTS branches_json TEXT;");
             jdbcTemplate.execute("ALTER TABLE companies ADD COLUMN IF NOT EXISTS benefits_json TEXT;");

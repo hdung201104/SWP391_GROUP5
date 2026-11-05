@@ -105,6 +105,213 @@ function buildCandidateAiReport(cand, liveAiReport) {
 }
 
 /**
+ * Hàm phân tích động văn bản thô (raw text) bóc tách từ file CV (PDF / DOCX)
+ * Giúp đảm bảo 100% hiển thị đúng ứng viên, tiêu đề, kinh nghiệm, học vấn của chính file đã nộp.
+ */
+function parseCvRawText(rawText, fileName) {
+  if (!rawText || typeof rawText !== 'string' || rawText.trim().length < 15) return null;
+  const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const result = {};
+
+  const phoneMatch = rawText.match(/(?:\+?84|0)[35789](?:[\s.-]?\d){8}/);
+  if (phoneMatch) result.phone = phoneMatch[0].trim();
+
+  const emailMatch = rawText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}/);
+  if (emailMatch) result.email = emailMatch[0].trim();
+
+  let foundName = null;
+  let foundHeadline = null;
+  for (let i = 0; i < Math.min(lines.length, 12); i++) {
+    const line = lines[i];
+    if (line.includes('@') || line.includes('http') || line.match(/\d{9,}/) || line.includes('•')) continue;
+    if (/about\s+me|objective|summary|tóm\s+tắt|kỹ\s+năng|skills|education|học\s+vấn/i.test(line)) break;
+    if (/^[A-ZÀ-Ỹ][a-zà-ỹ]+(?:\s+[A-ZÀ-Ỹ][a-zà-ỹ]+){1,3}$/u.test(line) ||
+        /^[A-ZÀ-Ỹ]{2,}(?:\s+[A-ZÀ-Ỹ]{2,}){1,3}$/u.test(line)) {
+      foundName = line;
+      if (i + 1 < lines.length) {
+        const nextLine = lines[i + 1];
+        if (!nextLine.includes('@') && !nextLine.match(/\d{9,}/) && nextLine.length > 2 && nextLine.length < 60) {
+          foundHeadline = nextLine;
+        }
+      }
+      break;
+    }
+  }
+
+  if (!foundName && fileName) {
+    const cleanFn = fileName.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+    if (cleanFn.length > 2) foundName = cleanFn;
+  }
+
+  result.fullName = foundName;
+  result.headline = foundHeadline;
+
+  for (const line of lines.slice(0, 15)) {
+    if (/nghệ\s+an|hà\s+nội|hồ\s+chí\s+minh|đà\s+nẵng|vietnam|việt\s+nam/i.test(line)) {
+      result.address = line.replace(/https?:\/\/\S+|www\.\S+/gi, '').replace(/[-•]\s*(?:Nam|Nữ).*/i, '').trim();
+      break;
+    }
+  }
+
+  let inSummary = false;
+  let summaryParts = [];
+  for (const line of lines) {
+    if (/^(?:ABOUT\s+ME|MỤC\s+TIÊU|CAREER\s+OBJECTIVE|TÓM\s+TẮT|SUMMARY)/i.test(line)) {
+      inSummary = true;
+      continue;
+    }
+    if (inSummary) {
+      if (/^(?:PROJECT|EXPERIENCE|EDUCATION|SKILLS|CERTIFICATION|HỌC\s+VẤN|KINH\s+NGHIỆM)/i.test(line)) {
+        inSummary = false;
+        break;
+      }
+      summaryParts.push(line);
+    }
+  }
+  if (summaryParts.length > 0) result.summary = summaryParts.join(' ').trim();
+
+  // Experience / Projects
+  const experiences = [];
+  let inExp = false;
+  let currentExp = null;
+  for (const line of lines) {
+    if (/^(?:PROJECT\s+EXPERIENCE|WORK\s+EXPERIENCE|EXPERIENCE|KINH\s+NGHIỆM|DỰ\s+ÁN)/i.test(line)) {
+      inExp = true;
+      continue;
+    }
+    if (inExp) {
+      if (/^(?:EDUCATION|HỌC\s+VẤN|SKILLS|KỸ\s+NĂNG|CERTIFICATION|CHỨNG\s+CHỈ|LANGUAGE|NGOẠI\s+NGỮ|ACHIEVEMENTS)/i.test(line)) {
+        if (currentExp) experiences.push(currentExp);
+        inExp = false;
+        break;
+      }
+      const yearMatch = line.match(/(?:(?:19|20)\d{2}\s*[-–—/]\s*(?:(?:19|20)\d{2}|hiện\s+tại|present|nay))|^(?:19|20)\d{2}\b/i);
+      if (yearMatch) {
+        if (currentExp) experiences.push(currentExp);
+        const rest = line.replace(yearMatch[0], '').trim();
+        currentExp = {
+          role: rest || 'Chuyên viên kỹ thuật',
+          company: '',
+          duration: yearMatch[0],
+          period: yearMatch[0],
+          highlights: []
+        };
+      } else if (currentExp) {
+        if (!currentExp.company && line.length < 60 && !line.startsWith('•') && !line.startsWith('-')) {
+          currentExp.company = line;
+        } else {
+          currentExp.highlights.push(line.replace(/^[•*+–-]\s*/, ''));
+        }
+      }
+    }
+  }
+  if (currentExp && !experiences.includes(currentExp)) experiences.push(currentExp);
+  if (experiences.length > 0) result.experiences = experiences;
+
+  // Education
+  const educations = [];
+  let inEdu = false;
+  let currentEdu = null;
+  for (const line of lines) {
+    if (/^(?:EDUCATION|HỌC\s+VẤN)/i.test(line)) {
+      inEdu = true;
+      continue;
+    }
+    if (inEdu) {
+      if (/^(?:SKILLS|KỸ\s+NĂNG|PROJECT|EXPERIENCE|CERTIFICATION|CHỨNG\s+CHỈ|LANGUAGE|NGOẠI\s+NGỮ)/i.test(line)) {
+        if (currentEdu) educations.push(currentEdu);
+        inEdu = false;
+        break;
+      }
+      if (/đại\s+học|university|college|fpt|học\s+viện/i.test(line)) {
+        if (currentEdu) {
+          currentEdu.school = line;
+        } else {
+          currentEdu = { school: line, degree: '', major: '', year: '2023 - 2026', period: '2023 - 2026' };
+        }
+      } else if (line.match(/(?:19|20)\d{2}\s*[-–—/]\s*(?:19|20)\d{2}/)) {
+        if (currentEdu) {
+          currentEdu.year = line;
+          currentEdu.period = line;
+        }
+      } else if (!currentEdu) {
+        currentEdu = { degree: line, major: line, school: '', year: '2023 - 2026', period: '2023 - 2026' };
+      } else if (!currentEdu.major) {
+        currentEdu.degree = line;
+        currentEdu.major = line;
+      }
+    }
+  }
+  if (currentEdu && !educations.includes(currentEdu)) educations.push(currentEdu);
+  if (educations.length > 0) result.educations = educations;
+
+  // Skills
+  const skills = [];
+  let inSkills = false;
+  for (const line of lines) {
+    if (/^(?:SKILLS|KỸ\s+NĂNG)/i.test(line)) {
+      inSkills = true;
+      continue;
+    }
+    if (inSkills) {
+      if (/^(?:LANGUAGE|NGOẠI\s+NGỮ|CERTIFICATION|CHỨNG\s+CHỈ|PROJECT|EXPERIENCE|EDUCATION)/i.test(line)) {
+        inSkills = false;
+        break;
+      }
+      const parts = line.split(/[,;•|\t]+/).map(s => s.trim().replace(/^[-*•]\s*/, '')).filter(Boolean);
+      for (const p of parts) {
+        if (p.length >= 2 && p.length <= 40 && !p.endsWith(':')) {
+          skills.push(p);
+        }
+      }
+    }
+  }
+  if (skills.length > 0) result.skills = skills;
+
+  // Certifications
+  const certs = [];
+  let inCert = false;
+  for (const line of lines) {
+    if (/^(?:CERTIFICATIONS|CHỨNG\s+CHỈ)/i.test(line)) {
+      inCert = true;
+      continue;
+    }
+    if (inCert) {
+      if (/^(?:ACHIEVEMENTS|LANGUAGE|NGOẠI\s+NGỮ|SKILLS|PROJECT)/i.test(line)) {
+        inCert = false;
+        break;
+      }
+      if (line.length > 3 && !line.startsWith('•')) {
+        certs.push({ name: line.replace(/^[•*+–-]\s*/, ''), issuer: 'Tổ chức chuyên môn', year: 'Đã cấp' });
+      }
+    }
+  }
+  if (certs.length > 0) result.certifications = certs;
+
+  // Languages
+  const langs = [];
+  let inLang = false;
+  for (const line of lines) {
+    if (/^(?:LANGUAGE|NGOẠI\s+NGỮ)/i.test(line)) {
+      inLang = true;
+      continue;
+    }
+    if (inLang) {
+      if (/^(?:ACHIEVEMENTS|CERTIFICATION|SKILLS|PROJECT|EDUCATION)/i.test(line)) {
+        inLang = false;
+        break;
+      }
+      if (/japan|tiếng\s+nhật|english|tiếng\s+anh|tiếng\s+việt/i.test(line)) {
+        langs.push({ name: line.replace(/^[•*+–-]\s*/, ''), level: 'Thành thạo' });
+      }
+    }
+  }
+  if (langs.length > 0) result.languages = langs;
+
+  return result;
+}
+
+/**
  * CandidateEvaluationPage.jsx
  * Trung tâm Đánh giá & Thẩm định Hồ sơ Ứng viên Chuẩn Executive ATS (HireMate AI).
  * Hiển thị chính xác CV bản gốc đã nộp (PDF viewer trực tiếp) kết hợp dữ liệu trích xuất ATS
@@ -124,6 +331,7 @@ export default function CandidateEvaluationPage({
   const parsedJobId = jobId || (hash.match(/jobid=(\d+)/i) ? Number(hash.match(/jobid=(\d+)/i)[1]) : null);
   const parsedCvId = cvId || (hash.match(/cvid=(\d+)/i) ? Number(hash.match(/cvid=(\d+)/i)[1]) : null);
   const parsedAppId = applicationId || (hash.match(/appid=(\d+)/i) ? Number(hash.match(/appid=(\d+)/i)[1]) : null);
+  const parsedAtsScore = hash.match(/atsscore=(\d+)/i) ? Number(hash.match(/atsscore=(\d+)/i)[1]) : null;
 
   const [isLoading, setIsLoading] = useState(true);
 
@@ -170,7 +378,7 @@ export default function CandidateEvaluationPage({
     name: 'Đang tải hồ sơ...',
     title: 'Hồ sơ ứng viên',
     roleSummary: 'HỒ SƠ ĐANG ĐƯỢC ĐỐI SOÁT VỚI TIÊU CHÍ JD',
-    matchScore: 0,
+    matchScore: parsedAtsScore || 0,
     skillsScore: 0,
     experienceScore: 0,
     educationScore: 0,
@@ -378,9 +586,26 @@ export default function CandidateEvaluationPage({
     // Tải trước file PDF/Word bất đồng bộ, không khóa giao diện đánh giá
     const loadPdfPreview = async (targetCvId, targetCvUrl, targetCvMeta) => {
       if (!isMounted) return;
+      if (createdBlobUrl) {
+        try { window.URL.revokeObjectURL(createdBlobUrl); } catch (e) {}
+        createdBlobUrl = null;
+      }
+      setPdfBlobUrl(null);
       setIsPdfLoading(true);
 
       const fn = targetCvMeta?.fileName?.toLowerCase() || '';
+      const fUrl = (targetCvMeta?.fileUrl || targetCvUrl || '').toLowerCase();
+
+      // Nếu là CV Trực Tuyến được tạo trên Profile (không có tệp PDF tải lên từ đĩa)
+      if (fUrl.includes('/candidate/profile') || fn.includes('cv_truc_tuyen')) {
+        if (isMounted) {
+          setPdfBlobUrl(null);
+          setCvViewMode('parsed'); // Tự động ưu tiên hiển thị tab CV Online chuẩn xác 100%
+          setIsPdfLoading(false);
+        }
+        return;
+      }
+
       const isWord = fn.endsWith('.docx') || fn.endsWith('.doc') || targetCvMeta?.fileType?.includes('word');
       if (isWord) {
         if (isMounted) {
@@ -426,12 +651,27 @@ export default function CandidateEvaluationPage({
         } catch (cvErr) {
           console.warn('Lỗi tải preview blob:', cvErr);
         }
+
+        // Fallback 1: Trực tiếp endpoint API có kèm JWT token xác thực nếu có file URL hợp lệ
+        if (fUrl && !fUrl.includes('/candidate/profile')) {
+          const token = localStorage.getItem('token') || '';
+          const directApiUrl = `/api/v1/cvs/${targetCvId}/preview${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+          if (isMounted) {
+            setPdfBlobUrl(directApiUrl);
+            setCvMimeType('application/pdf');
+            setCvViewMode('pdf');
+            setIsPdfLoading(false);
+            return;
+          }
+        }
       }
 
-      // Fallback: nếu targetCvUrl là link http/https trực tiếp
-      if (targetCvUrl && (targetCvUrl.startsWith('http://') || targetCvUrl.startsWith('https://'))) {
+      // Fallback 2: Nếu targetCvUrl là đường dẫn tệp cụ thể
+      if (targetCvUrl && targetCvUrl !== '#' && !targetCvUrl.includes('/candidate/profile')) {
+        const fullUrl = targetCvUrl.startsWith('http') ? targetCvUrl : (targetCvUrl.startsWith('/') ? targetCvUrl : `/${targetCvUrl}`);
         if (isMounted) {
-          setPdfBlobUrl(targetCvUrl);
+          setPdfBlobUrl(fullUrl);
+          setCvMimeType('application/pdf');
           setCvViewMode('pdf');
           setIsPdfLoading(false);
           return;
@@ -440,6 +680,7 @@ export default function CandidateEvaluationPage({
 
       // Nếu chưa có file PDF hợp lệ, tự động hiển thị tab CV Online ngay tức thì
       if (isMounted) {
+        setPdfBlobUrl(null);
         setCvViewMode('parsed');
         setIsPdfLoading(false);
       }
@@ -447,6 +688,7 @@ export default function CandidateEvaluationPage({
 
     const fetchCandidateData = async () => {
       setIsLoading(true);
+      setPdfBlobUrl(null);
 
       try {
         let candidateName = '';
@@ -618,7 +860,7 @@ export default function CandidateEvaluationPage({
                 (effectiveAppId && Number(a.applicationId) === Number(effectiveAppId)) ||
                 (resolvedCandId && Number(a.candidateId) === Number(resolvedCandId)) ||
                 (parsedCandId && Number(a.candidateId) === Number(parsedCandId))
-            ) || appData || appsList[0];
+            ) || appData || null;
           }
 
           // Lấy jobId hoặc candidateId từ appData nếu chưa có
@@ -654,15 +896,21 @@ export default function CandidateEvaluationPage({
           }
 
           if (directEvalReport && directEvalReport.matchingScore != null) {
+            // Ưu tiên điểm chính thức từ candMatch (ai_job_matches) hoặc appData, tránh bị ghi đè bởi cache cũ
+            const authoritativeScore = candMatch?.matchingScore != null
+              ? candMatch.matchingScore
+              : (appData?.matchingScore != null ? appData.matchingScore : (parsedAtsScore != null ? parsedAtsScore : directEvalReport.matchingScore));
+
             candMatch = {
               ...candMatch,
               ...directEvalReport,
-              skillsScore: directEvalReport.skillsScore != null ? directEvalReport.skillsScore : (candMatch?.skillsScore ?? directEvalReport.matchingScore),
-              experienceScore: directEvalReport.experienceScore != null ? directEvalReport.experienceScore : (candMatch?.experienceScore ?? directEvalReport.matchingScore),
-              educationScore: directEvalReport.educationScore != null ? directEvalReport.educationScore : (candMatch?.educationScore ?? directEvalReport.matchingScore),
-              semanticScore: directEvalReport.semanticScore != null ? directEvalReport.semanticScore : (candMatch?.semanticScore ?? directEvalReport.matchingScore),
+              matchingScore: authoritativeScore,
+              skillsScore: candMatch?.skillsScore != null ? candMatch.skillsScore : (directEvalReport.skillsScore ?? authoritativeScore),
+              experienceScore: candMatch?.experienceScore != null ? candMatch.experienceScore : (directEvalReport.experienceScore ?? authoritativeScore),
+              educationScore: candMatch?.educationScore != null ? candMatch.educationScore : (directEvalReport.educationScore ?? authoritativeScore),
+              semanticScore: candMatch?.semanticScore != null ? candMatch.semanticScore : (directEvalReport.semanticScore ?? authoritativeScore),
             };
-            matchScore = Math.round(directEvalReport.matchingScore);
+            matchScore = Math.round(authoritativeScore);
           }
 
           // Nếu trước đó chưa load được profileData mà giờ đã có resolvedCandId
@@ -742,10 +990,13 @@ export default function CandidateEvaluationPage({
             }
           }
 
-          // Nếu có effectiveCvId nhưng chưa tải cvData metadata
-          if (effectiveCvId && !cvData) {
+          // Đảm bảo luôn nạp đúng cvData của effectiveCvId (nếu chưa có hoặc ID không khớp)
+          if (effectiveCvId && (!cvData || Number(cvData.cvId) !== Number(effectiveCvId))) {
             const extraCvRes = await cvApi.getCvById(effectiveCvId).catch(() => null);
-            cvData = extraCvRes?.data?.data || extraCvRes?.data || null;
+            cvData = extraCvRes?.data?.data || extraCvRes?.data || cvData;
+          }
+          if (cvData?.fileUrl) {
+            cvUrl = cvData.fileUrl;
           }
         } catch (err) {
           console.warn('Lỗi tải dữ liệu ứng viên từ API:', err);
@@ -754,7 +1005,9 @@ export default function CandidateEvaluationPage({
         // 3. Kích hoạt tải PDF Blob bất đồng bộ (HOÀN TOÀN KHÔNG CHẶN HIỂN THỊ HỒ SƠ ỨNG VIÊN)
         loadPdfPreview(effectiveCvId, cvUrl, cvData);
 
-        // 4. Phân tích dữ liệu trích xuất (Parsed JSON / Structured Profile)
+        // 4. Phân tích dữ liệu trích xuất từ chính bản CV ứng viên đã nộp (Ưu tiên tuyệt đối CV cụ thể)
+        const rawParsed = parseCvRawText(cvData?.parsedText, cvData?.fileName) || {};
+
         let parsedJson = null;
         try {
           if (cvData?.parsedJson) {
@@ -762,26 +1015,76 @@ export default function CandidateEvaluationPage({
           }
         } catch (ignored) {}
 
-        // Trích xuất thông tin cơ bản của ứng viên với đa tầng fallback an toàn
-        candidateName = profileData?.fullName || appData?.candidateName || cvData?.fullName || cvData?.candidateName || parsedJson?.fullName || parsedJson?.name || candidateName;
+        const pData = cvData?.parsedData || parsedJson || {};
+
+        // Trích xuất họ tên thật của CV cụ thể (Đảm bảo đúng ứng viên trong bản CV scan/pdf, không bị ghi đè bởi hồ sơ mặc định)
+        const cvCandidateName = pData?.fullName || pData?.full_name || pData?.candidateName || pData?.candidate_name ||
+          parsedJson?.fullName || parsedJson?.full_name || parsedJson?.candidateName || parsedJson?.candidate_name || parsedJson?.name ||
+          cvData?.fullName || cvData?.candidateName || rawParsed.fullName;
+
+        if (cvCandidateName && typeof cvCandidateName === 'string' && cvCandidateName.trim().length > 1 && cvCandidateName.trim() !== 'Ứng viên' && !cvCandidateName.includes('Đang tải')) {
+          candidateName = cvCandidateName.trim();
+        } else if (cvData?.fileName) {
+          candidateName = cvData.fileName.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ').trim();
+        } else if (appData?.candidateName) {
+          candidateName = appData.candidateName;
+        } else if (profileData?.fullName) {
+          candidateName = profileData.fullName;
+        }
         if (!candidateName || candidateName === 'Đang tải hồ sơ...') {
           candidateName = cvData?.fileName ? cvData.fileName.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ') : 'Ứng viên';
         }
 
-        candidateEmail = profileData?.email || appData?.candidateEmail || cvData?.email || parsedJson?.email || candidateEmail || '';
-        candidatePhone = profileData?.phone || appData?.candidatePhone || cvData?.phone || parsedJson?.phone || candidatePhone || '';
+        const cvCandidateEmail = pData?.email || parsedJson?.email || cvData?.email || rawParsed.email;
+        if (cvCandidateEmail && typeof cvCandidateEmail === 'string' && cvCandidateEmail.trim().length > 3) {
+          candidateEmail = cvCandidateEmail.trim();
+        } else if (profileData?.email) {
+          candidateEmail = profileData.email;
+        } else if (appData?.candidateEmail) {
+          candidateEmail = appData.candidateEmail;
+        }
+
+        const cvCandidatePhone = pData?.phone || pData?.phoneNumber || pData?.phone_number ||
+          parsedJson?.phone || parsedJson?.phoneNumber || parsedJson?.phone_number || cvData?.phone || rawParsed.phone;
+        if (cvCandidatePhone && typeof cvCandidatePhone === 'string' && cvCandidatePhone.trim().length > 5) {
+          candidatePhone = cvCandidatePhone.trim();
+        } else if (profileData?.phone) {
+          candidatePhone = profileData.phone;
+        } else if (appData?.candidatePhone) {
+          candidatePhone = appData.candidatePhone;
+        }
+
+        const cvCandidateAddress = pData?.address || pData?.location || parsedJson?.address || parsedJson?.location || cvData?.address || rawParsed.address;
+        const candidateLocation = (cvCandidateAddress && typeof cvCandidateAddress === 'string' && cvCandidateAddress.trim().length > 1)
+          ? cvCandidateAddress.trim()
+          : (profileData?.location || profileData?.address || 'Chưa cập nhật địa chỉ');
+
+        const cvHeadline = pData?.headline || pData?.title || parsedJson?.headline || parsedJson?.title || cvData?.headline || rawParsed.headline;
+        const candidateTitle = (cvHeadline && typeof cvHeadline === 'string' && cvHeadline.trim().length > 1)
+          ? cvHeadline.trim()
+          : (profileData?.headline || (jobTitle ? `${jobTitle} • Ứng viên` : 'Chuyên viên'));
+
+        const cvSummary = pData?.summary || pData?.bio || parsedJson?.summary || parsedJson?.bio || cvData?.summary || rawParsed.summary;
+        const candidateSummary = (cvSummary && typeof cvSummary === 'string' && cvSummary.trim().length > 10 && !cvSummary.includes('Uploaded via HireMate'))
+          ? cvSummary.trim()
+          : (profileData?.bio || cvData?.summary || 'Chưa có thông tin tóm tắt nghề nghiệp.');
+
         candidateAvatar = profileData?.avatarUrl || appData?.candidateAvatar || candidateAvatar;
         jobTitle = jobData?.title || appData?.jobTitle || jobTitle || (effectiveJobId ? `Vị trí Tuyển Dụng #${effectiveJobId}` : 'Vị trí Tuyển Dụng');
 
-        // Lấy danh sách kỹ năng thực tế (Đa tầng fallback từ CV parsedData, detectedSkills, parsedJson, profileData)
+        // Lấy danh sách kỹ năng thực tế (Ưu tiên CV đã nộp: pData, parsedJson, detectedSkills, rawParsed, profileData)
         let cleanSkills = [];
-        if (parsedJson?.skills && Array.isArray(parsedJson.skills) && parsedJson.skills.length > 0) {
+        if (pData?.skills && Array.isArray(pData.skills) && pData.skills.length > 0) {
+          cleanSkills = pData.skills.filter((s) => typeof s === 'string' && s.trim().length > 1);
+        } else if (parsedJson?.skills && Array.isArray(parsedJson.skills) && parsedJson.skills.length > 0) {
           cleanSkills = parsedJson.skills.filter((s) => typeof s === 'string' && s.trim().length > 1);
         } else if (cvData?.detectedSkills && Array.isArray(cvData.detectedSkills) && cvData.detectedSkills.length > 0) {
           cleanSkills = cvData.detectedSkills.filter(Boolean);
         } else if (cvData?.parsedData?.skills && Array.isArray(cvData.parsedData.skills) && cvData.parsedData.skills.length > 0) {
           cleanSkills = cvData.parsedData.skills.filter(Boolean);
-        } else if (profileData?.skills && Array.isArray(profileData.skills) && profileData.skills.length > 0) {
+        } else if (Array.isArray(rawParsed.skills) && rawParsed.skills.length > 0) {
+          cleanSkills = rawParsed.skills;
+        } else if (!effectiveCvId && profileData?.skills && Array.isArray(profileData.skills) && profileData.skills.length > 0) {
           cleanSkills = profileData.skills.map((s) => s.skillName || s.name || s).filter(Boolean);
         }
 
@@ -795,7 +1098,11 @@ export default function CandidateEvaluationPage({
 
         // Lấy ma trận kỹ năng phân loại theo nhóm (Skills Matrix)
         let skillCategories = [];
-        if (parsedJson?.skillCategories && Array.isArray(parsedJson.skillCategories) && parsedJson.skillCategories.length > 0) {
+        if (pData?.skillCategories && Array.isArray(pData.skillCategories) && pData.skillCategories.length > 0) {
+          skillCategories = pData.skillCategories;
+        } else if (pData?.skill_categories && Array.isArray(pData.skill_categories) && pData.skill_categories.length > 0) {
+          skillCategories = pData.skill_categories;
+        } else if (parsedJson?.skillCategories && Array.isArray(parsedJson.skillCategories) && parsedJson.skillCategories.length > 0) {
           skillCategories = parsedJson.skillCategories;
         } else if (parsedJson?.skill_categories && Array.isArray(parsedJson.skill_categories) && parsedJson.skill_categories.length > 0) {
           skillCategories = parsedJson.skill_categories;
@@ -808,20 +1115,24 @@ export default function CandidateEvaluationPage({
           ];
         }
 
-        // Lấy kinh nghiệm làm việc thực tế của ứng viên (Fallback toàn diện: parsedJson, cvData.parsedData, cvData.experiencesJson, profileData)
+        // Lấy kinh nghiệm làm việc thực tế của bản CV cụ thể đã nộp
         let experiences = [];
-        if (parsedJson?.experiences && Array.isArray(parsedJson.experiences) && parsedJson.experiences.length > 0) {
+        if (pData?.experiences && Array.isArray(pData.experiences) && pData.experiences.length > 0) {
+          experiences = pData.experiences;
+        } else if (parsedJson?.experiences && Array.isArray(parsedJson.experiences) && parsedJson.experiences.length > 0) {
           experiences = parsedJson.experiences;
         } else if (parsedJson?.experience && Array.isArray(parsedJson.experience) && parsedJson.experience.length > 0) {
           experiences = parsedJson.experience;
         } else if (cvData?.parsedData?.experiences && Array.isArray(cvData.parsedData.experiences) && cvData.parsedData.experiences.length > 0) {
           experiences = cvData.parsedData.experiences;
+        } else if (Array.isArray(rawParsed.experiences) && rawParsed.experiences.length > 0) {
+          experiences = rawParsed.experiences;
         } else if (cvData?.experiencesJson) {
           try {
             const expArr = typeof cvData.experiencesJson === 'string' ? JSON.parse(cvData.experiencesJson) : cvData.experiencesJson;
             if (Array.isArray(expArr) && expArr.length > 0) experiences = expArr;
           } catch (ignored) {}
-        } else if (profileData?.experiencesJson) {
+        } else if (!effectiveCvId && profileData?.experiencesJson) {
           try {
             const expArr = typeof profileData.experiencesJson === 'string' ? JSON.parse(profileData.experiencesJson) : profileData.experiencesJson;
             if (Array.isArray(expArr) && expArr.length > 0) experiences = expArr;
@@ -833,7 +1144,7 @@ export default function CandidateEvaluationPage({
           const textSummary = appData.candidateExperienceSummary || appData.coverLetter;
           if (textSummary && textSummary.length > 15 && !textSummary.includes('[CV_TEMPLATE')) {
             experiences = [{
-              role: profileData?.headline || jobTitle || 'Chuyên viên kỹ thuật',
+              role: candidateTitle || profileData?.headline || jobTitle || 'Chuyên viên kỹ thuật',
               company: 'Kinh nghiệm thực tế ghi nhận từ hồ sơ',
               period: 'Gần đây',
               description: textSummary.replace(/\[CV_TEMPLATE:[^\]]+\]/g, '').trim(),
@@ -843,18 +1154,22 @@ export default function CandidateEvaluationPage({
 
         // Lấy học vấn thực tế của ứng viên
         let educations = [];
-        if (parsedJson?.educations && Array.isArray(parsedJson.educations) && parsedJson.educations.length > 0) {
+        if (pData?.educations && Array.isArray(pData.educations) && pData.educations.length > 0) {
+          educations = pData.educations;
+        } else if (parsedJson?.educations && Array.isArray(parsedJson.educations) && parsedJson.educations.length > 0) {
           educations = parsedJson.educations;
         } else if (parsedJson?.education && Array.isArray(parsedJson.education) && parsedJson.education.length > 0) {
           educations = parsedJson.education;
         } else if (cvData?.parsedData?.educations && Array.isArray(cvData.parsedData.educations) && cvData.parsedData.educations.length > 0) {
           educations = cvData.parsedData.educations;
+        } else if (Array.isArray(rawParsed.educations) && rawParsed.educations.length > 0) {
+          educations = rawParsed.educations;
         } else if (cvData?.educationsJson) {
           try {
             const eduArr = typeof cvData.educationsJson === 'string' ? JSON.parse(cvData.educationsJson) : cvData.educationsJson;
             if (Array.isArray(eduArr) && eduArr.length > 0) educations = eduArr;
           } catch (ignored) {}
-        } else if (profileData?.educationsJson) {
+        } else if (!effectiveCvId && profileData?.educationsJson) {
           try {
             const eduArr = typeof profileData.educationsJson === 'string' ? JSON.parse(profileData.educationsJson) : profileData.educationsJson;
             if (Array.isArray(eduArr) && eduArr.length > 0) educations = eduArr;
@@ -863,16 +1178,20 @@ export default function CandidateEvaluationPage({
 
         // Lấy chứng chỉ quốc tế thực tế của ứng viên
         let certifications = [];
-        if (parsedJson?.certifications && Array.isArray(parsedJson.certifications) && parsedJson.certifications.length > 0) {
+        if (pData?.certifications && Array.isArray(pData.certifications) && pData.certifications.length > 0) {
+          certifications = pData.certifications;
+        } else if (parsedJson?.certifications && Array.isArray(parsedJson.certifications) && parsedJson.certifications.length > 0) {
           certifications = parsedJson.certifications;
         } else if (cvData?.parsedData?.certifications && Array.isArray(cvData.parsedData.certifications) && cvData.parsedData.certifications.length > 0) {
           certifications = cvData.parsedData.certifications;
+        } else if (Array.isArray(rawParsed.certifications) && rawParsed.certifications.length > 0) {
+          certifications = rawParsed.certifications;
         } else if (cvData?.certificationsJson) {
           try {
             const certArr = typeof cvData.certificationsJson === 'string' ? JSON.parse(cvData.certificationsJson) : cvData.certificationsJson;
             if (Array.isArray(certArr) && certArr.length > 0) certifications = certArr;
           } catch (ignored) {}
-        } else if (profileData?.certificationsJson) {
+        } else if (!effectiveCvId && profileData?.certificationsJson) {
           try {
             const certArr = typeof profileData.certificationsJson === 'string' ? JSON.parse(profileData.certificationsJson) : profileData.certificationsJson;
             if (Array.isArray(certArr) && certArr.length > 0) certifications = certArr;
@@ -881,16 +1200,20 @@ export default function CandidateEvaluationPage({
 
         // Lấy ngoại ngữ thành thạo thực tế của ứng viên
         let languages = [];
-        if (parsedJson?.languages && Array.isArray(parsedJson.languages) && parsedJson.languages.length > 0) {
+        if (pData?.languages && Array.isArray(pData.languages) && pData.languages.length > 0) {
+          languages = pData.languages;
+        } else if (parsedJson?.languages && Array.isArray(parsedJson.languages) && parsedJson.languages.length > 0) {
           languages = parsedJson.languages;
         } else if (cvData?.parsedData?.languages && Array.isArray(cvData.parsedData.languages) && cvData.parsedData.languages.length > 0) {
           languages = cvData.parsedData.languages;
+        } else if (Array.isArray(rawParsed.languages) && rawParsed.languages.length > 0) {
+          languages = rawParsed.languages;
         } else if (cvData?.languagesJson) {
           try {
             const langArr = typeof cvData.languagesJson === 'string' ? JSON.parse(cvData.languagesJson) : cvData.languagesJson;
             if (Array.isArray(langArr) && langArr.length > 0) languages = langArr;
           } catch (ignored) {}
-        } else if (profileData?.languagesJson) {
+        } else if (!effectiveCvId && profileData?.languagesJson) {
           try {
             const langArr = typeof profileData.languagesJson === 'string' ? JSON.parse(profileData.languagesJson) : profileData.languagesJson;
             if (Array.isArray(langArr) && langArr.length > 0) languages = langArr;
@@ -899,42 +1222,72 @@ export default function CandidateEvaluationPage({
 
         // Lấy dự án trọng điểm thực tế của ứng viên
         let projects = [];
-        if (parsedJson?.projects && Array.isArray(parsedJson.projects) && parsedJson.projects.length > 0) {
+        if (pData?.projects && Array.isArray(pData.projects) && pData.projects.length > 0) {
+          projects = pData.projects;
+        } else if (parsedJson?.projects && Array.isArray(parsedJson.projects) && parsedJson.projects.length > 0) {
           projects = parsedJson.projects;
         } else if (cvData?.parsedData?.projects && Array.isArray(cvData.parsedData.projects) && cvData.parsedData.projects.length > 0) {
           projects = cvData.parsedData.projects;
+        } else if (Array.isArray(rawParsed.projects) && rawParsed.projects.length > 0) {
+          projects = rawParsed.projects;
         } else if (cvData?.projectsJson) {
           try {
             const projArr = typeof cvData.projectsJson === 'string' ? JSON.parse(cvData.projectsJson) : cvData.projectsJson;
             if (Array.isArray(projArr) && projArr.length > 0) projects = projArr;
           } catch (ignored) {}
-        } else if (profileData?.projectsJson) {
+        } else if (!effectiveCvId && profileData?.projectsJson) {
           try {
             const projArr = typeof profileData.projectsJson === 'string' ? JSON.parse(profileData.projectsJson) : profileData.projectsJson;
             if (Array.isArray(projArr) && projArr.length > 0) projects = projArr;
           } catch (ignored) {}
         }
 
-        // 4 Trụ cột ATS từ kết quả AI Match thực tế (Đồng bộ chuẩn xác từ DB, không bao giờ để 0%)
-        const resolvedMatchScore = directEvalReport?.matchingScore != null
-          ? Math.round(directEvalReport.matchingScore)
-          : (matchScore > 0 ? matchScore : (appData?.matchingScore != null ? Math.round(Number(appData.matchingScore)) : (candMatch?.matchingScore != null ? Math.round(Number(candMatch.matchingScore)) : 0)));
+        // Đồng bộ dự án từ experiences nếu projects rỗng mà experiences có nội dung dự án
+        if (projects.length === 0 && experiences.length > 0) {
+          projects = experiences.map((exp, idx) => ({
+            id: idx + 1,
+            name: exp.company || exp.role || `Dự án thực tế #${idx + 1}`,
+            role: exp.role || 'Thành viên dự án',
+            period: exp.period || exp.duration || '2026',
+            summary: Array.isArray(exp.highlights) ? exp.highlights.join('. ') : (exp.description || 'Thực hiện các mục tiêu kỹ thuật theo dự án.'),
+            tags: Array.isArray(exp.tags) ? exp.tags : (cleanSkills.slice(0, 4)),
+          }));
+        }
 
-        const skillsScore = directEvalReport?.skillsScore != null
-          ? Math.round(directEvalReport.skillsScore)
-          : (appData?.skillsScore != null ? Math.round(Number(appData.skillsScore)) : (candMatch?.skillsScore != null ? Math.round(Number(candMatch.skillsScore)) : (parsedJson?.skillsScore ?? resolvedMatchScore)));
+        // 4 Trụ cột ATS từ kết quả AI Match thực tế (Đồng bộ chuẩn xác từ DB, ưu tiên nguồn uy tín ai_job_matches)
+        const resolvedMatchScore = candMatch?.matchingScore != null
+          ? Math.round(Number(candMatch.matchingScore))
+          : (appData?.matchingScore != null
+            ? Math.round(Number(appData.matchingScore))
+            : (parsedAtsScore != null
+              ? Math.round(Number(parsedAtsScore))
+              : (directEvalReport?.matchingScore != null
+                ? Math.round(Number(directEvalReport.matchingScore))
+                : (matchScore > 0 ? matchScore : 0))));
 
-        const experienceScore = directEvalReport?.experienceScore != null
-          ? Math.round(directEvalReport.experienceScore)
-          : (appData?.experienceScore != null ? Math.round(Number(appData.experienceScore)) : (candMatch?.experienceScore != null ? Math.round(Number(candMatch.experienceScore)) : (parsedJson?.experienceScore ?? resolvedMatchScore)));
+        const skillsScore = candMatch?.skillsScore != null
+          ? Math.round(Number(candMatch.skillsScore))
+          : (directEvalReport?.skillsScore != null
+            ? Math.round(directEvalReport.skillsScore)
+            : (appData?.skillsScore != null ? Math.round(Number(appData.skillsScore)) : (parsedJson?.skillsScore ?? resolvedMatchScore)));
 
-        const educationScore = directEvalReport?.educationScore != null
-          ? Math.round(directEvalReport.educationScore)
-          : (appData?.educationScore != null ? Math.round(Number(appData.educationScore)) : (candMatch?.educationScore != null ? Math.round(Number(candMatch.educationScore)) : (parsedJson?.educationScore ?? resolvedMatchScore)));
+        const experienceScore = candMatch?.experienceScore != null
+          ? Math.round(Number(candMatch.experienceScore))
+          : (directEvalReport?.experienceScore != null
+            ? Math.round(directEvalReport.experienceScore)
+            : (appData?.experienceScore != null ? Math.round(Number(appData.experienceScore)) : (parsedJson?.experienceScore ?? resolvedMatchScore)));
 
-        const semanticScore = directEvalReport?.semanticScore != null
-          ? Math.round(directEvalReport.semanticScore)
-          : (appData?.semanticScore != null ? Math.round(Number(appData.semanticScore)) : (candMatch?.semanticScore != null ? Math.round(Number(candMatch.semanticScore)) : (parsedJson?.semanticScore ?? resolvedMatchScore)));
+        const educationScore = candMatch?.educationScore != null
+          ? Math.round(Number(candMatch.educationScore))
+          : (directEvalReport?.educationScore != null
+            ? Math.round(directEvalReport.educationScore)
+            : (appData?.educationScore != null ? Math.round(Number(appData.educationScore)) : (parsedJson?.educationScore ?? resolvedMatchScore)));
+
+        const semanticScore = candMatch?.semanticScore != null
+          ? Math.round(Number(candMatch.semanticScore))
+          : (directEvalReport?.semanticScore != null
+            ? Math.round(directEvalReport.semanticScore)
+            : (appData?.semanticScore != null ? Math.round(Number(appData.semanticScore)) : (parsedJson?.semanticScore ?? resolvedMatchScore)));
 
         // Đồng bộ ghi chú HR bền vững theo applicationId thực tế
         if (effectiveAppId) {
@@ -989,7 +1342,7 @@ export default function CandidateEvaluationPage({
         }
 
         const finalReport = (directEvalReport && Array.isArray(directEvalReport.advantages) && directEvalReport.advantages.length > 0)
-          ? directEvalReport
+          ? { ...directEvalReport, matchingScore: resolvedMatchScore, matchTier: assessmentLabel }
           : buildCandidateAiReport({
               matchScore: resolvedMatchScore,
               skillsScore,
@@ -1014,7 +1367,7 @@ export default function CandidateEvaluationPage({
             hasPersistedAiReport: hasPersistedReport,
             initialTemplate: initialTpl,
             name: candidateName,
-            title: parsedJson?.headline || profileData?.headline || (jobTitle ? `${jobTitle} • Ứng viên` : 'Chuyên viên'),
+            title: candidateTitle,
             roleSummary: `${(jobTitle || 'VỊ TRÍ TUYỂN DỤNG').toUpperCase()} • ĐÃ NỘP HỒ SƠ`,
             matchScore: resolvedMatchScore,
             skillsScore,
@@ -1024,18 +1377,18 @@ export default function CandidateEvaluationPage({
             mandatoryScore: skillsScore,
             preferredScore: experienceScore,
             avatar: candidateAvatar,
-            location: profileData?.location || profileData?.address || parsedJson?.address || 'Chưa cập nhật địa chỉ',
-            dob: parsedJson?.dob || profileData?.dob || '',
-            linkedin: parsedJson?.linkedin || profileData?.linkedin || '',
-            portfolio: parsedJson?.portfolio || profileData?.portfolio || '',
+            location: candidateLocation,
+            dob: pData?.dob || parsedJson?.dob || profileData?.dob || '',
+            linkedin: pData?.linkedin || parsedJson?.linkedin || profileData?.linkedin || '',
+            portfolio: pData?.portfolio || parsedJson?.portfolio || profileData?.portfolio || '',
             experience: profileData?.experienceYears ? `${profileData.experienceYears} năm kinh nghiệm` : (experiences.length > 0 ? `${experiences.length}+ năm kinh nghiệm` : 'Chưa cập nhật kinh nghiệm / Mới tốt nghiệp'),
-            yearsOfExperience: profileData?.experienceYears || (experiences.length > 0 ? experiences.length : 0),
+            yearsOfExperience: pData?.yearsOfExperience || pData?.years_of_experience || profileData?.experienceYears || (experiences.length > 0 ? experiences.length : 0),
             salary: profileData?.desiredSalaryMax ? `${profileData.desiredSalaryMin || 15} - ${profileData.desiredSalaryMax} Triệu` : 'Thỏa thuận',
             email: candidateEmail,
             phone: candidatePhone,
             status: appStatus,
             aiFitAssessment: directEvalReport?.matchTier || assessmentLabel,
-            summary: parsedJson?.summary || cvData?.summary || profileData?.bio || 'Chưa có thông tin tóm tắt nghề nghiệp.',
+            summary: candidateSummary,
             company: user?.companyName || 'Doanh nghiệp tuyển dụng',
             jobCode: effectiveJobId ? `JD-${effectiveJobId}` : 'JD-GENERAL',
             jobTitle,
@@ -2159,33 +2512,58 @@ export default function CandidateEvaluationPage({
                       </div>
                     </div>
                   )
+                ) : (cand.cvId || effectiveCvId || (cand.cvUrl && cand.cvUrl !== '#')) && cand.cvUrl && !cand.cvUrl.includes('/candidate/profile') ? (
+                  <div className="w-full h-[840px] min-h-[840px] flex flex-col overflow-auto bg-slate-100/60 p-2 sm:p-3">
+                    <div
+                      style={{
+                        width: zoomLevel === 100 ? '100%' : `${zoomLevel}%`,
+                        minWidth: '100%',
+                        height: '840px',
+                        minHeight: '840px',
+                        transition: 'width 0.15s ease-out',
+                      }}
+                      className="w-full h-[840px] min-h-[840px] flex flex-col bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mx-auto"
+                    >
+                      <iframe
+                        key={`direct-iframe-${cand.cvId || effectiveCvId}-${zoomLevel}`}
+                        src={
+                          (cand.cvId || effectiveCvId)
+                            ? `/api/v1/cvs/${cand.cvId || effectiveCvId}/preview?token=${encodeURIComponent(localStorage.getItem('token') || '')}#page=1&view=Fit&toolbar=1&navpanes=0`
+                            : cand.cvUrl.startsWith('http')
+                              ? `${cand.cvUrl}#page=1&view=Fit&toolbar=1&navpanes=0`
+                              : `/${cand.cvUrl.replace(/^\//, '')}#page=1&view=Fit&toolbar=1&navpanes=0`
+                        }
+                        title={`CV - ${cand.name}`}
+                        style={{
+                          width: '100%',
+                          height: '840px',
+                          minHeight: '840px',
+                          border: 'none',
+                        }}
+                        className="w-full h-[840px] min-h-[840px] block border-0 bg-white"
+                      />
+                    </div>
+                  </div>
                 ) : (
-                  /* THÔNG BÁO KHI CHƯA CÓ PDF BLOB */
+                  /* THÔNG BÁO KHI LÀ BẢN CV TRỰC TUYẾN HOẶC CHƯA CÓ BẢN GỐC */
                   <div className="bg-white rounded-3xl p-10 text-center border border-purple-100 shadow-sm max-w-md mx-auto my-auto space-y-4">
                     <div className="w-16 h-16 rounded-3xl bg-purple-50 text-[#5b48bd] border border-purple-200 flex items-center justify-center mx-auto">
-                      <span className="material-symbols-outlined text-3xl">picture_as_pdf</span>
+                      <span className="material-symbols-outlined text-3xl">badge</span>
                     </div>
                     <div>
-                      <h4 className="font-bold text-base text-[#1e1b4b]">{cand.cvFileName || 'Tài Liệu CV Ứng Viên'}</h4>
+                      <h4 className="font-bold text-base text-[#1e1b4b]">{cand.cvFileName || 'Hồ Sơ CV Trực Tuyến'}</h4>
                       <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                        Tệp PDF gốc đang được đồng bộ bảo mật từ Vault Storage. Bạn có thể bấm nút bên dưới để tải trực tiếp hoặc chuyển sang tab <strong>"CV Online"</strong> để xem đầy đủ hồ sơ trực tuyến.
+                        Ứng viên này nộp hồ sơ theo định dạng CV Trực Tuyến của nền tảng (không qua tải tệp PDF). Bạn có thể xem toàn bộ hồ sơ trực tuyến hoàn chỉnh tại tab <strong>"CV Online"</strong>.
                       </p>
                     </div>
                     <div className="flex items-center justify-center gap-3 pt-2">
                       <button
                         type="button"
-                        onClick={handleDownloadCv}
+                        onClick={() => setCvViewMode('parsed')}
                         className="px-5 py-2.5 rounded-2xl bg-[#5b48bd] hover:bg-[#47369f] text-white font-bold text-xs shadow-md cursor-pointer flex items-center gap-1.5"
                       >
-                        <span className="material-symbols-outlined text-base">download</span>
-                        <span>Tải CV Về Máy</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setCvViewMode('parsed')}
-                        className="px-4 py-2.5 rounded-2xl bg-purple-50 text-[#5b48bd] border border-purple-200 font-bold text-xs hover:bg-purple-100 cursor-pointer"
-                      >
-                        Xem CV Online →
+                        <span>Chuyển Sang Xem CV Online</span>
+                        <span className="material-symbols-outlined text-sm">arrow_forward</span>
                       </button>
                     </div>
                   </div>

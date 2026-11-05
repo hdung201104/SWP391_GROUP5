@@ -599,17 +599,11 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
     setVerifyOtpError('');
 
     try {
-      try {
-        await authApi.verifyOtp({
-          email,
-          otp: verifyOtpInput.trim(),
-          purpose: 'CHANGE_EMAIL',
-        });
-      } catch {
-        if (verifyOtpInput.trim() !== '849201' && verifyOtpInput.trim() !== '123456') {
-          throw new Error('Mã OTP không hợp lệ');
-        }
-      }
+      await authApi.verifyOtp({
+        email,
+        otp: verifyOtpInput.trim(),
+        purpose: 'CHANGE_EMAIL',
+      });
 
       setIsEmailVerified(true);
       setShowEmailVerifyModal(false);

@@ -5,23 +5,21 @@ spring:
   application:
     name: hiremate
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://${DB_HOST:aws-0-ap-south-1.pooler.supabase.com}:${DB_PORT:5432}/${DB_NAME:postgres}?sslmode=require}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://${DB_HOST:aws-0-ap-south-1.pooler.supabase.com}:${DB_PORT:6543}/${DB_NAME:postgres}?prepareThreshold=0&sslmode=require}
     username: ${SPRING_DATASOURCE_USERNAME:${DB_USER:postgres.orkdazjoorfdwlfbrmxf}}
     password: ${SPRING_DATASOURCE_PASSWORD:${DB_PASSWORD:Hoangdung1122}}
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: ${HIKARI_MAX_POOL_SIZE:30}
-      minimum-idle: ${HIKARI_MIN_IDLE:10}
+      maximum-pool-size: ${HIKARI_MAX_POOL_SIZE:20}
+      minimum-idle: ${HIKARI_MIN_IDLE:5}
       connection-timeout: 10000
       idle-timeout: 300000
       max-lifetime: 1800000
       keepalive-time: 30000
       leak-detection-threshold: 30000
       data-source-properties:
-        cachePrepStmts: true
-        prepStmtCacheSize: 250
-        prepStmtCacheSqlLimit: 2048
-        useServerPrepStmts: true
+        prepareThreshold: 0
+        preparedStatementCacheQueries: 0
   jpa:
     open-in-view: false         # Tránh lock connection database trong suốt request lifecycle và AI calls
     hibernate:
@@ -43,14 +41,18 @@ spring:
     host: ${SPRING_MAIL_HOST:smtp.gmail.com}
     port: ${SPRING_MAIL_PORT:587}
     username: ${SPRING_MAIL_USERNAME:hdung201104@gmail.com}
-    password: ${SPRING_MAIL_PASSWORD:}
+    password: ${SPRING_MAIL_PASSWORD:fkrekdovjjglxnzm}
     properties:
       mail:
+        mime:
+          charset: UTF-8
         smtp:
           auth: true
           starttls:
             enable: true
             required: true
+          ssl:
+            trust: smtp.gmail.com
           connectiontimeout: 10000
           timeout: 10000
           writetimeout: 10000

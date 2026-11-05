@@ -629,6 +629,222 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
     }
   };
 
+  // Workplace Gallery Default & Dynamic State
+  const defaultWorkplacePhotos = [
+    {
+      title: 'Khuôn viên xanh & Không gian làm việc sinh thái',
+      desc: 'Môi trường làm việc mở, hài hòa thiên nhiên với cảnh quan cây xanh và không gian thư giãn sinh thái.',
+      url: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&auto=format&fit=crop&q=80',
+    },
+    {
+      title: 'Không gian làm việc sáng tạo Open Workspace',
+      desc: 'Trang bị bàn làm việc công thái học, ánh sáng tự nhiên và thiết bị máy trạm hiệu năng cao.',
+      url: 'https://images.unsplash.com/photo-1497215728101-856f4ea42174?w=800&auto=format&fit=crop&q=80',
+    },
+    {
+      title: 'Pantry, Coffee Lounge & Không gian trao đổi ý tưởng',
+      desc: 'Khu vực giải lao tiện nghi với đồ uống miễn phí, trà, cà phê và quầy ăn nhẹ.',
+      url: 'https://images.unsplash.com/photo-1517502884422-41eaead166d4?w=800&auto=format&fit=crop&q=80',
+    },
+    {
+      title: 'Khu thể thao, Bể bơi vô cực & Tiện ích nội khu',
+      desc: 'Sân bóng đá cỏ nhân tạo, phòng gym đa năng, bể bơi giải tỏa căng thẳng sau giờ làm việc.',
+      url: 'https://images.unsplash.com/photo-1540497077202-7c8a3999166f?w=800&auto=format&fit=crop&q=80',
+    },
+  ];
+
+  const [workplacePhotos, setWorkplacePhotos] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`hiremate_workplace_photos_${companyKey}`) || localStorage.getItem('hiremate_workplace_photos');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return defaultWorkplacePhotos;
+  });
+
+  // Presets gợi ý ảnh cơ sở vật chất chất lượng cao
+  const PHOTO_PRESETS = [
+    {
+      title: 'Campus sinh thái & Không gian xanh',
+      desc: 'Môi trường làm việc mở, thân thiện thiên nhiên với cảnh quan cây xanh và hồ sinh thái.',
+      url: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&auto=format&fit=crop&q=80',
+    },
+    {
+      title: 'Không gian mở Open Workspace hiện đại',
+      desc: 'Bàn ghế công thái học cao cấp, màn hình 4K và hệ thống máy trạm hiệu năng cao.',
+      url: 'https://images.unsplash.com/photo-1497215728101-856f4ea42174?w=800&auto=format&fit=crop&q=80',
+    },
+    {
+      title: 'Khu vực Pantry, Trà & Coffee Lounge',
+      desc: 'Quầy giải lao tiện nghi với đồ uống miễn phí, cà phê rang xay và thức ăn nhẹ.',
+      url: 'https://images.unsplash.com/photo-1517502884422-41eaead166d4?w=800&auto=format&fit=crop&q=80',
+    },
+    {
+      title: 'Tổ hợp thể thao, Gym & Hồ bơi thư giãn',
+      desc: 'Phòng gym đa năng, bể bơi vô cực và sân bóng giải tỏa năng lượng sau giờ làm.',
+      url: 'https://images.unsplash.com/photo-1540497077202-7c8a3999166f?w=800&auto=format&fit=crop&q=80',
+    },
+    {
+      title: 'Phòng hội nghị & Phòng họp công nghệ cao',
+      desc: 'Trang bị hệ thống họp trực tuyến Telepresence, bảng tương tác thông minh và cách âm tiêu chuẩn.',
+      url: 'https://images.unsplash.com/photo-1431540015161-0bf868a2d407?w=800&auto=format&fit=crop&q=80',
+    },
+    {
+      title: 'Khu vực sáng tạo & Brainstorming Hub',
+      desc: 'Không gian trao đổi ý tưởng linh hoạt, kích thích sáng tạo và làm việc nhóm hiệu quả.',
+      url: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800&auto=format&fit=crop&q=80',
+    },
+  ];
+
+  // Presets gợi ý ảnh bìa cover
+  const COVER_PRESETS = [
+    'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1600&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1497366216548-37526070297c?w=1600&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1497366811353-6870744d04b2?w=1600&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1577495508048-b635879837f1?w=1600&auto=format&fit=crop&q=80',
+  ];
+
+  // Presets Avatar HR
+  const HR_AVATAR_PRESETS = [
+    'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80',
+    'https://api.dicebear.com/7.x/bottts/svg?seed=hr_recruiter',
+  ];
+
+  // Default Culture & Values (Generic, clean, customizable for any enterprise)
+  const defaultCompanyCulture = [
+    {
+      id: 'culture_1',
+      icon: 'lightbulb',
+      title: 'Đổi Mới Sáng Tạo (Innovation First)',
+      desc: 'Không ngừng thử nghiệm các công nghệ mới nhất: GenAI, Cloud, Microservices và khuyến khích mọi ý tưởng đột phá từ kỹ sư.',
+    },
+    {
+      id: 'culture_2',
+      icon: 'diversity_3',
+      title: 'Đồng Đội & Trao Quyền (Team Empowerment)',
+      desc: 'Xây dựng môi trường bình đẳng, không khoảng cách cấp bậc, trao quyền tự chủ kỹ thuật tối đa cho các squad công nghệ.',
+    },
+    {
+      id: 'culture_3',
+      icon: 'verified_user',
+      title: 'Cam Kết Chất Lượng (Customer Centricity)',
+      desc: 'Đảm bảo độ tin cậy và an toàn bảo mật ở mức cao nhất cho các hệ thống phần mềm lõi phục vụ hàng triệu người dùng.',
+    },
+    {
+      id: 'culture_4',
+      icon: 'school',
+      title: 'Phát Triển Không Giới Hạn (Continuous Growth)',
+      desc: 'Hỗ trợ 100% học phí chứng chỉ quốc tế (AWS, GCP, CKA) và các chương trình đào tạo kỹ năng chuyên sâu.',
+    },
+  ];
+
+  // Default Employee Benefits (Generic, customizable for any enterprise)
+  const defaultCompanyBenefits = [
+    {
+      id: 'benefit_1',
+      icon: 'savings',
+      title: 'Thưởng hiệu suất & Tháng 13, 14, 15',
+      desc: 'Chính sách đãi ngộ cạnh tranh, xét tăng lương 2 lần/năm, gói thưởng theo kết quả kinh doanh dự án hấp dẫn.',
+    },
+    {
+      id: 'benefit_2',
+      icon: 'health_and_safety',
+      title: 'Bảo hiểm sức khỏe cao cấp & Bảo lãnh người thân',
+      desc: 'Gói chăm sóc sức khỏe toàn diện hạn mức cao (nội trú, ngoại trú, nha khoa) cho nhân viên và bảo lãnh người thân tại các bệnh viện quốc tế.',
+    },
+    {
+      id: 'benefit_3',
+      icon: 'laptop_mac',
+      title: 'Chế độ Hybrid & Thiết bị xịn',
+      desc: 'Linh hoạt làm việc tại nhà 2 ngày/tuần. Trang bị MacBook Pro hoặc laptop cấu hình cao, màn hình chuyên dụng cho kỹ sư.',
+    },
+    {
+      id: 'benefit_4',
+      icon: 'workspace_premium',
+      title: 'Tài trợ 100% chứng chỉ quốc tế',
+      desc: 'Hỗ trợ toàn bộ chi phí thi các chứng chỉ AWS, GCP, Azure, CKA, PMP và thưởng nóng cho nhân sự đạt thành tích xuất sắc.',
+    },
+    {
+      id: 'benefit_5',
+      icon: 'directions_bus',
+      title: 'Tuyến xe đưa đón & Trợ cấp di chuyển',
+      desc: 'Hỗ trợ các chuyến xe đưa đón nhân viên thuận tiện tại các điểm chính hoặc trợ cấp chi phí đi lại.',
+    },
+    {
+      id: 'benefit_6',
+      icon: 'fitness_center',
+      title: 'Tiện ích thể thao & Thư giãn nội khu',
+      desc: 'Khu vực Pantry giải lao tiện nghi với đồ uống miễn phí, phòng Gym, câu lạc bộ thể thao và teambuilding định kỳ.',
+    },
+  ];
+
+  const [companyCulture, setCompanyCulture] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`hiremate_company_culture_${companyKey}`) || localStorage.getItem('hiremate_company_culture');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return defaultCompanyCulture;
+  });
+
+  const [companyBenefits, setCompanyBenefits] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`hiremate_company_benefits_${companyKey}`) || localStorage.getItem('hiremate_company_benefits');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return defaultCompanyBenefits;
+  });
+
+  // Phân quyền theo cấp bậc: Trụ sở chính (Head Recruiter) vs Chi nhánh (Branch Recruiter)
+  const isHeadOffice = React.useMemo(() => {
+    if (user?.role === 'ADMIN') return true;
+    if (user?.isHeadRecruiter === true) return true;
+    const branch = (user?.branchName || '').trim().toLowerCase();
+    return !branch || branch === 'trụ sở chính' || branch.includes('trụ sở') || branch === 'headquarters';
+  }, [user]);
+
+  // Mã số xác nhận gia nhập doanh nghiệp dành cho HR mới (Company HR Organization PIN)
+  const companyHrCode = React.useMemo(() => {
+    const rawTax = companyLegal.taxCode || companyInfo.taxCode || '';
+    const cleanTax = rawTax.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+    const shortComp = (companyInfo.name || user?.companyName || 'HR').replace(/[^a-zA-Z0-9]/g, '').slice(0, 4).toUpperCase();
+    return cleanTax ? `HM-${cleanTax}` : `HM-${shortComp}-2026`;
+  }, [companyLegal.taxCode, companyInfo.taxCode, companyInfo.name, user?.companyName]);
+
+  // Default Offices: Chỉ tạo Trụ sở chính động từ thông tin thực tế của doanh nghiệp, không hardcode dummy
+  const defaultOfficeLocations = [
+    {
+      id: 'loc_headquarters',
+      name: `Trụ sở chính: ${companyInfo.name || user?.companyName || 'Văn phòng chính'}`,
+      badge: 'Trụ Sở Chính',
+      isHeadquarters: true,
+      address: companyInfo.headquarters || user?.address || 'Chưa cập nhật địa chỉ trụ sở chính',
+      scale: `Quy mô ${companyInfo.headcount || '100 - 500 nhân sự'} • Trụ sở chính điều hành`,
+      hotline: user?.phone || (companyInfo.website ? companyInfo.website.replace(/^https?:\/\//, '') : 'Liên hệ HR'),
+      icon: 'corporate_fare',
+    },
+  ];
+
+  const [companyLocations, setCompanyLocations] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`hiremate_company_locations_${companyKey}`) || localStorage.getItem('hiremate_company_locations');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Lọc bỏ triệt để các dữ liệu mẫu giả (Khu Công nghệ cao, Mạng lưới đối tác...)
+          const clean = parsed.filter(loc => 
+            !loc.name?.includes('Trung tâm Đổi mới Sáng tạo') && 
+            !loc.name?.includes('Mạng lưới đối tác & Chi nhánh quốc tế') &&
+            !(loc.name?.includes('VNG Corporation') && !(companyInfo.name || '').toLowerCase().includes('vng'))
+          );
+          if (clean.length > 0) return clean;
+        }
+      }
+    } catch {}
+    return defaultOfficeLocations;
+  });
+
   const fetchCompanyAndJobs = async () => {
     try {
       setIsLoading(true);
@@ -865,222 +1081,6 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
       window.removeEventListener('hiremate_company_updated', handleLocalEvent);
     };
   }, [user]);
-
-  // Workplace Gallery Default & Dynamic State
-  const defaultWorkplacePhotos = [
-    {
-      title: 'Khuôn viên xanh & Không gian làm việc sinh thái',
-      desc: 'Môi trường làm việc mở, hài hòa thiên nhiên với cảnh quan cây xanh và không gian thư giãn sinh thái.',
-      url: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&auto=format&fit=crop&q=80',
-    },
-    {
-      title: 'Không gian làm việc sáng tạo Open Workspace',
-      desc: 'Trang bị bàn làm việc công thái học, ánh sáng tự nhiên và thiết bị máy trạm hiệu năng cao.',
-      url: 'https://images.unsplash.com/photo-1497215728101-856f4ea42174?w=800&auto=format&fit=crop&q=80',
-    },
-    {
-      title: 'Pantry, Coffee Lounge & Không gian trao đổi ý tưởng',
-      desc: 'Khu vực giải lao tiện nghi với đồ uống miễn phí, trà, cà phê và quầy ăn nhẹ.',
-      url: 'https://images.unsplash.com/photo-1517502884422-41eaead166d4?w=800&auto=format&fit=crop&q=80',
-    },
-    {
-      title: 'Khu thể thao, Bể bơi vô cực & Tiện ích nội khu',
-      desc: 'Sân bóng đá cỏ nhân tạo, phòng gym đa năng, bể bơi giải tỏa căng thẳng sau giờ làm việc.',
-      url: 'https://images.unsplash.com/photo-1540497077202-7c8a3999166f?w=800&auto=format&fit=crop&q=80',
-    },
-  ];
-
-  const [workplacePhotos, setWorkplacePhotos] = useState(() => {
-    try {
-      const saved = localStorage.getItem(`hiremate_workplace_photos_${companyKey}`) || localStorage.getItem('hiremate_workplace_photos');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return defaultWorkplacePhotos;
-  });
-
-  // Presets gợi ý ảnh cơ sở vật chất chất lượng cao
-  const PHOTO_PRESETS = [
-    {
-      title: 'Campus sinh thái & Không gian xanh',
-      desc: 'Môi trường làm việc mở, thân thiện thiên nhiên với cảnh quan cây xanh và hồ sinh thái.',
-      url: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&auto=format&fit=crop&q=80',
-    },
-    {
-      title: 'Không gian mở Open Workspace hiện đại',
-      desc: 'Bàn ghế công thái học cao cấp, màn hình 4K và hệ thống máy trạm hiệu năng cao.',
-      url: 'https://images.unsplash.com/photo-1497215728101-856f4ea42174?w=800&auto=format&fit=crop&q=80',
-    },
-    {
-      title: 'Khu vực Pantry, Trà & Coffee Lounge',
-      desc: 'Quầy giải lao tiện nghi với đồ uống miễn phí, cà phê rang xay và thức ăn nhẹ.',
-      url: 'https://images.unsplash.com/photo-1517502884422-41eaead166d4?w=800&auto=format&fit=crop&q=80',
-    },
-    {
-      title: 'Tổ hợp thể thao, Gym & Hồ bơi thư giãn',
-      desc: 'Phòng gym đa năng, bể bơi vô cực và sân bóng giải tỏa năng lượng sau giờ làm.',
-      url: 'https://images.unsplash.com/photo-1540497077202-7c8a3999166f?w=800&auto=format&fit=crop&q=80',
-    },
-    {
-      title: 'Phòng hội nghị & Phòng họp công nghệ cao',
-      desc: 'Trang bị hệ thống họp trực tuyến Telepresence, bảng tương tác thông minh và cách âm tiêu chuẩn.',
-      url: 'https://images.unsplash.com/photo-1431540015161-0bf868a2d407?w=800&auto=format&fit=crop&q=80',
-    },
-    {
-      title: 'Khu vực sáng tạo & Brainstorming Hub',
-      desc: 'Không gian trao đổi ý tưởng linh hoạt, kích thích sáng tạo và làm việc nhóm hiệu quả.',
-      url: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800&auto=format&fit=crop&q=80',
-    },
-  ];
-
-  // Presets gợi ý ảnh bìa cover
-  const COVER_PRESETS = [
-    'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1600&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1497366216548-37526070297c?w=1600&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1497366811353-6870744d04b2?w=1600&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1577495508048-b635879837f1?w=1600&auto=format&fit=crop&q=80',
-  ];
-
-  // Presets Avatar HR
-  const HR_AVATAR_PRESETS = [
-    'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80',
-    'https://api.dicebear.com/7.x/bottts/svg?seed=hr_recruiter',
-  ];
-
-  // Default Culture & Values (Generic, clean, customizable for any enterprise)
-  const defaultCompanyCulture = [
-    {
-      id: 'culture_1',
-      icon: 'lightbulb',
-      title: 'Đổi Mới Sáng Tạo (Innovation First)',
-      desc: 'Không ngừng thử nghiệm các công nghệ mới nhất: GenAI, Cloud, Microservices và khuyến khích mọi ý tưởng đột phá từ kỹ sư.',
-    },
-    {
-      id: 'culture_2',
-      icon: 'diversity_3',
-      title: 'Đồng Đội & Trao Quyền (Team Empowerment)',
-      desc: 'Xây dựng môi trường bình đẳng, không khoảng cách cấp bậc, trao quyền tự chủ kỹ thuật tối đa cho các squad công nghệ.',
-    },
-    {
-      id: 'culture_3',
-      icon: 'verified_user',
-      title: 'Cam Kết Chất Lượng (Customer Centricity)',
-      desc: 'Đảm bảo độ tin cậy và an toàn bảo mật ở mức cao nhất cho các hệ thống phần mềm lõi phục vụ hàng triệu người dùng.',
-    },
-    {
-      id: 'culture_4',
-      icon: 'school',
-      title: 'Phát Triển Không Giới Hạn (Continuous Growth)',
-      desc: 'Hỗ trợ 100% học phí chứng chỉ quốc tế (AWS, GCP, CKA) và các chương trình đào tạo kỹ năng chuyên sâu.',
-    },
-  ];
-
-  // Default Employee Benefits (Generic, customizable for any enterprise)
-  const defaultCompanyBenefits = [
-    {
-      id: 'benefit_1',
-      icon: 'savings',
-      title: 'Thưởng hiệu suất & Tháng 13, 14, 15',
-      desc: 'Chính sách đãi ngộ cạnh tranh, xét tăng lương 2 lần/năm, gói thưởng theo kết quả kinh doanh dự án hấp dẫn.',
-    },
-    {
-      id: 'benefit_2',
-      icon: 'health_and_safety',
-      title: 'Bảo hiểm sức khỏe cao cấp & Bảo lãnh người thân',
-      desc: 'Gói chăm sóc sức khỏe toàn diện hạn mức cao (nội trú, ngoại trú, nha khoa) cho nhân viên và bảo lãnh người thân tại các bệnh viện quốc tế.',
-    },
-    {
-      id: 'benefit_3',
-      icon: 'laptop_mac',
-      title: 'Chế độ Hybrid & Thiết bị xịn',
-      desc: 'Linh hoạt làm việc tại nhà 2 ngày/tuần. Trang bị MacBook Pro hoặc laptop cấu hình cao, màn hình chuyên dụng cho kỹ sư.',
-    },
-    {
-      id: 'benefit_4',
-      icon: 'workspace_premium',
-      title: 'Tài trợ 100% chứng chỉ quốc tế',
-      desc: 'Hỗ trợ toàn bộ chi phí thi các chứng chỉ AWS, GCP, Azure, CKA, PMP và thưởng nóng cho nhân sự đạt thành tích xuất sắc.',
-    },
-    {
-      id: 'benefit_5',
-      icon: 'directions_bus',
-      title: 'Tuyến xe đưa đón & Trợ cấp di chuyển',
-      desc: 'Hỗ trợ các chuyến xe đưa đón nhân viên thuận tiện tại các điểm chính hoặc trợ cấp chi phí đi lại.',
-    },
-    {
-      id: 'benefit_6',
-      icon: 'fitness_center',
-      title: 'Tiện ích thể thao & Thư giãn nội khu',
-      desc: 'Khu vực Pantry giải lao tiện nghi với đồ uống miễn phí, phòng Gym, câu lạc bộ thể thao và teambuilding định kỳ.',
-    },
-  ];
-
-  const [companyCulture, setCompanyCulture] = useState(() => {
-    try {
-      const saved = localStorage.getItem(`hiremate_company_culture_${companyKey}`) || localStorage.getItem('hiremate_company_culture');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return defaultCompanyCulture;
-  });
-
-  const [companyBenefits, setCompanyBenefits] = useState(() => {
-    try {
-      const saved = localStorage.getItem(`hiremate_company_benefits_${companyKey}`) || localStorage.getItem('hiremate_company_benefits');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return defaultCompanyBenefits;
-  });
-
-  // Phân quyền theo cấp bậc: Trụ sở chính (Head Recruiter) vs Chi nhánh (Branch Recruiter)
-  const isHeadOffice = React.useMemo(() => {
-    if (user?.role === 'ADMIN') return true;
-    if (user?.isHeadRecruiter === true) return true;
-    const branch = (user?.branchName || '').trim().toLowerCase();
-    return !branch || branch === 'trụ sở chính' || branch.includes('trụ sở') || branch === 'headquarters';
-  }, [user]);
-
-  // Mã số xác nhận gia nhập doanh nghiệp dành cho HR mới (Company HR Organization PIN)
-  const companyHrCode = React.useMemo(() => {
-    const rawTax = companyLegal.taxCode || companyInfo.taxCode || '';
-    const cleanTax = rawTax.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-    const shortComp = (companyInfo.name || user?.companyName || 'HR').replace(/[^a-zA-Z0-9]/g, '').slice(0, 4).toUpperCase();
-    return cleanTax ? `HM-${cleanTax}` : `HM-${shortComp}-2026`;
-  }, [companyLegal.taxCode, companyInfo.taxCode, companyInfo.name, user?.companyName]);
-
-  // Default Offices: Chỉ tạo Trụ sở chính động từ thông tin thực tế của doanh nghiệp, không hardcode dummy
-  const defaultOfficeLocations = [
-    {
-      id: 'loc_headquarters',
-      name: `Trụ sở chính: ${companyInfo.name || user?.companyName || 'Văn phòng chính'}`,
-      badge: 'Trụ Sở Chính',
-      isHeadquarters: true,
-      address: companyInfo.headquarters || user?.address || 'Chưa cập nhật địa chỉ trụ sở chính',
-      scale: `Quy mô ${companyInfo.headcount || '100 - 500 nhân sự'} • Trụ sở chính điều hành`,
-      hotline: user?.phone || (companyInfo.website ? companyInfo.website.replace(/^https?:\/\//, '') : 'Liên hệ HR'),
-      icon: 'corporate_fare',
-    },
-  ];
-
-  const [companyLocations, setCompanyLocations] = useState(() => {
-    try {
-      const saved = localStorage.getItem(`hiremate_company_locations_${companyKey}`) || localStorage.getItem('hiremate_company_locations');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          // Lọc bỏ triệt để các dữ liệu mẫu giả (Khu Công nghệ cao, Mạng lưới đối tác...)
-          const clean = parsed.filter(loc => 
-            !loc.name?.includes('Trung tâm Đổi mới Sáng tạo') && 
-            !loc.name?.includes('Mạng lưới đối tác & Chi nhánh quốc tế') &&
-            !(loc.name?.includes('VNG Corporation') && !(companyInfo.name || '').toLowerCase().includes('vng'))
-          );
-          if (clean.length > 0) return clean;
-        }
-      }
-    } catch {}
-    return defaultOfficeLocations;
-  });
 
   // =====================================================================
   // MODAL 1: CHỈNH SỬA HỒ SƠ DOANH NGHIỆP & CƠ SỞ VẬT CHẤT

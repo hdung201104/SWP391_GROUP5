@@ -111,30 +111,38 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
 
         if (existing.isPresent() && existing.get().getMatchingScore() != null) {
             // Kiểm tra tính tươi mới của Cache (Cache Invalidation):
-            // Nếu ứng viên có CV mà bản ghi cũ chưa gắn CV, hoặc đổi sang CV khác: bắt buộc hủy cache tính lại
-            boolean cvChanged = (cv != null && existing.get().getCv() == null)
-                    || (cv != null && existing.get().getCv() != null && !cv.getCvId().equals(existing.get().getCv().getCvId()));
-            // Nếu bản ghi cũ bị kẹt điểm 70.0% phẳng hoặc điểm ảo >= 99.0% hoặc chưa có cấu trúc 4 trụ cột multi-pillar hoặc chứa chuỗi raw JSON: bắt buộc tính lại
+            // Chỉ bắt buộc tính lại khi ứng viên chủ động đổi sang một CV khác (cvId khác nhau) hoặc khi bật cờ force recompute (enableGemini)
+            boolean cvSwitched = cv != null && existing.get().getCv() != null && !cv.getCvId().equals(existing.get().getCv().getCvId());
             boolean isStaleFlatScore = existing.get().getMatchingScore() == 70.0f || existing.get().getMatchingScore() >= 99.0f;
-            boolean isMissingMultiPillar = existing.get().getSkillGapJson() == null || !existing.get().getSkillGapJson().contains("skillsScore");
             boolean hasRawJsonInGap = existing.get().getSkillGapJson() != null && 
                     (existing.get().getSkillGapJson().contains("[{\"school") || existing.get().getSkillGapJson().contains("[{\"highlight"));
 
-            if (!cvChanged && !isStaleFlatScore && !isMissingMultiPillar && !hasRawJsonInGap && !enableGemini) {
+            if (!cvSwitched && !isStaleFlatScore && !hasRawJsonInGap && !enableGemini) {
+                // Nếu bản ghi cũ chưa gắn CV mà hiện tại đã có CV, bổ sung liên kết mà không cần tính lại điểm
+                if (cv != null && existing.get().getCv() == null) {
+                    existing.get().setCv(cv);
+                    aiJobMatchRepository.save(existing.get());
+                }
                 return mapToResponse(existing.get());
             }
-            log.info(">> [AiJobMatchService] Invalidate cache điểm cũ cho ứng viên {} và Job {} (cvChanged={}, isStaleFlat={}, isMissingMultiPillar={}, hasRawJson={})",
-                    candidate.getCandidateId(), job.getJobId(), cvChanged, isStaleFlatScore, isMissingMultiPillar, hasRawJsonInGap);
+            log.info(">> [AiJobMatchService] Invalidate cache điểm cũ cho ứng viên {} và Job {} (cvSwitched={}, isStaleFlat={}, hasRawJson={}, enableGemini={})",
+                    candidate.getCandidateId(), job.getJobId(), cvSwitched, isStaleFlatScore, hasRawJsonInGap, enableGemini);
         }
 
-        // 1. Gather Candidate text/keywords from profile, skills, and CV
+        // 1. Gather Candidate text/keywords from profile, skills, and CV (Ưu tiên CV thực tế đã nộp)
         StringBuilder candText = new StringBuilder();
         if (candidate.getHeadline() != null) candText.append(" ").append(candidate.getHeadline());
         if (candidate.getBio() != null) candText.append(" ").append(candidate.getBio());
-        if (candidate.getExperiencesJson() != null) candText.append(" ").append(candidate.getExperiencesJson());
-        if (candidate.getEducationsJson() != null) candText.append(" ").append(candidate.getEducationsJson());
-        if (candidate.getProjectsJson() != null) candText.append(" ").append(candidate.getProjectsJson());
-        if (candidate.getCareerGoals() != null) candText.append(" ").append(candidate.getCareerGoals());
+
+        if (cv != null && cv.getParsedJson() != null && !cv.getParsedJson().isBlank()) {
+            candText.append(" ").append(cv.getParsedJson());
+            if (cv.getParsedText() != null) candText.append(" ").append(cv.getParsedText());
+        } else {
+            if (candidate.getExperiencesJson() != null) candText.append(" ").append(candidate.getExperiencesJson());
+            if (candidate.getEducationsJson() != null) candText.append(" ").append(candidate.getEducationsJson());
+            if (candidate.getProjectsJson() != null) candText.append(" ").append(candidate.getProjectsJson());
+            if (candidate.getCareerGoals() != null) candText.append(" ").append(candidate.getCareerGoals());
+        }
 
         // Bổ sung kỹ năng từ bảng candidate_skills
         try {
@@ -396,7 +404,9 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
             boolean isSeniorOrLeadRole = jobTitleLower.contains("senior") || jobTitleLower.contains("lead") || jobTitleLower.contains("principal") || jobTitleLower.contains("trưởng nhóm");
             boolean isInternOrFresherRole = jobTitleLower.contains("intern") || jobTitleLower.contains("fresher") || jobTitleLower.contains("thực tập");
 
-            boolean candIsIntern = candProfileStr.contains("intern") || candProfileStr.contains("thực tập") || candProfileStr.contains("fresher") || candProfileStr.contains("sinh viên") || candProfileStr.contains("student");
+            String candHeadline = (candidate.getHeadline() != null ? candidate.getHeadline() : "").toLowerCase();
+            boolean candIsIntern = (candidate.getExperienceYears() == null || candidate.getExperienceYears() < 1)
+                    && (candHeadline.contains("intern") || candHeadline.contains("thực tập") || candHeadline.contains("fresher"));
 
             float candYears = 0.0f;
             if (candidate.getExperienceYears() != null && candidate.getExperienceYears() > 0) {
@@ -408,7 +418,7 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
                 if (cvLower.contains("senior") && !candIsIntern) candYears = 4.0f;
                 else if (cvLower.contains("middle") || cvLower.contains("2 năm")) candYears = 2.0f;
                 else if (cvLower.contains("junior") || cvLower.contains("1 năm")) candYears = 1.0f;
-                else candYears = 0.8f;
+                else candYears = 1.0f;
             }
 
             float requiredYears = isInternOrFresherRole ? 0.0f : (isSeniorOrLeadRole ? 4.0f : 2.0f);
@@ -471,7 +481,7 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
             // Seniority Level Multiplier
             float levelMultiplier = 1.0f;
             if (isSeniorOrLeadRole && candIsIntern) {
-                levelMultiplier = 0.72f; // Intern applying for Senior role
+                levelMultiplier = 0.85f; // Intern applying for Senior role
             }
 
             // Tổng điểm có trọng số
@@ -563,9 +573,33 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
 
         if (applicationRepository != null) {
             try {
-                // Application matching score is synced via ai_job_matches joined queries
+                Optional<Application> appOpt = applicationRepository.findByJob_JobIdAndCandidate_CandidateId(job.getJobId(), candidate.getCandidateId());
+                if (appOpt.isPresent() && appOpt.get().getEvaluationNotes() != null && appOpt.get().getEvaluationNotes().trim().startsWith("{")) {
+                    JsonNode notesNode = objectMapper.readTree(appOpt.get().getEvaluationNotes().trim());
+                    if (notesNode.isObject()) {
+                        ((com.fasterxml.jackson.databind.node.ObjectNode) notesNode).put("matchingScore", finalMatchingScore);
+                        ((com.fasterxml.jackson.databind.node.ObjectNode) notesNode).put("matchTier", finalMatchingScore >= 85 ? "⭐ Phù Hợp Xuất Sắc"
+                                : finalMatchingScore >= 70 ? "✨ Phù Hợp Tốt (Khuyên Mời Phỏng Vấn)"
+                                : finalMatchingScore >= 50 ? "💡 Tiềm Năng (Có Thể Cân Nhắc)"
+                                : "⚠️ Trau Dồi Kỹ Năng");
+                        if (gapMap.containsKey("skillsScore")) {
+                            ((com.fasterxml.jackson.databind.node.ObjectNode) notesNode).put("skillsScore", ((Number) gapMap.get("skillsScore")).floatValue());
+                        }
+                        if (gapMap.containsKey("experienceScore")) {
+                            ((com.fasterxml.jackson.databind.node.ObjectNode) notesNode).put("experienceScore", ((Number) gapMap.get("experienceScore")).floatValue());
+                        }
+                        if (gapMap.containsKey("educationScore")) {
+                            ((com.fasterxml.jackson.databind.node.ObjectNode) notesNode).put("educationScore", ((Number) gapMap.get("educationScore")).floatValue());
+                        }
+                        if (gapMap.containsKey("semanticScore")) {
+                            ((com.fasterxml.jackson.databind.node.ObjectNode) notesNode).put("semanticScore", ((Number) gapMap.get("semanticScore")).floatValue());
+                        }
+                        appOpt.get().setEvaluationNotes(objectMapper.writeValueAsString(notesNode));
+                        applicationRepository.save(appOpt.get());
+                    }
+                }
             } catch (Exception ex) {
-                log.warn("Non-blocking update matchingScore to application failed: {}", ex.getMessage());
+                log.warn("Non-blocking update matchingScore to application evaluation_notes failed: {}", ex.getMessage());
             }
         }
 
@@ -1526,6 +1560,8 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
 
         // 1. KIỂM TRA DATABASE CACHE NẾU KHÔNG BẬT CỜ CHẤM LẠI (forceRefresh == false)
         if (!forceRefresh) {
+            Optional<AiJobMatch> matchOpt = aiJobMatchRepository.findByCandidate_CandidateIdAndJob_JobId(candidateId, jobId);
+
             // A. Kiểm tra bảng applications.evaluation_notes trước
             try {
                 if (applicationRepository != null) {
@@ -1536,7 +1572,25 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
                             com.hiremate.dto.response.AiDetailedEvaluationReport appReport = objectMapper.readValue(
                                     notesStr, com.hiremate.dto.response.AiDetailedEvaluationReport.class
                             );
-                            if (appReport != null && appReport.getMatchingScore() != null) {
+                            if (appReport != null && (appReport.getMatchingScore() != null || (appReport.getAdvantages() != null && !appReport.getAdvantages().isEmpty()))) {
+                                // Đồng bộ điểm số & 4 trụ cột với ai_job_matches (Single Source of Truth) để tránh lệch điểm giữa các trang
+                                if (matchOpt.isPresent() && matchOpt.get().getMatchingScore() != null) {
+                                    Float authoritativeScore = matchOpt.get().getMatchingScore();
+                                    appReport.setMatchingScore(authoritativeScore);
+                                    appReport.setMatchTier(authoritativeScore >= 85 ? "⭐ Phù Hợp Xuất Sắc"
+                                            : authoritativeScore >= 70 ? "✨ Phù Hợp Tốt (Khuyên Mời Phỏng Vấn)"
+                                            : authoritativeScore >= 50 ? "💡 Tiềm Năng (Có Thể Cân Nhắc)"
+                                            : "⚠️ Trau Dồi Kỹ Năng");
+                                    syncPillarsFromMatch(appReport, matchOpt.get());
+                                    // Lưu lại bản cập nhật sạch vào applications.evaluation_notes
+                                    try {
+                                        appOpt.get().setEvaluationNotes(objectMapper.writeValueAsString(appReport));
+                                        applicationRepository.save(appOpt.get());
+                                    } catch (Exception ignored) {}
+                                } else if (appReport.getMatchingScore() != null && matchOpt.isPresent() && matchOpt.get().getMatchingScore() == null) {
+                                    matchOpt.get().setMatchingScore(appReport.getMatchingScore());
+                                    aiJobMatchRepository.save(matchOpt.get());
+                                }
                                 appReport.setIsReportCached(true);
                                 log.info(">> [AiJobMatchService] Trả về báo cáo AI từ applications.evaluation_notes cho candidateId={} jobId={} (0ms, 0 Token)",
                                         candidateId, jobId);
@@ -1550,7 +1604,6 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
             }
 
             // B. Kiểm tra bảng ai_job_matches.skill_gap_json tiếp theo
-            Optional<AiJobMatch> matchOpt = aiJobMatchRepository.findByCandidate_CandidateIdAndJob_JobId(candidateId, jobId);
             if (matchOpt.isPresent()) {
                 AiJobMatch m = matchOpt.get();
                 if (m.getSkillGapJson() != null && !m.getSkillGapJson().isBlank()) {
@@ -1563,7 +1616,15 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
                                 com.hiremate.dto.response.AiDetailedEvaluationReport cachedReport = objectMapper.treeToValue(
                                         root.get("detailedReport"), com.hiremate.dto.response.AiDetailedEvaluationReport.class
                                 );
-                                if (cachedReport != null && cachedReport.getMatchingScore() != null) {
+                                if (cachedReport != null && (cachedReport.getMatchingScore() != null || (cachedReport.getAdvantages() != null && !cachedReport.getAdvantages().isEmpty()))) {
+                                    if (m.getMatchingScore() != null) {
+                                        cachedReport.setMatchingScore(m.getMatchingScore());
+                                        cachedReport.setMatchTier(m.getMatchingScore() >= 85 ? "⭐ Phù Hợp Xuất Sắc"
+                                                : m.getMatchingScore() >= 70 ? "✨ Phù Hợp Tốt (Khuyên Mời Phỏng Vấn)"
+                                                : m.getMatchingScore() >= 50 ? "💡 Tiềm Năng (Có Thể Cân Nhắc)"
+                                                : "⚠️ Trau Dồi Kỹ Năng");
+                                    }
+                                    syncPillarsFromMatch(cachedReport, m);
                                     cachedReport.setIsReportCached(true);
                                     log.info(">> [AiJobMatchService] Trả về báo cáo AI từ DB CACHE cho candidateId={} jobId={} (0ms, 0 AI token)",
                                             candidateId, jobId);
@@ -1611,19 +1672,26 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
             log.warn(">> [AiJobMatchService] Lỗi tính điểm trước khi lập báo cáo: {}", ex.getMessage());
         }
 
-        // 3. Xây dựng ngữ cảnh hồ sơ toàn diện (Học vấn, Bằng cấp, Chứng chỉ, Ngoại ngữ, Kỹ năng)
+        // 3. Xây dựng ngữ cảnh hồ sơ toàn diện (BẮT BUỘC ưu tiên đọc từ cv.getParsedJson() của chính bản CV đã nộp)
         StringBuilder profileBuilder = new StringBuilder();
-        if (candidate.getEducationsJson() != null && !candidate.getEducationsJson().isBlank()) {
-            profileBuilder.append(" [HỌC VẤN & BẰNG CẤP: ").append(candidate.getEducationsJson()).append("] ");
-        }
         if (cv != null && cv.getParsedJson() != null && !cv.getParsedJson().isBlank()) {
-            profileBuilder.append(" [DỮ LIỆU CV TRÍCH XUẤT (Bằng cấp, Chứng chỉ, Ngoại ngữ): ").append(cv.getParsedJson()).append("] ");
+            profileBuilder.append(" [DỮ LIỆU CV THỰC TẾ ĐÃ NỘP: ").append(cv.getParsedJson()).append("] ");
+            if (cv.getParsedText() != null && !cv.getParsedText().isBlank()) {
+                profileBuilder.append(" [CHI TIẾT VĂN BẢN CV: ").append(cv.getParsedText()).append("] ");
+            }
+        } else {
+            if (candidate.getEducationsJson() != null && !candidate.getEducationsJson().isBlank()) {
+                profileBuilder.append(" [HỌC VẤN & BẰNG CẤP: ").append(candidate.getEducationsJson()).append("] ");
+            }
+            if (candidate.getExperiencesJson() != null && !candidate.getExperiencesJson().isBlank()) {
+                profileBuilder.append(" [KINH NGHIỆM: ").append(candidate.getExperiencesJson()).append("] ");
+            }
+            if (candidate.getProjectsJson() != null && !candidate.getProjectsJson().isBlank()) {
+                profileBuilder.append(" [DỰ ÁN: ").append(candidate.getProjectsJson()).append("] ");
+            }
         }
-        if (candidate.getExperiencesJson() != null && !candidate.getExperiencesJson().isBlank()) {
-            profileBuilder.append(" [KINH NGHIỆM: ").append(candidate.getExperiencesJson()).append("] ");
-        }
-        if (candidate.getProjectsJson() != null && !candidate.getProjectsJson().isBlank()) {
-            profileBuilder.append(" [DỰ ÁN: ").append(candidate.getProjectsJson()).append("] ");
+        if (candidate.getHeadline() != null && !candidate.getHeadline().isBlank()) {
+            profileBuilder.append(" [CHỨC DANH: ").append(candidate.getHeadline()).append("] ");
         }
         if (candidate.getBio() != null && !candidate.getBio().isBlank()) {
             profileBuilder.append(" [GIỚI THIỆU: ").append(candidate.getBio()).append("] ");
@@ -1986,7 +2054,15 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
                         com.hiremate.dto.response.AiDetailedEvaluationReport cachedReport = objectMapper.treeToValue(
                                 root.get("detailedReport"), com.hiremate.dto.response.AiDetailedEvaluationReport.class
                         );
-                        if (cachedReport != null && cachedReport.getMatchingScore() != null) {
+                        if (cachedReport != null && (cachedReport.getMatchingScore() != null || (cachedReport.getAdvantages() != null && !cachedReport.getAdvantages().isEmpty()))) {
+                            if (m.getMatchingScore() != null) {
+                                cachedReport.setMatchingScore(m.getMatchingScore());
+                                cachedReport.setMatchTier(m.getMatchingScore() >= 85 ? "⭐ Phù Hợp Xuất Sắc"
+                                        : m.getMatchingScore() >= 70 ? "✨ Phù Hợp Tốt (Khuyên Mời Phỏng Vấn)"
+                                        : m.getMatchingScore() >= 50 ? "💡 Tiềm Năng (Có Thể Cân Nhắc)"
+                                        : "⚠️ Trau Dồi Kỹ Năng");
+                            }
+                            syncPillarsFromMatch(cachedReport, m);
                             cachedReport.setCandidateTier(tier);
                             cachedReport.setCandidateTierName(tierName);
                             cachedReport.setIsUnlimited(isUnlimited);
@@ -2087,5 +2163,48 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
 
         report.setCvImprovementSuggestions(suggestions);
         report.setInterviewTips(interviewTips);
+    }
+
+    private void syncPillarsFromMatch(com.hiremate.dto.response.AiDetailedEvaluationReport report, AiJobMatch match) {
+        if (report == null || match == null || match.getSkillGapJson() == null || match.getSkillGapJson().isBlank()) {
+            return;
+        }
+        try {
+            JsonNode node = objectMapper.readTree(match.getSkillGapJson());
+            if (node.has("skillsScore") && !node.get("skillsScore").isNull()) {
+                report.setSkillsScore((float) node.get("skillsScore").asDouble());
+            }
+            if (node.has("experienceScore") && !node.get("experienceScore").isNull()) {
+                report.setExperienceScore((float) node.get("experienceScore").asDouble());
+            }
+            if (node.has("educationScore") && !node.get("educationScore").isNull()) {
+                report.setEducationScore((float) node.get("educationScore").asDouble());
+            }
+            if (node.has("semanticScore") && !node.get("semanticScore").isNull()) {
+                report.setSemanticScore((float) node.get("semanticScore").asDouble());
+            }
+            if (node.has("matchedMandatory") && node.get("matchedMandatory").isArray() && (report.getMatchedMandatorySkills() == null || report.getMatchedMandatorySkills().isEmpty())) {
+                List<String> list = new ArrayList<>();
+                node.get("matchedMandatory").forEach(item -> list.add(item.asText()));
+                report.setMatchedMandatorySkills(list);
+            }
+            if (node.has("missingMandatory") && node.get("missingMandatory").isArray() && (report.getMissingMandatorySkills() == null || report.getMissingMandatorySkills().isEmpty())) {
+                List<String> list = new ArrayList<>();
+                node.get("missingMandatory").forEach(item -> list.add(item.asText()));
+                report.setMissingMandatorySkills(list);
+            }
+            if (node.has("matchedPreferred") && node.get("matchedPreferred").isArray() && (report.getMatchedPreferredSkills() == null || report.getMatchedPreferredSkills().isEmpty())) {
+                List<String> list = new ArrayList<>();
+                node.get("matchedPreferred").forEach(item -> list.add(item.asText()));
+                report.setMatchedPreferredSkills(list);
+            }
+            if (node.has("missingPreferred") && node.get("missingPreferred").isArray() && (report.getMissingPreferredSkills() == null || report.getMissingPreferredSkills().isEmpty())) {
+                List<String> list = new ArrayList<>();
+                node.get("missingPreferred").forEach(item -> list.add(item.asText()));
+                report.setMissingPreferredSkills(list);
+            }
+        } catch (Exception ex) {
+            log.warn(">> [AiJobMatchService] Lỗi đồng bộ trụ cột từ skillGapJson: {}", ex.getMessage());
+        }
     }
 }
