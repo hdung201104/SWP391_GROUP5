@@ -199,9 +199,10 @@ public class ApplicationServiceDesignTestNGTest {
         expectedExceptionsMessageRegExp = ".*Tin tuyển dụng này hiện đã đóng hoặc không còn nhận hồ sơ.*"
     )
     public void test_APP_A03_UTCID02_applyToJob_JobDraft_ThrowsBadRequestException() {
+        var data = TestDataLoader.loadJsonNode("testdata/application-testdata.json").path("applyToJob").path("APP_A03");
         Job draftJob = Job.builder()
                 .jobId(1L)
-                .status(JobStatus.DRAFT)
+                .status(JobStatus.valueOf(data.path("jobStatus").asText("DRAFT")))
                 .approvalStatus(JobApprovalStatus.APPROVED)
                 .build();
 
@@ -219,10 +220,11 @@ public class ApplicationServiceDesignTestNGTest {
         expectedExceptionsMessageRegExp = ".*Tin tuyển dụng này hiện đã đóng hoặc không còn nhận hồ sơ.*"
     )
     public void test_APP_A04_UTCID03_applyToJob_JobApprovalPending_ThrowsBadRequestException() {
+        var data = TestDataLoader.loadJsonNode("testdata/application-testdata.json").path("applyToJob").path("APP_A04");
         Job pendingJob = Job.builder()
                 .jobId(1L)
-                .status(JobStatus.PUBLISHED)
-                .approvalStatus(JobApprovalStatus.PENDING)
+                .status(JobStatus.valueOf(data.path("jobStatus").asText("PUBLISHED")))
+                .approvalStatus(JobApprovalStatus.valueOf(data.path("approvalStatus").asText("PENDING")))
                 .build();
 
         ApplyRequest request = new ApplyRequest();
@@ -239,12 +241,13 @@ public class ApplicationServiceDesignTestNGTest {
         expectedExceptionsMessageRegExp = ".*Tin tuyển dụng này đã hết hạn nộp hồ sơ.*"
     )
     public void test_APP_A07_UTCID04_applyToJob_DeadlineYesterday_ThrowsBadRequestException() {
+        var data = TestDataLoader.loadJsonNode("testdata/application-testdata.json").path("applyToJob").path("APP_A07");
         Job expiredJob = Job.builder()
                 .jobId(1L)
                 .status(JobStatus.PUBLISHED)
                 .approvalStatus(JobApprovalStatus.APPROVED)
                 .company(sampleVerifiedCompany)
-                .deadlineDate(LocalDate.now().minusDays(1))
+                .deadlineDate(LocalDate.now().plusDays(data.path("deadlineDaysOffset").asInt(-1)))
                 .build();
 
         ApplyRequest request = new ApplyRequest();
@@ -261,9 +264,10 @@ public class ApplicationServiceDesignTestNGTest {
         expectedExceptionsMessageRegExp = ".*Vui lòng tải lên hoặc chọn một CV trước khi ứng tuyển.*"
     )
     public void test_APP_A10_UTCID05_applyToJob_NoCvAvailable_ThrowsBadRequestException() {
+        var data = TestDataLoader.loadJsonNode("testdata/application-testdata.json").path("applyToJob").path("APP_A10");
         ApplyRequest request = new ApplyRequest();
         request.setJobId(1L);
-        request.setCvId(null);
+        request.setCvId(data.path("cvId").isNull() ? null : data.path("cvId").asLong());
 
         when(jobRepository.findById(1L)).thenReturn(Optional.of(sampleJob));
         when(candidateRepository.findById(101L)).thenReturn(Optional.of(sampleCandidate));
@@ -280,13 +284,14 @@ public class ApplicationServiceDesignTestNGTest {
         expectedExceptionsMessageRegExp = ".*hồ sơ ứng tuyển cho vị trí này.*"
     )
     public void test_APP_A13_UTCID06_applyToJob_DuplicateActiveApplication_ThrowsException() {
+        var data = TestDataLoader.loadJsonNode("testdata/application-testdata.json").path("applyToJob").path("APP_A13");
         ApplyRequest request = new ApplyRequest();
         request.setJobId(1L);
         request.setCvId(501L);
 
         Application activeApp = Application.builder()
                 .applicationId(888L)
-                .status(ApplicationStatus.APPLIED)
+                .status(ApplicationStatus.valueOf(data.path("existingStatus").asText("APPLIED")))
                 .build();
 
         when(jobRepository.findById(1L)).thenReturn(Optional.of(sampleJob));
@@ -303,6 +308,9 @@ public class ApplicationServiceDesignTestNGTest {
 
     @Test(description = "APP-G01 / UTCID01: Recruiter sở hữu xem danh sách hồ sơ, kết quả được sắp xếp giảm dần theo điểm AI")
     public void test_APP_G01_UTCID01_getJobApplications_OwnerRecruiter_SortedByScore_Success() {
+        var data = TestDataLoader.loadJsonNode("testdata/application-testdata.json").path("getJobApplications").path("APP_G01");
+        Long jobId = data.path("jobId").asLong(1L);
+
         Candidate cand1 = Candidate.builder().candidateId(101L).user(User.builder().userId(101L).fullName("Cand 1").build()).build();
         Candidate cand2 = Candidate.builder().candidateId(102L).user(User.builder().userId(102L).fullName("Cand 2").build()).build();
 
@@ -312,11 +320,11 @@ public class ApplicationServiceDesignTestNGTest {
         AiJobMatch match1 = AiJobMatch.builder().candidate(cand1).matchingScore(70.0f).build();
         AiJobMatch match2 = AiJobMatch.builder().candidate(cand2).matchingScore(90.0f).build();
 
-        when(jobRepository.findById(1L)).thenReturn(Optional.of(sampleJob));
-        when(applicationRepository.findByJob_JobId(1L)).thenReturn(Arrays.asList(app1, app2));
-        when(aiJobMatchRepository.findByJob_JobIdOrderByMatchingScoreDesc(1L)).thenReturn(Arrays.asList(match2, match1));
+        when(jobRepository.findById(jobId)).thenReturn(Optional.of(sampleJob));
+        when(applicationRepository.findByJob_JobId(jobId)).thenReturn(Arrays.asList(app1, app2));
+        when(aiJobMatchRepository.findByJob_JobIdOrderByMatchingScoreDesc(jobId)).thenReturn(Arrays.asList(match2, match1));
 
-        List<ApplicationResponse> responses = applicationService.getJobApplications(1L, null, recruiterUser);
+        List<ApplicationResponse> responses = applicationService.getJobApplications(jobId, null, recruiterUser);
 
         Assert.assertNotNull(responses);
         Assert.assertEquals(responses.size(), 2);
@@ -328,12 +336,15 @@ public class ApplicationServiceDesignTestNGTest {
         expectedExceptionsMessageRegExp = ".*Unauthorized access to this job's candidates.*"
     )
     public void test_APP_G02_UTCID02_getJobApplications_UnauthorizedUser_ThrowsSecurityException() {
-        User stranger = User.builder().userId(999L).role(UserRole.RECRUITER).build();
+        var data = TestDataLoader.loadJsonNode("testdata/application-testdata.json").path("getJobApplications").path("APP_G02");
+        Long jobId = data.path("jobId").asLong(1L);
+        Long otherRecruiterId = data.path("otherRecruiterId").asLong(999L);
+        User stranger = User.builder().userId(otherRecruiterId).role(UserRole.RECRUITER).build();
 
-        when(jobRepository.findById(1L)).thenReturn(Optional.of(sampleJob));
-        when(recruiterRepository.findById(999L)).thenReturn(Optional.empty());
+        when(jobRepository.findById(jobId)).thenReturn(Optional.of(sampleJob));
+        when(recruiterRepository.findById(otherRecruiterId)).thenReturn(Optional.empty());
 
-        applicationService.getJobApplications(1L, null, stranger);
+        applicationService.getJobApplications(jobId, null, stranger);
     }
 
     @Test(
@@ -342,45 +353,56 @@ public class ApplicationServiceDesignTestNGTest {
         expectedExceptionsMessageRegExp = ".*Job not found.*"
     )
     public void test_APP_G03_UTCID03_getJobApplications_JobNotFound_ThrowsIllegalArgumentException() {
-        when(jobRepository.findById(404L)).thenReturn(Optional.empty());
+        var data = TestDataLoader.loadJsonNode("testdata/application-testdata.json").path("getJobApplications").path("APP_G03");
+        Long nonExistentJobId = data.path("nonExistentJobId").asLong(404L);
+        when(jobRepository.findById(nonExistentJobId)).thenReturn(Optional.empty());
 
-        applicationService.getJobApplications(404L, null, recruiterUser);
+        applicationService.getJobApplications(nonExistentJobId, null, recruiterUser);
     }
 
     @Test(description = "APP-G04 / UTCID04: Lọc danh sách ứng viên theo trạng thái SCREENING cụ thể")
     public void test_APP_G04_UTCID04_getJobApplications_FilterByScreeningStatus_Success() {
+        var data = TestDataLoader.loadJsonNode("testdata/application-testdata.json").path("getJobApplications").path("APP_G04");
+        ApplicationStatus filterStatus = ApplicationStatus.valueOf(data.path("filterStatus").asText("SCREENING"));
+
         Candidate cand = Candidate.builder().candidateId(101L).user(candidateUser).build();
-        Application screeningApp = Application.builder().applicationId(10L).candidate(cand).job(sampleJob).status(ApplicationStatus.SCREENING).build();
+        Application screeningApp = Application.builder().applicationId(10L).candidate(cand).job(sampleJob).status(filterStatus).build();
 
         when(jobRepository.findById(1L)).thenReturn(Optional.of(sampleJob));
-        when(applicationRepository.findByJob_JobIdAndStatus(1L, ApplicationStatus.SCREENING)).thenReturn(Collections.singletonList(screeningApp));
+        when(applicationRepository.findByJob_JobIdAndStatus(1L, filterStatus)).thenReturn(Collections.singletonList(screeningApp));
         when(aiJobMatchRepository.findByJob_JobIdOrderByMatchingScoreDesc(1L)).thenReturn(Collections.emptyList());
 
-        List<ApplicationResponse> responses = applicationService.getJobApplications(1L, ApplicationStatus.SCREENING, recruiterUser);
+        List<ApplicationResponse> responses = applicationService.getJobApplications(1L, filterStatus, recruiterUser);
 
         Assert.assertNotNull(responses);
         Assert.assertEquals(responses.size(), 1);
-        Assert.assertEquals(responses.get(0).getStatus(), ApplicationStatus.SCREENING);
-        verify(applicationRepository, times(1)).findByJob_JobIdAndStatus(1L, ApplicationStatus.SCREENING);
+        Assert.assertEquals(responses.get(0).getStatus(), filterStatus);
+        verify(applicationRepository, times(1)).findByJob_JobIdAndStatus(1L, filterStatus);
     }
 
     @Test(description = "APP-G05 / UTCID05: Filter SCREENING trả 0 hồ sơ (biên kích thước 0 đối chứng size=1 APP-G04)")
     public void test_APP_G05_UTCID05_getJobApplications_FilterScreeningEmptyList_ReturnsEmpty() {
-        when(jobRepository.findById(1L)).thenReturn(Optional.of(sampleJob));
-        when(applicationRepository.findByJob_JobIdAndStatus(1L, ApplicationStatus.SCREENING)).thenReturn(Collections.emptyList());
+        var data = TestDataLoader.loadJsonNode("testdata/application-testdata.json").path("getJobApplications").path("APP_G05");
+        ApplicationStatus filterStatus = ApplicationStatus.valueOf(data.path("filterStatus").asText("SCREENING"));
 
-        List<ApplicationResponse> responses = applicationService.getJobApplications(1L, ApplicationStatus.SCREENING, recruiterUser);
+        when(jobRepository.findById(1L)).thenReturn(Optional.of(sampleJob));
+        when(applicationRepository.findByJob_JobIdAndStatus(1L, filterStatus)).thenReturn(Collections.emptyList());
+
+        List<ApplicationResponse> responses = applicationService.getJobApplications(1L, filterStatus, recruiterUser);
 
         Assert.assertNotNull(responses);
         Assert.assertTrue(responses.isEmpty());
-        verify(applicationRepository, times(1)).findByJob_JobIdAndStatus(1L, ApplicationStatus.SCREENING);
+        verify(applicationRepository, times(1)).findByJob_JobIdAndStatus(1L, filterStatus);
     }
 
     @Test(description = "APP-G06 / UTCID06: Tái sử dụng điểm AI từ cache DB, không gọi tính toán mới")
     public void test_APP_G06_UTCID06_getJobApplications_CachedAiScore_NoNewAiCall_Success() {
+        var data = TestDataLoader.loadJsonNode("testdata/application-testdata.json").path("getJobApplications").path("APP_G06");
+        float cachedScore = (float) data.path("cachedAiScore").asDouble(88.5);
+
         Candidate cand = Candidate.builder().candidateId(101L).user(candidateUser).build();
         Application app = Application.builder().applicationId(1L).candidate(cand).job(sampleJob).status(ApplicationStatus.APPLIED).build();
-        AiJobMatch cachedMatch = AiJobMatch.builder().candidate(cand).matchingScore(88.5f).build();
+        AiJobMatch cachedMatch = AiJobMatch.builder().candidate(cand).matchingScore(cachedScore).build();
 
         when(jobRepository.findById(1L)).thenReturn(Optional.of(sampleJob));
         when(applicationRepository.findByJob_JobId(1L)).thenReturn(Collections.singletonList(app));
@@ -390,7 +412,7 @@ public class ApplicationServiceDesignTestNGTest {
 
         Assert.assertNotNull(responses);
         Assert.assertEquals(responses.size(), 1);
-        Assert.assertEquals(responses.get(0).getMatchingScore(), 88.5f, 0.01f);
+        Assert.assertEquals(responses.get(0).getMatchingScore(), cachedScore, 0.01f);
         verify(aiJobMatchService, never()).calculateAndSaveMatch(any(), any(), any());
     }
 
@@ -414,7 +436,7 @@ public class ApplicationServiceDesignTestNGTest {
                 validTime.toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm")));
 
         UpdateApplicationStatusRequest request = new UpdateApplicationStatusRequest();
-        request.setStatus(ApplicationStatus.INTERVIEWING);
+        request.setStatus(ApplicationStatus.valueOf(data.path("targetStatus").asText("INTERVIEWING")));
         request.setNotes(notes);
 
         when(applicationRepository.findById(1L)).thenReturn(Optional.of(app));
@@ -434,14 +456,16 @@ public class ApplicationServiceDesignTestNGTest {
         expectedExceptionsMessageRegExp = ".*Unauthorized to modify this application.*"
     )
     public void test_APP_U02_UTCID02_updateApplicationStatus_UnauthorizedRecruiter_ThrowsSecurityException() {
+        var data = TestDataLoader.loadJsonNode("testdata/application-testdata.json").path("updateStatus").path("APP_U02");
+        Long otherRecruiterId = data.path("otherRecruiterId").asLong(999L);
         Application app = Application.builder().applicationId(1L).job(sampleJob).build();
-        User stranger = User.builder().userId(999L).role(UserRole.RECRUITER).build();
+        User stranger = User.builder().userId(otherRecruiterId).role(UserRole.RECRUITER).build();
 
         UpdateApplicationStatusRequest request = new UpdateApplicationStatusRequest();
-        request.setStatus(ApplicationStatus.SCREENING);
+        request.setStatus(ApplicationStatus.valueOf(data.path("targetStatus").asText("REJECTED")));
 
         when(applicationRepository.findById(1L)).thenReturn(Optional.of(app));
-        when(recruiterRepository.findById(999L)).thenReturn(Optional.empty());
+        when(recruiterRepository.findById(otherRecruiterId)).thenReturn(Optional.empty());
 
         applicationService.updateApplicationStatus(1L, request, stranger);
     }
@@ -452,12 +476,14 @@ public class ApplicationServiceDesignTestNGTest {
         expectedExceptionsMessageRegExp = ".*Application not found.*"
     )
     public void test_APP_U03_UTCID03_updateApplicationStatus_ApplicationNotFound_ThrowsIllegalArgumentException() {
+        var data = TestDataLoader.loadJsonNode("testdata/application-testdata.json").path("updateStatus").path("APP_U03");
+        Long nonExistentId = data.path("nonExistentApplicationId").asLong(404L);
         UpdateApplicationStatusRequest request = new UpdateApplicationStatusRequest();
-        request.setStatus(ApplicationStatus.SCREENING);
+        request.setStatus(ApplicationStatus.valueOf(data.path("targetStatus").asText("SCREENING")));
 
-        when(applicationRepository.findById(404L)).thenReturn(Optional.empty());
+        when(applicationRepository.findById(nonExistentId)).thenReturn(Optional.empty());
 
-        applicationService.updateApplicationStatus(404L, request, recruiterUser);
+        applicationService.updateApplicationStatus(nonExistentId, request, recruiterUser);
     }
 
     @Test(
@@ -466,6 +492,7 @@ public class ApplicationServiceDesignTestNGTest {
         expectedExceptionsMessageRegExp = ".*đã tuyển đủ chỉ tiêu.*"
     )
     public void test_APP_U08_UTCID04_updateApplicationStatus_HiredQuotaFull_ThrowsBadRequestException() {
+        var data = TestDataLoader.loadJsonNode("testdata/application-testdata.json").path("updateStatus").path("APP_U08");
         Application app = Application.builder()
                 .applicationId(1L)
                 .job(sampleJob) // vacanciesCount = 2
@@ -473,16 +500,17 @@ public class ApplicationServiceDesignTestNGTest {
                 .build();
 
         UpdateApplicationStatusRequest request = new UpdateApplicationStatusRequest();
-        request.setStatus(ApplicationStatus.HIRED);
+        request.setStatus(ApplicationStatus.valueOf(data.path("targetStatus").asText("HIRED")));
 
         when(applicationRepository.findById(1L)).thenReturn(Optional.of(app));
-        when(applicationRepository.countByJob_JobIdAndStatus(1L, ApplicationStatus.HIRED)).thenReturn(2L);
+        when(applicationRepository.countByJob_JobIdAndStatus(1L, ApplicationStatus.HIRED)).thenReturn(data.path("currentHired").asLong(2L));
 
         applicationService.updateApplicationStatus(1L, request, recruiterUser);
     }
 
     @Test(description = "APP-U09 / UTCID05: Chuyển HIRED thành công cho vị trí cuối cùng và tự động đóng tin (Job CLOSED)")
     public void test_APP_U09_UTCID05_updateApplicationStatus_HiredQuotaLastSpot_ClosesJob_Success() {
+        var data = TestDataLoader.loadJsonNode("testdata/application-testdata.json").path("updateStatus").path("APP_U09");
         Application app = Application.builder()
                 .applicationId(1L)
                 .job(sampleJob) // vacanciesCount = 2, status = PUBLISHED
@@ -491,11 +519,13 @@ public class ApplicationServiceDesignTestNGTest {
                 .build();
 
         UpdateApplicationStatusRequest request = new UpdateApplicationStatusRequest();
-        request.setStatus(ApplicationStatus.HIRED);
+        request.setStatus(ApplicationStatus.valueOf(data.path("targetStatus").asText("HIRED")));
 
         when(applicationRepository.findById(1L)).thenReturn(Optional.of(app));
         // Trước khi chuyển: đã có 1 người HIRED
-        when(applicationRepository.countByJob_JobIdAndStatus(1L, ApplicationStatus.HIRED)).thenReturn(1L).thenReturn(2L);
+        when(applicationRepository.countByJob_JobIdAndStatus(1L, ApplicationStatus.HIRED))
+                .thenReturn(data.path("currentHiredBefore").asLong(1L))
+                .thenReturn(data.path("currentHiredAfter").asLong(2L));
         when(applicationRepository.save(any(Application.class))).thenAnswer(inv -> inv.getArgument(0));
 
         ApplicationResponse response = applicationService.updateApplicationStatus(1L, request, recruiterUser);

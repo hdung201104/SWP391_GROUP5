@@ -52,17 +52,79 @@
   "updateJob": {
     "JOB_U01": {
       "caseId": "JOB-U01",
-      "vacanciesCount": 1
+      "vacanciesCount": 1,
+      "title": "Updated Senior Java Developer",
+      "salaryMin": 20.0,
+      "salaryMax": 35.0,
+      "deadlineDaysOffset": 20
+    },
+    "JOB_U02": {
+      "caseId": "JOB-U02",
+      "vacanciesCount": 2,
+      "otherRecruiterId": 999
+    },
+    "JOB_U03": {
+      "caseId": "JOB-U03",
+      "nonExistentJobId": 9999
     },
     "JOB_U04": {
       "caseId": "JOB-U04",
-      "vacanciesCount": 0
+      "vacanciesCount": 0,
+      "title": "Lead Developer",
+      "salaryMin": 20.0,
+      "salaryMax": 35.0,
+      "deadlineDaysOffset": 10
+    },
+    "JOB_U07": {
+      "caseId": "JOB-U07",
+      "companyStatus": "PENDING",
+      "companyName": "StartUp Company",
+      "title": "Updated Title",
+      "vacanciesCount": 2,
+      "salaryMin": 15.0,
+      "salaryMax": 25.0,
+      "deadlineDaysOffset": 10
+    },
+    "JOB_U09": {
+      "caseId": "JOB-U09",
+      "title": "Published Title",
+      "vacanciesCount": 2,
+      "salaryMin": 15.0,
+      "salaryMax": 25.0,
+      "deadlineDaysOffset": 15
     }
   },
   "searchJob": {
+    "JOB_S01": {
+      "caseId": "JOB-S01",
+      "keyword": null,
+      "location": null,
+      "expectedCount": 2
+    },
+    "JOB_S02": {
+      "caseId": "JOB-S02",
+      "keyword": "Java",
+      "expectedTitle": "Senior Java Developer"
+    },
+    "JOB_S03": {
+      "caseId": "JOB-S03",
+      "location": "Da Nang",
+      "expectedTitle": "Backend Developer"
+    },
+    "JOB_S04": {
+      "caseId": "JOB-S04",
+      "keyword": "Java",
+      "location": "Da Nang",
+      "expectedTitle": "Java Lead"
+    },
     "JOB_S05": {
       "caseId": "JOB-S05",
-      "keyword": "   "
+      "keyword": "   ",
+      "expectedCount": 1
+    },
+    "JOB_S09": {
+      "caseId": "JOB-S09",
+      "keyword": "zznotfound"
     }
   },
   "extended": {

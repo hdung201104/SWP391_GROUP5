@@ -5,10 +5,58 @@
       "coverLetter": "Thư ứng tuyển hợp lệ đúng hạn",
       "deadlineDaysOffset": 0
     },
+    "APP_A02": {
+      "caseId": "APP-A02",
+      "nonExistentJobId": 999
+    },
+    "APP_A03": {
+      "caseId": "APP-A03",
+      "jobStatus": "DRAFT"
+    },
+    "APP_A04": {
+      "caseId": "APP-A04",
+      "jobStatus": "PUBLISHED",
+      "approvalStatus": "PENDING"
+    },
     "APP_A07": {
       "caseId": "APP-A07",
       "coverLetter": "Thư ứng tuyển nộp quá hạn",
       "deadlineDaysOffset": -1
+    },
+    "APP_A10": {
+      "caseId": "APP-A10",
+      "cvId": null
+    },
+    "APP_A13": {
+      "caseId": "APP-A13",
+      "existingStatus": "APPLIED"
+    }
+  },
+  "getJobApplications": {
+    "APP_G01": {
+      "caseId": "APP-G01",
+      "jobId": 1
+    },
+    "APP_G02": {
+      "caseId": "APP-G02",
+      "jobId": 1,
+      "otherRecruiterId": 999
+    },
+    "APP_G03": {
+      "caseId": "APP-G03",
+      "nonExistentJobId": 404
+    },
+    "APP_G04": {
+      "caseId": "APP-G04",
+      "filterStatus": "SCREENING"
+    },
+    "APP_G05": {
+      "caseId": "APP-G05",
+      "filterStatus": "SCREENING"
+    },
+    "APP_G06": {
+      "caseId": "APP-G06",
+      "cachedAiScore": 88.5
     }
   },
   "updateStatus": {
@@ -17,10 +65,15 @@
       "targetStatus": "INTERVIEWING",
       "interviewMinutesOffset": 31
     },
-    "APP_U12": {
-      "caseId": "APP-U12",
-      "targetStatus": "INTERVIEWING",
-      "interviewMinutesOffset": 29
+    "APP_U02": {
+      "caseId": "APP-U02",
+      "targetStatus": "REJECTED",
+      "otherRecruiterId": 999
+    },
+    "APP_U03": {
+      "caseId": "APP-U03",
+      "nonExistentApplicationId": 404,
+      "targetStatus": "SCREENING"
     },
     "APP_U08": {
       "caseId": "APP-U08",
@@ -34,6 +87,11 @@
       "currentHiredBefore": 1,
       "currentHiredAfter": 2,
       "vacancies": 2
+    },
+    "APP_U12": {
+      "caseId": "APP-U12",
+      "targetStatus": "INTERVIEWING",
+      "interviewMinutesOffset": 29
     }
   },
   "extended": {

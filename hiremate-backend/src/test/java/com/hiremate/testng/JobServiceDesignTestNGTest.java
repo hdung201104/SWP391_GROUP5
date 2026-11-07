@@ -279,8 +279,8 @@ public class JobServiceDesignTestNGTest {
         JobResponse response = jobService.updateJob(501L, updateReq, sampleRecruiterUser);
 
         Assert.assertNotNull(response);
-        Assert.assertEquals(response.getTitle(), "Lead Developer");
-        Assert.assertEquals(response.getVacanciesCount(), Integer.valueOf(1));
+        Assert.assertEquals(response.getTitle(), data.path("title").asText("Updated Senior Java Developer"));
+        Assert.assertEquals(response.getVacanciesCount(), Integer.valueOf(data.path("vacanciesCount").asInt(1)));
         verify(jobRepository, times(1)).save(existingJob);
     }
 
@@ -290,18 +290,20 @@ public class JobServiceDesignTestNGTest {
         expectedExceptionsMessageRegExp = ".*Bạn chỉ có quyền chỉnh sửa tin tuyển dụng.*"
     )
     public void test_JOB_U02_UTCID02_updateJob_UnauthorizedRecruiter_ThrowsSecurityException() {
+        var data = TestDataLoader.loadJsonNode("testdata/job-testdata.json").path("updateJob").path("JOB_U02");
         Job existingJob = Job.builder()
                 .jobId(501L)
                 .recruiter(sampleRecruiter)
                 .company(sampleVerifiedCompany)
                 .build();
 
+        Long strangerId = data.path("otherRecruiterId").asLong(999L);
         User strangerUser = User.builder()
-                .userId(999L)
+                .userId(strangerId)
                 .role(UserRole.RECRUITER)
                 .build();
 
-        JobCreateRequest updateReq = buildJobReq("Hacked Title", 2, new BigDecimal("10.0"), new BigDecimal("20.0"), LocalDate.now().plusDays(7));
+        JobCreateRequest updateReq = buildJobReq("Hacked Title", data.path("vacanciesCount").asInt(2), new BigDecimal("10.0"), new BigDecimal("20.0"), LocalDate.now().plusDays(7));
 
         when(jobRepository.findById(501L)).thenReturn(Optional.of(existingJob));
 
@@ -314,11 +316,13 @@ public class JobServiceDesignTestNGTest {
         expectedExceptionsMessageRegExp = ".*Job not found.*"
     )
     public void test_JOB_U03_UTCID03_updateJob_JobNotFound_ThrowsIllegalArgumentException() {
+        var data = TestDataLoader.loadJsonNode("testdata/job-testdata.json").path("updateJob").path("JOB_U03");
+        Long nonExistentId = data.path("nonExistentJobId").asLong(9999L);
         JobCreateRequest updateReq = buildJobReq("New Title", 2, new BigDecimal("10.0"), new BigDecimal("20.0"), LocalDate.now().plusDays(7));
 
-        when(jobRepository.findById(404L)).thenReturn(Optional.empty());
+        when(jobRepository.findById(nonExistentId)).thenReturn(Optional.empty());
 
-        jobService.updateJob(404L, updateReq, sampleRecruiterUser);
+        jobService.updateJob(nonExistentId, updateReq, sampleRecruiterUser);
     }
 
     @Test(
@@ -342,10 +346,11 @@ public class JobServiceDesignTestNGTest {
 
     @Test(description = "JOB-U07 / UTCID05: Doanh nghiệp PENDING khi update yêu cầu PUBLISHED sẽ tự chuyển về DRAFT và PENDING kiểm duyệt")
     public void test_JOB_U07_UTCID05_updateJob_PendingCompany_SwitchesToDraftAndPending() {
+        var data = TestDataLoader.loadJsonNode("testdata/job-testdata.json").path("updateJob").path("JOB_U07");
         Company pendingCompany = Company.builder()
                 .companyId(12L)
-                .companyName("StartUp Company")
-                .status(CompanyStatus.PENDING)
+                .companyName(data.path("companyName").asText("StartUp Company"))
+                .status(CompanyStatus.valueOf(data.path("companyStatus").asText("PENDING")))
                 .build();
 
         Recruiter pendingRecruiter = Recruiter.builder()
@@ -363,7 +368,13 @@ public class JobServiceDesignTestNGTest {
                 .approvalStatus(JobApprovalStatus.PENDING)
                 .build();
 
-        JobCreateRequest updateReq = buildJobReq("Updated Title", 2, new BigDecimal("15.0"), new BigDecimal("25.0"), LocalDate.now().plusDays(10));
+        JobCreateRequest updateReq = buildJobReq(
+                data.path("title").asText("Updated Title"),
+                data.path("vacanciesCount").asInt(2),
+                new BigDecimal(data.path("salaryMin").asText("15.0")),
+                new BigDecimal(data.path("salaryMax").asText("25.0")),
+                LocalDate.now().plusDays(data.path("deadlineDaysOffset").asInt(10))
+        );
         updateReq.setStatus(JobStatus.PUBLISHED);
 
         when(jobRepository.findById(501L)).thenReturn(Optional.of(existingJob));
@@ -378,6 +389,7 @@ public class JobServiceDesignTestNGTest {
 
     @Test(description = "JOB-U09 / UTCID06: Đăng công khai tin hợp lệ khi Doanh nghiệp VERIFIED và đã được duyệt APPROVED")
     public void test_JOB_U09_UTCID06_updateJob_PublishJob_Success() {
+        var data = TestDataLoader.loadJsonNode("testdata/job-testdata.json").path("updateJob").path("JOB_U09");
         Job existingJob = Job.builder()
                 .jobId(501L)
                 .title("Draft Title")
@@ -388,7 +400,13 @@ public class JobServiceDesignTestNGTest {
                 .deadlineDate(LocalDate.now().plusDays(15))
                 .build();
 
-        JobCreateRequest updateReq = buildJobReq("Published Title", 2, new BigDecimal("15.0"), new BigDecimal("25.0"), LocalDate.now().plusDays(15));
+        JobCreateRequest updateReq = buildJobReq(
+                data.path("title").asText("Published Title"),
+                data.path("vacanciesCount").asInt(2),
+                new BigDecimal(data.path("salaryMin").asText("15.0")),
+                new BigDecimal(data.path("salaryMax").asText("25.0")),
+                LocalDate.now().plusDays(data.path("deadlineDaysOffset").asInt(15))
+        );
         updateReq.setStatus(JobStatus.PUBLISHED);
 
         when(jobRepository.findById(501L)).thenReturn(Optional.of(existingJob));
@@ -407,81 +425,102 @@ public class JobServiceDesignTestNGTest {
 
     @Test(description = "JOB-S01 / UTCID01: Không có bộ lọc tìm kiếm (keyword=null, location=null), lấy toàn bộ tin PUBLISHED")
     public void test_JOB_S01_UTCID01_getPublishedJobs_NoFilter_ReturnsPublished() {
+        var data = TestDataLoader.loadJsonNode("testdata/job-testdata.json").path("searchJob").path("JOB_S01");
         Job job1 = Job.builder().jobId(1L).title("Job 1").status(JobStatus.PUBLISHED).company(sampleVerifiedCompany).build();
         Job job2 = Job.builder().jobId(2L).title("Job 2").status(JobStatus.PUBLISHED).company(sampleVerifiedCompany).build();
 
         when(jobRepository.findByStatus(JobStatus.PUBLISHED)).thenReturn(Arrays.asList(job1, job2));
 
-        List<JobResponse> results = jobService.getPublishedJobs(null, null);
+        String keyword = data.path("keyword").isNull() ? null : data.path("keyword").asText();
+        String location = data.path("location").isNull() ? null : data.path("location").asText();
+        List<JobResponse> results = jobService.getPublishedJobs(keyword, location);
 
         Assert.assertNotNull(results);
-        Assert.assertEquals(results.size(), 2);
+        Assert.assertEquals(results.size(), data.path("expectedCount").asInt(2));
         verify(jobRepository, times(1)).findByStatus(JobStatus.PUBLISHED);
     }
 
     @Test(description = "JOB-S02 / UTCID02: Chỉ tìm kiếm theo từ khóa (keyword='Java', location=null)")
     public void test_JOB_S02_UTCID02_getPublishedJobs_KeywordOnly_ReturnsMatching() {
-        Job jobJava = Job.builder().jobId(1L).title("Senior Java Developer").status(JobStatus.PUBLISHED).company(sampleVerifiedCompany).build();
+        var data = TestDataLoader.loadJsonNode("testdata/job-testdata.json").path("searchJob").path("JOB_S02");
+        String keyword = data.path("keyword").asText("Java");
+        String expectedTitle = data.path("expectedTitle").asText("Senior Java Developer");
 
-        when(jobRepository.searchJobs("Java", null)).thenReturn(Collections.singletonList(jobJava));
+        Job jobJava = Job.builder().jobId(1L).title(expectedTitle).status(JobStatus.PUBLISHED).company(sampleVerifiedCompany).build();
 
-        List<JobResponse> results = jobService.getPublishedJobs("Java", null);
+        when(jobRepository.searchJobs(keyword, null)).thenReturn(Collections.singletonList(jobJava));
+
+        List<JobResponse> results = jobService.getPublishedJobs(keyword, null);
 
         Assert.assertNotNull(results);
         Assert.assertEquals(results.size(), 1);
-        Assert.assertEquals(results.get(0).getTitle(), "Senior Java Developer");
-        verify(jobRepository, times(1)).searchJobs("Java", null);
+        Assert.assertEquals(results.get(0).getTitle(), expectedTitle);
+        verify(jobRepository, times(1)).searchJobs(keyword, null);
     }
 
     @Test(description = "JOB-S03 / UTCID03: Chỉ tìm kiếm theo địa điểm (keyword=null, location='Da Nang')")
     public void test_JOB_S03_UTCID03_getPublishedJobs_LocationOnly_ReturnsMatching() {
-        Job jobDn = Job.builder().jobId(2L).title("Backend Developer").location("Da Nang").status(JobStatus.PUBLISHED).company(sampleVerifiedCompany).build();
+        var data = TestDataLoader.loadJsonNode("testdata/job-testdata.json").path("searchJob").path("JOB_S03");
+        String location = data.path("location").asText("Da Nang");
+        String expectedTitle = data.path("expectedTitle").asText("Backend Developer");
 
-        when(jobRepository.searchJobs(null, "Da Nang")).thenReturn(Collections.singletonList(jobDn));
+        Job jobDn = Job.builder().jobId(2L).title(expectedTitle).location(location).status(JobStatus.PUBLISHED).company(sampleVerifiedCompany).build();
 
-        List<JobResponse> results = jobService.getPublishedJobs(null, "Da Nang");
+        when(jobRepository.searchJobs(null, location)).thenReturn(Collections.singletonList(jobDn));
+
+        List<JobResponse> results = jobService.getPublishedJobs(null, location);
 
         Assert.assertNotNull(results);
         Assert.assertEquals(results.size(), 1);
-        Assert.assertEquals(results.get(0).getLocation(), "Da Nang");
-        verify(jobRepository, times(1)).searchJobs(null, "Da Nang");
+        Assert.assertEquals(results.get(0).getLocation(), location);
+        verify(jobRepository, times(1)).searchJobs(null, location);
     }
 
     @Test(description = "JOB-S04 / UTCID04: Tìm kiếm kết hợp cả từ khóa và địa điểm (keyword='Java', location='Da Nang')")
     public void test_JOB_S04_UTCID04_getPublishedJobs_BothFilters_ReturnsMatching() {
-        Job jobCombined = Job.builder().jobId(3L).title("Java Lead").location("Da Nang").status(JobStatus.PUBLISHED).company(sampleVerifiedCompany).build();
+        var data = TestDataLoader.loadJsonNode("testdata/job-testdata.json").path("searchJob").path("JOB_S04");
+        String keyword = data.path("keyword").asText("Java");
+        String location = data.path("location").asText("Da Nang");
+        String expectedTitle = data.path("expectedTitle").asText("Java Lead");
 
-        when(jobRepository.searchJobs("Java", "Da Nang")).thenReturn(Collections.singletonList(jobCombined));
+        Job jobCombined = Job.builder().jobId(3L).title(expectedTitle).location(location).status(JobStatus.PUBLISHED).company(sampleVerifiedCompany).build();
 
-        List<JobResponse> results = jobService.getPublishedJobs("Java", "Da Nang");
+        when(jobRepository.searchJobs(keyword, location)).thenReturn(Collections.singletonList(jobCombined));
+
+        List<JobResponse> results = jobService.getPublishedJobs(keyword, location);
 
         Assert.assertNotNull(results);
         Assert.assertEquals(results.size(), 1);
-        verify(jobRepository, times(1)).searchJobs("Java", "Da Nang");
+        verify(jobRepository, times(1)).searchJobs(keyword, location);
     }
 
     @Test(description = "JOB-S05 / UTCID05: Từ khóa tìm kiếm chỉ chứa khoảng trắng (keyword='   ', location=null) được coi như không lọc")
     public void test_JOB_S05_UTCID05_getPublishedJobs_BlankKeyword_TreatedAsNoFilter() {
+        var data = TestDataLoader.loadJsonNode("testdata/job-testdata.json").path("searchJob").path("JOB_S05");
+        String keyword = data.path("keyword").asText("   ");
         Job job1 = Job.builder().jobId(1L).title("Job 1").status(JobStatus.PUBLISHED).company(sampleVerifiedCompany).build();
 
         when(jobRepository.findByStatus(JobStatus.PUBLISHED)).thenReturn(Collections.singletonList(job1));
 
-        List<JobResponse> results = jobService.getPublishedJobs("   ", null);
+        List<JobResponse> results = jobService.getPublishedJobs(keyword, null);
 
         Assert.assertNotNull(results);
-        Assert.assertEquals(results.size(), 1);
+        Assert.assertEquals(results.size(), data.path("expectedCount").asInt(1));
         verify(jobRepository, times(1)).findByStatus(JobStatus.PUBLISHED);
     }
 
     @Test(description = "JOB-S09 / UTCID06: Từ khóa không tồn tại trả về danh sách rỗng, không phát sinh ngoại lệ")
     public void test_JOB_S09_UTCID06_getPublishedJobs_NotFound_ReturnsEmptyList() {
-        when(jobRepository.searchJobs("zznotfound", null)).thenReturn(Collections.emptyList());
+        var data = TestDataLoader.loadJsonNode("testdata/job-testdata.json").path("searchJob").path("JOB_S09");
+        String keyword = data.path("keyword").asText("zznotfound");
 
-        List<JobResponse> results = jobService.getPublishedJobs("zznotfound", null);
+        when(jobRepository.searchJobs(keyword, null)).thenReturn(Collections.emptyList());
+
+        List<JobResponse> results = jobService.getPublishedJobs(keyword, null);
 
         Assert.assertNotNull(results);
         Assert.assertTrue(results.isEmpty());
-        verify(jobRepository, times(1)).searchJobs("zznotfound", null);
+        verify(jobRepository, times(1)).searchJobs(keyword, null);
     }
 
     // ==========================================================================

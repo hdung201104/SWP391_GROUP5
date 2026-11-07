@@ -141,12 +141,13 @@ public class AuthServiceDesignTestNGTest {
         expectedExceptionsMessageRegExp = ".*Email already exists.*"
     )
     public void test_AUTH_R03_UTCID02_register_DuplicateEmail_ThrowsException() {
+        var data = TestDataLoader.loadJsonNode("testdata/auth-testdata.json").path("register").path("AUTH_R03");
         RegisterRequest request = new RegisterRequest();
-        request.setEmail("existing@hiremate.ai");
-        request.setPassword("ValidPassword123@");
-        request.setOtp("123456");
+        request.setEmail(data.path("email").asText("existing@hiremate.ai"));
+        request.setPassword(data.path("password").asText("ValidPassword123@"));
+        request.setOtp(data.path("otp").asText("123456"));
 
-        when(userRepository.existsByEmail("existing@hiremate.ai")).thenReturn(true);
+        when(userRepository.existsByEmail(request.getEmail())).thenReturn(true);
 
         authService.register(request);
     }
@@ -157,12 +158,13 @@ public class AuthServiceDesignTestNGTest {
         expectedExceptionsMessageRegExp = ".*Mã xác thực OTP là bắt buộc.*"
     )
     public void test_AUTH_R04_UTCID03_register_MissingOtp_ThrowsException() {
+        var data = TestDataLoader.loadJsonNode("testdata/auth-testdata.json").path("register").path("AUTH_R04");
         RegisterRequest request = new RegisterRequest();
-        request.setEmail("newuser@hiremate.ai");
-        request.setPassword("ValidPassword123@");
-        request.setOtp(null);
+        request.setEmail(data.path("email").asText("newuser@hiremate.ai"));
+        request.setPassword(data.path("password").asText("ValidPassword123@"));
+        request.setOtp(data.path("otp").isNull() ? null : data.path("otp").asText());
 
-        when(userRepository.existsByEmail("newuser@hiremate.ai")).thenReturn(false);
+        when(userRepository.existsByEmail(request.getEmail())).thenReturn(false);
 
         authService.register(request);
     }
@@ -173,13 +175,14 @@ public class AuthServiceDesignTestNGTest {
         expectedExceptionsMessageRegExp = ".*Mã xác thực OTP không chính xác hoặc đã hết hiệu lực.*"
     )
     public void test_AUTH_R06_UTCID04_register_InvalidOtp_ThrowsException() {
+        var data = TestDataLoader.loadJsonNode("testdata/auth-testdata.json").path("register").path("AUTH_R06");
         RegisterRequest request = new RegisterRequest();
-        request.setEmail("newuser@hiremate.ai");
-        request.setPassword("ValidPassword123@");
-        request.setOtp("999999");
+        request.setEmail(data.path("email").asText("newuser@hiremate.ai"));
+        request.setPassword(data.path("password").asText("ValidPassword123@"));
+        request.setOtp(data.path("otp").asText("999999"));
 
-        when(userRepository.existsByEmail("newuser@hiremate.ai")).thenReturn(false);
-        when(otpService.verifyOtp("newuser@hiremate.ai", "999999", "REGISTER")).thenReturn(false);
+        when(userRepository.existsByEmail(request.getEmail())).thenReturn(false);
+        when(otpService.verifyOtp(request.getEmail(), request.getOtp(), "REGISTER")).thenReturn(false);
 
         authService.register(request);
     }
@@ -190,32 +193,34 @@ public class AuthServiceDesignTestNGTest {
         expectedExceptionsMessageRegExp = ".*Độ tuổi ứng viên phải từ 14 tuổi trở lên.*"
     )
     public void test_AUTH_R13_UTCID05_register_Under14YearsOld_ThrowsException() {
+        var data = TestDataLoader.loadJsonNode("testdata/auth-testdata.json").path("register").path("AUTH_R13");
         RegisterRequest request = new RegisterRequest();
-        request.setEmail("young.candidate@hiremate.ai");
-        request.setPassword("ValidPassword123@");
-        request.setFullName("Young Candidate");
-        request.setRole(UserRole.CANDIDATE);
-        request.setOtp("123456");
-        request.setDateOfBirth(LocalDate.now().minusYears(14).plusDays(1).toString());
+        request.setEmail(data.path("email").asText("young.candidate@hiremate.ai"));
+        request.setPassword(data.path("password").asText("ValidPassword123@"));
+        request.setFullName(data.path("fullName").asText("Young Candidate"));
+        request.setRole(UserRole.valueOf(data.path("role").asText("CANDIDATE")));
+        request.setOtp(data.path("otp").asText("123456"));
+        request.setDateOfBirth(LocalDate.now().minusYears(data.path("yearsOffset").asLong(14)).plusDays(data.path("daysOffset").asLong(1)).toString());
 
-        when(userRepository.existsByEmail("young.candidate@hiremate.ai")).thenReturn(false);
-        when(otpService.verifyOtp("young.candidate@hiremate.ai", "123456", "REGISTER")).thenReturn(true);
+        when(userRepository.existsByEmail(request.getEmail())).thenReturn(false);
+        when(otpService.verifyOtp(request.getEmail(), request.getOtp(), "REGISTER")).thenReturn(true);
 
         authService.register(request);
     }
 
     @Test(description = "AUTH-R14 / UTCID06: Đúng 14 tuổi (today - 14 years) vượt qua kiểm tra tuổi và đăng ký thành công")
     public void test_AUTH_R14_UTCID06_register_Exact14YearsOld_Success() {
+        var data = TestDataLoader.loadJsonNode("testdata/auth-testdata.json").path("register").path("AUTH_R14");
         RegisterRequest request = new RegisterRequest();
-        request.setEmail("exact14@hiremate.ai");
-        request.setPassword("ValidPassword123@");
-        request.setFullName("Exact 14 Candidate");
-        request.setRole(UserRole.CANDIDATE);
-        request.setOtp("123456");
-        request.setDateOfBirth(LocalDate.now().minusYears(14).toString());
+        request.setEmail(data.path("email").asText("exact14@hiremate.ai"));
+        request.setPassword(data.path("password").asText("ValidPassword123@"));
+        request.setFullName(data.path("fullName").asText("Exact 14 Candidate"));
+        request.setRole(UserRole.valueOf(data.path("role").asText("CANDIDATE")));
+        request.setOtp(data.path("otp").asText("123456"));
+        request.setDateOfBirth(LocalDate.now().minusYears(data.path("yearsOffset").asLong(14)).toString());
 
-        when(userRepository.existsByEmail("exact14@hiremate.ai")).thenReturn(false);
-        when(otpService.verifyOtp("exact14@hiremate.ai", "123456", "REGISTER")).thenReturn(true);
+        when(userRepository.existsByEmail(request.getEmail())).thenReturn(false);
+        when(otpService.verifyOtp(request.getEmail(), request.getOtp(), "REGISTER")).thenReturn(true);
         when(passwordEncoder.encode(anyString())).thenReturn("hashed_pass");
         when(userRepository.saveAndFlush(any(User.class))).thenAnswer(inv -> {
             User u = inv.getArgument(0);
@@ -228,7 +233,7 @@ public class AuthServiceDesignTestNGTest {
         AuthResponse response = authService.register(request);
 
         Assert.assertNotNull(response);
-        Assert.assertEquals(response.getEmail(), "exact14@hiremate.ai");
+        Assert.assertEquals(response.getEmail(), data.path("email").asText("exact14@hiremate.ai"));
         verify(candidateRepository, times(1)).save(any(Candidate.class));
     }
 
@@ -260,7 +265,9 @@ public class AuthServiceDesignTestNGTest {
         expectedExceptionsMessageRegExp = ".*Vui lòng nhập đầy đủ email và mật khẩu.*"
     )
     public void test_AUTH_L02_UTCID02_login_NullEmail_ThrowsException() {
-        LoginRequest request = new LoginRequest(null, "ValidPass123@");
+        var data = TestDataLoader.loadJsonNode("testdata/auth-testdata.json").path("login").path("AUTH_L02");
+        String email = data.path("email").isNull() ? null : data.path("email").asText();
+        LoginRequest request = new LoginRequest(email, data.path("password").asText("ValidPass123@"));
         authService.login(request);
     }
 
@@ -270,8 +277,10 @@ public class AuthServiceDesignTestNGTest {
         expectedExceptionsMessageRegExp = ".*Tài khoản hoặc mật khẩu không chính xác.*"
     )
     public void test_AUTH_L04_UTCID03_login_EmailNotFound_ThrowsException() {
-        LoginRequest request = new LoginRequest("unknown@hiremate.ai", "AnyPassword123@");
-        when(userRepository.findByEmail("unknown@hiremate.ai")).thenReturn(Optional.empty());
+        var data = TestDataLoader.loadJsonNode("testdata/auth-testdata.json").path("login").path("AUTH_L04");
+        String email = data.path("email").asText("unknown@hiremate.ai");
+        LoginRequest request = new LoginRequest(email, data.path("password").asText("AnyPassword123@"));
+        when(userRepository.findByEmail(email)).thenReturn(Optional.empty());
 
         authService.login(request);
     }
@@ -282,10 +291,13 @@ public class AuthServiceDesignTestNGTest {
         expectedExceptionsMessageRegExp = ".*Tài khoản hoặc mật khẩu không chính xác.*"
     )
     public void test_AUTH_L05_UTCID04_login_WrongPassword_ThrowsException() {
-        LoginRequest request = new LoginRequest("candidate@hiremate.ai", "WrongPassword999#");
+        var data = TestDataLoader.loadJsonNode("testdata/auth-testdata.json").path("login").path("AUTH_L05");
+        String email = data.path("email").asText("candidate@hiremate.ai");
+        String wrongPassword = data.path("password").asText("WrongPassword999#");
+        LoginRequest request = new LoginRequest(email, wrongPassword);
 
-        when(userRepository.findByEmail("candidate@hiremate.ai")).thenReturn(Optional.of(sampleCandidateUser));
-        when(passwordEncoder.matches("WrongPassword999#", sampleCandidateUser.getPasswordHash())).thenReturn(false);
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(sampleCandidateUser));
+        when(passwordEncoder.matches(wrongPassword, sampleCandidateUser.getPasswordHash())).thenReturn(false);
 
         authService.login(request);
     }
@@ -296,18 +308,20 @@ public class AuthServiceDesignTestNGTest {
         expectedExceptionsMessageRegExp = ".*Tài khoản hiện đang bị khóa.*"
     )
     public void test_AUTH_L06_UTCID05_login_BlockedUser_ThrowsException() {
+        var data = TestDataLoader.loadJsonNode("testdata/auth-testdata.json").path("login").path("AUTH_L06");
+        String email = data.path("email").asText("blocked@hiremate.ai");
         User blockedUser = User.builder()
                 .userId(102L)
-                .email("blocked@hiremate.ai")
+                .email(email)
                 .passwordHash("$2a$10$encodedHashBlocked")
                 .role(UserRole.CANDIDATE)
                 .status(UserStatus.BLOCKED)
                 .build();
 
-        LoginRequest request = new LoginRequest("blocked@hiremate.ai", "CorrectPassword123@");
+        LoginRequest request = new LoginRequest(email, data.path("password").asText("CorrectPassword123@"));
 
-        when(userRepository.findByEmail("blocked@hiremate.ai")).thenReturn(Optional.of(blockedUser));
-        when(passwordEncoder.matches("CorrectPassword123@", blockedUser.getPasswordHash())).thenReturn(true);
+        when(userRepository.findByEmail(email)).thenReturn(Optional.of(blockedUser));
+        when(passwordEncoder.matches(request.getPassword(), blockedUser.getPasswordHash())).thenReturn(true);
 
         authService.login(request);
     }
@@ -335,34 +349,36 @@ public class AuthServiceDesignTestNGTest {
 
     @Test(description = "AUTH-M01 / UTCID01: Candidate lấy thông tin cá nhân, companyId trả về null")
     public void test_AUTH_M01_UTCID01_getCurrentUser_Candidate_Success() {
+        var data = TestDataLoader.loadJsonNode("testdata/auth-testdata.json").path("getCurrentUser").path("AUTH_M01");
         User candidateUser = User.builder()
-                .userId(101L)
-                .email("candidate@hiremate.ai")
-                .fullName("Nguyen Candidate")
-                .role(UserRole.CANDIDATE)
+                .userId(data.path("userId").asLong(101L))
+                .email(data.path("email").asText("candidate@hiremate.ai"))
+                .fullName(data.path("fullName").asText("Nguyen Candidate"))
+                .role(UserRole.valueOf(data.path("role").asText("CANDIDATE")))
                 .build();
 
         AuthResponse response = authService.getCurrentUser(candidateUser);
 
         Assert.assertNotNull(response);
-        Assert.assertEquals(response.getUserId(), Long.valueOf(101L));
+        Assert.assertEquals(response.getUserId(), Long.valueOf(data.path("userId").asLong(101L)));
         Assert.assertEquals(response.getRole(), UserRole.CANDIDATE);
         Assert.assertNull(response.getCompanyId());
     }
 
     @Test(description = "AUTH-M02 / UTCID02: Admin lấy thông tin cá nhân, không tìm kiếm company")
     public void test_AUTH_M02_UTCID02_getCurrentUser_Admin_Success() {
+        var data = TestDataLoader.loadJsonNode("testdata/auth-testdata.json").path("getCurrentUser").path("AUTH_M02");
         User adminUser = User.builder()
-                .userId(1L)
-                .email("admin@hiremate.ai")
-                .fullName("System Admin")
-                .role(UserRole.ADMIN)
+                .userId(data.path("userId").asLong(1L))
+                .email(data.path("email").asText("admin@hiremate.ai"))
+                .fullName(data.path("fullName").asText("System Admin"))
+                .role(UserRole.valueOf(data.path("role").asText("ADMIN")))
                 .build();
 
         AuthResponse response = authService.getCurrentUser(adminUser);
 
         Assert.assertNotNull(response);
-        Assert.assertEquals(response.getUserId(), Long.valueOf(1L));
+        Assert.assertEquals(response.getUserId(), Long.valueOf(data.path("userId").asLong(1L)));
         Assert.assertEquals(response.getRole(), UserRole.ADMIN);
         Assert.assertNull(response.getCompanyId());
         verify(companyRepository, never()).findByRecruiterId(any());
@@ -370,69 +386,81 @@ public class AuthServiceDesignTestNGTest {
 
     @Test(description = "AUTH-M03 / UTCID03: Recruiter có thông tin Company trực tiếp trong quan hệ thực thể")
     public void test_AUTH_M03_UTCID03_getCurrentUser_Recruiter_DirectCompany_Success() {
+        var data = TestDataLoader.loadJsonNode("testdata/auth-testdata.json").path("getCurrentUser").path("AUTH_M03");
+        Long userId = data.path("userId").asLong(301L);
+        Long companyId = data.path("companyId").asLong(501L);
+        String companyName = data.path("companyName").asText("FPT Software");
+
         User recruiterUser = User.builder()
-                .userId(301L)
-                .email("recruiter@fpt.com")
-                .role(UserRole.RECRUITER)
+                .userId(userId)
+                .email(data.path("email").asText("recruiter@fpt.com"))
+                .role(UserRole.valueOf(data.path("role").asText("RECRUITER")))
                 .build();
 
         Company company = Company.builder()
-                .companyId(501L)
-                .companyName("FPT Software")
+                .companyId(companyId)
+                .companyName(companyName)
                 .build();
 
         Recruiter recruiter = Recruiter.builder()
-                .recruiterId(301L)
+                .recruiterId(userId)
                 .company(company)
                 .build();
 
-        when(recruiterRepository.findById(301L)).thenReturn(Optional.of(recruiter));
+        when(recruiterRepository.findById(userId)).thenReturn(Optional.of(recruiter));
 
         AuthResponse response = authService.getCurrentUser(recruiterUser);
 
         Assert.assertNotNull(response);
-        Assert.assertEquals(response.getCompanyId(), Long.valueOf(501L));
-        Assert.assertEquals(response.getCompanyName(), "FPT Software");
+        Assert.assertEquals(response.getCompanyId(), Long.valueOf(companyId));
+        Assert.assertEquals(response.getCompanyName(), companyName);
     }
 
     @Test(description = "AUTH-M04 / UTCID04: Recruiter có entity company=null, tự động fallback qua companyRepository")
     public void test_AUTH_M04_UTCID04_getCurrentUser_Recruiter_FallbackCompanyRepo_Success() {
+        var data = TestDataLoader.loadJsonNode("testdata/auth-testdata.json").path("getCurrentUser").path("AUTH_M04");
+        Long userId = data.path("userId").asLong(302L);
+        Long fallbackCompId = data.path("fallbackCompanyId").asLong(601L);
+        String fallbackCompName = data.path("fallbackCompanyName").asText("VNG Corporation");
+
         User recruiterUser = User.builder()
-                .userId(302L)
-                .email("recruiter2@vng.com")
-                .role(UserRole.RECRUITER)
+                .userId(userId)
+                .email(data.path("email").asText("recruiter2@vng.com"))
+                .role(UserRole.valueOf(data.path("role").asText("RECRUITER")))
                 .build();
 
         Recruiter recruiter = Recruiter.builder()
-                .recruiterId(302L)
+                .recruiterId(userId)
                 .company(null)
                 .build();
 
         Company fallbackCompany = Company.builder()
-                .companyId(601L)
-                .companyName("VNG Corporation")
+                .companyId(fallbackCompId)
+                .companyName(fallbackCompName)
                 .build();
 
-        when(recruiterRepository.findById(302L)).thenReturn(Optional.of(recruiter));
-        when(companyRepository.findByRecruiterId(302L)).thenReturn(Optional.of(fallbackCompany));
+        when(recruiterRepository.findById(userId)).thenReturn(Optional.of(recruiter));
+        when(companyRepository.findByRecruiterId(userId)).thenReturn(Optional.of(fallbackCompany));
 
         AuthResponse response = authService.getCurrentUser(recruiterUser);
 
         Assert.assertNotNull(response);
-        Assert.assertEquals(response.getCompanyId(), Long.valueOf(601L));
-        Assert.assertEquals(response.getCompanyName(), "VNG Corporation");
+        Assert.assertEquals(response.getCompanyId(), Long.valueOf(fallbackCompId));
+        Assert.assertEquals(response.getCompanyName(), fallbackCompName);
     }
 
     @Test(description = "AUTH-M05 / UTCID05: Recruiter chưa liên kết công ty nào, companyId trả về null")
     public void test_AUTH_M05_UTCID05_getCurrentUser_Recruiter_NoCompany_Success() {
+        var data = TestDataLoader.loadJsonNode("testdata/auth-testdata.json").path("getCurrentUser").path("AUTH_M05");
+        Long userId = data.path("userId").asLong(303L);
         User recruiterUser = User.builder()
-                .userId(303L)
-                .email("freelance.recruiter@hiremate.ai")
-                .role(UserRole.RECRUITER)
+                .userId(userId)
+                .email(data.path("email").asText("freelance.recruiter@hiremate.ai"))
+                .role(UserRole.valueOf(data.path("role").asText("RECRUITER")))
                 .build();
 
-        when(recruiterRepository.findById(303L)).thenReturn(Optional.empty());
-        when(companyRepository.findByRecruiterId(303L)).thenReturn(Optional.empty());
+        when(recruiterRepository.findById(userId)).thenReturn(Optional.empty());
+        when(companyRepository.findByRecruiterId(userId)).thenReturn(Optional.empty());
 
         AuthResponse response = authService.getCurrentUser(recruiterUser);
 
@@ -443,28 +471,33 @@ public class AuthServiceDesignTestNGTest {
 
     @Test(description = "AUTH-M06 / UTCID06: Recruiter truy cập lazy Company ném runtime exception, fallback an toàn")
     public void test_AUTH_M06_UTCID06_getCurrentUser_Recruiter_LazyCompanyThrows_Fallback_Success() {
+        var data = TestDataLoader.loadJsonNode("testdata/auth-testdata.json").path("getCurrentUser").path("AUTH_M06");
+        Long userId = data.path("userId").asLong(304L);
+        Long fallbackCompId = data.path("fallbackCompanyId").asLong(701L);
+        String fallbackCompName = data.path("fallbackCompanyName").asText("Viettel Group");
+
         User recruiterUser = User.builder()
-                .userId(304L)
-                .email("lazy.recruiter@hiremate.ai")
-                .role(UserRole.RECRUITER)
+                .userId(userId)
+                .email(data.path("email").asText("lazy.recruiter@hiremate.ai"))
+                .role(UserRole.valueOf(data.path("role").asText("RECRUITER")))
                 .build();
 
         Recruiter mockRecruiter = mock(Recruiter.class);
         when(mockRecruiter.getCompany()).thenThrow(new RuntimeException("Lazy loading failed without Hibernate session"));
 
         Company fallbackCompany = Company.builder()
-                .companyId(701L)
-                .companyName("Viettel Group")
+                .companyId(fallbackCompId)
+                .companyName(fallbackCompName)
                 .build();
 
-        when(recruiterRepository.findById(304L)).thenReturn(Optional.of(mockRecruiter));
-        when(companyRepository.findByRecruiterId(304L)).thenReturn(Optional.of(fallbackCompany));
+        when(recruiterRepository.findById(userId)).thenReturn(Optional.of(mockRecruiter));
+        when(companyRepository.findByRecruiterId(userId)).thenReturn(Optional.of(fallbackCompany));
 
         AuthResponse response = authService.getCurrentUser(recruiterUser);
 
         Assert.assertNotNull(response);
-        Assert.assertEquals(response.getCompanyId(), Long.valueOf(701L));
-        Assert.assertEquals(response.getCompanyName(), "Viettel Group");
+        Assert.assertEquals(response.getCompanyId(), Long.valueOf(fallbackCompId));
+        Assert.assertEquals(response.getCompanyName(), fallbackCompName);
     }
 
     // ==========================================================================

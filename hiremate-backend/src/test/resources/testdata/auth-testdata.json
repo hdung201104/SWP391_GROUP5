@@ -9,6 +9,14 @@
       "role": "CANDIDATE",
       "otp": "123456"
     },
+    "AUTH_R02": {
+      "caseId": "AUTH-R02",
+      "email": "candidate.weak@hiremate.ai",
+      "password": "weak",
+      "fullName": "Weak Password User",
+      "role": "CANDIDATE",
+      "otp": "123456"
+    },
     "AUTH_R03": {
       "caseId": "AUTH-R03",
       "email": "existing@hiremate.ai",
@@ -25,6 +33,15 @@
       "role": "CANDIDATE",
       "otp": null
     },
+    "AUTH_R05": {
+      "caseId": "AUTH-R05",
+      "email": "candidate.new@hiremate.ai",
+      "password": "Password123@",
+      "fullName": "Nguyen Van Duplicate",
+      "phone": "0987654321",
+      "role": "CANDIDATE",
+      "otp": "123456"
+    },
     "AUTH_R06": {
       "caseId": "AUTH-R06",
       "email": "wrong.otp@hiremate.ai",
@@ -32,6 +49,26 @@
       "fullName": "Tran Van C",
       "role": "CANDIDATE",
       "otp": "999999"
+    },
+    "AUTH_R13": {
+      "caseId": "AUTH-R13",
+      "email": "young.candidate@hiremate.ai",
+      "password": "ValidPassword123@",
+      "fullName": "Young Candidate",
+      "role": "CANDIDATE",
+      "otp": "123456",
+      "yearsOffset": 14,
+      "daysOffset": 1
+    },
+    "AUTH_R14": {
+      "caseId": "AUTH-R14",
+      "email": "exact14@hiremate.ai",
+      "password": "ValidPassword123@",
+      "fullName": "Exact 14 Candidate",
+      "role": "CANDIDATE",
+      "otp": "123456",
+      "yearsOffset": 14,
+      "daysOffset": 0
     }
   },
   "login": {
@@ -57,14 +94,60 @@
     },
     "AUTH_L06": {
       "caseId": "AUTH-L06",
-      "email": "banned@hiremate.ai",
-      "password": "Password123@"
+      "email": "blocked@hiremate.ai",
+      "password": "CorrectPassword123@"
     },
     "AUTH_L07": {
       "caseId": "AUTH-L07",
       "email": "  CANDIDATE@HIREMATE.AI  ",
       "normalizedEmail": "candidate@hiremate.ai",
       "password": "CorrectPassword123@"
+    }
+  },
+  "getCurrentUser": {
+    "AUTH_M01": {
+      "caseId": "AUTH-M01",
+      "userId": 101,
+      "email": "candidate@hiremate.ai",
+      "fullName": "Nguyen Van Candidate",
+      "role": "CANDIDATE"
+    },
+    "AUTH_M02": {
+      "caseId": "AUTH-M02",
+      "userId": 201,
+      "email": "admin@hiremate.ai",
+      "fullName": "System Administrator",
+      "role": "ADMIN"
+    },
+    "AUTH_M03": {
+      "caseId": "AUTH-M03",
+      "userId": 301,
+      "email": "recruiter@fpt.com",
+      "role": "RECRUITER",
+      "companyId": 501,
+      "companyName": "FPT Software"
+    },
+    "AUTH_M04": {
+      "caseId": "AUTH-M04",
+      "userId": 302,
+      "email": "recruiter2@vng.com",
+      "role": "RECRUITER",
+      "fallbackCompanyId": 601,
+      "fallbackCompanyName": "VNG Corporation"
+    },
+    "AUTH_M05": {
+      "caseId": "AUTH-M05",
+      "userId": 303,
+      "email": "freelance.recruiter@hiremate.ai",
+      "role": "RECRUITER"
+    },
+    "AUTH_M06": {
+      "caseId": "AUTH-M06",
+      "userId": 304,
+      "email": "lazy.recruiter@hiremate.ai",
+      "role": "RECRUITER",
+      "fallbackCompanyId": 701,
+      "fallbackCompanyName": "Viettel Group"
     }
   },
   "extended": {
