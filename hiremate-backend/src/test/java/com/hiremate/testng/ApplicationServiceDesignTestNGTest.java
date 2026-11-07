@@ -691,6 +691,7 @@ public class ApplicationServiceDesignTestNGTest {
         long strangerCvId = data.path("strangerCvId").asLong(999L);
         long strangerCandidateId = data.path("strangerCandidateId").asLong(999L);
         long defaultCvId = data.path("defaultCvId").asLong(501L);
+        sampleCv.setCvId(defaultCvId);
 
         Cv strangerCv = Cv.builder()
                 .cvId(strangerCvId)
