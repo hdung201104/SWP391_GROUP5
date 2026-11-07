@@ -22,6 +22,7 @@
 		<maven.compiler.release>21</maven.compiler.release>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<jwt.version>0.12.5</jwt.version>
+		<m2e.apt.activation>none</m2e.apt.activation>
 	</properties>
 
 	<dependencies>
@@ -163,13 +164,6 @@
 					<target>21</target>
 					<fork>true</fork>
 					<executable>C:\Program Files\Eclipse Adoptium\jdk-21.0.12.101-hotspot\bin\javac.exe</executable>
-					<annotationProcessorPaths>
-						<path>
-							<groupId>org.projectlombok</groupId>
-							<artifactId>lombok</artifactId>
-							<version>${lombok.version}</version>
-						</path>
-					</annotationProcessorPaths>
 				</configuration>
 			</plugin>
 			<plugin>

@@ -19,11 +19,11 @@
     "java.compiler.compliance": "21",
     "java.compile.source": "21",
     "java.compile.target": "21",
-    "java.compiler.annotationProcessing.enabled": true,
+    "java.compiler.annotationProcessing.enabled": false,
     "java.jdt.ls.lombokSupport.enabled": true,
     "java.jdt.ls.vmargs": "--add-modules=ALL-SYSTEM -XX:+UseParallelGC -XX:GCTimeRatio=4 -XX:AdaptiveSizePolicyWeight=90 -Dsun.zip.disableMemoryMapping=true -Xmx2G -Xms100m",
     "java.errors.incompleteClasspath.severity": "ignore",
-    "java.autobuild.enabled": false,
+    "java.autobuild.enabled": true,
     "maven.executable.preferMavenWrapper": true
   }
 }
