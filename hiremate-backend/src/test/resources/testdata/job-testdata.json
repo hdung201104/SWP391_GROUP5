@@ -1,0 +1,105 @@
+{
+  "createJob": {
+    "JOB_C01": {
+      "caseId": "JOB-C01",
+      "title": "Senior Java Engineer",
+      "vacanciesCount": 2,
+      "salaryMin": 0.0,
+      "salaryMax": 20.0,
+      "deadlineDaysOffset": 7
+    },
+    "JOB_C02": {
+      "caseId": "JOB-C02",
+      "title": "Java Dev",
+      "vacanciesCount": 0,
+      "salaryMin": 20.0,
+      "salaryMax": 20.0,
+      "deadlineDaysOffset": 0
+    },
+    "JOB_C03": {
+      "caseId": "JOB-C03",
+      "title": "Frontend Developer",
+      "vacanciesCount": 1,
+      "salaryMin": 20.0,
+      "salaryMax": 20.0,
+      "deadlineDaysOffset": 0
+    },
+    "JOB_C05": {
+      "caseId": "JOB-C05",
+      "title": "Tester",
+      "vacanciesCount": 2,
+      "salaryMin": -1.0,
+      "salaryMax": 20.0,
+      "deadlineDaysOffset": 7
+    },
+    "JOB_C09": {
+      "caseId": "JOB-C09",
+      "title": "DevOps",
+      "vacanciesCount": 1,
+      "salaryMin": 20.0,
+      "salaryMax": 19.0,
+      "deadlineDaysOffset": 0
+    },
+    "JOB_C11": {
+      "caseId": "JOB-C11",
+      "title": "Product Owner",
+      "vacanciesCount": 1,
+      "salaryMin": 20.0,
+      "salaryMax": 20.0,
+      "deadlineDaysOffset": -1
+    }
+  },
+  "updateJob": {
+    "JOB_U01": {
+      "caseId": "JOB-U01",
+      "vacanciesCount": 1
+    },
+    "JOB_U04": {
+      "caseId": "JOB-U04",
+      "vacanciesCount": 0
+    }
+  },
+  "searchJob": {
+    "JOB_S05": {
+      "caseId": "JOB-S05",
+      "keyword": "   "
+    }
+  },
+  "extended": {
+    "JOB_EXT01": {
+      "caseId": "JOB-EXT-01",
+      "title": "Java Dev",
+      "vacanciesCount": 2,
+      "salaryMin": 10.0,
+      "salaryMax": 20.0,
+      "deadlineDaysOffset": 10
+    },
+    "JOB_EXT02": {
+      "caseId": "JOB-EXT-02",
+      "companyStatus": "PENDING",
+      "companyName": "Pending Startup"
+    },
+    "JOB_EXT03": {
+      "caseId": "JOB-EXT-03",
+      "companyStatus": "REJECTED",
+      "companyName": "Rejected Corp"
+    },
+    "JOB_EXT04": {
+      "caseId": "JOB-EXT-04",
+      "companyStatus": "BANNED",
+      "companyName": "Banned Corp"
+    },
+    "JOB_EXT05": {
+      "caseId": "JOB-EXT-05",
+      "title": "Fullstack Java",
+      "vacanciesCount": 3,
+      "salaryMin": 15.0,
+      "salaryMax": 30.0,
+      "deadlineDaysOffset": 15,
+      "mandatorySkillId": 1,
+      "mandatorySkillName": "Java",
+      "preferredSkillId": 2,
+      "preferredSkillName": "Docker"
+    }
+  }
+}

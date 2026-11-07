@@ -1,1 +1,4 @@
-<factorypath/>
+<factorypath>
+    <factorypathentry kind="EXTJAR" id="C:/Users/ADMIN/.m2/repository/org/projectlombok/lombok/1.18.36/lombok-1.18.36.jar" enabled="true" runInBatchMode="false"/>
+    <factorypathentry kind="VARJAR" id="M2_REPO/org/projectlombok/lombok/1.18.36/lombok-1.18.36.jar" enabled="true" runInBatchMode="false"/>
+</factorypath>

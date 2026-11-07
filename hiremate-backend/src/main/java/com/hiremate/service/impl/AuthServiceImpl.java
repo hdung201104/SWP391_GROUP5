@@ -1107,8 +1107,12 @@ public class AuthServiceImpl implements AuthService {
                 res.setDepartment(r.getDepartment());
                 res.setBranchName(r.getBranchName());
                 res.setIsHeadRecruiter(r.getIsHeadRecruiter());
-                if (r.getCompany() != null) {
-                    res.setTaxCode(r.getCompany().getTaxCode());
+                try {
+                    if (r.getCompany() != null) {
+                        res.setTaxCode(r.getCompany().getTaxCode());
+                    }
+                } catch (Exception ignored) {
+                    // Lazy loading fallback safely ignored
                 }
             });
         }

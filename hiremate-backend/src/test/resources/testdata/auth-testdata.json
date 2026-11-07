@@ -1,0 +1,135 @@
+{
+  "register": {
+    "AUTH_R01": {
+      "caseId": "AUTH-R01",
+      "email": "candidate.new@hiremate.ai",
+      "password": "Password123@",
+      "fullName": "Nguyen Van Candidate",
+      "phone": "0987654321",
+      "role": "CANDIDATE",
+      "otp": "123456"
+    },
+    "AUTH_R03": {
+      "caseId": "AUTH-R03",
+      "email": "existing@hiremate.ai",
+      "password": "Password123@",
+      "fullName": "Nguyen Van A",
+      "role": "CANDIDATE",
+      "otp": "123456"
+    },
+    "AUTH_R04": {
+      "caseId": "AUTH-R04",
+      "email": "no.otp@hiremate.ai",
+      "password": "Password123@",
+      "fullName": "Le Van B",
+      "role": "CANDIDATE",
+      "otp": null
+    },
+    "AUTH_R06": {
+      "caseId": "AUTH-R06",
+      "email": "wrong.otp@hiremate.ai",
+      "password": "Password123@",
+      "fullName": "Tran Van C",
+      "role": "CANDIDATE",
+      "otp": "999999"
+    }
+  },
+  "login": {
+    "AUTH_L01": {
+      "caseId": "AUTH-L01",
+      "email": "candidate@hiremate.ai",
+      "password": "CorrectPassword123@"
+    },
+    "AUTH_L02": {
+      "caseId": "AUTH-L02",
+      "email": null,
+      "password": "ValidPassword123@"
+    },
+    "AUTH_L04": {
+      "caseId": "AUTH-L04",
+      "email": "nonexistent@hiremate.ai",
+      "password": "Password123@"
+    },
+    "AUTH_L05": {
+      "caseId": "AUTH-L05",
+      "email": "wrongpass@hiremate.ai",
+      "password": "WrongPassword999@"
+    },
+    "AUTH_L06": {
+      "caseId": "AUTH-L06",
+      "email": "banned@hiremate.ai",
+      "password": "Password123@"
+    },
+    "AUTH_L07": {
+      "caseId": "AUTH-L07",
+      "email": "  CANDIDATE@HIREMATE.AI  ",
+      "normalizedEmail": "candidate@hiremate.ai",
+      "password": "CorrectPassword123@"
+    }
+  },
+  "extended": {
+    "AUTH_EXT01": {
+      "caseId": "AUTH-EXT-01",
+      "email": "admin.attempt@hiremate.ai",
+      "password": "Password123@",
+      "otp": "123456",
+      "role": "ADMIN"
+    },
+    "AUTH_EXT02": {
+      "caseId": "AUTH-EXT-02",
+      "email": "valid.phone@hiremate.ai",
+      "password": "Password123@",
+      "otp": "123456",
+      "phone": "012345"
+    },
+    "AUTH_EXT03": {
+      "caseId": "AUTH-EXT-03",
+      "email": "future.dob@hiremate.ai",
+      "password": "Password123@",
+      "otp": "123456",
+      "daysOffset": 2
+    },
+    "AUTH_EXT04": {
+      "caseId": "AUTH-EXT-04",
+      "email": "ancient.dob@hiremate.ai",
+      "password": "Password123@",
+      "otp": "123456",
+      "dateOfBirth": "1910-05-12"
+    },
+    "AUTH_EXT05": {
+      "caseId": "AUTH-EXT-05",
+      "email": "not-an-email",
+      "password": "Password123@",
+      "otp": "123456"
+    },
+    "AUTH_EXT06": {
+      "caseId": "AUTH-EXT-06",
+      "email": "hr.director@newcorp.vn",
+      "password": "Password123@",
+      "fullName": "Nguyen Van HR",
+      "role": "RECRUITER",
+      "otp": "123456",
+      "companyName": "New Tech Corporation",
+      "taxCode": "0109988776",
+      "companySize": "100-500 nhân viên",
+      "website": "https://newcorp.vn",
+      "position": "Giám đốc Nhân sự"
+    },
+    "AUTH_EXT07": {
+      "caseId": "AUTH-EXT-07",
+      "email": "hr.staff@fpt.com",
+      "password": "Password123@",
+      "role": "RECRUITER",
+      "otp": "123456",
+      "companyId": 10,
+      "wrongHrPin": "9999",
+      "correctHrPin": "1234"
+    },
+    "AUTH_EXT08": {
+      "caseId": "AUTH-EXT-08",
+      "email": "legacy.user@hiremate.ai",
+      "plainPassword": "plainSecretPass123",
+      "newBcryptHash": "new_bcrypt_hash"
+    }
+  }
+}
