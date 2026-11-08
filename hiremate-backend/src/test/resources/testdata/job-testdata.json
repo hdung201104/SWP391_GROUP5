@@ -330,6 +330,57 @@
       "keyword": "Java",
       "location": "   ",
       "expectedTitle": "Senior Java Developer"
+    },
+    "JOB_COV_U11": {
+      "caseId": "JOB-COV-U11",
+      "title": "Defaulted Null Fields Job"
+    },
+    "JOB_COV_U12": {
+      "caseId": "JOB-COV-U12",
+      "title": "Closed Past Deadline Job",
+      "vacanciesCount": 2,
+      "salaryMin": 10.0,
+      "salaryMax": 20.0
+    },
+    "JOB_COV_U13": {
+      "caseId": "JOB-COV-U13",
+      "title": "Active Company Status Job",
+      "vacanciesCount": 2,
+      "salaryMin": 15.0,
+      "salaryMax": 25.0,
+      "deadlineDaysOffset": 10,
+      "companyStatus": "ACTIVE"
+    },
+    "JOB_COV_U14": {
+      "caseId": "JOB-COV-U14",
+      "title": "Null Skill Elements Job",
+      "vacanciesCount": 2,
+      "salaryMin": 15.0,
+      "salaryMax": 25.0,
+      "deadlineDaysOffset": 10
+    },
+    "JOB_COV_U15": {
+      "caseId": "JOB-COV-U15",
+      "title": "Blank Category Inferred Job",
+      "vacanciesCount": 1,
+      "salaryMin": 10.0,
+      "salaryMax": 20.0,
+      "deadlineDaysOffset": 10
+    },
+    "JOB_COV_C08": {
+      "caseId": "JOB-COV-C08",
+      "title": "Active Company Create Job",
+      "salaryMin": 10.0,
+      "salaryMax": 20.0,
+      "deadlineDaysOffset": 10,
+      "companyStatus": "ACTIVE"
+    },
+    "JOB_COV_C09": {
+      "caseId": "JOB-COV-C09",
+      "title": "Default Currency And Branch Job",
+      "salaryMin": 12.0,
+      "salaryMax": 22.0,
+      "deadlineDaysOffset": 10
     }
   }
 }
