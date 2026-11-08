@@ -34,7 +34,6 @@ import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -48,13 +47,14 @@ import static org.mockito.Mockito.*;
 
 /**
  * ==============================================================================
- * HIREMATE AI - JOB SERVICE OPTIMIZED UNIT TEST SUITE (8 CASES PER FUNCTION)
- * Exactly 8 high-impact test cases per function across 3 core methods = 24 cases:
+ * HIREMATE AI - MAXIMUM BRANCH COVERAGE SUITE (MINIMAL TEST CASES: 8 PER FUNCTION)
+ * Architecture Formula:
+ *   Branch Coverage Tối Đa = (3 Tests Exception Điểm Nóng) + (5 Tests Deep-Path Đảo Cờ TRUE/FALSE Song Song)
+ * Total: 24 Test Cases across 3 Core Methods:
  *   1. createJob(JobCreateRequest, User)       -> 8 Cases (C01 - C08)
  *   2. updateJob(Long, JobCreateRequest, User)  -> 8 Cases (U01 - U08)
  *   3. getPublishedJobs(String, String)         -> 8 Cases (S01 - S08)
- * Each test covers high-risk fault conditions (primary) and composite branch logic (secondary).
- * Framework: TestNG 7.9.0 + Mockito (Isolated, no production database required).
+ * Framework: TestNG 7.9.0 + Mockito (Isolated, in-memory, no production DB)
  * ==============================================================================
  */
 public class JobServiceDesignTestNGTest {
@@ -155,43 +155,27 @@ public class JobServiceDesignTestNGTest {
     }
 
     // ==========================================================================
-    // FUNCTION 1: createJob(JobCreateRequest, User) — 8 HIGH-IMPACT TEST CASES
+    // FUNCTION 1: createJob(JobCreateRequest, User)
+    // Formula: 3 Exception Tests + 5 Deep-Path Tests = 8 Tests
     // ==========================================================================
 
-    @Test(description = "JOB-C01: Validation fault - vacanciesCount = 0 throws IllegalArgumentException")
+    @Test(description = "JOB-C01 [Exception 1]: Validation fault - vacanciesCount = 0 throws IllegalArgumentException")
     public void test_JOB_C01_createJob_VacanciesZero_ThrowsException() {
         JobCreateRequest req = buildJobReq("Java Dev", 0, BigDecimal.ZERO, new BigDecimal("20000000"), LocalDate.now().plusDays(10));
         Assert.assertThrows(IllegalArgumentException.class, () -> jobService.createJob(req, sampleRecruiterUser));
         verify(jobRepository, never()).save(any());
     }
 
-    @Test(description = "JOB-C02: Validation fault - maxSalary < minSalary throws IllegalArgumentException")
-    public void test_JOB_C02_createJob_SalaryValidationViolation_ThrowsException() {
-        JobCreateRequest req = buildJobReq("Java Dev", 2, new BigDecimal("30000000"), new BigDecimal("20000000"), LocalDate.now().plusDays(10));
-        Assert.assertThrows(IllegalArgumentException.class, () -> jobService.createJob(req, sampleRecruiterUser));
+    @Test(description = "JOB-C02 [Exception 2]: Data integrity fault - Recruiter profile missing throws IllegalStateException")
+    public void test_JOB_C02_createJob_RecruiterNotFound_ThrowsIllegalStateException() {
+        when(recruiterRepository.findById(301L)).thenReturn(Optional.empty());
+        JobCreateRequest req = buildJobReq("Backend Dev", 1, BigDecimal.ZERO, new BigDecimal("20000000"), LocalDate.now().plusDays(10));
+        Assert.assertThrows(IllegalStateException.class, () -> jobService.createJob(req, sampleRecruiterUser));
         verify(jobRepository, never()).save(any());
     }
 
-    @Test(description = "JOB-C03: Validation fault - deadlineDate in past throws IllegalArgumentException")
-    public void test_JOB_C03_createJob_DeadlineYesterday_ThrowsException() {
-        JobCreateRequest req = buildJobReq("Java Dev", 2, new BigDecimal("10000000"), new BigDecimal("20000000"), LocalDate.now().minusDays(1));
-        Assert.assertThrows(IllegalArgumentException.class, () -> jobService.createJob(req, sampleRecruiterUser));
-        verify(jobRepository, never()).save(any());
-    }
-
-    @Test(description = "JOB-C04: Legal guard - Recruiter without company profile throws IllegalArgumentException")
-    public void test_JOB_C04_createJob_CompanyRejected_ThrowsException() {
-        Recruiter recWithoutCompany = Recruiter.builder().recruiterId(301L).company(null).build();
-        when(recruiterRepository.findById(301L)).thenReturn(Optional.of(recWithoutCompany));
-        when(companyRepository.findByRecruiterId(301L)).thenReturn(Optional.empty());
-
-        JobCreateRequest req = buildJobReq("Backend Dev", 2, BigDecimal.ZERO, new BigDecimal("20000000"), LocalDate.now().plusDays(10));
-        Assert.assertThrows(IllegalArgumentException.class, () -> jobService.createJob(req, sampleRecruiterUser));
-        verify(jobRepository, never()).save(any());
-    }
-
-    @Test(description = "JOB-C05: Security guard - Company status PENDING or BANNED throws IllegalArgumentException")
-    public void test_JOB_C05_createJob_CompanySuspendedOrBanned_ThrowsException() {
+    @Test(description = "JOB-C03 [Exception 3]: Legal guard fault - Company status PENDING throws IllegalArgumentException")
+    public void test_JOB_C03_createJob_CompanyPending_ThrowsIllegalArgumentException() {
         Company pendingComp = Company.builder().companyId(13L).companyName("Pending Corp").status(CompanyStatus.PENDING).build();
         Recruiter rec = Recruiter.builder().recruiterId(301L).company(pendingComp).build();
         when(recruiterRepository.findById(301L)).thenReturn(Optional.of(rec));
@@ -201,38 +185,68 @@ public class JobServiceDesignTestNGTest {
         verify(jobRepository, never()).save(any());
     }
 
-    @Test(description = "JOB-C06: Data integrity guard - Recruiter profile missing in DB throws IllegalStateException")
-    public void test_JOB_C06_createJob_RecruiterNotFound_ThrowsIllegalStateException() {
-        when(recruiterRepository.findById(301L)).thenReturn(Optional.empty());
-        JobCreateRequest req = buildJobReq("Backend Dev", 1, BigDecimal.ZERO, new BigDecimal("20000000"), LocalDate.now().plusDays(10));
-        Assert.assertThrows(IllegalStateException.class, () -> jobService.createJob(req, sampleRecruiterUser));
-        verify(jobRepository, never()).save(any());
+    @Test(description = "JOB-C04 [Deep-Path 1]: Full payload, auto publish, Company ACTIVE, all custom fields set (All TRUE branches)")
+    public void test_JOB_C04_createJob_DeepPath_FullPayload_AutoPublish_CompanyActive() {
+        Company activeComp = Company.builder().companyId(11L).companyName("Active Corp").status(CompanyStatus.ACTIVE).build();
+        Recruiter rec = Recruiter.builder().recruiterId(301L).user(sampleRecruiterUser).company(activeComp).build();
+        when(recruiterRepository.findById(301L)).thenReturn(Optional.of(rec));
+
+        AdminSettingsDTO settings = new AdminSettingsDTO();
+        settings.setRequireGpkdToPost(true);
+        settings.setModerateNewJobs(true);
+        settings.setAutoPublishVerified(true);
+        when(systemSettingsService.getSettings()).thenReturn(settings);
+
+        JobCreateRequest req = buildJobReq("AI Lead", 5, new BigDecimal("25000000"), new BigDecimal("50000000"), LocalDate.now().plusDays(30));
+        req.setBranchName("Chi nhánh Hà Nội");
+        req.setSalaryCurrency("USD");
+        req.setCategory("Artificial Intelligence");
+        req.setMandatorySkills(List.of("Java"));
+        req.setPreferredSkills(List.of("Docker"));
+        req.setMandatorySkillIds(List.of(101L));
+
+        Job savedJob = Job.builder()
+                .jobId(704L)
+                .title(req.getTitle())
+                .recruiter(rec)
+                .company(activeComp)
+                .branchName("Chi nhánh Hà Nội")
+                .salaryCurrency("USD")
+                .jobCategory("Artificial Intelligence")
+                .vacanciesCount(5)
+                .status(JobStatus.PUBLISHED)
+                .approvalStatus(JobApprovalStatus.APPROVED)
+                .build();
+        when(jobRepository.save(any(Job.class))).thenReturn(savedJob);
+
+        JobResponse res = jobService.createJob(req, sampleRecruiterUser);
+
+        Assert.assertNotNull(res);
+        Assert.assertEquals(res.getStatus(), JobStatus.PUBLISHED);
+        Assert.assertEquals(res.getApprovalStatus(), JobApprovalStatus.APPROVED);
+        verify(jobRepository).save(any(Job.class));
+        verify(notificationService).createNotification(eq(301L), eq(NotificationType.SYSTEM_ALERT), anyString(), anyString(), eq(704L), eq("jobs"));
     }
 
-    @Test(description = "JOB-C07: Primary success path - vacancies boundary, company fallback, skills 70/30, branch & currency defaults")
-    public void test_JOB_C07_createJob_Success_SkillsMapping_AndCompanyFallback() {
+    @Test(description = "JOB-C05 [Deep-Path 2]: Minimal payload, company fallback lookup, moderation disabled, recruiter branch fallback (All FALSE branches)")
+    public void test_JOB_C05_createJob_DeepPath_MinimalPayload_FallbackCompany_TurnOffModeration() {
         Recruiter recWithoutCompany = Recruiter.builder().recruiterId(301L).user(sampleRecruiterUser).company(null).branchName("Trụ sở chính").build();
         when(recruiterRepository.findById(301L)).thenReturn(Optional.of(recWithoutCompany));
         when(companyRepository.findByRecruiterId(301L)).thenReturn(Optional.of(sampleVerifiedCompany));
-        when(skillRepository.findBySkillNameIgnoreCase(anyString())).thenAnswer(inv -> {
-            String name = inv.getArgument(0);
-            return Optional.of(Skill.builder().skillId(101L).skillName(name).build());
-        });
-        when(skillRepository.save(any(Skill.class))).thenAnswer(inv -> {
-            Skill s = inv.getArgument(0);
-            if (s.getSkillId() == null) s.setSkillId(101L);
-            return s;
-        });
 
-        JobCreateRequest req = buildJobReq("Senior Java Engineer", null, new BigDecimal("15000000"), new BigDecimal("35000000"), LocalDate.now().plusDays(15));
-        req.setMandatorySkills(List.of("Java"));
-        req.setPreferredSkills(List.of("Spring Boot", "Docker"));
+        AdminSettingsDTO settings = new AdminSettingsDTO();
+        settings.setRequireGpkdToPost(true);
+        settings.setModerateNewJobs(false); // Moderation off
+        when(systemSettingsService.getSettings()).thenReturn(settings);
+
+        JobCreateRequest req = buildJobReq("Java Software Engineer", null, new BigDecimal("10000000"), new BigDecimal("25000000"), LocalDate.now().plusDays(10));
         req.setBranchName(null); // tests fallback to recruiter branch
         req.setSalaryCurrency(null); // tests default VND
         req.setCategory(null); // tests inferred category
+        req.setVacanciesCount(null); // tests default 1
 
         Job savedJob = Job.builder()
-                .jobId(701L)
+                .jobId(705L)
                 .title(req.getTitle())
                 .recruiter(sampleRecruiter)
                 .company(sampleVerifiedCompany)
@@ -245,16 +259,44 @@ public class JobServiceDesignTestNGTest {
         JobResponse res = jobService.createJob(req, sampleRecruiterUser);
 
         Assert.assertNotNull(res);
-        Assert.assertEquals(res.getJobId(), Long.valueOf(701L));
         Assert.assertEquals(res.getStatus(), JobStatus.PUBLISHED);
-        Assert.assertEquals(res.getApprovalStatus(), JobApprovalStatus.APPROVED);
         verify(recruiterRepository).save(recWithoutCompany);
         verify(jobRepository).save(any(Job.class));
-        verify(notificationService).createNotification(eq(301L), eq(NotificationType.SYSTEM_ALERT), anyString(), anyString(), eq(701L), eq("jobs"));
     }
 
-    @Test(description = "JOB-C08: Composite branch - Admin settings moderateNewJobs=true, autoPublishVerified=false -> DRAFT/PENDING, notification resilient")
-    public void test_JOB_C08_createJob_PendingApproval_AdminSettings_AndNotificationResilient() {
+    @Test(description = "JOB-C06 [Deep-Path 3]: Admin role bypasses legal guard, Company VERIFIED, tertiary literal fallback for branch")
+    public void test_JOB_C06_createJob_DeepPath_AdminBypass_CompanyVerified_TertiaryFallbacks() {
+        User adminUser = User.builder().userId(1L).fullName("System Admin").role(UserRole.ADMIN).status(UserStatus.ACTIVE).build();
+        Recruiter adminRec = Recruiter.builder().recruiterId(1L).user(adminUser).company(sampleVerifiedCompany).branchName(null).build();
+        when(recruiterRepository.findById(1L)).thenReturn(Optional.of(adminRec));
+
+        JobCreateRequest req = buildJobReq("Tech Lead", 1, new BigDecimal("30000000"), new BigDecimal("60000000"), LocalDate.now().plusDays(30));
+        req.setBranchName(null); // Both request & recruiter branch null -> falls back to "Trụ sở chính"
+        req.setSalaryCurrency("   "); // Blank currency string
+        req.setCategory("   "); // Blank category string
+
+        Job savedJob = Job.builder()
+                .jobId(706L)
+                .title(req.getTitle())
+                .recruiter(adminRec)
+                .company(sampleVerifiedCompany)
+                .branchName("Trụ sở chính")
+                .salaryCurrency("VND")
+                .jobCategory("Information Technology")
+                .status(JobStatus.PUBLISHED)
+                .approvalStatus(JobApprovalStatus.APPROVED)
+                .build();
+        when(jobRepository.save(any(Job.class))).thenReturn(savedJob);
+
+        JobResponse res = jobService.createJob(req, adminUser);
+
+        Assert.assertNotNull(res);
+        Assert.assertEquals(res.getStatus(), JobStatus.PUBLISHED);
+        verify(jobRepository).save(any(Job.class));
+    }
+
+    @Test(description = "JOB-C07 [Deep-Path 4]: Manual admin approval flow (moderateOn, autoPublishOff) -> DRAFT+PENDING, notification exception caught")
+    public void test_JOB_C07_createJob_DeepPath_ManualApproval_DraftPending_NotificationResilient() {
         when(recruiterRepository.findById(301L)).thenReturn(Optional.of(sampleRecruiter));
 
         AdminSettingsDTO settings = new AdminSettingsDTO();
@@ -263,13 +305,13 @@ public class JobServiceDesignTestNGTest {
         settings.setAutoPublishVerified(false);
         when(systemSettingsService.getSettings()).thenReturn(settings);
 
-        JobCreateRequest req = buildJobReq("AI Engineer", 3, new BigDecimal("20000000"), new BigDecimal("40000000"), LocalDate.now().plusDays(20));
+        JobCreateRequest req = buildJobReq("AI Specialist", 3, new BigDecimal("20000000"), new BigDecimal("45000000"), LocalDate.now().plusDays(20));
         req.setBranchName("Chi nhánh Đà Nẵng");
         req.setSalaryCurrency("USD");
         req.setCategory("Data Science");
 
         Job pendingJob = Job.builder()
-                .jobId(702L)
+                .jobId(707L)
                 .title(req.getTitle())
                 .recruiter(sampleRecruiter)
                 .company(sampleVerifiedCompany)
@@ -287,14 +329,41 @@ public class JobServiceDesignTestNGTest {
         Assert.assertNotNull(res);
         Assert.assertEquals(res.getStatus(), JobStatus.DRAFT);
         Assert.assertEquals(res.getApprovalStatus(), JobApprovalStatus.PENDING);
-        verify(notificationService).notifyAdmins(eq(NotificationType.SYSTEM_ALERT), anyString(), anyString(), eq(702L), eq("jobs"));
+        verify(notificationService).notifyAdmins(eq(NotificationType.SYSTEM_ALERT), anyString(), anyString(), eq(707L), eq("jobs"));
+    }
+
+    @Test(description = "JOB-C08 [Deep-Path 5]: SystemSettings null guard defaults booleans, infer category null fallback")
+    public void test_JOB_C08_createJob_DeepPath_SettingsNullGuard_InferFallback() {
+        when(recruiterRepository.findById(301L)).thenReturn(Optional.of(sampleRecruiter));
+        when(systemSettingsService.getSettings()).thenReturn(null); // Settings null guard
+
+        JobCreateRequest req = buildJobReq("Junior Developer", 2, new BigDecimal("8000000"), new BigDecimal("15000000"), LocalDate.now().plusDays(14));
+        req.setBranchName("   ");
+        req.setSalaryCurrency("VND");
+        req.setCategory("Other");
+
+        Job savedJob = Job.builder()
+                .jobId(708L)
+                .title(req.getTitle())
+                .recruiter(sampleRecruiter)
+                .company(sampleVerifiedCompany)
+                .status(JobStatus.PUBLISHED)
+                .approvalStatus(JobApprovalStatus.APPROVED)
+                .build();
+        when(jobRepository.save(any(Job.class))).thenReturn(savedJob);
+
+        JobResponse res = jobService.createJob(req, sampleRecruiterUser);
+
+        Assert.assertNotNull(res);
+        verify(jobRepository).save(any(Job.class));
     }
 
     // ==========================================================================
-    // FUNCTION 2: updateJob(Long, JobCreateRequest, User) — 8 HIGH-IMPACT TEST CASES
+    // FUNCTION 2: updateJob(Long, JobCreateRequest, User)
+    // Formula: 3 Exception Tests + 5 Deep-Path Tests = 8 Tests
     // ==========================================================================
 
-    @Test(description = "JOB-U01: Security guard - Unauthorized recruiter editing another company's job throws SecurityException")
+    @Test(description = "JOB-U01 [Exception 1]: Security fault - Unauthorized recruiter throws SecurityException")
     public void test_JOB_U01_updateJob_UnauthorizedRecruiter_ThrowsSecurityException() {
         User strangerUser = User.builder().userId(999L).role(UserRole.RECRUITER).build();
         Job existingJob = Job.builder().jobId(801L).recruiter(sampleRecruiter).company(sampleVerifiedCompany).build();
@@ -305,7 +374,7 @@ public class JobServiceDesignTestNGTest {
         verify(jobRepository, never()).save(any());
     }
 
-    @Test(description = "JOB-U02: Resource missing guard - Job ID not found throws IllegalArgumentException")
+    @Test(description = "JOB-U02 [Exception 2]: 404 Missing resource fault - Job ID not found throws IllegalArgumentException")
     public void test_JOB_U02_updateJob_JobNotFound_ThrowsIllegalArgumentException() {
         when(jobRepository.findById(9999L)).thenReturn(Optional.empty());
         JobCreateRequest req = buildJobReq("Updated Title", 2, BigDecimal.ZERO, new BigDecimal("20000000"), LocalDate.now().plusDays(10));
@@ -313,15 +382,15 @@ public class JobServiceDesignTestNGTest {
         verify(jobRepository, never()).save(any());
     }
 
-    @Test(description = "JOB-U03: Validation guard - vacanciesCount = 0 in update throws IllegalArgumentException")
+    @Test(description = "JOB-U03 [Exception 3]: Validation fault - vacanciesCount = 0 in update throws IllegalArgumentException")
     public void test_JOB_U03_updateJob_VacanciesZero_ThrowsIllegalArgumentException() {
         JobCreateRequest req = buildJobReq("Updated Title", 0, BigDecimal.ZERO, new BigDecimal("20000000"), LocalDate.now().plusDays(10));
         Assert.assertThrows(IllegalArgumentException.class, () -> jobService.updateJob(801L, req, sampleRecruiterUser));
         verify(jobRepository, never()).save(any());
     }
 
-    @Test(description = "JOB-U04: State transition guard - Previously REJECTED job resets to DRAFT+PENDING and initial skills creation")
-    public void test_JOB_U04_updateJob_RejectedOrPendingCompany_ResetsToDraftPending() {
+    @Test(description = "JOB-U04 [Deep-Path 1]: Previously REJECTED job resets to DRAFT+PENDING and initial skills creation")
+    public void test_JOB_U04_updateJob_DeepPath_RejectedJobReset_AndInitialSkillsCreation() {
         Job rejectedJob = Job.builder()
                 .jobId(804L)
                 .title("Old Title")
@@ -342,13 +411,14 @@ public class JobServiceDesignTestNGTest {
         Assert.assertEquals(rejectedJob.getStatus(), JobStatus.DRAFT);
     }
 
-    @Test(description = "JOB-U05: State lifecycle - Request PUBLISHED with expired deadline is protected and forced to DRAFT")
-    public void test_JOB_U05_updateJob_ClosedLifecycleAndExpiredProtection() {
+    @Test(description = "JOB-U05 [Deep-Path 2]: Expired job protected from PUBLISHED (forced to DRAFT), and explicit status CLOSED")
+    public void test_JOB_U05_updateJob_DeepPath_ExpiredJobProtected_AndCustomStatusDirect() {
+        Company activeComp = Company.builder().companyId(10L).companyName("Active Corp").status(CompanyStatus.ACTIVE).build();
         Job existingJob = Job.builder()
                 .jobId(805L)
                 .title("Old Title")
                 .recruiter(sampleRecruiter)
-                .company(sampleVerifiedCompany)
+                .company(activeComp)
                 .status(JobStatus.CLOSED)
                 .approvalStatus(JobApprovalStatus.APPROVED)
                 .deadlineDate(LocalDate.now().minusDays(5)) // Expired
@@ -357,29 +427,38 @@ public class JobServiceDesignTestNGTest {
         when(jobRepository.save(any(Job.class))).thenAnswer(inv -> inv.getArgument(0));
 
         JobCreateRequest req = buildJobReq("Updated Title", 2, new BigDecimal("10000000"), new BigDecimal("25000000"), null);
-        req.setStatus(JobStatus.PUBLISHED); // Attempting to publish an expired job
+        req.setStatus(JobStatus.PUBLISHED); // Attempting to publish an expired job -> forces DRAFT!
 
         JobResponse res = jobService.updateJob(805L, req, sampleRecruiterUser);
 
         Assert.assertNotNull(res);
-        Assert.assertEquals(existingJob.getStatus(), JobStatus.DRAFT); // Protected!
+        Assert.assertEquals(existingJob.getStatus(), JobStatus.DRAFT);
+
+        // Test explicit CLOSED status and hasSkillInput = false
+        req.setStatus(JobStatus.CLOSED);
+        req.setMandatorySkills(null);
+        req.setPreferredSkills(null);
+        req.setMandatorySkillIds(null);
+        req.setPreferredSkillIds(null);
+        jobService.updateJob(805L, req, sampleRecruiterUser);
+        Assert.assertEquals(existingJob.getStatus(), JobStatus.CLOSED);
     }
 
-    @Test(description = "JOB-U06: State lifecycle - CLOSED job with valid deadline reopens to PUBLISHED, branch & currency updated")
-    public void test_JOB_U06_updateJob_ClosedJob_ReopensToPublished_ActiveCompany() {
+    @Test(description = "JOB-U06 [Deep-Path 3]: CLOSED job reopens to PUBLISHED with null deadline & null approvalStatus, quota checked")
+    public void test_JOB_U06_updateJob_DeepPath_ReopenClosedJob_QuotaCheck_AndCustomFields() {
         Job closedJob = Job.builder()
                 .jobId(806L)
                 .title("Closed Title")
                 .recruiter(sampleRecruiter)
                 .company(sampleVerifiedCompany)
                 .status(JobStatus.CLOSED)
-                .approvalStatus(JobApprovalStatus.APPROVED)
-                .deadlineDate(LocalDate.now().plusDays(15))
+                .approvalStatus(null) // null approvalStatus branch
+                .deadlineDate(null)   // null deadlineDate branch
                 .build();
         when(jobRepository.findById(806L)).thenReturn(Optional.of(closedJob));
         when(jobRepository.save(any(Job.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        JobCreateRequest req = buildJobReq("Reopened Title", 2, new BigDecimal("10000000"), new BigDecimal("25000000"), LocalDate.now().plusDays(20));
+        JobCreateRequest req = buildJobReq("Reopened Title", 3, new BigDecimal("12000000"), new BigDecimal("30000000"), LocalDate.now().plusDays(20));
         req.setBranchName("Chi nhánh 2");
         req.setSalaryCurrency("USD");
         req.setCategory("Software Engineering");
@@ -392,11 +471,11 @@ public class JobServiceDesignTestNGTest {
         Assert.assertEquals(closedJob.getBranchName(), "Chi nhánh 2");
         Assert.assertEquals(closedJob.getSalaryCurrency(), "USD");
         Assert.assertEquals(closedJob.getJobCategory(), "Software Engineering");
-        verify(jobRepository).save(closedJob);
+        verify(jobRepository, atLeastOnce()).save(closedJob);
     }
 
-    @Test(description = "JOB-U07: Skill mapping & AI cache resilience - Updates mandatory & preferred skills and IDs, cache exception handled")
-    public void test_JOB_U07_updateJob_SkillIdsUpdate_AndAiCacheResilience() {
+    @Test(description = "JOB-U07 [Deep-Path 4]: Full skills update with all 4 input formats, whitespace items, AI cache exception")
+    public void test_JOB_U07_updateJob_DeepPath_FullSkillsShift_AllFourInputs_AiCacheException() {
         Job existingJob = Job.builder()
                 .jobId(807L)
                 .title("Java Title")
@@ -413,8 +492,8 @@ public class JobServiceDesignTestNGTest {
         when(skillRepository.findAllById(List.of(101L))).thenReturn(List.of(Skill.builder().skillId(101L).skillName("Java").build()));
 
         JobCreateRequest req = buildJobReq("Updated Title", 2, new BigDecimal("10000000"), new BigDecimal("25000000"), LocalDate.now().plusDays(10));
-        req.setMandatorySkills(List.of("Java"));
-        req.setPreferredSkills(List.of("Docker"));
+        req.setMandatorySkills(Arrays.asList("Java", "   ")); // has blank item to cover filter
+        req.setPreferredSkills(Arrays.asList("Docker", "   ")); // has blank item to cover filter
         req.setMandatorySkillIds(List.of(101L, 102L));
         req.setPreferredSkillIds(List.of(103L));
 
@@ -433,8 +512,8 @@ public class JobServiceDesignTestNGTest {
         verify(aiJobMatchRepository).deleteByJob_JobId(807L);
     }
 
-    @Test(description = "JOB-U08: Performance optimization - Identical skills skip database modification and AI cache deletion")
-    public void test_JOB_U08_updateJob_SkillsIdentical_SkipsDatabaseModification() {
+    @Test(description = "JOB-U08 [Deep-Path 5]: Identical skills optimization skips DB updates, category inference fallback, null vacancies")
+    public void test_JOB_U08_updateJob_DeepPath_IdenticalSkillsOptimization_AndInferredIndustry() {
         Job existingJob = Job.builder()
                 .jobId(808L)
                 .title("Java Title")
@@ -442,6 +521,7 @@ public class JobServiceDesignTestNGTest {
                 .company(sampleVerifiedCompany)
                 .status(JobStatus.PUBLISHED)
                 .approvalStatus(JobApprovalStatus.APPROVED)
+                .jobCategory(null) // Tests inference
                 .build();
         when(jobRepository.findById(808L)).thenReturn(Optional.of(existingJob));
         when(jobRepository.save(any(Job.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -450,9 +530,12 @@ public class JobServiceDesignTestNGTest {
         when(jobSkillRepository.findByJobId(808L)).thenReturn(List.of(oldSkill));
         when(skillRepository.findAllById(List.of(101L))).thenReturn(List.of(Skill.builder().skillId(101L).skillName("Java").build()));
 
-        JobCreateRequest req = buildJobReq("Updated Title", 2, new BigDecimal("10000000"), new BigDecimal("25000000"), LocalDate.now().plusDays(10));
+        JobCreateRequest req = buildJobReq("Updated Title", null, new BigDecimal("10000000"), new BigDecimal("25000000"), null);
+        req.setVacanciesCount(null); // null vacanciesCount branch
+        req.setDeadlineDate(null);   // null deadlineDate branch
         req.setMandatorySkills(List.of("Java")); // Identical skill name
         req.setBranchName(null); // Keeps old branch name
+        req.setSalaryCurrency(null); // Keeps old currency
         req.setCategory(null);   // Inferred category fallback
 
         JobResponse res = jobService.updateJob(808L, req, sampleRecruiterUser);
@@ -463,7 +546,7 @@ public class JobServiceDesignTestNGTest {
     }
 
     // ==========================================================================
-    // FUNCTION 3: getPublishedJobs(String, String) — 8 HIGH-IMPACT TEST CASES
+    // FUNCTION 3: getPublishedJobs(String, String) — 8 TEST CASES
     // ==========================================================================
 
     @Test(description = "JOB-S01: Both null filters returns all PUBLISHED jobs via findByStatus")

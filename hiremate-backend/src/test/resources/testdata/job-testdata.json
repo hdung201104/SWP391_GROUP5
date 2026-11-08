@@ -2,385 +2,234 @@
   "createJob": {
     "JOB_C01": {
       "caseId": "JOB-C01",
-      "title": "Senior Java Engineer",
-      "vacanciesCount": 2,
+      "type": "EXCEPTION_VALIDATION",
+      "title": "Java Dev",
+      "vacanciesCount": 0,
       "salaryMin": 0.0,
-      "salaryMax": 20.0,
-      "deadlineDaysOffset": 7
+      "salaryMax": 20000000.0,
+      "deadlineDaysOffset": 10,
+      "expectedException": "IllegalArgumentException"
     },
     "JOB_C02": {
       "caseId": "JOB-C02",
-      "title": "Java Dev",
-      "vacanciesCount": 0,
-      "salaryMin": 20.0,
-      "salaryMax": 20.0,
-      "deadlineDaysOffset": 0
+      "type": "EXCEPTION_INTEGRITY",
+      "title": "Backend Dev",
+      "vacanciesCount": 1,
+      "salaryMin": 0.0,
+      "salaryMax": 20000000.0,
+      "deadlineDaysOffset": 10,
+      "expectedException": "IllegalStateException"
     },
     "JOB_C03": {
       "caseId": "JOB-C03",
-      "title": "Frontend Developer",
-      "vacanciesCount": 1,
-      "salaryMin": 20.0,
-      "salaryMax": 20.0,
-      "deadlineDaysOffset": 0
+      "type": "EXCEPTION_LEGAL",
+      "title": "Pending Corp Dev",
+      "vacanciesCount": 2,
+      "salaryMin": 0.0,
+      "salaryMax": 20000000.0,
+      "deadlineDaysOffset": 10,
+      "companyStatus": "PENDING",
+      "expectedException": "IllegalArgumentException"
+    },
+    "JOB_C04": {
+      "caseId": "JOB-C04",
+      "type": "DEEP_PATH_FULL_PAYLOAD",
+      "title": "Senior Java Engineer",
+      "vacanciesCount": 5,
+      "salaryMin": 15000000.0,
+      "salaryMax": 35000000.0,
+      "deadlineDaysOffset": 15,
+      "branchName": "Chi nhánh Hà Nội",
+      "salaryCurrency": "USD",
+      "category": "Artificial Intelligence",
+      "mandatorySkills": ["Java"],
+      "preferredSkills": ["Docker"],
+      "companyStatus": "ACTIVE",
+      "moderateNewJobs": true,
+      "autoPublishVerified": true
     },
     "JOB_C05": {
       "caseId": "JOB-C05",
-      "title": "Tester",
+      "type": "DEEP_PATH_MINIMAL_PAYLOAD",
+      "title": "Java Software Engineer",
+      "vacanciesCount": null,
+      "salaryMin": 10000000.0,
+      "salaryMax": 25000000.0,
+      "deadlineDaysOffset": 10,
+      "branchName": null,
+      "salaryCurrency": null,
+      "category": null,
+      "companyStatus": "VERIFIED",
+      "moderateNewJobs": false
+    },
+    "JOB_C06": {
+      "caseId": "JOB-C06",
+      "type": "DEEP_PATH_ADMIN_BYPASS",
+      "title": "Tech Lead",
+      "vacanciesCount": 1,
+      "salaryMin": 30000000.0,
+      "salaryMax": 60000000.0,
+      "deadlineDaysOffset": 30,
+      "branchName": null,
+      "salaryCurrency": "   ",
+      "category": "   ",
+      "userRole": "ADMIN"
+    },
+    "JOB_C07": {
+      "caseId": "JOB-C07",
+      "type": "DEEP_PATH_MANUAL_APPROVAL",
+      "title": "AI Specialist",
+      "vacanciesCount": 3,
+      "salaryMin": 20000000.0,
+      "salaryMax": 45000000.0,
+      "deadlineDaysOffset": 20,
+      "branchName": "Chi nhánh Đà Nẵng",
+      "salaryCurrency": "USD",
+      "category": "Data Science",
+      "moderateNewJobs": true,
+      "autoPublishVerified": false
+    },
+    "JOB_C08": {
+      "caseId": "JOB-C08",
+      "type": "DEEP_PATH_FALLBACKS",
+      "title": "Junior Developer",
       "vacanciesCount": 2,
-      "salaryMin": -1.0,
-      "salaryMax": 20.0,
-      "deadlineDaysOffset": 7
-    },
-    "JOB_C09": {
-      "caseId": "JOB-C09",
-      "title": "DevOps",
-      "vacanciesCount": 1,
-      "salaryMin": 20.0,
-      "salaryMax": 19.0,
-      "deadlineDaysOffset": 0
-    },
-    "JOB_C11": {
-      "caseId": "JOB-C11",
-      "title": "Product Owner",
-      "vacanciesCount": 1,
-      "salaryMin": 20.0,
-      "salaryMax": 20.0,
-      "deadlineDaysOffset": -1
+      "salaryMin": 8000000.0,
+      "salaryMax": 15000000.0,
+      "deadlineDaysOffset": 14,
+      "branchName": "   ",
+      "salaryCurrency": "VND",
+      "category": "Other",
+      "settingsNull": true
     }
   },
   "updateJob": {
     "JOB_U01": {
       "caseId": "JOB-U01",
-      "vacanciesCount": 1,
-      "title": "Updated Senior Java Developer",
-      "salaryMin": 20.0,
-      "salaryMax": 35.0,
-      "deadlineDaysOffset": 20
+      "type": "EXCEPTION_SECURITY",
+      "jobId": 801,
+      "title": "Unauthorized Update",
+      "expectedException": "SecurityException"
     },
     "JOB_U02": {
       "caseId": "JOB-U02",
-      "vacanciesCount": 2,
-      "otherRecruiterId": 999
+      "type": "EXCEPTION_NOT_FOUND",
+      "jobId": 9999,
+      "title": "Non-existent Job",
+      "expectedException": "IllegalArgumentException"
     },
     "JOB_U03": {
       "caseId": "JOB-U03",
-      "nonExistentJobId": 9999
+      "type": "EXCEPTION_VALIDATION",
+      "jobId": 803,
+      "title": "Invalid Vacancies",
+      "vacanciesCount": 0,
+      "expectedException": "IllegalArgumentException"
     },
     "JOB_U04": {
       "caseId": "JOB-U04",
-      "vacanciesCount": 0,
-      "title": "Lead Developer",
-      "salaryMin": 20.0,
-      "salaryMax": 35.0,
-      "deadlineDaysOffset": 10
+      "type": "DEEP_PATH_REJECTED_RESET",
+      "jobId": 804,
+      "title": "Fixed Rejected Job",
+      "vacanciesCount": 2,
+      "salaryMin": 10000000.0,
+      "salaryMax": 25000000.0,
+      "initialApprovalStatus": "REJECTED"
+    },
+    "JOB_U05": {
+      "caseId": "JOB-U05",
+      "type": "DEEP_PATH_EXPIRED_PROTECTION",
+      "jobId": 805,
+      "title": "Publish Expired Job",
+      "vacanciesCount": 2,
+      "salaryMin": 10000000.0,
+      "salaryMax": 25000000.0,
+      "requestStatus": "PUBLISHED",
+      "expectedResultStatus": "DRAFT"
+    },
+    "JOB_U06": {
+      "caseId": "JOB-U06",
+      "type": "DEEP_PATH_REOPEN_CLOSED",
+      "jobId": 806,
+      "title": "Reopened Position",
+      "vacanciesCount": 3,
+      "salaryMin": 12000000.0,
+      "salaryMax": 30000000.0,
+      "branchName": "Chi nhánh 2",
+      "salaryCurrency": "USD",
+      "category": "Software Engineering",
+      "requestStatus": null,
+      "expectedResultStatus": "PUBLISHED"
     },
     "JOB_U07": {
       "caseId": "JOB-U07",
-      "companyStatus": "PENDING",
-      "companyName": "StartUp Company",
-      "title": "Updated Title",
-      "vacanciesCount": 2,
-      "salaryMin": 15.0,
-      "salaryMax": 25.0,
-      "deadlineDaysOffset": 10
+      "type": "DEEP_PATH_FULL_SKILLS_UPDATE",
+      "jobId": 807,
+      "title": "Skill Shifted Job",
+      "mandatorySkills": ["Java"],
+      "preferredSkills": ["Docker"],
+      "mandatorySkillIds": [101, 102],
+      "preferredSkillIds": [103]
     },
-    "JOB_U09": {
-      "caseId": "JOB-U09",
-      "title": "Published Title",
-      "vacanciesCount": 2,
-      "salaryMin": 15.0,
-      "salaryMax": 25.0,
-      "deadlineDaysOffset": 15
+    "JOB_U08": {
+      "caseId": "JOB-U08",
+      "type": "DEEP_PATH_IDENTICAL_SKILLS_SKIP",
+      "jobId": 808,
+      "title": "Optimized Update",
+      "mandatorySkills": ["Java"],
+      "branchName": null,
+      "salaryCurrency": null,
+      "category": null
     }
   },
   "searchJob": {
     "JOB_S01": {
       "caseId": "JOB-S01",
+      "type": "NO_FILTER",
       "keyword": null,
-      "location": null,
-      "expectedCount": 2
+      "location": null
     },
     "JOB_S02": {
       "caseId": "JOB-S02",
+      "type": "KEYWORD_ONLY",
       "keyword": "Java",
-      "expectedTitle": "Senior Java Developer"
+      "location": null
     },
     "JOB_S03": {
       "caseId": "JOB-S03",
-      "location": "Da Nang",
-      "expectedTitle": "Backend Developer"
+      "type": "LOCATION_ONLY",
+      "keyword": null,
+      "location": "Da Nang"
     },
     "JOB_S04": {
       "caseId": "JOB-S04",
+      "type": "BOTH_FILTERS",
       "keyword": "Java",
-      "location": "Da Nang",
-      "expectedTitle": "Java Lead"
+      "location": "Da Nang"
     },
     "JOB_S05": {
       "caseId": "JOB-S05",
+      "type": "BLANK_KEYWORD",
       "keyword": "   ",
-      "expectedCount": 1
+      "location": "Ho Chi Minh"
     },
-    "JOB_S09": {
-      "caseId": "JOB-S09",
-      "keyword": "zznotfound"
-    }
-  },
-  "extended": {
-    "JOB_EXT01": {
-      "caseId": "JOB-EXT-01",
-      "title": "Java Dev",
-      "vacanciesCount": 2,
-      "salaryMin": 10.0,
-      "salaryMax": 20.0,
-      "deadlineDaysOffset": 10
+    "JOB_S06": {
+      "caseId": "JOB-S06",
+      "type": "BLANK_LOCATION",
+      "keyword": "Frontend",
+      "location": "   "
     },
-    "JOB_EXT02": {
-      "caseId": "JOB-EXT-02",
-      "companyStatus": "PENDING",
-      "companyName": "Pending Startup"
+    "JOB_S07": {
+      "caseId": "JOB-S07",
+      "type": "BOTH_BLANK",
+      "keyword": "   ",
+      "location": "   "
     },
-    "JOB_EXT03": {
-      "caseId": "JOB-EXT-03",
-      "companyStatus": "REJECTED",
-      "companyName": "Rejected Corp"
-    },
-    "JOB_EXT04": {
-      "caseId": "JOB-EXT-04",
-      "companyStatus": "BANNED",
-      "companyName": "Banned Corp"
-    },
-    "JOB_EXT05": {
-      "caseId": "JOB-EXT-05",
-      "title": "Fullstack Java",
-      "vacanciesCount": 3,
-      "salaryMin": 15.0,
-      "salaryMax": 30.0,
-      "deadlineDaysOffset": 15,
-      "mandatorySkillId": 1,
-      "mandatorySkillName": "Java",
-      "preferredSkillId": 2,
-      "preferredSkillName": "Docker"
-    },
-    "JOB_COV_C01": {
-      "caseId": "JOB-COV-C01",
-      "title": "Backend Go Developer",
-      "vacanciesCount": 2,
-      "salaryMin": 15.0,
-      "salaryMax": 25.0,
-      "deadlineDaysOffset": 10,
-      "branchName": "Chi nhánh Đà Nẵng",
-      "category": "Software Engineering",
-      "currency": "USD"
-    },
-    "JOB_COV_C02": {
-      "caseId": "JOB-COV-C02",
-      "title": "DevOps Engineer",
-      "vacanciesCount": 1,
-      "salaryMin": 20.0,
-      "salaryMax": 30.0,
-      "deadlineDaysOffset": 10,
-      "companyId": 801,
-      "companyName": "VinAI Research"
-    },
-    "JOB_COV_C03": {
-      "caseId": "JOB-COV-C03",
-      "title": "AI Research Scientist",
-      "vacanciesCount": 1,
-      "salaryMin": 30.0,
-      "salaryMax": 50.0,
-      "deadlineDaysOffset": 14
-    },
-    "JOB_COV_U01": {
-      "caseId": "JOB-COV-U01",
-      "title": "Rejected Job Fixed",
-      "vacanciesCount": 2,
-      "salaryMin": 15.0,
-      "salaryMax": 25.0,
-      "deadlineDaysOffset": 10
-    },
-    "JOB_COV_U02": {
-      "caseId": "JOB-COV-U02",
-      "title": "Extended Closed Job",
-      "vacanciesCount": 2,
-      "salaryMin": 15.0,
-      "salaryMax": 25.0,
-      "deadlineDaysOffset": 20
-    },
-    "JOB_COV_U03": {
-      "caseId": "JOB-COV-U03",
-      "title": "Senior Cloud Architect",
-      "vacanciesCount": 2,
-      "salaryMin": 40.0,
-      "salaryMax": 60.0,
-      "deadlineDaysOffset": 30,
-      "branchName": "Chi nhánh HCM",
-      "currency": "USD",
-      "category": "Cloud Computing",
-      "mandatorySkillName": "Kubernetes",
-      "preferredSkillName": "Terraform"
-    },
-    "JOB_COV_C04": {
-      "caseId": "JOB-COV-C04",
-      "nonExistentUserId": 99999,
-      "title": "Recruiter Profile Missing Job"
-    },
-    "JOB_COV_U04": {
-      "caseId": "JOB-COV-U04",
-      "title": "Job Closed Intentionally",
-      "vacanciesCount": 2,
-      "salaryMin": 15.0,
-      "salaryMax": 25.0,
-      "deadlineDaysOffset": 10
-    },
-    "JOB_COV_U05": {
-      "caseId": "JOB-COV-U05",
-      "title": "Job Unapproved Status Stay Draft",
-      "vacanciesCount": 2,
-      "salaryMin": 15.0,
-      "salaryMax": 25.0,
-      "deadlineDaysOffset": 10
-    },
-    "JOB_COV_S01": {
-      "caseId": "JOB-COV-S01",
-      "location": "Ho Chi Minh",
-      "expectedTitle": "Fullstack Node Developer"
-    },
-    "JOB_COV_U06": {
-      "caseId": "JOB-COV-U06",
-      "title": "Unchanged Skills Job",
-      "vacanciesCount": 2,
-      "salaryMin": 15.0,
-      "salaryMax": 25.0,
-      "deadlineDaysOffset": 10,
-      "mandatorySkillName": "Java",
-      "preferredSkillName": "Spring"
-    },
-    "JOB_COV_U07": {
-      "caseId": "JOB-COV-U07",
-      "title": "Existing Skills But Empty Input Job",
-      "vacanciesCount": 2,
-      "salaryMin": 15.0,
-      "salaryMax": 25.0,
-      "deadlineDaysOffset": 10
-    },
-    "JOB_COV_U08": {
-      "caseId": "JOB-COV-U08",
-      "title": "Skill IDs Changed Job",
-      "vacanciesCount": 2,
-      "salaryMin": 15.0,
-      "salaryMax": 25.0,
-      "deadlineDaysOffset": 10,
-      "oldSkillId": 201,
-      "oldSkillName": "Java",
-      "newMandatorySkillId": 202,
-      "newMandatorySkillName": "Python",
-      "newPreferredSkillId": 203,
-      "newPreferredSkillName": "AWS"
-    },
-    "JOB_COV_U09": {
-      "caseId": "JOB-COV-U09",
-      "title": "Marketing Inferred Job",
-      "description": "Chạy quảng cáo Facebook Ads và xây dựng chiến lược Content Marketing",
-      "requirements": "Thành thạo Google Ads và SEO",
-      "vacanciesCount": 1,
-      "salaryMin": 10.0,
-      "salaryMax": 20.0,
-      "deadlineDaysOffset": 15
-    },
-    "JOB_COV_U10": {
-      "caseId": "JOB-COV-U10",
-      "title": "Clear AI Cache Throws Job",
-      "vacanciesCount": 2,
-      "salaryMin": 15.0,
-      "salaryMax": 25.0,
-      "deadlineDaysOffset": 10
-    },
-    "JOB_COV_C05": {
-      "caseId": "JOB-COV-C05",
-      "title": "Suspended Company Attempt",
-      "vacanciesCount": 2,
-      "salaryMin": 10.0,
-      "salaryMax": 20.0,
-      "deadlineDaysOffset": 10,
-      "companyStatus": "SUSPENDED"
-    },
-    "JOB_COV_C06": {
-      "caseId": "JOB-COV-C06",
-      "title": "Sales Executive",
-      "description": "Tìm kiếm khách hàng kinh doanh và chốt deal phần mềm",
-      "requirements": "Kỹ năng telesales và đàm phán",
-      "vacanciesCount": 1,
-      "salaryMin": 8.0,
-      "salaryMax": 15.0,
-      "deadlineDaysOffset": 12,
-      "recruiterBranch": "Chi nhánh Cần Thơ"
-    },
-    "JOB_COV_C07": {
-      "caseId": "JOB-COV-C07",
-      "title": "Notification Failure Resilient Job",
-      "vacanciesCount": 2,
-      "salaryMin": 15.0,
-      "salaryMax": 25.0,
-      "deadlineDaysOffset": 10
-    },
-    "JOB_COV_S02": {
-      "caseId": "JOB-COV-S02",
-      "keyword": "Java",
-      "location": "   ",
-      "expectedTitle": "Senior Java Developer"
-    },
-    "JOB_COV_U11": {
-      "caseId": "JOB-COV-U11",
-      "title": "Defaulted Null Fields Job"
-    },
-    "JOB_COV_U12": {
-      "caseId": "JOB-COV-U12",
-      "title": "Closed Past Deadline Job",
-      "vacanciesCount": 2,
-      "salaryMin": 10.0,
-      "salaryMax": 20.0
-    },
-    "JOB_COV_U13": {
-      "caseId": "JOB-COV-U13",
-      "title": "Active Company Status Job",
-      "vacanciesCount": 2,
-      "salaryMin": 15.0,
-      "salaryMax": 25.0,
-      "deadlineDaysOffset": 10,
-      "companyStatus": "ACTIVE"
-    },
-    "JOB_COV_U14": {
-      "caseId": "JOB-COV-U14",
-      "title": "Null Skill Elements Job",
-      "vacanciesCount": 2,
-      "salaryMin": 15.0,
-      "salaryMax": 25.0,
-      "deadlineDaysOffset": 10
-    },
-    "JOB_COV_U15": {
-      "caseId": "JOB-COV-U15",
-      "title": "Blank Category Inferred Job",
-      "vacanciesCount": 1,
-      "salaryMin": 10.0,
-      "salaryMax": 20.0,
-      "deadlineDaysOffset": 10
-    },
-    "JOB_COV_C08": {
-      "caseId": "JOB-COV-C08",
-      "title": "Active Company Create Job",
-      "salaryMin": 10.0,
-      "salaryMax": 20.0,
-      "deadlineDaysOffset": 10,
-      "companyStatus": "ACTIVE"
-    },
-    "JOB_COV_C09": {
-      "caseId": "JOB-COV-C09",
-      "title": "Default Currency And Branch Job",
-      "salaryMin": 12.0,
-      "salaryMax": 22.0,
-      "deadlineDaysOffset": 10
+    "JOB_S08": {
+      "caseId": "JOB-S08",
+      "type": "EMPTY_RESULT",
+      "keyword": null,
+      "location": null
     }
   }
 }
