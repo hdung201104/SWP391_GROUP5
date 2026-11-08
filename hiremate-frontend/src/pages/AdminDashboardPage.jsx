@@ -9961,6 +9961,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
                   ) : selectedCompanyDossier.hasLicenseDoc ? (
                     (adminPreviewMimeType === 'application/pdf' || (!adminPreviewMimeType?.startsWith('image/') && isPdfDoc(selectedCompanyDossier.docName, selectedCompanyDossier.docUrl))) ? (
                       <iframe
+                        key={"admin-license-" + selectedCompanyDossier.id + "-" + (adminPreviewBlobUrl || "direct")}
                         src={adminPreviewBlobUrl || getAdminLicensePreviewUrl(selectedCompanyDossier)}
                         className="w-full h-full min-h-[500px] rounded-2xl border-0 bg-white"
                         title="Xem trực tiếp Giấy phép kinh doanh PDF"

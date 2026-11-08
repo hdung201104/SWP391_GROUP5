@@ -16,14 +16,19 @@ export default function ApplyJobModal({ job, user, onClose, onSuccess }) {
     if (user && (user.role === 'CANDIDATE' || user.role === 'ROLE_CANDIDATE')) {
       cvApi.getMyCvs()
         .then((res) => {
-          const list = res.data || [];
+          const list = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : (Array.isArray(res?.data?.data) ? res.data.data : []));
           setCvList(list);
           const defaultCv = list.find((c) => c.isDefault) || list[0];
           if (defaultCv) {
             setSelectedCvId(defaultCv.cvId);
+          } else {
+            setSelectedCvId(null);
           }
         })
-        .catch(() => {});
+        .catch(() => {
+          setCvList([]);
+          setSelectedCvId(null);
+        });
 
       if (paymentApi?.getMySubscription) {
         paymentApi.getMySubscription()
@@ -41,6 +46,9 @@ export default function ApplyJobModal({ job, user, onClose, onSuccess }) {
           })
           .catch(() => {});
       }
+    } else {
+      setCvList([]);
+      setSelectedCvId(null);
     }
   }, [user]);
 
@@ -171,6 +179,64 @@ export default function ApplyJobModal({ job, user, onClose, onSuccess }) {
             <h3 className="text-lg font-sans font-bold text-[#221d47] mb-1">Nộp hồ sơ thành công!</h3>
             <p className="text-xs text-slate-500 font-sans">Nhà tuyển dụng sẽ nhận được hồ sơ của bạn ngay lập tức.</p>
           </div>
+        ) : !user ? (
+          <div className="py-8 px-4 text-center font-sans space-y-4 bg-gradient-to-b from-[#f8f7ff] to-white rounded-3xl border border-purple-100">
+            <div className="w-16 h-16 mx-auto rounded-3xl bg-indigo-50 text-[#5b48bd] border border-indigo-200 flex items-center justify-center shadow-xs">
+              <span className="material-symbols-outlined text-3xl">account_circle</span>
+            </div>
+            <div className="space-y-1.5">
+              <h3 className="text-base font-extrabold text-[#1e1b4b]">Yêu Cầu Đăng Nhập Tài Khoản Ứng Viên</h3>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
+                Bạn chưa đăng nhập vào hệ thống. Vui lòng đăng nhập hoặc đăng ký tài khoản Ứng viên để tải CV lên và nộp hồ sơ ứng tuyển.
+              </p>
+            </div>
+            <div className="pt-2 flex items-center justify-center gap-3">
+              <a
+                href="#/login"
+                onClick={onClose}
+                className="px-5 py-2.5 rounded-2xl bg-[#5b48bd] hover:bg-[#47369f] text-white font-bold text-xs shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-sm">login</span>
+                <span>Đăng Nhập / Đăng Ký Ngay</span>
+              </a>
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-5 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-all cursor-pointer"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        ) : cvList.length === 0 ? (
+          <div className="py-8 px-4 text-center font-sans space-y-4 bg-gradient-to-b from-[#f8f7ff] to-white rounded-3xl border border-purple-100">
+            <div className="w-16 h-16 mx-auto rounded-3xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center shadow-xs">
+              <span className="material-symbols-outlined text-3xl">upload_file</span>
+            </div>
+            <div className="space-y-1.5">
+              <h3 className="text-base font-extrabold text-[#1e1b4b]">Bạn Chưa Có Bản CV Nào Để Ứng Tuyển</h3>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
+                Để nộp hồ sơ vào vị trí này, bạn cần tải lên CV gốc (PDF/Word) hoặc tạo hồ sơ trực tuyến trong trang cá nhân trước.
+              </p>
+            </div>
+            <div className="pt-2 flex items-center justify-center gap-3">
+              <a
+                href="#/candidate-profile"
+                onClick={onClose}
+                className="px-5 py-2.5 rounded-2xl bg-[#5b48bd] hover:bg-[#47369f] text-white font-bold text-xs shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-sm">cloud_upload</span>
+                <span>Đi Đến Tải Lên CV Ngay</span>
+              </a>
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-5 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-all cursor-pointer"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4 font-sans">
             {error && (
@@ -186,69 +252,54 @@ export default function ApplyJobModal({ job, user, onClose, onSuccess }) {
                   <span className="w-4 h-4 rounded-full bg-[#5b48bd] text-white text-[10px] flex items-center justify-center font-bold">1</span>
                   <span>Chọn tệp CV của bạn</span>
                 </label>
-                {cvList.length > 0 && (
-                  <span className="text-[11px] text-slate-400">
-                    Đã tìm thấy {cvList.length} tệp
-                  </span>
-                )}
+                <span className="text-[11px] text-slate-400">
+                  Đã tìm thấy {cvList.length} tệp
+                </span>
               </div>
 
-              {cvList.length > 0 ? (
-                <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
-                  {cvList.map((cv) => (
-                    <label
-                      key={cv.cvId}
-                      className={`flex items-center justify-between p-3 rounded-2xl border text-xs cursor-pointer transition-all ${
-                        selectedCvId === cv.cvId
-                          ? 'bg-[#edeafd] border-[#5b48bd] text-[#5b48bd] font-bold shadow-2xs'
-                          : 'bg-[#f8f7ff] border-purple-100 text-slate-600 hover:bg-white'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5 truncate">
-                        <input
-                          type="radio"
-                          name="cvSelect"
-                          checked={selectedCvId === cv.cvId}
-                          onChange={() => setSelectedCvId(cv.cvId)}
-                          className="accent-[#5b48bd]"
-                        />
-                        <span className="material-symbols-outlined text-base text-[#5b48bd]">description</span>
-                        <span className="truncate">{cv.fileName}</span>
-                      </div>
-                      {cv.isDefault && (
-                        <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-sans font-bold shrink-0">
-                          Mặc định
-                        </span>
-                      )}
-                    </label>
-                  ))}
-                  {cvList.length >= 2 && !isPaidPlan && (
-                    <div className="mt-2.5 p-2.5 rounded-xl bg-amber-50/90 border border-amber-200 text-amber-800 text-[11px] flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5 truncate">
-                        <span className="material-symbols-outlined text-[15px] text-amber-600 shrink-0">info</span>
-                        <span className="truncate">Lưu trữ: 2/2 bản CV (Gói Free). Xóa bớt hoặc nâng cấp để lưu thêm.</span>
-                      </div>
-                      <a
-                        href="#/pricing"
-                        className="text-[#5b48bd] hover:text-[#47369f] font-bold underline shrink-0 cursor-pointer"
-                      >
-                        Nâng gói
-                      </a>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="p-4 rounded-2xl bg-[#f8f7ff] border border-purple-100 text-center text-xs text-slate-500 font-sans">
-                  <p className="mb-2">Bạn chưa có CV nào trong hồ sơ.</p>
-                  <a
-                    href="#/candidate-profile"
-                    className="text-[#5b48bd] hover:underline font-bold inline-flex items-center gap-1"
+              <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                {cvList.map((cv) => (
+                  <label
+                    key={cv.cvId}
+                    className={`flex items-center justify-between p-3 rounded-2xl border text-xs cursor-pointer transition-all ${
+                      selectedCvId === cv.cvId
+                        ? 'bg-[#edeafd] border-[#5b48bd] text-[#5b48bd] font-bold shadow-2xs'
+                        : 'bg-[#f8f7ff] border-purple-100 text-slate-600 hover:bg-white'
+                    }`}
                   >
-                    <span className="material-symbols-outlined text-sm">add_circle</span>
-                    Tải lên hoặc tạo CV tại Hồ sơ cá nhân
-                  </a>
-                </div>
-              )}
+                    <div className="flex items-center gap-2.5 truncate">
+                      <input
+                        type="radio"
+                        name="cvSelect"
+                        checked={selectedCvId === cv.cvId}
+                        onChange={() => setSelectedCvId(cv.cvId)}
+                        className="accent-[#5b48bd]"
+                      />
+                      <span className="material-symbols-outlined text-base text-[#5b48bd]">description</span>
+                      <span className="truncate">{cv.fileName}</span>
+                    </div>
+                    {cv.isDefault && (
+                      <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-sans font-bold shrink-0">
+                        Mặc định
+                      </span>
+                    )}
+                  </label>
+                ))}
+                {cvList.length >= 2 && !isPaidPlan && (
+                  <div className="mt-2.5 p-2.5 rounded-xl bg-amber-50/90 border border-amber-200 text-amber-800 text-[11px] flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 truncate">
+                      <span className="material-symbols-outlined text-[15px] text-amber-600 shrink-0">info</span>
+                      <span className="truncate">Lưu trữ: 2/2 bản CV (Gói Free). Xóa bớt hoặc nâng cấp để lưu thêm.</span>
+                    </div>
+                    <a
+                      href="#/pricing"
+                      className="text-[#5b48bd] hover:text-[#47369f] font-bold underline shrink-0 cursor-pointer"
+                    >
+                      Nâng gói
+                    </a>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* BƯỚC 2: CHỌN KIỂU DẠNG CV ONLINE */}
