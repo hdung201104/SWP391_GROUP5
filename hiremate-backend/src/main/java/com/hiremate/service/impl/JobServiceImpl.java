@@ -39,11 +39,12 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-@lombok.extern.slf4j.Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class JobServiceImpl implements JobService {
+
+    private final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(JobServiceImpl.class);
 
     private final JobRepository jobRepository;
     private final JobSkillRepository jobSkillRepository;
@@ -396,9 +397,11 @@ public class JobServiceImpl implements JobService {
         checkRecruiterJobQuota(user);
 
         // Lấy Recruiter subclass – recruiter_id = user_id (Shared PK)
-        Recruiter recruiter = recruiterRepository.findById(user.getUserId())
-                .orElseThrow(() -> new IllegalStateException(
-                        "Recruiter profile not found for user: " + user.getUserId()));
+        Recruiter recruiter = recruiterRepository.findById(user.getUserId()).orElse(null);
+        if (recruiter == null) {
+            throw new IllegalStateException(
+                    "Recruiter profile not found for user: " + user.getUserId());
+        }
 
         // Lấy company của recruiter qua Recruiter.company hoặc fallback qua recruiter_id
         Company company = recruiter.getCompany();
@@ -527,8 +530,10 @@ public class JobServiceImpl implements JobService {
     public JobResponse updateJob(Long jobId, JobCreateRequest request, User user) {
         validateJobRequest(request);
 
-        Job job = jobRepository.findById(jobId)
-                .orElseThrow(() -> new IllegalArgumentException("Job not found: " + jobId));
+        Job job = jobRepository.findById(jobId).orElse(null);
+        if (job == null) {
+            throw new IllegalArgumentException("Job not found: " + jobId);
+        }
 
         JobStatus originalStatus = job.getStatus();
 
@@ -616,29 +621,48 @@ public class JobServiceImpl implements JobService {
             shouldUpdateSkills = true;
         } else if (hasSkillInput) {
             // So sánh tập kỹ năng hiện tại với input mới
-            List<Long> currentSkillIds = currentJobSkills.stream()
-                    .map(JobSkill::getSkillId)
-                    .filter(java.util.Objects::nonNull)
-                    .toList();
-            java.util.Set<String> currentSkillSet = skillRepository.findAllById(currentSkillIds).stream()
-                    .map(sk -> sk.getSkillName().toLowerCase().trim())
-                    .filter(s -> !s.isBlank())
-                    .collect(Collectors.toSet());
+            List<Long> currentSkillIds = new ArrayList<>();
+            for (JobSkill js : currentJobSkills) {
+                if (js.getSkillId() != null) {
+                    currentSkillIds.add(js.getSkillId());
+                }
+            }
+
+            java.util.Set<String> currentSkillSet = new java.util.HashSet<>();
+            for (Skill sk : skillRepository.findAllById(currentSkillIds)) {
+                if (sk.getSkillName() != null && !sk.getSkillName().isBlank()) {
+                    currentSkillSet.add(sk.getSkillName().toLowerCase().trim());
+                }
+            }
 
             java.util.Set<String> newSkillSet = new java.util.HashSet<>();
             if (request.getMandatorySkills() != null) {
-                request.getMandatorySkills().forEach(s -> { if (s != null && !s.isBlank()) newSkillSet.add(s.toLowerCase().trim()); });
+                for (String s : request.getMandatorySkills()) {
+                    if (s != null && !s.isBlank()) {
+                        newSkillSet.add(s.toLowerCase().trim());
+                    }
+                }
             }
             if (request.getPreferredSkills() != null) {
-                request.getPreferredSkills().forEach(s -> { if (s != null && !s.isBlank()) newSkillSet.add(s.toLowerCase().trim()); });
+                for (String s : request.getPreferredSkills()) {
+                    if (s != null && !s.isBlank()) {
+                        newSkillSet.add(s.toLowerCase().trim());
+                    }
+                }
             }
             if (request.getMandatorySkillIds() != null && !request.getMandatorySkillIds().isEmpty()) {
-                skillRepository.findAllById(request.getMandatorySkillIds())
-                        .forEach(sk -> newSkillSet.add(sk.getSkillName().toLowerCase().trim()));
+                for (Skill sk : skillRepository.findAllById(request.getMandatorySkillIds())) {
+                    if (sk.getSkillName() != null && !sk.getSkillName().isBlank()) {
+                        newSkillSet.add(sk.getSkillName().toLowerCase().trim());
+                    }
+                }
             }
             if (request.getPreferredSkillIds() != null && !request.getPreferredSkillIds().isEmpty()) {
-                skillRepository.findAllById(request.getPreferredSkillIds())
-                        .forEach(sk -> newSkillSet.add(sk.getSkillName().toLowerCase().trim()));
+                for (Skill sk : skillRepository.findAllById(request.getPreferredSkillIds())) {
+                    if (sk.getSkillName() != null && !sk.getSkillName().isBlank()) {
+                        newSkillSet.add(sk.getSkillName().toLowerCase().trim());
+                    }
+                }
             }
 
             if (!currentSkillSet.equals(newSkillSet)) {
