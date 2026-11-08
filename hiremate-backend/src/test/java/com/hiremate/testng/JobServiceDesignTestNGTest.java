@@ -126,6 +126,16 @@ public class JobServiceDesignTestNGTest {
         defaultSettings.setModerateNewJobs(false);
         defaultSettings.setAutoPublishVerified(true);
         when(systemSettingsService.getSettings()).thenReturn(defaultSettings);
+
+        when(skillRepository.findBySkillNameIgnoreCase(anyString())).thenAnswer(inv -> {
+            String name = inv.getArgument(0);
+            return Optional.of(Skill.builder().skillId(101L).skillName(name).build());
+        });
+        when(skillRepository.save(any(Skill.class))).thenAnswer(inv -> {
+            Skill s = inv.getArgument(0);
+            if (s.getSkillId() == null) s.setSkillId(101L);
+            return s;
+        });
     }
 
     private JobCreateRequest buildJobReq(String title, Integer vacancies, BigDecimal minSal, BigDecimal maxSal, LocalDate deadline) {
@@ -169,21 +179,21 @@ public class JobServiceDesignTestNGTest {
         verify(jobRepository, never()).save(any());
     }
 
-    @Test(description = "JOB-C04: Legal guard - Company status REJECTED throws IllegalArgumentException")
+    @Test(description = "JOB-C04: Legal guard - Recruiter without company profile throws IllegalArgumentException")
     public void test_JOB_C04_createJob_CompanyRejected_ThrowsException() {
-        Company rejectedComp = Company.builder().companyId(12L).companyName("Rejected Corp").status(CompanyStatus.REJECTED).build();
-        Recruiter rec = Recruiter.builder().recruiterId(301L).company(rejectedComp).build();
-        when(recruiterRepository.findById(301L)).thenReturn(Optional.of(rec));
+        Recruiter recWithoutCompany = Recruiter.builder().recruiterId(301L).company(null).build();
+        when(recruiterRepository.findById(301L)).thenReturn(Optional.of(recWithoutCompany));
+        when(companyRepository.findByRecruiterId(301L)).thenReturn(Optional.empty());
 
         JobCreateRequest req = buildJobReq("Backend Dev", 2, BigDecimal.ZERO, new BigDecimal("20000000"), LocalDate.now().plusDays(10));
         Assert.assertThrows(IllegalArgumentException.class, () -> jobService.createJob(req, sampleRecruiterUser));
         verify(jobRepository, never()).save(any());
     }
 
-    @Test(description = "JOB-C05: Security guard - Company status SUSPENDED or BANNED throws IllegalArgumentException")
+    @Test(description = "JOB-C05: Security guard - Company status PENDING or BANNED throws IllegalArgumentException")
     public void test_JOB_C05_createJob_CompanySuspendedOrBanned_ThrowsException() {
-        Company suspendedComp = Company.builder().companyId(13L).companyName("Suspended Corp").status(CompanyStatus.SUSPENDED).build();
-        Recruiter rec = Recruiter.builder().recruiterId(301L).company(suspendedComp).build();
+        Company pendingComp = Company.builder().companyId(13L).companyName("Pending Corp").status(CompanyStatus.PENDING).build();
+        Recruiter rec = Recruiter.builder().recruiterId(301L).company(pendingComp).build();
         when(recruiterRepository.findById(301L)).thenReturn(Optional.of(rec));
 
         JobCreateRequest req = buildJobReq("Backend Dev", 2, BigDecimal.ZERO, new BigDecimal("20000000"), LocalDate.now().plusDays(10));
@@ -199,9 +209,9 @@ public class JobServiceDesignTestNGTest {
         verify(jobRepository, never()).save(any());
     }
 
-    @Test(description = "JOB-C07: Primary success path - vacancies=1 boundary, company fallback lookup, skills mapping 70/30, auto publish")
+    @Test(description = "JOB-C07: Primary success path - vacancies boundary, company fallback, skills 70/30, branch & currency defaults")
     public void test_JOB_C07_createJob_Success_SkillsMapping_AndCompanyFallback() {
-        Recruiter recWithoutCompany = Recruiter.builder().recruiterId(301L).user(sampleRecruiterUser).company(null).build();
+        Recruiter recWithoutCompany = Recruiter.builder().recruiterId(301L).user(sampleRecruiterUser).company(null).branchName("Trụ sở chính").build();
         when(recruiterRepository.findById(301L)).thenReturn(Optional.of(recWithoutCompany));
         when(companyRepository.findByRecruiterId(301L)).thenReturn(Optional.of(sampleVerifiedCompany));
         when(skillRepository.findBySkillNameIgnoreCase(anyString())).thenAnswer(inv -> {
@@ -214,9 +224,12 @@ public class JobServiceDesignTestNGTest {
             return s;
         });
 
-        JobCreateRequest req = buildJobReq("Senior Java Engineer", 1, new BigDecimal("15000000"), new BigDecimal("35000000"), LocalDate.now().plusDays(15));
+        JobCreateRequest req = buildJobReq("Senior Java Engineer", null, new BigDecimal("15000000"), new BigDecimal("35000000"), LocalDate.now().plusDays(15));
         req.setMandatorySkills(List.of("Java"));
         req.setPreferredSkills(List.of("Spring Boot", "Docker"));
+        req.setBranchName(null); // tests fallback to recruiter branch
+        req.setSalaryCurrency(null); // tests default VND
+        req.setCategory(null); // tests inferred category
 
         Job savedJob = Job.builder()
                 .jobId(701L)
@@ -307,7 +320,7 @@ public class JobServiceDesignTestNGTest {
         verify(jobRepository, never()).save(any());
     }
 
-    @Test(description = "JOB-U04: State transition guard - Previously REJECTED job or PENDING company resets to DRAFT + PENDING")
+    @Test(description = "JOB-U04: State transition guard - Previously REJECTED job resets to DRAFT+PENDING and initial skills creation")
     public void test_JOB_U04_updateJob_RejectedOrPendingCompany_ResetsToDraftPending() {
         Job rejectedJob = Job.builder()
                 .jobId(804L)
@@ -319,6 +332,7 @@ public class JobServiceDesignTestNGTest {
                 .build();
         when(jobRepository.findById(804L)).thenReturn(Optional.of(rejectedJob));
         when(jobRepository.save(any(Job.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(jobSkillRepository.findByJobId(804L)).thenReturn(Collections.emptyList()); // tests !hasExistingSkills branch
 
         JobCreateRequest req = buildJobReq("Fixed Title", 2, new BigDecimal("10000000"), new BigDecimal("25000000"), LocalDate.now().plusDays(10));
         JobResponse res = jobService.updateJob(804L, req, sampleRecruiterUser);
@@ -328,30 +342,30 @@ public class JobServiceDesignTestNGTest {
         Assert.assertEquals(rejectedJob.getStatus(), JobStatus.DRAFT);
     }
 
-    @Test(description = "JOB-U05: State lifecycle - Explicit CLOSED status and past-deadline protection")
+    @Test(description = "JOB-U05: State lifecycle - Request PUBLISHED with expired deadline is protected and forced to DRAFT")
     public void test_JOB_U05_updateJob_ClosedLifecycleAndExpiredProtection() {
         Job existingJob = Job.builder()
                 .jobId(805L)
                 .title("Old Title")
                 .recruiter(sampleRecruiter)
                 .company(sampleVerifiedCompany)
-                .status(JobStatus.PUBLISHED)
+                .status(JobStatus.CLOSED)
                 .approvalStatus(JobApprovalStatus.APPROVED)
-                .deadlineDate(LocalDate.now().minusDays(5))
+                .deadlineDate(LocalDate.now().minusDays(5)) // Expired
                 .build();
         when(jobRepository.findById(805L)).thenReturn(Optional.of(existingJob));
         when(jobRepository.save(any(Job.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        JobCreateRequest req = buildJobReq("Updated Title", 2, new BigDecimal("10000000"), new BigDecimal("25000000"), LocalDate.now().plusDays(10));
-        req.setStatus(JobStatus.CLOSED);
+        JobCreateRequest req = buildJobReq("Updated Title", 2, new BigDecimal("10000000"), new BigDecimal("25000000"), null);
+        req.setStatus(JobStatus.PUBLISHED); // Attempting to publish an expired job
 
         JobResponse res = jobService.updateJob(805L, req, sampleRecruiterUser);
 
         Assert.assertNotNull(res);
-        Assert.assertEquals(existingJob.getStatus(), JobStatus.CLOSED);
+        Assert.assertEquals(existingJob.getStatus(), JobStatus.DRAFT); // Protected!
     }
 
-    @Test(description = "JOB-U06: State lifecycle - CLOSED job with valid deadline reopens to PUBLISHED for ACTIVE company")
+    @Test(description = "JOB-U06: State lifecycle - CLOSED job with valid deadline reopens to PUBLISHED, branch & currency updated")
     public void test_JOB_U06_updateJob_ClosedJob_ReopensToPublished_ActiveCompany() {
         Job closedJob = Job.builder()
                 .jobId(806L)
@@ -366,16 +380,22 @@ public class JobServiceDesignTestNGTest {
         when(jobRepository.save(any(Job.class))).thenAnswer(inv -> inv.getArgument(0));
 
         JobCreateRequest req = buildJobReq("Reopened Title", 2, new BigDecimal("10000000"), new BigDecimal("25000000"), LocalDate.now().plusDays(20));
-        req.setStatus(null); // Triggers reopen condition
+        req.setBranchName("Chi nhánh 2");
+        req.setSalaryCurrency("USD");
+        req.setCategory("Software Engineering");
+        req.setStatus(null); // Triggers auto reopen
 
         JobResponse res = jobService.updateJob(806L, req, sampleRecruiterUser);
 
         Assert.assertNotNull(res);
         Assert.assertEquals(closedJob.getStatus(), JobStatus.PUBLISHED);
+        Assert.assertEquals(closedJob.getBranchName(), "Chi nhánh 2");
+        Assert.assertEquals(closedJob.getSalaryCurrency(), "USD");
+        Assert.assertEquals(closedJob.getJobCategory(), "Software Engineering");
         verify(jobRepository).save(closedJob);
     }
 
-    @Test(description = "JOB-U07: Skill mapping & AI cache resilience - Skills change, deletes old skills, AI cache exception handled")
+    @Test(description = "JOB-U07: Skill mapping & AI cache resilience - Updates mandatory & preferred skills and IDs, cache exception handled")
     public void test_JOB_U07_updateJob_SkillIdsUpdate_AndAiCacheResilience() {
         Job existingJob = Job.builder()
                 .jobId(807L)
@@ -390,16 +410,19 @@ public class JobServiceDesignTestNGTest {
 
         JobSkill oldSkill = JobSkill.builder().jobId(807L).skillId(101L).importance(SkillImportance.MANDATORY).build();
         when(jobSkillRepository.findByJobId(807L)).thenReturn(List.of(oldSkill));
-        when(skillRepository.findAllById(any())).thenReturn(List.of(Skill.builder().skillId(101L).skillName("Java").build()));
+        when(skillRepository.findAllById(List.of(101L))).thenReturn(List.of(Skill.builder().skillId(101L).skillName("Java").build()));
 
         JobCreateRequest req = buildJobReq("Updated Title", 2, new BigDecimal("10000000"), new BigDecimal("25000000"), LocalDate.now().plusDays(10));
-        req.setMandatorySkillIds(List.of(101L, 102L)); // Changed skills
+        req.setMandatorySkills(List.of("Java"));
+        req.setPreferredSkills(List.of("Docker"));
+        req.setMandatorySkillIds(List.of(101L, 102L));
+        req.setPreferredSkillIds(List.of(103L));
 
+        Skill skill101 = Skill.builder().skillId(101L).skillName("Java").build();
         Skill skill102 = Skill.builder().skillId(102L).skillName("Spring").build();
-        when(skillRepository.findAllById(eq(List.of(101L, 102L)))).thenReturn(List.of(
-                Skill.builder().skillId(101L).skillName("Java").build(),
-                skill102
-        ));
+        Skill skill103 = Skill.builder().skillId(103L).skillName("Docker").build();
+        when(skillRepository.findAllById(List.of(101L, 102L))).thenReturn(List.of(skill101, skill102));
+        when(skillRepository.findAllById(List.of(103L))).thenReturn(List.of(skill103));
 
         doThrow(new RuntimeException("DB Connection Timeout on delete")).when(aiJobMatchRepository).deleteByJob_JobId(807L);
 
