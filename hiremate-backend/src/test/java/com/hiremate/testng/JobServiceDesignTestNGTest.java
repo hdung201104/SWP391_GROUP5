@@ -994,5 +994,300 @@ public class JobServiceDesignTestNGTest {
         Assert.assertEquals(results.get(0).getLocation(), location);
         verify(jobRepository, times(1)).searchJobs(null, location);
     }
+
+    @Test(description = "JOB-COV-U06: updateJob khi tập kỹ năng mới giống hoàn toàn tập kỹ năng cũ -> shouldUpdateSkills = false")
+    public void test_JOB_COV_U06_updateJob_SkillsIdentical_ShouldNotUpdateSkills() {
+        var data = TestDataLoader.loadJsonNode("testdata/job-testdata.json").path("extended").path("JOB_COV_U06");
+        Job existingJob = Job.builder()
+                .jobId(806L)
+                .title("Current Job")
+                .recruiter(sampleRecruiter)
+                .company(sampleVerifiedCompany)
+                .status(JobStatus.PUBLISHED)
+                .approvalStatus(JobApprovalStatus.APPROVED)
+                .deadlineDate(LocalDate.now().plusDays(10))
+                .build();
+
+        JobCreateRequest updateReq = buildJobReq(
+                data.path("title").asText("Unchanged Skills Job"),
+                data.path("vacanciesCount").asInt(2),
+                new BigDecimal(data.path("salaryMin").asText("15.0")),
+                new BigDecimal(data.path("salaryMax").asText("25.0")),
+                LocalDate.now().plusDays(data.path("deadlineDaysOffset").asInt(10)));
+        updateReq.setMandatorySkills(Collections.singletonList(data.path("mandatorySkillName").asText("Java")));
+        updateReq.setPreferredSkills(Collections.singletonList(data.path("preferredSkillName").asText("Spring")));
+
+        JobSkill js1 = new JobSkill(); js1.setSkillId(101L);
+        JobSkill js2 = new JobSkill(); js2.setSkillId(102L);
+        when(jobSkillRepository.findByJobId(806L)).thenReturn(Arrays.asList(js1, js2));
+
+        Skill s1 = new Skill(); s1.setSkillId(101L); s1.setSkillName("java");
+        Skill s2 = new Skill(); s2.setSkillId(102L); s2.setSkillName("spring");
+        when(skillRepository.findAllById(any())).thenReturn(Arrays.asList(s1, s2));
+
+        when(jobRepository.findById(806L)).thenReturn(Optional.of(existingJob));
+        when(jobRepository.save(any(Job.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        JobResponse response = jobService.updateJob(806L, updateReq, sampleRecruiterUser);
+
+        Assert.assertNotNull(response);
+        verify(jobSkillRepository, never()).deleteByJobId(806L);
+    }
+
+    @Test(description = "JOB-COV-U07: updateJob khi đã có kỹ năng trong DB nhưng request không gửi bất kỳ kỹ năng nào")
+    public void test_JOB_COV_U07_updateJob_ExistingSkills_EmptySkillInput_DoesNotUpdate() {
+        var data = TestDataLoader.loadJsonNode("testdata/job-testdata.json").path("extended").path("JOB_COV_U07");
+        Job existingJob = Job.builder()
+                .jobId(807L)
+                .title("Job With Skills")
+                .recruiter(sampleRecruiter)
+                .company(sampleVerifiedCompany)
+                .status(JobStatus.PUBLISHED)
+                .approvalStatus(JobApprovalStatus.APPROVED)
+                .deadlineDate(LocalDate.now().plusDays(10))
+                .build();
+
+        JobCreateRequest updateReq = buildJobReq(
+                data.path("title").asText("Existing Skills But Empty Input Job"),
+                data.path("vacanciesCount").asInt(2),
+                new BigDecimal(data.path("salaryMin").asText("15.0")),
+                new BigDecimal(data.path("salaryMax").asText("25.0")),
+                LocalDate.now().plusDays(data.path("deadlineDaysOffset").asInt(10)));
+
+        JobSkill js = new JobSkill(); js.setSkillId(101L);
+        when(jobSkillRepository.findByJobId(807L)).thenReturn(Collections.singletonList(js));
+
+        when(jobRepository.findById(807L)).thenReturn(Optional.of(existingJob));
+        when(jobRepository.save(any(Job.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        JobResponse response = jobService.updateJob(807L, updateReq, sampleRecruiterUser);
+
+        Assert.assertNotNull(response);
+        verify(jobSkillRepository, never()).deleteByJobId(807L);
+    }
+
+    @Test(description = "JOB-COV-U08: updateJob cập nhật qua mandatorySkillIds và preferredSkillIds (Lines 628, 632)")
+    public void test_JOB_COV_U08_updateJob_SkillIdsProvided_TriggersUpdate() {
+        var data = TestDataLoader.loadJsonNode("testdata/job-testdata.json").path("extended").path("JOB_COV_U08");
+        Job existingJob = Job.builder()
+                .jobId(808L)
+                .title("Old Skill IDs Job")
+                .recruiter(sampleRecruiter)
+                .company(sampleVerifiedCompany)
+                .status(JobStatus.PUBLISHED)
+                .approvalStatus(JobApprovalStatus.APPROVED)
+                .deadlineDate(LocalDate.now().plusDays(10))
+                .build();
+
+        long oldId = data.path("oldSkillId").asLong(201L);
+        long newManId = data.path("newMandatorySkillId").asLong(202L);
+        long newPrefId = data.path("newPreferredSkillId").asLong(203L);
+
+        JobCreateRequest updateReq = buildJobReq(
+                data.path("title").asText("Skill IDs Changed Job"),
+                data.path("vacanciesCount").asInt(2),
+                new BigDecimal(data.path("salaryMin").asText("15.0")),
+                new BigDecimal(data.path("salaryMax").asText("25.0")),
+                LocalDate.now().plusDays(data.path("deadlineDaysOffset").asInt(10)));
+        updateReq.setMandatorySkillIds(Collections.singletonList(newManId));
+        updateReq.setPreferredSkillIds(Collections.singletonList(newPrefId));
+
+        JobSkill oldJs = new JobSkill(); oldJs.setSkillId(oldId);
+        when(jobSkillRepository.findByJobId(808L)).thenReturn(Collections.singletonList(oldJs));
+
+        Skill oldSkill = new Skill(); oldSkill.setSkillId(oldId); oldSkill.setSkillName(data.path("oldSkillName").asText("Java"));
+        Skill newManSkill = new Skill(); newManSkill.setSkillId(newManId); newManSkill.setSkillName(data.path("newMandatorySkillName").asText("Python"));
+        Skill newPrefSkill = new Skill(); newPrefSkill.setSkillId(newPrefId); newPrefSkill.setSkillName(data.path("newPreferredSkillName").asText("AWS"));
+
+        when(skillRepository.findAllById(Collections.singletonList(oldId))).thenReturn(Collections.singletonList(oldSkill));
+        when(skillRepository.findAllById(Collections.singletonList(newManId))).thenReturn(Collections.singletonList(newManSkill));
+        when(skillRepository.findAllById(Collections.singletonList(newPrefId))).thenReturn(Collections.singletonList(newPrefSkill));
+        when(skillRepository.findById(newManId)).thenReturn(Optional.of(newManSkill));
+        when(skillRepository.findById(newPrefId)).thenReturn(Optional.of(newPrefSkill));
+
+        when(jobRepository.findById(808L)).thenReturn(Optional.of(existingJob));
+        when(jobRepository.save(any(Job.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        JobResponse response = jobService.updateJob(808L, updateReq, sampleRecruiterUser);
+
+        Assert.assertNotNull(response);
+        verify(jobSkillRepository, times(1)).deleteByJobId(808L);
+        verify(jobSkillRepository, atLeastOnce()).save(any(JobSkill.class));
+    }
+
+    @Test(description = "JOB-COV-U09: updateJob không truyền category và jobCategory hiện tại null -> kích hoạt inferIndustryFromJobText")
+    public void test_JOB_COV_U09_updateJob_InfersCategoryWhenNull() {
+        var data = TestDataLoader.loadJsonNode("testdata/job-testdata.json").path("extended").path("JOB_COV_U09");
+        Job existingJob = Job.builder()
+                .jobId(809L)
+                .title("Marketing Lead")
+                .jobCategory(null)
+                .recruiter(sampleRecruiter)
+                .company(sampleVerifiedCompany)
+                .status(JobStatus.PUBLISHED)
+                .approvalStatus(JobApprovalStatus.APPROVED)
+                .deadlineDate(LocalDate.now().plusDays(10))
+                .build();
+
+        JobCreateRequest updateReq = buildJobReq(
+                data.path("title").asText("Marketing Inferred Job"),
+                data.path("vacanciesCount").asInt(1),
+                new BigDecimal(data.path("salaryMin").asText("10.0")),
+                new BigDecimal(data.path("salaryMax").asText("20.0")),
+                LocalDate.now().plusDays(data.path("deadlineDaysOffset").asInt(15)));
+        updateReq.setDescription(data.path("description").asText("Chạy quảng cáo Facebook Ads và xây dựng chiến lược Content Marketing"));
+        updateReq.setRequirements(data.path("requirements").asText("Thành thạo Google Ads và SEO"));
+        updateReq.setCategory(null);
+
+        when(jobRepository.findById(809L)).thenReturn(Optional.of(existingJob));
+        when(jobRepository.save(any(Job.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        JobResponse response = jobService.updateJob(809L, updateReq, sampleRecruiterUser);
+
+        Assert.assertNotNull(response);
+        Assert.assertEquals(existingJob.getJobCategory(), "MARKETING_SALES");
+    }
+
+    @Test(description = "JOB-COV-U10: updateJob xử lý an toàn khi aiJobMatchRepository xóa cache ném ngoại lệ (Line 648-649)")
+    public void test_JOB_COV_U10_updateJob_AiMatchRepoThrows_HandledGracefully() {
+        var data = TestDataLoader.loadJsonNode("testdata/job-testdata.json").path("extended").path("JOB_COV_U10");
+        Job existingJob = Job.builder()
+                .jobId(810L)
+                .title("Job With AI Cache")
+                .recruiter(sampleRecruiter)
+                .company(sampleVerifiedCompany)
+                .status(JobStatus.PUBLISHED)
+                .approvalStatus(JobApprovalStatus.APPROVED)
+                .deadlineDate(LocalDate.now().plusDays(10))
+                .build();
+
+        JobCreateRequest updateReq = buildJobReq(
+                data.path("title").asText("Clear AI Cache Throws Job"),
+                data.path("vacanciesCount").asInt(2),
+                new BigDecimal(data.path("salaryMin").asText("15.0")),
+                new BigDecimal(data.path("salaryMax").asText("25.0")),
+                LocalDate.now().plusDays(data.path("deadlineDaysOffset").asInt(10)));
+        updateReq.setMandatorySkills(Collections.singletonList("NewSkill"));
+
+        when(jobSkillRepository.findByJobId(810L)).thenReturn(Collections.emptyList());
+        when(skillRepository.findBySkillNameIgnoreCase("NewSkill")).thenReturn(Optional.of(Skill.builder().skillId(301L).skillName("NewSkill").build()));
+
+        com.hiremate.repository.AiJobMatchRepository mockAiRepo = mock(com.hiremate.repository.AiJobMatchRepository.class);
+        doThrow(new RuntimeException("DB Connection Timeout on delete")).when(mockAiRepo).deleteByJob_JobId(810L);
+        ReflectionTestUtils.setField(jobService, "aiJobMatchRepository", mockAiRepo);
+
+        when(jobRepository.findById(810L)).thenReturn(Optional.of(existingJob));
+        when(jobRepository.save(any(Job.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        JobResponse response = jobService.updateJob(810L, updateReq, sampleRecruiterUser);
+
+        Assert.assertNotNull(response);
+        verify(mockAiRepo, times(1)).deleteByJob_JobId(810L);
+    }
+
+    @Test(
+        description = "JOB-COV-C05: createJob từ chối khi công ty ở trạng thái SUSPENDED (Line 431)",
+        expectedExceptions = IllegalArgumentException.class,
+        expectedExceptionsMessageRegExp = ".*hiện đang bị tạm khóa hoặc đình chỉ hoạt động.*"
+    )
+    public void test_JOB_COV_C05_createJob_CompanySuspended_ThrowsException() {
+        var data = TestDataLoader.loadJsonNode("testdata/job-testdata.json").path("extended").path("JOB_COV_C05");
+        Company suspendedComp = Company.builder()
+                .companyId(99L)
+                .companyName("Suspended Corp")
+                .status(CompanyStatus.SUSPENDED)
+                .build();
+
+        Recruiter recruiterSuspended = Recruiter.builder()
+                .recruiterId(301L)
+                .user(sampleRecruiterUser)
+                .company(suspendedComp)
+                .build();
+
+        when(recruiterRepository.findById(301L)).thenReturn(Optional.of(recruiterSuspended));
+
+        JobCreateRequest req = buildJobReq(data.path("title").asText("Suspended Company Attempt"), 2, new BigDecimal("10.0"), new BigDecimal("20.0"), LocalDate.now().plusDays(10));
+        jobService.createJob(req, sampleRecruiterUser);
+    }
+
+    @Test(description = "JOB-COV-C06: createJob thừa hưởng branchName từ recruiter và phân loại SALES (Lines 448, 452)")
+    public void test_JOB_COV_C06_createJob_InheritsBranchFromRecruiter_InfersSalesCategory() {
+        var data = TestDataLoader.loadJsonNode("testdata/job-testdata.json").path("extended").path("JOB_COV_C06");
+        String recruiterBranch = data.path("recruiterBranch").asText("Chi nhánh Cần Thơ");
+        Recruiter branchRecruiter = Recruiter.builder()
+                .recruiterId(301L)
+                .user(sampleRecruiterUser)
+                .company(sampleVerifiedCompany)
+                .branchName(recruiterBranch)
+                .build();
+
+        when(recruiterRepository.findById(301L)).thenReturn(Optional.of(branchRecruiter));
+        when(jobRepository.save(any(Job.class))).thenAnswer(inv -> {
+            Job j = inv.getArgument(0);
+            j.setJobId(705L);
+            return j;
+        });
+
+        JobCreateRequest req = buildJobReq(
+                data.path("title").asText("Sales Executive"),
+                data.path("vacanciesCount").asInt(1),
+                new BigDecimal(data.path("salaryMin").asText("8.0")),
+                new BigDecimal(data.path("salaryMax").asText("15.0")),
+                LocalDate.now().plusDays(data.path("deadlineDaysOffset").asInt(12)));
+        req.setDescription(data.path("description").asText("Tìm kiếm khách hàng kinh doanh và chốt deal phần mềm"));
+        req.setRequirements(data.path("requirements").asText("Kỹ năng telesales và đàm phán"));
+        req.setBranchName(null);
+        req.setCategory(null);
+
+        JobResponse response = jobService.createJob(req, sampleRecruiterUser);
+
+        Assert.assertNotNull(response);
+        Assert.assertEquals(response.getBranchName(), recruiterBranch);
+        Assert.assertEquals(response.getJobCategory(), "MARKETING_SALES");
+    }
+
+    @Test(description = "JOB-COV-C07: createJob xử lý an toàn khi notificationService ném ngoại lệ (Line 510-511)")
+    public void test_JOB_COV_C07_createJob_NotificationServiceThrows_HandledGracefully() {
+        var data = TestDataLoader.loadJsonNode("testdata/job-testdata.json").path("extended").path("JOB_COV_C07");
+        when(recruiterRepository.findById(301L)).thenReturn(Optional.of(sampleRecruiter));
+        when(jobRepository.save(any(Job.class))).thenAnswer(inv -> {
+            Job j = inv.getArgument(0);
+            j.setJobId(706L);
+            return j;
+        });
+
+        doThrow(new RuntimeException("Notification Gateway Timeout"))
+                .when(notificationService).createNotification(any(), any(), any(), any(), any(), any());
+
+        JobCreateRequest req = buildJobReq(
+                data.path("title").asText("Notification Failure Resilient Job"),
+                data.path("vacanciesCount").asInt(2),
+                new BigDecimal(data.path("salaryMin").asText("15.0")),
+                new BigDecimal(data.path("salaryMax").asText("25.0")),
+                LocalDate.now().plusDays(data.path("deadlineDaysOffset").asInt(10)));
+
+        JobResponse response = jobService.createJob(req, sampleRecruiterUser);
+
+        Assert.assertNotNull(response);
+        Assert.assertEquals(response.getTitle(), "Notification Failure Resilient Job");
+    }
+
+    @Test(description = "JOB-COV-S02: getPublishedJobs với từ khóa hợp lệ và location là khoảng trắng '   ' (Line 722)")
+    public void test_JOB_COV_S02_getPublishedJobs_ValidKeyword_BlankLocation() {
+        var data = TestDataLoader.loadJsonNode("testdata/job-testdata.json").path("extended").path("JOB_COV_S02");
+        String keyword = data.path("keyword").asText("Java");
+        String expectedTitle = data.path("expectedTitle").asText("Senior Java Developer");
+
+        Job jobJava = Job.builder().jobId(1L).title(expectedTitle).status(JobStatus.PUBLISHED).company(sampleVerifiedCompany).build();
+
+        when(jobRepository.searchJobs(keyword, null)).thenReturn(Collections.singletonList(jobJava));
+
+        List<JobResponse> results = jobService.getPublishedJobs(keyword, "   ");
+
+        Assert.assertNotNull(results);
+        Assert.assertEquals(results.size(), 1);
+        Assert.assertEquals(results.get(0).getTitle(), expectedTitle);
+        verify(jobRepository, times(1)).searchJobs(keyword, null);
+    }
 }
 

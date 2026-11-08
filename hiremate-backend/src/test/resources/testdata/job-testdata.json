@@ -246,6 +246,90 @@
       "caseId": "JOB-COV-S01",
       "location": "Ho Chi Minh",
       "expectedTitle": "Fullstack Node Developer"
+    },
+    "JOB_COV_U06": {
+      "caseId": "JOB-COV-U06",
+      "title": "Unchanged Skills Job",
+      "vacanciesCount": 2,
+      "salaryMin": 15.0,
+      "salaryMax": 25.0,
+      "deadlineDaysOffset": 10,
+      "mandatorySkillName": "Java",
+      "preferredSkillName": "Spring"
+    },
+    "JOB_COV_U07": {
+      "caseId": "JOB-COV-U07",
+      "title": "Existing Skills But Empty Input Job",
+      "vacanciesCount": 2,
+      "salaryMin": 15.0,
+      "salaryMax": 25.0,
+      "deadlineDaysOffset": 10
+    },
+    "JOB_COV_U08": {
+      "caseId": "JOB-COV-U08",
+      "title": "Skill IDs Changed Job",
+      "vacanciesCount": 2,
+      "salaryMin": 15.0,
+      "salaryMax": 25.0,
+      "deadlineDaysOffset": 10,
+      "oldSkillId": 201,
+      "oldSkillName": "Java",
+      "newMandatorySkillId": 202,
+      "newMandatorySkillName": "Python",
+      "newPreferredSkillId": 203,
+      "newPreferredSkillName": "AWS"
+    },
+    "JOB_COV_U09": {
+      "caseId": "JOB-COV-U09",
+      "title": "Marketing Inferred Job",
+      "description": "Chạy quảng cáo Facebook Ads và xây dựng chiến lược Content Marketing",
+      "requirements": "Thành thạo Google Ads và SEO",
+      "vacanciesCount": 1,
+      "salaryMin": 10.0,
+      "salaryMax": 20.0,
+      "deadlineDaysOffset": 15
+    },
+    "JOB_COV_U10": {
+      "caseId": "JOB-COV-U10",
+      "title": "Clear AI Cache Throws Job",
+      "vacanciesCount": 2,
+      "salaryMin": 15.0,
+      "salaryMax": 25.0,
+      "deadlineDaysOffset": 10
+    },
+    "JOB_COV_C05": {
+      "caseId": "JOB-COV-C05",
+      "title": "Suspended Company Attempt",
+      "vacanciesCount": 2,
+      "salaryMin": 10.0,
+      "salaryMax": 20.0,
+      "deadlineDaysOffset": 10,
+      "companyStatus": "SUSPENDED"
+    },
+    "JOB_COV_C06": {
+      "caseId": "JOB-COV-C06",
+      "title": "Sales Executive",
+      "description": "Tìm kiếm khách hàng kinh doanh và chốt deal phần mềm",
+      "requirements": "Kỹ năng telesales và đàm phán",
+      "vacanciesCount": 1,
+      "salaryMin": 8.0,
+      "salaryMax": 15.0,
+      "deadlineDaysOffset": 12,
+      "recruiterBranch": "Chi nhánh Cần Thơ"
+    },
+    "JOB_COV_C07": {
+      "caseId": "JOB-COV-C07",
+      "title": "Notification Failure Resilient Job",
+      "vacanciesCount": 2,
+      "salaryMin": 15.0,
+      "salaryMax": 25.0,
+      "deadlineDaysOffset": 10
+    },
+    "JOB_COV_S02": {
+      "caseId": "JOB-COV-S02",
+      "keyword": "Java",
+      "location": "   ",
+      "expectedTitle": "Senior Java Developer"
     }
   }
 }
