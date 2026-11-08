@@ -110,16 +110,16 @@ public class ApplicationServiceImpl implements ApplicationService {
             throw new IllegalArgumentException("Job not found: " + request.getJobId());
         }
 
-        // 1. Kiểm tra điều kiện hợp lệ của tin tuyển dụng: Tin phải đang PUBLISHED và đã được APPROVED
-        boolean isPublished = job.getStatus() == com.hiremate.enums.JobStatus.PUBLISHED;
-        boolean isApproved = job.getApprovalStatus() == null || job.getApprovalStatus() == com.hiremate.enums.JobApprovalStatus.APPROVED;
-        if (!isPublished || !isApproved) {
+        // 1. Kiểm tra điều kiện hợp lệ của tin tuyển dụng: Tin phải đang PUBLISHED và APPROVED
+        if (job.getStatus() != com.hiremate.enums.JobStatus.PUBLISHED
+                || (job.getApprovalStatus() != null && job.getApprovalStatus() != com.hiremate.enums.JobApprovalStatus.APPROVED)) {
             throw new BadRequestException("Tin tuyển dụng này hiện đã đóng hoặc không còn nhận hồ sơ.");
         }
 
-        // Kiểm tra trạng thái của Công ty: không cho phép nộp vào công ty BANNED / REJECTED / SUSPENDED hoặc chưa VERIFIED
-        if (job.getCompany() != null && (job.getCompany().getStatus() != com.hiremate.enums.CompanyStatus.VERIFIED
-                && job.getCompany().getStatus() != com.hiremate.enums.CompanyStatus.ACTIVE)) {
+        // Kiểm tra trạng thái của Công ty: không cho phép nộp vào công ty chưa VERIFIED/ACTIVE
+        Company company = job.getCompany();
+        if (company != null && company.getStatus() != com.hiremate.enums.CompanyStatus.VERIFIED
+                && company.getStatus() != com.hiremate.enums.CompanyStatus.ACTIVE) {
             throw new BadRequestException("Doanh nghiệp này chưa hoàn tất thẩm định Giấy phép kinh doanh (GPKD) hoặc đang bị tạm ngưng hoạt động. Hiện không thể tiếp nhận hồ sơ ứng tuyển.");
         }
 
@@ -151,9 +151,6 @@ public class ApplicationServiceImpl implements ApplicationService {
                 cv = defaultCv;
             } else {
                 List<Cv> cvs = cvRepository.findByCandidateIdOrderByCreatedAtDesc(candidate.getCandidateId());
-                if (cvs == null || cvs.isEmpty()) {
-                    cvs = cvRepository.findByCandidateId(candidate.getCandidateId());
-                }
                 cv = (cvs != null && !cvs.isEmpty()) ? cvs.get(0) : null;
             }
         }
@@ -163,25 +160,14 @@ public class ApplicationServiceImpl implements ApplicationService {
         }
 
         // Enforce Single Application Rule per candidate per job (Hỗ trợ nộp lại nếu trước đó tự rút đơn)
-        Optional<Application> existing = applicationRepository
-                .findByJob_JobIdAndCandidate_CandidateId(job.getJobId(), candidate.getCandidateId());
-        if (existing.isPresent()) {
-            Application existingApp = existing.get();
+        Application existingApp = applicationRepository
+                .findByJob_JobIdAndCandidate_CandidateId(job.getJobId(), candidate.getCandidateId()).orElse(null);
+        if (existingApp != null) {
             boolean isWithdrawn = false;
             if (existingApp.getStatus() == ApplicationStatus.REJECTED) {
-                if (existingApp.getRejectionReason() != null &&
-                        (existingApp.getRejectionReason().contains("WITHDRAWN_BY_CANDIDATE")
-                                || existingApp.getRejectionReason().toLowerCase().contains("rút đơn"))) {
+                String reason = existingApp.getRejectionReason();
+                if (reason != null && (reason.contains("WITHDRAWN_BY_CANDIDATE") || reason.contains("rút đơn"))) {
                     isWithdrawn = true;
-                } else {
-                    List<RecruitmentPipelineLog> logs = pipelineLogRepository.findByApplicationIdOrderByCreatedAtDesc(existingApp.getApplicationId());
-                    if (!logs.isEmpty()) {
-                        RecruitmentPipelineLog latestLog = logs.get(0);
-                        if (user.getUserId().equals(latestLog.getChangedBy())
-                                || (latestLog.getNotes() != null && latestLog.getNotes().contains("WITHDRAWN_BY_CANDIDATE"))) {
-                            isWithdrawn = true;
-                        }
-                    }
                 }
             }
 
@@ -234,10 +220,8 @@ public class ApplicationServiceImpl implements ApplicationService {
                 long daysSince = lastUpdated != null ? java.time.temporal.ChronoUnit.DAYS.between(lastUpdated, java.time.LocalDateTime.now()) : 999;
                 int cooldownDays = 30; // Giãn cách 30 ngày cho đợt tuyển dụng tiếp theo
 
-                // Chỉ coi là đợt tuyển dụng mới (isNewWave) nếu tin tuyển dụng được gia hạn hoặc tạo sau ngày ứng viên bị từ chối
                 boolean isNewWave = (job.getUpdatedAt() != null && lastUpdated != null && job.getUpdatedAt().isAfter(lastUpdated.plusDays(1)));
                 if (daysSince >= cooldownDays || isNewWave) {
-                    // Đã qua thời gian giãn cách 30 ngày hoặc mở đợt mới: Cho phép ứng tuyển lại đợt mới
                     existingApp.setCv(cv);
                     existingApp.setCoverLetter(request.getCoverLetter());
                     existingApp.setStatus(ApplicationStatus.APPLIED);
@@ -300,17 +284,7 @@ public class ApplicationServiceImpl implements ApplicationService {
                 .status(ApplicationStatus.APPLIED)
                 .build();
 
-        Application savedApp;
-        try {
-            savedApp = applicationRepository.save(application);
-        } catch (org.springframework.dao.DataIntegrityViolationException ex) {
-            log.warn("Race condition: Trùng lặp đơn nộp song song của ứng viên #{} cho vị trí #{}. Đang thu hồi bản ghi duplicate.", candidate.getCandidateId(), job.getJobId());
-            Application existingApp = applicationRepository.findByJob_JobIdAndCandidate_CandidateId(job.getJobId(), candidate.getCandidateId()).orElse(null);
-            if (existingApp != null) {
-                return mapToResponse(existingApp);
-            }
-            throw new BadRequestException("Hồ sơ ứng tuyển của bạn đang được hệ thống xử lý, vui lòng theo dõi tại mục Việc làm đã ứng tuyển.");
-        }
+        Application savedApp = applicationRepository.save(application);
 
         // Audit Log: ghi nhận bước đầu tiên trong pipeline tuyển dụng
         pipelineLogRepository.save(RecruitmentPipelineLog.builder()
@@ -325,7 +299,6 @@ public class ApplicationServiceImpl implements ApplicationService {
         try {
             aiJobMatchService.calculateAndSaveMatch(candidate, job, cv);
         } catch (Throwable ex) {
-            // Non-blocking fallback: Không để lỗi so khớp làm gián đoạn nộp hồ sơ ứng tuyển
             log.warn("AI match calculation non-blocking warning: {}", ex.getMessage());
         }
 
@@ -573,10 +546,8 @@ public class ApplicationServiceImpl implements ApplicationService {
         // BẢO VỆ PHÁP LÝ & QUY TRÌNH: Chặn thao tác nếu Doanh nghiệp bị đình chỉ / từ chối GPKD hoặc chưa có GPKD
         Company company = job != null ? job.getCompany() : null;
         if (user.getRole() != com.hiremate.enums.UserRole.ADMIN) {
-            if (company != null && (company.getStatus() == com.hiremate.enums.CompanyStatus.REJECTED
-                    || company.getStatus() == com.hiremate.enums.CompanyStatus.BANNED
-                    || company.getStatus() == com.hiremate.enums.CompanyStatus.SUSPENDED
-                    || company.getStatus() == com.hiremate.enums.CompanyStatus.PENDING)) {
+            if (company != null && company.getStatus() != com.hiremate.enums.CompanyStatus.VERIFIED
+                    && company.getStatus() != com.hiremate.enums.CompanyStatus.ACTIVE) {
                 throw new BadRequestException("Doanh nghiệp của bạn đang bị đình chỉ hoạt động hoặc chưa có Giấy phép kinh doanh (GPKD) hợp lệ. Quyền duyệt hồ sơ, xếp lịch phỏng vấn và gửi Offer cho ứng viên đã bị tạm khóa!");
             }
             if (job != null && job.getStatus() == com.hiremate.enums.JobStatus.CLOSED) {
