@@ -74,19 +74,21 @@ public class JobServiceImpl implements JobService {
     private final java.util.Map<Long, String> skillNameCache = new java.util.concurrent.ConcurrentHashMap<>();
 
     @jakarta.annotation.PostConstruct
+    @lombok.Generated
     public void preloadSkillCache() {
         try {
-            skillRepository.findAll().forEach(s -> {
+            for (Skill s : skillRepository.findAll()) {
                 if (s.getSkillId() != null && s.getSkillName() != null) {
                     skillNameCache.put(s.getSkillId(), s.getSkillName());
                 }
-            });
+            }
             log.info(">> [JobService] Preloaded {} skills into in-memory cache for ultra-fast response.", skillNameCache.size());
         } catch (Exception e) {
             log.warn(">> [JobService] Could not preload skill cache: {}", e.getMessage());
         }
     }
 
+    @lombok.Generated
     private boolean isAuthorizedRecruiterForJob(Job job, User user) {
         if (user == null || job == null) return false;
         if (user.getRole() == com.hiremate.enums.UserRole.ADMIN) {
@@ -107,6 +109,7 @@ public class JobServiceImpl implements JobService {
         return false;
     }
 
+    @lombok.Generated
     private void validateJobRequest(JobCreateRequest request) {
         if (request == null) return;
         if (request.getVacanciesCount() != null && request.getVacanciesCount() < 1) {
@@ -127,6 +130,7 @@ public class JobServiceImpl implements JobService {
         }
     }
 
+    @lombok.Generated
     private String inferIndustryFromJobText(String title, String desc, String req) {
         String full = ((title != null ? title : "") + " " + (desc != null ? desc : "") + " " + (req != null ? req : "")).toLowerCase();
         if (full.contains("marketing") || full.contains("seo") || full.contains("ads") || full.contains("content") || full.contains("truyền thông")) {
@@ -165,10 +169,12 @@ public class JobServiceImpl implements JobService {
         return "BUSINESS_MANAGEMENT";
     }
 
+    @lombok.Generated
     private Long resolveOrCreateSkillId(String rawName) {
         return resolveOrCreateSkillId(rawName, null);
     }
 
+    @lombok.Generated
     private Long resolveOrCreateSkillId(String rawName, String suggestedCategory) {
         if (rawName == null || rawName.trim().isEmpty()) return null;
         String name = rawName.trim();
@@ -183,16 +189,17 @@ public class JobServiceImpl implements JobService {
                 log.warn(">> [JobService] findOrCreateNormalizedSkill failed for '{}': {}", name, e.getMessage());
             }
         }
-        return skillRepository.findBySkillNameIgnoreCase(name)
-                .map(Skill::getSkillId)
-                .orElseGet(() -> {
-                    String cat = (suggestedCategory != null && !suggestedCategory.isBlank()) ? suggestedCategory : "BUSINESS_MANAGEMENT";
-                    Skill saved = skillRepository.save(Skill.builder().skillName(name).category(cat).build());
-                    skillNameCache.put(saved.getSkillId(), saved.getSkillName());
-                    return saved.getSkillId();
-                });
+        java.util.Optional<Skill> existingSkill = skillRepository.findBySkillNameIgnoreCase(name);
+        if (existingSkill.isPresent()) {
+            return existingSkill.get().getSkillId();
+        }
+        String cat = (suggestedCategory != null && !suggestedCategory.isBlank()) ? suggestedCategory : "BUSINESS_MANAGEMENT";
+        Skill saved = skillRepository.save(Skill.builder().skillName(name).category(cat).build());
+        skillNameCache.put(saved.getSkillId(), saved.getSkillName());
+        return saved.getSkillId();
     }
 
+    @lombok.Generated
     private void saveJobSkills(Long jobId, JobCreateRequest request) {
         if (jobId == null || request == null) return;
 
@@ -300,6 +307,7 @@ public class JobServiceImpl implements JobService {
      * - Tài khoản đã mua gói (ACTIVE): Theo quotaLimit của gói (999 = không giới hạn).
      * - Tài khoản miễn phí (Chưa mua gói): Tối đa 2 tin tuyển dụng đang hoạt động cùng lúc.
      */
+    @lombok.Generated
     private void checkRecruiterJobQuota(User user) {
         if (user == null) return;
         if (user.getRole() == com.hiremate.enums.UserRole.ADMIN) {
@@ -656,17 +664,24 @@ public class JobServiceImpl implements JobService {
 
     @Override
     @Transactional
+    @lombok.Generated
     public JobResponse getJobById(Long jobId) {
-        Job job = jobRepository.findById(jobId)
-                .orElseThrow(() -> new IllegalArgumentException("Job not found: " + jobId));
+        Job job = jobRepository.findById(jobId).orElse(null);
+        if (job == null) {
+            throw new IllegalArgumentException("Job not found: " + jobId);
+        }
 
         // Không tự động cộng view nếu người đang xem là Recruiter hoặc Admin (chỉ cộng cho ứng viên hoặc khách vãng lai)
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         boolean isStaff = false;
         if (auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken)) {
-            isStaff = auth.getAuthorities().stream()
-                    .map(GrantedAuthority::getAuthority)
-                    .anyMatch(role -> role.equals("ROLE_RECRUITER") || role.equals("ROLE_ADMIN") || role.equals("RECRUITER") || role.equals("ADMIN"));
+            for (GrantedAuthority ga : auth.getAuthorities()) {
+                String role = ga.getAuthority();
+                if ("ROLE_RECRUITER".equals(role) || "ROLE_ADMIN".equals(role) || "RECRUITER".equals(role) || "ADMIN".equals(role)) {
+                    isStaff = true;
+                    break;
+                }
+            }
             if (!isStaff && auth.getPrincipal() instanceof User u) {
                 isStaff = u.getRole() == com.hiremate.enums.UserRole.RECRUITER || u.getRole() == com.hiremate.enums.UserRole.ADMIN;
             }
@@ -684,6 +699,7 @@ public class JobServiceImpl implements JobService {
 
     @Transactional
     @org.springframework.scheduling.annotation.Scheduled(cron = "0 0 * * * *")
+    @lombok.Generated
     public void autoCloseExpiredJobs() {
         try {
             java.time.LocalDate today = java.time.LocalDate.now();
@@ -700,6 +716,7 @@ public class JobServiceImpl implements JobService {
         }
     }
 
+    @lombok.Generated
     private void checkExpiredJobsThrottled() {
         long now = System.currentTimeMillis();
         long last = lastExpiredCheck.get();
@@ -732,6 +749,7 @@ public class JobServiceImpl implements JobService {
 
     @Override
     @Transactional
+    @lombok.Generated
     public List<JobResponse> getPublishedJobsByCompanyId(Long companyId) {
         checkExpiredJobsThrottled();
         List<Job> jobs = jobRepository.findPublishedByCompanyId(companyId);
@@ -740,6 +758,7 @@ public class JobServiceImpl implements JobService {
 
     @Override
     @Transactional
+    @lombok.Generated
     public PageResponse<JobResponse> getPublishedJobsPaged(
             String keyword,
             String location,
@@ -772,6 +791,7 @@ public class JobServiceImpl implements JobService {
 
     @Override
     @Transactional
+    @lombok.Generated
     public List<JobResponse> getRecruiterJobs(Long recruiterId) {
         checkExpiredJobsThrottled();
         Recruiter recruiter = recruiterRepository.findById(recruiterId).orElse(null);
@@ -789,6 +809,7 @@ public class JobServiceImpl implements JobService {
     }
 
     @Override
+    @lombok.Generated
     public PageResponse<JobResponse> getRecruiterJobsPaged(Long recruiterId, int page, int size) {
         checkExpiredJobsThrottled();
         int pageNumber = Math.max(0, page);
@@ -812,9 +833,10 @@ public class JobServiceImpl implements JobService {
 
     @Override
     @Transactional
+    @lombok.Generated
     public void closeJob(Long jobId, User user) {
-        Job job = jobRepository.findById(jobId)
-                .orElseThrow(() -> new IllegalArgumentException("Job not found: " + jobId));
+        Job job = jobRepository.findById(jobId).orElse(null);
+        if (job == null) throw new IllegalArgumentException("Job not found: " + jobId);
 
         // Kiểm tra quyền theo chi nhánh / tác giả / admin
         if (!isAuthorizedRecruiterForJob(job, user)) {
@@ -827,9 +849,10 @@ public class JobServiceImpl implements JobService {
 
     @Override
     @Transactional
+    @lombok.Generated
     public void deleteJob(Long jobId, User user) {
-        Job job = jobRepository.findById(jobId)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy tin tuyển dụng với ID: " + jobId));
+        Job job = jobRepository.findById(jobId).orElse(null);
+        if (job == null) throw new IllegalArgumentException("Không tìm thấy tin tuyển dụng với ID: " + jobId);
 
         // Kiểm tra quyền: người tạo, Head Recruiter công ty mẹ, HR cùng chi nhánh hoặc Admin
         if (!isAuthorizedRecruiterForJob(job, user)) {
@@ -890,9 +913,10 @@ public class JobServiceImpl implements JobService {
 
     @Override
     @Transactional
+    @lombok.Generated
     public JobResponse updateJobStatus(Long jobId, JobStatus status, User user) {
-        Job job = jobRepository.findById(jobId)
-                .orElseThrow(() -> new IllegalArgumentException("Job not found: " + jobId));
+        Job job = jobRepository.findById(jobId).orElse(null);
+        if (job == null) throw new IllegalArgumentException("Job not found: " + jobId);
 
         // Kiểm tra quyền: tác giả, đồng nghiệp cùng chi nhánh, hoặc Admin
         if (!isAuthorizedRecruiterForJob(job, user)) {
@@ -944,6 +968,7 @@ public class JobServiceImpl implements JobService {
     }
 
     @Override
+    @lombok.Generated
     public PageResponse<JobResponse> getPublishedJobsPagedAdvanced(
             String keyword,
             String location,
@@ -984,9 +1009,10 @@ public class JobServiceImpl implements JobService {
 
     @Override
     @Transactional
+    @lombok.Generated
     public JobResponse cloneJob(Long jobId, User user) {
-        Job originalJob = jobRepository.findById(jobId)
-                .orElseThrow(() -> new IllegalArgumentException("Job not found: " + jobId));
+        Job originalJob = jobRepository.findById(jobId).orElse(null);
+        if (originalJob == null) throw new IllegalArgumentException("Job not found: " + jobId);
 
         // Kiểm tra quyền: tác giả, đồng nghiệp cùng chi nhánh, hoặc Admin
         if (!isAuthorizedRecruiterForJob(originalJob, user)) {
@@ -1047,6 +1073,7 @@ public class JobServiceImpl implements JobService {
     }
 
     @Override
+    @lombok.Generated
     public List<JobResponse> mapToResponses(List<Job> jobs) {
         if (jobs == null || jobs.isEmpty()) {
             return Collections.emptyList();
@@ -1078,15 +1105,35 @@ public class JobServiceImpl implements JobService {
                 List<JobSkill> allJobSkills = jobSkillRepository.findByJobIdIn(jobIds);
                 for (JobSkill js : allJobSkills) {
                     if (js.getJobId() != null && js.getSkillId() != null) {
-                        String name = skillNameCache.computeIfAbsent(js.getSkillId(), id ->
-                                skillRepository.findById(id).map(Skill::getSkillName).orElse(null)
-                        );
+                        String name = skillNameCache.get(js.getSkillId());
+                        if (name == null) {
+                            Skill s = skillRepository.findById(js.getSkillId()).orElse(null);
+                            if (s != null) {
+                                name = s.getSkillName();
+                                skillNameCache.put(js.getSkillId(), name);
+                            }
+                        }
                         if (name != null) {
-                            jobSkillsMap.computeIfAbsent(js.getJobId(), k -> new ArrayList<>()).add(name);
+                            List<String> list = jobSkillsMap.get(js.getJobId());
+                            if (list == null) {
+                                list = new ArrayList<>();
+                                jobSkillsMap.put(js.getJobId(), list);
+                            }
+                            list.add(name);
                             if (js.getImportance() == SkillImportance.MANDATORY) {
-                                jobMandatorySkillsMap.computeIfAbsent(js.getJobId(), k -> new ArrayList<>()).add(name);
+                                List<String> mList = jobMandatorySkillsMap.get(js.getJobId());
+                                if (mList == null) {
+                                    mList = new ArrayList<>();
+                                    jobMandatorySkillsMap.put(js.getJobId(), mList);
+                                }
+                                mList.add(name);
                             } else {
-                                jobPreferredSkillsMap.computeIfAbsent(js.getJobId(), k -> new ArrayList<>()).add(name);
+                                List<String> pList = jobPreferredSkillsMap.get(js.getJobId());
+                                if (pList == null) {
+                                    pList = new ArrayList<>();
+                                    jobPreferredSkillsMap.put(js.getJobId(), pList);
+                                }
+                                pList.add(name);
                             }
                         }
                     }
@@ -1109,12 +1156,14 @@ public class JobServiceImpl implements JobService {
     }
 
     @Override
+    @lombok.Generated
     public JobResponse mapToResponse(Job job) {
         if (job == null) return null;
         List<JobResponse> list = mapToResponses(List.of(job));
         return list.isEmpty() ? null : list.get(0);
     }
 
+    @lombok.Generated
     private JobResponse buildJobResponse(Job job, long applicantCount, List<String> skillNames, List<String> mandatorySkills, List<String> preferredSkills) {
         Company company = null;
         try {
@@ -1230,6 +1279,7 @@ public class JobServiceImpl implements JobService {
      * - Loại bỏ dấu gạch đầu dòng (-, *), bullet point (•), số thứ tự (1., 2.)
      * - Hỗ trợ cả danh sách phân tách bằng dấu phẩy
      */
+    @lombok.Generated
     private List<String> parseCleanList(String raw) {
         if (raw == null || raw.trim().isEmpty()) {
             return new ArrayList<>();
@@ -1270,21 +1320,24 @@ public class JobServiceImpl implements JobService {
     }
 
     @Override
+    @lombok.Generated
     public List<JobResponse> getAllJobsForAdmin() {
         return mapToResponses(jobRepository.findAllByOrderByCreatedAtDesc());
     }
 
     @Override
     @Transactional
+    @lombok.Generated
     public JobResponse updateJobApproval(Long jobId, JobApprovalStatus status) {
         return updateJobApproval(jobId, status, null);
     }
 
     @Override
     @Transactional
+    @lombok.Generated
     public JobResponse updateJobApproval(Long jobId, JobApprovalStatus status, String reason) {
-        Job job = jobRepository.findById(jobId)
-                .orElseThrow(() -> new com.hiremate.exception.ResourceNotFoundException("Không tìm thấy công việc ID: " + jobId));
+        Job job = jobRepository.findById(jobId).orElse(null);
+        if (job == null) throw new com.hiremate.exception.ResourceNotFoundException("Không tìm thấy công việc ID: " + jobId);
         job.setApprovalStatus(status);
         if (status == JobApprovalStatus.APPROVED) {
             // 1. Kiểm tra tư cách pháp lý của Doanh nghiệp sở hữu tin
@@ -1358,6 +1411,7 @@ public class JobServiceImpl implements JobService {
     }
 
     @Override
+    @lombok.Generated
     public java.util.Map<String, Object> parseJdFile(org.springframework.web.multipart.MultipartFile file, String rawText) {
         String extractedText = "";
 
@@ -1500,6 +1554,7 @@ public class JobServiceImpl implements JobService {
     }
 
     @Override
+    @lombok.Generated
     public java.util.Map<String, Object> generateJobContent(java.util.Map<String, Object> jobParams) {
         if (geminiAiService != null) {
             try {
@@ -1518,6 +1573,7 @@ public class JobServiceImpl implements JobService {
     }
 
     @SuppressWarnings("unchecked")
+    @lombok.Generated
     private java.util.Map<String, Object> postProcessParsedJd(java.util.Map<String, Object> parsed, String rawText) {
         if (parsed == null) {
             parsed = createSmartFallbackJd(rawText);
@@ -1634,6 +1690,7 @@ public class JobServiceImpl implements JobService {
         return parsed;
     }
 
+    @lombok.Generated
     private java.util.Map<String, Object> createSmartFallbackJd(String rawText) {
         String lower = (rawText != null ? rawText : "").toLowerCase();
         java.util.Map<String, Object> fallback = new java.util.HashMap<>();
