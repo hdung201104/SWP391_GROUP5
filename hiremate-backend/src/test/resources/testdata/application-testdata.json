@@ -2,40 +2,49 @@
   "applyToJob": {
     "APP_A01": {
       "caseId": "APP-A01",
-      "coverLetter": "Thư ứng tuyển hợp lệ đúng hạn",
-      "deadlineDaysOffset": 0
+      "nonExistentJobId": 999
     },
     "APP_A02": {
       "caseId": "APP-A02",
-      "nonExistentJobId": 999
+      "jobStatus": "DRAFT",
+      "approvalStatus": "PENDING"
     },
     "APP_A03": {
       "caseId": "APP-A03",
-      "jobStatus": "DRAFT"
+      "companyStatus": "SUSPENDED",
+      "companyName": "Violating Corp"
     },
     "APP_A04": {
       "caseId": "APP-A04",
-      "jobStatus": "PUBLISHED",
-      "approvalStatus": "PENDING"
+      "coverLetter": "Hồ sơ ứng tuyển chính thức",
+      "deadlineDaysOffset": 10
+    },
+    "APP_A05": {
+      "caseId": "APP-A05",
+      "strangerCvId": 999,
+      "strangerCandidateId": 888,
+      "defaultCvId": 501
+    },
+    "APP_A06": {
+      "caseId": "APP-A06",
+      "coverLetter": "Nộp lại đơn ứng tuyển sau khi tự rút đơn",
+      "rejectionReason": "WITHDRAWN_BY_CANDIDATE: Ứng viên tự rút đơn"
     },
     "APP_A07": {
       "caseId": "APP-A07",
-      "coverLetter": "Thư ứng tuyển nộp quá hạn",
-      "deadlineDaysOffset": -1
+      "coverLetter": "Nộp lại sau 35 ngày bồi dưỡng kiến thức",
+      "rejectionReason": "Chưa phù hợp đợt trước",
+      "daysAgo": 35
     },
-    "APP_A10": {
-      "caseId": "APP-A10",
-      "cvId": null
-    },
-    "APP_A13": {
-      "caseId": "APP-A13",
+    "APP_A08": {
+      "caseId": "APP-A08",
       "existingStatus": "APPLIED"
     }
   },
   "getJobApplications": {
     "APP_G01": {
       "caseId": "APP-G01",
-      "jobId": 1
+      "nonExistentJobId": 404
     },
     "APP_G02": {
       "caseId": "APP-G02",
@@ -44,11 +53,13 @@
     },
     "APP_G03": {
       "caseId": "APP-G03",
-      "nonExistentJobId": 404
+      "jobId": 1
     },
     "APP_G04": {
       "caseId": "APP-G04",
-      "filterStatus": "SCREENING"
+      "jobId": 1,
+      "score1": 70.0,
+      "score2": 95.0
     },
     "APP_G05": {
       "caseId": "APP-G05",
@@ -56,71 +67,63 @@
     },
     "APP_G06": {
       "caseId": "APP-G06",
-      "cachedAiScore": 88.5
+      "jobId": 1,
+      "computedScore": 85.5
+    },
+    "APP_G07": {
+      "caseId": "APP-G07",
+      "jobId": 1,
+      "adminId": 99
+    },
+    "APP_G08": {
+      "caseId": "APP-G08",
+      "jobId": 1
     }
   },
   "updateStatus": {
     "APP_U01": {
       "caseId": "APP-U01",
-      "targetStatus": "INTERVIEWING",
-      "interviewMinutesOffset": 31
-    },
-    "APP_U02": {
-      "caseId": "APP-U02",
-      "targetStatus": "REJECTED",
-      "otherRecruiterId": 999
-    },
-    "APP_U03": {
-      "caseId": "APP-U03",
       "nonExistentApplicationId": 404,
       "targetStatus": "SCREENING"
     },
-    "APP_U08": {
-      "caseId": "APP-U08",
+    "APP_U02": {
+      "caseId": "APP-U02",
+      "otherRecruiterId": 999,
+      "targetStatus": "REJECTED"
+    },
+    "APP_U03": {
+      "caseId": "APP-U03",
       "targetStatus": "HIRED",
       "currentHired": 2,
       "vacancies": 2
     },
-    "APP_U09": {
-      "caseId": "APP-U09",
+    "APP_U04": {
+      "caseId": "APP-U04",
       "targetStatus": "HIRED",
       "currentHiredBefore": 1,
       "currentHiredAfter": 2,
       "vacancies": 2
     },
-    "APP_U12": {
-      "caseId": "APP-U12",
+    "APP_U05": {
+      "caseId": "APP-U05",
       "targetStatus": "INTERVIEWING",
-      "interviewMinutesOffset": 29
-    }
-  },
-  "extended": {
-    "APP_EXT01": {
-      "caseId": "APP-EXT-01",
-      "coverLetter": "Thư nộp lại đơn mới sau khi rút đơn",
-      "rejectionReason": "WITHDRAWN_BY_CANDIDATE: Ứng viên xin rút đơn"
+      "interviewMinutesOffset": 35
     },
-    "APP_EXT02": {
-      "caseId": "APP-EXT-02",
-      "coverLetter": "Nộp lại sau 35 ngày bồi dưỡng kiến thức",
-      "rejectionReason": "Chưa phù hợp đợt này",
-      "daysAgo": 35
+    "APP_U06": {
+      "caseId": "APP-U06",
+      "targetStatus": "REJECTED",
+      "notes": "Kỹ năng thực hành chưa đáp ứng yêu cầu dự án"
     },
-    "APP_EXT03": {
-      "caseId": "APP-EXT-03",
-      "rejectionReason": "Chưa đạt phỏng vấn",
-      "daysAgo": 10
+    "APP_U07": {
+      "caseId": "APP-U07",
+      "targetStatus": "SCREENING",
+      "internalNotes": "[{\"author\":\"HR Lead\",\"comment\":\"Đã đánh giá CV vòng 1, chờ phỏng vấn kỹ thuật\"}]"
     },
-    "APP_EXT04": {
-      "caseId": "APP-EXT-04",
-      "companyStatus": "SUSPENDED",
-      "companyName": "Violating Corp"
-    },
-    "APP_EXT05": {
-      "caseId": "APP-EXT-05",
-      "strangerCvId": 999,
-      "strangerCandidateId": 999,
-      "defaultCvId": 501
+    "APP_U08": {
+      "caseId": "APP-U08",
+      "targetStatus": "OFFERED",
+      "vacancies": 2,
+      "hiredCountRemaining": 1
     }
   }
 }

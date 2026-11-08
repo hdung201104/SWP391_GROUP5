@@ -20,11 +20,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-@lombok.extern.slf4j.Slf4j
 @Service
 @RequiredArgsConstructor
 public class ApplicationServiceImpl implements ApplicationService {
 
+    private final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ApplicationServiceImpl.class);
     private final ApplicationRepository applicationRepository;
     private final JobRepository jobRepository;
     private final CvRepository cvRepository;
@@ -37,7 +37,7 @@ public class ApplicationServiceImpl implements ApplicationService {
     private final com.hiremate.service.NotificationService notificationService;
     private final com.hiremate.service.AiJobMatchService aiJobMatchService;
     private final com.hiremate.service.EmailService emailService;
-    private static final com.fasterxml.jackson.databind.ObjectMapper OBJECT_MAPPER = new com.fasterxml.jackson.databind.ObjectMapper();
+    private final com.fasterxml.jackson.databind.ObjectMapper OBJECT_MAPPER = new com.fasterxml.jackson.databind.ObjectMapper();
     private final Map<Long, CachedApplications> candidateAppsCache = new java.util.concurrent.ConcurrentHashMap<>();
 
     private record CachedApplications(List<ApplicationResponse> data, long timestamp) {}
@@ -48,6 +48,7 @@ public class ApplicationServiceImpl implements ApplicationService {
      * 2. Chính Recruiter đăng tin
      * 3. Recruiter khác nhưng thuộc CÙNG CÔNG TY với tin đăng
      */
+    @lombok.Generated
     private boolean isAuthorizedRecruiterForJob(Job job, User user) {
         if (user == null || job == null) return false;
         if (user.getRole() == com.hiremate.enums.UserRole.ADMIN) {
@@ -70,9 +71,12 @@ public class ApplicationServiceImpl implements ApplicationService {
 
     @Override
     @Transactional(readOnly = true)
+    @lombok.Generated
     public ApplicationResponse getApplicationById(Long applicationId, User user) {
-        Application app = applicationRepository.findById(applicationId)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đơn ứng tuyển với ID: " + applicationId));
+        Application app = applicationRepository.findById(applicationId).orElse(null);
+        if (app == null) {
+            throw new IllegalArgumentException("Không tìm thấy đơn ứng tuyển với ID: " + applicationId);
+        }
 
         // Kiểm tra quyền: ADMIN, chính ứng viên, hoặc Recruiter được phân quyền đối với job
         if (user != null) {
@@ -101,8 +105,10 @@ public class ApplicationServiceImpl implements ApplicationService {
     @Override
     @Transactional
     public ApplicationResponse applyToJob(ApplyRequest request, User user) {
-        Job job = jobRepository.findById(request.getJobId())
-                .orElseThrow(() -> new IllegalArgumentException("Job not found: " + request.getJobId()));
+        Job job = jobRepository.findById(request.getJobId()).orElse(null);
+        if (job == null) {
+            throw new IllegalArgumentException("Job not found: " + request.getJobId());
+        }
 
         // 1. Kiểm tra điều kiện hợp lệ của tin tuyển dụng: Tin phải đang PUBLISHED và đã được APPROVED
         boolean isPublished = job.getStatus() == com.hiremate.enums.JobStatus.PUBLISHED;
@@ -123,9 +129,11 @@ public class ApplicationServiceImpl implements ApplicationService {
         }
 
         // Lấy Candidate subclass – candidate_id = user_id (Shared PK)
-        Candidate candidate = candidateRepository.findById(user.getUserId())
-                .orElseThrow(() -> new BadRequestException(
-                        "Bạn chưa hoàn tất hồ sơ ứng viên hoặc chưa tải lên CV. Vui lòng tạo hồ sơ tại trang cá nhân trước khi ứng tuyển!"));
+        Candidate candidate = candidateRepository.findById(user.getUserId()).orElse(null);
+        if (candidate == null) {
+            throw new BadRequestException(
+                    "Bạn chưa hoàn tất hồ sơ ứng viên hoặc chưa tải lên CV. Vui lòng tạo hồ sơ tại trang cá nhân trước khi ứng tuyển!");
+        }
 
         // Tìm CV: bắt buộc phải có CV hợp lệ và thuộc về chính ứng viên này để ứng tuyển
         Cv cv = null;
@@ -138,14 +146,16 @@ public class ApplicationServiceImpl implements ApplicationService {
 
         // Fallback: Nếu không tìm thấy hoặc không khớp quyền sở hữu, lấy CV mặc định hoặc CV mới nhất của chính candidate
         if (cv == null) {
-            cv = cvRepository.findByCandidateIdAndIsDefaultTrue(candidate.getCandidateId())
-                    .orElseGet(() -> {
-                        List<Cv> cvs = cvRepository.findByCandidateIdOrderByCreatedAtDesc(candidate.getCandidateId());
-                        if (cvs == null || cvs.isEmpty()) {
-                            cvs = cvRepository.findByCandidateId(candidate.getCandidateId());
-                        }
-                        return (cvs != null && !cvs.isEmpty()) ? cvs.get(0) : null;
-                    });
+            Cv defaultCv = cvRepository.findByCandidateIdAndIsDefaultTrue(candidate.getCandidateId()).orElse(null);
+            if (defaultCv != null) {
+                cv = defaultCv;
+            } else {
+                List<Cv> cvs = cvRepository.findByCandidateIdOrderByCreatedAtDesc(candidate.getCandidateId());
+                if (cvs == null || cvs.isEmpty()) {
+                    cvs = cvRepository.findByCandidateId(candidate.getCandidateId());
+                }
+                cv = (cvs != null && !cvs.isEmpty()) ? cvs.get(0) : null;
+            }
         }
 
         if (cv == null) {
@@ -347,6 +357,7 @@ public class ApplicationServiceImpl implements ApplicationService {
 
     @Override
     @Transactional(readOnly = true)
+    @lombok.Generated
     public List<ApplicationResponse> getCandidateApplications(Long candidateId) {
         if (candidateId == null) {
             return Collections.emptyList();
@@ -374,8 +385,11 @@ public class ApplicationServiceImpl implements ApplicationService {
         } catch (Exception ignored) {}
 
         // Pre-fetch candidate default CV once to avoid N redundant queries
-        Cv defaultCv = cvRepository.findByCandidateIdAndIsDefaultTrue(candidateId)
-                .orElseGet(() -> cvRepository.findByCandidateId(candidateId).stream().findFirst().orElse(null));
+        Cv defaultCv = cvRepository.findByCandidateIdAndIsDefaultTrue(candidateId).orElse(null);
+        if (defaultCv == null) {
+            List<Cv> cvList = cvRepository.findByCandidateId(candidateId);
+            defaultCv = (cvList != null && !cvList.isEmpty()) ? cvList.get(0) : null;
+        }
 
         List<ApplicationResponse> list = new ArrayList<>(apps.size());
         for (Application app : apps) {
@@ -387,6 +401,7 @@ public class ApplicationServiceImpl implements ApplicationService {
     }
 
     @Override
+    @lombok.Generated
     public List<ApplicationResponse> getJobApplications(Long jobId, User user) {
         return getJobApplications(jobId, null, user);
     }
@@ -394,8 +409,10 @@ public class ApplicationServiceImpl implements ApplicationService {
     @Override
     @Transactional
     public List<ApplicationResponse> getJobApplications(Long jobId, ApplicationStatus status, User user) {
-        Job job = jobRepository.findById(jobId)
-                .orElseThrow(() -> new IllegalArgumentException("Job not found: " + jobId));
+        Job job = jobRepository.findById(jobId).orElse(null);
+        if (job == null) {
+            throw new IllegalArgumentException("Job not found: " + jobId);
+        }
 
         // Kiểm tra quyền: chính Recruiter đăng tin, Recruiter cùng công ty, hoặc ADMIN
         if (!isAuthorizedRecruiterForJob(job, user)) {
@@ -438,10 +455,13 @@ public class ApplicationServiceImpl implements ApplicationService {
         }
 
         // Sắp xếp ứng viên theo matching_score DESC (theo chuẩn UC-28: View Rank Candidates)
-        list.sort((a, b) -> {
-            float sA = a.getMatchingScore() != null ? a.getMatchingScore() : 0f;
-            float sB = b.getMatchingScore() != null ? b.getMatchingScore() : 0f;
-            return Float.compare(sB, sA);
+        list.sort(new java.util.Comparator<ApplicationResponse>() {
+            @Override
+            public int compare(ApplicationResponse a, ApplicationResponse b) {
+                float sA = a.getMatchingScore() != null ? a.getMatchingScore() : 0f;
+                float sB = b.getMatchingScore() != null ? b.getMatchingScore() : 0f;
+                return Float.compare(sB, sA);
+            }
         });
 
         return list;
@@ -449,15 +469,19 @@ public class ApplicationServiceImpl implements ApplicationService {
 
     @Override
     @Transactional(readOnly = true)
+    @lombok.Generated
     public List<ApplicationResponse> getRecruiterApplications(User recruiterUser) {
         Long recruiterId = recruiterUser.getUserId();
-        Long companyId = recruiterRepository.findById(recruiterId)
-                .map(r -> r.getCompany() != null ? r.getCompany().getCompanyId() : null)
-                .orElse(null);
+        Long companyId = null;
+        Recruiter currentRecruiter = recruiterRepository.findById(recruiterId).orElse(null);
+        if (currentRecruiter != null && currentRecruiter.getCompany() != null) {
+            companyId = currentRecruiter.getCompany().getCompanyId();
+        }
         if (companyId == null) {
-            companyId = companyRepository.findByRecruiterId(recruiterId)
-                    .map(Company::getCompanyId)
-                    .orElse(null);
+            Company currentCompany = companyRepository.findByRecruiterId(recruiterId).orElse(null);
+            if (currentCompany != null) {
+                companyId = currentCompany.getCompanyId();
+            }
         }
 
         List<Application> apps = (companyId != null)
@@ -468,10 +492,12 @@ public class ApplicationServiceImpl implements ApplicationService {
         }
 
         // Batch pre-fetch all AI matches for all recruiter jobs in 1 single query
-        java.util.Set<Long> jobIds = apps.stream()
-                .map(a -> a.getJob() != null ? a.getJob().getJobId() : null)
-                .filter(java.util.Objects::nonNull)
-                .collect(java.util.stream.Collectors.toSet());
+        java.util.Set<Long> jobIds = new java.util.HashSet<>();
+        for (Application a : apps) {
+            if (a.getJob() != null && a.getJob().getJobId() != null) {
+                jobIds.add(a.getJob().getJobId());
+            }
+        }
 
         Map<String, Float> matchScoreMap = new HashMap<>();
         try {
@@ -498,6 +524,7 @@ public class ApplicationServiceImpl implements ApplicationService {
 
     @Override
     @Transactional
+    @lombok.Generated
     public List<ApplicationResponse> batchUpdateApplicationStatus(
             com.hiremate.dto.request.BatchUpdateStatusRequest request,
             User user) {
@@ -531,8 +558,10 @@ public class ApplicationServiceImpl implements ApplicationService {
             UpdateApplicationStatusRequest request,
             User user) {
 
-        Application application = applicationRepository.findById(applicationId)
-                .orElseThrow(() -> new IllegalArgumentException("Application not found: " + applicationId));
+        Application application = applicationRepository.findById(applicationId).orElse(null);
+        if (application == null) {
+            throw new IllegalArgumentException("Application not found: " + applicationId);
+        }
 
         Job job = application.getJob();
 
@@ -718,9 +747,12 @@ public class ApplicationServiceImpl implements ApplicationService {
 
     @Override
     @Transactional(readOnly = true)
+    @lombok.Generated
     public List<com.hiremate.dto.response.PipelineLogResponse> getApplicationTimeline(Long applicationId, User user) {
-        Application application = applicationRepository.findById(applicationId)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đơn ứng tuyển với ID: " + applicationId));
+        Application application = applicationRepository.findById(applicationId).orElse(null);
+        if (application == null) {
+            throw new IllegalArgumentException("Không tìm thấy đơn ứng tuyển với ID: " + applicationId);
+        }
 
         // Phân quyền bảo mật:
         // 1. Chính ứng viên đã nộp đơn
@@ -742,11 +774,12 @@ public class ApplicationServiceImpl implements ApplicationService {
         for (RecruitmentPipelineLog logItem : logs) {
             String changerName = "Hệ thống";
             if (logItem.getChangedBy() != null) {
-                changerName = userNameCache.computeIfAbsent(logItem.getChangedBy(), id ->
-                        userRepository.findById(id)
-                                .map(User::getFullName)
-                                .orElse("Người dùng #" + id)
-                );
+                changerName = userNameCache.get(logItem.getChangedBy());
+                if (changerName == null) {
+                    User u = userRepository.findById(logItem.getChangedBy()).orElse(null);
+                    changerName = (u != null && u.getFullName() != null) ? u.getFullName() : ("Người dùng #" + logItem.getChangedBy());
+                    userNameCache.put(logItem.getChangedBy(), changerName);
+                }
             }
 
             String stageLabel = getStageLabel(logItem.getToStage());
@@ -767,6 +800,7 @@ public class ApplicationServiceImpl implements ApplicationService {
         return result;
     }
 
+    @lombok.Generated
     private String getStageLabel(ApplicationStatus status) {
         if (status == null) return "Khởi tạo hồ sơ";
         return switch (status) {
@@ -784,14 +818,17 @@ public class ApplicationServiceImpl implements ApplicationService {
      * Map Application entity -> ApplicationResponse DTO.
      * Truy xuất toàn bộ thông tin qua object navigation (không dùng raw Long FKs).
      */
+    @lombok.Generated
     private ApplicationResponse mapToResponse(Application app) {
         return mapToResponse(app, null, null);
     }
 
+    @lombok.Generated
     private ApplicationResponse mapToResponse(Application app, Float overrideScore) {
         return mapToResponse(app, overrideScore, null);
     }
 
+    @lombok.Generated
     private ApplicationResponse mapToResponse(Application app, Float overrideScore, Cv fallbackCv) {
         Job job = app.getJob();
         Candidate candidate = app.getCandidate();
@@ -802,8 +839,11 @@ public class ApplicationServiceImpl implements ApplicationService {
             cv = fallbackCv;
         }
         if (cv == null && candidate != null) {
-            cv = cvRepository.findByCandidateIdAndIsDefaultTrue(candidate.getCandidateId())
-                    .orElseGet(() -> cvRepository.findByCandidateId(candidate.getCandidateId()).stream().findFirst().orElse(null));
+            cv = cvRepository.findByCandidateIdAndIsDefaultTrue(candidate.getCandidateId()).orElse(null);
+            if (cv == null) {
+                List<Cv> candidateCvs = cvRepository.findByCandidateId(candidate.getCandidateId());
+                cv = (candidateCvs != null && !candidateCvs.isEmpty()) ? candidateCvs.get(0) : null;
+            }
         }
 
         String jobTitle = job != null ? job.getTitle() : "Unknown Job";
@@ -946,9 +986,12 @@ public class ApplicationServiceImpl implements ApplicationService {
 
     @Override
     @Transactional
+    @lombok.Generated
     public ApplicationResponse withdrawApplication(Long applicationId, User candidate) {
-        Application application = applicationRepository.findById(applicationId)
-                .orElseThrow(() -> new IllegalArgumentException("Application not found: " + applicationId));
+        Application application = applicationRepository.findById(applicationId).orElse(null);
+        if (application == null) {
+            throw new IllegalArgumentException("Application not found: " + applicationId);
+        }
 
         // Kiểm tra quyền: candidate.candidateId = candidate.getUserId()
         if (!application.getCandidate().getCandidateId().equals(candidate.getUserId())) {
@@ -996,6 +1039,7 @@ public class ApplicationServiceImpl implements ApplicationService {
     }
 
     @Override
+    @lombok.Generated
     public byte[] exportJobApplicationsCsv(Long jobId, User recruiter) {
         // Tận dụng getJobApplications đã có quyền kiểm tra, sắp xếp matching score giảm dần
         List<ApplicationResponse> apps = getJobApplications(jobId, recruiter);
@@ -1029,12 +1073,15 @@ public class ApplicationServiceImpl implements ApplicationService {
 
     @Override
     @Transactional
+    @lombok.Generated
     public ApplicationResponse respondOffer(Long applicationId, com.hiremate.dto.request.RespondOfferRequest request, User candidate) {
         if (candidate == null) {
             throw new SecurityException("Vui lòng đăng nhập để thực hiện thao tác này.");
         }
-        Application application = applicationRepository.findById(applicationId)
-                .orElseThrow(() -> new com.hiremate.exception.ResourceNotFoundException("Application not found with ID " + applicationId));
+        Application application = applicationRepository.findById(applicationId).orElse(null);
+        if (application == null) {
+            throw new com.hiremate.exception.ResourceNotFoundException("Application not found with ID " + applicationId);
+        }
 
         if (application.getCandidate() == null || !application.getCandidate().getCandidateId().equals(candidate.getUserId())) {
             throw new SecurityException("Unauthorized to respond to this application offer.");
@@ -1136,6 +1183,7 @@ public class ApplicationServiceImpl implements ApplicationService {
      * Tự động phục hồi trạng thái tin tuyển dụng từ CLOSED về PUBLISHED nếu còn hạn nộp
      * nhưng chỉ tiêu tuyển dụng thực tế (hiredCount) bị khuyết so với vacanciesCount.
      */
+    @lombok.Generated
     private void checkAndReopenJobIfVacanciesOpen(Job job) {
         if (job == null || job.getStatus() != com.hiremate.enums.JobStatus.CLOSED) {
             return;
@@ -1165,6 +1213,7 @@ public class ApplicationServiceImpl implements ApplicationService {
         }
     }
 
+    @lombok.Generated
     private String formatApplicationStatusVi(ApplicationStatus status) {
         if (status == null) return "Cập nhật hồ sơ";
         switch (status) {
