@@ -202,12 +202,12 @@
             "caseId": "JOB-S01",
             "type": "NO_FILTER",
             "keyword": null,
-      "location": null
+            "location": null
           },
           "JOB_S02": {
             "caseId": "JOB-S02",
             "type": "KEYWORD_ONLY",
-            "keyword": "Java",
+            "keyword": "Java"
           },
           "JOB_S03": {
             "caseId": "JOB-S03",
@@ -217,30 +217,32 @@
           "JOB_S04": {
             "caseId": "JOB-S04",
             "type": "BOTH_FILTERS",
-            "keyword": "Java",
+            "keyword": "Java"
           },
           "JOB_S05": {
             "caseId": "JOB-S05",
             "type": "BLANK_KEYWORD",
             "keyword": "   ",
-      "location": "Ho Chi Minh"
+            "location": "Ho Chi Minh"
           },
-    "JOB_S06": {
-              "caseId": "JOB-S06",
-              "type": "BLANK_LOCATION",
-              "keyword": "Frontend",
-              "location": "   "
-            },
-                "caseId": "JOB-S07",
-                "type": "BOTH_BLANK",
-                "keyword": "   ",
-                "location": "   "
-              },
-    "JOB_S08": {
-                  "caseId": "JOB-S08",
-                  "type": "EMPTY_RESULT",
-                  "keyword": null,
-                  "location": null
-                }
-              }
-            }
+          "JOB_S06": {
+            "caseId": "JOB-S06",
+            "type": "BLANK_LOCATION",
+            "keyword": "Frontend",
+            "location": "   "
+          },
+          "JOB_S07": {
+            "caseId": "JOB-S07",
+            "type": "BOTH_BLANK",
+            "keyword": "   ",
+            "location": "   "
+          },
+          "JOB_S08": {
+            "caseId": "JOB-S08",
+            "type": "EMPTY_RESULT",
+            "keyword": null,
+            "location": null
+          }
+        }
+      }
+    }
