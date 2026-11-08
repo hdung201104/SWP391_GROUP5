@@ -162,6 +162,90 @@
       "mandatorySkillName": "Java",
       "preferredSkillId": 2,
       "preferredSkillName": "Docker"
+    },
+    "JOB_COV_C01": {
+      "caseId": "JOB-COV-C01",
+      "title": "Backend Go Developer",
+      "vacanciesCount": 2,
+      "salaryMin": 15.0,
+      "salaryMax": 25.0,
+      "deadlineDaysOffset": 10,
+      "branchName": "Chi nhánh Đà Nẵng",
+      "category": "Software Engineering",
+      "currency": "USD"
+    },
+    "JOB_COV_C02": {
+      "caseId": "JOB-COV-C02",
+      "title": "DevOps Engineer",
+      "vacanciesCount": 1,
+      "salaryMin": 20.0,
+      "salaryMax": 30.0,
+      "deadlineDaysOffset": 10,
+      "companyId": 801,
+      "companyName": "VinAI Research"
+    },
+    "JOB_COV_C03": {
+      "caseId": "JOB-COV-C03",
+      "title": "AI Research Scientist",
+      "vacanciesCount": 1,
+      "salaryMin": 30.0,
+      "salaryMax": 50.0,
+      "deadlineDaysOffset": 14
+    },
+    "JOB_COV_U01": {
+      "caseId": "JOB-COV-U01",
+      "title": "Rejected Job Fixed",
+      "vacanciesCount": 2,
+      "salaryMin": 15.0,
+      "salaryMax": 25.0,
+      "deadlineDaysOffset": 10
+    },
+    "JOB_COV_U02": {
+      "caseId": "JOB-COV-U02",
+      "title": "Extended Closed Job",
+      "vacanciesCount": 2,
+      "salaryMin": 15.0,
+      "salaryMax": 25.0,
+      "deadlineDaysOffset": 20
+    },
+    "JOB_COV_U03": {
+      "caseId": "JOB-COV-U03",
+      "title": "Senior Cloud Architect",
+      "vacanciesCount": 2,
+      "salaryMin": 40.0,
+      "salaryMax": 60.0,
+      "deadlineDaysOffset": 30,
+      "branchName": "Chi nhánh HCM",
+      "currency": "USD",
+      "category": "Cloud Computing",
+      "mandatorySkillName": "Kubernetes",
+      "preferredSkillName": "Terraform"
+    },
+    "JOB_COV_C04": {
+      "caseId": "JOB-COV-C04",
+      "nonExistentUserId": 99999,
+      "title": "Recruiter Profile Missing Job"
+    },
+    "JOB_COV_U04": {
+      "caseId": "JOB-COV-U04",
+      "title": "Job Closed Intentionally",
+      "vacanciesCount": 2,
+      "salaryMin": 15.0,
+      "salaryMax": 25.0,
+      "deadlineDaysOffset": 10
+    },
+    "JOB_COV_U05": {
+      "caseId": "JOB-COV-U05",
+      "title": "Job Unapproved Status Stay Draft",
+      "vacanciesCount": 2,
+      "salaryMin": 15.0,
+      "salaryMax": 25.0,
+      "deadlineDaysOffset": 10
+    },
+    "JOB_COV_S01": {
+      "caseId": "JOB-COV-S01",
+      "location": "Ho Chi Minh",
+      "expectedTitle": "Fullstack Node Developer"
     }
   }
 }

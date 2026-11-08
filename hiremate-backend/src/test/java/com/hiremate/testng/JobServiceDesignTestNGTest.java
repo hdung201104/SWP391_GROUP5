@@ -664,5 +664,335 @@ public class JobServiceDesignTestNGTest {
         Assert.assertNotNull(response);
         verify(jobSkillRepository, times(2)).save(any(JobSkill.class));
     }
+
+    // ==========================================================================
+    // COVERAGE EXPANSION TESTS (TARGET >= 90% BRANCH & LINE COVERAGE FOR 3 FUNCTIONS)
+    // ==========================================================================
+
+    @Test(description = "JOB-COV-C01: createJob với custom branchName, category, currency và notification cho tin PENDING")
+    public void test_JOB_COV_C01_createJob_PendingApproval_CustomBranchAndCategory() {
+        var data = TestDataLoader.loadJsonNode("testdata/job-testdata.json").path("extended").path("JOB_COV_C01");
+        JobCreateRequest req = buildJobReq(
+                data.path("title").asText("Backend Go Developer"),
+                data.path("vacanciesCount").asInt(2),
+                new BigDecimal(data.path("salaryMin").asText("15.0")),
+                new BigDecimal(data.path("salaryMax").asText("25.0")),
+                LocalDate.now().plusDays(data.path("deadlineDaysOffset").asInt(10)));
+        req.setBranchName(data.path("branchName").asText("Chi nhánh Đà Nẵng"));
+        req.setCategory(data.path("category").asText("Software Engineering"));
+        req.setSalaryCurrency(data.path("currency").asText("USD"));
+
+        // Cấu hình settings bật moderateNewJobs = true, tắt autoPublishVerified = false -> ra PENDING
+        com.hiremate.dto.response.AdminSettingsDTO settings = new com.hiremate.dto.response.AdminSettingsDTO();
+        settings.setRequireGpkdToPost(true);
+        settings.setModerateNewJobs(true);
+        settings.setAutoPublishVerified(false);
+        when(systemSettingsService.getSettings()).thenReturn(settings);
+
+        when(recruiterRepository.findById(301L)).thenReturn(Optional.of(sampleRecruiter));
+        when(jobRepository.save(any(Job.class))).thenAnswer(inv -> {
+            Job j = inv.getArgument(0);
+            j.setJobId(701L);
+            return j;
+        });
+
+        JobResponse response = jobService.createJob(req, sampleRecruiterUser);
+
+        Assert.assertNotNull(response);
+        Assert.assertEquals(response.getStatus(), JobStatus.DRAFT);
+        Assert.assertEquals(response.getApprovalStatus(), JobApprovalStatus.PENDING);
+        Assert.assertEquals(response.getBranchName(), data.path("branchName").asText("Chi nhánh Đà Nẵng"));
+        Assert.assertEquals(response.getSalaryCurrency(), "USD");
+        verify(notificationService, atLeastOnce()).notifyAdmins(any(), any(), any(), any(), any());
+    }
+
+    @Test(description = "JOB-COV-C02: createJob khi recruiter.company = null, tự động fallback lấy từ companyRepository")
+    public void test_JOB_COV_C02_createJob_CompanyNull_FallbackViaCompanyRepository() {
+        var data = TestDataLoader.loadJsonNode("testdata/job-testdata.json").path("extended").path("JOB_COV_C02");
+        Recruiter recruiterWithoutComp = Recruiter.builder()
+                .recruiterId(301L)
+                .user(sampleRecruiterUser)
+                .company(null)
+                .build();
+
+        Company foundComp = Company.builder()
+                .companyId(data.path("companyId").asLong(801L))
+                .companyName(data.path("companyName").asText("VinAI Research"))
+                .status(CompanyStatus.VERIFIED)
+                .build();
+
+        when(recruiterRepository.findById(301L)).thenReturn(Optional.of(recruiterWithoutComp));
+        when(companyRepository.findByRecruiterId(301L)).thenReturn(Optional.of(foundComp));
+        when(jobRepository.save(any(Job.class))).thenAnswer(inv -> {
+            Job j = inv.getArgument(0);
+            j.setJobId(702L);
+            return j;
+        });
+
+        JobCreateRequest req = buildJobReq(
+                data.path("title").asText("DevOps Engineer"),
+                data.path("vacanciesCount").asInt(1),
+                new BigDecimal(data.path("salaryMin").asText("20.0")),
+                new BigDecimal(data.path("salaryMax").asText("30.0")),
+                LocalDate.now().plusDays(data.path("deadlineDaysOffset").asInt(10)));
+
+        JobResponse response = jobService.createJob(req, sampleRecruiterUser);
+
+        Assert.assertNotNull(response);
+        verify(recruiterRepository, times(1)).save(recruiterWithoutComp);
+        Assert.assertEquals(recruiterWithoutComp.getCompany().getCompanyId(), Long.valueOf(801L));
+    }
+
+    @Test(description = "JOB-COV-C03: createJob với Admin đăng tin và tắt chế độ kiểm duyệt (moderateNewJobs = false)")
+    public void test_JOB_COV_C03_createJob_AdminUser_ModerateJobsFalse() {
+        var data = TestDataLoader.loadJsonNode("testdata/job-testdata.json").path("extended").path("JOB_COV_C03");
+        User adminUser = User.builder()
+                .userId(1L)
+                .email("admin@hiremate.ai")
+                .role(UserRole.ADMIN)
+                .status(UserStatus.ACTIVE)
+                .build();
+
+        Recruiter adminRecruiter = Recruiter.builder()
+                .recruiterId(1L)
+                .user(adminUser)
+                .company(sampleVerifiedCompany)
+                .build();
+
+        com.hiremate.dto.response.AdminSettingsDTO settings = new com.hiremate.dto.response.AdminSettingsDTO();
+        settings.setRequireGpkdToPost(false);
+        settings.setModerateNewJobs(false);
+        settings.setAutoPublishVerified(false);
+        when(systemSettingsService.getSettings()).thenReturn(settings);
+
+        when(recruiterRepository.findById(1L)).thenReturn(Optional.of(adminRecruiter));
+        when(jobRepository.save(any(Job.class))).thenAnswer(inv -> {
+            Job j = inv.getArgument(0);
+            j.setJobId(703L);
+            return j;
+        });
+
+        JobCreateRequest req = buildJobReq(
+                data.path("title").asText("AI Research Scientist"),
+                data.path("vacanciesCount").asInt(1),
+                new BigDecimal(data.path("salaryMin").asText("30.0")),
+                new BigDecimal(data.path("salaryMax").asText("50.0")),
+                LocalDate.now().plusDays(data.path("deadlineDaysOffset").asInt(14)));
+
+        JobResponse response = jobService.createJob(req, adminUser);
+
+        Assert.assertNotNull(response);
+        Assert.assertEquals(response.getStatus(), JobStatus.PUBLISHED);
+        Assert.assertEquals(response.getApprovalStatus(), JobApprovalStatus.APPROVED);
+    }
+
+    @Test(description = "JOB-COV-U01: updateJob khi tin từng bị REJECTED -> bắt buộc chuyển về DRAFT + PENDING để duyệt lại")
+    public void test_JOB_COV_U01_updateJob_PreviouslyRejected_ResetsToDraftPending() {
+        var data = TestDataLoader.loadJsonNode("testdata/job-testdata.json").path("extended").path("JOB_COV_U01");
+        Job rejectedJob = Job.builder()
+                .jobId(801L)
+                .title("Original Title")
+                .recruiter(sampleRecruiter)
+                .company(sampleVerifiedCompany)
+                .status(JobStatus.DRAFT)
+                .approvalStatus(JobApprovalStatus.REJECTED)
+                .deadlineDate(LocalDate.now().plusDays(10))
+                .build();
+
+        JobCreateRequest updateReq = buildJobReq(
+                data.path("title").asText("Rejected Job Fixed"),
+                data.path("vacanciesCount").asInt(2),
+                new BigDecimal(data.path("salaryMin").asText("15.0")),
+                new BigDecimal(data.path("salaryMax").asText("25.0")),
+                LocalDate.now().plusDays(data.path("deadlineDaysOffset").asInt(10)));
+        updateReq.setStatus(JobStatus.PUBLISHED);
+
+        when(jobRepository.findById(801L)).thenReturn(Optional.of(rejectedJob));
+        when(jobRepository.save(any(Job.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        JobResponse response = jobService.updateJob(801L, updateReq, sampleRecruiterUser);
+
+        Assert.assertNotNull(response);
+        Assert.assertEquals(rejectedJob.getStatus(), JobStatus.DRAFT);
+        Assert.assertEquals(rejectedJob.getApprovalStatus(), JobApprovalStatus.PENDING);
+    }
+
+    @Test(description = "JOB-COV-U02: updateJob khi tin CLOSED và deadline còn hạn, mở lại không truyền status -> tự về PUBLISHED")
+    public void test_JOB_COV_U02_updateJob_ClosedJob_ValidDeadline_ReopensToPublished() {
+        var data = TestDataLoader.loadJsonNode("testdata/job-testdata.json").path("extended").path("JOB_COV_U02");
+        Job closedJob = Job.builder()
+                .jobId(802L)
+                .title("Old Closed Job")
+                .recruiter(sampleRecruiter)
+                .company(sampleVerifiedCompany)
+                .status(JobStatus.CLOSED)
+                .approvalStatus(JobApprovalStatus.APPROVED)
+                .deadlineDate(LocalDate.now().plusDays(20))
+                .build();
+
+        JobCreateRequest updateReq = buildJobReq(
+                data.path("title").asText("Extended Closed Job"),
+                data.path("vacanciesCount").asInt(2),
+                new BigDecimal(data.path("salaryMin").asText("15.0")),
+                new BigDecimal(data.path("salaryMax").asText("25.0")),
+                LocalDate.now().plusDays(data.path("deadlineDaysOffset").asInt(20)));
+        updateReq.setStatus(null); // Không truyền status
+
+        when(jobRepository.findById(802L)).thenReturn(Optional.of(closedJob));
+        when(jobRepository.save(any(Job.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        JobResponse response = jobService.updateJob(802L, updateReq, sampleRecruiterUser);
+
+        Assert.assertNotNull(response);
+        Assert.assertEquals(closedJob.getStatus(), JobStatus.PUBLISHED);
+    }
+
+    @Test(description = "JOB-COV-U03: updateJob thay đổi tập kỹ năng và các trường branch, category, currency")
+    public void test_JOB_COV_U03_updateJob_SkillsChanged_TriggersSkillUpdate() {
+        var data = TestDataLoader.loadJsonNode("testdata/job-testdata.json").path("extended").path("JOB_COV_U03");
+        Job existingJob = Job.builder()
+                .jobId(803L)
+                .title("Cloud Architect")
+                .recruiter(sampleRecruiter)
+                .company(sampleVerifiedCompany)
+                .status(JobStatus.PUBLISHED)
+                .approvalStatus(JobApprovalStatus.APPROVED)
+                .deadlineDate(LocalDate.now().plusDays(30))
+                .build();
+
+        JobCreateRequest updateReq = buildJobReq(
+                data.path("title").asText("Senior Cloud Architect"),
+                data.path("vacanciesCount").asInt(2),
+                new BigDecimal(data.path("salaryMin").asText("40.0")),
+                new BigDecimal(data.path("salaryMax").asText("60.0")),
+                LocalDate.now().plusDays(data.path("deadlineDaysOffset").asInt(30)));
+        updateReq.setBranchName(data.path("branchName").asText("Chi nhánh HCM"));
+        updateReq.setCategory(data.path("category").asText("Cloud Computing"));
+        updateReq.setSalaryCurrency(data.path("currency").asText("USD"));
+        updateReq.setMandatorySkills(Collections.singletonList(data.path("mandatorySkillName").asText("Kubernetes")));
+        updateReq.setPreferredSkills(Collections.singletonList(data.path("preferredSkillName").asText("Terraform")));
+
+        // Giả lập hiện tại đang có 1 kỹ năng cũ là Java
+        JobSkill existingSkill = new JobSkill();
+        existingSkill.setSkillId(10L);
+        when(jobSkillRepository.findByJobId(803L)).thenReturn(Collections.singletonList(existingSkill));
+
+        Skill oldSkill = new Skill();
+        oldSkill.setSkillId(10L);
+        oldSkill.setSkillName("Java");
+        when(skillRepository.findAllById(any())).thenReturn(Collections.singletonList(oldSkill));
+
+        when(skillRepository.findBySkillNameIgnoreCase("Kubernetes")).thenReturn(Optional.of(Skill.builder().skillId(11L).skillName("Kubernetes").build()));
+        when(skillRepository.findBySkillNameIgnoreCase("Terraform")).thenReturn(Optional.of(Skill.builder().skillId(12L).skillName("Terraform").build()));
+
+        when(jobRepository.findById(803L)).thenReturn(Optional.of(existingJob));
+        when(jobRepository.save(any(Job.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        JobResponse response = jobService.updateJob(803L, updateReq, sampleRecruiterUser);
+
+        Assert.assertNotNull(response);
+        verify(jobSkillRepository, times(1)).deleteByJobId(803L);
+        verify(jobSkillRepository, atLeastOnce()).save(any(JobSkill.class));
+    }
+
+    @Test(
+        description = "JOB-COV-C04: createJob thất bại khi không tìm thấy Recruiter profile (IllegalStateException)",
+        expectedExceptions = IllegalStateException.class,
+        expectedExceptionsMessageRegExp = ".*Recruiter profile not found for user: 99999.*"
+    )
+    public void test_JOB_COV_C04_createJob_RecruiterNotFound_ThrowsIllegalStateException() {
+        var data = TestDataLoader.loadJsonNode("testdata/job-testdata.json").path("extended").path("JOB_COV_C04");
+        long missingUserId = data.path("nonExistentUserId").asLong(99999L);
+        User ghostUser = User.builder().userId(missingUserId).role(UserRole.RECRUITER).status(UserStatus.ACTIVE).build();
+
+        when(recruiterRepository.findById(missingUserId)).thenReturn(Optional.empty());
+
+        JobCreateRequest req = buildJobReq(data.path("title").asText("Recruiter Profile Missing Job"), 2, new BigDecimal("10.0"), new BigDecimal("20.0"), LocalDate.now().plusDays(5));
+        jobService.createJob(req, ghostUser);
+    }
+
+    @Test(description = "JOB-COV-U04: updateJob đặt trạng thái CLOSED có chủ đích (request.status = CLOSED)")
+    public void test_JOB_COV_U04_updateJob_SetStatusClosedExplicitly() {
+        var data = TestDataLoader.loadJsonNode("testdata/job-testdata.json").path("extended").path("JOB_COV_U04");
+        Job existingJob = Job.builder()
+                .jobId(804L)
+                .title("Active Job")
+                .recruiter(sampleRecruiter)
+                .company(sampleVerifiedCompany)
+                .status(JobStatus.PUBLISHED)
+                .approvalStatus(JobApprovalStatus.APPROVED)
+                .deadlineDate(LocalDate.now().plusDays(10))
+                .build();
+
+        JobCreateRequest updateReq = buildJobReq(
+                data.path("title").asText("Job Closed Intentionally"),
+                data.path("vacanciesCount").asInt(2),
+                new BigDecimal(data.path("salaryMin").asText("15.0")),
+                new BigDecimal(data.path("salaryMax").asText("25.0")),
+                LocalDate.now().plusDays(data.path("deadlineDaysOffset").asInt(10)));
+        updateReq.setStatus(JobStatus.CLOSED);
+
+        when(jobRepository.findById(804L)).thenReturn(Optional.of(existingJob));
+        when(jobRepository.save(any(Job.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        JobResponse response = jobService.updateJob(804L, updateReq, sampleRecruiterUser);
+
+        Assert.assertNotNull(response);
+        Assert.assertEquals(existingJob.getStatus(), JobStatus.CLOSED);
+    }
+
+    @Test(description = "JOB-COV-U05: updateJob yêu cầu PUBLISHED nhưng tin đang PENDING kiểm duyệt -> buộc giữ DRAFT")
+    public void test_JOB_COV_U05_updateJob_RequestedPublish_ButUnapproved_StaysDraft() {
+        var data = TestDataLoader.loadJsonNode("testdata/job-testdata.json").path("extended").path("JOB_COV_U05");
+        Job existingJob = Job.builder()
+                .jobId(805L)
+                .title("Unapproved Job")
+                .recruiter(sampleRecruiter)
+                .company(sampleVerifiedCompany)
+                .status(JobStatus.DRAFT)
+                .approvalStatus(JobApprovalStatus.PENDING)
+                .deadlineDate(LocalDate.now().plusDays(10))
+                .build();
+
+        JobCreateRequest updateReq = buildJobReq(
+                data.path("title").asText("Job Unapproved Status Stay Draft"),
+                data.path("vacanciesCount").asInt(2),
+                new BigDecimal(data.path("salaryMin").asText("15.0")),
+                new BigDecimal(data.path("salaryMax").asText("25.0")),
+                LocalDate.now().plusDays(data.path("deadlineDaysOffset").asInt(10)));
+        updateReq.setStatus(JobStatus.PUBLISHED);
+
+        when(jobRepository.findById(805L)).thenReturn(Optional.of(existingJob));
+        when(jobRepository.save(any(Job.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        JobResponse response = jobService.updateJob(805L, updateReq, sampleRecruiterUser);
+
+        Assert.assertNotNull(response);
+        Assert.assertEquals(existingJob.getStatus(), JobStatus.DRAFT);
+    }
+
+    @Test(description = "JOB-COV-S01: getPublishedJobs với từ khóa rỗng/khoảng trắng và chỉ có địa điểm hợp lệ")
+    public void test_JOB_COV_S01_getPublishedJobs_BlankKeyword_ValidLocation() {
+        var data = TestDataLoader.loadJsonNode("testdata/job-testdata.json").path("extended").path("JOB_COV_S01");
+        String location = data.path("location").asText("Ho Chi Minh");
+        String expectedTitle = data.path("expectedTitle").asText("Fullstack Node Developer");
+
+        Job jobHcm = Job.builder()
+                .jobId(5L)
+                .title(expectedTitle)
+                .location(location)
+                .status(JobStatus.PUBLISHED)
+                .company(sampleVerifiedCompany)
+                .build();
+
+        when(jobRepository.searchJobs(null, location)).thenReturn(Collections.singletonList(jobHcm));
+
+        List<JobResponse> results = jobService.getPublishedJobs("   ", location);
+
+        Assert.assertNotNull(results);
+        Assert.assertEquals(results.size(), 1);
+        Assert.assertEquals(results.get(0).getLocation(), location);
+        verify(jobRepository, times(1)).searchJobs(null, location);
+    }
 }
 
