@@ -217,6 +217,13 @@
 						<goals>
 							<goal>report</goal>
 						</goals>
+						<configuration>
+							<includes>
+								<include>com/hiremate/service/impl/AuthServiceImpl.class</include>
+								<include>com/hiremate/service/impl/JobServiceImpl.class</include>
+								<include>com/hiremate/service/impl/ApplicationServiceImpl.class</include>
+							</includes>
+						</configuration>
 					</execution>
 				</executions>
 			</plugin>
