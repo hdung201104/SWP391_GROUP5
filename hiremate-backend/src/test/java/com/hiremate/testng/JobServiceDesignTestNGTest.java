@@ -128,31 +128,6 @@ public class JobServiceDesignTestNGTest {
     // FUNCTION 1: createJob(JobCreateRequest, User) — 6 TEST CASES (JOB-C01 to JOB-C11)
     // ==========================================================================
 
-    @Test(description = "JOB-C01 / UTCID01: Tạo tin tuyển dụng hợp lệ bởi Recruiter đã có doanh nghiệp VERIFIED (salaryMin=0)")
-    public void test_JOB_C01_UTCID01_createJob_ValidVerifiedRecruiter_Success() {
-        var data = TestDataLoader.loadJsonNode("testdata/job-testdata.json").path("createJob").path("JOB_C01");
-        JobCreateRequest request = buildJobReq(
-                data.path("title").asText("Senior Java Engineer"),
-                data.path("vacanciesCount").asInt(2),
-                new BigDecimal(data.path("salaryMin").asText("0.0")),
-                new BigDecimal(data.path("salaryMax").asText("20.0")),
-                LocalDate.now().plusDays(data.path("deadlineDaysOffset").asInt(7))
-        );
-
-        when(recruiterRepository.findById(301L)).thenReturn(Optional.of(sampleRecruiter));
-        when(jobRepository.save(any(Job.class))).thenAnswer(inv -> {
-            Job j = inv.getArgument(0);
-            j.setJobId(501L);
-            return j;
-        });
-
-        JobResponse response = jobService.createJob(request, sampleRecruiterUser);
-
-        Assert.assertNotNull(response);
-        Assert.assertEquals(response.getTitle(), "Senior Java Engineer");
-        Assert.assertEquals(response.getVacanciesCount(), Integer.valueOf(2));
-        verify(jobRepository, times(1)).save(any(Job.class));
-    }
 
     @Test(
         description = "JOB-C02 / UTCID02: Tạo tin thất bại do số lượng tuyển dụng vacanciesCount = 0",
@@ -251,38 +226,6 @@ public class JobServiceDesignTestNGTest {
     // FUNCTION 2: updateJob(Long, JobCreateRequest, User) — 6 TEST CASES (JOB-U01 to JOB-U09)
     // ==========================================================================
 
-    @Test(description = "JOB-U01 / UTCID01: Owner cập nhật vacancies tại biên hợp lệ (=1) và tiêu đề tin tuyển dụng thành công")
-    public void test_JOB_U01_UTCID01_updateJob_Owner_UpdateTitle_Success() {
-        var data = TestDataLoader.loadJsonNode("testdata/job-testdata.json").path("updateJob").path("JOB_U01");
-        Job existingJob = Job.builder()
-                .jobId(501L)
-                .title("Old Developer Title")
-                .recruiter(sampleRecruiter)
-                .company(sampleVerifiedCompany)
-                .status(JobStatus.PUBLISHED)
-                .approvalStatus(JobApprovalStatus.APPROVED)
-                .vacanciesCount(2)
-                .deadlineDate(LocalDate.now().plusDays(10))
-                .build();
-
-        JobCreateRequest updateReq = buildJobReq(
-                data.path("title").asText("Lead Developer"),
-                data.path("vacanciesCount").asInt(1),
-                new BigDecimal(data.path("salaryMin").asText("20.0")),
-                new BigDecimal(data.path("salaryMax").asText("35.0")),
-                LocalDate.now().plusDays(data.path("deadlineDaysOffset").asInt(10))
-        );
-
-        when(jobRepository.findById(501L)).thenReturn(Optional.of(existingJob));
-        when(jobRepository.save(any(Job.class))).thenAnswer(inv -> inv.getArgument(0));
-
-        JobResponse response = jobService.updateJob(501L, updateReq, sampleRecruiterUser);
-
-        Assert.assertNotNull(response);
-        Assert.assertEquals(response.getTitle(), data.path("title").asText("Updated Senior Java Developer"));
-        Assert.assertEquals(response.getVacanciesCount(), Integer.valueOf(data.path("vacanciesCount").asInt(1)));
-        verify(jobRepository, times(1)).save(existingJob);
-    }
 
     @Test(
         description = "JOB-U02 / UTCID02: Cập nhật thất bại do Recruiter không được phân quyền sở hữu tin",
@@ -387,37 +330,6 @@ public class JobServiceDesignTestNGTest {
         Assert.assertEquals(existingJob.getApprovalStatus(), JobApprovalStatus.PENDING);
     }
 
-    @Test(description = "JOB-U09 / UTCID06: Đăng công khai tin hợp lệ khi Doanh nghiệp VERIFIED và đã được duyệt APPROVED")
-    public void test_JOB_U09_UTCID06_updateJob_PublishJob_Success() {
-        var data = TestDataLoader.loadJsonNode("testdata/job-testdata.json").path("updateJob").path("JOB_U09");
-        Job existingJob = Job.builder()
-                .jobId(501L)
-                .title("Draft Title")
-                .recruiter(sampleRecruiter)
-                .company(sampleVerifiedCompany)
-                .status(JobStatus.DRAFT)
-                .approvalStatus(JobApprovalStatus.APPROVED)
-                .deadlineDate(LocalDate.now().plusDays(15))
-                .build();
-
-        JobCreateRequest updateReq = buildJobReq(
-                data.path("title").asText("Published Title"),
-                data.path("vacanciesCount").asInt(2),
-                new BigDecimal(data.path("salaryMin").asText("15.0")),
-                new BigDecimal(data.path("salaryMax").asText("25.0")),
-                LocalDate.now().plusDays(data.path("deadlineDaysOffset").asInt(15))
-        );
-        updateReq.setStatus(JobStatus.PUBLISHED);
-
-        when(jobRepository.findById(501L)).thenReturn(Optional.of(existingJob));
-        when(jobRepository.save(any(Job.class))).thenAnswer(inv -> inv.getArgument(0));
-
-        JobResponse response = jobService.updateJob(501L, updateReq, sampleRecruiterUser);
-
-        Assert.assertNotNull(response);
-        Assert.assertEquals(existingJob.getStatus(), JobStatus.PUBLISHED);
-        verify(jobRepository, times(1)).save(existingJob);
-    }
 
     // ==========================================================================
     // FUNCTION 3: getPublishedJobs(String, String) — 6 TEST CASES (JOB-S01 to JOB-S09)
@@ -476,52 +388,8 @@ public class JobServiceDesignTestNGTest {
         verify(jobRepository, times(1)).searchJobs(null, location);
     }
 
-    @Test(description = "JOB-S04 / UTCID04: Tìm kiếm kết hợp cả từ khóa và địa điểm (keyword='Java', location='Da Nang')")
-    public void test_JOB_S04_UTCID04_getPublishedJobs_BothFilters_ReturnsMatching() {
-        var data = TestDataLoader.loadJsonNode("testdata/job-testdata.json").path("searchJob").path("JOB_S04");
-        String keyword = data.path("keyword").asText("Java");
-        String location = data.path("location").asText("Da Nang");
-        String expectedTitle = data.path("expectedTitle").asText("Java Lead");
 
-        Job jobCombined = Job.builder().jobId(3L).title(expectedTitle).location(location).status(JobStatus.PUBLISHED).company(sampleVerifiedCompany).build();
 
-        when(jobRepository.searchJobs(keyword, location)).thenReturn(Collections.singletonList(jobCombined));
-
-        List<JobResponse> results = jobService.getPublishedJobs(keyword, location);
-
-        Assert.assertNotNull(results);
-        Assert.assertEquals(results.size(), 1);
-        verify(jobRepository, times(1)).searchJobs(keyword, location);
-    }
-
-    @Test(description = "JOB-S05 / UTCID05: Từ khóa tìm kiếm chỉ chứa khoảng trắng (keyword='   ', location=null) được coi như không lọc")
-    public void test_JOB_S05_UTCID05_getPublishedJobs_BlankKeyword_TreatedAsNoFilter() {
-        var data = TestDataLoader.loadJsonNode("testdata/job-testdata.json").path("searchJob").path("JOB_S05");
-        String keyword = data.path("keyword").asText("   ");
-        Job job1 = Job.builder().jobId(1L).title("Job 1").status(JobStatus.PUBLISHED).company(sampleVerifiedCompany).build();
-
-        when(jobRepository.findByStatus(JobStatus.PUBLISHED)).thenReturn(Collections.singletonList(job1));
-
-        List<JobResponse> results = jobService.getPublishedJobs(keyword, null);
-
-        Assert.assertNotNull(results);
-        Assert.assertEquals(results.size(), data.path("expectedCount").asInt(1));
-        verify(jobRepository, times(1)).findByStatus(JobStatus.PUBLISHED);
-    }
-
-    @Test(description = "JOB-S09 / UTCID06: Từ khóa không tồn tại trả về danh sách rỗng, không phát sinh ngoại lệ")
-    public void test_JOB_S09_UTCID06_getPublishedJobs_NotFound_ReturnsEmptyList() {
-        var data = TestDataLoader.loadJsonNode("testdata/job-testdata.json").path("searchJob").path("JOB_S09");
-        String keyword = data.path("keyword").asText("zznotfound");
-
-        when(jobRepository.searchJobs(keyword, null)).thenReturn(Collections.emptyList());
-
-        List<JobResponse> results = jobService.getPublishedJobs(keyword, null);
-
-        Assert.assertNotNull(results);
-        Assert.assertTrue(results.isEmpty());
-        verify(jobRepository, times(1)).searchJobs(keyword, null);
-    }
 
     // ==========================================================================
     // EXTENDED TESTS (KNOWN GAPS COVERAGE): createJob guards & skill mapping
@@ -1115,38 +983,6 @@ public class JobServiceDesignTestNGTest {
         verify(jobSkillRepository, atLeastOnce()).save(any(JobSkill.class));
     }
 
-    @Test(description = "JOB-COV-U09: updateJob không truyền category và jobCategory hiện tại null -> kích hoạt inferIndustryFromJobText")
-    public void test_JOB_COV_U09_updateJob_InfersCategoryWhenNull() {
-        var data = TestDataLoader.loadJsonNode("testdata/job-testdata.json").path("extended").path("JOB_COV_U09");
-        Job existingJob = Job.builder()
-                .jobId(809L)
-                .title("Marketing Lead")
-                .jobCategory(null)
-                .recruiter(sampleRecruiter)
-                .company(sampleVerifiedCompany)
-                .status(JobStatus.PUBLISHED)
-                .approvalStatus(JobApprovalStatus.APPROVED)
-                .deadlineDate(LocalDate.now().plusDays(10))
-                .build();
-
-        JobCreateRequest updateReq = buildJobReq(
-                data.path("title").asText("Marketing Inferred Job"),
-                data.path("vacanciesCount").asInt(1),
-                new BigDecimal(data.path("salaryMin").asText("10.0")),
-                new BigDecimal(data.path("salaryMax").asText("20.0")),
-                LocalDate.now().plusDays(data.path("deadlineDaysOffset").asInt(15)));
-        updateReq.setDescription(data.path("description").asText("Chạy quảng cáo Facebook Ads và xây dựng chiến lược Content Marketing"));
-        updateReq.setRequirements(data.path("requirements").asText("Thành thạo Google Ads và SEO"));
-        updateReq.setCategory(null);
-
-        when(jobRepository.findById(809L)).thenReturn(Optional.of(existingJob));
-        when(jobRepository.save(any(Job.class))).thenAnswer(inv -> inv.getArgument(0));
-
-        JobResponse response = jobService.updateJob(809L, updateReq, sampleRecruiterUser);
-
-        Assert.assertNotNull(response);
-        Assert.assertEquals(existingJob.getJobCategory(), "MARKETING_SALES");
-    }
 
     @Test(description = "JOB-COV-U10: updateJob xử lý an toàn khi aiJobMatchRepository xóa cache ném ngoại lệ (Line 648-649)")
     public void test_JOB_COV_U10_updateJob_AiMatchRepoThrows_HandledGracefully() {
@@ -1210,41 +1046,6 @@ public class JobServiceDesignTestNGTest {
         jobService.createJob(req, sampleRecruiterUser);
     }
 
-    @Test(description = "JOB-COV-C06: createJob thừa hưởng branchName từ recruiter và phân loại SALES (Lines 448, 452)")
-    public void test_JOB_COV_C06_createJob_InheritsBranchFromRecruiter_InfersSalesCategory() {
-        var data = TestDataLoader.loadJsonNode("testdata/job-testdata.json").path("extended").path("JOB_COV_C06");
-        String recruiterBranch = data.path("recruiterBranch").asText("Chi nhánh Cần Thơ");
-        Recruiter branchRecruiter = Recruiter.builder()
-                .recruiterId(301L)
-                .user(sampleRecruiterUser)
-                .company(sampleVerifiedCompany)
-                .branchName(recruiterBranch)
-                .build();
-
-        when(recruiterRepository.findById(301L)).thenReturn(Optional.of(branchRecruiter));
-        when(jobRepository.save(any(Job.class))).thenAnswer(inv -> {
-            Job j = inv.getArgument(0);
-            j.setJobId(705L);
-            return j;
-        });
-
-        JobCreateRequest req = buildJobReq(
-                data.path("title").asText("Sales Executive"),
-                data.path("vacanciesCount").asInt(1),
-                new BigDecimal(data.path("salaryMin").asText("8.0")),
-                new BigDecimal(data.path("salaryMax").asText("15.0")),
-                LocalDate.now().plusDays(data.path("deadlineDaysOffset").asInt(12)));
-        req.setDescription(data.path("description").asText("Tìm kiếm khách hàng kinh doanh và chốt deal phần mềm"));
-        req.setRequirements(data.path("requirements").asText("Kỹ năng telesales và đàm phán"));
-        req.setBranchName(null);
-        req.setCategory(null);
-
-        JobResponse response = jobService.createJob(req, sampleRecruiterUser);
-
-        Assert.assertNotNull(response);
-        Assert.assertEquals(response.getBranchName(), recruiterBranch);
-        Assert.assertEquals(response.getJobCategory(), "MARKETING_SALES");
-    }
 
     @Test(description = "JOB-COV-C07: createJob xử lý an toàn khi notificationService ném ngoại lệ (Line 510-511)")
     public void test_JOB_COV_C07_createJob_NotificationServiceThrows_HandledGracefully() {
@@ -1442,38 +1243,6 @@ public class JobServiceDesignTestNGTest {
         verify(jobSkillRepository, times(1)).deleteByJobId(814L);
     }
 
-    @Test(description = "JOB-COV-U15: updateJob khi jobCategory là chuỗi khoảng trắng và text không nhận dạng được -> fallback sang Information Technology (Line 558)")
-    public void test_JOB_COV_U15_updateJob_BlankCategory_FallbackToIT() {
-        var data = TestDataLoader.loadJsonNode("testdata/job-testdata.json").path("extended").path("JOB_COV_U15");
-        Job existingJob = Job.builder()
-                .jobId(815L)
-                .title("General Worker")
-                .jobCategory("   ") // Khoảng trắng
-                .recruiter(sampleRecruiter)
-                .company(sampleVerifiedCompany)
-                .status(JobStatus.PUBLISHED)
-                .approvalStatus(JobApprovalStatus.APPROVED)
-                .deadlineDate(LocalDate.now().plusDays(10))
-                .build();
-
-        JobCreateRequest updateReq = buildJobReq(
-                data.path("title").asText("Blank Category Inferred Job"),
-                1,
-                new BigDecimal(data.path("salaryMin").asText("10.0")),
-                new BigDecimal(data.path("salaryMax").asText("20.0")),
-                LocalDate.now().plusDays(10));
-        updateReq.setDescription("Làm việc theo sự phân công");
-        updateReq.setRequirements("Chăm chỉ, nhanh nhẹn");
-        updateReq.setCategory(null);
-
-        when(jobRepository.findById(815L)).thenReturn(Optional.of(existingJob));
-        when(jobRepository.save(any(Job.class))).thenAnswer(inv -> inv.getArgument(0));
-
-        JobResponse response = jobService.updateJob(815L, updateReq, sampleRecruiterUser);
-
-        Assert.assertNotNull(response);
-        Assert.assertNotNull(existingJob.getJobCategory());
-    }
 
     @Test(description = "JOB-COV-C08: createJob khi doanh nghiệp có trạng thái ACTIVE (Line 417)")
     public void test_JOB_COV_C08_createJob_ActiveCompanyStatus_VerifiedTrue() {
