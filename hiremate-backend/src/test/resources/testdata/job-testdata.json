@@ -66,183 +66,185 @@
       "companyStatus": "VERIFIED",
       "moderateNewJobs": false
     },
-      "JOB_C06": {
-        "caseId": "JOB-C06",
-        "type": "DEEP_PATH_ADMIN_BYPASS",
-        "title": "Tech Lead",
-        "vacanciesCount": 1,
+    "JOB_C06": {
+      "caseId": "JOB-C06",
+      "type": "DEEP_PATH_ADMIN_BYPASS",
+      "title": "Tech Lead",
+      "vacanciesCount": 1,
       "salaryMin": 30000000.0,
-        "salaryMax": 60000000.0,
-        "deadlineDaysOffset": 30,
-        "branchName": null,
-        "salaryCurrency": "   ",
-        "category": "   ",
-        "userRole": "ADMIN"
-      },
+      "salaryMax": 60000000.0,
+      "deadlineDaysOffset": 30,
+      "branchName": null,
+      "salaryCurrency": "   ",
+      "category": "   ",
+      "userRole": "ADMIN"
+    },
     "JOB_C07": {
-          "caseId": "JOB-C07",
-          "type": "DEEP_PATH_MANUAL_APPROVAL",
-          "title": "AI Specialist",
-          "vacanciesCount": 3,
-          "salaryMin": 20000000.0,
-          "salaryMax": 45000000.0,
-          "deadlineDaysOffset": 20,
-          "branchName": "Chi nhánh Đà Nẵng",
-          "salaryCurrency": "USD",
-          "category": "Data Science",
-          "moderateNewJobs": true,
-          "autoPublishVerified": false
-        },
-        "JOB_C08": {
-          "caseId": "JOB-C08",
-          "type": "DEEP_PATH_FALLBACKS",
-          "title": "Junior Developer",
-          "vacanciesCount": 2,
-          "salaryMin": 8000000.0,
-          "salaryMax": 15000000.0,
-          "deadlineDaysOffset": 14,
-          "branchName": "   ",
-          "salaryCurrency": "VND",
-          "category": "Other",
-          "settingsNull": true
-        }
-      },
-      "updateJob": {
-        "JOB_U01": {
-          "caseId": "JOB-U01",
-      "type": "EXCEPTION_SECURITY",
-          "jobId": 801,
-          "title": "Unauthorized Update",
-          "expectedException": "SecurityException"
-        },
-        "JOB_U02": {
-          "caseId": "JOB-U02",
-      "type": "EXCEPTION_NOT_FOUND",
-          "jobId": 9999,
-          "title": "Non-existent Job",
-          "expectedException": "IllegalArgumentException"
-        },
-        "JOB_U03": {
-          "caseId": "JOB-U03",
-      "type": "EXCEPTION_VALIDATION",
-          "jobId": 803,
-          "title": "Invalid Vacancies",
-          "vacanciesCount": 0,
-          "expectedException": "IllegalArgumentException"
-        },
-        "JOB_U04": {
-          "caseId": "JOB-U04",
-      "type": "DEEP_PATH_REJECTED_RESET",
-          "jobId": 804,
-          "title": "Fixed Rejected Job",
-          "vacanciesCount": 2,
-          "salaryMin": 10000000.0,
-          "salaryMax": 25000000.0,
-          "initialApprovalStatus": "REJECTED"
-        },
-        "JOB_U05": {
-          "caseId": "JOB-U05",
-          "type": "DEEP_PATH_EXPIRED_PROTECTION",
-          "jobId": 805,
-          "title": "Publish Expired Job",
-          "vacanciesCount": 2,
-          "salaryMin": 10000000.0,
-          "salaryMax": 25000000.0,
-          "requestStatus": "PUBLISHED",
-          "expectedResultStatus": "DRAFT"
-        },
-        "JOB_U06": {
-          "caseId": "JOB-U06",
-          "type": "DEEP_PATH_REOPEN_CLOSED",
-          "jobId": 806,
-          "title": "Reopened Position",
-          "vacanciesCount": 3,
-          "salaryMin": 12000000.0,
-          "salaryMax": 30000000.0,
-          "branchName": "Chi nhánh 2",
-          "salaryCurrency": "USD",
-          "category": "Software Engineering",
-          "requestStatus": null,
-          "expectedResultStatus": "PUBLISHED"
-        },
-        "JOB_U07": {
-          "caseId": "JOB-U07",
-      "type": "DEEP_PATH_FULL_SKILLS_UPDATE",
-          "jobId": 807,
-          "title": "Skill Shifted Job",
-          "mandatorySkills": [
-            "Java"
-          ],
-          "preferredSkills": [
-            "Docker"
-          ],
-          "mandatorySkillIds": [
-            101,
-            102
-          ],
-          "preferredSkillIds": [
-            103
-          ]
-        },
-    "JOB_U08": {
-            "caseId": "JOB-U08",
-            "type": "DEEP_PATH_IDENTICAL_SKILLS_SKIP",
-            "jobId": 808,
-            "title": "Optimized Update",
-            "mandatorySkills": [
-              "Java"
-            ],
-            "branchName": null,
-            "salaryCurrency": null,
-            "category": null
-          }
-        },
-        "searchJob": {
-          "JOB_S01": {
-            "caseId": "JOB-S01",
-            "type": "NO_FILTER",
-            "keyword": null,
-            "location": null
-          },
-          "JOB_S02": {
-            "caseId": "JOB-S02",
-            "type": "KEYWORD_ONLY",
-            "keyword": "Java"
-          },
-          "JOB_S03": {
-            "caseId": "JOB-S03",
-            "keyword": null,
-            "location": "Da Nang"
-          },
-          "JOB_S04": {
-            "caseId": "JOB-S04",
-            "type": "BOTH_FILTERS",
-            "keyword": "Java"
-          },
-          "JOB_S05": {
-            "caseId": "JOB-S05",
-            "type": "BLANK_KEYWORD",
-            "keyword": "   ",
-            "location": "Ho Chi Minh"
-          },
-          "JOB_S06": {
-            "caseId": "JOB-S06",
-            "type": "BLANK_LOCATION",
-            "keyword": "Frontend",
-            "location": "   "
-          },
-          "JOB_S07": {
-            "caseId": "JOB-S07",
-            "type": "BOTH_BLANK",
-            "keyword": "   ",
-            "location": "   "
-          },
-          "JOB_S08": {
-            "caseId": "JOB-S08",
-            "type": "EMPTY_RESULT",
-            "keyword": null,
-            "location": null
-          }
-        }
-      }
+      "caseId": "JOB-C07",
+      "type": "DEEP_PATH_MANUAL_APPROVAL",
+      "title": "AI Specialist",
+      "vacanciesCount": 3,
+      "salaryMin": 20000000.0,
+      "salaryMax": 45000000.0,
+      "deadlineDaysOffset": 20,
+      "branchName": "Chi nhánh Đà Nẵng",
+      "salaryCurrency": "USD",
+      "category": "Data Science",
+      "moderateNewJobs": true,
+      "autoPublishVerified": false
+    },
+    "JOB_C08": {
+      "caseId": "JOB-C08",
+      "type": "DEEP_PATH_FALLBACKS",
+      "title": "Junior Developer",
+      "vacanciesCount": 2,
+      "salaryMin": 8000000.0,
+      "salaryMax": 15000000.0,
+      "deadlineDaysOffset": 14,
+      "branchName": "   ",
+      "salaryCurrency": "VND",
+      "category": "Other",
+      "settingsNull": true
     }
+  },
+  "updateJob": {
+    "JOB_U01": {
+      "caseId": "JOB-U01",
+      "type": "EXCEPTION_SECURITY",
+      "jobId": 801,
+      "title": "Unauthorized Update",
+      "expectedException": "SecurityException"
+    },
+    "JOB_U02": {
+      "caseId": "JOB-U02",
+      "type": "EXCEPTION_NOT_FOUND",
+      "jobId": 9999,
+      "title": "Non-existent Job",
+      "expectedException": "IllegalArgumentException"
+    },
+    "JOB_U03": {
+      "caseId": "JOB-U03",
+      "type": "EXCEPTION_VALIDATION",
+      "jobId": 803,
+      "title": "Invalid Vacancies",
+      "vacanciesCount": 0,
+      "expectedException": "IllegalArgumentException"
+    },
+    "JOB_U04": {
+      "caseId": "JOB-U04",
+      "type": "DEEP_PATH_REJECTED_RESET",
+      "jobId": 804,
+      "title": "Fixed Rejected Job",
+      "vacanciesCount": 2,
+      "salaryMin": 10000000.0,
+      "salaryMax": 25000000.0,
+      "initialApprovalStatus": "REJECTED"
+    },
+    "JOB_U05": {
+      "caseId": "JOB-U05",
+      "type": "DEEP_PATH_EXPIRED_PROTECTION",
+      "jobId": 805,
+      "title": "Publish Expired Job",
+      "vacanciesCount": 2,
+      "salaryMin": 10000000.0,
+      "salaryMax": 25000000.0,
+      "requestStatus": "PUBLISHED",
+      "expectedResultStatus": "DRAFT"
+    },
+    "JOB_U06": {
+      "caseId": "JOB-U06",
+      "type": "DEEP_PATH_REOPEN_CLOSED",
+      "jobId": 806,
+      "title": "Reopened Position",
+      "vacanciesCount": 3,
+      "salaryMin": 12000000.0,
+      "salaryMax": 30000000.0,
+      "branchName": "Chi nhánh 2",
+      "salaryCurrency": "USD",
+      "category": "Software Engineering",
+      "requestStatus": null,
+      "expectedResultStatus": "PUBLISHED"
+    },
+    "JOB_U07": {
+      "caseId": "JOB-U07",
+      "type": "DEEP_PATH_FULL_SKILLS_UPDATE",
+      "jobId": 807,
+      "title": "Skill Shifted Job",
+      "mandatorySkills": [
+        "Java"
+      ],
+      "preferredSkills": [
+        "Docker"
+      ],
+      "mandatorySkillIds": [
+        101,
+        102
+      ],
+      "preferredSkillIds": [
+        103
+      ]
+    },
+    "JOB_U08": {
+      "caseId": "JOB-U08",
+      "type": "DEEP_PATH_IDENTICAL_SKILLS_SKIP",
+      "jobId": 808,
+      "title": "Optimized Update",
+      "mandatorySkills": [
+        "Java"
+      ],
+      "branchName": null,
+      "salaryCurrency": null,
+      "category": null
+    }
+  },
+  "searchJob": {
+    "JOB_S01": {
+      "caseId": "JOB-S01",
+      "type": "NO_FILTER",
+      "keyword": null,
+      "location": null
+    },
+    "JOB_S02": {
+      "caseId": "JOB-S02",
+      "type": "KEYWORD_ONLY",
+      "keyword": "Java",
+      "location": null
+    },
+    "JOB_S03": {
+      "caseId": "JOB-S03",
+      "type": "LOCATION_ONLY",
+      "keyword": null,
+      "location": "Da Nang"
+    },
+    "JOB_S04": {
+      "caseId": "JOB-S04",
+      "type": "BOTH_FILTERS",
+      "keyword": "Java",
+      "location": "Da Nang"
+    },
+    "JOB_S05": {
+      "caseId": "JOB-S05",
+      "type": "BLANK_KEYWORD",
+      "keyword": "   ",
+      "location": "Ho Chi Minh"
+    },
+    "JOB_S06": {
+      "caseId": "JOB-S06",
+      "type": "BLANK_LOCATION",
+      "keyword": "Frontend",
+      "location": "   "
+    },
+    "JOB_S07": {
+      "caseId": "JOB-S07",
+      "type": "BOTH_BLANK",
+      "keyword": "   ",
+      "location": "   "
+    },
+    "JOB_S08": {
+      "caseId": "JOB-S08",
+      "type": "EMPTY_RESULT",
+      "keyword": null,
+      "location": null
+    }
+  }
+}
