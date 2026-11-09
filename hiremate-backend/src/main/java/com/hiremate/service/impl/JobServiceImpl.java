@@ -657,8 +657,38 @@ public class JobServiceImpl implements JobService {
     @Override
     @Transactional
     public JobResponse getJobById(Long jobId) {
+        checkExpiredJobsThrottled();
         Job job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new IllegalArgumentException("Job not found: " + jobId));
+
+        // Đồng bộ tức thì trạng thái bài đăng theo GPKD doanh nghiệp khi ứng viên mở chi tiết JD
+        Company comp = job.getCompany();
+        if (comp == null && job.getRecruiter() != null) {
+            comp = job.getRecruiter().getCompany();
+            if (comp != null) job.setCompany(comp);
+        }
+        if (comp != null) {
+            boolean companyVerified = comp.getStatus() == CompanyStatus.VERIFIED || comp.getStatus() == CompanyStatus.ACTIVE;
+            boolean companyRevoked = comp.getStatus() == CompanyStatus.REJECTED || comp.getStatus() == CompanyStatus.BANNED || comp.getStatus() == CompanyStatus.SUSPENDED;
+            if (companyVerified && job.getStatus() == JobStatus.CLOSED) {
+                boolean isApproved = job.getApprovalStatus() == null || job.getApprovalStatus() == JobApprovalStatus.APPROVED;
+                boolean notExpired = job.getDeadlineDate() == null || !job.getDeadlineDate().isBefore(LocalDate.now());
+                boolean notManualOrFilled = !"HR_MANUAL_CLOSED".equals(job.getModerationNote())
+                        && !"VACANCIES_FILLED_AUTO_CLOSED".equals(job.getModerationNote());
+                if (isApproved && notExpired && notManualOrFilled) {
+                    job.setStatus(JobStatus.PUBLISHED);
+                    job.setApprovalStatus(JobApprovalStatus.APPROVED);
+                    if ("COMPANY_SUSPENDED_AUTO_CLOSED".equals(job.getModerationNote())) {
+                        job.setModerationNote(null);
+                    }
+                    jobRepository.save(job);
+                }
+            } else if (companyRevoked && job.getStatus() == JobStatus.PUBLISHED) {
+                job.setStatus(JobStatus.CLOSED);
+                job.setModerationNote("COMPANY_SUSPENDED_AUTO_CLOSED");
+                jobRepository.save(job);
+            }
+        }
 
         // Không tự động cộng view nếu người đang xem là Recruiter hoặc Admin (chỉ cộng cho ứng viên hoặc khách vãng lai)
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -695,16 +725,71 @@ public class JobServiceImpl implements JobService {
                 jobRepository.saveAll(expired);
                 log.info(">> [JobService] Tự động đóng và chuyển về kho lưu trữ {} tin tuyển dụng hết hạn deadline.", expired.size());
             }
+            reconcileVerifiedCompanyJobs(today);
         } catch (Exception e) {
             log.warn(">> [JobService] Lỗi khi tự động đóng tin tuyển dụng hết hạn: {}", e.getMessage());
+        }
+    }
+
+    private void reconcileVerifiedCompanyJobs(java.time.LocalDate today) {
+        try {
+            List<Job> allJobs = jobRepository.findAllByOrderByCreatedAtDesc();
+            List<Job> toSave = new ArrayList<>();
+            for (Job j : allJobs) {
+                Company comp = j.getCompany();
+                if (comp == null && j.getRecruiter() != null) {
+                    comp = j.getRecruiter().getCompany();
+                    if (comp == null && j.getRecruiter().getRecruiterId() != null && companyRepository != null) {
+                        comp = companyRepository.findByRecruiterId(j.getRecruiter().getRecruiterId()).orElse(null);
+                    }
+                    if (comp != null) {
+                        j.setCompany(comp);
+                    }
+                }
+                if (comp == null) continue;
+
+                boolean companyVerified = comp.getStatus() == CompanyStatus.VERIFIED || comp.getStatus() == CompanyStatus.ACTIVE;
+                boolean companyRevoked = comp.getStatus() == CompanyStatus.REJECTED
+                        || comp.getStatus() == CompanyStatus.BANNED
+                        || comp.getStatus() == CompanyStatus.SUSPENDED;
+                boolean recruiterActive = j.getRecruiter() == null
+                        || j.getRecruiter().getUser() == null
+                        || j.getRecruiter().getUser().getStatus() == null
+                        || j.getRecruiter().getUser().getStatus() == com.hiremate.enums.UserStatus.ACTIVE;
+
+                if (companyVerified && recruiterActive && j.getStatus() == JobStatus.CLOSED) {
+                    boolean isApproved = j.getApprovalStatus() == null || j.getApprovalStatus() == JobApprovalStatus.APPROVED;
+                    boolean notExpired = j.getDeadlineDate() == null || !j.getDeadlineDate().isBefore(today);
+                    boolean notManualOrFilled = !"HR_MANUAL_CLOSED".equals(j.getModerationNote())
+                            && !"VACANCIES_FILLED_AUTO_CLOSED".equals(j.getModerationNote());
+                    if (isApproved && notExpired && notManualOrFilled) {
+                        j.setStatus(JobStatus.PUBLISHED);
+                        j.setApprovalStatus(JobApprovalStatus.APPROVED);
+                        if ("COMPANY_SUSPENDED_AUTO_CLOSED".equals(j.getModerationNote())) {
+                            j.setModerationNote(null);
+                        }
+                        toSave.add(j);
+                    }
+                } else if ((companyRevoked || !recruiterActive) && j.getStatus() == JobStatus.PUBLISHED) {
+                    j.setStatus(JobStatus.CLOSED);
+                    j.setModerationNote("COMPANY_SUSPENDED_AUTO_CLOSED");
+                    toSave.add(j);
+                }
+            }
+            if (!toSave.isEmpty()) {
+                jobRepository.saveAll(toSave);
+                log.info(">> [JobService] Đã đồng bộ tự động trạng thái {} tin tuyển dụng theo trạng thái GPKD doanh nghiệp.", toSave.size());
+            }
+        } catch (Exception ex) {
+            log.warn(">> [JobService] Lỗi khi đồng bộ trạng thái việc làm theo GPKD: {}", ex.getMessage());
         }
     }
 
     private void checkExpiredJobsThrottled() {
         long now = System.currentTimeMillis();
         long last = lastExpiredCheck.get();
-        // Kiểm tra tối đa 1 lần mỗi 10 phút, không quét CSDL trên từng request đọc
-        if (now - last > 600_000 && lastExpiredCheck.compareAndSet(last, now)) {
+        // Kiểm tra định kỳ tối đa 1 lần mỗi 15 giây để đồng bộ tức thì mà không gây quá tải
+        if (now - last > 15_000 && lastExpiredCheck.compareAndSet(last, now)) {
             try {
                 autoCloseExpiredJobs();
             } catch (Exception ex) {
@@ -822,6 +907,7 @@ public class JobServiceImpl implements JobService {
         }
 
         job.setStatus(JobStatus.CLOSED);
+        job.setModerationNote("HR_MANUAL_CLOSED");
         jobRepository.save(job);
     }
 
@@ -936,6 +1022,13 @@ public class JobServiceImpl implements JobService {
 
         if (status != null) {
             job.setStatus(status);
+            if (status == JobStatus.CLOSED) {
+                job.setModerationNote("HR_MANUAL_CLOSED");
+            } else if (status == JobStatus.PUBLISHED) {
+                if ("HR_MANUAL_CLOSED".equals(job.getModerationNote()) || "COMPANY_SUSPENDED_AUTO_CLOSED".equals(job.getModerationNote())) {
+                    job.setModerationNote(null);
+                }
+            }
             Job updated = jobRepository.save(job);
             log.info(">> [JobService] Tin tuyển dụng ID {} đã được cập nhật trạng thái: {}", jobId, status);
             return mapToResponse(updated);

@@ -336,17 +336,77 @@ public class CompanyServiceImpl implements CompanyService {
     }
 
     @Override
+    @Transactional
     public List<CompanyResponse> getAllCompanies() {
         List<Company> companies = companyRepository.findAll();
         if (companies.isEmpty()) {
             return Collections.emptyList();
         }
 
+        // Đồng bộ tự động các tin tuyển dụng hợp lệ của doanh nghiệp đã xác thực (VERIFIED/ACTIVE) bị đóng tạm thời trước đó
+        try {
+            java.time.LocalDate today = java.time.LocalDate.now();
+            List<Job> allJobs = jobRepository.findAllByOrderByCreatedAtDesc();
+            List<Job> toSave = new java.util.ArrayList<>();
+            for (Job j : allJobs) {
+                Company comp = j.getCompany();
+                if (comp == null && j.getRecruiter() != null) {
+                    comp = j.getRecruiter().getCompany();
+                    if (comp == null && j.getRecruiter().getRecruiterId() != null) {
+                        comp = companyRepository.findByRecruiterId(j.getRecruiter().getRecruiterId()).orElse(null);
+                    }
+                    if (comp != null) {
+                        j.setCompany(comp);
+                    }
+                }
+                if (comp == null) continue;
+
+                boolean companyVerified = comp.getStatus() == CompanyStatus.VERIFIED || comp.getStatus() == CompanyStatus.ACTIVE;
+                boolean companyRevoked = comp.getStatus() == CompanyStatus.REJECTED
+                        || comp.getStatus() == CompanyStatus.BANNED
+                        || comp.getStatus() == CompanyStatus.SUSPENDED;
+
+                if (companyVerified && j.getStatus() == com.hiremate.enums.JobStatus.CLOSED) {
+                    boolean isApproved = j.getApprovalStatus() == null
+                            || j.getApprovalStatus() == com.hiremate.enums.JobApprovalStatus.APPROVED;
+                    boolean notExpired = j.getDeadlineDate() == null || !j.getDeadlineDate().isBefore(today);
+                    boolean notManualOrFilled = !"HR_MANUAL_CLOSED".equals(j.getModerationNote())
+                            && !"VACANCIES_FILLED_AUTO_CLOSED".equals(j.getModerationNote());
+                    if (isApproved && notExpired && notManualOrFilled) {
+                        j.setStatus(com.hiremate.enums.JobStatus.PUBLISHED);
+                        j.setApprovalStatus(com.hiremate.enums.JobApprovalStatus.APPROVED);
+                        if ("COMPANY_SUSPENDED_AUTO_CLOSED".equals(j.getModerationNote())) {
+                            j.setModerationNote(null);
+                        }
+                        toSave.add(j);
+                    }
+                } else if (companyRevoked && j.getStatus() == com.hiremate.enums.JobStatus.PUBLISHED) {
+                    j.setStatus(com.hiremate.enums.JobStatus.CLOSED);
+                    j.setModerationNote("COMPANY_SUSPENDED_AUTO_CLOSED");
+                    toSave.add(j);
+                }
+            }
+            if (!toSave.isEmpty()) {
+                jobRepository.saveAll(toSave);
+            }
+        } catch (Exception ex) {
+            log.warn("Lỗi đồng bộ việc làm khi lấy danh sách công ty: {}", ex.getMessage());
+        }
+
         List<com.hiremate.entity.Job> publishedJobs = jobRepository.findByStatus(com.hiremate.enums.JobStatus.PUBLISHED);
 
-        Map<Long, List<com.hiremate.entity.Job>> companyJobsMap = publishedJobs.stream()
-                .filter(j -> j.getCompany() != null && j.getCompany().getCompanyId() != null)
-                .collect(Collectors.groupingBy(j -> j.getCompany().getCompanyId()));
+        Map<Long, List<com.hiremate.entity.Job>> companyJobsMap = new HashMap<>();
+        for (com.hiremate.entity.Job j : publishedJobs) {
+            Long cid = null;
+            if (j.getCompany() != null && j.getCompany().getCompanyId() != null) {
+                cid = j.getCompany().getCompanyId();
+            } else if (j.getRecruiter() != null && j.getRecruiter().getCompany() != null) {
+                cid = j.getRecruiter().getCompany().getCompanyId();
+            }
+            if (cid != null) {
+                companyJobsMap.computeIfAbsent(cid, k -> new java.util.ArrayList<>()).add(j);
+            }
+        }
 
         return companies.stream()
                 .filter(c -> c.getStatus() == null || c.getStatus() == CompanyStatus.ACTIVE || c.getStatus() == CompanyStatus.VERIFIED)
@@ -467,12 +527,19 @@ public class CompanyServiceImpl implements CompanyService {
         String effectiveDocName = hasValidLicense ? (c.getLicenseDocName() != null ? c.getLicenseDocName() : "Giay_Phep_Kinh_Doanh.pdf") : null;
 
         long totalJobs = 0;
+        long activePublishedJobs = 0;
         long totalViews = 0;
         long totalHires = 0;
         if (c.getCompanyId() != null) {
             List<Job> companyJobs = jobRepository.findByCompany_CompanyIdOrderByCreatedAtDesc(c.getCompanyId());
             totalJobs = companyJobs != null ? companyJobs.size() : 0;
             if (companyJobs != null) {
+                java.time.LocalDate today = java.time.LocalDate.now();
+                activePublishedJobs = companyJobs.stream()
+                        .filter(j -> j.getStatus() == com.hiremate.enums.JobStatus.PUBLISHED
+                                && (j.getApprovalStatus() == null || j.getApprovalStatus() == com.hiremate.enums.JobApprovalStatus.APPROVED)
+                                && (j.getDeadlineDate() == null || !j.getDeadlineDate().isBefore(today)))
+                        .count();
                 totalViews = companyJobs.stream().mapToLong(j -> j.getTotalViews() != null ? j.getTotalViews() : 0).sum();
             }
             if (applicationRepository != null) {
@@ -541,7 +608,7 @@ public class CompanyServiceImpl implements CompanyService {
                 .totalJobs(totalJobs)
                 .totalViews(totalViews)
                 .totalHires(totalHires)
-                .activeJobsCount((int) totalJobs)
+                .activeJobsCount((int) activePublishedJobs)
                 .createdAt(c.getCreatedAt())
                 .hrTeam(teamMembers)
                 .teamMembers(teamMembers)

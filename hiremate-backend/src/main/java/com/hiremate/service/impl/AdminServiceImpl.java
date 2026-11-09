@@ -214,9 +214,38 @@ public class AdminServiceImpl implements AdminService {
             for (Job j : recruiterJobs) {
                 if (j.getStatus() == JobStatus.PUBLISHED) {
                     j.setStatus(JobStatus.CLOSED);
+                    j.setModerationNote("COMPANY_SUSPENDED_AUTO_CLOSED");
                     jobRepository.save(j);
                     log.info(">> [AdminService] Tự động đóng Job #{} ({}) do tài khoản Recruiter {} bị khóa ({})",
                             j.getJobId(), j.getTitle(), user.getEmail(), status);
+                }
+            }
+        } else if (user.getRole() == UserRole.RECRUITER && status == UserStatus.ACTIVE) {
+            Company recCompany = companyRepository.findByRecruiterId(user.getUserId()).orElse(null);
+            if (recCompany == null && recruiterRepository != null) {
+                recCompany = recruiterRepository.findById(user.getUserId())
+                        .map(Recruiter::getCompany)
+                        .orElse(null);
+            }
+            if (recCompany != null && (recCompany.getStatus() == CompanyStatus.VERIFIED || recCompany.getStatus() == CompanyStatus.ACTIVE)) {
+                List<Job> recruiterJobs = jobRepository.findByRecruiter_RecruiterId(user.getUserId());
+                java.time.LocalDate today = java.time.LocalDate.now();
+                for (Job j : recruiterJobs) {
+                    boolean isApproved = j.getApprovalStatus() == null || j.getApprovalStatus() == com.hiremate.enums.JobApprovalStatus.APPROVED;
+                    boolean notExpired = j.getDeadlineDate() == null || !j.getDeadlineDate().isBefore(today);
+                    boolean notManualOrFilled = !"HR_MANUAL_CLOSED".equals(j.getModerationNote())
+                            && !"VACANCIES_FILLED_AUTO_CLOSED".equals(j.getModerationNote());
+                    if (j.getStatus() == JobStatus.CLOSED && isApproved && notExpired && notManualOrFilled) {
+                        j.setStatus(JobStatus.PUBLISHED);
+                        j.setApprovalStatus(com.hiremate.enums.JobApprovalStatus.APPROVED);
+                        if (j.getCompany() == null) j.setCompany(recCompany);
+                        if ("COMPANY_SUSPENDED_AUTO_CLOSED".equals(j.getModerationNote())) {
+                            j.setModerationNote(null);
+                        }
+                        jobRepository.save(j);
+                        log.info(">> [AdminService] Khôi phục Job #{} ({}) sang PUBLISHED sau khi mở khóa tài khoản Recruiter {}",
+                                j.getJobId(), j.getTitle(), user.getEmail());
+                    }
                 }
             }
         }
@@ -391,6 +420,32 @@ public class AdminServiceImpl implements AdminService {
         Company company = companyRepository.findById(companyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy công ty với ID: " + companyId));
 
+        Set<Long> targetRecruiterIds = new HashSet<>();
+        if (company.getRecruiterId() != null) targetRecruiterIds.add(company.getRecruiterId());
+        if (recruiterRepository != null) {
+            List<Recruiter> companyRecs = recruiterRepository.findAllByCompany_CompanyId(company.getCompanyId());
+            for (Recruiter r : companyRecs) {
+                if (r.getRecruiterId() != null) targetRecruiterIds.add(r.getRecruiterId());
+            }
+        }
+
+        // Thu thập toàn bộ các tin tuyển dụng thuộc công ty (qua cả companyId và recruiterId của đội ngũ HR)
+        Map<Long, Job> allCompanyJobsMap = new LinkedHashMap<>();
+        List<Job> byCompany = jobRepository.findByCompany_CompanyId(companyId);
+        if (byCompany != null) {
+            for (Job j : byCompany) {
+                if (j != null && j.getJobId() != null) allCompanyJobsMap.put(j.getJobId(), j);
+            }
+        }
+        for (Long rId : targetRecruiterIds) {
+            List<Job> byRec = jobRepository.findByRecruiter_RecruiterId(rId);
+            if (byRec != null) {
+                for (Job j : byRec) {
+                    if (j != null && j.getJobId() != null) allCompanyJobsMap.put(j.getJobId(), j);
+                }
+            }
+        }
+
         if (status == CompanyStatus.VERIFIED || status == CompanyStatus.ACTIVE) {
             // Chặn phê duyệt nếu công ty chưa nộp file GPKD hợp lệ
             if (!CompanyServiceImpl.isValidLicenseDocUrl(company.getLicenseDocUrl())) {
@@ -399,23 +454,40 @@ public class AdminServiceImpl implements AdminService {
             company.setStatus(status);
             company.setVerifiedAt(LocalDateTime.now());
             company.setRejectionReason(null);
+
+            // Tự động khôi phục các tin tuyển dụng đã được duyệt (APPROVED) và còn hạn nộp của công ty về trạng thái PUBLISHED
+            java.time.LocalDate today = java.time.LocalDate.now();
+            for (Job j : allCompanyJobsMap.values()) {
+                if (j.getCompany() == null) {
+                    j.setCompany(company);
+                }
+                boolean isApproved = j.getApprovalStatus() == null || j.getApprovalStatus() == com.hiremate.enums.JobApprovalStatus.APPROVED;
+                boolean notExpired = j.getDeadlineDate() == null || !j.getDeadlineDate().isBefore(today);
+                boolean notManualOrFilled = !"HR_MANUAL_CLOSED".equals(j.getModerationNote())
+                        && !"VACANCIES_FILLED_AUTO_CLOSED".equals(j.getModerationNote());
+                if (j.getStatus() == JobStatus.CLOSED && isApproved && notExpired && notManualOrFilled) {
+                    j.setStatus(JobStatus.PUBLISHED);
+                    j.setApprovalStatus(com.hiremate.enums.JobApprovalStatus.APPROVED);
+                    if ("COMPANY_SUSPENDED_AUTO_CLOSED".equals(j.getModerationNote())) {
+                        j.setModerationNote(null);
+                    }
+                    jobRepository.save(j);
+                    log.info(">> [AdminService] Khôi phục Job #{} ({}) sang PUBLISHED sau khi xác thực GPKD cho công ty {}",
+                            j.getJobId(), j.getTitle(), company.getCompanyName());
+                } else if (j.getCompany() == company) {
+                    jobRepository.save(j);
+                }
+            }
+
             // Gửi thông báo tới toàn bộ HR của công ty
             if (notificationService != null) {
-                Set<Long> targetRecruiterIds = new HashSet<>();
-                if (company.getRecruiterId() != null) targetRecruiterIds.add(company.getRecruiterId());
-                if (recruiterRepository != null) {
-                    List<Recruiter> companyRecs = recruiterRepository.findAllByCompany_CompanyId(company.getCompanyId());
-                    for (Recruiter r : companyRecs) {
-                        if (r.getRecruiterId() != null) targetRecruiterIds.add(r.getRecruiterId());
-                    }
-                }
                 for (Long rId : targetRecruiterIds) {
                     try {
                         notificationService.createNotification(
                                 rId,
                                 NotificationType.SYSTEM_ALERT,
                                 "Hồ sơ Doanh nghiệp đã được xác minh thành công!",
-                                "Ban Quản Trị HireMate đã phê duyệt Giấy phép kinh doanh của " + company.getCompanyName() + ". Doanh nghiệp hiện đã được cấp quyền xuất bản tin tuyển dụng.",
+                                "Ban Quản Trị HireMate đã phê duyệt Giấy phép kinh doanh của " + company.getCompanyName() + ". Doanh nghiệp hiện đã được cấp quyền xuất bản tin tuyển dụng và các bài đăng hợp lệ đã được mở lại trên Trang chủ.",
                                 company.getCompanyId(),
                                 "companies"
                         );
@@ -434,23 +506,18 @@ public class AdminServiceImpl implements AdminService {
                 company.setRejectionReason(notes);
             }
             // Tự động đóng các tin tuyển dụng đang PUBLISHED của công ty này
-            List<Job> companyJobs = jobRepository.findByCompany_CompanyId(companyId);
-            for (Job j : companyJobs) {
+            for (Job j : allCompanyJobsMap.values()) {
+                if (j.getCompany() == null) {
+                    j.setCompany(company);
+                }
                 if (j.getStatus() == JobStatus.PUBLISHED) {
                     j.setStatus(JobStatus.CLOSED);
+                    j.setModerationNote("COMPANY_SUSPENDED_AUTO_CLOSED");
                     jobRepository.save(j);
                     log.info(">> [AdminService] Tự động đóng Job #{} ({}) do công ty chuyển sang {}", j.getJobId(), j.getTitle(), status);
                 }
             }
             if (notificationService != null) {
-                Set<Long> targetRecruiterIds = new HashSet<>();
-                if (company.getRecruiterId() != null) targetRecruiterIds.add(company.getRecruiterId());
-                if (recruiterRepository != null) {
-                    List<Recruiter> companyRecs = recruiterRepository.findAllByCompany_CompanyId(company.getCompanyId());
-                    for (Recruiter r : companyRecs) {
-                        if (r.getRecruiterId() != null) targetRecruiterIds.add(r.getRecruiterId());
-                    }
-                }
                 for (Long rId : targetRecruiterIds) {
                     try {
                         notificationService.createNotification(

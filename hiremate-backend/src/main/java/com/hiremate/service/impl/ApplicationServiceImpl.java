@@ -346,29 +346,24 @@ public class ApplicationServiceImpl implements ApplicationService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public List<ApplicationResponse> getCandidateApplications(Long candidateId) {
         if (candidateId == null) {
             return Collections.emptyList();
         }
-        CachedApplications cached = candidateAppsCache.get(candidateId);
-        if (cached != null && (System.currentTimeMillis() - cached.timestamp() < 10000)) {
-            return cached.data();
-        }
 
         List<Application> apps = applicationRepository.findByCandidate_CandidateId(candidateId);
         if (apps == null || apps.isEmpty()) {
-            candidateAppsCache.put(candidateId, new CachedApplications(Collections.emptyList(), System.currentTimeMillis()));
             return Collections.emptyList();
         }
 
         // Batch pre-fetch all AI matches for this candidate in 1 single query instead of N queries
-        Map<Long, Float> matchScoreMap = new HashMap<>();
+        Map<Long, AiJobMatch> matchByJobMap = new HashMap<>();
         try {
             List<AiJobMatch> matches = aiJobMatchRepository.findByCandidate_CandidateIdOrderByMatchingScoreDesc(candidateId);
             for (AiJobMatch m : matches) {
-                if (m.getJob() != null && m.getJob().getJobId() != null && m.getMatchingScore() != null) {
-                    matchScoreMap.putIfAbsent(m.getJob().getJobId(), m.getMatchingScore());
+                if (m.getJob() != null && m.getJob().getJobId() != null) {
+                    matchByJobMap.putIfAbsent(m.getJob().getJobId(), m);
                 }
             }
         } catch (Exception ignored) {}
@@ -379,10 +374,10 @@ public class ApplicationServiceImpl implements ApplicationService {
 
         List<ApplicationResponse> list = new ArrayList<>(apps.size());
         for (Application app : apps) {
-            Float score = (app.getJob() != null) ? matchScoreMap.get(app.getJob().getJobId()) : null;
-            list.add(mapToResponse(app, score, defaultCv));
+            AiJobMatch preloadedMatch = (app.getJob() != null) ? matchByJobMap.get(app.getJob().getJobId()) : null;
+            Float score = (preloadedMatch != null) ? preloadedMatch.getMatchingScore() : null;
+            list.add(mapToResponse(app, score, defaultCv, preloadedMatch));
         }
-        candidateAppsCache.put(candidateId, new CachedApplications(list, System.currentTimeMillis()));
         return list;
     }
 
@@ -411,30 +406,39 @@ public class ApplicationServiceImpl implements ApplicationService {
         }
 
         // Batch pre-fetch all AI matches for this job in 1 single query
-        Map<Long, Float> matchScoreMap = new HashMap<>();
+        Map<Long, AiJobMatch> matchByCandMap = new HashMap<>();
         try {
             List<AiJobMatch> matches = aiJobMatchRepository.findByJob_JobIdOrderByMatchingScoreDesc(jobId);
             for (AiJobMatch m : matches) {
-                if (m.getCandidate() != null && m.getCandidate().getCandidateId() != null && m.getMatchingScore() != null) {
-                    matchScoreMap.putIfAbsent(m.getCandidate().getCandidateId(), m.getMatchingScore());
+                if (m.getCandidate() != null && m.getCandidate().getCandidateId() != null) {
+                    matchByCandMap.putIfAbsent(m.getCandidate().getCandidateId(), m);
                 }
             }
         } catch (Exception ignored) {}
 
         List<ApplicationResponse> list = new ArrayList<>(apps.size());
         for (Application app : apps) {
-            Float score = (app.getCandidate() != null) ? matchScoreMap.get(app.getCandidate().getCandidateId()) : null;
-            if (score == null && app.getCandidate() != null && app.getJob() != null && aiJobMatchService != null) {
+            Long candId = app.getCandidate() != null ? app.getCandidate().getCandidateId() : null;
+            AiJobMatch preloadedMatch = candId != null ? matchByCandMap.get(candId) : null;
+            Float score = preloadedMatch != null ? preloadedMatch.getMatchingScore() : null;
+            boolean missingReport = preloadedMatch == null
+                    || preloadedMatch.getSkillGapJson() == null
+                    || !preloadedMatch.getSkillGapJson().contains("\"detailedReport\"");
+
+            if ((score == null || missingReport) && app.getCandidate() != null && app.getJob() != null && aiJobMatchService != null) {
                 try {
                     com.hiremate.dto.response.AiJobMatchResponse computed = aiJobMatchService.calculateAndSaveMatch(app.getCandidate(), app.getJob(), app.getCv());
                     if (computed != null && computed.getMatchingScore() != null) {
                         score = computed.getMatchingScore();
                     }
+                    if (candId != null) {
+                        preloadedMatch = aiJobMatchRepository.findByCandidate_CandidateIdAndJob_JobId(candId, jobId).orElse(preloadedMatch);
+                    }
                 } catch (Exception ex) {
                     log.warn("Non-blocking auto-compute ATS score for applicant failed: {}", ex.getMessage());
                 }
             }
-            list.add(mapToResponse(app, score));
+            list.add(mapToResponse(app, score, null, preloadedMatch));
         }
 
         // Sắp xếp ứng viên theo matching_score DESC (theo chuẩn UC-28: View Rank Candidates)
@@ -473,14 +477,14 @@ public class ApplicationServiceImpl implements ApplicationService {
                 .filter(java.util.Objects::nonNull)
                 .collect(java.util.stream.Collectors.toSet());
 
-        Map<String, Float> matchScoreMap = new HashMap<>();
+        Map<String, AiJobMatch> matchKeyMap = new HashMap<>();
         try {
             if (!jobIds.isEmpty()) {
                 List<AiJobMatch> matches = aiJobMatchRepository.findByJob_JobIdIn(jobIds);
                 for (AiJobMatch m : matches) {
-                    if (m.getJob() != null && m.getCandidate() != null && m.getMatchingScore() != null) {
+                    if (m.getJob() != null && m.getCandidate() != null) {
                         String key = m.getJob().getJobId() + "_" + m.getCandidate().getCandidateId();
-                        matchScoreMap.putIfAbsent(key, m.getMatchingScore());
+                        matchKeyMap.putIfAbsent(key, m);
                     }
                 }
             }
@@ -490,8 +494,9 @@ public class ApplicationServiceImpl implements ApplicationService {
         for (Application app : apps) {
             Long jobId = app.getJob() != null ? app.getJob().getJobId() : null;
             Long candidateId = app.getCandidate() != null ? app.getCandidate().getCandidateId() : null;
-            Float score = (jobId != null && candidateId != null) ? matchScoreMap.get(jobId + "_" + candidateId) : null;
-            list.add(mapToResponse(app, score));
+            AiJobMatch preloadedMatch = (jobId != null && candidateId != null) ? matchKeyMap.get(jobId + "_" + candidateId) : null;
+            Float score = preloadedMatch != null ? preloadedMatch.getMatchingScore() : null;
+            list.add(mapToResponse(app, score, null, preloadedMatch));
         }
         return list;
     }
@@ -595,7 +600,13 @@ public class ApplicationServiceImpl implements ApplicationService {
 
         application.setStatus(request.getStatus());
         if (request.getNotes() != null && !request.getNotes().isBlank()) {
-            application.setEvaluationNotes(request.getNotes());
+            String existingEval = application.getEvaluationNotes() != null ? application.getEvaluationNotes().trim() : "";
+            boolean hasAiReportJson = existingEval.startsWith("{") && existingEval.contains("matchingScore");
+            String incomingNotes = request.getNotes().trim();
+            // Bảo toàn báo cáo AI JSON đã lưu trong evaluation_notes khi HR chỉ chuyển vòng trạng thái thông thường
+            if (!hasAiReportJson || incomingNotes.startsWith("{") || incomingNotes.startsWith("[{")) {
+                application.setEvaluationNotes(request.getNotes());
+            }
         }
         if (request.getStatus() == ApplicationStatus.REJECTED && request.getNotes() != null && !request.getNotes().isBlank()) {
             application.setRejectionReason(request.getNotes());
@@ -612,6 +623,7 @@ public class ApplicationServiceImpl implements ApplicationService {
             long hiredCount = applicationRepository.countByJob_JobIdAndStatus(job.getJobId(), ApplicationStatus.HIRED);
             if (job.getVacanciesCount() != null && job.getVacanciesCount() > 0 && hiredCount >= job.getVacanciesCount()) {
                 job.setStatus(com.hiremate.enums.JobStatus.CLOSED);
+                job.setModerationNote("VACANCIES_FILLED_AUTO_CLOSED");
                 jobRepository.save(job);
                 log.info(">> [ApplicationService] Vị trí #{} ({}) đã tuyển đủ chỉ tiêu ({}/{}). Tự động đóng tin tuyển dụng.",
                         job.getJobId(), job.getTitle(), hiredCount, job.getVacanciesCount());
@@ -785,14 +797,18 @@ public class ApplicationServiceImpl implements ApplicationService {
      * Truy xuất toàn bộ thông tin qua object navigation (không dùng raw Long FKs).
      */
     private ApplicationResponse mapToResponse(Application app) {
-        return mapToResponse(app, null, null);
+        return mapToResponse(app, null, null, null);
     }
 
     private ApplicationResponse mapToResponse(Application app, Float overrideScore) {
-        return mapToResponse(app, overrideScore, null);
+        return mapToResponse(app, overrideScore, null, null);
     }
 
     private ApplicationResponse mapToResponse(Application app, Float overrideScore, Cv fallbackCv) {
+        return mapToResponse(app, overrideScore, fallbackCv, null);
+    }
+
+    private ApplicationResponse mapToResponse(Application app, Float overrideScore, Cv fallbackCv, AiJobMatch preloadedMatch) {
         Job job = app.getJob();
         Candidate candidate = app.getCandidate();
         User candidateUser = candidate != null ? candidate.getUser() : null;
@@ -807,10 +823,16 @@ public class ApplicationServiceImpl implements ApplicationService {
         }
 
         String jobTitle = job != null ? job.getTitle() : "Unknown Job";
+        Recruiter recruiter = job != null ? job.getRecruiter() : null;
         Company company = job != null ? job.getCompany() : null;
+        if (company == null && recruiter != null) {
+            company = recruiter.getCompany();
+            if (company == null && companyRepository != null && recruiter.getRecruiterId() != null) {
+                company = companyRepository.findByRecruiterId(recruiter.getRecruiterId()).orElse(null);
+            }
+        }
         String companyName = company != null ? company.getCompanyName() : "HireMate Partner";
 
-        Recruiter recruiter = job != null ? job.getRecruiter() : null;
         User recruiterUser = recruiter != null ? recruiter.getUser() : null;
         String recruiterName = recruiterUser != null ? recruiterUser.getFullName() : "Bộ phận Tuyển dụng";
         String recruiterEmail = recruiterUser != null ? recruiterUser.getEmail() : null;
@@ -822,14 +844,18 @@ public class ApplicationServiceImpl implements ApplicationService {
         Float experienceScore = null;
         Float educationScore = null;
         Float semanticScore = null;
+        String effectiveEvalNotes = app.getEvaluationNotes();
 
         if (job != null && candidate != null) {
-            Optional<AiJobMatch> match = aiJobMatchRepository
-                    .findByCandidate_CandidateIdAndJob_JobId(
-                            candidate.getCandidateId(),
-                            job.getJobId());
-            if (match.isPresent()) {
-                AiJobMatch m = match.get();
+            AiJobMatch m = preloadedMatch;
+            if (m == null) {
+                m = aiJobMatchRepository
+                        .findByCandidate_CandidateIdAndJob_JobId(
+                                candidate.getCandidateId(),
+                                job.getJobId())
+                        .orElse(null);
+            }
+            if (m != null) {
                 if (score == null) {
                     score = m.getMatchingScore();
                 }
@@ -848,15 +874,19 @@ public class ApplicationServiceImpl implements ApplicationService {
                         if (gapNode.has("semanticScore") && !gapNode.get("semanticScore").isNull()) {
                             semanticScore = (float) gapNode.get("semanticScore").asDouble();
                         }
+                        if ((effectiveEvalNotes == null || !effectiveEvalNotes.trim().startsWith("{"))
+                                && gapNode.has("detailedReport") && !gapNode.get("detailedReport").isNull()) {
+                            effectiveEvalNotes = gapNode.get("detailedReport").toString();
+                        }
                     } catch (Exception ignored) {}
                 }
             }
         }
 
         // Nếu có evaluationNotes dạng JSON chứa các điểm số chi tiết
-        if (app.getEvaluationNotes() != null && app.getEvaluationNotes().trim().startsWith("{")) {
+        if (effectiveEvalNotes != null && effectiveEvalNotes.trim().startsWith("{")) {
             try {
-                com.fasterxml.jackson.databind.JsonNode evalNode = OBJECT_MAPPER.readTree(app.getEvaluationNotes().trim());
+                com.fasterxml.jackson.databind.JsonNode evalNode = OBJECT_MAPPER.readTree(effectiveEvalNotes.trim());
                 if (evalNode.has("matchingScore") && !evalNode.get("matchingScore").isNull() && score == null) {
                     score = (float) evalNode.get("matchingScore").asDouble();
                 }
@@ -893,8 +923,6 @@ public class ApplicationServiceImpl implements ApplicationService {
                     || app.getRejectionReason().toLowerCase().contains("từ chối offer")
                     || app.getRejectionReason().toLowerCase().contains("từ chối lời mời nhận việc"));
 
-        String rawJobStatus = job != null && job.getStatus() != null ? job.getStatus().name() : "PUBLISHED";
-        String rawCompanyStatus = company != null && company.getStatus() != null ? company.getStatus().name() : "PENDING";
         boolean isCompanyVerified = company != null && (
                 company.getStatus() == com.hiremate.enums.CompanyStatus.VERIFIED ||
                 company.getStatus() == com.hiremate.enums.CompanyStatus.ACTIVE
@@ -904,7 +932,34 @@ public class ApplicationServiceImpl implements ApplicationService {
                 company.getStatus() == com.hiremate.enums.CompanyStatus.BANNED ||
                 company.getStatus() == com.hiremate.enums.CompanyStatus.SUSPENDED
         );
-        String companyRejectionReason = company != null ? company.getRejectionReason() : null;
+
+        // Tự động mở khóa bài đăng cho ứng viên đã nộp CV khi doanh nghiệp đã được duyệt lại GPKD (VERIFIED/ACTIVE)
+        if (job != null && isCompanyVerified && job.getStatus() == com.hiremate.enums.JobStatus.CLOSED) {
+            boolean isApproved = job.getApprovalStatus() == null || job.getApprovalStatus() == com.hiremate.enums.JobApprovalStatus.APPROVED;
+            boolean notExpired = job.getDeadlineDate() == null || !job.getDeadlineDate().isBefore(java.time.LocalDate.now());
+            boolean notManualOrFilled = !"HR_MANUAL_CLOSED".equals(job.getModerationNote())
+                    && !"VACANCIES_FILLED_AUTO_CLOSED".equals(job.getModerationNote());
+            if (isApproved && notExpired && notManualOrFilled) {
+                job.setStatus(com.hiremate.enums.JobStatus.PUBLISHED);
+                job.setApprovalStatus(com.hiremate.enums.JobApprovalStatus.APPROVED);
+                if ("COMPANY_SUSPENDED_AUTO_CLOSED".equals(job.getModerationNote())) {
+                    job.setModerationNote(null);
+                }
+                try {
+                    jobRepository.save(job);
+                } catch (Exception ignored) {}
+            }
+        } else if (job != null && isCompanyBlocked && job.getStatus() == com.hiremate.enums.JobStatus.PUBLISHED) {
+            job.setStatus(com.hiremate.enums.JobStatus.CLOSED);
+            job.setModerationNote("COMPANY_SUSPENDED_AUTO_CLOSED");
+            try {
+                jobRepository.save(job);
+            } catch (Exception ignored) {}
+        }
+
+        String rawJobStatus = job != null && job.getStatus() != null ? job.getStatus().name() : "PUBLISHED";
+        String rawCompanyStatus = company != null && company.getStatus() != null ? company.getStatus().name() : "PENDING";
+        String companyRejectionReason = isCompanyBlocked && company != null ? company.getRejectionReason() : null;
         boolean isJobClosed = (job != null && job.getStatus() == com.hiremate.enums.JobStatus.CLOSED) || isCompanyBlocked;
 
         return ApplicationResponse.builder()
@@ -931,8 +986,8 @@ public class ApplicationServiceImpl implements ApplicationService {
                 .experienceScore(experienceScore)
                 .educationScore(educationScore)
                 .semanticScore(semanticScore)
-                .evaluationNotes(app.getEvaluationNotes())
-                .notes(app.getEvaluationNotes())
+                .evaluationNotes(effectiveEvalNotes)
+                .notes(effectiveEvalNotes)
                 .rejectionReason(app.getRejectionReason())
                 .createdAt(app.getCreatedAt())
                 .jobStatus(rawJobStatus)
@@ -1057,6 +1112,7 @@ public class ApplicationServiceImpl implements ApplicationService {
                 long hiredCount = applicationRepository.countByJob_JobIdAndStatus(job.getJobId(), ApplicationStatus.HIRED);
                 if (job.getVacanciesCount() != null && job.getVacanciesCount() > 0 && hiredCount >= job.getVacanciesCount()) {
                     job.setStatus(com.hiremate.enums.JobStatus.CLOSED);
+                    job.setModerationNote("VACANCIES_FILLED_AUTO_CLOSED");
                     jobRepository.save(job);
                     log.info(">> [ApplicationService] Vị trí #{} ({}) đã tuyển đủ chỉ tiêu ({}/{}). Tự động đóng tin tuyển dụng.",
                             job.getJobId(), job.getTitle(), hiredCount, job.getVacanciesCount());
@@ -1147,6 +1203,9 @@ public class ApplicationServiceImpl implements ApplicationService {
                 long hiredCount = applicationRepository.countByJob_JobIdAndStatus(job.getJobId(), ApplicationStatus.HIRED);
                 if (hiredCount < job.getVacanciesCount()) {
                     job.setStatus(com.hiremate.enums.JobStatus.PUBLISHED);
+                    if ("VACANCIES_FILLED_AUTO_CLOSED".equals(job.getModerationNote())) {
+                        job.setModerationNote(null);
+                    }
                     jobRepository.save(job);
                     log.info(">> [ApplicationService] Vị trí #{} ({}) khuyết chỉ tiêu ({}/{}). Tự động phục hồi trạng thái sang PUBLISHED.",
                             job.getJobId(), job.getTitle(), hiredCount, job.getVacanciesCount());

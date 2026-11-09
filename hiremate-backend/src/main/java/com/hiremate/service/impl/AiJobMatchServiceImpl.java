@@ -66,20 +66,48 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
             log.info(">> [AiJobMatchService] Preloaded {} skills into cache", skillCache.size());
         } catch (Exception ignored) {}
 
-        try {
-            // Dọn dẹp các bản ghi tự động sinh trước đây khi chưa có yêu cầu phân tích của người dùng
-            List<AiJobMatch> matches = aiJobMatchRepository.findAll();
-            List<AiJobMatch> toDelete = new ArrayList<>();
-            for (AiJobMatch m : matches) {
-                if (m.getSkillGapJson() == null || !m.getSkillGapJson().contains("\"detailedReport\"")) {
-                    toDelete.add(m);
+        // Tự động đồng bộ & lưu cứng điểm + báo cáo ATS vào CSDL khi khởi động (0ms Gemini Token, tuyệt đối KHÔNG xóa cache)
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            try {
+                int syncedApps = 0;
+                if (applicationRepository != null) {
+                    List<Application> allApps = applicationRepository.findAll();
+                    for (Application app : allApps) {
+                        if (app.getCandidate() != null && app.getJob() != null) {
+                            try {
+                                Optional<AiJobMatch> mOpt = aiJobMatchRepository.findByCandidate_CandidateIdAndJob_JobId(
+                                        app.getCandidate().getCandidateId(), app.getJob().getJobId());
+                                boolean missingMatchOrReport = mOpt.isEmpty()
+                                        || mOpt.get().getMatchingScore() == null
+                                        || mOpt.get().getSkillGapJson() == null
+                                        || !mOpt.get().getSkillGapJson().contains("\"detailedReport\"");
+                                boolean missingAppNotes = app.getEvaluationNotes() == null
+                                        || !app.getEvaluationNotes().trim().startsWith("{");
+                                if (missingMatchOrReport || missingAppNotes) {
+                                    calculateAndSaveMatch(app.getCandidate(), app.getJob(), app.getCv(), false);
+                                    syncedApps++;
+                                }
+                            } catch (Exception ignored) {}
+                        }
+                    }
                 }
-            }
-            if (!toDelete.isEmpty()) {
-                aiJobMatchRepository.deleteAll(toDelete);
-                log.info(">> [AiJobMatchService] Dọn dẹp {} bản ghi tự động sinh không có báo cáo yêu cầu", toDelete.size());
-            }
-        } catch (Exception ignored) {}
+                int backfilledMatches = 0;
+                List<AiJobMatch> matches = aiJobMatchRepository.findAll();
+                for (AiJobMatch m : matches) {
+                    if (m.getCandidate() != null && m.getJob() != null
+                            && (m.getSkillGapJson() == null || !m.getSkillGapJson().contains("\"detailedReport\""))) {
+                        try {
+                            calculateAndSaveMatch(m.getCandidate(), m.getJob(), m.getCv(), false);
+                            backfilledMatches++;
+                        } catch (Exception ignored) {}
+                    }
+                }
+                if (syncedApps > 0 || backfilledMatches > 0) {
+                    log.info(">> [AiJobMatchService] Đã đồng bộ & lưu cứng vào DB {} đơn ứng tuyển và {} bản ghi AI Match khi khởi động.",
+                            syncedApps, backfilledMatches);
+                }
+            } catch (Exception ignored) {}
+        });
     }
 
     public Map<Long, Skill> getActiveSkillCache() {
@@ -116,8 +144,10 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
             boolean isStaleFlatScore = existing.get().getMatchingScore() == 70.0f || existing.get().getMatchingScore() >= 99.0f;
             boolean hasRawJsonInGap = existing.get().getSkillGapJson() != null && 
                     (existing.get().getSkillGapJson().contains("[{\"school") || existing.get().getSkillGapJson().contains("[{\"highlight"));
+            boolean hasDetailedReport = existing.get().getSkillGapJson() != null &&
+                    existing.get().getSkillGapJson().contains("\"detailedReport\"");
 
-            if (!cvSwitched && !isStaleFlatScore && !hasRawJsonInGap && !enableGemini) {
+            if (!cvSwitched && !isStaleFlatScore && !hasRawJsonInGap && hasDetailedReport && !enableGemini) {
                 // Nếu bản ghi cũ chưa gắn CV mà hiện tại đã có CV, bổ sung liên kết mà không cần tính lại điểm
                 if (cv != null && existing.get().getCv() == null) {
                     existing.get().setCv(cv);
@@ -125,8 +155,8 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
                 }
                 return mapToResponse(existing.get());
             }
-            log.info(">> [AiJobMatchService] Invalidate cache điểm cũ cho ứng viên {} và Job {} (cvSwitched={}, isStaleFlat={}, hasRawJson={}, enableGemini={})",
-                    candidate.getCandidateId(), job.getJobId(), cvSwitched, isStaleFlatScore, hasRawJsonInGap, enableGemini);
+            log.info(">> [AiJobMatchService] Invalidate/Backfill cache điểm cho ứng viên {} và Job {} (cvSwitched={}, isStaleFlat={}, hasRawJson={}, hasDetailedReport={}, enableGemini={})",
+                    candidate.getCandidateId(), job.getJobId(), cvSwitched, isStaleFlatScore, hasRawJsonInGap, hasDetailedReport, enableGemini);
         }
 
         // 1. Gather Candidate text/keywords from profile, skills, and CV (Ưu tiên CV thực tế đã nộp)
@@ -537,14 +567,63 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
             }
         }
 
-        // Giữ lại detailedReport nếu người dùng đã từng yêu cầu AI tạo trước đó; KHÔNG tự động tạo detailedReport để tiết kiệm token
-        if (existing.isPresent() && existing.get().getSkillGapJson() != null) {
+        // Tự động tạo sẵn hoặc giữ lại detailedReport chuẩn ATS vào CSDL (Write Once, Read Many - 0ms load, 0 Gemini Token)
+        boolean keptExistingReport = false;
+        if (!enableGemini && existing.isPresent() && existing.get().getSkillGapJson() != null) {
             try {
                 JsonNode prevRoot = objectMapper.readTree(existing.get().getSkillGapJson());
                 if (prevRoot.has("detailedReport") && !prevRoot.get("detailedReport").isNull()) {
-                    gapMap.put("detailedReport", prevRoot.get("detailedReport"));
+                    com.hiremate.dto.response.AiDetailedEvaluationReport prevReport = objectMapper.treeToValue(
+                            prevRoot.get("detailedReport"), com.hiremate.dto.response.AiDetailedEvaluationReport.class
+                    );
+                    if (prevReport != null && prevReport.getAdvantages() != null && !prevReport.getAdvantages().isEmpty()) {
+                        prevReport.setMatchingScore(finalMatchingScore);
+                        prevReport.setSkillsScore(Math.round(skillsScore * 10f) / 10f);
+                        prevReport.setExperienceScore(Math.round(experienceScore * 10f) / 10f);
+                        prevReport.setEducationScore(Math.round(educationScore * 10f) / 10f);
+                        prevReport.setSemanticScore(Math.round(semanticScore * 10f) / 10f);
+                        prevReport.setMatchTier(finalMatchingScore >= 85 ? "⭐ Phù Hợp Xuất Sắc"
+                                : finalMatchingScore >= 70 ? "✨ Phù Hợp Tốt (Khuyên Mời Phỏng Vấn)"
+                                : finalMatchingScore >= 50 ? "💡 Tiềm Năng (Có Thể Cân Nhắc)"
+                                : "⚠️ Trau Dồi Kỹ Năng");
+                        prevReport.setIsReportCached(true);
+                        gapMap.put("detailedReport", prevReport);
+                        keptExistingReport = true;
+                    }
                 }
             } catch (Exception ignored) {}
+        }
+
+        if (!keptExistingReport) {
+            try {
+                float rSkills = Math.round(skillsScore * 10f) / 10f;
+                float rExp = Math.round(experienceScore * 10f) / 10f;
+                float rEdu = Math.round(educationScore * 10f) / 10f;
+                float rSem = Math.round(semanticScore * 10f) / 10f;
+                com.hiremate.dto.response.AiDetailedEvaluationReport autoReport = buildDefaultEvaluationReport(
+                        job, candidate, cv,
+                        matchedMandatory, missingMandatory, matchedPreferred, missingPreferred,
+                        rSkills, rExp, rEdu, rSem, finalMatchingScore, reasoning
+                );
+                AiJobMatchResponse tempMatchRes = AiJobMatchResponse.builder()
+                        .matchingScore(finalMatchingScore)
+                        .skillsScore(rSkills)
+                        .experienceScore(rExp)
+                        .educationScore(rEdu)
+                        .semanticScore(rSem)
+                        .matchedMandatorySkills(matchedMandatory)
+                        .missingMandatorySkills(missingMandatory)
+                        .matchedPreferredSkills(matchedPreferred)
+                        .missingPreferredSkills(missingPreferred)
+                        .aiReasoning(reasoning)
+                        .build();
+                enrichAndSynchronizeReportDisadvantages(autoReport, job, candidate, cv, tempMatchRes);
+                decorateActionableReportAdvice(autoReport, job);
+                autoReport.setIsReportCached(true);
+                gapMap.put("detailedReport", autoReport);
+            } catch (Exception ex) {
+                log.warn(">> [AiJobMatchService] Lỗi khởi tạo auto detailedReport: {}", ex.getMessage());
+            }
         }
 
         String gapJson;
@@ -568,34 +647,20 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
         match.setStatus(MatchStatus.COMPLETED);
 
         AiJobMatch saved = aiJobMatchRepository.save(match);
-        log.info(">> [AiJobMatch] Computed match candidateId={} jobId={} score={}%",
+        log.info(">> [AiJobMatch] Computed & cached match + report candidateId={} jobId={} score={}%",
                 candidate.getCandidateId(), job.getJobId(), finalMatchingScore);
 
         if (applicationRepository != null) {
             try {
                 Optional<Application> appOpt = applicationRepository.findByJob_JobIdAndCandidate_CandidateId(job.getJobId(), candidate.getCandidateId());
-                if (appOpt.isPresent() && appOpt.get().getEvaluationNotes() != null && appOpt.get().getEvaluationNotes().trim().startsWith("{")) {
-                    JsonNode notesNode = objectMapper.readTree(appOpt.get().getEvaluationNotes().trim());
-                    if (notesNode.isObject()) {
-                        ((com.fasterxml.jackson.databind.node.ObjectNode) notesNode).put("matchingScore", finalMatchingScore);
-                        ((com.fasterxml.jackson.databind.node.ObjectNode) notesNode).put("matchTier", finalMatchingScore >= 85 ? "⭐ Phù Hợp Xuất Sắc"
-                                : finalMatchingScore >= 70 ? "✨ Phù Hợp Tốt (Khuyên Mời Phỏng Vấn)"
-                                : finalMatchingScore >= 50 ? "💡 Tiềm Năng (Có Thể Cân Nhắc)"
-                                : "⚠️ Trau Dồi Kỹ Năng");
-                        if (gapMap.containsKey("skillsScore")) {
-                            ((com.fasterxml.jackson.databind.node.ObjectNode) notesNode).put("skillsScore", ((Number) gapMap.get("skillsScore")).floatValue());
+                if (appOpt.isPresent()) {
+                    Application app = appOpt.get();
+                    String existingNotes = app.getEvaluationNotes() != null ? app.getEvaluationNotes().trim() : "";
+                    if (existingNotes.isEmpty() || existingNotes.startsWith("{")) {
+                        if (gapMap.containsKey("detailedReport") && gapMap.get("detailedReport") != null) {
+                            app.setEvaluationNotes(objectMapper.writeValueAsString(gapMap.get("detailedReport")));
+                            applicationRepository.save(app);
                         }
-                        if (gapMap.containsKey("experienceScore")) {
-                            ((com.fasterxml.jackson.databind.node.ObjectNode) notesNode).put("experienceScore", ((Number) gapMap.get("experienceScore")).floatValue());
-                        }
-                        if (gapMap.containsKey("educationScore")) {
-                            ((com.fasterxml.jackson.databind.node.ObjectNode) notesNode).put("educationScore", ((Number) gapMap.get("educationScore")).floatValue());
-                        }
-                        if (gapMap.containsKey("semanticScore")) {
-                            ((com.fasterxml.jackson.databind.node.ObjectNode) notesNode).put("semanticScore", ((Number) gapMap.get("semanticScore")).floatValue());
-                        }
-                        appOpt.get().setEvaluationNotes(objectMapper.writeValueAsString(notesNode));
-                        applicationRepository.save(appOpt.get());
                     }
                 }
             } catch (Exception ex) {
@@ -618,13 +683,30 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
         Optional<AiJobMatch> existing = aiJobMatchRepository
                 .findByCandidate_CandidateIdAndJob_JobId(candidate.getCandidateId(), job.getJobId());
 
-        if (existing.isPresent() && existing.get().getMatchingScore() != null) {
+        if (existing.isPresent() && existing.get().getMatchingScore() != null
+                && existing.get().getSkillGapJson() != null
+                && existing.get().getSkillGapJson().contains("\"detailedReport\"")) {
             return mapToResponse(existing.get());
         }
 
-        // Không tự tiện tính toán lưu DB khi chỉ mở xem tin tuyển dụng.
-        // Chỉ tính toán khi người dùng chủ động bấm 'Nhờ AI chấm độ phù hợp' (evaluateJobWithCv)
-        return null;
+        // Tự động chấm điểm & tạo báo cáo ATS lưu cứng vào CSDL trong lần đầu tiên (< 5ms, không gọi Gemini API)
+        Cv targetCv = null;
+        try {
+            if (applicationRepository != null) {
+                Optional<Application> appOpt = applicationRepository.findByJob_JobIdAndCandidate_CandidateId(jobId, candidate.getCandidateId());
+                if (appOpt.isPresent() && appOpt.get().getCv() != null) {
+                    targetCv = appOpt.get().getCv();
+                }
+            }
+        } catch (Exception ignored) {}
+        if (targetCv == null) {
+            targetCv = cvRepository.findByCandidateIdAndIsDefaultTrue(candidate.getCandidateId())
+                    .orElseGet(() -> {
+                        List<Cv> cvs = cvRepository.findByCandidateId(candidate.getCandidateId());
+                        return cvs.isEmpty() ? null : cvs.get(0);
+                    });
+        }
+        return calculateAndSaveMatch(candidate, job, targetCv, false);
     }
 
     @Override
@@ -695,6 +777,18 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
     public List<AiJobMatchResponse> getMyMatches(User candidateUser) {
         Long candidateId = candidateUser.getUserId();
         List<AiJobMatch> matches = aiJobMatchRepository.findByCandidate_CandidateIdOrderByMatchingScoreDesc(candidateId);
+        if (matches.isEmpty()) {
+            Candidate candidate = candidateRepository.findById(candidateId).orElse(null);
+            Cv defaultCv = cvRepository.findByCandidateIdAndIsDefaultTrue(candidateId)
+                    .orElseGet(() -> {
+                        List<Cv> cvs = cvRepository.findByCandidateId(candidateId);
+                        return cvs.isEmpty() ? null : cvs.get(0);
+                    });
+            if (candidate != null) {
+                computeCandidateJobMatches(candidate, defaultCv);
+                matches = aiJobMatchRepository.findByCandidate_CandidateIdOrderByMatchingScoreDesc(candidateId);
+            }
+        }
         List<AiJobMatchResponse> responses = new ArrayList<>();
         for (AiJobMatch m : matches) {
             responses.add(mapToResponse(m));
@@ -717,39 +811,10 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
                 });
 
         // 1. KIỂM TRA BẢNG LƯU SẴN (ai_job_matches):
-        // Nếu đã có kết quả tính toán trước đó, đọc và trả về tức thì (0ms compute, không chặn request)
+        // Đọc trực tiếp từ DB Cache (0ms compute, tuyệt đối KHÔNG xóa toàn bộ cache khi có CV ứng tuyển riêng lẻ)
         List<AiJobMatch> cachedMatches = aiJobMatchRepository.findRecommendations(candidateId, effectiveMinScore);
 
-        if (!cachedMatches.isEmpty()) {
-            // Kiểm tra xem các bản ghi trong cachedMatches có gắn đúng defaultCv hiện tại không
-            boolean cvChanged = false;
-            if (defaultCv != null) {
-                for (AiJobMatch m : cachedMatches) {
-                    if (m.getCv() == null || !defaultCv.getCvId().equals(m.getCv().getCvId())) {
-                        cvChanged = true;
-                        break;
-                    }
-                }
-            }
-            boolean hasStaleFlatScore = false;
-            for (AiJobMatch m : cachedMatches) {
-                if (m.getMatchingScore() != null && m.getMatchingScore() >= 99.0f) {
-                    hasStaleFlatScore = true;
-                    break;
-                }
-            }
-            if (cvChanged || hasStaleFlatScore) {
-                log.info(">> [AiJobMatch] Phát hiện cache AI Job Matches cũ (cvChanged={}, hasStaleFlatScore={}). Hủy cache và tính toán lại.", cvChanged, hasStaleFlatScore);
-                try {
-                    aiJobMatchRepository.deleteByCandidate_CandidateId(candidateId);
-                } catch (Exception ex) {
-                    log.warn(">> [AiJobMatch] Lỗi khi dọn cache: {}", ex.getMessage());
-                }
-                cachedMatches = Collections.emptyList();
-            }
-        }
-
-        // 2. Nếu chưa có kết quả tính toán trong DB (ứng viên mới tải CV hoặc vừa làm mới cache), tự động tính toán
+        // 2. Nếu chưa có kết quả tính toán trong DB, tự động tính toán và lưu cứng vào ai_job_matches
         if (cachedMatches.isEmpty() && candidate != null) {
             log.info(">> [AiJobMatch] Chưa có cache so khớp cho candidateId={}. Bắt đầu tính toán tự động...", candidateId);
             computeCandidateJobMatches(candidate, defaultCv);
@@ -1734,8 +1799,9 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
         String candidateEmail = candidate.getUser() != null ? candidate.getUser().getEmail() : "";
 
         com.hiremate.dto.response.AiDetailedEvaluationReport report = null;
-        // Gọi Gemini AI khi forceRefresh == true HOẶC khi chưa có báo cáo trong DB (được kích hoạt bởi thao tác Yêu cầu AI)
-        if (geminiAiService != null && geminiAiService.isAvailable()) {
+        // TUÂN THỦ RULE 3: CHỈ gọi Gemini AI qua mạng khi người dùng chủ động ấn nút Chấm lại (forceRefresh == true).
+        // Các thao tác đọc/xem thông thường (forceRefresh == false) trả về tức thì (<5ms) từ bộ máy ATS & lưu cứng vào DB!
+        if (forceRefresh && geminiAiService != null && geminiAiService.isAvailable()) {
             try {
                 report = geminiAiService.evaluateCandidateCvAgainstJob(
                         job.getTitle(),
@@ -1791,11 +1857,13 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
 
         // Bóc tách & Đồng bộ toàn diện danh sách tiêu chí còn thiếu từ bảng tuyển dụng vào báo cáo HR
         enrichAndSynchronizeReportDisadvantages(report, job, candidate, cv, matchRes);
+        decorateActionableReportAdvice(report, job);
 
         report.setCandidateId(candidateId);
         report.setCandidateEmail(candidateEmail);
         report.setJobId(jobId);
         report.setJobTitle(job.getTitle());
+        report.setIsReportCached(true);
 
         // 1. Lưu CỨNG vào applications.evaluation_notes (Write Once, Read Many)
         try {
@@ -1837,6 +1905,9 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
                 gapMap = new HashMap<>();
             }
             gapMap.put("detailedReport", report);
+            if (forceRefresh) {
+                gapMap.put("aiDeepEvaluated", true);
+            }
             match.setSkillGapJson(objectMapper.writeValueAsString(gapMap));
             aiJobMatchRepository.save(match);
             log.info(">> [AiJobMatchService] Đã lưu báo cáo AI chi tiết vào Database Cache cho candidateId={} jobId={}",
@@ -2034,7 +2105,7 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
                     ? activeSubs.get(0).getStartDate() : null;
 
             for (AiJobMatch m : candidateMatches) {
-                if (m.getSkillGapJson() != null && m.getSkillGapJson().contains("\"detailedReport\"")) {
+                if (m.getSkillGapJson() != null && m.getSkillGapJson().contains("\"aiDeepEvaluated\":true")) {
                     if (subStart == null || (m.getCreatedAt() != null && m.getCreatedAt().isAfter(subStart))) {
                         usedCount++;
                     }
@@ -2043,8 +2114,15 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
             remainingQuota = Math.max(0, maxQuota - (int) usedCount);
         }
 
-        // 2. KIỂM TRA DATABASE CACHE: Nếu đã có báo cáo trong DB cho jobId này và không forceRefresh
+        // 2. KIỂM TRA DATABASE CACHE: Nếu chưa có bản ghi hoặc chưa có detailedReport, tự động chấm điểm & tạo báo cáo ATS 1 lần duy nhất (<5ms, 0 Gemini Token)
         Optional<AiJobMatch> matchOpt = aiJobMatchRepository.findByCandidate_CandidateIdAndJob_JobId(candidateId, jobId);
+        if (!forceRefresh && (matchOpt.isEmpty() || matchOpt.get().getSkillGapJson() == null || !matchOpt.get().getSkillGapJson().contains("\"detailedReport\""))) {
+            try {
+                getOrCalculateMatch(jobId, candidateUser);
+                matchOpt = aiJobMatchRepository.findByCandidate_CandidateIdAndJob_JobId(candidateId, jobId);
+            } catch (Exception ignored) {}
+        }
+
         if (!forceRefresh && matchOpt.isPresent()) {
             AiJobMatch m = matchOpt.get();
             if (m.getSkillGapJson() != null && !m.getSkillGapJson().isBlank()) {
@@ -2077,8 +2155,7 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
                     log.warn(">> [AiJobMatchService] Lỗi parse cached detailedReport: {}", ex.getMessage());
                 }
             }
-            // Nếu chưa có báo cáo chi tiết trong DB và người dùng chỉ đang load trang thông thường (forceRefresh=false)
-            // -> Trả về thông tin điểm tương thích cơ bản và phân hạng, KHÔNG tạo báo cáo chi tiết để tiết kiệm token
+            // Fallback trả về điểm cơ bản nếu không parse được detailedReport
             return com.hiremate.dto.response.AiDetailedEvaluationReport.builder()
                     .candidateId(candidateId)
                     .candidateName(candidateUser.getFullName())
