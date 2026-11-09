@@ -2,10 +2,10 @@
 chcp 65001 > nul
 title Chay Automation Test - Exercise 6 (HireMate AI Web)
 echo =====================================================================
-echo    DANG CHAY AUTOMATION TEST EXERCISE 6: HIREMATE AI (LOGIN & REGISTER)
+echo    DANG CHAY AUTOMATION TEST EXERCISE 6: HIREMATE AI (LOGIN, REGISTER, JOBS)
 echo =====================================================================
 echo.
-cd /d "D:\FPT\HK V\SWT\Automation_Testing\Exercise 6"
+cd /d "%~dp0Exercise6_HireMate_Automation"
 call mvn test
 echo.
 echo =====================================================================

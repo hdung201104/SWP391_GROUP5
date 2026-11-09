@@ -874,11 +874,23 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
             return null;
           })(),
           // TẦNG 3: Báo cáo phân tích sâu lưu cứng trong CSDL (Write Once, Read Many)
-          hasAiReport: Boolean(
-            (app.evaluationNotes && typeof app.evaluationNotes === 'string' && app.evaluationNotes.trim().length > 20 && app.evaluationNotes.includes('{')) ||
-            (match?.skillGapJson && match.skillGapJson.includes('"detailedReport"')) ||
-            reportsCacheRef.current[`${activeJobId}_${app.candidateId}`]
-          ),
+          hasAiReport: (() => {
+            const rawEvalStr = app.evaluationNotes || app.notes || '';
+            if (typeof rawEvalStr === 'string' && rawEvalStr.trim().startsWith('{')) {
+              try {
+                const parsedEval = JSON.parse(rawEvalStr.trim());
+                if (parsedEval && (parsedEval.matchingScore != null || Array.isArray(parsedEval.advantages))) {
+                  reportsCacheRef.current[`${activeJobId}_${app.candidateId}`] = parsedEval;
+                  return true;
+                }
+              } catch {}
+            }
+            return Boolean(
+              score > 0 ||
+              (match?.skillGapJson && match.skillGapJson.includes('"detailedReport"')) ||
+              reportsCacheRef.current[`${activeJobId}_${app.candidateId}`]
+            );
+          })(),
           evaluationNotes: app.evaluationNotes || app.notes || null,
         };
       });

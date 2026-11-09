@@ -181,34 +181,38 @@ export default function JobDetailModal({ job, onClose, onApply, onViewCompanyPro
   if (!job) return null;
 
   const compName = job.companyName || job.company?.companyName || job.company || 'Doanh Nghiệp Tuyển Dụng';
+  const hasBackendCompStatus = Boolean(job.companyStatus || job.company?.status);
   const rawCompStatus = job.companyStatus || job.company?.status || 'PENDING';
   let isCompanyVerified = Boolean(job.companyVerified || rawCompStatus === 'VERIFIED' || rawCompStatus === 'ACTIVE');
-  let isCompanyBlocked = Boolean(job.companyBlocked || rawCompStatus === 'REJECTED' || rawCompStatus === 'BANNED' || rawCompStatus === 'SUSPENDED');
-  let companyRejectionReason = job.companyRejectionReason || job.company?.rejectionReason || null;
+  let isCompanyBlocked = Boolean(!isCompanyVerified && (job.companyBlocked || rawCompStatus === 'REJECTED' || rawCompStatus === 'BANNED' || rawCompStatus === 'SUSPENDED'));
+  let companyRejectionReason = isCompanyBlocked ? (job.companyRejectionReason || job.company?.rejectionReason || null) : null;
 
-  try {
-    const adminList = localStorage.getItem('hiremate_admin_companies_list');
-    if (adminList) {
-      const list = JSON.parse(adminList);
-      const matched = list.find((c) =>
-        (c.name || '').toLowerCase() === compName.toLowerCase() ||
-        (c.shortName || '').toLowerCase() === compName.toLowerCase()
-      );
-      if (matched) {
-        if (matched.status === 'REJECTED' || matched.status === 'BANNED' || matched.status === 'SUSPENDED') {
-          isCompanyBlocked = true;
-          isCompanyVerified = false;
-          if (matched.rejectionReason) companyRejectionReason = matched.rejectionReason;
-        } else if (matched.status === 'VERIFIED' || matched.status === 'ACTIVE') {
-          isCompanyVerified = true;
-          isCompanyBlocked = false;
+  if (!hasBackendCompStatus) {
+    try {
+      const adminList = localStorage.getItem('hiremate_admin_companies_list');
+      if (adminList) {
+        const list = JSON.parse(adminList);
+        const matched = list.find((c) =>
+          (c.name || '').toLowerCase() === compName.toLowerCase() ||
+          (c.shortName || '').toLowerCase() === compName.toLowerCase()
+        );
+        if (matched) {
+          if (matched.status === 'REJECTED' || matched.status === 'BANNED' || matched.status === 'SUSPENDED') {
+            isCompanyBlocked = true;
+            isCompanyVerified = false;
+            if (matched.rejectionReason) companyRejectionReason = matched.rejectionReason;
+          } else if (matched.status === 'VERIFIED' || matched.status === 'ACTIVE') {
+            isCompanyVerified = true;
+            isCompanyBlocked = false;
+            companyRejectionReason = null;
+          }
         }
       }
-    }
-  } catch {}
+    } catch {}
+  }
 
   const rawJobStatus = job.jobStatus || job.status || 'PUBLISHED';
-  const isJobClosed = Boolean(job.jobClosed || rawJobStatus === 'CLOSED' || isCompanyBlocked);
+  const isJobClosed = Boolean(rawJobStatus === 'CLOSED' || isCompanyBlocked);
 
   const [activeTab, setActiveTab] = useState('ALL');
   const [logoError, setLogoError] = useState(false);

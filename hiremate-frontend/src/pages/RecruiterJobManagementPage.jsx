@@ -375,6 +375,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
       } else {
         fetchCompStatus();
       }
+      fetchMyJobs();
     };
 
     // Lắng nghe tín hiệu Real-time duyệt GPKD từ Admin qua BroadcastChannel (xuyên tab)
@@ -390,6 +391,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
           if (cleanSt === 'VERIFIED' || cleanSt === 'ACTIVE') {
             setShowUnverifiedWarningModal(false);
           }
+          fetchMyJobs();
         }
       };
     } catch {}
@@ -2511,6 +2513,18 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                       ) : job.approvalStatus === 'REJECTED' ? (
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-800 border border-rose-200">
                           <span className="w-1.5 h-1.5 rounded-full bg-rose-500" /> Bị từ chối
+                        </span>
+                      ) : (companyStatus === 'REJECTED' || companyStatus === 'SUSPENDED' || companyStatus === 'BANNED') ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-800 border border-rose-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500" /> Tạm khóa (Thu hồi GPKD)
+                        </span>
+                      ) : job.status === 'CLOSED' ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-300">
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-500" /> Đã đóng
+                        </span>
+                      ) : job.status === 'PAUSED' ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> Tạm dừng
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">

@@ -206,7 +206,8 @@ export default function CandidateApplicationsPage({ user }) {
               return 'Theo thỏa thuận';
             };
 
-            // Kiểm tra trạng thái tính pháp lý của doanh nghiệp từ backend payload & cache Admin
+            // Kiểm tra trạng thái tính pháp lý của doanh nghiệp: ưu tiên 100% dữ liệu trực tiếp từ Backend PostgreSQL
+            const hasBackendCompStatus = Boolean(app.companyStatus || app.job?.company?.status);
             const rawCompStatus = app.companyStatus || app.job?.company?.status || 'PENDING';
             let isCompanyVerified = Boolean(
               app.companyVerified ||
@@ -214,37 +215,41 @@ export default function CandidateApplicationsPage({ user }) {
               rawCompStatus === 'ACTIVE'
             );
             let isCompanyBlocked = Boolean(
-              app.companyBlocked ||
-              rawCompStatus === 'REJECTED' ||
-              rawCompStatus === 'BANNED' ||
-              rawCompStatus === 'SUSPENDED'
+              !isCompanyVerified && (
+                app.companyBlocked ||
+                rawCompStatus === 'REJECTED' ||
+                rawCompStatus === 'BANNED' ||
+                rawCompStatus === 'SUSPENDED'
+              )
             );
-            let companyRejectionReason = app.companyRejectionReason || app.job?.company?.rejectionReason || null;
+            let companyRejectionReason = isCompanyBlocked ? (app.companyRejectionReason || app.job?.company?.rejectionReason || null) : null;
 
-            try {
-              const adminList = localStorage.getItem('hiremate_admin_companies_list');
-              if (adminList) {
-                const list = JSON.parse(adminList);
-                const matched = list.find((c) =>
-                  (c.name || '').toLowerCase() === comp.toLowerCase() ||
-                  (c.shortName || '').toLowerCase() === comp.toLowerCase()
-                );
-                if (matched) {
-                  if (matched.status === 'REJECTED' || matched.status === 'BANNED' || matched.status === 'SUSPENDED') {
-                    isCompanyBlocked = true;
-                    isCompanyVerified = false;
-                    if (matched.rejectionReason) companyRejectionReason = matched.rejectionReason;
-                  } else if (matched.status === 'VERIFIED' || matched.status === 'ACTIVE') {
-                    isCompanyVerified = true;
-                    isCompanyBlocked = false;
+            if (!hasBackendCompStatus) {
+              try {
+                const adminList = localStorage.getItem('hiremate_admin_companies_list');
+                if (adminList) {
+                  const list = JSON.parse(adminList);
+                  const matched = list.find((c) =>
+                    (c.name || '').toLowerCase() === comp.toLowerCase() ||
+                    (c.shortName || '').toLowerCase() === comp.toLowerCase()
+                  );
+                  if (matched) {
+                    if (matched.status === 'REJECTED' || matched.status === 'BANNED' || matched.status === 'SUSPENDED') {
+                      isCompanyBlocked = true;
+                      isCompanyVerified = false;
+                      if (matched.rejectionReason) companyRejectionReason = matched.rejectionReason;
+                    } else if (matched.status === 'VERIFIED' || matched.status === 'ACTIVE') {
+                      isCompanyVerified = true;
+                      isCompanyBlocked = false;
+                      companyRejectionReason = null;
+                    }
                   }
                 }
-              }
-            } catch {}
+              } catch {}
+            }
 
             const rawJobStatus = app.jobStatus || app.job?.status || 'PUBLISHED';
             const isJobClosed = Boolean(
-              app.jobClosed ||
               rawJobStatus === 'CLOSED' ||
               isCompanyBlocked
             );
@@ -346,17 +351,23 @@ export default function CandidateApplicationsPage({ user }) {
 
     fetchMyApplications(hasCached);
 
-    // Throttled sync: Đồng bộ khi nhận thông báo trạng thái hoặc quay lại tab (tối đa 1 lần / 15s)
-    let lastFocusSync = Date.now();
+    // Đồng bộ tức thì khi Admin duyệt/thu hồi GPKD hoặc ứng viên chuyển lại tab
+    let lastFocusSync = 0;
     const handleSync = () => {
       const now = Date.now();
-      if (now - lastFocusSync > 15000) {
+      if (now - lastFocusSync > 2000) {
         lastFocusSync = now;
         fetchMyApplications(true);
       }
     };
+    const handleCompanyStatusImmediateSync = () => {
+      lastFocusSync = Date.now();
+      fetchMyApplications(true);
+    };
 
     window.addEventListener('hiremate-notification-sync', handleSync);
+    window.addEventListener('hiremate_company_updated', handleCompanyStatusImmediateSync);
+    window.addEventListener('storage', handleCompanyStatusImmediateSync);
     window.addEventListener('focus', handleSync);
 
     // Tự động kiểm tra cập nhật mỗi 60 giây (đồng bộ theo chu kỳ nền, tránh nghẽn pool kết nối)
@@ -366,6 +377,8 @@ export default function CandidateApplicationsPage({ user }) {
 
     return () => {
       window.removeEventListener('hiremate-notification-sync', handleSync);
+      window.removeEventListener('hiremate_company_updated', handleCompanyStatusImmediateSync);
+      window.removeEventListener('storage', handleCompanyStatusImmediateSync);
       window.removeEventListener('focus', handleSync);
       clearInterval(interval);
     };
