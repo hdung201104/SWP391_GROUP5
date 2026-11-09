@@ -563,31 +563,35 @@ export default function JobDetailPage({ user: propUser, jobId }) {
               pref = all.slice(split);
             }
 
+            const hasBackendCompStatus = Boolean(apiData.companyStatus || apiData.company?.status);
             const rawCompanyStatus = apiData.companyStatus || apiData.company?.status || 'PENDING';
             let isCompanyVerified = Boolean(apiData.companyVerified || rawCompanyStatus === 'VERIFIED' || rawCompanyStatus === 'ACTIVE');
-            let isCompanyBlocked = Boolean(apiData.companyBlocked || rawCompanyStatus === 'REJECTED' || rawCompanyStatus === 'BANNED' || rawCompanyStatus === 'SUSPENDED');
-            let companyRejectionReason = apiData.companyRejectionReason || apiData.company?.rejectionReason || null;
+            let isCompanyBlocked = Boolean(!isCompanyVerified && (apiData.companyBlocked || rawCompanyStatus === 'REJECTED' || rawCompanyStatus === 'BANNED' || rawCompanyStatus === 'SUSPENDED'));
+            let companyRejectionReason = isCompanyBlocked ? (apiData.companyRejectionReason || apiData.company?.rejectionReason || null) : null;
 
-            try {
-              const adminList = localStorage.getItem('hiremate_admin_companies_list');
-              if (adminList) {
-                const list = JSON.parse(adminList);
-                const matched = list.find((c) =>
-                  (c.name || '').toLowerCase() === (compName || '').toLowerCase() ||
-                  (c.shortName || '').toLowerCase() === (compName || '').toLowerCase()
-                );
-                if (matched) {
-                  if (matched.status === 'REJECTED' || matched.status === 'BANNED' || matched.status === 'SUSPENDED') {
-                    isCompanyBlocked = true;
-                    isCompanyVerified = false;
-                    if (matched.rejectionReason) companyRejectionReason = matched.rejectionReason;
-                  } else if (matched.status === 'VERIFIED' || matched.status === 'ACTIVE') {
-                    isCompanyVerified = true;
-                    isCompanyBlocked = false;
+            if (!hasBackendCompStatus) {
+              try {
+                const adminList = localStorage.getItem('hiremate_admin_companies_list');
+                if (adminList) {
+                  const list = JSON.parse(adminList);
+                  const matched = list.find((c) =>
+                    (c.name || '').toLowerCase() === (compName || '').toLowerCase() ||
+                    (c.shortName || '').toLowerCase() === (compName || '').toLowerCase()
+                  );
+                  if (matched) {
+                    if (matched.status === 'REJECTED' || matched.status === 'BANNED' || matched.status === 'SUSPENDED') {
+                      isCompanyBlocked = true;
+                      isCompanyVerified = false;
+                      if (matched.rejectionReason) companyRejectionReason = matched.rejectionReason;
+                    } else if (matched.status === 'VERIFIED' || matched.status === 'ACTIVE') {
+                      isCompanyVerified = true;
+                      isCompanyBlocked = false;
+                      companyRejectionReason = null;
+                    }
                   }
                 }
-              }
-            } catch {}
+              } catch {}
+            }
 
             const isJobClosed = Boolean(apiData.status === 'CLOSED' || isCompanyBlocked);
 

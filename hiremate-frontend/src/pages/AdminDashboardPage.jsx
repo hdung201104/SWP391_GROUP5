@@ -2187,7 +2187,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
     try {
       channel = new BroadcastChannel('hiremate_realtime_channel');
       channel.onmessage = (event) => {
-        if (event.data?.type === 'COMPANY_STATUS_UPDATED') {
+        if (event.data?.type === 'COMPANY_STATUS_UPDATED' && event.data?.source !== 'admin_local') {
           fetchRealData();
         }
       };
@@ -2198,7 +2198,8 @@ export default function AdminDashboardPage({ user, onLogout }) {
         fetchRealData();
       }
     };
-    const handleCompanyUpdate = () => {
+    const handleCompanyUpdate = (e) => {
+      if (e?.detail?.source === 'admin_local') return;
       fetchRealData();
     };
 
@@ -3092,12 +3093,13 @@ export default function AdminDashboardPage({ user, onLogout }) {
 
     // Cập nhật giao diện tức thì (Optimistic UI - phản hồi ngay 0ms)
     setCompanies((prev) => {
-      const next = prev.map((c) => (c.id === companyId ? { ...c, status: 'VERIFIED', verifiedAt: new Date().toLocaleDateString('vi-VN') } : c));
+      const next = prev.map((c) => (c.id === companyId ? { ...c, status: 'VERIFIED', verifiedAt: new Date().toLocaleDateString('vi-VN'), notes: '' } : c));
       try {
         localStorage.setItem('hiremate_admin_companies_list', JSON.stringify(next));
       } catch {}
       return next;
     });
+    setSelectedCompanyDossier((prev) => (prev && prev.id === companyId ? { ...prev, status: 'VERIFIED', verifiedAt: new Date().toLocaleDateString('vi-VN'), notes: '' } : prev));
     setSelectedCompanyIds((prev) => prev.filter((id) => id !== companyId));
 
     const namesToSync = [comp?.name, comp?.shortName].filter(Boolean);
@@ -3117,20 +3119,21 @@ export default function AdminDashboardPage({ user, onLogout }) {
       } catch {}
     });
 
-    try {
-      const bc = new BroadcastChannel('hiremate_realtime_channel');
-      bc.postMessage({ type: 'COMPANY_STATUS_UPDATED', status: 'VERIFIED', companyId: rawId, companyName: compName });
-      bc.close();
-    } catch {}
-    window.dispatchEvent(new CustomEvent('hiremate_company_updated', {
-      detail: { status: 'VERIFIED', companyId: rawId, companyName: compName }
-    }));
     triggerToast(`Đã duyệt xác minh GPKD thành công cho công ty "${compName || companyId}"! Doanh nghiệp đã được cấp quyền đăng bài.`);
 
-    // Gửi request ngầm lên Backend
+    // Gửi request lên Backend trước rồi mới phát sự kiện đồng bộ xuyên tab (tránh race condition ghi đè state)
     if (rawId) {
       try {
         await adminApi.updateCompanyStatus(rawId, 'VERIFIED');
+        try {
+          const bc = new BroadcastChannel('hiremate_realtime_channel');
+          bc.postMessage({ type: 'COMPANY_STATUS_UPDATED', status: 'VERIFIED', companyId: rawId, companyName: compName, source: 'admin_local' });
+          bc.close();
+        } catch {}
+        window.dispatchEvent(new CustomEvent('hiremate_company_updated', {
+          detail: { status: 'VERIFIED', companyId: rawId, companyName: compName, source: 'admin_local' }
+        }));
+        await fetchRealData();
       } catch (err) {
         console.error('Lỗi khi duyệt công ty trên server:', err);
         setCompanies((prev) =>
@@ -3166,6 +3169,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
       } catch {}
       return next;
     });
+    setSelectedCompanyDossier((prev) => (prev && prev.id === cid ? { ...prev, status: 'REJECTED', notes: `Lý do từ chối: ${note}` } : prev));
 
     if (compName) {
       const companyKey = compName.toLowerCase().replace(/[^a-z0-9]/g, '_');
@@ -3180,21 +3184,21 @@ export default function AdminDashboardPage({ user, onLogout }) {
       }
     }
 
-    try {
-      const bc = new BroadcastChannel('hiremate_realtime_channel');
-      bc.postMessage({ type: 'COMPANY_STATUS_UPDATED', status: 'REJECTED', companyId: rawId, companyName: compName, rejectionReason: note });
-      bc.close();
-    } catch {}
-    window.dispatchEvent(new CustomEvent('hiremate_company_updated', {
-      detail: { status: 'REJECTED', companyId: rawId, companyName: compName, rejectionReason: note }
-    }));
-
     triggerToast(`Đã thu hồi hồ sơ công ty "${compName || cid}" thành công!`, 'warning');
 
-    // Gửi request ngầm lên Backend
+    // Gửi request lên Backend trước rồi mới phát sự kiện đồng bộ xuyên tab (tránh race condition ghi đè state)
     if (rawId) {
       try {
         await adminApi.updateCompanyStatus(rawId, 'REJECTED', { rejectionReason: note, notes: note });
+        try {
+          const bc = new BroadcastChannel('hiremate_realtime_channel');
+          bc.postMessage({ type: 'COMPANY_STATUS_UPDATED', status: 'REJECTED', companyId: rawId, companyName: compName, rejectionReason: note, source: 'admin_local' });
+          bc.close();
+        } catch {}
+        window.dispatchEvent(new CustomEvent('hiremate_company_updated', {
+          detail: { status: 'REJECTED', companyId: rawId, companyName: compName, rejectionReason: note, source: 'admin_local' }
+        }));
+        await fetchRealData();
       } catch (err) {
         console.error('Lỗi khi thu hồi công ty trên server:', err);
         setCompanies((prev) =>

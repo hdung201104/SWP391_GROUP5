@@ -318,6 +318,27 @@ export default function HomePage({ user }) {
   useEffect(() => {
     fetchRealJobs();
     fetchCompanies();
+
+    const handleRealtimeRefresh = () => {
+      fetchRealJobs(searchTitle, selectedLocation);
+      fetchCompanies();
+    };
+
+    let bc;
+    try {
+      bc = new BroadcastChannel('hiremate_realtime_channel');
+      bc.onmessage = (msg) => {
+        if (msg?.data?.type === 'COMPANY_STATUS_UPDATED') {
+          handleRealtimeRefresh();
+        }
+      };
+    } catch {}
+
+    window.addEventListener('hiremate_company_updated', handleRealtimeRefresh);
+    return () => {
+      window.removeEventListener('hiremate_company_updated', handleRealtimeRefresh);
+      if (bc) bc.close();
+    };
   }, [user]);
 
   // Lock recruiter to companies view and reset showcase when navigating home
