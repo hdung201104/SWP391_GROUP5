@@ -3,16 +3,14 @@ package tests;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvFileSource;
-import org.openqa.selenium.WebDriver;
 import pages.LoginPage;
-import utils.DriverFactory;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * LoginTest: Kiểm thử tự động chức năng Đăng nhập trên website HireMate AI (http://localhost:5173).
  * - Test 1: Đăng nhập thành công với tài khoản đúng -> Assert chuyển trang.
- * - Test 2: Đăng nhập thất bại do sai mật khẩu -> Assert thông báo lỗi.
+ * - Test 2 (Demo A): Đăng nhập thất bại do sai mật khẩu -> Assert thông báo lỗi.
  * - Test 3: Đăng nhập thất bại do bỏ trống trường -> Assert thông báo yêu cầu nhập.
  * - Test 4: Đọc dữ liệu từ file CSV (@CsvFileSource) chạy kiểm thử tự động nhiều tài khoản.
  */
@@ -41,9 +39,15 @@ public class LoginTest extends BaseTest {
 
     @Test
     @Order(2)
-    @DisplayName("Test 2: Đăng nhập thất bại do sai mật khẩu -> Assert thông báo lỗi")
-    public void testLoginFailedWithWrongPassword() {
-        loginPage.loginWithRole("CANDIDATE", "candidate@hiremate.ai", "SaiMatKhau@999");
+    @DisplayName("Demo A (Test 2): Đăng nhập thất bại do sai mật khẩu -> Assert thông báo lỗi")
+    public void testLoginFailedWithWrongPassword() throws InterruptedException {
+        loginPage.selectRoleTab("CANDIDATE");
+        loginPage.enterEmail("candidate@hiremate.ai");
+        loginPage.enterPassword("SaiMatKhau@999");
+        Thread.sleep(1000);
+
+        loginPage.clickLogin();
+        Thread.sleep(1000);
 
         assertTrue(
                 loginPage.isErrorMessageDisplayed(),

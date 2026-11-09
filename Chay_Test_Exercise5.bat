@@ -5,7 +5,7 @@ echo =====================================================================
 echo    DANG CHAY AUTOMATION TEST EXERCISE 5: DEMOQA PRACTICE FORM
 echo =====================================================================
 echo.
-cd /d "D:\FPT\HK V\SWT\Automation_Testing\Exercise 5"
+cd /d "%~dp0Exercise5_DemoQA"
 call mvn test
 echo.
 echo =====================================================================
