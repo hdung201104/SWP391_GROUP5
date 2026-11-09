@@ -1167,6 +1167,11 @@ export default function JobDetailPage({ user: propUser, jobId }) {
                       <button
                         type="button"
                         onClick={() => {
+                          if (isCandidate && candidateCvs.length === 0) {
+                            alert('Tài khoản của bạn chưa có bản CV nào trong hệ thống! Vui lòng tải lên hoặc tạo CV tại trang Hồ Sơ Cá Nhân trước khi ứng tuyển.');
+                            window.location.hash = '#/candidate-profile';
+                            return;
+                          }
                           setIsApplying(true);
                         }}
                         className="w-full md:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#5b48bd] to-[#6d57d9] hover:from-[#4938a5] hover:to-[#5c47cb] text-white font-extrabold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
@@ -1819,6 +1824,11 @@ export default function JobDetailPage({ user: propUser, jobId }) {
                 <button
                   type="button"
                   onClick={() => {
+                    if (isCandidate && candidateCvs.length === 0) {
+                      alert('Tài khoản của bạn chưa có bản CV nào trong hệ thống! Vui lòng tải lên hoặc tạo CV tại trang Hồ Sơ Cá Nhân trước khi ứng tuyển.');
+                      window.location.hash = '#/candidate-profile';
+                      return;
+                    }
                     setIsApplying(true);
                   }}
                   className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#5b48bd] to-[#7c66dc] hover:from-[#4938a5] hover:to-[#6a54cb] text-white font-extrabold text-xs shadow-md transition-all flex items-center gap-1.5 cursor-pointer shrink-0"

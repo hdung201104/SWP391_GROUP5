@@ -124,8 +124,8 @@ public class ApplicationServiceImpl implements ApplicationService {
 
         // Lấy Candidate subclass – candidate_id = user_id (Shared PK)
         Candidate candidate = candidateRepository.findById(user.getUserId())
-                .orElseThrow(() -> new IllegalStateException(
-                        "Candidate profile not found for user: " + user.getUserId()));
+                .orElseThrow(() -> new BadRequestException(
+                        "Bạn chưa hoàn tất hồ sơ ứng viên hoặc chưa tải lên CV. Vui lòng tạo hồ sơ tại trang cá nhân trước khi ứng tuyển!"));
 
         // Tìm CV: bắt buộc phải có CV hợp lệ và thuộc về chính ứng viên này để ứng tuyển
         Cv cv = null;
@@ -797,13 +797,13 @@ public class ApplicationServiceImpl implements ApplicationService {
         Candidate candidate = app.getCandidate();
         User candidateUser = candidate != null ? candidate.getUser() : null;
         Cv cv = app.getCv();
+        // CHỈ fallback sang defaultCv NẾU VÀ CHỈ NẾU app.getCv() HOÀN TOÀN BẰNG NULL
         if (cv == null) {
             cv = fallbackCv;
         }
-        if (cv == null && candidate != null && fallbackCv == null) {
+        if (cv == null && candidate != null) {
             cv = cvRepository.findByCandidateIdAndIsDefaultTrue(candidate.getCandidateId())
-                    .orElseGet(() -> cvRepository.findByCandidateId(candidate.getCandidateId())
-                            .stream().findFirst().orElse(null));
+                    .orElseGet(() -> cvRepository.findByCandidateId(candidate.getCandidateId()).stream().findFirst().orElse(null));
         }
 
         String jobTitle = job != null ? job.getTitle() : "Unknown Job";

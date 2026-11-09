@@ -1582,6 +1582,8 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
               </div>
             )}
 
+
+
             <form onSubmit={handleVerifyAndRegister} className="space-y-4">
               <div className="space-y-1.5">
                 <label className="text-[11px] font-bold text-[#221d47] uppercase tracking-wider block">

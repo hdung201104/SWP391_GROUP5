@@ -42,14 +42,37 @@ export default function OnlineCvRenderer({
   // Kỹ năng
   const skills = Array.isArray(candidate.skills) ? candidate.skills : [];
   
-  // Kinh nghiệm làm việc
-  const experiences = Array.isArray(candidate.experiences) ? candidate.experiences : [];
+  // Kinh nghiệm làm việc (Chuẩn hóa tự động cho cả bullets & highlights)
+  const rawExperiences = Array.isArray(candidate.experiences) ? candidate.experiences : [];
+  const experiences = rawExperiences.map((exp) => ({
+    ...exp,
+    role: exp.role || exp.title || exp.position || 'Chuyên viên kỹ thuật',
+    company: exp.company || exp.employer || exp.organization || '',
+    period: exp.period || exp.duration || exp.time || 'Gần đây',
+    bullets: Array.isArray(exp.bullets) && exp.bullets.length > 0
+      ? exp.bullets
+      : (Array.isArray(exp.highlights) && exp.highlights.length > 0 ? exp.highlights : []),
+  }));
   
-  // Học vấn
-  const educations = Array.isArray(candidate.educations) ? candidate.educations : [];
+  // Học vấn (Chuẩn hóa tự động cho cả degree & major)
+  const rawEducations = Array.isArray(candidate.educations) ? candidate.educations : [];
+  const educations = rawEducations.map((edu) => ({
+    ...edu,
+    school: edu.school || edu.institution || edu.university || 'Đại học / Học viện',
+    degree: edu.degree || edu.major || edu.fieldOfStudy || 'Chuyên ngành chuyên môn',
+    period: edu.period || edu.year || edu.duration || '2023 - 2026',
+  }));
   
-  // Dự án
-  const projects = Array.isArray(candidate.projects) ? candidate.projects : [];
+  // Dự án (Chuẩn hóa tự động cho cả name & project_name)
+  const rawProjects = Array.isArray(candidate.projects) ? candidate.projects : [];
+  const projects = rawProjects.map((proj) => ({
+    ...proj,
+    name: proj.name || proj.project_name || proj.projectName || proj.title || 'Dự án trọng điểm',
+    role: proj.role || proj.position || 'Kỹ sư phụ trách',
+    period: proj.period || proj.duration || proj.year || '2026',
+    summary: proj.summary || proj.description || '',
+    technologies: proj.technologies || (Array.isArray(proj.tags) ? proj.tags.join(', ') : ''),
+  }));
 
   // Ngoại ngữ
   const languages = Array.isArray(candidate.languages) ? candidate.languages : [

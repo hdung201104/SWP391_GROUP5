@@ -129,14 +129,20 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
                     candidate.getCandidateId(), job.getJobId(), cvSwitched, isStaleFlatScore, hasRawJsonInGap, enableGemini);
         }
 
-        // 1. Gather Candidate text/keywords from profile, skills, and CV
+        // 1. Gather Candidate text/keywords from profile, skills, and CV (Ưu tiên CV thực tế đã nộp)
         StringBuilder candText = new StringBuilder();
         if (candidate.getHeadline() != null) candText.append(" ").append(candidate.getHeadline());
         if (candidate.getBio() != null) candText.append(" ").append(candidate.getBio());
-        if (candidate.getExperiencesJson() != null) candText.append(" ").append(candidate.getExperiencesJson());
-        if (candidate.getEducationsJson() != null) candText.append(" ").append(candidate.getEducationsJson());
-        if (candidate.getProjectsJson() != null) candText.append(" ").append(candidate.getProjectsJson());
-        if (candidate.getCareerGoals() != null) candText.append(" ").append(candidate.getCareerGoals());
+
+        if (cv != null && cv.getParsedJson() != null && !cv.getParsedJson().isBlank()) {
+            candText.append(" ").append(cv.getParsedJson());
+            if (cv.getParsedText() != null) candText.append(" ").append(cv.getParsedText());
+        } else {
+            if (candidate.getExperiencesJson() != null) candText.append(" ").append(candidate.getExperiencesJson());
+            if (candidate.getEducationsJson() != null) candText.append(" ").append(candidate.getEducationsJson());
+            if (candidate.getProjectsJson() != null) candText.append(" ").append(candidate.getProjectsJson());
+            if (candidate.getCareerGoals() != null) candText.append(" ").append(candidate.getCareerGoals());
+        }
 
         // Bổ sung kỹ năng từ bảng candidate_skills
         try {
@@ -1666,19 +1672,26 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
             log.warn(">> [AiJobMatchService] Lỗi tính điểm trước khi lập báo cáo: {}", ex.getMessage());
         }
 
-        // 3. Xây dựng ngữ cảnh hồ sơ toàn diện (Học vấn, Bằng cấp, Chứng chỉ, Ngoại ngữ, Kỹ năng)
+        // 3. Xây dựng ngữ cảnh hồ sơ toàn diện (BẮT BUỘC ưu tiên đọc từ cv.getParsedJson() của chính bản CV đã nộp)
         StringBuilder profileBuilder = new StringBuilder();
-        if (candidate.getEducationsJson() != null && !candidate.getEducationsJson().isBlank()) {
-            profileBuilder.append(" [HỌC VẤN & BẰNG CẤP: ").append(candidate.getEducationsJson()).append("] ");
-        }
         if (cv != null && cv.getParsedJson() != null && !cv.getParsedJson().isBlank()) {
-            profileBuilder.append(" [DỮ LIỆU CV TRÍCH XUẤT (Bằng cấp, Chứng chỉ, Ngoại ngữ): ").append(cv.getParsedJson()).append("] ");
+            profileBuilder.append(" [DỮ LIỆU CV THỰC TẾ ĐÃ NỘP: ").append(cv.getParsedJson()).append("] ");
+            if (cv.getParsedText() != null && !cv.getParsedText().isBlank()) {
+                profileBuilder.append(" [CHI TIẾT VĂN BẢN CV: ").append(cv.getParsedText()).append("] ");
+            }
+        } else {
+            if (candidate.getEducationsJson() != null && !candidate.getEducationsJson().isBlank()) {
+                profileBuilder.append(" [HỌC VẤN & BẰNG CẤP: ").append(candidate.getEducationsJson()).append("] ");
+            }
+            if (candidate.getExperiencesJson() != null && !candidate.getExperiencesJson().isBlank()) {
+                profileBuilder.append(" [KINH NGHIỆM: ").append(candidate.getExperiencesJson()).append("] ");
+            }
+            if (candidate.getProjectsJson() != null && !candidate.getProjectsJson().isBlank()) {
+                profileBuilder.append(" [DỰ ÁN: ").append(candidate.getProjectsJson()).append("] ");
+            }
         }
-        if (candidate.getExperiencesJson() != null && !candidate.getExperiencesJson().isBlank()) {
-            profileBuilder.append(" [KINH NGHIỆM: ").append(candidate.getExperiencesJson()).append("] ");
-        }
-        if (candidate.getProjectsJson() != null && !candidate.getProjectsJson().isBlank()) {
-            profileBuilder.append(" [DỰ ÁN: ").append(candidate.getProjectsJson()).append("] ");
+        if (candidate.getHeadline() != null && !candidate.getHeadline().isBlank()) {
+            profileBuilder.append(" [CHỨC DANH: ").append(candidate.getHeadline()).append("] ");
         }
         if (candidate.getBio() != null && !candidate.getBio().isBlank()) {
             profileBuilder.append(" [GIỚI THIỆU: ").append(candidate.getBio()).append("] ");

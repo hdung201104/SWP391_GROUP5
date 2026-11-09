@@ -1,0 +1,7 @@
+email,password,role,expectedSuccess,expectedMessage
+candidate@hiremate.ai,Candidate@123,CANDIDATE,true,Đăng nhập thành công
+longtran@candidate.hiremate.ai,Password123@,CANDIDATE,true,Đăng nhập thành công
+minhanh.hr@fptsoftware.com,Recruiter@123,RECRUITER,true,Đăng nhập thành công
+candidate@hiremate.ai,WrongPassword999,CANDIDATE,false,không chính xác
+nonexistent_user@hiremate.ai,WrongPass123,CANDIDATE,false,không chính xác
+

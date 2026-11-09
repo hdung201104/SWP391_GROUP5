@@ -471,6 +471,266 @@ export default function CandidateProfilePage({ user }) {
       .catch((e) => console.warn('Could not load quota status:', e));
   }, [user]);
 
+  // CV Files State for ATS Vault Tab (Connected to Supabase PostgreSQL via cvApi)
+  const [cvFiles, setCvFiles] = useState([]);
+  const [candidateAvatarUrl, setCandidateAvatarUrl] = useState(null);
+
+  const handleCandidateAvatarFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      showToast('Đang tải ảnh đại diện lên Cloudinary CDN...');
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await candidateApi.uploadAvatar(fd);
+      const newAvatar = res.data?.data?.avatarUrl || res.data?.avatarUrl;
+      if (newAvatar) {
+        setCandidateAvatarUrl(newAvatar);
+        showToast('Đã cập nhật ảnh đại diện lên Cloudinary CDN!');
+      }
+    } catch (err) {
+      showToast('Lỗi tải ảnh lên Cloud: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
+  const currentCandidate = {
+    accountName: cvData.candidateName || user?.fullName || profileData?.fullName || 'Ứng viên',
+    accountIndustry: cvData.targetTitle || profileData?.headline || 'Chuyên viên Công nghệ & Kinh doanh',
+    avatarUrl: candidateAvatarUrl || user?.avatarUrl || profileData?.avatarUrl || '',
+    email: cvData.email || user?.email || profileData?.email || '',
+    phone: cvData.phone || user?.phone || profileData?.phone || 'Chưa cập nhật',
+    location: cvData.location || profileData?.location || user?.address || 'Việt Nam',
+    dob: profileData?.dateOfBirth && profileData.dateOfBirth !== 'Chưa cập nhật ngày sinh' ? profileData.dateOfBirth : 'Chưa cập nhật',
+    gender: profileData?.gender || user?.gender || 'Chưa cập nhật',
+    linkedin: profileData?.linkedinUrl && profileData.linkedinUrl !== 'Chưa liên kết' ? profileData.linkedinUrl : 'Chưa liên kết',
+    github: profileData?.githubUrl && profileData.githubUrl !== 'Chưa liên kết' ? profileData.githubUrl : 'Chưa liên kết',
+    portfolio: profileData?.portfolioUrl && profileData.portfolioUrl !== 'Chưa liên kết' ? profileData.portfolioUrl : 'Chưa liên kết',
+    cvVersions: cvFiles.length > 0
+      ? cvFiles.map((f, i) => ({
+        id: `cv_${f.id}`,
+        versionName: f.name,
+        versionBadge: f.isDefault ? '⭐ MẶC ĐỊNH FAST APPLY' : `TỆP ĐÃ TẢI LÊN #${i + 1}`,
+        isDefault: Boolean(f.isDefault),
+      }))
+      : (isCustomCreated
+        ? [
+          {
+            id: 'cv_default_online',
+            versionName: cvData.versionName || 'Bản CV Trực Tuyến HireMate',
+            versionBadge: '⭐ MẶC ĐỊNH FAST APPLY',
+            isDefault: true,
+          }
+        ]
+        : [])
+  };
+  const [isUploading, setIsUploading] = useState(false);
+  const [analyzedAtsScore, setAnalyzedAtsScore] = useState(null);
+  const hasCv = cvFiles.length > 0 || isCustomCreated;
+
+  const calculateRealCvAtsScore = (cvObj) => {
+    if (!cvObj) return 0;
+    let score = 0;
+    const pData = cvObj.parsedData || {};
+
+    // 1. Thông tin liên hệ: tối đa 15 điểm
+    const name = pData.full_name || pData.fullName || cvObj.fullName || cvObj.candidateName;
+    const phone = pData.phone || cvObj.phone;
+    const email = pData.email || cvObj.email;
+    const location = pData.address || pData.location || cvObj.address || cvObj.location;
+    let contactPoints = 0;
+    if (name && String(name).trim().length > 1) contactPoints += 4;
+    if (phone && String(phone).trim().length >= 8) contactPoints += 4;
+    if (email && String(email).trim().includes('@')) contactPoints += 4;
+    if (location && String(location).trim().length > 2) contactPoints += 3;
+    score += Math.min(contactPoints, 15);
+
+    // 2. Tóm tắt mục tiêu nghề nghiệp: tối đa 15 điểm (summary >= 40 ký tự)
+    const summary = pData.summary || cvObj.summary || '';
+    const cleanSummary = String(summary).trim();
+    if (cleanSummary.length >= 80) {
+      score += 15;
+    } else if (cleanSummary.length >= 40) {
+      score += 12;
+    } else if (cleanSummary.length > 0) {
+      score += 6;
+    }
+
+    // 3. Kỹ năng chuyên môn: >= 6 kỹ năng = 25đ, 3–5 kỹ năng = 18đ, 1–2 kỹ năng = 10đ, 0 = 0đ
+    const skills = (Array.isArray(pData.skills) && pData.skills.length > 0)
+      ? pData.skills
+      : (Array.isArray(cvObj.detectedSkills) ? cvObj.detectedSkills : []);
+    const skillCount = skills.length;
+    if (skillCount >= 6) {
+      score += 25;
+    } else if (skillCount >= 3) {
+      score += 18;
+    } else if (skillCount >= 1) {
+      score += 10;
+    }
+
+    // 4. Kinh nghiệm làm việc: có kinh nghiệm chi tiết/số liệu = 25đ, cơ bản = 18đ, chưa có kinh nghiệm nhưng có dự án = 12đ
+    let experiences = [];
+    if (Array.isArray(pData.experiences)) {
+      experiences = pData.experiences;
+    } else if (typeof cvObj.experiencesJson === 'string' && cvObj.experiencesJson.trim().startsWith('[')) {
+      try { experiences = JSON.parse(cvObj.experiencesJson); } catch (e) { }
+    } else if (Array.isArray(cvObj.experiences)) {
+      experiences = cvObj.experiences;
+    }
+
+    let projects = [];
+    if (Array.isArray(pData.projects)) {
+      projects = pData.projects;
+    } else if (typeof cvObj.projectsJson === 'string' && cvObj.projectsJson.trim().startsWith('[')) {
+      try { projects = JSON.parse(cvObj.projectsJson); } catch (e) { }
+    } else if (Array.isArray(cvObj.projects)) {
+      projects = cvObj.projects;
+    }
+
+    if (experiences.length > 0) {
+      const hasDetailed = experiences.some(exp => {
+        const desc = (exp.description || '') + ' ' + (Array.isArray(exp.highlights) ? exp.highlights.join(' ') : (Array.isArray(exp.bullets) ? exp.bullets.join(' ') : ''));
+        return desc.length >= 100 || /\d+[%+|k|m|triệu|nghìn]/i.test(desc);
+      });
+      score += hasDetailed ? 25 : 18;
+    } else if (projects.length > 0) {
+      score += 12;
+    }
+
+    // 5. Học vấn + Dự án/Chứng chỉ/Ngoại ngữ: tối đa 20 điểm
+    let educations = [];
+    if (Array.isArray(pData.educations)) educations = pData.educations;
+    else if (typeof cvObj.educationsJson === 'string' && cvObj.educationsJson.trim().startsWith('[')) {
+      try { educations = JSON.parse(cvObj.educationsJson); } catch (e) { }
+    } else if (Array.isArray(cvObj.education)) educations = cvObj.education;
+
+    let certifications = [];
+    if (Array.isArray(pData.certifications)) certifications = pData.certifications;
+    else if (typeof cvObj.certificationsJson === 'string' && cvObj.certificationsJson.trim().startsWith('[')) {
+      try { certifications = JSON.parse(cvObj.certificationsJson); } catch (e) { }
+    } else if (Array.isArray(cvObj.certifications)) certifications = cvObj.certifications;
+
+    let languages = [];
+    if (Array.isArray(pData.languages)) languages = pData.languages;
+    else if (typeof cvObj.languagesJson === 'string' && cvObj.languagesJson.trim().startsWith('[')) {
+      try { languages = JSON.parse(cvObj.languagesJson); } catch (e) { }
+    } else if (Array.isArray(cvObj.languages)) languages = cvObj.languages;
+
+    let extra = 0;
+    if (educations.length > 0) extra += 10;
+    if (projects.length > 0) extra += 5;
+    if (certifications.length > 0 || languages.length > 0) extra += 5;
+    score += Math.min(extra, 20);
+
+    return Math.min(Math.max(score, 0), 100);
+  };
+
+  const applyCvToOnlineView = (cvItem) => {
+    if (!cvItem) return;
+    const pData = cvItem.parsedData || {};
+    const candidateName = pData.full_name || pData.fullName || pData.candidate_name || pData.candidateName || cvItem.fullName || cvItem.candidateName;
+    const phone = pData.phone || cvItem.phone;
+    const email = pData.email || cvItem.email;
+    const location = pData.address || pData.location || cvItem.address || cvItem.location;
+    const headline = pData.headline || cvItem.headline || cvData.targetTitle;
+    const summary = pData.summary || cvItem.summary || cvData.summary;
+    const exp = normalizeExperiences(pData.experiences || cvItem.experiencesJson || []);
+    const edu = normalizeEducations(pData.educations || cvItem.educationsJson || []);
+    const proj = normalizeProjects(pData.projects || cvItem.projectsJson || []);
+    const cert = normalizeCertifications(pData.certifications || cvItem.certificationsJson || [], headline);
+    const lang = normalizeLanguages(pData.languages || cvItem.languagesJson || [], headline);
+    const sk = (pData.skills && pData.skills.length > 0)
+      ? pData.skills
+      : (cvItem.detectedSkills && cvItem.detectedSkills.length > 0 ? cvItem.detectedSkills : []);
+
+    setCvData(prev => ({
+      ...prev,
+      id: `cv_${cvItem.id}`,
+      versionName: cvItem.name || prev.versionName,
+      candidateName: candidateName || prev.candidateName,
+      phone: phone || prev.phone,
+      email: email || prev.email,
+      location: location || prev.location,
+      targetTitle: headline || prev.targetTitle,
+      summary: summary || prev.summary,
+      experiences: exp,
+      education: edu,
+      projects: proj,
+      certifications: cert,
+      languages: lang,
+      skills: normalizeSkillsToCategories(sk, cvItem.parsedData?.skillCategories || pData.skillCategories)
+    }));
+  };
+
+  const fetchMyCvs = () => {
+    cvApi.getMyCvs()
+      .then((res) => {
+        const data = res?.data || [];
+        if (data.length > 0) {
+          const mapped = data.map((cv) => ({
+            id: cv.cvId,
+            name: cv.fileName,
+            fileUrl: cv.fileUrl,
+            fullName: cv.fullName,
+            candidateName: cv.fullName,
+            phone: cv.phone,
+            email: cv.email,
+            address: cv.address,
+            location: cv.address,
+            size: cv.fileSizeBytes ? `${(cv.fileSizeBytes / (1024 * 1024)).toFixed(1)} MB` : '1.2 MB',
+            uploaded: cv.createdAt ? (typeof cv.createdAt === 'string' && cv.createdAt.includes('T') ? cv.createdAt.split('T')[0] : String(cv.createdAt)) : 'Vừa xong',
+            isDefault: Boolean(cv.isDefault),
+            atsScore: calculateRealCvAtsScore(cv),
+            parsed: cv.parseStatus === 'COMPLETED' || true,
+            targetIndustry: 'Chuyên môn tuyển dụng',
+            summary: cv.summary || '',
+            headline: cv.headline,
+            educationsJson: cv.educationsJson,
+            experiencesJson: cv.experiencesJson,
+            projectsJson: cv.projectsJson,
+            certificationsJson: cv.certificationsJson,
+            languagesJson: cv.languagesJson,
+            detectedSkills: cv.detectedSkills,
+            parsedData: cv.parsedData,
+          }));
+          setCvFiles(mapped);
+
+          // Tự động load dữ liệu của CV mặc định (hoặc CV đầu tiên) vào bản hiển thị trực tuyến
+          const activeCv = mapped.find(c => c.isDefault) || mapped[0];
+          if (activeCv) {
+            applyCvToOnlineView(activeCv);
+          }
+        } else {
+          setCvFiles([]);
+          if (!isCustomCreated) {
+            setCvData(prev => ({
+              ...prev,
+              id: 'cv_default_online',
+              versionName: 'Bản CV Trực Tuyến HireMate',
+              versionBadge: '⭐ MẶC ĐỊNH FAST APPLY',
+              isDefault: true,
+              candidateName: user?.fullName || '',
+              phone: user?.phone || '',
+              email: user?.email || '',
+              location: user?.address || '',
+              targetTitle: user?.headline || 'Chuyên viên Chuyên môn',
+              tagline: '',
+              summary: '',
+              education: [],
+              certifications: [],
+              languages: [],
+              skills: [],
+              experiences: [],
+              projects: []
+            }));
+          }
+        }
+      })
+      .catch((err) => {
+        console.warn('Could not load CVs from backend:', err);
+      });
+  };
+
   const showToast = (msg) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(''), 3200);
@@ -773,266 +1033,6 @@ export default function CandidateProfilePage({ user }) {
     }
   };
 
-  // CV Files State for ATS Vault Tab (Connected to Supabase PostgreSQL via cvApi)
-  const [cvFiles, setCvFiles] = useState([]);
-  const [candidateAvatarUrl, setCandidateAvatarUrl] = useState(null);
-
-  const handleCandidateAvatarFileChange = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      showToast('Đang tải ảnh đại diện lên Cloudinary CDN...');
-      const fd = new FormData();
-      fd.append('file', file);
-      const res = await candidateApi.uploadAvatar(fd);
-      const newAvatar = res.data?.data?.avatarUrl || res.data?.avatarUrl;
-      if (newAvatar) {
-        setCandidateAvatarUrl(newAvatar);
-        showToast('Đã cập nhật ảnh đại diện lên Cloudinary CDN!');
-      }
-    } catch (err) {
-      showToast('Lỗi tải ảnh lên Cloud: ' + (err.response?.data?.message || err.message));
-    }
-  };
-
-  const currentCandidate = {
-    accountName: cvData.candidateName || user?.fullName || profileData?.fullName || 'Ứng viên',
-    accountIndustry: cvData.targetTitle || profileData?.headline || 'Chuyên viên Công nghệ & Kinh doanh',
-    avatarUrl: candidateAvatarUrl || user?.avatarUrl || profileData?.avatarUrl || '',
-    email: cvData.email || user?.email || profileData?.email || '',
-    phone: cvData.phone || user?.phone || profileData?.phone || 'Chưa cập nhật',
-    location: cvData.location || profileData?.location || user?.address || 'Việt Nam',
-    dob: profileData?.dateOfBirth && profileData.dateOfBirth !== 'Chưa cập nhật ngày sinh' ? profileData.dateOfBirth : 'Chưa cập nhật',
-    gender: profileData?.gender || user?.gender || 'Chưa cập nhật',
-    linkedin: profileData?.linkedinUrl && profileData.linkedinUrl !== 'Chưa liên kết' ? profileData.linkedinUrl : 'Chưa liên kết',
-    github: profileData?.githubUrl && profileData.githubUrl !== 'Chưa liên kết' ? profileData.githubUrl : 'Chưa liên kết',
-    portfolio: profileData?.portfolioUrl && profileData.portfolioUrl !== 'Chưa liên kết' ? profileData.portfolioUrl : 'Chưa liên kết',
-    cvVersions: cvFiles.length > 0
-      ? cvFiles.map((f, i) => ({
-        id: `cv_${f.id}`,
-        versionName: f.name,
-        versionBadge: f.isDefault ? '⭐ MẶC ĐỊNH FAST APPLY' : `TỆP ĐÃ TẢI LÊN #${i + 1}`,
-        isDefault: Boolean(f.isDefault),
-      }))
-      : (isCustomCreated
-        ? [
-          {
-            id: 'cv_default_online',
-            versionName: cvData.versionName || 'Bản CV Trực Tuyến HireMate',
-            versionBadge: '⭐ MẶC ĐỊNH FAST APPLY',
-            isDefault: true,
-          }
-        ]
-        : [])
-  };
-  const [isUploading, setIsUploading] = useState(false);
-  const [analyzedAtsScore, setAnalyzedAtsScore] = useState(null);
-  const hasCv = cvFiles.length > 0 || isCustomCreated;
-
-  const calculateRealCvAtsScore = (cvObj) => {
-    if (!cvObj) return 0;
-    let score = 0;
-    const pData = cvObj.parsedData || {};
-
-    // 1. Thông tin liên hệ: tối đa 15 điểm
-    const name = pData.full_name || pData.fullName || cvObj.fullName || cvObj.candidateName;
-    const phone = pData.phone || cvObj.phone;
-    const email = pData.email || cvObj.email;
-    const location = pData.address || pData.location || cvObj.address || cvObj.location;
-    let contactPoints = 0;
-    if (name && String(name).trim().length > 1) contactPoints += 4;
-    if (phone && String(phone).trim().length >= 8) contactPoints += 4;
-    if (email && String(email).trim().includes('@')) contactPoints += 4;
-    if (location && String(location).trim().length > 2) contactPoints += 3;
-    score += Math.min(contactPoints, 15);
-
-    // 2. Tóm tắt mục tiêu nghề nghiệp: tối đa 15 điểm (summary >= 40 ký tự)
-    const summary = pData.summary || cvObj.summary || '';
-    const cleanSummary = String(summary).trim();
-    if (cleanSummary.length >= 80) {
-      score += 15;
-    } else if (cleanSummary.length >= 40) {
-      score += 12;
-    } else if (cleanSummary.length > 0) {
-      score += 6;
-    }
-
-    // 3. Kỹ năng chuyên môn: >= 6 kỹ năng = 25đ, 3–5 kỹ năng = 18đ, 1–2 kỹ năng = 10đ, 0 = 0đ
-    const skills = (Array.isArray(pData.skills) && pData.skills.length > 0)
-      ? pData.skills
-      : (Array.isArray(cvObj.detectedSkills) ? cvObj.detectedSkills : []);
-    const skillCount = skills.length;
-    if (skillCount >= 6) {
-      score += 25;
-    } else if (skillCount >= 3) {
-      score += 18;
-    } else if (skillCount >= 1) {
-      score += 10;
-    }
-
-    // 4. Kinh nghiệm làm việc: có kinh nghiệm chi tiết/số liệu = 25đ, cơ bản = 18đ, chưa có kinh nghiệm nhưng có dự án = 12đ
-    let experiences = [];
-    if (Array.isArray(pData.experiences)) {
-      experiences = pData.experiences;
-    } else if (typeof cvObj.experiencesJson === 'string' && cvObj.experiencesJson.trim().startsWith('[')) {
-      try { experiences = JSON.parse(cvObj.experiencesJson); } catch (e) { }
-    } else if (Array.isArray(cvObj.experiences)) {
-      experiences = cvObj.experiences;
-    }
-
-    let projects = [];
-    if (Array.isArray(pData.projects)) {
-      projects = pData.projects;
-    } else if (typeof cvObj.projectsJson === 'string' && cvObj.projectsJson.trim().startsWith('[')) {
-      try { projects = JSON.parse(cvObj.projectsJson); } catch (e) { }
-    } else if (Array.isArray(cvObj.projects)) {
-      projects = cvObj.projects;
-    }
-
-    if (experiences.length > 0) {
-      const hasDetailed = experiences.some(exp => {
-        const desc = (exp.description || '') + ' ' + (Array.isArray(exp.highlights) ? exp.highlights.join(' ') : (Array.isArray(exp.bullets) ? exp.bullets.join(' ') : ''));
-        return desc.length >= 100 || /\d+[%+|k|m|triệu|nghìn]/i.test(desc);
-      });
-      score += hasDetailed ? 25 : 18;
-    } else if (projects.length > 0) {
-      score += 12;
-    }
-
-    // 5. Học vấn + Dự án/Chứng chỉ/Ngoại ngữ: tối đa 20 điểm
-    let educations = [];
-    if (Array.isArray(pData.educations)) educations = pData.educations;
-    else if (typeof cvObj.educationsJson === 'string' && cvObj.educationsJson.trim().startsWith('[')) {
-      try { educations = JSON.parse(cvObj.educationsJson); } catch (e) { }
-    } else if (Array.isArray(cvObj.education)) educations = cvObj.education;
-
-    let certifications = [];
-    if (Array.isArray(pData.certifications)) certifications = pData.certifications;
-    else if (typeof cvObj.certificationsJson === 'string' && cvObj.certificationsJson.trim().startsWith('[')) {
-      try { certifications = JSON.parse(cvObj.certificationsJson); } catch (e) { }
-    } else if (Array.isArray(cvObj.certifications)) certifications = cvObj.certifications;
-
-    let languages = [];
-    if (Array.isArray(pData.languages)) languages = pData.languages;
-    else if (typeof cvObj.languagesJson === 'string' && cvObj.languagesJson.trim().startsWith('[')) {
-      try { languages = JSON.parse(cvObj.languagesJson); } catch (e) { }
-    } else if (Array.isArray(cvObj.languages)) languages = cvObj.languages;
-
-    let extra = 0;
-    if (educations.length > 0) extra += 10;
-    if (projects.length > 0) extra += 5;
-    if (certifications.length > 0 || languages.length > 0) extra += 5;
-    score += Math.min(extra, 20);
-
-    return Math.min(Math.max(score, 0), 100);
-  };
-
-  const applyCvToOnlineView = (cvItem) => {
-    if (!cvItem) return;
-    const pData = cvItem.parsedData || {};
-    const candidateName = pData.full_name || pData.fullName || pData.candidate_name || pData.candidateName || cvItem.fullName || cvItem.candidateName;
-    const phone = pData.phone || cvItem.phone;
-    const email = pData.email || cvItem.email;
-    const location = pData.address || pData.location || cvItem.address || cvItem.location;
-    const headline = pData.headline || cvItem.headline || cvData.targetTitle;
-    const summary = pData.summary || cvItem.summary || cvData.summary;
-    const exp = normalizeExperiences(pData.experiences || cvItem.experiencesJson || []);
-    const edu = normalizeEducations(pData.educations || cvItem.educationsJson || []);
-    const proj = normalizeProjects(pData.projects || cvItem.projectsJson || []);
-    const cert = normalizeCertifications(pData.certifications || cvItem.certificationsJson || [], headline);
-    const lang = normalizeLanguages(pData.languages || cvItem.languagesJson || [], headline);
-    const sk = (pData.skills && pData.skills.length > 0)
-      ? pData.skills
-      : (cvItem.detectedSkills && cvItem.detectedSkills.length > 0 ? cvItem.detectedSkills : []);
-
-    setCvData(prev => ({
-      ...prev,
-      id: `cv_${cvItem.id}`,
-      versionName: cvItem.name || prev.versionName,
-      candidateName: candidateName || prev.candidateName,
-      phone: phone || prev.phone,
-      email: email || prev.email,
-      location: location || prev.location,
-      targetTitle: headline || prev.targetTitle,
-      summary: summary || prev.summary,
-      experiences: exp,
-      education: edu,
-      projects: proj,
-      certifications: cert,
-      languages: lang,
-      skills: normalizeSkillsToCategories(sk, cvItem.parsedData?.skillCategories || pData.skillCategories)
-    }));
-  };
-
-  const fetchMyCvs = () => {
-    cvApi.getMyCvs()
-      .then((res) => {
-        const data = res?.data || [];
-        if (data.length > 0) {
-          const mapped = data.map((cv) => ({
-            id: cv.cvId,
-            name: cv.fileName,
-            fileUrl: cv.fileUrl,
-            fullName: cv.fullName,
-            candidateName: cv.fullName,
-            phone: cv.phone,
-            email: cv.email,
-            address: cv.address,
-            location: cv.address,
-            size: cv.fileSizeBytes ? `${(cv.fileSizeBytes / (1024 * 1024)).toFixed(1)} MB` : '1.2 MB',
-            uploaded: cv.createdAt ? (typeof cv.createdAt === 'string' && cv.createdAt.includes('T') ? cv.createdAt.split('T')[0] : String(cv.createdAt)) : 'Vừa xong',
-            isDefault: Boolean(cv.isDefault),
-            atsScore: calculateRealCvAtsScore(cv),
-            parsed: cv.parseStatus === 'COMPLETED' || true,
-            targetIndustry: 'Chuyên môn tuyển dụng',
-            summary: cv.summary || '',
-            headline: cv.headline,
-            educationsJson: cv.educationsJson,
-            experiencesJson: cv.experiencesJson,
-            projectsJson: cv.projectsJson,
-            certificationsJson: cv.certificationsJson,
-            languagesJson: cv.languagesJson,
-            detectedSkills: cv.detectedSkills,
-            parsedData: cv.parsedData,
-          }));
-          setCvFiles(mapped);
-
-          // Tự động load dữ liệu của CV mặc định (hoặc CV đầu tiên) vào bản hiển thị trực tuyến
-          const activeCv = mapped.find(c => c.isDefault) || mapped[0];
-          if (activeCv) {
-            applyCvToOnlineView(activeCv);
-          }
-        } else {
-          setCvFiles([]);
-          if (!isCustomCreated) {
-            setCvData(prev => ({
-              ...prev,
-              id: 'cv_default_online',
-              versionName: 'Bản CV Trực Tuyến HireMate',
-              versionBadge: '⭐ MẶC ĐỊNH FAST APPLY',
-              isDefault: true,
-              candidateName: user?.fullName || '',
-              phone: user?.phone || '',
-              email: user?.email || '',
-              location: user?.address || '',
-              targetTitle: user?.headline || 'Chuyên viên Chuyên môn',
-              tagline: '',
-              summary: '',
-              education: [],
-              certifications: [],
-              languages: [],
-              skills: [],
-              experiences: [],
-              projects: []
-            }));
-          }
-        }
-      })
-      .catch((err) => {
-        console.warn('Could not load CVs from backend:', err);
-      });
-  };
-
   useEffect(() => {
     fetchMyCvs();
     fetchRecommendations();
@@ -1103,8 +1103,10 @@ export default function CandidateProfilePage({ user }) {
         console.warn('Lỗi cập nhật user trong localStorage:', storageErr);
       }
 
-      // Đồng bộ trực tiếp vào bản CV đang chọn qua PUT /api/v1/cvs/{id}
-      const activeCv = cvFiles.find(f => `cv_${f.id}` === selectedVersionId) || cvFiles.find(f => f.isDefault) || cvFiles[0];
+      // Đồng bộ trực tiếp vào bản CV đang chọn qua PUT /api/v1/cvs/{id} (Chỉ đồng bộ nếu người dùng đang chủ động chọn đúng bản CV đó, không ghi đè chéo sang file CV PDF đã nạp)
+      const activeCv = selectedVersionId && selectedVersionId.startsWith('cv_') && selectedVersionId !== 'cv_default_online'
+        ? cvFiles.find(f => `cv_${f.id}` === selectedVersionId)
+        : null;
       if (activeCv?.id) {
         await cvApi.updateCv(activeCv.id, {
           full_name: resolvedFullName,

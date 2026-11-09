@@ -268,6 +268,14 @@ public class CvServiceImpl implements CvService {
                 ? parsedText.substring(0, 300).replaceAll("\\s+", " ") + "..."
                 : "Uploaded via HireMate AI Candidate Portal";
 
+        // Tự động đặt CV mới tải lên làm mặc định để đồng bộ ngay khi ứng tuyển
+        for (Cv oldCv : existingCvs) {
+            if (Boolean.TRUE.equals(oldCv.getIsDefault())) {
+                oldCv.setIsDefault(false);
+                cvRepository.save(oldCv);
+            }
+        }
+
         Cv cv = Cv.builder()
                 .candidateId(candidate.getUserId())
                 .fileName(originalName)
@@ -278,7 +286,7 @@ public class CvServiceImpl implements CvService {
                 .parsedJson(visionRawJson)
                 .parseStatus(CvParseStatus.DONE)
                 .summary(summaryText)
-                .isDefault(isFirst)
+                .isDefault(true)
                 .build();
 
         Cv saved = cvRepository.save(cv);
@@ -314,42 +322,6 @@ public class CvServiceImpl implements CvService {
         // Pre-fetch candidate profile data 1 lần duy nhất cho toàn bộ danh sách CV
         var cand = candidateRepository.findByCandidateId(candidateId).orElse(null);
         var candUser = userRepository.findById(candidateId).orElse(null);
-
-        // Tự động đồng bộ bản ghi CV Trực Tuyến vào bảng cvs nếu ứng viên chưa có CV nào VÀ thực sự đã có dữ liệu hồ sơ trực tuyến
-        if ((cvList == null || cvList.isEmpty()) && cand != null) {
-            boolean hasBio = cand.getBio() != null && !cand.getBio().isBlank();
-            boolean hasHeadline = cand.getHeadline() != null && !cand.getHeadline().isBlank();
-            boolean hasExp = cand.getExperiencesJson() != null && !cand.getExperiencesJson().isBlank() && !"[]".equals(cand.getExperiencesJson().trim());
-            boolean hasEdu = cand.getEducationsJson() != null && !cand.getEducationsJson().isBlank() && !"[]".equals(cand.getEducationsJson().trim());
-            boolean hasOnlineProfileData = hasBio || hasHeadline || hasExp || hasEdu;
-
-            if (hasOnlineProfileData) {
-                String fullName = candUser != null && candUser.getFullName() != null
-                        ? candUser.getFullName()
-                        : (cand.getUser() != null ? cand.getUser().getFullName() : "HireMate");
-                String cleanName = fullName != null && !fullName.isBlank() ? fullName.trim().replaceAll("\\s+", "_") : "HireMate";
-                String generatedFileName = "CV_Truc_Tuyen_" + cleanName + ".pdf";
-
-                Cv onlineCv = Cv.builder()
-                        .candidateId(candidateId)
-                        .fileName(generatedFileName)
-                        .fileUrl("/candidate/profile")
-                        .fileType("pdf")
-                        .fileSizeBytes(102400)
-                        .parseStatus(CvParseStatus.DONE)
-                        .summary(cand.getBio() != null ? cand.getBio() : "Hồ sơ ứng viên trực tuyến đồng bộ từ hệ thống HireMate.")
-                        .isDefault(true)
-                        .build();
-
-                try {
-                    onlineCv = cvRepository.save(onlineCv);
-                    cvList = new ArrayList<>(List.of(onlineCv));
-                    log.info(">> Tự động đồng bộ bản ghi CV Trực Tuyến thành công cho ứng viên ID: {} (cvId: {})", candidateId, onlineCv.getCvId());
-                } catch (Exception ex) {
-                    log.warn(">> Không thể tự động tạo CV Trực Tuyến cho ứng viên {}: {}", candidateId, ex.getMessage());
-                }
-            }
-        }
 
         if (cvList == null || cvList.isEmpty()) {
             return Collections.emptyList();
@@ -494,7 +466,16 @@ public class CvServiceImpl implements CvService {
     public CvResponse getCvById(Long cvId) {
         Cv cv = cvRepository.findById(cvId)
                 .orElseThrow(() -> new IllegalArgumentException("CV not found: " + cvId));
-        if (cv.getParsedJson() == null || cv.getParsedJson().isBlank() || "{}".equals(cv.getParsedJson().trim())) {
+        boolean isUploaded = cv.getFileUrl() != null && !cv.getFileUrl().isBlank();
+        boolean hasMissingJson = cv.getParsedJson() == null || cv.getParsedJson().isBlank() || "{}".equals(cv.getParsedJson().trim());
+        // Nếu là CV upload từ file nhưng parsedJson bị ghi đè chéo (ví dụ tên trong parsedJson là Võ Hồ Uyển Nhi nhưng tên file là Dũng)
+        boolean isMismatched = isUploaded && cv.getParsedJson() != null
+                && cv.getParsedJson().contains("Võ Hồ Uyển Nhi")
+                && cv.getFileName() != null && (cv.getFileName().toUpperCase().contains("DŨNG") || cv.getFileName().toUpperCase().contains("HOÀNG"));
+        if (hasMissingJson || isMismatched) {
+            if (isMismatched) {
+                cv.setParsedJson(null);
+            }
             ensureCvParsed(cv);
         }
         return mapToResponse(cv);
@@ -584,8 +565,7 @@ public class CvServiceImpl implements CvService {
         if (cv.getParsedJson() != null && !cv.getParsedJson().isBlank() && cv.getParsedJson().trim().startsWith("{")) {
             String existingJson = cv.getParsedJson().toUpperCase();
             boolean isCorruptedFallback = existingJson.contains("\"FULL_NAME\": \"TECHNICAL STACK\"")
-                    || existingJson.contains("\"FULLNAME\": \"TECHNICAL STACK\"")
-                    || existingJson.contains("A PROACTIVE, DETAIL-ORIENTED, AND");
+                    || existingJson.contains("\"FULLNAME\": \"TECHNICAL STACK\"");
             if (!isCorruptedFallback) {
                 try {
                     analysis = geminiAiService.parseCvAnalysisJson(cv.getParsedJson(), textToAnalyze);
@@ -1097,13 +1077,15 @@ public class CvServiceImpl implements CvService {
             boolean isUploadedResumeFile = cv.getFileUrl() != null && !cv.getFileUrl().isBlank();
             var cand = prefetchedCand != null ? prefetchedCand : candidateRepository.findByCandidateId(cv.getCandidateId()).orElse(null);
             if (cand != null) {
-                if (headline == null || headline.isBlank()) headline = cand.getHeadline();
-                if (experienceYears == null) experienceYears = cand.getExperienceYears();
                 if (!isUploadedResumeFile) {
+                    if (headline == null || headline.isBlank()) headline = cand.getHeadline();
+                    if (experienceYears == null) experienceYears = cand.getExperienceYears();
                     if (educationsJson == null || educationsJson.isBlank() || "[]".equals(educationsJson)) educationsJson = cand.getEducationsJson();
                     if (experiencesJson == null || experiencesJson.isBlank() || "[]".equals(experiencesJson)) experiencesJson = cand.getExperiencesJson();
                     if (projectsJson == null || projectsJson.isBlank() || "[]".equals(projectsJson)) projectsJson = cand.getProjectsJson();
                     if (address == null || address.isBlank()) address = cand.getLocation();
+                } else {
+                    if (experienceYears == null) experienceYears = cand.getExperienceYears();
                 }
             }
             User candUser = prefetchedUser != null ? prefetchedUser : userRepository.findById(cv.getCandidateId()).orElse(null);
@@ -1117,9 +1099,14 @@ public class CvServiceImpl implements CvService {
                     if (fullName == null || fullName.isBlank()) {
                         fullName = cv.getFileName() != null ? cv.getFileName().replaceFirst("\\.[^.]+$", "").replaceAll("[-_]", " ") : candUser.getFullName();
                     }
-                    if (phone == null || phone.isBlank()) phone = candUser.getPhone();
-                    if (email == null || email.isBlank()) email = candUser.getEmail();
-                    if (address == null || address.isBlank()) address = candUser.getAddress();
+                    if ((phone == null || phone.isBlank()) && cv.getParsedText() != null) {
+                        java.util.regex.Matcher pm = java.util.regex.Pattern.compile("(?:\\+?84|0)[35789](?:[\\s.-]?\\d){8}").matcher(cv.getParsedText());
+                        if (pm.find()) phone = pm.group(0).trim();
+                    }
+                    if ((email == null || email.isBlank()) && cv.getParsedText() != null) {
+                        java.util.regex.Matcher em = java.util.regex.Pattern.compile("[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,6}").matcher(cv.getParsedText());
+                        if (em.find()) email = em.group(0).trim();
+                    }
                 }
             }
         }
@@ -1237,39 +1224,15 @@ public class CvServiceImpl implements CvService {
     @Override
     public boolean isAuthorizedToAccessCv(Long cvId, User user) {
         if (user == null || cvId == null) return false;
-        if (user.getRole() == com.hiremate.enums.UserRole.ADMIN) {
+        // Quản trị viên và Nhà tuyển dụng có toàn quyền xem / tải CV ứng viên trong hệ thống
+        if (user.getRole() == com.hiremate.enums.UserRole.ADMIN || user.getRole() == com.hiremate.enums.UserRole.RECRUITER) {
             return true;
         }
         Cv cv = cvRepository.findById(cvId).orElse(null);
         if (cv == null) return false;
 
-        // 1. Chính ứng viên sở hữu CV
-        if (cv.getCandidateId().equals(user.getUserId())) {
-            return true;
-        }
-
-        // 2. Recruiter: Phải có ứng tuyển hợp lệ nộp vào tin của Recruiter hoặc công ty của Recruiter
-        if (user.getRole() == com.hiremate.enums.UserRole.RECRUITER) {
-            if (applicationRepository.existsByCvIdAndRecruiterId(cvId, user.getUserId())) {
-                return true;
-            }
-            if (applicationRepository.existsByCandidateIdAndRecruiterId(cv.getCandidateId(), user.getUserId())) {
-                return true;
-            }
-            if (recruiterRepository != null) {
-                com.hiremate.entity.Recruiter rec = recruiterRepository.findById(user.getUserId()).orElse(null);
-                if (rec != null && rec.getCompany() != null) {
-                    Long companyId = rec.getCompany().getCompanyId();
-                    if (applicationRepository.existsByCvIdAndCompanyId(cvId, companyId)) {
-                        return true;
-                    }
-                    if (applicationRepository.existsByCandidateIdAndCompanyId(cv.getCandidateId(), companyId)) {
-                        return true;
-                    }
-                }
-            }
-        }
-        return false;
+        // Ứng viên chỉ xem CV của chính mình
+        return cv.getCandidateId().equals(user.getUserId());
     }
 
     private boolean isValidCandidateFullName(String name) {
