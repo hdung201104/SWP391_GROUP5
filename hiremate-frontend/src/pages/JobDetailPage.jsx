@@ -6,32 +6,32 @@ import { calculateJobDeadline } from '../utils/jobTimeUtils';
 import { StaggerContainer, StaggerItem, GlassCard, GlassPanel, BlurReveal, CinematicTitle } from '../components/motion/MotionSystem';
 import AiJobEvaluationReportCard from '../components/jobs/AiJobEvaluationReportCard';
 import { createCandidateToHrMailto } from '../utils/emailUtils';
+import { AvatarImg, CompanyLogoImg } from '../components/common/SmartImage';
+import { resolveCompanyLogo, resolveCompanyCover, resolveUserAvatar } from '../utils/mediaUtils';
 
 // Helper for corporate brand logos
-const getBrandLogo = (companyName = '', logoUrl = null) => {
-  const name = companyName.toLowerCase();
-  if (name.includes('fpt software') || name.includes('fpt')) {
-    return 'https://cdn.haitrieu.com/wp-content/uploads/2021/11/Logo-FPT-Software.png';
-  }
-  if (name.includes('vng')) {
-    return 'https://cdn.haitrieu.com/wp-content/uploads/2022/01/Logo-VNG.png';
-  }
-  if (name.includes('viettel')) {
-    return 'https://cdn.haitrieu.com/wp-content/uploads/2022/01/Logo-Viettel.png';
-  }
-  return logoUrl;
-};
+const getBrandLogo = (companyName = '', logoUrl = null) => resolveCompanyLogo(companyName, logoUrl);
 
 // Helper for corporate building cover photos matching mockup
-const getBrandCover = (companyName = '') => {
-  const name = companyName.toLowerCase();
-  if (name.includes('fpt')) {
-    return 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1200&auto=format&fit=crop&q=80';
-  }
-  if (name.includes('vng')) {
-    return 'https://images.unsplash.com/photo-1497366811353-6870744d04b2?w=1200&auto=format&fit=crop&q=80';
-  }
-  return 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200&auto=format&fit=crop&q=80';
+const getBrandCover = (companyName = '') => resolveCompanyCover(companyName);
+
+const cacheCompanyPreview = (jobData) => {
+  const compId = jobData?.companyId || jobData?.company?.companyId;
+  if (!compId) return;
+  try {
+    sessionStorage.setItem(`hiremate_company_preview_${compId}`, JSON.stringify({
+      companyId: compId,
+      companyName: jobData.companyName,
+      logoUrl: resolveCompanyLogo(jobData.companyName, jobData.companyLogo),
+      coverUrl: jobData.companyCover || resolveCompanyCover(jobData.companyName),
+      industry: jobData.companyIndustry,
+      companySize: jobData.companySize,
+      address: jobData.companyAddress,
+      website: jobData.companyWebsite,
+      description: jobData.companyDesc,
+      status: jobData.companyStatus || (jobData.companyBlocked ? 'REJECTED' : (jobData.companyVerified ? 'VERIFIED' : 'PENDING')),
+    }));
+  } catch {}
 };
 
 // Company initials helper
@@ -627,6 +627,7 @@ export default function JobDetailPage({ user: propUser, jobId }) {
               recruiterId: apiData.recruiterId || apiData.recruiter?.userId || apiData.recruiter?.user_id,
               recruiterEmail: apiData.recruiterEmail || apiData.recruiter?.email,
               recruiterName: apiData.recruiterName || apiData.recruiter?.fullName || 'Bộ phận Tuyển dụng (HR)',
+              recruiterAvatar: resolveUserAvatar(apiData.recruiterAvatar || apiData.recruiter?.avatarUrl),
               applicantCount: apiData.applicantCount != null ? apiData.applicantCount : 0,
               skills: Array.isArray(apiData.skills) ? apiData.skills : [],
               mandatorySkills: mand,
@@ -859,16 +860,15 @@ export default function JobDetailPage({ user: propUser, jobId }) {
               {/* Left: Avatar & Metadata */}
               <div className="flex items-start gap-4 sm:gap-5">
                 {/* Logo Box */}
-                <div className="w-18 h-18 sm:w-20 sm:h-20 rounded-2xl bg-[#edeafd] border border-purple-200 flex items-center justify-center font-extrabold text-2xl text-[#5b48bd] shrink-0 p-2 overflow-hidden shadow-2xs">
-                  {job.companyLogo ? (
-                    <img
-                      src={job.companyLogo}
-                      alt={job.companyName}
-                      className="w-full h-full object-contain"
-                    />
-                  ) : (
-                    <span>{getCompanyInitials(job.companyName)}</span>
-                  )}
+                <div className="w-18 h-18 sm:w-20 sm:h-20 rounded-2xl bg-white border border-purple-200 flex items-center justify-center font-extrabold text-2xl text-[#5b48bd] shrink-0 p-2 overflow-hidden shadow-2xs">
+                  <CompanyLogoImg
+                    src={job.companyLogo}
+                    companyName={job.companyName}
+                    alt={job.companyName}
+                    className="w-full h-full object-contain"
+                    fallbackClassName="font-extrabold text-2xl text-[#5b48bd]"
+                    maxInitials={3}
+                  />
                 </div>
 
                 {/* Title & Info */}
@@ -884,7 +884,18 @@ export default function JobDetailPage({ user: propUser, jobId }) {
                   </h1>
 
                   <div className="flex items-center gap-1.5 text-sm font-bold text-[#5b48bd] flex-wrap">
-                    <span>{job.companyName}</span>
+                    {job.companyId ? (
+                      <a
+                        href={`#/companies/${job.companyId}`}
+                        onClick={() => cacheCompanyPreview(job)}
+                        className="hover:underline cursor-pointer"
+                        title="Xem trang hồ sơ doanh nghiệp"
+                      >
+                        {job.companyName}
+                      </a>
+                    ) : (
+                      <span>{job.companyName}</span>
+                    )}
                     {job.companyBlocked ? (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-700 border border-rose-300 shadow-2xs">
                         <span className="material-symbols-outlined text-[13px] text-rose-600">block</span>
@@ -1889,6 +1900,10 @@ export default function JobDetailPage({ user: propUser, jobId }) {
                 src={job.companyCover}
                 alt={job.companyName}
                 className="w-full h-full object-cover transition-transform duration-700 hover:scale-105"
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = resolveCompanyCover(job.companyName);
+                }}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
             </div>
@@ -1897,34 +1912,37 @@ export default function JobDetailPage({ user: propUser, jobId }) {
             <div className="px-5 pb-5">
               {/* Overlapping Company Logo */}
               <div className="-mt-8 w-16 h-16 rounded-2xl bg-white p-2 shadow-md border border-purple-100 flex items-center justify-center font-bold text-xl text-[#5b48bd] relative z-10 overflow-hidden">
-                {job.companyLogo ? (
-                  <img
-                    src={job.companyLogo}
-                    alt={job.companyName}
-                    className="w-full h-full object-contain"
-                  />
-                ) : (
-                  <span>{getCompanyInitials(job.companyName)}</span>
-                )}
+                <CompanyLogoImg
+                  src={job.companyLogo}
+                  companyName={job.companyName}
+                  alt={job.companyName}
+                  className="w-full h-full object-contain"
+                  fallbackClassName="font-bold text-xl text-[#5b48bd]"
+                  maxInitials={3}
+                />
               </div>
 
               <div className="pt-3 space-y-2.5">
                 <div>
-                  <div className="flex items-center gap-1.5 font-black text-base text-[#1e1b4b]">
+                  <div className="flex items-center gap-1.5 font-black text-base text-[#1e1b4b] flex-wrap">
                     {job.companyId ? (
                       <a
                         href={`#/companies/${job.companyId}`}
+                        onClick={() => cacheCompanyPreview(job)}
                         className="hover:text-[#5b48bd] transition-colors hover:underline cursor-pointer flex items-center gap-1.5"
                         title="Xem trang chi tiết doanh nghiệp"
                       >
                         <span>{job.companyName}</span>
-                        <span className="material-symbols-outlined text-emerald-500 text-[18px]">verified</span>
                       </a>
                     ) : (
-                      <>
-                        <span>{job.companyName}</span>
-                        <span className="material-symbols-outlined text-emerald-500 text-[18px]">verified</span>
-                      </>
+                      <span>{job.companyName}</span>
+                    )}
+                    {job.companyBlocked ? (
+                      <span className="material-symbols-outlined text-rose-500 text-[18px]" title="Doanh nghiệp đã bị đình chỉ GPKD">block</span>
+                    ) : job.companyVerified ? (
+                      <span className="material-symbols-outlined text-emerald-500 text-[18px]" title="Doanh nghiệp đã xác thực GPKD">verified</span>
+                    ) : (
+                      <span className="material-symbols-outlined text-amber-500 text-[17px]" title="Đang chờ duyệt GPKD">hourglass_top</span>
                     )}
                   </div>
                   <p className="text-[11px] text-slate-500 italic mt-0.5">
@@ -1979,16 +1997,20 @@ export default function JobDetailPage({ user: propUser, jobId }) {
                     </div>
 
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
-                        {job.recruiterName ? job.recruiterName.slice(0, 2).toUpperCase() : 'HR'}
-                      </div>
+                      <AvatarImg
+                        src={job.recruiterAvatar}
+                        name={job.recruiterName || 'HR'}
+                        alt={job.recruiterName || 'HR'}
+                        className="w-10 h-10 rounded-xl object-cover shrink-0 shadow-xs border border-emerald-200"
+                        fallbackClassName="w-10 h-10 rounded-xl text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-xs"
+                      />
                       <div className="min-w-0">
                         <div className="font-extrabold text-xs text-[#1e1b4b] truncate">
                           {job.recruiterName}
                           {job.companyBlocked && <span className="text-rose-500 font-bold ml-1 block text-[10px]">(Đã khóa liên hệ)</span>}
                         </div>
                         <div className="text-[11px] text-slate-500 font-sans truncate">
-                          {job.companyBlocked ? 'Liên hệ bị tạm khóa' : (job.recruiterEmail || 'hr@fpt.com')}
+                          {job.companyBlocked ? 'Liên hệ bị tạm khóa' : (job.recruiterEmail || 'Chưa công khai email')}
                         </div>
                       </div>
                     </div>

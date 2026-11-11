@@ -48,6 +48,12 @@ public class AuthServiceImpl implements AuthService {
     private final com.hiremate.service.GoogleTokenVerifierService googleTokenVerifierService;
     private final com.hiremate.service.TokenBlacklistService tokenBlacklistService;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.hiremate.service.BrandMediaSyncService brandMediaSyncService;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.hiremate.service.UserCacheService userCacheService;
+
     @org.springframework.beans.factory.annotation.Value("${github.oauth2.client-id:Ov23lin7fKu1DTd2VWAB}")
     private String githubClientId;
 
@@ -195,6 +201,11 @@ public class AuthServiceImpl implements AuthService {
                         .branchesJson(initialBranchesJson)
                         .status(CompanyStatus.PENDING)
                         .build();
+                if (brandMediaSyncService != null) {
+                    brandMediaSyncService.ensureCompanyLogo(company);
+                } else {
+                    company.setLogoUrl(com.hiremate.service.BrandMediaSyncService.resolveCompanyLogo(companyName, null));
+                }
                 company = companyRepository.saveAndFlush(company);
             } else {
                 // Công ty đã tồn tại: Kiểm tra xem người dùng có cung cấp Mã HR PIN hợp lệ không
@@ -601,8 +612,9 @@ public class AuthServiceImpl implements AuthService {
                 throw new IllegalStateException("Tài khoản của bạn đã bị khóa hoặc ngừng kích hoạt. Vui lòng liên hệ quản trị viên.");
             }
             if (avatarUrl != null && (user.getAvatarUrl() == null || user.getAvatarUrl().isBlank())) {
-                user.setAvatarUrl(avatarUrl);
+                user.setAvatarUrl(com.hiremate.service.BrandMediaSyncService.sanitizeImageUrl(avatarUrl));
                 userRepository.save(user);
+                if (userCacheService != null) userCacheService.evict(user.getEmail(), user.getUserId());
             }
             log.info(">> [AuthService] Đăng nhập Google thành công cho tài khoản đã tồn tại: {}", email);
 
@@ -759,6 +771,11 @@ public class AuthServiceImpl implements AuthService {
                         .branchesJson(initialBranchesJson)
                         .status(CompanyStatus.PENDING)
                         .build();
+                if (brandMediaSyncService != null) {
+                    brandMediaSyncService.ensureCompanyLogo(company);
+                } else {
+                    company.setLogoUrl(com.hiremate.service.BrandMediaSyncService.resolveCompanyLogo(compName, null));
+                }
                 company = companyRepository.saveAndFlush(company);
             } else {
                 String inputPin = request.getCompanyHrPin() != null ? request.getCompanyHrPin().trim() : "";
@@ -982,8 +999,9 @@ public class AuthServiceImpl implements AuthService {
                 throw new IllegalStateException("Tài khoản của bạn đã bị khóa hoặc ngừng kích hoạt. Vui lòng liên hệ quản trị viên.");
             }
             if (avatarUrl != null && (user.getAvatarUrl() == null || user.getAvatarUrl().isBlank())) {
-                user.setAvatarUrl(avatarUrl);
+                user.setAvatarUrl(com.hiremate.service.BrandMediaSyncService.sanitizeImageUrl(avatarUrl));
                 userRepository.save(user);
+                if (userCacheService != null) userCacheService.evict(user.getEmail(), user.getUserId());
             }
             if (user.getGithubUrl() == null || user.getGithubUrl().isBlank()) {
                 if (githubUrl != null) {
@@ -1091,7 +1109,7 @@ public class AuthServiceImpl implements AuthService {
                 user.getFullName(),
                 user.getPhone(),
                 user.getRole(),
-                user.getAvatarUrl(),
+                com.hiremate.service.BrandMediaSyncService.sanitizeImageUrl(user.getAvatarUrl()),
                 companyId,
                 companyName,
                 user.getIsEmailVerified() != null ? user.getIsEmailVerified() : true,
@@ -1101,6 +1119,9 @@ public class AuthServiceImpl implements AuthService {
                 user.getGithubUrl(),
                 false
         );
+        if (companyName != null && !companyName.isBlank()) {
+            res.setCompanyLogo(com.hiremate.service.BrandMediaSyncService.resolveCompanyLogo(companyName, null));
+        }
         if (user.getRole() == UserRole.RECRUITER) {
             recruiterRepository.findById(user.getUserId()).ifPresent(r -> {
                 res.setPosition(r.getPosition());
@@ -1109,6 +1130,10 @@ public class AuthServiceImpl implements AuthService {
                 res.setIsHeadRecruiter(r.getIsHeadRecruiter());
                 if (r.getCompany() != null) {
                     res.setTaxCode(r.getCompany().getTaxCode());
+                    res.setCompanyLogo(com.hiremate.service.BrandMediaSyncService.resolveCompanyLogo(
+                            r.getCompany().getCompanyName(),
+                            r.getCompany().getLogoUrl()
+                    ));
                 }
             });
         }

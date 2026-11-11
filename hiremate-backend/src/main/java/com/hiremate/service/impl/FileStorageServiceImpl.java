@@ -49,7 +49,7 @@ public class FileStorageServiceImpl implements FileStorageService {
         }
 
         // Validate allowed extensions (Documents, Images, Audio)
-        if (!extension.matches("\\.(pdf|doc|docx|png|jpg|jpeg|webp|mp3|wav|weba|webm|mp4|m4a|ogg)")) {
+        if (!extension.matches("\\.(pdf|doc|docx|png|jpg|jpeg|webp|svg|mp3|wav|weba|webm|mp4|m4a|ogg)")) {
             throw new IllegalArgumentException("Định dạng file " + extension + " không được hỗ trợ.");
         }
 
@@ -57,25 +57,44 @@ public class FileStorageServiceImpl implements FileStorageService {
                 ? folder.toLowerCase().replaceAll("[^a-z0-9_-]", "")
                 : "general";
 
-        // 1. Luôn lưu một bản gốc bền vững vào ổ cứng cục bộ (Local Vault Storage) trước
+        boolean isImageFolder = safeFolder.equals("avatars")
+                || safeFolder.equals("logos")
+                || safeFolder.equals("covers")
+                || safeFolder.equals("workplace")
+                || safeFolder.equals("images")
+                || extension.matches("\\.(png|jpg|jpeg|webp|svg)");
+
+        byte[] fileBytes;
+        try {
+            fileBytes = file.getBytes();
+        } catch (IOException e) {
+            throw new IllegalStateException("Không thể đọc dữ liệu tệp tải lên: " + originalFilename, e);
+        }
+
+        // Ảnh đại diện / Logo công ty / Workplace image: BẮT BUỘC lưu trữ 100% trên Cloudinary Cloud, không lưu local/Supabase
+        if (isImageFolder && !safeFolder.equals("cvs") && !safeFolder.equals("licenses") && !safeFolder.equals("interviews")) {
+            return storeBytesToCloud(fileBytes, originalFilename, null, safeFolder);
+        }
+
+        // 1. Với tài liệu CV / GPKD / Audio: lưu bản gốc cục bộ để phục vụ PDF stream fallback
         String storedFileName = safeFolder + "_" + UUID.randomUUID() + extension;
         Path targetLocation = Paths.get(fileStorageConfig.getUploadDir()).resolve(storedFileName);
 
         try {
-            Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
+            Files.write(targetLocation, fileBytes);
             log.info("File successfully stored at external disk path: {}", targetLocation.toAbsolutePath());
         } catch (IOException e) {
             log.error("Failed to store file to local disk: {}", originalFilename, e);
         }
 
-        // 2. Thử tải lên Cloudinary Cloud Storage & CDN nếu đã cấu hình
+        // 2. Tải lên Cloudinary Cloud Storage & CDN nếu đã cấu hình
         if (fileStorageConfig.isCloudinaryEnabled() && cloudinary != null) {
             try {
                 String cldUuid = UUID.randomUUID().toString();
                 String publicId = "hiremate/" + safeFolder + "/" + cldUuid;
                 @SuppressWarnings("unchecked")
                 java.util.Map<String, Object> uploadResult = cloudinary.uploader().upload(
-                        file.getBytes(),
+                        fileBytes,
                         com.cloudinary.utils.ObjectUtils.asMap(
                                 "resource_type", "auto",
                                 "public_id", publicId
@@ -84,7 +103,6 @@ public class FileStorageServiceImpl implements FileStorageService {
                 String secureUrl = (String) uploadResult.get("secure_url");
                 if (secureUrl != null && !secureUrl.isBlank()) {
                     log.info(">> [CloudStorage] File tải lên thành công Cloudinary CDN ({}/{}): {}", safeFolder, originalFilename, secureUrl);
-                    // Lưu thêm bản alias với tên cldUuid trên đĩa cục bộ để tra cứu 100% khớp
                     Path cldTarget = Paths.get(fileStorageConfig.getUploadDir()).resolve(cldUuid + extension);
                     try {
                         if (Files.exists(targetLocation)) {
@@ -99,6 +117,101 @@ public class FileStorageServiceImpl implements FileStorageService {
         }
 
         return "/uploads/" + storedFileName;
+    }
+
+    @Override
+    public String storeDataUrlToCloud(String dataUrl, String folder) {
+        if (dataUrl == null || !dataUrl.startsWith("data:image/")) {
+            throw new IllegalArgumentException("Dữ liệu ảnh Base64 không hợp lệ.");
+        }
+        int commaIdx = dataUrl.indexOf(',');
+        if (commaIdx < 0) {
+            throw new IllegalArgumentException("Định dạng Data URL không hợp lệ.");
+        }
+        String header = dataUrl.substring(5, commaIdx).toLowerCase();
+        String base64Payload = dataUrl.substring(commaIdx + 1).replaceAll("\\s+", "");
+        String ext = header.contains("png") ? "png" : (header.contains("webp") ? "webp" : "jpg");
+        byte[] bytes = java.util.Base64.getDecoder().decode(base64Payload);
+        return storeBytesToCloud(bytes, "upload." + ext, null, folder);
+    }
+
+    @Override
+    public String storeBytesToCloud(byte[] bytes, String filename, String publicIdOverride, String folder) {
+        if (bytes == null || bytes.length == 0) {
+            throw new IllegalArgumentException("Dữ liệu hình ảnh trống.");
+        }
+        if (!fileStorageConfig.isCloudinaryEnabled()) {
+            throw new IllegalStateException("Cloudinary chưa được cấu hình (cloudinary.cloud-name/api-key/api-secret). Không cho phép lưu ảnh trên máy cục bộ.");
+        }
+
+        String safeFolder = (folder != null && !folder.isBlank())
+                ? folder.toLowerCase().replaceAll("[^a-z0-9_-]", "")
+                : "images";
+        String publicId = (publicIdOverride != null && !publicIdOverride.isBlank())
+                ? publicIdOverride
+                : ("hiremate/" + safeFolder + "/" + UUID.randomUUID());
+
+        if (cloudinary != null) {
+            try {
+                @SuppressWarnings("unchecked")
+                java.util.Map<String, Object> uploadResult = cloudinary.uploader().upload(
+                        bytes,
+                        com.cloudinary.utils.ObjectUtils.asMap(
+                                "resource_type", "image",
+                                "public_id", publicId,
+                                "overwrite", true
+                        )
+                );
+                String secureUrl = (String) uploadResult.get("secure_url");
+                if (secureUrl != null && !secureUrl.isBlank()) {
+                    log.info(">> [CloudStorage] Ảnh đã đẩy lên Cloudinary thành công ({}): {}", publicId, secureUrl);
+                    return secureUrl;
+                }
+            } catch (Exception ex) {
+                log.warn(">> [CloudStorage] SDK upload gặp lỗi ({}), chuyển sang HTTPS signed API fallback...", ex.getMessage());
+            }
+        }
+
+        // Direct HTTPS fallback (supports IPv4 environments cleanly)
+        try {
+            String mime = (filename != null && filename.toLowerCase().endsWith(".png")) ? "image/png"
+                    : (filename != null && filename.toLowerCase().endsWith(".webp") ? "image/webp" : "image/jpeg");
+            String dataUri = "data:" + mime + ";base64," + java.util.Base64.getEncoder().encodeToString(bytes);
+            long ts = System.currentTimeMillis() / 1000L;
+            String toSign = "overwrite=true&public_id=" + publicId + "&timestamp=" + ts + fileStorageConfig.getCloudinaryApiSecret();
+            java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-1");
+            byte[] digest = md.digest(toSign.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder();
+            for (byte b : digest) hex.append(String.format("%02x", b));
+
+            String form = "file=" + java.net.URLEncoder.encode(dataUri, java.nio.charset.StandardCharsets.UTF_8)
+                    + "&public_id=" + java.net.URLEncoder.encode(publicId, java.nio.charset.StandardCharsets.UTF_8)
+                    + "&overwrite=true&timestamp=" + ts
+                    + "&api_key=" + java.net.URLEncoder.encode(fileStorageConfig.getCloudinaryApiKey(), java.nio.charset.StandardCharsets.UTF_8)
+                    + "&signature=" + hex;
+
+            java.net.http.HttpClient http = java.net.http.HttpClient.newBuilder()
+                    .connectTimeout(java.time.Duration.ofSeconds(15))
+                    .build();
+            java.net.http.HttpRequest req = java.net.http.HttpRequest.newBuilder()
+                    .uri(java.net.URI.create("https://api.cloudinary.com/v1_1/" + fileStorageConfig.getCloudinaryCloudName() + "/image/upload"))
+                    .timeout(java.time.Duration.ofSeconds(25))
+                    .header("Content-Type", "application/x-www-form-urlencoded")
+                    .POST(java.net.http.HttpRequest.BodyPublishers.ofString(form))
+                    .build();
+            java.net.http.HttpResponse<String> res = http.send(req, java.net.http.HttpResponse.BodyHandlers.ofString());
+            if (res.statusCode() == 200) {
+                com.fasterxml.jackson.databind.JsonNode root = new com.fasterxml.jackson.databind.ObjectMapper().readTree(res.body());
+                String secureUrl = root.path("secure_url").asText("");
+                if (!secureUrl.isBlank()) {
+                    log.info(">> [CloudStorage] Ảnh đã đẩy lên Cloudinary qua HTTPS API ({}): {}", publicId, secureUrl);
+                    return secureUrl;
+                }
+            }
+            throw new IllegalStateException("Cloudinary upload HTTP " + res.statusCode() + ": " + res.body());
+        } catch (Exception ex) {
+            throw new IllegalStateException("Không thể tải ảnh lên Cloudinary Cloud: " + ex.getMessage(), ex);
+        }
     }
 
     @Override

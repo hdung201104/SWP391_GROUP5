@@ -3,6 +3,8 @@ import { useLivingTheme } from '../context/LivingThemeContext';
 import { companyApi, jobApi, applicationApi, authApi, paymentApi } from '../api';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import { parseSkillList } from '../utils/helpers';
+import { AvatarImg, CompanyLogoImg } from '../components/common/SmartImage';
+import { resolveCompanyLogo, resolveUserAvatar, sanitizeMediaUrl } from '../utils/mediaUtils';
 
 export default function RecruiterProfilePage({ user, onNavigate }) {
   const { theme: livingTheme, luminosity } = useLivingTheme();
@@ -45,7 +47,7 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
       markets: extra.markets || 'Việt Nam & Quốc tế',
       overviewText:
         `${user?.companyName || 'Doanh nghiệp'} là đơn vị uy tín tiên phong chuyển đổi số và phát triển giải pháp công nghệ cao. Đồng hành cùng hệ sinh thái HireMate AI, chúng tôi không ngừng mở rộng đội ngũ kỹ sư chất lượng, xây dựng môi trường làm việc cởi mở, sáng tạo và trao quyền tối đa cho nhân sự.`,
-      logoUrl: null,
+      logoUrl: resolveCompanyLogo(user?.companyName, null),
       coverUrl: extra.coverUrl || 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1600&auto=format&fit=crop&q=80',
     };
   });
@@ -56,7 +58,12 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
       const saved = localStorage.getItem('hiremate_hr_profile');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.name || parsed.email) return parsed;
+        if (parsed.name || parsed.email) {
+          return {
+            ...parsed,
+            avatar: resolveUserAvatar(parsed.avatar) || '',
+          };
+        }
       }
     } catch {}
     return {
@@ -69,9 +76,7 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
       email: user?.email || 'recruiter@hiremate.ai',
       hotline: user?.phone || '0988 777 666',
       responseTime: 'Phản hồi trong vòng 30 phút (Giờ hành chính)',
-      avatar:
-        user?.avatarUrl ||
-        'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop&q=80',
+      avatar: resolveUserAvatar(user?.avatarUrl) || '',
       bio:
         `Phụ trách kết nối và tư vấn lộ trình sự nghiệp công nghệ cho các kỹ sư tài năng gia nhập ${user?.companyName || 'doanh nghiệp'}. Sẵn sàng đồng hành cùng ứng viên từ vòng thẩm định hồ sơ tới phỏng vấn chuyên sâu.`,
     };
@@ -91,7 +96,7 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
           position: user.position || prev.position || '',
           department: user.department || prev.department || '',
           branchName: user.branchName || prev.branchName || '',
-          avatar: user.avatarUrl || prev.avatar,
+          avatar: resolveUserAvatar(user.avatarUrl) || resolveUserAvatar(prev.avatar) || '',
         };
         try {
           localStorage.setItem('hiremate_hr_profile', JSON.stringify(updated));
@@ -222,7 +227,7 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
         branchName: user?.branchName || 'Trụ sở chính',
         isRepresentative: user?.isHeadRecruiter !== false,
         joinedAt: user?.createdAt ? new Date(user.createdAt).toLocaleDateString('vi-VN') : 'Hiện tại',
-        avatar: user?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+        avatar: resolveUserAvatar(user?.avatarUrl) || '',
         activeJobs: 0,
       },
     ];
@@ -527,7 +532,7 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
             branchAddress: m.branchAddress || '',
             isRepresentative: Boolean(m.isRepresentative),
             joinedAt: m.joinedAt ? new Date(m.joinedAt).toLocaleDateString('vi-VN') : 'Thành viên doanh nghiệp',
-            avatar: m.avatarUrl || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop&q=80',
+            avatar: resolveUserAvatar(m.avatarUrl) || '',
             activeJobs: m.activeJobsCount || 0,
           }));
           setCompanyTeam(mappedTeam);
@@ -573,7 +578,7 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
             branchAddress: m.branchAddress || '',
             isRepresentative: Boolean(m.isRepresentative),
             joinedAt: m.joinedAt ? new Date(m.joinedAt).toLocaleDateString('vi-VN') : 'Thành viên doanh nghiệp',
-            avatar: m.avatarUrl || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop&q=80',
+            avatar: resolveUserAvatar(m.avatarUrl) || '',
             activeJobs: m.activeJobsCount || 0,
           }));
           setCompanyTeam(mappedTeam);
@@ -709,7 +714,7 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
     'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
     'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80',
     'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80',
-    'https://api.dicebear.com/7.x/bottts/svg?seed=hr_recruiter',
+    'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=400&auto=format&fit=crop&q=80',
   ];
 
   // Default Culture & Values (Generic, clean, customizable for any enterprise)
@@ -865,7 +870,7 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
           headcount: c.companySize || prev.headcount,
           headquarters: c.address || prev.headquarters,
           overviewText: c.description || `${compName} là doanh nghiệp tiên phong phát triển các giải pháp số và thu hút nhân tài công nghệ. Chúng tôi tạo dựng môi trường làm việc chuẩn quốc tế và lộ trình thăng tiến rộng mở cho mọi ứng viên.`,
-          logoUrl: c.logoUrl || prev.logoUrl,
+          logoUrl: resolveCompanyLogo(compName, c.logoUrl || prev.logoUrl),
         }));
 
         setHrRepresentative((prev) => ({
@@ -913,12 +918,14 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
             if (Array.isArray(parsedBranches) && parsedBranches.length > 0) {
               const meta = parsedBranches.find((b) => b.isMetadata || b.__companyMeta || b.id === 'company-extended-metadata');
               if (meta) {
-                if (meta.coverUrl) setCompanyInfo((prev) => ({ ...prev, coverUrl: meta.coverUrl }));
+                const safeMetaCover = sanitizeMediaUrl(meta.coverUrl);
+                if (safeMetaCover) setCompanyInfo((prev) => ({ ...prev, coverUrl: safeMetaCover }));
                 if (meta.tagline) setCompanyInfo((prev) => ({ ...prev, tagline: meta.tagline }));
                 if (meta.establishedYear) setCompanyInfo((prev) => ({ ...prev, establishedYear: meta.establishedYear }));
                 if (meta.markets) setCompanyInfo((prev) => ({ ...prev, markets: meta.markets }));
                 if (meta.workplacePhotos && Array.isArray(meta.workplacePhotos) && meta.workplacePhotos.length > 0) {
-                  setWorkplacePhotos(meta.workplacePhotos);
+                  const safePhotos = meta.workplacePhotos.filter((p) => p?.url && sanitizeMediaUrl(p.url));
+                  if (safePhotos.length > 0) setWorkplacePhotos(safePhotos);
                 }
                 if (meta.companyCulture && Array.isArray(meta.companyCulture) && meta.companyCulture.length > 0) {
                   setCompanyCulture(meta.companyCulture);
@@ -975,7 +982,7 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
               branchAddress: m.branchAddress || '',
               isRepresentative: Boolean(m.isRepresentative),
               joinedAt: m.joinedAt ? new Date(m.joinedAt).toLocaleDateString('vi-VN') : 'Thành viên doanh nghiệp',
-              avatar: m.avatarUrl || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop&q=80',
+              avatar: resolveUserAvatar(m.avatarUrl) || '',
               activeJobs: m.activeJobsCount || 0,
             }));
             setCompanyTeam(mappedTeam);
@@ -1332,8 +1339,9 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
       };
 
       await authApi.updateProfile(payload);
-      if (hrEditForm.avatar && hrEditForm.avatar !== hrRepresentative.avatar) {
-        await authApi.updateAvatar(hrEditForm.avatar);
+      const sanitizedAvatar = sanitizeMediaUrl(hrEditForm.avatar);
+      if (sanitizedAvatar && sanitizedAvatar !== hrRepresentative.avatar) {
+        await authApi.updateAvatar(sanitizedAvatar);
       }
 
       const updated = {
@@ -1345,7 +1353,7 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
         branchName: hrEditForm.branchName || '',
         email: hrEditForm.email,
         hotline: hrEditForm.hotline,
-        avatar: hrEditForm.avatar,
+        avatar: sanitizedAvatar || '',
         responseTime: hrEditForm.responseTime,
         bio: hrEditForm.bio,
       };
@@ -1360,7 +1368,7 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
           fullName: hrEditForm.name,
           phone: hrEditForm.hotline,
           bio: hrEditForm.bio,
-          avatarUrl: hrEditForm.avatar || storedUser.avatarUrl,
+          avatarUrl: sanitizedAvatar || storedUser.avatarUrl,
           position: hrEditForm.position || hrEditForm.title,
           department: hrEditForm.department || hrEditForm.division,
           branchName: hrEditForm.branchName || '',
@@ -1413,9 +1421,13 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
           {/* Cover Landscape */}
           <div className="relative w-full h-56 sm:h-72 md:h-80 overflow-hidden bg-slate-100">
             <img
-              src={companyInfo.coverUrl || "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1600&auto=format&fit=crop&q=80"}
+              src={sanitizeMediaUrl(companyInfo.coverUrl) || "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1600&auto=format&fit=crop&q=80"}
               alt="Company Campus Cover"
               className="w-full h-full object-cover object-center"
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1600&auto=format&fit=crop&q=80";
+              }}
             />
             {/* Gradient Scrim */}
             <div className="absolute inset-0 bg-gradient-to-t from-[#221d47]/70 via-[#221d47]/20 to-transparent" />
@@ -1454,19 +1466,15 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
               <div className="flex flex-col sm:flex-row items-start sm:items-end gap-5">
                 {/* Logo Box */}
-                <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-white border-4 border-white shadow-lg p-1.5 flex items-center justify-center shrink-0 -mt-16 sm:-mt-20 z-10 overflow-hidden">
-                  {companyInfo.logoUrl ? (
-                    <img src={companyInfo.logoUrl} alt={companyInfo.name} className="w-full h-full object-cover rounded-2xl" />
-                  ) : (
-                    <div className="w-full h-full rounded-2xl bg-gradient-to-br from-[#5b48bd] to-[#3b2b8e] flex flex-col items-center justify-center text-center p-2 text-white shadow-inner">
-                      <span className="text-xl sm:text-2xl font-bold tracking-wider font-display">
-                        {companyInfo.name ? companyInfo.name.substring(0, 3).toUpperCase() : 'REC'}
-                      </span>
-                      <span className="text-[9px] font-extrabold uppercase tracking-widest text-purple-200 truncate max-w-[90px]">
-                        {companyInfo.name && companyInfo.name.split(' ').length > 1 ? companyInfo.name.split(' ').slice(1).join(' ') : 'Company'}
-                      </span>
-                    </div>
-                  )}
+                <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-white border-4 border-white shadow-lg p-2 flex items-center justify-center shrink-0 -mt-16 sm:-mt-20 z-10 overflow-hidden">
+                  <CompanyLogoImg
+                    src={companyInfo.logoUrl}
+                    companyName={companyInfo.name}
+                    alt={companyInfo.name}
+                    className="w-full h-full object-contain rounded-xl"
+                    fallbackClassName="text-xl sm:text-2xl font-bold text-[#5b48bd]"
+                    maxInitials={3}
+                  />
                 </div>
 
                 {/* Company Title & Slogan */}
@@ -1613,10 +1621,12 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
               {/* Portrait & HR Info */}
               <div className="flex flex-col items-center text-center space-y-3 pt-2">
                 <div className="relative">
-                  <img
+                  <AvatarImg
                     src={hrRepresentative.avatar}
+                    name={hrRepresentative.name}
                     alt={hrRepresentative.name}
                     className="w-24 h-24 rounded-3xl object-cover ring-4 ring-purple-100 shadow-md"
+                    fallbackClassName="w-24 h-24 rounded-3xl text-white font-bold text-2xl flex items-center justify-center ring-4 ring-purple-100 shadow-md"
                   />
                   <span
                     className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-[#5b48bd] flex items-center justify-center text-white shadow-md text-[14px] font-bold"
@@ -2672,10 +2682,12 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                       className="p-5 rounded-[24px] bg-white border border-purple-100 shadow-sm hover:shadow-md transition-all flex flex-col justify-between space-y-4"
                     >
                       <div className="flex items-start gap-3.5">
-                        <img
+                        <AvatarImg
                           src={member.avatar}
+                          name={member.name}
                           alt={member.name}
                           className="w-13 h-13 rounded-2xl object-cover ring-2 ring-purple-100 shrink-0"
+                          fallbackClassName="w-13 h-13 rounded-2xl text-white font-bold text-sm flex items-center justify-center ring-2 ring-purple-100 shrink-0"
                         />
                         <div className="min-w-0 flex-1 space-y-1">
                           <div className="flex items-center gap-1.5 flex-wrap">
@@ -3352,16 +3364,19 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                           Logo Thương Hiệu
                         </span>
                         <div className="flex items-center gap-3.5">
-                          <div className="w-16 h-16 rounded-2xl border-2 border-purple-200 overflow-hidden shrink-0 bg-white shadow-sm flex items-center justify-center">
-                            {companyEditForm.logoUrl ? (
-                              <img src={companyEditForm.logoUrl} alt="Logo" className="w-full h-full object-cover" />
-                            ) : (
-                              <span className="material-symbols-outlined text-slate-400 text-2xl">corporate_fare</span>
-                            )}
+                          <div className="w-16 h-16 rounded-2xl border-2 border-purple-200 overflow-hidden shrink-0 bg-white shadow-sm flex items-center justify-center p-1">
+                            <CompanyLogoImg
+                              src={companyEditForm.logoUrl}
+                              companyName={companyEditForm.companyName || companyInfo.name}
+                              alt="Logo"
+                              className="w-full h-full object-contain"
+                              fallbackClassName="text-xs font-bold text-[#5b48bd]"
+                              maxInitials={3}
+                            />
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="text-xs font-bold text-[#221d47] truncate">
-                              {companyEditForm.logoUrl ? 'Đã lưu trên Cloudinary' : 'Chưa có logo'}
+                              {resolveCompanyLogo(companyEditForm.companyName || companyInfo.name, companyEditForm.logoUrl) ? 'Đã lưu trên Cloudinary CDN' : 'Chưa có logo'}
                             </div>
                             <p className="text-[11px] text-slate-500 mt-0.5">
                               Khuyến nghị tỉ lệ 1:1, ảnh vuông định dạng PNG hoặc JPG.
@@ -3403,9 +3418,13 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                         </span>
                         <div className="h-16 w-full rounded-2xl border-2 border-purple-200 overflow-hidden bg-white shadow-sm relative">
                           <img
-                            src={companyEditForm.coverUrl || 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=400'}
+                            src={sanitizeMediaUrl(companyEditForm.coverUrl) || 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=400'}
                             alt="Cover"
                             className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.onerror = null;
+                              e.currentTarget.src = 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=400';
+                            }}
                           />
                           <div className="absolute inset-0 bg-black/25 flex items-center justify-center">
                             <span className="text-[11px] text-white font-bold tracking-wider bg-black/40 px-2.5 py-0.5 rounded-full backdrop-blur-xs">
@@ -3930,10 +3949,12 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-2xl border-2 border-purple-200 overflow-hidden shrink-0 shadow-sm bg-purple-50 flex items-center justify-center">
-                    <img
-                      src={hrEditForm.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=hr'}
+                    <AvatarImg
+                      src={hrEditForm.avatar}
+                      name={hrEditForm.name || hrRepresentative.name}
                       alt="Avatar"
                       className="w-full h-full object-cover"
+                      fallbackClassName="w-full h-full flex items-center justify-center text-white font-bold text-sm"
                     />
                   </div>
                   <input

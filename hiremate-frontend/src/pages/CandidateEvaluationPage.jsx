@@ -7,6 +7,8 @@ import { parseSubscriptionPermissions } from '../utils/subscriptionPerms';
 import { createHrToCandidateMailto } from '../utils/emailUtils';
 import { extractBlob } from '../utils/excelExportUtils';
 import OnlineCvRenderer from '../components/common/OnlineCvRenderer';
+import { AvatarImg } from '../components/common/SmartImage';
+import { resolveUserAvatar } from '../utils/mediaUtils';
 
 /**
  * Xây dựng báo cáo đối soát chi tiết AI toàn diện giữa CV và JD
@@ -926,7 +928,7 @@ export default function CandidateEvaluationPage({
             candidateName = profileData.fullName || candidateName;
             candidateEmail = profileData.email || candidateEmail;
             candidatePhone = profileData.phone || candidatePhone;
-            candidateAvatar = profileData.avatarUrl || candidateAvatar;
+            candidateAvatar = resolveUserAvatar(profileData.avatarUrl) || resolveUserAvatar(candidateAvatar);
           }
 
           // Cập nhật từ job API nếu có
@@ -1069,7 +1071,7 @@ export default function CandidateEvaluationPage({
           ? cvSummary.trim()
           : (profileData?.bio || cvData?.summary || 'Chưa có thông tin tóm tắt nghề nghiệp.');
 
-        candidateAvatar = profileData?.avatarUrl || appData?.candidateAvatar || candidateAvatar;
+        candidateAvatar = resolveUserAvatar(profileData?.avatarUrl) || resolveUserAvatar(appData?.candidateAvatar) || resolveUserAvatar(candidateAvatar);
         jobTitle = jobData?.title || appData?.jobTitle || jobTitle || (effectiveJobId ? `Vị trí Tuyển Dụng #${effectiveJobId}` : 'Vị trí Tuyển Dụng');
 
         // Lấy danh sách kỹ năng thực tế (Ưu tiên CV đã nộp: pData, parsedJson, detectedSkills, rawParsed, profileData)
@@ -1755,23 +1757,13 @@ export default function CandidateEvaluationPage({
           <div className="bg-white border border-slate-200/80 rounded-3xl p-5 sm:p-6 shadow-xs space-y-5">
             <div className="flex items-start gap-4">
               <div className="relative shrink-0">
-                {cand.avatar ? (
-                  <img
-                    src={cand.avatar}
-                    alt={cand.name}
-                    className="w-16 h-16 rounded-2xl object-cover ring-2 ring-purple-200 shadow-xs"
-                  />
-                ) : (
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-[#1e1548] to-[#5b48bd] text-white flex items-center justify-center font-extrabold text-2xl shadow-sm">
-                    {(cand.name || 'UV')
-                      .split(' ')
-                      .filter(Boolean)
-                      .map((n) => n[0])
-                      .slice(-2)
-                      .join('')
-                      .toUpperCase() || 'UV'}
-                  </div>
-                )}
+                <AvatarImg
+                  src={cand.avatar}
+                  name={cand.name}
+                  alt={cand.name}
+                  className="w-16 h-16 rounded-2xl object-cover ring-2 ring-purple-200 shadow-xs"
+                  fallbackClassName="w-16 h-16 rounded-2xl text-white flex items-center justify-center font-extrabold text-2xl shadow-sm"
+                />
                 <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white" title="Trực tuyến" />
               </div>
 

@@ -9,6 +9,7 @@ import CompanyProfileModal from '../components/jobs/CompanyProfileModal';
 import { jobApi, skillApi, companyApi, aiMatchApi } from '../api';
 import { useLivingTheme } from '../context/LivingThemeContext';
 import { StaggerContainer, StaggerItem, GlassCard, GlassPanel, BlurReveal, CinematicTitle } from '../components/motion/MotionSystem';
+import { CompanyLogoImg } from '../components/common/SmartImage';
 
 export default function HomePage({ user }) {
   const { theme: livingTheme, luminosity } = useLivingTheme();
@@ -1406,24 +1407,15 @@ export default function HomePage({ user }) {
 
               {/* Company Info Header */}
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
-                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#f4f2fd] to-[#ede9fe] border border-purple-100 flex items-center justify-center p-2.5 shadow-sm overflow-hidden shrink-0">
-                  {activeCompanyShowcase.logoUrl ? (
-                    <img
-                      src={activeCompanyShowcase.logoUrl}
-                      alt={activeCompanyShowcase.companyName}
-                      className="w-full h-full object-contain rounded-xl"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                        if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
-                      }}
-                    />
-                  ) : null}
-                  <span
-                    style={{ display: activeCompanyShowcase.logoUrl ? 'none' : 'flex' }}
-                    className="w-full h-full font-black text-2xl text-[#5b48bd] items-center justify-center"
-                  >
-                    {activeCompanyShowcase.companyName?.slice(0, 3).toUpperCase() || 'ENT'}
-                  </span>
+                <div className="w-20 h-20 rounded-2xl bg-white border border-purple-100 flex items-center justify-center p-2.5 shadow-sm overflow-hidden shrink-0">
+                  <CompanyLogoImg
+                    src={activeCompanyShowcase.logoUrl}
+                    companyName={activeCompanyShowcase.companyName}
+                    alt={activeCompanyShowcase.companyName}
+                    className="w-full h-full object-contain rounded-xl"
+                    fallbackClassName="w-full h-full font-black text-2xl text-[#5b48bd] flex items-center justify-center"
+                    maxInitials={3}
+                  />
                 </div>
 
                 <div className="flex-1 min-w-0">

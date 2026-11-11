@@ -36,6 +36,9 @@ public class CompanyServiceImpl implements CompanyService {
     private final com.hiremate.service.NotificationService notificationService;
     private final com.hiremate.repository.UserRepository userRepository;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.hiremate.service.BrandMediaSyncService brandMediaSyncService;
+
     private Recruiter getOrCreateRecruiter(User recruiterUser) {
         return recruiterRepository.findById(recruiterUser.getUserId()).orElseGet(() -> {
             Recruiter newRecruiter = Recruiter.builder()
@@ -145,10 +148,16 @@ public class CompanyServiceImpl implements CompanyService {
 
         if (company == null) {
             // Create company if not already existing
+            String initialLogo = null;
+            if (request.getLogoUrl() != null && !request.getLogoUrl().isBlank()) {
+                initialLogo = request.getLogoUrl().startsWith("data:image/")
+                        ? fileStorageService.storeDataUrlToCloud(request.getLogoUrl(), "logos")
+                        : com.hiremate.service.BrandMediaSyncService.sanitizeImageUrl(request.getLogoUrl());
+            }
             company = Company.builder()
                     .recruiterId(recruiter.getRecruiterId())
                     .companyName(finalName)
-                    .logoUrl(request.getLogoUrl())
+                    .logoUrl(initialLogo)
                     .website(request.getWebsite())
                     .address(request.getAddress())
                     .companySize(request.getCompanySize())
@@ -163,6 +172,13 @@ public class CompanyServiceImpl implements CompanyService {
                     .benefitsJson(effectiveBenefitsJson)
                     .status(hasValidNewDoc ? CompanyStatus.PENDING : CompanyStatus.PENDING)
                     .build();
+            if (company.getLogoUrl() == null) {
+                if (brandMediaSyncService != null) {
+                    brandMediaSyncService.ensureCompanyLogo(company);
+                } else {
+                    company.setLogoUrl(com.hiremate.service.BrandMediaSyncService.resolveCompanyLogo(finalName, null));
+                }
+            }
             company = companyRepository.save(company);
             recruiter.setCompany(company);
             recruiter.setIsHeadRecruiter(true);
@@ -186,7 +202,15 @@ public class CompanyServiceImpl implements CompanyService {
 
             // Chỉ Head Recruiter / Owner (hoặc khi công ty chưa có thông tin ban đầu) mới được cập nhật thông tin cấp toàn công ty
             if (isHeadOrOwner || company.getAddress() == null || company.getIndustry() == null) {
-                if (request.getLogoUrl() != null) company.setLogoUrl(request.getLogoUrl());
+                if (request.getLogoUrl() != null) {
+                    String reqLogo = request.getLogoUrl().trim();
+                    if (reqLogo.startsWith("data:image/")) {
+                        company.setLogoUrl(fileStorageService.storeDataUrlToCloud(reqLogo, "logos"));
+                    } else if (!reqLogo.isEmpty()) {
+                        String safeLogo = com.hiremate.service.BrandMediaSyncService.sanitizeImageUrl(reqLogo);
+                        if (safeLogo != null) company.setLogoUrl(safeLogo);
+                    }
+                }
                 if (request.getWebsite() != null) company.setWebsite(request.getWebsite());
                 if (request.getAddress() != null) company.setAddress(request.getAddress());
                 if (request.getCompanySize() != null) company.setCompanySize(request.getCompanySize());
@@ -329,6 +353,7 @@ public class CompanyServiceImpl implements CompanyService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public CompanyResponse getCompanyById(Long companyId) {
         Company company = companyRepository.findById(companyId)
                 .orElseThrow(() -> new IllegalArgumentException("Company not found with ID: " + companyId));
@@ -425,7 +450,7 @@ public class CompanyServiceImpl implements CompanyService {
                             .companyId(c.getCompanyId())
                             .recruiterId(c.getRecruiterId())
                             .companyName(c.getCompanyName())
-                            .logoUrl(c.getLogoUrl())
+                            .logoUrl(com.hiremate.service.BrandMediaSyncService.resolveCompanyLogo(c.getCompanyName(), c.getLogoUrl()))
                             .website(c.getWebsite())
                             .address(c.getAddress())
                             .companySize(c.getCompanySize())
@@ -446,6 +471,7 @@ public class CompanyServiceImpl implements CompanyService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<com.hiremate.dto.response.CompanyLookupResponse> lookupCompanies(String keyword, String taxCode) {
         String cleanKw = (keyword != null && !keyword.trim().isEmpty()) ? keyword.trim() : null;
         String cleanTax = (taxCode != null && !taxCode.trim().isEmpty()) ? taxCode.trim() : null;
@@ -481,7 +507,7 @@ public class CompanyServiceImpl implements CompanyService {
                     .companyId(c.getCompanyId())
                     .companyName(c.getCompanyName())
                     .taxCode(c.getTaxCode())
-                    .logoUrl(c.getLogoUrl())
+                    .logoUrl(com.hiremate.service.BrandMediaSyncService.resolveCompanyLogo(c.getCompanyName(), c.getLogoUrl()))
                     .website(c.getWebsite())
                     .address(c.getAddress())
                     .companySize(c.getCompanySize())
@@ -513,7 +539,7 @@ public class CompanyServiceImpl implements CompanyService {
                         .department(r.getDepartment() != null ? r.getDepartment() : "Phòng Tuyển dụng & Nhân sự")
                         .branchName(r.getBranchName() != null ? r.getBranchName() : "Trụ sở chính")
                         .branchAddress(r.getBranchAddress() != null ? r.getBranchAddress() : c.getAddress())
-                        .avatarUrl(u != null ? u.getAvatarUrl() : null)
+                        .avatarUrl(u != null ? com.hiremate.service.BrandMediaSyncService.sanitizeImageUrl(u.getAvatarUrl()) : null)
                         .representative(isRep)
                         .isRepresentative(isRep)
                         .activeJobsCount(activeJobs)
@@ -586,7 +612,7 @@ public class CompanyServiceImpl implements CompanyService {
                 .recruiterId(c.getRecruiterId())
                 .recruiterName(recruiterName)
                 .companyName(c.getCompanyName())
-                .logoUrl(c.getLogoUrl())
+                .logoUrl(com.hiremate.service.BrandMediaSyncService.resolveCompanyLogo(c.getCompanyName(), c.getLogoUrl()))
                 .website(c.getWebsite())
                 .address(c.getAddress())
                 .companySize(c.getCompanySize())
@@ -699,6 +725,7 @@ public class CompanyServiceImpl implements CompanyService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public java.util.List<java.util.Map<String, Object>> getPendingJoinRequests(User currentUser) {
         Recruiter currentRecruiter = getOrCreateRecruiter(currentUser);
         Company company = currentRecruiter.getCompany();
@@ -748,6 +775,7 @@ public class CompanyServiceImpl implements CompanyService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public java.util.List<java.util.Map<String, Object>> getCompanyMembers(User currentUser) {
         Recruiter currentRecruiter = getOrCreateRecruiter(currentUser);
         Company company = currentRecruiter.getCompany();
@@ -771,7 +799,7 @@ public class CompanyServiceImpl implements CompanyService {
             map.put("branchName", r.getBranchName() != null ? r.getBranchName() : "Trụ sở chính");
             map.put("isRepresentative", Boolean.TRUE.equals(r.getIsHeadRecruiter()) || (company.getRecruiterId() != null && company.getRecruiterId().equals(r.getRecruiterId())));
             map.put("joinedAt", r.getUser().getCreatedAt() != null ? r.getUser().getCreatedAt().toLocalDate().toString() : "2026-01-01");
-            map.put("avatar", r.getUser().getAvatarUrl() != null ? r.getUser().getAvatarUrl() : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80");
+            map.put("avatar", com.hiremate.service.BrandMediaSyncService.sanitizeImageUrl(r.getUser().getAvatarUrl()));
             map.put("activeJobs", jobRepository.countActiveJobsByRecruiterId(r.getRecruiterId()));
             result.add(map);
         }

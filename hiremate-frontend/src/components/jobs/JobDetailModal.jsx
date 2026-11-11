@@ -2,31 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { calculateJobDeadline } from '../../utils/jobTimeUtils';
 import { aiMatchApi, cvApi } from '../../api';
 import AiJobEvaluationReportCard from './AiJobEvaluationReportCard';
+import { CompanyLogoImg } from '../common/SmartImage';
+import { resolveCompanyLogo, getNameInitials } from '../../utils/mediaUtils';
 
-// Helper for brand logos with reliable fallback
+// Helper for brand logos with reliable Cloudinary fallback
 const getBrandLogo = (job) => {
-  const name = (job?.companyName || job?.company?.companyName || '').toLowerCase();
-  if (name.includes('fpt')) {
-    return 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/11/FPT_logo.svg/1200px-FPT_logo.svg.png';
-  }
-  if (name.includes('vng')) {
-    return 'https://cdn.haitrieu.com/wp-content/uploads/2022/01/Logo-VNG.png';
-  }
-  if (name.includes('viettel')) {
-    return 'https://cdn.haitrieu.com/wp-content/uploads/2022/01/Logo-Viettel.png';
-  }
-  return job?.companyLogo || job?.company?.logoUrl || null;
+  const name = job?.companyName || job?.company?.companyName || '';
+  return resolveCompanyLogo(name, job?.companyLogo || job?.company?.logoUrl);
 };
 
 // Helper for company initials
-const getCompanyInitials = (name) => {
-  if (!name) return 'CORP';
-  const words = name.replace(/[^a-zA-Z0-9\s]/g, '').trim().split(/\s+/);
-  if (words.length >= 2) {
-    return (words[0][0] + words[1][0]).toUpperCase();
-  }
-  return name.slice(0, 3).toUpperCase();
-};
+const getCompanyInitials = (name) => getNameInitials(name || 'CORP', 3);
 
 // Title casing helper
 const formatJobTitle = (title) => {
@@ -336,8 +322,23 @@ export default function JobDetailModal({ job, onClose, onApply, onViewCompanyPro
       onViewCompanyProfile(job);
     } else {
       const compId = job.companyId || job.company?.companyId || '';
+      if (compId) {
+        try {
+          sessionStorage.setItem(`hiremate_company_preview_${compId}`, JSON.stringify({
+            companyId: compId,
+            companyName: job.companyName || job.company?.companyName,
+            logoUrl: getBrandLogo(job),
+            industry: job.domain || job.company?.industry,
+            companySize: job.companySize || job.company?.companySize,
+            address: job.company?.address || job.location,
+            website: job.companyWebsite || job.company?.website,
+            description: job.companyDescription || job.company?.description,
+            status: job.companyStatus || (isCompanyBlocked ? 'REJECTED' : (isCompanyVerified ? 'VERIFIED' : 'PENDING')),
+          }));
+        } catch {}
+      }
       if (onClose) onClose();
-      window.location.hash = compId ? `#/?companyId=${compId}` : '#/';
+      window.location.hash = compId ? `#/companies/${compId}` : '#/';
     }
   };
 
@@ -477,16 +478,14 @@ export default function JobDetailModal({ job, onClose, onApply, onViewCompanyPro
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
             {/* Company Avatar with Error Fallback */}
             <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl bg-white border border-purple-200/80 flex items-center justify-center font-black text-xl text-[#5b48bd] shrink-0 shadow-sm overflow-hidden p-2">
-              {logoUrl && !logoError ? (
-                <img
-                  src={logoUrl}
-                  alt={companyName}
-                  onError={() => setLogoError(true)}
-                  className="w-full h-full object-contain"
-                />
-              ) : (
-                <span>{companyInitials}</span>
-              )}
+              <CompanyLogoImg
+                src={logoUrl}
+                companyName={companyName}
+                alt={companyName}
+                className="w-full h-full object-contain"
+                fallbackClassName="font-black text-xl text-[#5b48bd]"
+                maxInitials={3}
+              />
             </div>
 
             {/* Title & Metadata */}
@@ -949,15 +948,24 @@ export default function JobDetailModal({ job, onClose, onApply, onViewCompanyPro
             <div className="p-4 rounded-2xl bg-gradient-to-r from-[#221d47] to-[#3b2b8e] text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-xl bg-white p-1.5 shrink-0 flex items-center justify-center font-bold text-[#5b48bd] overflow-hidden">
-                  {logoUrl && !logoError ? (
-                    <img src={logoUrl} alt={companyName} className="w-full h-full object-contain" />
-                  ) : (
-                    <span>{companyInitials}</span>
-                  )}
+                  <CompanyLogoImg
+                    src={logoUrl}
+                    companyName={companyName}
+                    alt={companyName}
+                    className="w-full h-full object-contain"
+                    fallbackClassName="font-bold text-[#5b48bd]"
+                    maxInitials={3}
+                  />
                 </div>
                 <div>
                   <div className="font-bold text-sm text-white flex items-center gap-1.5 flex-wrap">
-                    <span>{companyName}</span>
+                    <button
+                      type="button"
+                      onClick={handleOpenCompanyProfile}
+                      className={`text-left ${!isCompanyBlocked ? 'hover:underline cursor-pointer' : 'cursor-default'}`}
+                    >
+                      {companyName}
+                    </button>
                     {isCompanyBlocked ? (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-600/90 text-white border border-rose-400 shadow-2xs">
                         <span className="material-symbols-outlined text-[12px]">block</span>

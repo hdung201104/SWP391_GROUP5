@@ -5,25 +5,11 @@ import { getSavedJobs, toggleSaveJob, syncSavedJobsWithServer } from '../utils/s
 import { createCandidateToHrMailto } from '../utils/emailUtils';
 import JobDetailModal from '../components/jobs/JobDetailModal';
 import CvViewModal from '../components/common/CvViewModal';
+import { CompanyLogoImg } from '../components/common/SmartImage';
+import { resolveCompanyLogo } from '../utils/mediaUtils';
 
-// Brand logos helper for realistic corporate presence
-const getBrandLogo = (companyName = '', logoUrl = null) => {
-  if (logoUrl && logoUrl !== '#' && !logoUrl.includes('placeholder')) return logoUrl;
-  const name = (companyName || '').toLowerCase();
-  if (name.includes('fpt software')) {
-    return 'https://cdn.haitrieu.com/wp-content/uploads/2021/11/Logo-FPT-Software.png';
-  }
-  if (name.includes('fpt')) {
-    return 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/11/FPT_logo.svg/1200px-FPT_logo.svg.png';
-  }
-  if (name.includes('vng')) {
-    return 'https://cdn.haitrieu.com/wp-content/uploads/2022/01/Logo-VNG.png';
-  }
-  if (name.includes('viettel')) {
-    return 'https://cdn.haitrieu.com/wp-content/uploads/2022/01/Logo-Viettel.png';
-  }
-  return null;
-};
+// Brand logos helper for realistic corporate presence (Cloudinary CDN)
+const getBrandLogo = (companyName = '', logoUrl = null) => resolveCompanyLogo(companyName, logoUrl);
 
 // Chuẩn hoá trạng thái từ backend enum (APPLIED, SCREENING, SHORTLISTED, INTERVIEWING, OFFERED, HIRED, REJECTED)
 const normalizeApplicationStatus = (rawStatus) => {
@@ -257,6 +243,8 @@ export default function CandidateApplicationsPage({ user }) {
             return {
               id: app.applicationId || idx + 1,
               company: comp,
+              companyId: app.companyId || app.job?.companyId || app.job?.company?.companyId || null,
+              companyLogo: resolveCompanyLogo(comp, app.companyLogo || app.job?.company?.logoUrl),
               companyShort: compShort,
               companyStatus: rawCompStatus,
               companyVerified: isCompanyVerified,
@@ -308,10 +296,10 @@ export default function CandidateApplicationsPage({ user }) {
               recruiter: {
                 name: app.recruiterName || app.job?.recruiter?.user?.fullName || 'Bộ Phận Tuyển Dụng',
                 role: app.job?.recruiter?.position || 'Talent Acquisition Team',
-                email: app.recruiterEmail || app.job?.recruiter?.user?.email || 'tuyendung@fpt.com',
+                email: app.recruiterEmail || app.job?.recruiter?.user?.email || 'hr@hiremate.vn',
               },
               recruiterName: app.recruiterName || app.job?.recruiter?.user?.fullName || 'Bộ Phận Tuyển Dụng',
-              recruiterEmail: app.recruiterEmail || app.job?.recruiter?.user?.email || 'tuyendung@fpt.com',
+              recruiterEmail: app.recruiterEmail || app.job?.recruiter?.user?.email || 'hr@hiremate.vn',
               jobId: app.job?.jobId || app.jobId,
               rejectionReason: app.rejectionReason || null,
               notes: app.notes || null,
@@ -952,13 +940,16 @@ export default function CandidateApplicationsPage({ user }) {
                   <div className="flex items-start gap-4">
                     <div
                       onClick={() => (window.location.hash = `#/jobs/${sJob.jobId || sJob.id}`)}
-                      className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#221d47] to-[#5b48bd] text-white flex items-center justify-center font-bold text-base shadow-sm cursor-pointer hover:scale-105 transition-transform shrink-0 overflow-hidden"
+                      className="w-14 h-14 rounded-2xl bg-white border border-purple-100 text-[#5b48bd] flex items-center justify-center font-bold text-base shadow-sm cursor-pointer hover:scale-105 transition-transform shrink-0 overflow-hidden p-1.5"
                     >
-                      {sJob.companyLogo ? (
-                        <img src={sJob.companyLogo} alt={sJob.companyName} className="w-full h-full object-cover" />
-                      ) : (
-                        <span>{sJob.companyName?.slice(0, 2).toUpperCase() || 'JD'}</span>
-                      )}
+                      <CompanyLogoImg
+                        src={sJob.companyLogo}
+                        companyName={sJob.companyName}
+                        alt={sJob.companyName}
+                        className="w-full h-full object-contain"
+                        fallbackClassName="font-bold text-base text-[#5b48bd]"
+                        maxInitials={3}
+                      />
                     </div>
                     <div>
                       <h3
@@ -1062,7 +1053,7 @@ export default function CandidateApplicationsPage({ user }) {
         ) : (
           <div className="space-y-5">
             {paginatedApps.map((app) => {
-              const brandLogo = getBrandLogo(app.company);
+              const brandLogo = getBrandLogo(app.company, app.companyLogo);
               return (
                 <div
                   key={app.id}
@@ -1074,18 +1065,17 @@ export default function CandidateApplicationsPage({ user }) {
                       {/* Company Avatar / Logo */}
                       <div
                         onClick={() => app.jobId && (window.location.hash = `#/jobs/${app.jobId}`)}
-                        className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#221d47] to-[#5b48bd] text-white flex items-center justify-center font-bold text-base shadow-sm cursor-pointer hover:scale-105 transition-transform shrink-0 overflow-hidden p-1.5"
+                        className="w-14 h-14 rounded-2xl bg-white border border-purple-100 text-[#5b48bd] flex items-center justify-center font-bold text-base shadow-sm cursor-pointer hover:scale-105 transition-transform shrink-0 overflow-hidden p-1.5"
                         title={app.company}
                       >
-                        {brandLogo ? (
-                          <img
-                            src={brandLogo}
-                            alt={app.company}
-                            className="w-full h-full object-contain filter drop-shadow-xs"
-                          />
-                        ) : (
-                          <span>{app.companyShort}</span>
-                        )}
+                        <CompanyLogoImg
+                          src={brandLogo}
+                          companyName={app.company}
+                          alt={app.company}
+                          className="w-full h-full object-contain filter drop-shadow-xs"
+                          fallbackClassName="font-bold text-base text-[#5b48bd]"
+                          maxInitials={3}
+                        />
                       </div>
 
                       {/* Job & Company Details */}

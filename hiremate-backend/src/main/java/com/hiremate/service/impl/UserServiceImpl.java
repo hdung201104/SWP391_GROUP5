@@ -155,10 +155,28 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + userId));
 
-        user.setAvatarUrl(avatarUrl != null ? avatarUrl.trim() : null);
-        User savedUser = userRepository.save(user);
+        String raw = avatarUrl != null ? avatarUrl.trim() : null;
+        String resolvedUrl = null;
+        if (raw != null && !raw.isEmpty()) {
+            if (raw.startsWith("data:image/")) {
+                resolvedUrl = fileStorageService.storeDataUrlToCloud(raw, "avatars");
+            } else {
+                resolvedUrl = com.hiremate.service.BrandMediaSyncService.sanitizeImageUrl(raw);
+                if (resolvedUrl == null) {
+                    throw new IllegalArgumentException("Ảnh đại diện phải là liên kết Cloud (Cloudinary / OAuth) hợp lệ, không sử dụng đường dẫn cục bộ hoặc blob.");
+                }
+            }
+        }
 
-        log.info(">> [UserService] Avatar updated successfully for userId: {}", userId);
+        if (resolvedUrl != null && user.getAvatarUrl() != null && !user.getAvatarUrl().isBlank() && !user.getAvatarUrl().equals(resolvedUrl)) {
+            fileStorageService.deleteFile(user.getAvatarUrl());
+        }
+
+        user.setAvatarUrl(resolvedUrl);
+        User savedUser = userRepository.save(user);
+        userCacheService.evict(savedUser.getEmail(), savedUser.getUserId());
+
+        log.info(">> [UserService] Avatar updated successfully for userId: {} -> {}", userId, resolvedUrl);
         return buildProfileResponse(savedUser);
     }
 
@@ -168,18 +186,19 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy người dùng với ID: " + userId));
 
-        // Tải ảnh đại diện lên thư mục 'avatars' trên Cloudinary CDN
+        // Tải ảnh đại diện lên thư mục 'avatars' trên Cloudinary CDN (100% Cloud)
         String avatarUrl = fileStorageService.storeFile(file, "avatars");
 
         // Xóa avatar cũ nếu có để giải phóng dung lượng đám mây
-        if (user.getAvatarUrl() != null && !user.getAvatarUrl().isBlank()) {
+        if (user.getAvatarUrl() != null && !user.getAvatarUrl().isBlank() && !user.getAvatarUrl().equals(avatarUrl)) {
             fileStorageService.deleteFile(user.getAvatarUrl());
         }
 
         user.setAvatarUrl(avatarUrl);
         User savedUser = userRepository.save(user);
+        userCacheService.evict(savedUser.getEmail(), savedUser.getUserId());
 
-        log.info(">> [UserService] Ảnh đại diện userId: {} đã được tải lên trực tiếp và cập nhật: {}", userId, avatarUrl);
+        log.info(">> [UserService] Ảnh đại diện userId: {} đã được tải lên trực tiếp lên Cloudinary và cập nhật: {}", userId, avatarUrl);
         return buildProfileResponse(savedUser);
     }
 
@@ -399,7 +418,7 @@ public class UserServiceImpl implements UserService {
                 .email(user.getEmail())
                 .fullName(user.getFullName())
                 .phone(user.getPhone())
-                .avatarUrl(user.getAvatarUrl())
+                .avatarUrl(com.hiremate.service.BrandMediaSyncService.sanitizeImageUrl(user.getAvatarUrl()))
                 .role(user.getRole())
                 .status(user.getStatus())
                 .isEmailVerified(user.getIsEmailVerified() != null ? user.getIsEmailVerified() : true)

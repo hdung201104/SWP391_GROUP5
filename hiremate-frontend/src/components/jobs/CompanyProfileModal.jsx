@@ -1,42 +1,22 @@
 import React from 'react';
+import { CompanyLogoImg } from '../common/SmartImage';
+import { resolveCompanyLogo, resolveCompanyCover, sanitizeMediaUrl } from '../../utils/mediaUtils';
 
 // Brand logos helper
-const getBrandLogo = (company) => {
-  const name = (company?.companyName || '').toLowerCase();
-  if (name.includes('fpt software')) {
-    return 'https://cdn.haitrieu.com/wp-content/uploads/2021/11/Logo-FPT-Software.png';
-  }
-  if (name.includes('fpt')) {
-    return 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/11/FPT_logo.svg/1200px-FPT_logo.svg.png';
-  }
-  if (name.includes('vng')) {
-    return 'https://cdn.haitrieu.com/wp-content/uploads/2022/01/Logo-VNG.png';
-  }
-  return company?.logoUrl;
-};
+const getBrandLogo = (company) => resolveCompanyLogo(company?.companyName, company?.logoUrl);
 
 // Brand covers helper
 const getBrandCover = (company) => {
-  if (company?.coverUrl && company.coverUrl.trim()) return company.coverUrl;
+  const directCover = sanitizeMediaUrl(company?.coverUrl);
+  if (directCover) return directCover;
   const compId = company?.companyId || company?.id;
   try {
     if (compId) {
-      const savedCover = localStorage.getItem(`hiremate_company_cover_${compId}`);
+      const savedCover = sanitizeMediaUrl(localStorage.getItem(`hiremate_company_cover_${compId}`));
       if (savedCover) return savedCover;
     }
   } catch {}
-
-  const name = (company?.companyName || '').toLowerCase();
-  if (name.includes('fpt')) {
-    return 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1600&auto=format&fit=crop&q=80';
-  }
-  if (name.includes('vng')) {
-    return 'https://images.unsplash.com/photo-1497366811353-6870744d04b2?w=1600&auto=format&fit=crop&q=80';
-  }
-  if (name.includes('digital') || name.includes('transformation')) {
-    return 'https://images.unsplash.com/photo-1577495508048-b635879837f1?w=1600&auto=format&fit=crop&q=80';
-  }
-  return 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=1600&auto=format&fit=crop&q=80';
+  return resolveCompanyCover(company?.companyName);
 };
 
 const formatCompanyName = (name) => {
@@ -214,23 +194,14 @@ export default function CompanyProfileModal({
             <div className="flex items-end gap-4 min-w-0 flex-1">
               {/* White-framed Logo */}
               <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-white border-4 border-white shadow-xl flex items-center justify-center p-2 overflow-hidden shrink-0">
-                {logoSrc ? (
-                  <img 
-                    src={logoSrc} 
-                    alt={displayName} 
-                    className="w-full h-full object-contain"
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                      if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
-                    }}
-                  />
-                ) : null}
-                <div 
-                  style={{ display: logoSrc ? 'none' : 'flex' }}
-                  className="w-full h-full font-black text-2xl text-[#5b48bd] items-center justify-center tracking-wider bg-purple-50 rounded-xl"
-                >
-                  {initials}
-                </div>
+                <CompanyLogoImg
+                  src={logoSrc}
+                  companyName={displayName}
+                  alt={displayName}
+                  className="w-full h-full object-contain"
+                  fallbackClassName="w-full h-full font-black text-2xl text-[#5b48bd] flex items-center justify-center tracking-wider bg-purple-50 rounded-xl"
+                  maxInitials={3}
+                />
               </div>
 
               {/* Company Name & Badges with 100% Crisp Contrast */}
@@ -480,13 +451,30 @@ export default function CompanyProfileModal({
             <span>Hồ sơ công ty được quản lý bởi bộ phận Tuyển dụng</span>
           </div>
 
-          <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+          <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end flex-wrap">
             <button
               onClick={onClose}
               className="px-5 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs border border-purple-100 transition-all cursor-pointer shadow-2xs"
             >
               Đóng
             </button>
+
+            {compId && (
+              <button
+                type="button"
+                onClick={() => {
+                  try {
+                    sessionStorage.setItem(`hiremate_company_preview_${compId}`, JSON.stringify(company));
+                  } catch {}
+                  onClose();
+                  window.location.hash = `#/companies/${compId}`;
+                }}
+                className="px-5 py-2.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-[#5b48bd] font-bold text-xs border border-purple-200 transition-all cursor-pointer shadow-2xs flex items-center gap-1.5"
+              >
+                <span className="material-symbols-outlined text-sm">domain</span>
+                <span>Mở trang hồ sơ</span>
+              </button>
+            )}
 
             <button
               onClick={() => {

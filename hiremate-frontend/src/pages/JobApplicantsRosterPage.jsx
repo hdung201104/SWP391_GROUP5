@@ -17,6 +17,8 @@ import { HIREMATE_LOGO_URL } from '../constants/branding';
 import { exportCandidatesToExcel } from '../utils/excelExportUtils';
 import paymentApi from '../api/paymentApi';
 import { parseSubscriptionPermissions } from '../utils/subscriptionPerms';
+import { AvatarImg } from '../components/common/SmartImage';
+import { resolveUserAvatar } from '../utils/mediaUtils';
 
 export const STAGE_CONFIG = {
   NEW: { label: 'Mới Nhận', backendStatus: 'APPLIED', color: 'emerald' },
@@ -826,7 +828,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
           role: app.candidateEmail || 'Ứng viên tiềm năng',
           email: app.candidateEmail || 'candidate@gmail.com',
           phone: app.candidatePhone || 'Chưa cập nhật',
-          avatar: app.candidateAvatar || null,
+          avatar: resolveUserAvatar(app.candidateAvatar) || null,
           withdrawnByCandidate: isWithdrawn,
           experience: (() => {
             const cleanLetter = cleanCoverLetter(app.coverLetter);
@@ -1388,6 +1390,46 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                 <span>Đăng Tin Mới</span>
               </button>
 
+              {canManageJob && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!isCompanyVerified) {
+                      setShowUnverifiedWarningModal(true);
+                      triggerToast('⚠️ Doanh nghiệp chưa duyệt hoặc đã bị thu hồi GPKD. Không thể thay đổi trạng thái tin!');
+                      return;
+                    }
+                    const nextStatus = jobDetails.status === 'CLOSED' ? 'PUBLISHED' : 'CLOSED';
+                    try {
+                      await jobApi.updateJobStatus(jobDetails.id, nextStatus);
+                      setJobDetails((prev) => ({ ...prev, status: nextStatus }));
+                      triggerToast(
+                        nextStatus === 'CLOSED'
+                          ? '⏸️ Đã tạm dừng / đóng nhận hồ sơ mới trên Trang chủ (Danh sách ứng viên vẫn được giữ nguyên!)'
+                          : '✅ Đã mở lại nhận hồ sơ ứng tuyển trên Trang chủ!'
+                      );
+                    } catch (err) {
+                      triggerToast('Lỗi cập nhật trạng thái tin: ' + (err.response?.data?.message || err.message));
+                    }
+                  }}
+                  className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs border ${
+                    jobDetails.status === 'CLOSED'
+                      ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200'
+                      : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200'
+                  }`}
+                  title={
+                    jobDetails.status === 'CLOSED'
+                      ? 'Mở lại bài đăng để tiếp tục nhận hồ sơ ứng viên trên Trang chủ'
+                      : 'Tạm dừng / Đóng nhận hồ sơ mới khi đã tuyển đủ người (Giữ nguyên toàn bộ danh sách ứng viên)'
+                  }
+                >
+                  <span className="material-symbols-outlined text-[16px]">
+                    {jobDetails.status === 'CLOSED' ? 'play_circle' : 'pause_circle'}
+                  </span>
+                  <span>{jobDetails.status === 'CLOSED' ? 'Mở Lại Tuyển' : 'Tạm Dừng / Đóng Tuyển'}</span>
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={handleRecalculateAi}
@@ -1577,17 +1619,13 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
 
                       {/* Avatar */}
                       <div className="relative shrink-0">
-                        {cand.avatar ? (
-                          <img
-                            src={cand.avatar}
-                            alt={cand.name}
-                            className="w-10 h-10 rounded-xl object-cover ring-1 ring-slate-200"
-                          />
-                        ) : (
-                          <div className="w-10 h-10 rounded-xl bg-purple-100 text-[#5b48bd] font-bold text-xs flex items-center justify-center ring-1 ring-purple-200">
-                            {cand.initials}
-                          </div>
-                        )}
+                        <AvatarImg
+                          src={cand.avatar}
+                          name={cand.name}
+                          alt={cand.name}
+                          className="w-10 h-10 rounded-xl object-cover ring-1 ring-slate-200"
+                          fallbackClassName="w-10 h-10 rounded-xl font-bold text-xs text-white flex items-center justify-center ring-1 ring-purple-200"
+                        />
                         <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center text-[10px] text-white">
                           ✓
                         </span>
@@ -1961,17 +1999,13 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                     title="Nhấp để xem hồ sơ và CV chi tiết của ứng viên này"
                   >
                     <div className="relative shrink-0">
-                      {cand.avatar ? (
-                        <img
-                          className="w-13 h-13 rounded-2xl object-cover ring-1 ring-slate-200 group-hover:ring-purple-400 transition-all shadow-xs"
-                          src={cand.avatar}
-                          alt={`Portrait of ${cand.name}`}
-                        />
-                      ) : (
-                        <div className="w-13 h-13 rounded-2xl bg-gradient-to-br from-purple-100 to-indigo-100 text-[#5b48bd] flex items-center justify-center font-bold text-base ring-1 ring-purple-200 shadow-xs">
-                          {cand.initials}
-                        </div>
-                      )}
+                      <AvatarImg
+                        src={cand.avatar}
+                        name={cand.name}
+                        alt={`Portrait of ${cand.name}`}
+                        className="w-13 h-13 rounded-2xl object-cover ring-1 ring-slate-200 group-hover:ring-purple-400 transition-all shadow-xs"
+                        fallbackClassName="w-13 h-13 rounded-2xl text-white flex items-center justify-center font-bold text-base ring-1 ring-purple-200 shadow-xs"
+                      />
 
                       {cand.isKnockedOut || (cand.matchScore || 0) < 50 ? (
                         <span
@@ -2405,17 +2439,13 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                 {/* 1. Candidate Hero & ATS Score Gauge Card */}
                 <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-slate-50 via-purple-50/20 to-indigo-50/30 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-5 shadow-xs">
                   <div className="flex items-center gap-4">
-                    {selectedCandidateForModal.avatar ? (
-                      <img
-                        className="w-16 h-16 rounded-2xl object-cover ring-2 ring-purple-200 shadow-sm shrink-0"
-                        src={selectedCandidateForModal.avatar}
-                        alt={selectedCandidateForModal.name}
-                      />
-                    ) : (
-                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#221d47] to-[#5b48bd] text-white flex items-center justify-center font-bold text-2xl shadow-sm shrink-0">
-                        {selectedCandidateForModal.initials}
-                      </div>
-                    )}
+                    <AvatarImg
+                      src={selectedCandidateForModal.avatar}
+                      name={selectedCandidateForModal.name}
+                      alt={selectedCandidateForModal.name}
+                      className="w-16 h-16 rounded-2xl object-cover ring-2 ring-purple-200 shadow-sm shrink-0"
+                      fallbackClassName="w-16 h-16 rounded-2xl text-white flex items-center justify-center font-bold text-2xl shadow-sm shrink-0"
+                    />
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <h4 className="text-lg font-bold text-slate-900">

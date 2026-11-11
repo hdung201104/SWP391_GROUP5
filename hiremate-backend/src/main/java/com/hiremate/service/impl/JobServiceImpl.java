@@ -1278,13 +1278,13 @@ public class JobServiceImpl implements JobService {
         resp.setRecruiterName(recruiterUser != null ? recruiterUser.getFullName() : null);
         resp.setRecruiterEmail(recruiterUser != null ? recruiterUser.getEmail() : null);
         resp.setRecruiterPhone(recruiterUser != null ? recruiterUser.getPhone() : null);
-        resp.setRecruiterAvatar(recruiterUser != null ? recruiterUser.getAvatarUrl() : null);
+        resp.setRecruiterAvatar(recruiterUser != null ? com.hiremate.service.BrandMediaSyncService.sanitizeImageUrl(recruiterUser.getAvatarUrl()) : null);
         resp.setRecruiterPosition(recruiterPosition);
         resp.setRecruiterDepartment(recruiterDepartment);
         resp.setRecruiterBio(recruiterUser != null ? recruiterUser.getBio() : null);
         resp.setCompanyId(companyId);
         resp.setCompanyName(companyName);
-        resp.setCompanyLogo(companyLogo);
+        resp.setCompanyLogo(com.hiremate.service.BrandMediaSyncService.resolveCompanyLogo(companyName, companyLogo));
         resp.setCompanySize(companySize);
         resp.setCompanyAddress(companyAddress);
         resp.setCompanyDescription(companyDescription);

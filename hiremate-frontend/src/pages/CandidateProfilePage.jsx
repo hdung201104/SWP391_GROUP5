@@ -10,6 +10,8 @@ import ApplyJobModal from '../components/jobs/ApplyJobModal';
 import CvViewModal from '../components/common/CvViewModal';
 import ModalPortal from '../components/common/ModalPortal';
 import interviewApi from '../api/interviewApi';
+import { AvatarImg, CompanyLogoImg } from '../components/common/SmartImage';
+import { resolveUserAvatar } from '../utils/mediaUtils';
 
 
 // Safe Null-Guard Helpers
@@ -483,9 +485,17 @@ export default function CandidateProfilePage({ user }) {
       const fd = new FormData();
       fd.append('file', file);
       const res = await candidateApi.uploadAvatar(fd);
-      const newAvatar = res.data?.data?.avatarUrl || res.data?.avatarUrl;
+      const newAvatar = resolveUserAvatar(res.data?.data?.avatarUrl || res.data?.avatarUrl);
       if (newAvatar) {
         setCandidateAvatarUrl(newAvatar);
+        try {
+          const rawStored = localStorage.getItem('user');
+          if (rawStored) {
+            const parsed = JSON.parse(rawStored);
+            localStorage.setItem('user', JSON.stringify({ ...parsed, avatarUrl: newAvatar }));
+          }
+          window.dispatchEvent(new Event('hiremate_user_updated'));
+        } catch {}
         showToast('Đã cập nhật ảnh đại diện lên Cloudinary CDN!');
       }
     } catch (err) {
@@ -496,7 +506,7 @@ export default function CandidateProfilePage({ user }) {
   const currentCandidate = {
     accountName: cvData.candidateName || user?.fullName || profileData?.fullName || 'Ứng viên',
     accountIndustry: cvData.targetTitle || profileData?.headline || 'Chuyên viên Công nghệ & Kinh doanh',
-    avatarUrl: candidateAvatarUrl || user?.avatarUrl || profileData?.avatarUrl || '',
+    avatarUrl: resolveUserAvatar(candidateAvatarUrl) || resolveUserAvatar(profileData?.avatarUrl) || resolveUserAvatar(user?.avatarUrl) || '',
     email: cvData.email || user?.email || profileData?.email || '',
     phone: cvData.phone || user?.phone || profileData?.phone || 'Chưa cập nhật',
     location: cvData.location || profileData?.location || user?.address || 'Việt Nam',
@@ -1042,6 +1052,10 @@ export default function CandidateProfilePage({ user }) {
           if (res?.data) {
             const p = res.data;
             setProfileData(p);
+            const dbAvatar = resolveUserAvatar(p.avatarUrl);
+            if (dbAvatar) {
+              setCandidateAvatarUrl((prev) => prev || dbAvatar);
+            }
             setCvData(prev => ({
               ...prev,
               candidateName: prev.candidateName || p.fullName,
@@ -1921,10 +1935,12 @@ export default function CandidateProfilePage({ user }) {
                       {/* Portrait & Candidate Name */}
                       <div className="text-center space-y-3 pb-2">
                         <div className="relative inline-block group">
-                          <img
+                          <AvatarImg
                             src={currentCandidate.avatarUrl}
+                            name={cvData.candidateName || currentCandidate.accountName}
                             alt={currentCandidate.accountName}
                             className="w-32 h-32 sm:w-36 sm:h-36 rounded-2xl object-cover shadow-soft mx-auto border-2 border-botanical-stone group-hover:brightness-90 transition-all"
+                            fallbackClassName="w-32 h-32 sm:w-36 sm:h-36 rounded-2xl text-white flex items-center justify-center font-extrabold text-3xl shadow-soft mx-auto border-2 border-botanical-stone"
                           />
                           <span className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white shadow z-10" title="Đang sẵn sàng nhận việc"></span>
 
@@ -3768,10 +3784,12 @@ export default function CandidateProfilePage({ user }) {
                       </div>
 
                       <div className="relative group shrink-0">
-                        <img
+                        <AvatarImg
                           src={currentCandidate.avatarUrl}
+                          name={cvData.candidateName || currentCandidate.accountName}
                           alt={cvData.candidateName || currentCandidate.accountName}
                           className="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl object-cover border-4 border-white/30 shadow-2xl group-hover:brightness-90 transition-all"
+                          fallbackClassName="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl text-white flex items-center justify-center font-extrabold text-3xl border-4 border-white/30 shadow-2xl"
                         />
                         <input
                           type="file"
@@ -4313,12 +4331,15 @@ export default function CandidateProfilePage({ user }) {
                           {/* Header of Card */}
                           <div className="flex items-start justify-between gap-3 mb-2.5">
                             <div className="flex items-center gap-3">
-                              <div className="w-12 h-12 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center font-bold text-[#5b48bd] text-lg overflow-hidden shrink-0 shadow-xs">
-                                {job.companyLogo ? (
-                                  <img src={job.companyLogo} alt={job.companyName} className="w-full h-full object-cover" />
-                                ) : (
-                                  <span>{job.companyName ? job.companyName.charAt(0).toUpperCase() : 'J'}</span>
-                                )}
+                              <div className="w-12 h-12 rounded-xl bg-white border border-purple-100 flex items-center justify-center font-bold text-[#5b48bd] text-lg overflow-hidden shrink-0 shadow-xs p-1">
+                                <CompanyLogoImg
+                                  src={job.companyLogo}
+                                  companyName={job.companyName}
+                                  alt={job.companyName}
+                                  className="w-full h-full object-contain"
+                                  fallbackClassName="font-bold text-[#5b48bd] text-lg"
+                                  maxInitials={3}
+                                />
                               </div>
                               <div>
                                 <h3 className="font-sans font-extrabold text-sm text-[#1e1b4b] line-clamp-1 group-hover:text-[#5b48bd] transition-colors">
@@ -4569,12 +4590,15 @@ export default function CandidateProfilePage({ user }) {
                           className="p-3.5 rounded-2xl bg-[#f8f7ff] border border-purple-100 hover:border-purple-200 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
                         >
                           <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-10 h-10 rounded-xl bg-white border border-purple-100 flex items-center justify-center font-bold text-[#5b48bd] text-sm shrink-0 shadow-2xs">
-                              {job.companyLogo ? (
-                                <img src={job.companyLogo} alt={job.companyName} className="w-full h-full object-cover rounded-xl" />
-                              ) : (
-                                <span>{job.companyName ? job.companyName.charAt(0).toUpperCase() : 'J'}</span>
-                              )}
+                            <div className="w-10 h-10 rounded-xl bg-white border border-purple-100 flex items-center justify-center font-bold text-[#5b48bd] text-sm shrink-0 shadow-2xs overflow-hidden p-1">
+                              <CompanyLogoImg
+                                src={job.companyLogo}
+                                companyName={job.companyName}
+                                alt={job.companyName}
+                                className="w-full h-full object-contain"
+                                fallbackClassName="font-bold text-[#5b48bd] text-sm"
+                                maxInitials={3}
+                              />
                             </div>
                             <div className="min-w-0">
                               <h4 className="font-bold text-xs text-[#1e1b4b] truncate group-hover:text-[#5b48bd] transition-colors">

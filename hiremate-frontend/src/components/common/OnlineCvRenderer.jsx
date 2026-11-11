@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { AvatarImg } from './SmartImage';
+import { resolveUserAvatar } from '../../utils/mediaUtils';
 
 /**
  * OnlineCvRenderer.jsx
@@ -36,7 +38,7 @@ export default function OnlineCvRenderer({
   const email = candidate.email || 'ungvien@hiremate.vn';
   const phone = candidate.phone || '(+84) 090.123.4567';
   const location = candidate.location || 'Hà Nội, Việt Nam';
-  const avatar = candidate.avatar || candidate.avatarUrl || null;
+  const avatar = resolveUserAvatar(candidate);
   const summary = candidate.summary || 'Chuyên viên kỹ thuật tận tâm với kinh nghiệm thực chiến trong phát triển các hệ thống chịu tải cao và kiến trúc hiện đại.';
   
   // Kỹ năng
@@ -189,17 +191,13 @@ export default function OnlineCvRenderer({
               {/* Avatar & Tên */}
               <div className="text-center space-y-3 pb-2 border-b border-slate-200">
                 <div className="relative inline-block">
-                  {avatar ? (
-                    <img
-                      src={avatar}
-                      alt={name}
-                      className="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl object-cover shadow-sm mx-auto border-2 border-purple-200 ring-4 ring-purple-50"
-                    />
-                  ) : (
-                    <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl bg-gradient-to-tr from-[#1e1548] to-[#5b48bd] text-white flex items-center justify-center font-extrabold text-2xl shadow-sm mx-auto">
-                      {name.split(' ').map((n) => n[0]).slice(-2).join('').toUpperCase() || 'UV'}
-                    </div>
-                  )}
+                  <AvatarImg
+                    src={avatar}
+                    name={name}
+                    alt={name}
+                    className="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl object-cover shadow-sm mx-auto border-2 border-purple-200 ring-4 ring-purple-50"
+                    fallbackClassName="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl text-white flex items-center justify-center font-extrabold text-2xl shadow-sm mx-auto"
+                  />
                   <span className="absolute bottom-1 right-1 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white shadow" title="Đang sẵn sàng nhận việc" />
                 </div>
 
@@ -552,15 +550,15 @@ export default function OnlineCvRenderer({
                 </p>
               </div>
 
-              {avatar && (
-                <div className="relative shrink-0">
-                  <img
-                    src={avatar}
-                    alt={name}
-                    className="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl object-cover border-4 border-white/20 shadow-2xl"
-                  />
-                </div>
-              )}
+              <div className="relative shrink-0">
+                <AvatarImg
+                  src={avatar}
+                  name={name}
+                  alt={name}
+                  className="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl object-cover border-4 border-white/20 shadow-2xl"
+                  fallbackClassName="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl text-white flex items-center justify-center font-extrabold text-2xl border-4 border-white/20 shadow-2xl"
+                />
+              </div>
             </div>
 
             {/* Contact Ribbon */}

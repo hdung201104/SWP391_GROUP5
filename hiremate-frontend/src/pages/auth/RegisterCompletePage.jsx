@@ -1,5 +1,6 @@
 import { HIREMATE_LOGO_URL } from '../../constants/branding';
 import React, { useState, useEffect } from 'react';
+import { AvatarImg, CompanyLogoImg } from '../../components/common/SmartImage';
 import { 
   User, 
   Mail, 
@@ -471,18 +472,13 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
           {/* Center User Showcase */}
           <div className="relative z-10 my-auto flex flex-col items-center text-center py-6">
             <div className="relative mb-3.5">
-              {avatarUrl ? (
-                <img 
-                  src={avatarUrl} 
-                  alt={`${providerName} Avatar`} 
-                  className="w-20 h-20 rounded-2xl border-2 border-white/40 shadow-2xl object-cover"
-                  referrerPolicy="no-referrer"
-                />
-              ) : (
-                <div className="w-20 h-20 rounded-2xl bg-white/15 border border-white/30 backdrop-blur-md flex items-center justify-center text-white text-2xl font-black shadow-xl">
-                  {fullName?.charAt(0) || email?.charAt(0) || 'U'}
-                </div>
-              )}
+              <AvatarImg
+                src={avatarUrl}
+                name={fullName || email || 'U'}
+                alt={`${providerName} Avatar`}
+                className="w-20 h-20 rounded-2xl border-2 border-white/40 shadow-2xl object-cover"
+                fallbackClassName="w-20 h-20 rounded-2xl border border-white/30 flex items-center justify-center text-white text-2xl font-black shadow-xl"
+              />
               <div className="absolute -bottom-1.5 -right-1.5 w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center border-2 border-[#1e1b4b] shadow">
                 <ShieldCheck className="w-3.5 h-3.5" />
               </div>
@@ -874,12 +870,15 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
                                   className="p-2.5 rounded-xl bg-white border border-indigo-100 hover:border-indigo-400 hover:shadow-md transition-all cursor-pointer flex items-center justify-between gap-3 group"
                                 >
                                   <div className="flex items-center gap-2.5 min-w-0">
-                                    <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-700 font-black text-xs shrink-0 overflow-hidden">
-                                      {comp.logoUrl ? (
-                                        <img src={comp.logoUrl} alt={comp.companyName} className="w-full h-full object-cover" />
-                                      ) : (
-                                        comp.companyName?.charAt(0) || 'C'
-                                      )}
+                                    <div className="w-8 h-8 rounded-lg bg-white border border-indigo-100 flex items-center justify-center text-indigo-700 font-black text-xs shrink-0 overflow-hidden p-0.5">
+                                      <CompanyLogoImg
+                                        src={comp.logoUrl}
+                                        companyName={comp.companyName}
+                                        alt={comp.companyName}
+                                        className="w-full h-full object-contain"
+                                        fallbackClassName="text-indigo-700 font-black text-xs"
+                                        maxInitials={2}
+                                      />
                                     </div>
                                     <div className="min-w-0">
                                       <div className="text-xs font-bold text-slate-900 truncate group-hover:text-indigo-600 transition-colors">
@@ -951,12 +950,15 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
                       </div>
 
                       <div className="flex items-center gap-3 bg-white p-3 rounded-xl border border-indigo-100">
-                        <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white font-black text-sm flex items-center justify-center shrink-0 overflow-hidden shadow-sm">
-                          {selectedCompany.logoUrl ? (
-                            <img src={selectedCompany.logoUrl} alt={selectedCompany.companyName} className="w-full h-full object-cover" />
-                          ) : (
-                            selectedCompany.companyName?.charAt(0) || 'C'
-                          )}
+                        <div className="w-10 h-10 rounded-xl bg-white border border-indigo-200 text-indigo-700 font-black text-sm flex items-center justify-center shrink-0 overflow-hidden shadow-sm p-1">
+                          <CompanyLogoImg
+                            src={selectedCompany.logoUrl}
+                            companyName={selectedCompany.companyName}
+                            alt={selectedCompany.companyName}
+                            className="w-full h-full object-contain"
+                            fallbackClassName="text-indigo-700 font-black text-sm"
+                            maxInitials={3}
+                          />
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="text-xs font-extrabold text-slate-900 truncate">{selectedCompany.companyName}</div>

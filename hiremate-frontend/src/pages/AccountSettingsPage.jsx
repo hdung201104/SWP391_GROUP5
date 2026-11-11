@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import authApi from '../api/authApi';
-import { companyApi } from '../api';
+import { companyApi, candidateApi } from '../api';
 import VietnameseLocationPicker from '../components/common/VietnameseLocationPicker';
+import { AvatarImg } from '../components/common/SmartImage';
+import { resolveUserAvatar, sanitizeMediaUrl } from '../utils/mediaUtils';
 
 // Helper to detect actual client operating system, browser, and device
 const detectCurrentDevice = () => {
@@ -162,7 +164,7 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
           if (u.companyName) setCompanyName(u.companyName);
           if (u.title || u.recruiterTitle) setRecruiterTitle(u.title || u.recruiterTitle);
           if (u.department || u.recruiterDepartment) setRecruiterDepartment(u.department || u.recruiterDepartment);
-          if (u.avatarUrl) setAvatarUrl(u.avatarUrl);
+          if (u.avatarUrl) setAvatarUrl(resolveUserAvatar(u.avatarUrl) || '');
         }
       })
       .catch((err) => {
@@ -199,8 +201,8 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
   const defaultRecruiterAvatar = 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&auto=format&fit=crop&q=80';
   const defaultAdminAvatar = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80';
   
-  const defaultAvatar = isRoleAdmin ? defaultAdminAvatar : (isRoleRecruiter ? defaultRecruiterAvatar : defaultCandidateAvatar);
-  const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || defaultAvatar);
+  const [avatarUrl, setAvatarUrl] = useState(() => resolveUserAvatar(user?.avatarUrl) || '');
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [customAvatarInput, setCustomAvatarInput] = useState('');
 
   // Avatar presets tailored by role
@@ -447,42 +449,72 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
     );
   };
 
-  // Upload Avatar File from device
-  const handleFileUpload = (e) => {
+  // Upload Avatar File from device directly to Cloudinary CDN via backend
+  const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!file.type?.startsWith('image/')) {
+      triggerToast('Vui lòng chọn tệp hình ảnh hợp lệ (JPG, PNG, WEBP).');
+      return;
+    }
     if (file.size > 5 * 1024 * 1024) {
       triggerToast('Kích thước ảnh không được vượt quá 5MB');
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target.result;
-      setAvatarUrl(dataUrl);
-      triggerToast('✓ Đã tải ảnh từ thiết bị lên! Bấm "Lưu Ảnh Đại Diện" để áp dụng.');
-    };
-    reader.readAsDataURL(file);
+    setIsUploadingAvatar(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await candidateApi.uploadAvatar(formData);
+      const profileRes = res?.data || res;
+      const uploadedUrl = resolveUserAvatar(profileRes?.avatarUrl || profileRes?.url) || profileRes?.avatarUrl;
+      if (!uploadedUrl) {
+        throw new Error('Không nhận được liên kết ảnh Cloudinary hợp lệ từ máy chủ.');
+      }
+      setAvatarUrl(uploadedUrl);
+      const updatedUser = {
+        ...(user || {}),
+        avatarUrl: uploadedUrl,
+      };
+      if (onUpdateUser) onUpdateUser(updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      window.dispatchEvent(new Event('hiremate_user_updated'));
+      triggerToast('✓ Đã tải ảnh lên Cloudinary và cập nhật ảnh đại diện thành công!');
+    } catch (err) {
+      console.error('Lỗi tải ảnh đại diện lên Cloudinary:', err);
+      triggerToast(err?.response?.data?.message || err?.message || 'Không thể tải ảnh đại diện lên hệ thống. Vui lòng thử lại.');
+    } finally {
+      setIsUploadingAvatar(false);
+      if (e.target) e.target.value = '';
+    }
   };
 
   // Save Avatar Action
   const handleSaveAvatar = async () => {
+    const cleanUrl = sanitizeMediaUrl(avatarUrl);
+    if (!cleanUrl) {
+      triggerToast('Vui lòng chọn ảnh hoặc nhập liên kết ảnh HTTPS hợp lệ trước khi lưu.');
+      return;
+    }
+
     try {
-      await authApi.updateAvatar(avatarUrl);
-    } catch {
-      // Local fallback
+      const res = await authApi.updateAvatar(cleanUrl);
+      const profileRes = res?.data || res;
+      const persistedUrl = resolveUserAvatar(profileRes?.avatarUrl) || cleanUrl;
+      setAvatarUrl(persistedUrl);
+      const updatedUser = {
+        ...(user || {}),
+        avatarUrl: persistedUrl,
+      };
+      if (onUpdateUser) onUpdateUser(updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      window.dispatchEvent(new Event('hiremate_user_updated'));
+      triggerToast('✓ Ảnh đại diện mới đã được lưu vào PostgreSQL & cập nhật trên toàn hệ thống!');
+    } catch (err) {
+      console.error('Lỗi lưu ảnh đại diện:', err);
+      triggerToast(err?.response?.data?.message || 'Không thể lưu ảnh đại diện. Vui lòng kiểm tra liên kết ảnh.');
     }
-
-    const updatedUser = {
-      ...(user || {}),
-      avatarUrl,
-    };
-
-    if (onUpdateUser) {
-      onUpdateUser(updatedUser);
-    }
-    localStorage.setItem('user', JSON.stringify(updatedUser));
-    triggerToast('✓ Ảnh đại diện mới đã được cập nhật trên toàn hệ thống!');
   };
 
   // Change Password - Step 1: Validate & Send OTP to Email
@@ -826,10 +858,12 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                   ? 'bg-amber-50 border-amber-300'
                   : 'bg-[#edeafd] border-purple-200'
               }`}>
-                <img
+                <AvatarImg
                   src={avatarUrl}
+                  name={fullName}
                   alt={fullName}
                   className="w-full h-full object-cover rounded-2xl bg-white"
+                  fallbackClassName="w-full h-full rounded-2xl flex items-center justify-center font-bold text-2xl text-white"
                 />
               </div>
               <button
@@ -1729,10 +1763,12 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                 </span>
                 
                 <div className="w-36 h-36 rounded-full p-1.5 bg-[#edeafd] border-2 border-purple-200 shadow-sm">
-                  <img
+                  <AvatarImg
                     src={avatarUrl}
+                    name={fullName}
                     alt="Preview"
                     className="w-full h-full object-cover rounded-full bg-white"
+                    fallbackClassName="w-full h-full rounded-full flex items-center justify-center font-bold text-3xl text-white"
                   />
                 </div>
 

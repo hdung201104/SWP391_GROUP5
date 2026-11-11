@@ -211,7 +211,7 @@ public class CandidateServiceImpl implements CandidateService {
                 .fullName(user.getFullName())
                 .email(effectiveEmail)
                 .phone(effectivePhone)
-                .avatarUrl(user.getAvatarUrl())
+                .avatarUrl(com.hiremate.service.BrandMediaSyncService.sanitizeImageUrl(user.getAvatarUrl()))
 
                 .dateOfBirth(user.getDateOfBirth())
                 .address(user.getAddress())

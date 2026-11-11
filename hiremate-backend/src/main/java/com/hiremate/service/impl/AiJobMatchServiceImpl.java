@@ -1019,7 +1019,10 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
                 .recruiterId(job.getRecruiter() != null ? job.getRecruiter().getRecruiterId() : null)
                 .companyId(company != null ? company.getCompanyId() : null)
                 .companyName(company != null ? company.getCompanyName() : "HireMate Partner")
-                .companyLogo(company != null ? company.getLogoUrl() : null)
+                .companyLogo(com.hiremate.service.BrandMediaSyncService.resolveCompanyLogo(
+                        company != null ? company.getCompanyName() : null,
+                        company != null ? company.getLogoUrl() : null
+                ))
                 .title(job.getTitle())
                 .description(job.getDescription())
                 .requirements(parseCleanList(job.getRequirements()))

@@ -7,6 +7,8 @@ import DynamicPerformanceWaveChart from '../components/dashboard/DynamicPerforma
 import DynamicPillBarChart from '../components/dashboard/DynamicPillBarChart';
 import HeliosHeroCards from '../components/dashboard/HeliosHeroCards';
 import ModernPaymentHistoryTable from '../components/dashboard/ModernPaymentHistoryTable';
+import { AvatarImg, CompanyLogoImg } from '../components/common/SmartImage';
+import { resolveCompanyLogo, resolveUserAvatar } from '../utils/mediaUtils';
 
 /**
  * HireMate.AI - Enterprise Admin Dashboard Page (Mindskills UI Redesign)
@@ -1967,6 +1969,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
             phone: u.phone || '-',
             role: u.role,
             company: u.company || '-',
+            avatarUrl: resolveUserAvatar(u.avatarUrl),
             status: u.status === 'BLOCKED' ? 'LOCKED' : (u.status || 'ACTIVE'),
             authProvider: isGoogle ? 'GOOGLE' : 'LOCAL',
             isOnline,
@@ -2003,6 +2006,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
           docUrl: (c.hasLicenseDoc || (c.docUrl && !c.docUrl.startsWith('blob:') && !c.docUrl.includes('images.unsplash.com'))) ? c.docUrl : null,
           docName: (c.hasLicenseDoc || (c.docUrl && !c.docUrl.startsWith('blob:') && !c.docUrl.includes('images.unsplash.com'))) ? (c.docName || 'Giay_Phep_Kinh_Doanh.pdf') : null,
           notes: c.notes || 'Hồ sơ doanh nghiệp thực tế từ Supabase PostgreSQL',
+          logoUrl: resolveCompanyLogo(c.shortName || c.name, c.logoUrl),
           logo: c.name?.slice(0, 3)?.toUpperCase() || 'CMP',
           logoBg: 'bg-[#5b48bd]',
         }));
@@ -5345,9 +5349,16 @@ export default function AdminDashboardPage({ user, onLogout }) {
                             <div className="flex items-start justify-between gap-3">
                               <div className="flex items-center gap-3">
                                 <div
-                                  className={`w-12 h-12 rounded-2xl ${comp.logoBg} text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-xs`}
+                                  className="w-12 h-12 rounded-2xl bg-white border border-purple-100 text-[#5b48bd] flex items-center justify-center font-bold text-sm shrink-0 shadow-xs overflow-hidden p-1"
                                 >
-                                  {comp.logo}
+                                  <CompanyLogoImg
+                                    src={comp.logoUrl}
+                                    companyName={comp.shortName || comp.name}
+                                    alt={comp.name}
+                                    className="w-full h-full object-contain"
+                                    fallbackClassName="font-bold text-sm text-[#5b48bd]"
+                                    maxInitials={3}
+                                  />
                                 </div>
                                 <div>
                                   <h3 className="font-bold text-[#1e1b4b] text-sm leading-snug">{comp.shortName}</h3>
@@ -5548,9 +5559,16 @@ export default function AdminDashboardPage({ user, onLogout }) {
                               <td className="py-4 px-4">
                                 <div className="flex items-center gap-3">
                                   <div
-                                    className={`w-10 h-10 rounded-2xl ${comp.logoBg} text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs`}
+                                    className="w-10 h-10 rounded-2xl bg-white border border-purple-100 text-[#5b48bd] flex items-center justify-center font-bold text-xs shrink-0 shadow-xs overflow-hidden p-1"
                                   >
-                                    {comp.logo}
+                                    <CompanyLogoImg
+                                      src={comp.logoUrl}
+                                      companyName={comp.shortName || comp.name}
+                                      alt={comp.name}
+                                      className="w-full h-full object-contain"
+                                      fallbackClassName="font-bold text-xs text-[#5b48bd]"
+                                      maxInitials={3}
+                                    />
                                   </div>
                                   <div>
                                     <div className="font-bold text-[#1e1b4b] text-sm">{comp.shortName}</div>
@@ -6891,9 +6909,13 @@ export default function AdminDashboardPage({ user, onLogout }) {
                               <td className="py-3.5 px-5">
                                 <div className="flex items-center gap-3">
                                   <div className="relative shrink-0">
-                                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#5b48bd] to-[#8b5cf6] text-white flex items-center justify-center font-bold text-sm shadow-xs group-hover:scale-105 transition-transform">
-                                      {u.name ? u.name.charAt(0).toUpperCase() : 'U'}
-                                    </div>
+                                    <AvatarImg
+                                      src={u.avatarUrl}
+                                      name={u.name}
+                                      alt={u.name}
+                                      className="w-10 h-10 rounded-2xl object-cover shadow-xs group-hover:scale-105 transition-transform border border-purple-100"
+                                      fallbackClassName="w-10 h-10 rounded-2xl text-white flex items-center justify-center font-bold text-sm shadow-xs group-hover:scale-105 transition-transform"
+                                    />
                                     <span
                                       title={isOnline ? 'Đang trực tuyến trên hệ thống' : 'Ngoại tuyến'}
                                       className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${
@@ -9638,8 +9660,15 @@ export default function AdminDashboardPage({ user, onLogout }) {
             {/* Modal Header */}
             <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between gap-4 bg-slate-50/50">
               <div className="flex items-center gap-3.5 min-w-0">
-                <div className={`w-12 h-12 rounded-2xl ${selectedCompanyDossier.logoBg || 'bg-[#5b48bd]'} text-white flex items-center justify-center font-bold text-base shrink-0 shadow-md`}>
-                  {selectedCompanyDossier.logo || 'CMP'}
+                <div className="w-12 h-12 rounded-2xl bg-white border border-purple-100 text-[#5b48bd] flex items-center justify-center font-bold text-base shrink-0 shadow-md overflow-hidden p-1">
+                  <CompanyLogoImg
+                    src={selectedCompanyDossier.logoUrl}
+                    companyName={selectedCompanyDossier.shortName || selectedCompanyDossier.name}
+                    alt={selectedCompanyDossier.name}
+                    className="w-full h-full object-contain"
+                    fallbackClassName="font-bold text-base text-[#5b48bd]"
+                    maxInitials={3}
+                  />
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">

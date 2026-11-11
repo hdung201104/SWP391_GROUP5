@@ -14,7 +14,9 @@ public class ApplicationResponse {
     private Long applicationId;
     private Long jobId;
     private String jobTitle;
+    private Long companyId;
     private String companyName;
+    private String companyLogo;
     private Long candidateId;
     private String candidateName;
     private String candidateEmail;
@@ -57,7 +59,9 @@ public class ApplicationResponse {
         private Long applicationId;
         private Long jobId;
         private String jobTitle;
+        private Long companyId;
         private String companyName;
+        private String companyLogo;
         private Long candidateId;
         private String candidateName;
         private String candidateEmail;
@@ -94,8 +98,18 @@ public class ApplicationResponse {
             return this;
         }
 
+        public ApplicationResponseBuilder companyId(Long companyId) {
+            this.companyId = companyId;
+            return this;
+        }
+
         public ApplicationResponseBuilder companyName(String companyName) {
             this.companyName = companyName;
+            return this;
+        }
+
+        public ApplicationResponseBuilder companyLogo(String companyLogo) {
+            this.companyLogo = companyLogo;
             return this;
         }
 
@@ -259,7 +273,7 @@ public class ApplicationResponse {
 
         public ApplicationResponse build() {
             return new ApplicationResponse(
-                    applicationId, jobId, jobTitle, companyName, candidateId,
+                    applicationId, jobId, jobTitle, companyId, companyName, companyLogo, candidateId,
                     candidateName, candidateEmail, candidatePhone, candidateAvatar, withdrawnByCandidate, offerDeclinedByCandidate,
                     recruiterId, recruiterName, recruiterEmail,
                     cvId, cvUrl, status, coverLetter, matchingScore,

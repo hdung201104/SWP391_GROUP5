@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { calculateJobDeadline } from '../../utils/jobTimeUtils';
 import { isJobSaved, toggleSaveJob } from '../../utils/savedJobsStorage';
+import { CompanyLogoImg } from '../common/SmartImage';
 
 export default function JobCard({ job, user, onSelectJob, onApplyJob, onPracticeInterview, onHoverChange }) {
   const isRecruiter = user?.role === 'RECRUITER';
@@ -164,14 +165,17 @@ export default function JobCard({ job, user, onSelectJob, onApplyJob, onPractice
         <div className="flex items-start gap-3.5">
           <div
             onClick={handleOpenJobDetail}
-            className="w-12 h-12 rounded-2xl bg-[#f4f2fd] border border-purple-100 flex items-center justify-center font-extrabold text-base text-[#5b48bd] hover:scale-105 transition-transform shrink-0 cursor-pointer shadow-sm overflow-hidden"
+            className="w-12 h-12 rounded-2xl bg-white border border-purple-100 flex items-center justify-center font-extrabold text-base text-[#5b48bd] hover:scale-105 transition-transform shrink-0 cursor-pointer shadow-sm overflow-hidden p-1"
             title="Xem chi tiết việc làm"
           >
-            {job.companyLogo ? (
-              <img src={job.companyLogo} alt={job.companyName} className="w-full h-full object-cover" />
-            ) : (
-              <span>{initials}</span>
-            )}
+            <CompanyLogoImg
+              src={job.companyLogo}
+              companyName={job.companyName}
+              alt={job.companyName}
+              className="w-full h-full object-contain"
+              fallbackClassName="font-extrabold text-base text-[#5b48bd]"
+              maxInitials={3}
+            />
           </div>
 
           <div className="space-y-1 min-w-0 flex-1">
@@ -211,9 +215,30 @@ export default function JobCard({ job, user, onSelectJob, onApplyJob, onPractice
               </div>
             </div>
             <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-              <span className="font-semibold text-slate-700 truncate max-w-[180px] sm:max-w-[220px]">
-                {job.companyName || 'Doanh Nghiệp Tuyển Dụng'}
-              </span>
+              {job.companyId ? (
+                <a
+                  href={`#/companies/${job.companyId}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    try {
+                      sessionStorage.setItem(`hiremate_company_preview_${job.companyId}`, JSON.stringify({
+                        companyId: job.companyId,
+                        companyName: job.companyName,
+                        logoUrl: job.companyLogo,
+                        address: job.location,
+                      }));
+                    } catch {}
+                  }}
+                  className="font-semibold text-slate-700 hover:text-[#5b48bd] hover:underline truncate max-w-[180px] sm:max-w-[220px]"
+                  title="Xem trang hồ sơ công ty"
+                >
+                  {job.companyName || 'Doanh Nghiệp Tuyển Dụng'}
+                </a>
+              ) : (
+                <span className="font-semibold text-slate-700 truncate max-w-[180px] sm:max-w-[220px]">
+                  {job.companyName || 'Doanh Nghiệp Tuyển Dụng'}
+                </span>
+              )}
               <span>•</span>
               <span className="inline-flex items-center gap-1 text-emerald-600 font-semibold shrink-0 text-[11px]">
                 <span className="material-symbols-outlined text-xs text-[#10b981]">verified</span>
@@ -385,13 +410,16 @@ export default function JobCard({ job, user, onSelectJob, onApplyJob, onPractice
           <div className="flex items-start gap-3.5 mb-3.5">
             <div
               onClick={handleOpenJobDetail}
-              className="w-13 h-13 rounded-2xl bg-[#f4f2fd] border border-purple-100 p-1 flex items-center justify-center shrink-0 overflow-hidden shadow-2xs cursor-pointer hover:scale-105 transition-transform"
+              className="w-13 h-13 rounded-2xl bg-white border border-purple-100 p-1 flex items-center justify-center shrink-0 overflow-hidden shadow-2xs cursor-pointer hover:scale-105 transition-transform"
             >
-              {job.companyLogo ? (
-                <img src={job.companyLogo} alt={job.companyName} className="w-full h-full object-cover" />
-              ) : (
-                <span className="font-extrabold text-[#5b48bd] text-base">{initials}</span>
-              )}
+              <CompanyLogoImg
+                src={job.companyLogo}
+                companyName={job.companyName}
+                alt={job.companyName}
+                className="w-full h-full object-contain"
+                fallbackClassName="font-extrabold text-[#5b48bd] text-base"
+                maxInitials={3}
+              />
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-[11px] font-bold text-[#5b48bd] uppercase tracking-wider truncate mb-0.5">

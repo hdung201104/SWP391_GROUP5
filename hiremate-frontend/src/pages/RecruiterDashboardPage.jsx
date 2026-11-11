@@ -9,6 +9,8 @@ import { exportRecruiterReportToExcel, exportRecruiterReportToCsv } from '../uti
 import paymentApi from '../api/paymentApi';
 import { parseSubscriptionPermissions } from '../utils/subscriptionPerms';
 import AnimatedNumber from '../components/dashboard/AnimatedNumber';
+import { CompanyLogoImg } from '../components/common/SmartImage';
+import { resolveCompanyLogo } from '../utils/mediaUtils';
 
 export default function RecruiterDashboardPage({ user, currentRoute }) {
   // Parse tab from currentRoute
@@ -189,7 +191,7 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
           website: compData.website || 'https://hiremate.ai',
           headquarters: compData.address || 'Việt Nam',
           size: compData.companySize || '100 - 500 nhân sự',
-          logoUrl: compData.logoUrl || compData.logo || user?.companyLogo || user?.avatar || '',
+          logoUrl: resolveCompanyLogo(compData.companyName || user?.companyName, compData.logoUrl || compData.logo || user?.companyLogo),
         });
       }
 
@@ -1140,22 +1142,15 @@ export default function RecruiterDashboardPage({ user, currentRoute }) {
         <div className="bg-white/80 backdrop-blur-xl border border-white/85 rounded-3xl p-5 sm:p-6 shadow-[0_10px_35px_-5px_rgba(59,43,142,0.07)] flex items-center gap-4 relative overflow-hidden">
           {/* Top Specular Sheen */}
           <div className="pointer-events-none absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/90 to-transparent" aria-hidden="true" />
-          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#5b48bd] text-white shadow-lg shrink-0 flex items-center justify-center font-bold text-xl overflow-hidden">
-            {companyProfile?.logoUrl || user?.companyLogo ? (
-              <img 
-                src={companyProfile?.logoUrl || user?.companyLogo} 
-                alt={companyProfile?.name || user?.companyName || 'Logo'} 
-                className="w-full h-full object-cover"
-                onError={(e) => { e.currentTarget.style.display = 'none'; }}
-              />
-            ) : (
-              <span>
-                {(user?.companyName || user?.fullName || 'HR')
-                  .trim()
-                  .slice(0, 3)
-                  .toUpperCase()}
-              </span>
-            )}
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-white border border-purple-200 text-[#5b48bd] shadow-lg shrink-0 flex items-center justify-center font-bold text-xl overflow-hidden p-1.5">
+            <CompanyLogoImg
+              src={companyProfile?.logoUrl || user?.companyLogo}
+              companyName={user?.companyName || companyProfile?.name}
+              alt={companyProfile?.name || user?.companyName || 'Logo'}
+              className="w-full h-full object-contain"
+              fallbackClassName="font-bold text-xl text-[#5b48bd]"
+              maxInitials={3}
+            />
           </div>
           <div>
             <h1 className="font-bold text-2xl sm:text-3xl text-[#1e1b4b]">

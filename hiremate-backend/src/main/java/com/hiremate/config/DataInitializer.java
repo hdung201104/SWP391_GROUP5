@@ -27,6 +27,8 @@ public class DataInitializer implements CommandLineRunner {
     private final com.hiremate.repository.SubscriptionPlanRepository subscriptionPlanRepository;
     private final PasswordEncoder passwordEncoder;
     private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.hiremate.service.BrandMediaSyncService brandMediaSyncService;
 
     @Override
     public void run(String... args) {
@@ -35,6 +37,9 @@ public class DataInitializer implements CommandLineRunner {
         initDefaultSubscriptionPlans();
         initPendingJobsForModeration();
         initPaymentOrders();
+        if (brandMediaSyncService != null) {
+            brandMediaSyncService.syncAllMediaOnStartup();
+        }
     }
 
     private static volatile boolean schemaInitialized = false;
@@ -197,7 +202,7 @@ public class DataInitializer implements CommandLineRunner {
                         .role(UserRole.ADMIN)
                         .status(UserStatus.ACTIVE)
                         .isEmailVerified(true)
-                        .avatarUrl("https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80")
+                        .avatarUrl(null)
                         .bio("Quản trị viên chính thức của nền tảng tuyển dụng thông minh HireMate AI")
                         .build();
                 userRepository.save(admin);

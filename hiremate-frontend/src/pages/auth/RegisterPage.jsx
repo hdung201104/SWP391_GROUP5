@@ -5,6 +5,7 @@ import companyApi from '../../api/companyApi';
 import { useLivingTheme } from '../../context/LivingThemeContext';
 import { EDUCATION_LEVELS } from '../../utils/locationData';
 import VietnameseLocationPicker from '../../components/common/VietnameseLocationPicker';
+import { CompanyLogoImg } from '../../components/common/SmartImage';
 
 /**
  * HireMate AI - Modern Glass Executive Register Page
@@ -1004,12 +1005,15 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
                             className="p-2.5 rounded-xl bg-white border border-indigo-100 hover:border-indigo-400 hover:shadow-md transition-all cursor-pointer flex items-center justify-between gap-3 group"
                           >
                             <div className="flex items-center gap-2.5 min-w-0">
-                              <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-700 font-black text-xs shrink-0 overflow-hidden">
-                                {comp.logoUrl ? (
-                                  <img src={comp.logoUrl} alt={comp.companyName} className="w-full h-full object-cover" />
-                                ) : (
-                                  comp.companyName?.charAt(0) || 'C'
-                                )}
+                              <div className="w-8 h-8 rounded-lg bg-white border border-indigo-100 flex items-center justify-center text-indigo-700 font-black text-xs shrink-0 overflow-hidden p-0.5">
+                                <CompanyLogoImg
+                                  src={comp.logoUrl}
+                                  companyName={comp.companyName}
+                                  alt={comp.companyName}
+                                  className="w-full h-full object-contain"
+                                  fallbackClassName="text-indigo-700 font-black text-xs"
+                                  maxInitials={2}
+                                />
                               </div>
                               <div className="min-w-0">
                                 <div className="text-xs font-bold text-slate-900 truncate group-hover:text-indigo-600 transition-colors">
@@ -1077,12 +1081,15 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
                     </div>
 
                     <div className="flex items-center gap-3 bg-white p-3 rounded-xl border border-indigo-100">
-                      <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white font-black text-sm flex items-center justify-center shrink-0 overflow-hidden shadow-sm">
-                        {selectedCompany.logoUrl ? (
-                          <img src={selectedCompany.logoUrl} alt={selectedCompany.companyName} className="w-full h-full object-cover" />
-                        ) : (
-                          selectedCompany.companyName?.charAt(0) || 'C'
-                        )}
+                      <div className="w-10 h-10 rounded-xl bg-white border border-indigo-200 text-indigo-700 font-black text-sm flex items-center justify-center shrink-0 overflow-hidden shadow-sm p-1">
+                        <CompanyLogoImg
+                          src={selectedCompany.logoUrl}
+                          companyName={selectedCompany.companyName}
+                          alt={selectedCompany.companyName}
+                          className="w-full h-full object-contain"
+                          fallbackClassName="text-indigo-700 font-black text-sm"
+                          maxInitials={3}
+                        />
                       </div>
                       <div className="min-w-0 flex-1">
                         <h4 className="text-sm font-bold text-slate-900 truncate">{selectedCompany.companyName}</h4>

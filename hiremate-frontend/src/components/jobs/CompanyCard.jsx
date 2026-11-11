@@ -1,20 +1,10 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { CompanyLogoImg } from '../common/SmartImage';
+import { resolveCompanyLogo } from '../../utils/mediaUtils';
 
-// Reliable inline brand SVG logos / high-res assets for key companies
-const getBrandLogo = (company) => {
-  const name = (company?.companyName || '').toLowerCase();
-  if (name.includes('fpt software')) {
-    return 'https://cdn.haitrieu.com/wp-content/uploads/2021/11/Logo-FPT-Software.png';
-  }
-  if (name.includes('fpt')) {
-    return 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/11/FPT_logo.svg/1200px-FPT_logo.svg.png';
-  }
-  if (name.includes('vng')) {
-    return 'https://cdn.haitrieu.com/wp-content/uploads/2022/01/Logo-VNG.png';
-  }
-  return company.logoUrl;
-};
+// Reliable Cloudinary CDN brand logos for partner companies
+const getBrandLogo = (company) => resolveCompanyLogo(company?.companyName, company?.logoUrl);
 
 // Smart fallbacks to guarantee 100% rich and professional appearance
 const formatCompanyName = (name) => {
@@ -100,24 +90,15 @@ export default function CompanyCard({
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3.5 min-w-0 flex-1">
             {/* Square Company Logo */}
-            <div className="w-12 h-12 rounded-xl bg-[#f4f2fd] border border-purple-100 flex items-center justify-center font-extrabold text-base text-[#5b48bd] group-hover:scale-105 transition-transform shrink-0 shadow-sm overflow-hidden p-1">
-              {logoSrc ? (
-                <img 
-                  src={logoSrc} 
-                  alt={displayName} 
-                  className="w-full h-full object-contain"
-                  onError={(e) => {
-                    e.target.style.display = 'none';
-                    if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
-                  }}
-                />
-              ) : null}
-              <div 
-                style={{ display: logoSrc ? 'none' : 'flex' }}
-                className="w-full h-full font-black text-sm text-[#5b48bd] items-center justify-center tracking-wider"
-              >
-                {initials}
-              </div>
+            <div className="w-12 h-12 rounded-xl bg-white border border-purple-100 flex items-center justify-center font-extrabold text-base text-[#5b48bd] group-hover:scale-105 transition-transform shrink-0 shadow-sm overflow-hidden p-1">
+              <CompanyLogoImg
+                src={logoSrc}
+                companyName={displayName}
+                alt={displayName}
+                className="w-full h-full object-contain"
+                fallbackClassName="w-full h-full font-black text-sm text-[#5b48bd] flex items-center justify-center tracking-wider"
+                maxInitials={3}
+              />
             </div>
 
             {/* Title & Metadata */}

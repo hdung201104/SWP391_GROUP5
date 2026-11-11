@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useLivingTheme } from '../../context/LivingThemeContext';
 import { getSavedJobs } from '../../utils/savedJobsStorage';
 import { HIREMATE_LOGO_URL } from '../../constants/branding';
+import { AvatarImg } from './SmartImage';
+import { resolveUserAvatar } from '../../utils/mediaUtils';
 
 
 export default function Header({
@@ -436,9 +438,11 @@ export default function Header({
       ? (user?.companyName ? `${user.companyName} • HR Lead` : (activePlanName ? `${activePlanName} • HR` : 'FPT Software • HR Lead'))
       : 'Tham quan hệ thống';
 
-  const avatarUrl = user?.avatarUrl || (isRoleRecruiter
-    ? 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&auto=format&fit=crop&q=80'
-    : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80');
+  const avatarUrl = resolveUserAvatar(user?.avatarUrl);
+
+  useEffect(() => {
+    setAvatarError(false);
+  }, [avatarUrl]);
 
   return (
     <header className="sticky top-0 z-50 w-full bg-[#20145f]/80 backdrop-blur-2xl text-white shadow-[0_12px_40px_-5px_rgba(15,10,45,0.4)] transition-all duration-500 rounded-t-2xl md:rounded-t-[32px] border-b border-white/10 relative overflow-visible">
@@ -1052,19 +1056,13 @@ export default function Header({
                 className="flex items-center gap-2.5 pl-2.5 border-l border-[#E6E2DA] cursor-pointer select-none shrink-0 group hover:opacity-95 transition-opacity"
               >
                 <div className="relative w-9 h-9 min-w-[36px] min-h-[36px] shrink-0 rounded-full bg-white border border-[#E6E2DA] shadow-soft p-0.5">
-                  {!avatarError ? (
-                    <img
-                      alt={displayName}
-                      className="w-full h-full rounded-full object-cover shrink-0 block bg-[#F2F0EB]"
-                      src={avatarUrl}
-                      referrerPolicy="no-referrer"
-                      onError={() => setAvatarError(true)}
-                    />
-                  ) : (
-                    <div className="w-full h-full rounded-full bg-[#2D3A31] flex items-center justify-center font-serif font-bold text-[11px] text-white select-none">
-                      {displayName?.split(' ').map(n => n[0]).slice(-2).join('') || (isRoleCandidate ? 'LT' : 'HR')}
-                    </div>
-                  )}
+                  <AvatarImg
+                    src={avatarUrl}
+                    name={displayName}
+                    alt={displayName}
+                    className="w-full h-full rounded-full object-cover shrink-0 block bg-[#F2F0EB]"
+                    fallbackClassName="w-full h-full rounded-full flex items-center justify-center font-serif font-bold text-[11px] text-white select-none"
+                  />
                   <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full ring-2 ring-white ${isRoleRecruiter ? 'bg-[#8C9A84]' : 'bg-[#C27B66]'
                     }`}></span>
                 </div>
@@ -1085,13 +1083,13 @@ export default function Header({
                 <div className="absolute right-0 mt-3 w-68 rounded-3xl bg-white border border-[#E6E2DA] shadow-soft-lg py-2 z-50 font-body text-[#2D3A31]">
                   <div className="px-4 py-3 border-b border-[#E6E2DA] flex items-center gap-3">
                     <div className="w-10 h-10 min-w-[40px] min-h-[40px] rounded-full p-0.5 bg-white border border-[#E6E2DA] shadow-soft shrink-0">
-                      {!avatarError ? (
-                        <img src={avatarUrl} alt={displayName} className="w-full h-full rounded-full object-cover" referrerPolicy="no-referrer" />
-                      ) : (
-                        <div className="w-full h-full rounded-full bg-[#2D3A31] flex items-center justify-center font-bold text-xs text-white">
-                          {displayName?.split(' ').map(n => n[0]).slice(-2).join('') || 'HM'}
-                        </div>
-                      )}
+                      <AvatarImg
+                        src={avatarUrl}
+                        name={displayName}
+                        alt={displayName}
+                        className="w-full h-full rounded-full object-cover"
+                        fallbackClassName="w-full h-full rounded-full flex items-center justify-center font-bold text-xs text-white"
+                      />
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-serif font-bold text-[#2D3A31] truncate">{displayName}</p>

@@ -2,6 +2,27 @@ import React, { useState, useEffect } from 'react';
 import { companyApi, jobApi } from '../api';
 import { formatScannedSalary } from './RecruiterJobManagementPage';
 import { calculateJobDeadline } from '../utils/jobTimeUtils';
+import { AvatarImg, CompanyLogoImg } from '../components/common/SmartImage';
+import { resolveCompanyLogo, resolveCompanyCover, sanitizeMediaUrl } from '../utils/mediaUtils';
+
+const cacheNormalizedCompany = (comp) => {
+  if (!comp || typeof comp !== 'object') return null;
+  let parsedBranches = Array.isArray(comp.branches) ? comp.branches : [];
+  if (parsedBranches.length === 0 && comp.branchesJson) {
+    try {
+      const arr = typeof comp.branchesJson === 'string' ? JSON.parse(comp.branchesJson) : comp.branchesJson;
+      if (Array.isArray(arr)) parsedBranches = arr;
+    } catch {}
+  }
+  return {
+    ...comp,
+    companyId: comp.companyId || comp.id || comp.rawId,
+    companyName: comp.companyName || comp.name || 'Doanh nghiệp',
+    logoUrl: resolveCompanyLogo(comp.companyName || comp.name, comp.logoUrl),
+    coverUrl: sanitizeMediaUrl(comp.coverUrl) || resolveCompanyCover(comp.companyName || comp.name),
+    branches: parsedBranches,
+  };
+};
 
 export default function CompanyDetailPage({ companyId, user }) {
   const [company, setCompany] = useState(null);
@@ -26,52 +47,67 @@ export default function CompanyDetailPage({ companyId, user }) {
       setError(null);
 
       try {
-        // 1. Fetch Company details
+        // 1. Fetch Company details directly from Backend PostgreSQL
         let fetchedComp = null;
         try {
           const compRes = await companyApi.getCompanyById(numericCompanyId || companyId);
-          fetchedComp = compRes?.data || compRes;
+          const candidateComp = compRes?.data || compRes;
+          if (candidateComp && (candidateComp.companyId || candidateComp.companyName || candidateComp.id)) {
+            fetchedComp = candidateComp;
+          }
         } catch (err) {
-          console.warn('Không thể tải chi tiết công ty từ backend:', err);
+          console.warn('Không thể tải chi tiết công ty từ backend getCompanyById:', err);
         }
 
-        // Fallback: check localStorage for cached company profile
+        // Secondary API fallback: find in public companies list by exact companyId
+        if (!fetchedComp) {
+          try {
+            const allRes = await companyApi.getAllCompanies();
+            const rawList = allRes?.data?.content || allRes?.data || allRes;
+            if (Array.isArray(rawList)) {
+              const targetStr = String(numericCompanyId || companyId);
+              fetchedComp = rawList.find(
+                (c) => String(c.companyId || c.id) === targetStr
+              ) || null;
+            }
+          } catch (listErr) {
+            console.warn('Không thể tải danh sách công ty fallback:', listErr);
+          }
+        }
+
+        // Preview snapshot fallback keyed strictly by requested companyId (saved on navigation click)
+        if (!fetchedComp) {
+          try {
+            const previewKey = `hiremate_company_preview_${numericCompanyId || companyId}`;
+            const rawPreview = sessionStorage.getItem(previewKey);
+            if (rawPreview) {
+              fetchedComp = JSON.parse(rawPreview);
+            }
+          } catch {}
+        }
+
+        // Admin cache fallback strictly matched by ID
         if (!fetchedComp) {
           try {
             const adminList = JSON.parse(localStorage.getItem('hiremate_admin_companies_list') || '[]');
             fetchedComp = adminList.find(
-              (c) => String(c.id) === String(companyId) || String(c.rawId) === String(numericCompanyId)
-            );
+              (c) =>
+                String(c.rawId || '') === String(numericCompanyId || '') ||
+                String(c.companyId || '') === String(numericCompanyId || companyId) ||
+                String(c.id || '') === String(companyId)
+            ) || null;
           } catch {}
         }
 
-        // Fallback default enterprise company profile
+        fetchedComp = cacheNormalizedCompany(fetchedComp);
+
         if (!fetchedComp) {
-          fetchedComp = {
-            companyId: numericCompanyId || 1,
-            companyName: 'FPT Software & Digital Technology',
-            logoUrl: 'https://images.unsplash.com/photo-1549923746-c502d488b3ea?w=150&auto=format&fit=crop&q=80',
-            industry: 'Công Nghệ Thông Tin & Phần Mềm',
-            companySize: '10.000+ nhân viên',
-            address: 'Tòa nhà FPT, Phố Duy Tân, Dịch Vọng Hậu, Cầu Giấy, Hà Nội',
-            website: 'https://fptsoftware.com',
-            taxCode: '0101234567',
-            status: 'VERIFIED',
-            description: 'FPT Software là tập đoàn công nghệ thông tin và chuyển đổi số hàng đầu Đông Nam Á, cung cấp các giải pháp phần mềm, AI, Cloud và chuyển đổi số cho các doanh nghiệp Fortune 500 trên 30 quốc gia.',
-            activeJobsCount: 8,
-            locations: ['Hà Nội', 'TP. Hồ Chí Minh', 'Đà Nẵng', 'Quy Nhơn'],
-            benefits: [
-              { title: 'Lương & Thưởng Hấp Dẫn', desc: 'Thưởng tháng 13, thưởng hiệu quả kinh doanh dự án định kỳ.' },
-              { title: 'Bảo Hiểm Sức Khỏe Cao Cấp', desc: 'Gói FPT Care toàn diện cho nhân viên và người thân.' },
-              { title: 'Làm Việc Hybrid Linh Hoạt', desc: 'Linh hoạt làm việc tại văn phòng tiện nghi hoặc từ xa.' },
-              { title: 'Đào Tạo & Chứng Chỉ Quốc Tế', desc: 'Tài trợ 100% học phí và thi chứng chỉ AWS, GCP, Azure, PMP.' }
-            ],
-            branches: [
-              { name: 'Trụ Sở Chính Hà Nội', address: 'Tòa nhà FPT, Phố Duy Tân, Cầu Giấy, Hà Nội', phone: '024 7300 7300' },
-              { name: 'Chi Nhánh TP. Hồ Chí Minh', address: 'Khu Công Nghệ Cao, TP. Thủ Đức, TP.HCM', phone: '028 7300 7300' },
-              { name: 'Chi Nhánh Đà Nẵng', address: 'FPT Complex, Đường Nam Kỳ Khởi Nghĩa, Ngũ Hành Sơn, Đà Nẵng', phone: '0236 730 0730' }
-            ]
-          };
+          if (isMounted) {
+            setError('Không tìm thấy thông tin doanh nghiệp này trên hệ thống.');
+            setCompany(null);
+            setJobs([]);
+          }
+          return;
         }
 
         if (isMounted) {
@@ -169,7 +205,9 @@ export default function CompanyDetailPage({ companyId, user }) {
     );
   }
 
-  const isVerified = company.status === 'VERIFIED' || company.status === 'APPROVED' || company.status === 'ACTIVE';
+  const rawStatus = String(company.status || '').toUpperCase();
+  const isVerified = rawStatus === 'VERIFIED' || rawStatus === 'APPROVED' || rawStatus === 'ACTIVE';
+  const isBlocked = rawStatus === 'REJECTED' || rawStatus === 'BANNED' || rawStatus === 'SUSPENDED';
 
   return (
     <div className="w-full min-h-screen bg-[#f8f9fd] font-sans pb-24 selection:bg-[#5b48bd] selection:text-white">
@@ -198,20 +236,14 @@ export default function CompanyDetailPage({ companyId, user }) {
             {/* Logo + Basic Info */}
             <div className="flex items-center gap-5 sm:gap-6 flex-wrap sm:flex-nowrap">
               <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-white p-2 shadow-2xl flex items-center justify-center overflow-hidden border border-white/20 shrink-0">
-                {company.logoUrl ? (
-                  <img
-                    src={company.logoUrl}
-                    alt={company.companyName}
-                    className="w-full h-full object-contain"
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                    }}
-                  />
-                ) : (
-                  <span className="text-2xl font-black text-[#5b48bd]">
-                    {(company.companyName || 'HM').slice(0, 2).toUpperCase()}
-                  </span>
-                )}
+                <CompanyLogoImg
+                  src={company.logoUrl}
+                  companyName={company.companyName}
+                  alt={company.companyName}
+                  className="w-full h-full object-contain"
+                  fallbackClassName="text-2xl font-black text-[#5b48bd]"
+                  maxInitials={3}
+                />
               </div>
 
               <div>
@@ -219,13 +251,26 @@ export default function CompanyDetailPage({ companyId, user }) {
                   <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white drop-shadow-xs">
                     {company.companyName}
                   </h1>
-                  {isVerified && (
+                  {isVerified ? (
                     <span
                       className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-xs font-bold backdrop-blur-md"
                       title="Doanh nghiệp đã hoàn tất xác thực giấy phép kinh doanh (GPKD)"
                     >
                       <span className="material-symbols-outlined text-sm">verified</span>
                       <span>Verified Employer</span>
+                    </span>
+                  ) : isBlocked ? (
+                    <span
+                      className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-rose-500/25 text-rose-100 border border-rose-300/40 text-xs font-bold backdrop-blur-md"
+                      title="Doanh nghiệp đã bị đình chỉ hoặc thu hồi giấy phép kinh doanh"
+                    >
+                      <span className="material-symbols-outlined text-sm">block</span>
+                      <span>Đã Đình Chỉ GPKD</span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-amber-400/20 text-amber-100 border border-amber-300/30 text-xs font-bold backdrop-blur-md">
+                      <span className="material-symbols-outlined text-sm">hourglass_top</span>
+                      <span>Chờ Duyệt GPKD</span>
                     </span>
                   )}
                 </div>
@@ -554,16 +599,22 @@ export default function CompanyDetailPage({ companyId, user }) {
                       >
                         <div className="flex items-center gap-2 font-bold text-sm text-[#1e1b4b]">
                           <span className="material-symbols-outlined text-base text-[#5b48bd]">business</span>
-                          <span>{b.name || `Chi nhánh #${idx + 1}`}</span>
+                          <span>{b.branchName || b.name || `Chi nhánh #${idx + 1}`}</span>
                         </div>
                         <p className="text-xs text-slate-600 mt-1 flex items-start gap-1.5">
                           <span className="material-symbols-outlined text-sm text-slate-400 shrink-0">place</span>
                           <span>{b.address || 'Đang cập nhật địa chỉ'}</span>
                         </p>
-                        {b.phone && (
+                        {(b.hotline || b.phone) && (
                           <p className="text-xs text-slate-600 mt-1 flex items-center gap-1.5">
                             <span className="material-symbols-outlined text-sm text-slate-400">call</span>
-                            <span>{b.phone}</span>
+                            <span>{b.hotline || b.phone}</span>
+                          </p>
+                        )}
+                        {b.scale && (
+                          <p className="text-xs text-slate-500 mt-1 flex items-center gap-1.5">
+                            <span className="material-symbols-outlined text-sm text-slate-400">groups</span>
+                            <span>Quy mô: {b.scale}</span>
                           </p>
                         )}
                       </div>
@@ -639,6 +690,11 @@ export default function CompanyDetailPage({ companyId, user }) {
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 font-bold text-[11px]">
                         <span className="material-symbols-outlined text-sm text-emerald-600">check_circle</span>
                         <span>GPKD Đã Được Phê Duyệt</span>
+                      </span>
+                    ) : isBlocked ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 font-bold text-[11px]">
+                        <span className="material-symbols-outlined text-sm text-rose-600">block</span>
+                        <span>Đã Đình Chỉ / Thu Hồi GPKD</span>
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 font-bold text-[11px]">

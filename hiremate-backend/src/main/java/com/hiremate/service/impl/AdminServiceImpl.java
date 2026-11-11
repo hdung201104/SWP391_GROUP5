@@ -169,7 +169,7 @@ public class AdminServiceImpl implements AdminService {
                     resp.setJoined(user.getCreatedAt());
                     resp.setIsEmailVerified(user.getIsEmailVerified());
                     resp.setAuthProvider(authProvider);
-                    resp.setAvatarUrl(user.getAvatarUrl());
+                    resp.setAvatarUrl(com.hiremate.service.BrandMediaSyncService.sanitizeImageUrl(user.getAvatarUrl()));
                     resp.setLastActiveAt(user.getUpdatedAt() != null ? user.getUpdatedAt() : user.getCreatedAt());
 
                     Subscription activeSub = activeSubsMap.get(user.getUserId());
@@ -275,7 +275,7 @@ public class AdminServiceImpl implements AdminService {
         resp.setJoined(user.getCreatedAt());
         resp.setIsEmailVerified(user.getIsEmailVerified());
         resp.setAuthProvider(authProvider);
-        resp.setAvatarUrl(user.getAvatarUrl());
+        resp.setAvatarUrl(com.hiremate.service.BrandMediaSyncService.sanitizeImageUrl(user.getAvatarUrl()));
         resp.setLastActiveAt(user.getUpdatedAt() != null ? user.getUpdatedAt() : user.getCreatedAt());
 
         Subscription activeSub = subscriptionRepository.findFirstByUser_UserIdAndStatusOrderByCreatedAtDesc(
@@ -384,7 +384,7 @@ public class AdminServiceImpl implements AdminService {
                     resp.setScale(comp.getCompanySize() != null ? comp.getCompanySize() : "50-100");
                     resp.setHeadquarters(comp.getAddress() != null ? comp.getAddress() : "-");
                     resp.setWebsite(comp.getWebsite() != null ? comp.getWebsite() : "-");
-                    resp.setLogoUrl(comp.getLogoUrl());
+                    resp.setLogoUrl(com.hiremate.service.BrandMediaSyncService.resolveCompanyLogo(comp.getCompanyName(), comp.getLogoUrl()));
                     resp.setStatus(comp.getStatus() != null ? comp.getStatus() : CompanyStatus.PENDING);
                     resp.setCreatedAt(comp.getCreatedAt());
 
@@ -572,7 +572,7 @@ public class AdminServiceImpl implements AdminService {
         resp.setScale(company.getCompanySize() != null ? company.getCompanySize() : "50-100");
         resp.setHeadquarters(company.getAddress() != null ? company.getAddress() : "-");
         resp.setWebsite(company.getWebsite() != null ? company.getWebsite() : "-");
-        resp.setLogoUrl(company.getLogoUrl());
+        resp.setLogoUrl(com.hiremate.service.BrandMediaSyncService.resolveCompanyLogo(company.getCompanyName(), company.getLogoUrl()));
         resp.setStatus(company.getStatus());
         resp.setCreatedAt(company.getCreatedAt());
         boolean hasDoc = CompanyServiceImpl.isValidLicenseDocUrl(company.getLicenseDocUrl());
@@ -1119,7 +1119,7 @@ public class AdminServiceImpl implements AdminService {
         resp.setJoined(user.getCreatedAt());
         resp.setIsEmailVerified(user.getIsEmailVerified());
         resp.setAuthProvider(authProvider);
-        resp.setAvatarUrl(user.getAvatarUrl());
+        resp.setAvatarUrl(com.hiremate.service.BrandMediaSyncService.sanitizeImageUrl(user.getAvatarUrl()));
         resp.setLastActiveAt(LocalDateTime.now());
         resp.setCurrentTier(plan.getPlanName());
         resp.setCurrentPlanId(plan.getPlanId());

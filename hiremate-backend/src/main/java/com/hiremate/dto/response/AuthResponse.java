@@ -23,6 +23,7 @@ public class AuthResponse {
     private String avatarUrl;
     private Long companyId;
     private String companyName;
+    private String companyLogo;
     @Builder.Default
     private Boolean isEmailVerified = true;
     private String dateOfBirth;

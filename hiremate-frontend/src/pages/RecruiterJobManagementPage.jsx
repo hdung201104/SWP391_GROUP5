@@ -5,6 +5,8 @@ import { parseSkillList } from '../utils/helpers';
 import { calculateJobDeadline } from '../utils/jobTimeUtils';
 import { exportJobsToExcel } from '../utils/excelExportUtils';
 import { parseSubscriptionPermissions } from '../utils/subscriptionPerms';
+import { AvatarImg, CompanyLogoImg } from '../components/common/SmartImage';
+import { resolveCompanyLogo, resolveUserAvatar } from '../utils/mediaUtils';
 
 // Helper to format salary values nicely for Vietnamese market
 export const formatScannedSalary = (min, max, currencyOrText = 'VND', maybeText = '') => {
@@ -1484,11 +1486,19 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
         const apps = appsByJobId[j.jobId] || [];
         const applicantCount = apps.length;
         const aiHigh = apps.filter((a) => (a.matchingScore || 0) >= 80).length;
-        const topAvatars = apps.slice(0, 3).map((a) => a.candidateAvatar || a.candidateAvatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80');
+        const topCandidates = apps.slice(0, 3).map((a) => ({
+          name: a.candidateName || a.fullName || 'Ứng viên',
+          avatar: resolveUserAvatar(a.candidateAvatar || a.candidateAvatarUrl),
+        }));
+        const topAvatars = topCandidates.map((c) => c.avatar);
+        const compName = j.companyName || j.company?.companyName || '';
+        const compLogo = resolveCompanyLogo(compName, j.companyLogo || j.company?.logoUrl);
 
         return {
           id: j.jobId,
           code: `JD-REQ-${j.jobId}`,
+          companyName: compName,
+          companyLogo: compLogo,
           badgeText: (j.status === 'PUBLISHED' && j.approvalStatus === 'PENDING') ? 'Chờ Admin Duyệt'
             : (j.approvalStatus === 'REJECTED') ? 'Bị Từ Chối Duyệt'
             : (j.status === 'PUBLISHED') ? 'Đang Đăng Tuyển'
@@ -1521,6 +1531,7 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
             ? j.preferredSkills
             : parseSkillList(j.benefits, ['Đãi ngộ hấp dẫn']),
           topCandidateAvatars: topAvatars,
+          topCandidates,
           recruiterId: j.recruiterId || j.raw?.recruiterId || j.recruiter?.recruiterId,
           recruiterName: j.recruiterName || j.raw?.recruiterName || j.recruiter?.user?.fullName || 'Chuyên viên HR',
           recruiterEmail: j.recruiterEmail || j.raw?.recruiterEmail || j.recruiter?.user?.email,
@@ -1975,10 +1986,15 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
       triggerToast('⚠️ Tin tuyển dụng này đang chờ Admin phê duyệt. Không thể tự mở tuyển dụng!');
       return;
     }
-    const nextStatus = currentJob.status === 'ACTIVE' ? 'CLOSED' : 'PUBLISHED';
+    const isCurrentlyOpen = currentJob.status === 'ACTIVE' || currentJob.status === 'PUBLISHED';
+    const nextStatus = isCurrentlyOpen ? 'CLOSED' : 'PUBLISHED';
     try {
       await jobApi.updateJobStatus(jobId, nextStatus);
-      triggerToast(`Trạng thái tin ${currentJob.code} đã cập nhật sang: ${nextStatus === 'PUBLISHED' ? 'Đang bật tuyển' : 'Đã đóng'}`);
+      triggerToast(
+        nextStatus === 'PUBLISHED'
+          ? `✅ Đã mở lại nhận hồ sơ cho tin ${currentJob.code} (Hiển thị trên Trang chủ)`
+          : `⏸️ Đã tạm dừng / đóng nhận hồ sơ mới cho tin ${currentJob.code} (Danh sách ${currentJob.totalApplicants || 0} ứng viên vẫn được giữ nguyên!)`
+      );
       await fetchMyJobs();
     } catch (err) {
       triggerToast('Lỗi khi đổi trạng thái tin tuyển dụng: ' + (err.response?.data?.message || err.message));
@@ -2459,12 +2475,15 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3 min-w-0">
                     {/* Brand / Company Avatar */}
-                    <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-[#edeafd] to-[#f5f3ff] text-[#5b48bd] font-black text-xs flex items-center justify-center border border-purple-200/80 shadow-2xs shrink-0 mt-0.5">
-                      {job.companyLogo ? (
-                        <img src={job.companyLogo} alt="Logo" className="w-full h-full object-cover rounded-2xl" />
-                      ) : (
-                        <span>{(job.companyName || job.domain || 'HM').substring(0, 3).toUpperCase()}</span>
-                      )}
+                    <div className="w-11 h-11 rounded-2xl bg-white text-[#5b48bd] font-black text-xs flex items-center justify-center border border-purple-200/80 shadow-2xs shrink-0 mt-0.5 overflow-hidden p-1">
+                      <CompanyLogoImg
+                        src={job.companyLogo}
+                        companyName={job.companyName || job.domain}
+                        alt={job.companyName || 'Logo'}
+                        className="w-full h-full object-contain"
+                        fallbackClassName="font-black text-xs text-[#5b48bd]"
+                        maxInitials={3}
+                      />
                     </div>
                     
                     <div className="min-w-0">
@@ -2537,14 +2556,14 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                           type="button"
                           onClick={() => handleToggleStatus(job.id)}
                           className={`p-1 rounded-lg border transition-colors cursor-pointer shadow-2xs ${
-                            job.status === 'ACTIVE'
-                              ? 'bg-white hover:bg-slate-100 text-slate-600 border-slate-200'
+                            job.status === 'ACTIVE' || job.status === 'PUBLISHED'
+                              ? 'bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200'
                               : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200'
                           }`}
-                          title={job.status === 'ACTIVE' ? 'Tạm dừng nhận hồ sơ' : 'Tiếp tục mở tuyển'}
+                          title={job.status === 'ACTIVE' || job.status === 'PUBLISHED' ? 'Tạm dừng / Đóng nhận hồ sơ (Giữ nguyên danh sách ứng viên)' : 'Tiếp tục mở tuyển dụng'}
                         >
                           <span className="material-symbols-outlined text-[15px]">
-                            {job.status === 'ACTIVE' ? 'pause' : 'play_arrow'}
+                            {job.status === 'ACTIVE' || job.status === 'PUBLISHED' ? 'pause' : 'play_arrow'}
                           </span>
                         </button>
                       )}
@@ -2703,13 +2722,15 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] font-medium text-slate-400 shrink-0 hidden sm:inline">Top ứng viên:</span>
                     <div className="flex -space-x-2 overflow-hidden">
-                      {job.topCandidateAvatars.length > 0 ? (
-                        job.topCandidateAvatars.map((av, idx) => (
-                          <img
+                      {(job.topCandidates && job.topCandidates.length > 0) ? (
+                        job.topCandidates.map((cand, idx) => (
+                          <AvatarImg
                             key={idx}
+                            src={cand.avatar}
+                            name={cand.name || `UV ${idx + 1}`}
+                            alt={cand.name || 'Candidate avatar'}
                             className="w-7 h-7 rounded-full object-cover ring-2 ring-white shadow-2xs inline-block"
-                            src={av}
-                            alt="Candidate avatar"
+                            fallbackClassName="w-7 h-7 rounded-full ring-2 ring-white shadow-2xs flex items-center justify-center text-[10px] font-bold text-white"
                           />
                         ))
                       ) : (
@@ -2780,6 +2801,28 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                       <span className="material-symbols-outlined text-[15px] text-slate-500">content_copy</span>
                       <span>Nhân bản</span>
                     </button>
+
+                    {job.approvalStatus === 'APPROVED' && canEditOrManageJob(job) && (
+                      <button
+                        onClick={() => handleToggleStatus(job.id)}
+                        className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1 border cursor-pointer shadow-2xs shrink-0 ${
+                          job.status === 'ACTIVE' || job.status === 'PUBLISHED'
+                            ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200'
+                            : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200'
+                        }`}
+                        type="button"
+                        title={
+                          job.status === 'ACTIVE' || job.status === 'PUBLISHED'
+                            ? 'Tạm dừng / Đóng nhận hồ sơ mới khi đã tuyển đủ người (Giữ nguyên 100% danh sách ứng viên đã nộp)'
+                            : 'Mở lại bài đăng để tiếp tục nhận hồ sơ ứng viên trên Trang chủ'
+                        }
+                      >
+                        <span className="material-symbols-outlined text-[15px]">
+                          {job.status === 'ACTIVE' || job.status === 'PUBLISHED' ? 'pause_circle' : 'play_circle'}
+                        </span>
+                        <span>{job.status === 'ACTIVE' || job.status === 'PUBLISHED' ? 'Tạm dừng' : 'Mở lại'}</span>
+                      </button>
+                    )}
 
                     <button
                       onClick={() => handleCopyLink(job.id, job.code)}
@@ -5125,9 +5168,15 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
                 <span>&bull; Vị trí: <strong>{jobToDelete.location}</strong></span>
                 <span>&bull; Đơn nộp: <strong>{jobToDelete.totalApplicants} CVs</strong></span>
               </div>
-              <p className="text-[11px] text-rose-700 leading-relaxed pt-1">
-                ⚠️ <strong>Cảnh báo:</strong> Tin tuyển dụng, tiêu chí kỹ năng và các hồ sơ ứng tuyển liên quan sẽ bị xóa hoàn toàn khỏi hệ thống. Hành động này <strong>không thể hoàn tác</strong>!
-              </p>
+              {jobToDelete.totalApplicants > 0 ? (
+                <div className="text-[11px] text-amber-900 bg-amber-50 border border-amber-200 rounded-xl p-2.5 leading-relaxed mt-1">
+                  💡 <strong>Bảo vệ dữ liệu ứng viên:</strong> Bài đăng này đang có <strong>{jobToDelete.totalApplicants} hồ sơ ứng viên</strong>. Để không làm mất danh sách ứng viên, kết quả AI Match và lịch phỏng vấn, hệ thống không xóa trắng bài đăng đã có người nộp. Bạn hãy chọn <strong>&ldquo;Tạm Dừng / Đóng Tuyển&rdquo;</strong> để ngừng nhận CV mới trên Trang chủ nhưng vẫn giữ nguyên toàn bộ danh sách ứng viên!
+                </div>
+              ) : (
+                <p className="text-[11px] text-rose-700 leading-relaxed pt-1">
+                  ⚠️ <strong>Cảnh báo:</strong> Tin tuyển dụng chưa có ứng viên nộp này sẽ bị xóa vĩnh viễn khỏi hệ thống. Hành động này <strong>không thể hoàn tác</strong>!
+                </p>
+              )}
             </div>
 
             <div className="flex items-center justify-end gap-2.5 pt-1">
@@ -5139,24 +5188,45 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
               >
                 Hủy Bỏ
               </button>
-              <button
-                type="button"
-                disabled={isDeleting}
-                onClick={handleConfirmDeleteJob}
-                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-rose-200 transition-all cursor-pointer"
-              >
-                {isDeleting ? (
-                  <>
-                    <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
-                    <span>Đang xóa...</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="material-symbols-outlined text-sm">delete</span>
-                    <span>Xác Nhận Xóa</span>
-                  </>
-                )}
-              </button>
+              {jobToDelete.totalApplicants > 0 ? (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const targetId = jobToDelete.id;
+                    setJobToDelete(null);
+                    await handleToggleStatus(targetId);
+                  }}
+                  className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-amber-200 transition-all cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-sm">
+                    {jobToDelete.status === 'ACTIVE' || jobToDelete.status === 'PUBLISHED' ? 'pause_circle' : 'play_circle'}
+                  </span>
+                  <span>
+                    {jobToDelete.status === 'ACTIVE' || jobToDelete.status === 'PUBLISHED'
+                      ? 'Tạm Dừng / Đóng Tuyển (Giữ Hồ Sơ)'
+                      : 'Mở Lại Tuyển Dụng'}
+                  </span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={handleConfirmDeleteJob}
+                  className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-rose-200 transition-all cursor-pointer"
+                >
+                  {isDeleting ? (
+                    <>
+                      <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
+                      <span>Đang xóa...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined text-sm">delete</span>
+                      <span>Xác Nhận Xóa</span>
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
         </div>
