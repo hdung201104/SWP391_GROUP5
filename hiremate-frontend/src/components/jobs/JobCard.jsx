@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { calculateJobDeadline } from '../../utils/jobTimeUtils';
 import { isJobSaved, toggleSaveJob } from '../../utils/savedJobsStorage';
+import { saveCompanyPreviewCache } from '../../utils/companyProfileUtils';
 import { CompanyLogoImg } from '../common/SmartImage';
 
 export default function JobCard({ job, user, onSelectJob, onApplyJob, onPracticeInterview, onHoverChange }) {
@@ -165,7 +166,7 @@ export default function JobCard({ job, user, onSelectJob, onApplyJob, onPractice
         <div className="flex items-start gap-3.5">
           <div
             onClick={handleOpenJobDetail}
-            className="w-12 h-12 rounded-2xl bg-white border border-purple-100 flex items-center justify-center font-extrabold text-base text-[#5b48bd] hover:scale-105 transition-transform shrink-0 cursor-pointer shadow-sm overflow-hidden p-1"
+            className="w-12 h-12 rounded-2xl bg-white border border-purple-100 flex items-center justify-center font-extrabold text-base text-[#5b48bd] shrink-0 cursor-pointer shadow-sm overflow-hidden p-1"
             title="Xem chi tiết việc làm"
           >
             <CompanyLogoImg
@@ -220,14 +221,13 @@ export default function JobCard({ job, user, onSelectJob, onApplyJob, onPractice
                   href={`#/companies/${job.companyId}`}
                   onClick={(e) => {
                     e.stopPropagation();
-                    try {
-                      sessionStorage.setItem(`hiremate_company_preview_${job.companyId}`, JSON.stringify({
-                        companyId: job.companyId,
-                        companyName: job.companyName,
-                        logoUrl: job.companyLogo,
-                        address: job.location,
-                      }));
-                    } catch {}
+                    saveCompanyPreviewCache(job.companyId, {
+                      companyId: job.companyId,
+                      companyName: job.companyName,
+                      logoUrl: job.companyLogo,
+                      address: job.location,
+                      status: job.companyStatus || (job.companyBlocked ? 'REJECTED' : (job.companyVerified ? 'VERIFIED' : undefined)),
+                    });
                   }}
                   className="font-semibold text-slate-700 hover:text-[#5b48bd] hover:underline truncate max-w-[180px] sm:max-w-[220px]"
                   title="Xem trang hồ sơ công ty"
@@ -410,7 +410,7 @@ export default function JobCard({ job, user, onSelectJob, onApplyJob, onPractice
           <div className="flex items-start gap-3.5 mb-3.5">
             <div
               onClick={handleOpenJobDetail}
-              className="w-13 h-13 rounded-2xl bg-white border border-purple-100 p-1 flex items-center justify-center shrink-0 overflow-hidden shadow-2xs cursor-pointer hover:scale-105 transition-transform"
+              className="w-12 h-12 rounded-2xl bg-white border border-purple-100 p-1 flex items-center justify-center shrink-0 overflow-hidden shadow-2xs cursor-pointer"
             >
               <CompanyLogoImg
                 src={job.companyLogo}

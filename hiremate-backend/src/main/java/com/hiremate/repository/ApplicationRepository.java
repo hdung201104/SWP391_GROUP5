@@ -116,4 +116,8 @@ public interface ApplicationRepository extends JpaRepository<Application, Long> 
     /** Đếm các đơn ứng tuyển đang hoạt động/xét duyệt có sử dụng CV này */
     @Query("SELECT COUNT(a) FROM Application a WHERE a.cv.cvId = :cvId AND a.status NOT IN (com.hiremate.enums.ApplicationStatus.REJECTED)")
     long countActiveApplicationsByCvId(@Param("cvId") Long cvId);
+
+    /** Đếm số lượng ứng viên theo trạng thái trong toàn công ty (tối ưu cho trang hồ sơ doanh nghiệp) */
+    @Query("SELECT COUNT(a) FROM Application a WHERE a.job.company.companyId = :companyId AND a.status = :status")
+    long countByCompanyIdAndStatus(@Param("companyId") Long companyId, @Param("status") ApplicationStatus status);
 }

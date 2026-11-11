@@ -39,6 +39,54 @@ public class CompanyServiceImpl implements CompanyService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.hiremate.service.BrandMediaSyncService brandMediaSyncService;
 
+    private static final com.fasterxml.jackson.databind.ObjectMapper OBJECT_MAPPER =
+            new com.fasterxml.jackson.databind.ObjectMapper();
+
+    private final java.util.concurrent.atomic.AtomicLong lastAllCompaniesJobSync =
+            new java.util.concurrent.atomic.AtomicLong(0);
+
+    private static boolean isBranchMetadata(Object item) {
+        if (!(item instanceof Map<?, ?> map)) {
+            return false;
+        }
+        return Boolean.TRUE.equals(map.get("isMetadata"))
+                || Boolean.TRUE.equals(map.get("__companyMeta"))
+                || "company-extended-metadata".equals(map.get("id"));
+    }
+
+    private List<Object> parseJsonObjectList(String json, String fieldName, Long companyId) {
+        if (json == null || json.isBlank()) {
+            return Collections.emptyList();
+        }
+        try {
+            List<Object> parsed = OBJECT_MAPPER.readValue(
+                    json, new com.fasterxml.jackson.core.type.TypeReference<List<Object>>() {});
+            return parsed != null ? parsed : Collections.emptyList();
+        } catch (Exception ex) {
+            log.warn("Error parsing {} for company {}: {}", fieldName, companyId, ex.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    private List<Object> extractRealBranches(Company c, String recruiterName) {
+        List<Object> raw = parseJsonObjectList(c.getBranchesJson(), "branchesJson", c.getCompanyId());
+        List<Object> branches = raw.stream()
+                .filter(item -> !isBranchMetadata(item))
+                .collect(Collectors.toCollection(java.util.ArrayList::new));
+        if (branches.isEmpty()) {
+            Map<String, Object> defaultBranch = new HashMap<>();
+            defaultBranch.put("branchId", "branch-main-" + (c.getCompanyId() != null ? c.getCompanyId() : "hq"));
+            defaultBranch.put("branchName", "Trụ sở chính");
+            defaultBranch.put("address", c.getAddress() != null && !c.getAddress().isBlank() ? c.getAddress() : "Việt Nam");
+            defaultBranch.put("scale", c.getCompanySize() != null ? c.getCompanySize() : "50-100");
+            defaultBranch.put("hotline", "");
+            defaultBranch.put("isHeadquarters", true);
+            defaultBranch.put("manager", recruiterName != null ? recruiterName : "Ban Giám Đốc");
+            branches.add(defaultBranch);
+        }
+        return branches;
+    }
+
     private Recruiter getOrCreateRecruiter(User recruiterUser) {
         return recruiterRepository.findById(recruiterUser.getUserId()).orElseGet(() -> {
             Recruiter newRecruiter = Recruiter.builder()
@@ -368,54 +416,58 @@ public class CompanyServiceImpl implements CompanyService {
             return Collections.emptyList();
         }
 
-        // Đồng bộ tự động các tin tuyển dụng hợp lệ của doanh nghiệp đã xác thực (VERIFIED/ACTIVE) bị đóng tạm thời trước đó
-        try {
-            java.time.LocalDate today = java.time.LocalDate.now();
-            List<Job> allJobs = jobRepository.findAllByOrderByCreatedAtDesc();
-            List<Job> toSave = new java.util.ArrayList<>();
-            for (Job j : allJobs) {
-                Company comp = j.getCompany();
-                if (comp == null && j.getRecruiter() != null) {
-                    comp = j.getRecruiter().getCompany();
-                    if (comp == null && j.getRecruiter().getRecruiterId() != null) {
-                        comp = companyRepository.findByRecruiterId(j.getRecruiter().getRecruiterId()).orElse(null);
-                    }
-                    if (comp != null) {
-                        j.setCompany(comp);
-                    }
-                }
-                if (comp == null) continue;
-
-                boolean companyVerified = comp.getStatus() == CompanyStatus.VERIFIED || comp.getStatus() == CompanyStatus.ACTIVE;
-                boolean companyRevoked = comp.getStatus() == CompanyStatus.REJECTED
-                        || comp.getStatus() == CompanyStatus.BANNED
-                        || comp.getStatus() == CompanyStatus.SUSPENDED;
-
-                if (companyVerified && j.getStatus() == com.hiremate.enums.JobStatus.CLOSED) {
-                    boolean isApproved = j.getApprovalStatus() == null
-                            || j.getApprovalStatus() == com.hiremate.enums.JobApprovalStatus.APPROVED;
-                    boolean notExpired = j.getDeadlineDate() == null || !j.getDeadlineDate().isBefore(today);
-                    boolean notManualOrFilled = !"HR_MANUAL_CLOSED".equals(j.getModerationNote())
-                            && !"VACANCIES_FILLED_AUTO_CLOSED".equals(j.getModerationNote());
-                    if (isApproved && notExpired && notManualOrFilled) {
-                        j.setStatus(com.hiremate.enums.JobStatus.PUBLISHED);
-                        j.setApprovalStatus(com.hiremate.enums.JobApprovalStatus.APPROVED);
-                        if ("COMPANY_SUSPENDED_AUTO_CLOSED".equals(j.getModerationNote())) {
-                            j.setModerationNote(null);
+        // Đồng bộ tự động tin tuyển dụng theo GPKD với throttle 120s (vì AdminService đã đồng bộ tức thì khi duyệt/thu hồi)
+        long nowMs = System.currentTimeMillis();
+        long lastSyncMs = lastAllCompaniesJobSync.get();
+        if (nowMs - lastSyncMs > 120_000L && lastAllCompaniesJobSync.compareAndSet(lastSyncMs, nowMs)) {
+            try {
+                java.time.LocalDate today = java.time.LocalDate.now();
+                List<Job> allJobs = jobRepository.findAllByOrderByCreatedAtDesc();
+                List<Job> toSave = new java.util.ArrayList<>();
+                for (Job j : allJobs) {
+                    Company comp = j.getCompany();
+                    if (comp == null && j.getRecruiter() != null) {
+                        comp = j.getRecruiter().getCompany();
+                        if (comp == null && j.getRecruiter().getRecruiterId() != null) {
+                            comp = companyRepository.findByRecruiterId(j.getRecruiter().getRecruiterId()).orElse(null);
                         }
+                        if (comp != null) {
+                            j.setCompany(comp);
+                        }
+                    }
+                    if (comp == null) continue;
+
+                    boolean companyVerified = comp.getStatus() == CompanyStatus.VERIFIED || comp.getStatus() == CompanyStatus.ACTIVE;
+                    boolean companyRevoked = comp.getStatus() == CompanyStatus.REJECTED
+                            || comp.getStatus() == CompanyStatus.BANNED
+                            || comp.getStatus() == CompanyStatus.SUSPENDED;
+
+                    if (companyVerified && j.getStatus() == com.hiremate.enums.JobStatus.CLOSED) {
+                        boolean isApproved = j.getApprovalStatus() == null
+                                || j.getApprovalStatus() == com.hiremate.enums.JobApprovalStatus.APPROVED;
+                        boolean notExpired = j.getDeadlineDate() == null || !j.getDeadlineDate().isBefore(today);
+                        boolean notManualOrFilled = !"HR_MANUAL_CLOSED".equals(j.getModerationNote())
+                                && !"VACANCIES_FILLED_AUTO_CLOSED".equals(j.getModerationNote());
+                        if (isApproved && notExpired && notManualOrFilled) {
+                            j.setStatus(com.hiremate.enums.JobStatus.PUBLISHED);
+                            j.setApprovalStatus(com.hiremate.enums.JobApprovalStatus.APPROVED);
+                            if ("COMPANY_SUSPENDED_AUTO_CLOSED".equals(j.getModerationNote())) {
+                                j.setModerationNote(null);
+                            }
+                            toSave.add(j);
+                        }
+                    } else if (companyRevoked && j.getStatus() == com.hiremate.enums.JobStatus.PUBLISHED) {
+                        j.setStatus(com.hiremate.enums.JobStatus.CLOSED);
+                        j.setModerationNote("COMPANY_SUSPENDED_AUTO_CLOSED");
                         toSave.add(j);
                     }
-                } else if (companyRevoked && j.getStatus() == com.hiremate.enums.JobStatus.PUBLISHED) {
-                    j.setStatus(com.hiremate.enums.JobStatus.CLOSED);
-                    j.setModerationNote("COMPANY_SUSPENDED_AUTO_CLOSED");
-                    toSave.add(j);
                 }
+                if (!toSave.isEmpty()) {
+                    jobRepository.saveAll(toSave);
+                }
+            } catch (Exception ex) {
+                log.warn("Lỗi đồng bộ việc làm khi lấy danh sách công ty: {}", ex.getMessage());
             }
-            if (!toSave.isEmpty()) {
-                jobRepository.saveAll(toSave);
-            }
-        } catch (Exception ex) {
-            log.warn("Lỗi đồng bộ việc làm khi lấy danh sách công ty: {}", ex.getMessage());
         }
 
         List<com.hiremate.entity.Job> publishedJobs = jobRepository.findByStatus(com.hiremate.enums.JobStatus.PUBLISHED);
@@ -456,10 +508,18 @@ public class CompanyServiceImpl implements CompanyService {
                             .companySize(c.getCompanySize())
                             .description(c.getDescription())
                             .industry(c.getIndustry())
+                            .taxCode(c.getTaxCode())
+                            .licenseNumber(c.getLicenseNumber())
+                            .legalRepresentative(c.getLegalRepresentative())
+                            .verifiedAt(c.getVerifiedAt())
                             .status(c.getStatus())
                             .licenseDocUrl(hasDoc ? c.getLicenseDocUrl() : null)
                             .licenseDocName(hasDoc ? c.getLicenseDocName() : null)
                             .hasLicenseDoc(hasDoc)
+                            .branchesJson(c.getBranchesJson())
+                            .branches(extractRealBranches(c, null))
+                            .benefitsJson(c.getBenefitsJson())
+                            .benefits(parseJsonObjectList(c.getBenefitsJson(), "benefitsJson", c.getCompanyId()))
                             .activeJobsCount(cJobs.size())
                             .locations(locations)
                             .createdAt(c.getCreatedAt())
@@ -481,13 +541,19 @@ public class CompanyServiceImpl implements CompanyService {
         }
 
         List<Company> companies = companyRepository.lookupCompanies(cleanKw, cleanTax);
-        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
 
         return companies.stream().map(c -> {
             List<Map<String, Object>> branchList = new java.util.ArrayList<>();
             if (c.getBranchesJson() != null && !c.getBranchesJson().trim().isEmpty()) {
                 try {
-                    branchList = mapper.readValue(c.getBranchesJson(), new com.fasterxml.jackson.core.type.TypeReference<List<Map<String, Object>>>() {});
+                    List<Map<String, Object>> raw = OBJECT_MAPPER.readValue(c.getBranchesJson(), new com.fasterxml.jackson.core.type.TypeReference<List<Map<String, Object>>>() {});
+                    if (raw != null) {
+                        for (Map<String, Object> item : raw) {
+                            if (!isBranchMetadata(item)) {
+                                branchList.add(item);
+                            }
+                        }
+                    }
                 } catch (Exception ex) {
                     log.warn("Error parsing branchesJson for company {}: {}", c.getCompanyId(), ex.getMessage());
                 }
@@ -520,16 +586,26 @@ public class CompanyServiceImpl implements CompanyService {
 
     private CompanyResponse mapToResponse(Company c, String recruiterName) {
         List<CompanyResponse.RecruiterTeamMember> teamMembers = Collections.emptyList();
+        long totalJobs = 0;
+        long activePublishedJobs = 0;
+        long totalViews = 0;
+        long totalHires = 0;
+
         if (c.getCompanyId() != null) {
+            Map<Long, Integer> activeJobsByRecruiter = new HashMap<>();
+            try {
+                List<Object[]> grouped = jobRepository.countActiveJobsGroupedByRecruiterForCompany(c.getCompanyId());
+                for (Object[] row : grouped) {
+                    if (row != null && row.length >= 2 && row[0] instanceof Long rid && row[1] instanceof Number cnt) {
+                        activeJobsByRecruiter.put(rid, cnt.intValue());
+                    }
+                }
+            } catch (Exception ignored) {}
+
             List<Recruiter> recruiters = recruiterRepository.findAllByCompany_CompanyId(c.getCompanyId());
             teamMembers = recruiters.stream().map(r -> {
                 User u = r.getUser();
                 boolean isRep = Boolean.TRUE.equals(r.getIsHeadRecruiter()) || Objects.equals(r.getRecruiterId(), c.getRecruiterId());
-                int activeJobs = 0;
-                try {
-                    activeJobs = (int) jobRepository.countActiveJobsByRecruiterId(r.getRecruiterId());
-                } catch (Exception ignored) {}
-
                 return CompanyResponse.RecruiterTeamMember.builder()
                         .recruiterId(r.getRecruiterId())
                         .fullName(u != null ? u.getFullName() : "Chuyên viên HR")
@@ -542,70 +618,33 @@ public class CompanyServiceImpl implements CompanyService {
                         .avatarUrl(u != null ? com.hiremate.service.BrandMediaSyncService.sanitizeImageUrl(u.getAvatarUrl()) : null)
                         .representative(isRep)
                         .isRepresentative(isRep)
-                        .activeJobsCount(activeJobs)
+                        .activeJobsCount(activeJobsByRecruiter.getOrDefault(r.getRecruiterId(), 0))
                         .joinedAt(u != null ? u.getCreatedAt() : null)
                         .build();
             }).collect(Collectors.toList());
+
+            List<Object[]> statRows = jobRepository.getCompanyJobCountAndViews(c.getCompanyId());
+            if (statRows != null && !statRows.isEmpty()) {
+                Object[] row = statRows.get(0);
+                if (row != null && row.length >= 2) {
+                    if (row[0] instanceof Number n0) totalJobs = n0.longValue();
+                    if (row[1] instanceof Number n1) totalViews = n1.longValue();
+                }
+            }
+            activePublishedJobs = jobRepository.countPublishedApprovedJobsByCompanyId(c.getCompanyId());
+
+            if (applicationRepository != null) {
+                totalHires = applicationRepository.countByCompanyIdAndStatus(
+                        c.getCompanyId(), com.hiremate.enums.ApplicationStatus.HIRED);
+            }
         }
 
         boolean hasValidLicense = isValidLicenseDocUrl(c.getLicenseDocUrl());
         String effectiveDocUrl = hasValidLicense ? c.getLicenseDocUrl() : null;
         String effectiveDocName = hasValidLicense ? (c.getLicenseDocName() != null ? c.getLicenseDocName() : "Giay_Phep_Kinh_Doanh.pdf") : null;
 
-        long totalJobs = 0;
-        long activePublishedJobs = 0;
-        long totalViews = 0;
-        long totalHires = 0;
-        if (c.getCompanyId() != null) {
-            List<Job> companyJobs = jobRepository.findByCompany_CompanyIdOrderByCreatedAtDesc(c.getCompanyId());
-            totalJobs = companyJobs != null ? companyJobs.size() : 0;
-            if (companyJobs != null) {
-                java.time.LocalDate today = java.time.LocalDate.now();
-                activePublishedJobs = companyJobs.stream()
-                        .filter(j -> j.getStatus() == com.hiremate.enums.JobStatus.PUBLISHED
-                                && (j.getApprovalStatus() == null || j.getApprovalStatus() == com.hiremate.enums.JobApprovalStatus.APPROVED)
-                                && (j.getDeadlineDate() == null || !j.getDeadlineDate().isBefore(today)))
-                        .count();
-                totalViews = companyJobs.stream().mapToLong(j -> j.getTotalViews() != null ? j.getTotalViews() : 0).sum();
-            }
-            if (applicationRepository != null) {
-                List<Application> companyApps = applicationRepository.findByCompanyId(c.getCompanyId());
-                if (companyApps != null) {
-                    totalHires = companyApps.stream().filter(a -> a.getStatus() == com.hiremate.enums.ApplicationStatus.HIRED).count();
-                }
-            }
-        }
-
-        List<Object> parsedBenefits = Collections.emptyList();
-        if (c.getBenefitsJson() != null && !c.getBenefitsJson().isBlank()) {
-            try {
-                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-                parsedBenefits = mapper.readValue(c.getBenefitsJson(), new com.fasterxml.jackson.core.type.TypeReference<List<Object>>() {});
-            } catch (Exception ex) {
-                log.warn("Error parsing benefitsJson for company {}: {}", c.getCompanyId(), ex.getMessage());
-            }
-        }
-
-        List<Object> parsedBranches = new java.util.ArrayList<>();
-        if (c.getBranchesJson() != null && !c.getBranchesJson().isBlank()) {
-            try {
-                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-                parsedBranches = mapper.readValue(c.getBranchesJson(), new com.fasterxml.jackson.core.type.TypeReference<List<Object>>() {});
-            } catch (Exception ex) {
-                log.warn("Error parsing branchesJson for company {}: {}", c.getCompanyId(), ex.getMessage());
-            }
-        }
-        if (parsedBranches.isEmpty()) {
-            Map<String, Object> defaultBranch = new HashMap<>();
-            defaultBranch.put("branchId", "branch-main-" + (c.getCompanyId() != null ? c.getCompanyId() : "hq"));
-            defaultBranch.put("branchName", "Trụ sở chính");
-            defaultBranch.put("address", c.getAddress() != null && !c.getAddress().isBlank() ? c.getAddress() : "Việt Nam");
-            defaultBranch.put("scale", c.getCompanySize() != null ? c.getCompanySize() : "50-100");
-            defaultBranch.put("hotline", "");
-            defaultBranch.put("isHeadquarters", true);
-            defaultBranch.put("manager", recruiterName != null ? recruiterName : "Ban Giám Đốc");
-            parsedBranches.add(defaultBranch);
-        }
+        List<Object> parsedBenefits = parseJsonObjectList(c.getBenefitsJson(), "benefitsJson", c.getCompanyId());
+        List<Object> parsedBranches = extractRealBranches(c, recruiterName);
 
         return CompanyResponse.builder()
                 .companyId(c.getCompanyId())

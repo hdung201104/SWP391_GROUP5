@@ -712,9 +712,7 @@ public class JobServiceImpl implements JobService {
 
     private final java.util.concurrent.atomic.AtomicLong lastExpiredCheck = new java.util.concurrent.atomic.AtomicLong(0);
 
-    @Transactional
-    @org.springframework.scheduling.annotation.Scheduled(cron = "0 0 * * * *")
-    public void autoCloseExpiredJobs() {
+    private void closeExpiredJobsFast() {
         try {
             java.time.LocalDate today = java.time.LocalDate.now();
             List<Job> expired = jobRepository.findExpiredActiveJobs(today, JobStatus.PUBLISHED);
@@ -725,10 +723,16 @@ public class JobServiceImpl implements JobService {
                 jobRepository.saveAll(expired);
                 log.info(">> [JobService] Tự động đóng và chuyển về kho lưu trữ {} tin tuyển dụng hết hạn deadline.", expired.size());
             }
-            reconcileVerifiedCompanyJobs(today);
         } catch (Exception e) {
             log.warn(">> [JobService] Lỗi khi tự động đóng tin tuyển dụng hết hạn: {}", e.getMessage());
         }
+    }
+
+    @Transactional
+    @org.springframework.scheduling.annotation.Scheduled(cron = "0 0 * * * *")
+    public void autoCloseExpiredJobs() {
+        closeExpiredJobsFast();
+        reconcileVerifiedCompanyJobs(java.time.LocalDate.now());
     }
 
     private void reconcileVerifiedCompanyJobs(java.time.LocalDate today) {
@@ -791,9 +795,9 @@ public class JobServiceImpl implements JobService {
         // Kiểm tra định kỳ tối đa 1 lần mỗi 15 giây để đồng bộ tức thì mà không gây quá tải
         if (now - last > 15_000 && lastExpiredCheck.compareAndSet(last, now)) {
             try {
-                autoCloseExpiredJobs();
+                closeExpiredJobsFast();
             } catch (Exception ex) {
-                log.warn("Lỗi autoCloseExpiredJobs throttled: {}", ex.getMessage());
+                log.warn("Lỗi closeExpiredJobsFast throttled: {}", ex.getMessage());
             }
         }
     }

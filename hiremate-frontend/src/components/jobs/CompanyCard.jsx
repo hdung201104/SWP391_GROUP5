@@ -2,52 +2,20 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { CompanyLogoImg } from '../common/SmartImage';
 import { resolveCompanyLogo } from '../../utils/mediaUtils';
+import {
+  formatCompanyDisplayName,
+  getSmartCompanyIndustry,
+  getSmartCompanySize,
+  getSmartCompanyDescription,
+} from '../../utils/companyProfileUtils';
 
 // Reliable Cloudinary CDN brand logos for partner companies
 const getBrandLogo = (company) => resolveCompanyLogo(company?.companyName, company?.logoUrl);
 
-// Smart fallbacks to guarantee 100% rich and professional appearance
-const formatCompanyName = (name) => {
-  if (!name) return 'Doanh Nghiệp Tuyển Dụng';
-  return name.trim().replace(/\b\w/g, l => l.toUpperCase());
-};
-
-const getIndustry = (company) => {
-  if (company?.industry && company.industry.trim()) return company.industry;
-  const name = (company?.companyName || '').toLowerCase();
-  if (name.includes('vng')) return 'Internet, Game & Fintech';
-  if (name.includes('digital') || name.includes('transformation')) return 'Chuyển Đổi Số & Cloud AI';
-  if (name.includes('đa quốc gia')) return 'Tập Đoàn Đa Quốc Gia & Global Tech';
-  if (name.includes('fpt')) return 'Công Nghệ Thông Tin & Phần Mềm';
-  return 'Công Nghệ Thông Tin & Phần Mềm';
-};
-
-const getCompanySize = (company) => {
-  if (company?.companySize && company.companySize.trim()) return company.companySize;
-  const name = (company?.companyName || '').toLowerCase();
-  if (name.includes('vng')) return '5,000+ nhân viên';
-  if (name.includes('fpt software')) return '10,000+ nhân sự';
-  if (name.includes('transformation')) return '500 - 1,000 nhân viên';
-  if (name.includes('đa quốc gia')) return '1,000 - 5,000 nhân sự';
-  return '500+ nhân sự';
-};
-
-const getDescription = (company) => {
-  if (company?.description && company.description.trim()) return company.description;
-  const name = (company?.companyName || '').toLowerCase();
-  if (name.includes('transformation')) {
-    return 'Đơn vị tiên phong triển khai giải pháp Chuyển đổi số, kiến trúc Cloud và AI toàn diện cho các tổ chức quy mô lớn.';
-  }
-  if (name.includes('đa quốc gia')) {
-    return 'Tập đoàn công nghệ đa quốc gia hàng đầu, triển khai các dự án phần mềm quy mô toàn cầu với môi trường làm việc chuẩn quốc tế.';
-  }
-  return 'Tập đoàn công nghệ đối tác chiến lược của HireMate AI, mang đến các cơ hội nghề nghiệp đa dạng với đãi ngộ hàng đầu thị trường.';
-};
-
-export default function CompanyCard({ 
-  company, 
-  user, 
-  onSelectCompany, 
+export default function CompanyCard({
+  company,
+  user,
+  onSelectCompany,
   onEditCompany,
   onViewProfile,
 }) {
@@ -64,10 +32,10 @@ export default function CompanyCard({
     ? company.locations
     : (company.address ? [company.address] : ['Toàn quốc']);
 
-  const displayName = formatCompanyName(company.companyName);
-  const displayIndustry = getIndustry(company);
-  const displaySize = getCompanySize(company);
-  const displayDesc = getDescription(company);
+  const displayName = formatCompanyDisplayName(company.companyName);
+  const displayIndustry = getSmartCompanyIndustry(company);
+  const displaySize = getSmartCompanySize(company);
+  const displayDesc = getSmartCompanyDescription(company);
 
   // Brand initials
   const initials = displayName
