@@ -1,0 +1,11 @@
+testCaseId,scenario,role,fullName,email,password,confirmPassword,expectedSuccess,expectedMessage
+TC_REG_001,Đăng ký thành công tài khoản Ứng viên mới,CANDIDATE,Nguyễn Văn Ứng Viên,,Candidate@2026,Candidate@2026,true,thành công
+TC_REG_002,Đăng ký thành công tài khoản Nhà tuyển dụng mới,RECRUITER,Trần Thị Tuyển Dụng,,Recruiter@2026,Recruiter@2026,true,thành công
+TC_REG_003,Đăng ký thành công Ứng viên vị trí AI Specialist,CANDIDATE,Phạm Hoàng Nam AI,,AiEngineer@2026,AiEngineer@2026,true,thành công
+TC_REG_004,Đăng ký thất bại do email Ứng viên đã tồn tại trong CSDL,CANDIDATE,Nguyễn Văn Trùng Email,candidate@hiremate.ai,Candidate@2026,Candidate@2026,false,đã được đăng ký
+TC_REG_005,Đăng ký thất bại do email Nhà tuyển dụng đã tồn tại trong CSDL,RECRUITER,HR Tuyển Dụng Trùng,minhanh.hr@fptsoftware.com,Recruiter@123,Recruiter@123,false,đã được đăng ký
+TC_REG_006,Đăng ký thất bại do mật khẩu xác nhận không khớp,CANDIDATE,Lê Thị Kiểm Thử,kiemthu.nomatch@hiremate.ai,Password@123,DifferentPassword@999,false,không khớp
+TC_REG_007,Đăng ký thất bại do mật khẩu quá ngắn dưới 6 ký tự,CANDIDATE,Vũ Quốc Bảo,quocbao.shortpwd@hiremate.ai,12345,12345,false,tối thiểu 6 ký tự
+TC_REG_008,Đăng ký thất bại do bỏ trống họ tên bắt buộc,CANDIDATE,,cand.noname@hiremate.ai,Candidate@2026,Candidate@2026,false,Vui lòng nhập họ và tên
+TC_REG_009,Đăng ký thất bại do bỏ trống địa chỉ email bắt buộc,CANDIDATE,Hoàng Ngọc Dũng,,Candidate@2026,Candidate@2026,false,không đúng định dạng
+TC_REG_010,Đăng ký Nhà tuyển dụng thất bại do mật khẩu không khớp,RECRUITER,Giám Đốc Nhân Sự,recruiter.nomatch@hiremate.ai,RecruiterPass@1,WrongConfirm@2,false,không khớp

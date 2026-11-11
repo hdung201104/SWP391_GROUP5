@@ -18,7 +18,6 @@ public class RegisterPage extends BasePage {
     private final By fullNameInput = By.cssSelector("input[name='register_candidate_fullname'], input#fullName");
     private final By emailInput = By.cssSelector("input[name='register_candidate_email'], input#email");
     private final By phoneInput = By.cssSelector("input[name='register_candidate_phone'], input#phone");
-    private final By headlineInput = By.cssSelector("input[name='headline'], input#headline");
     private final By passwordInput = By.cssSelector("input[name='register_user_password'], input#password");
     private final By confirmPasswordInput = By.cssSelector("input[name='register_user_confirm_password'], input#confirmPassword");
 
@@ -27,8 +26,7 @@ public class RegisterPage extends BasePage {
     private final By candidateRoleButton = By.cssSelector("button[data-role='CANDIDATE']");
     private final By recruiterRoleButton = By.cssSelector("button[data-role='RECRUITER']");
 
-    // Checkbox điều khoản & Nút Đăng ký
-    private final By termsCheckbox = By.cssSelector("input#terms, input[type='checkbox']");
+    // Nút Đăng ký
     private final By registerButton = By.cssSelector("button#registerBtn, button[type='submit']");
 
     // Thông báo lỗi & Thông báo thành công
@@ -47,6 +45,7 @@ public class RegisterPage extends BasePage {
     public void open() {
         driver.get(DriverFactory.BASE_URL + "/?t=" + System.nanoTime() + "#/register");
         waitForVisibility(fullNameInput);
+        pause(400);
     }
 
     /**
@@ -67,46 +66,30 @@ public class RegisterPage extends BasePage {
             }
         } catch (Exception ignored) {
         }
+        pause(300);
     }
 
-    /**
-     * Nhập Họ và tên.
-     */
     public void enterFullName(String fullName) {
         sendKeys(fullNameInput, fullName);
     }
 
-    /**
-     * Nhập Email đăng ký.
-     */
     public void enterEmail(String email) {
         sendKeys(emailInput, email);
     }
 
-    /**
-     * Nhập Mật khẩu.
-     */
     public void enterPassword(String password) {
         sendKeys(passwordInput, password);
     }
 
-    /**
-     * Nhập Xác nhận mật khẩu.
-     */
     public void enterConfirmPassword(String confirmPassword) {
         sendKeys(confirmPasswordInput, confirmPassword);
     }
 
-    /**
-     * Nhấn nút Đăng ký.
-     */
     public void clickRegister() {
         click(registerButton);
+        pause(600);
     }
 
-    /**
-     * Thực hiện điền form đăng ký tài khoản ứng viên và nhấn nút Đăng ký.
-     */
     public void registerCandidate(String fullName, String email, String password, String confirmPassword) {
         selectRole("CANDIDATE");
         enterFullName(fullName);
@@ -116,23 +99,23 @@ public class RegisterPage extends BasePage {
         clickRegister();
     }
 
-    /**
-     * Kiểm tra thông báo đăng ký thành công.
-     */
+    public void registerWithFullData(String role, String fullName, String email, String password, String confirmPassword) {
+        selectRole(role);
+        enterFullName(fullName);
+        enterEmail(email);
+        enterPassword(password);
+        enterConfirmPassword(confirmPassword);
+        clickRegister();
+    }
+
     public boolean isRegistrationSuccessful() {
         return isDisplayed(successMessage);
     }
 
-    /**
-     * Kiểm tra thông báo lỗi có hiển thị hay không.
-     */
     public boolean isErrorMessageDisplayed() {
         return isDisplayed(errorMessage);
     }
 
-    /**
-     * Lấy nội dung thông báo lỗi trên giao diện.
-     */
     public String getErrorMessageText() {
         if (isDisplayed(errorMessage)) {
             return getText(errorMessage);

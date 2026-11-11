@@ -1,7 +1,6 @@
 package pages;
 
 import org.openqa.selenium.By;
-import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.Select;
@@ -10,47 +9,50 @@ import utils.DriverFactory;
 import java.util.List;
 
 /**
- * JobApplicationPage: Page Object cho chức năng Quản lý Việc làm & Ứng tuyển (http://localhost:5173/#/jobs).
- * Tuân thủ mô hình Page Object Model (POM) với đầy đủ Locators và Actions.
+ * JobApplicationPage: Page Object cho tính năng Việc làm & Ứng tuyển HireMate AI (http://localhost:5173/#/jobs).
+ * Định vị các phần tử: danh sách thẻ việc làm (.job-card), nút ứng tuyển (.btn-apply-job),
+ * popup modal nộp CV (#applyModal), dropdown chọn CV, textarea cover letter,
+ * nút đóng modal (#btnCloseModal), banner thành công (#applySuccess) và cảnh báo trùng lặp (#applyError).
  */
 public class JobApplicationPage extends BasePage {
 
     public static final String JOBS_URL = DriverFactory.BASE_URL + "/#/jobs";
 
-    // ==================== 1. LOCATORS TRANG VIỆC LÀM & ỨNG TUYỂN ====================
+    // ==================== 1. LOCATORS ====================
     private final By jobCards = By.cssSelector(".job-card");
-    private final By applyJobButton = By.cssSelector("button.btn-apply-job");
+    private final By applyJobButton = By.cssSelector(".btn-apply-job");
     private final By applyModal = By.id("applyModal");
     private final By cvSelect = By.id("cvSelect");
     private final By coverLetterInput = By.id("coverLetter");
     private final By confirmApplyButton = By.id("btnConfirmApply");
-    private final By applySuccessBanner = By.cssSelector("#applySuccess:not(.hidden)");
-    private final By applyErrorBanner = By.cssSelector("#applyError:not(.hidden)");
+    private final By closeModalButton = By.cssSelector("#btnCloseModal, .btn-secondary");
+    private final By applySuccessBanner = By.id("applySuccess");
+    private final By applyErrorBanner = By.id("applyError");
     private final By applicationStatus = By.cssSelector(".application-status");
 
     public JobApplicationPage(WebDriver driver) {
         super(driver);
     }
 
-    // ==================== 2. CÁC HÀM THAO TÁC (ACTIONS) ====================
+    // ==================== 2. CÁC HÀM THAO TÁC ====================
 
     /**
-     * Điều hướng tới trang Danh sách việc làm (http://localhost:5173/#/jobs).
+     * Mở trực tiếp trang Danh sách Việc làm HireMate AI.
      */
     public void openJobList() {
-        driver.get(JOBS_URL);
+        driver.get(DriverFactory.BASE_URL + "/?t=" + System.nanoTime() + "#/jobs");
         waitForVisibility(jobCards);
-        pauseForDemo(1000);
+        pause(300);
     }
 
     /**
-     * Xóa dữ liệu lịch sử ứng tuyển trong localStorage để chuẩn bị cho kịch bản Happy Path mới.
+     * Xóa danh sách các job đã ứng tuyển trong localStorage để reset trạng thái sạch sẽ trước khi test.
      */
     public void resetAppliedJobsState() {
-        try {
-            ((JavascriptExecutor) driver).executeScript("localStorage.removeItem('hiremate_applied_jobs');");
-        } catch (Exception ignored) {
-        }
+        ((org.openqa.selenium.JavascriptExecutor) driver).executeScript(
+                "localStorage.removeItem('appliedJobs');"
+        );
+        pause(200);
     }
 
     /**
@@ -59,37 +61,47 @@ public class JobApplicationPage extends BasePage {
     public void selectJob(String jobTitle) {
         waitForVisibility(jobCards);
         List<WebElement> cards = driver.findElements(jobCards);
+        boolean found = false;
 
         for (WebElement card : cards) {
-            String cardText = card.getText();
-            String dataTitle = card.getAttribute("data-job-title");
-            if ((dataTitle != null && dataTitle.equalsIgnoreCase(jobTitle))
-                    || (cardText != null && cardText.toLowerCase().contains(jobTitle.toLowerCase()))) {
+            String title = card.getAttribute("data-job-title");
+            if (title != null && title.equalsIgnoreCase(jobTitle)) {
                 scrollToElement(card);
-                List<WebElement> buttons = card.findElements(applyJobButton);
-                if (!buttons.isEmpty()) {
-                    try {
-                        buttons.get(0).click();
-                    } catch (Exception e) {
-                        jsClick(buttons.get(0));
-                    }
-                } else {
-                    try {
-                        card.click();
-                    } catch (Exception e) {
-                        jsClick(card);
-                    }
+                pause(200);
+                WebElement applyBtn = card.findElement(applyJobButton);
+                try {
+                    applyBtn.click();
+                } catch (Exception e) {
+                    jsClick(applyBtn);
                 }
-                waitForVisibility(applyModal);
-                pauseForDemo(1000);
-                return;
+                found = true;
+                break;
             }
         }
 
-        // Fallback nếu không khớp chính xác tên: click nút ứng tuyển đầu tiên
+        if (!found && !cards.isEmpty()) {
+            WebElement firstCard = cards.get(0);
+            scrollToElement(firstCard);
+            WebElement applyBtn = firstCard.findElement(applyJobButton);
+            try {
+                applyBtn.click();
+            } catch (Exception e) {
+                jsClick(applyBtn);
+            }
+        }
+
+        waitForVisibility(applyModal);
+        pause(300);
+    }
+
+    /**
+     * Mở Modal ứng tuyển của công việc đầu tiên trên danh sách.
+     */
+    public void openApplyModal() {
+        waitForVisibility(applyJobButton);
         click(applyJobButton);
         waitForVisibility(applyModal);
-        pauseForDemo(1000);
+        pause(300);
     }
 
     /**
@@ -117,9 +129,9 @@ public class JobApplicationPage extends BasePage {
             sendKeys(coverLetterInput, coverLetter);
         }
 
-        pauseForDemo(1000);
+        pause(300);
         click(confirmApplyButton);
-        pauseForDemo(1000);
+        pause(400);
     }
 
     /**
@@ -130,6 +142,28 @@ public class JobApplicationPage extends BasePage {
                 cvName,
                 "Kính gửi Nhà tuyển dụng, tôi xin gửi hồ sơ ứng tuyển vị trí này với kinh nghiệm thực chiến phù hợp."
         );
+    }
+
+    /**
+     * Đóng modal ứng tuyển bằng nút Đóng / Hủy bỏ.
+     */
+    public void closeModal() {
+        waitForVisibility(closeModalButton);
+        click(closeModalButton);
+        pause(300);
+    }
+
+    /**
+     * Kiểm tra Modal ứng tuyển có đang hiển thị hay không.
+     */
+    public boolean isModalDisplayed() {
+        try {
+            WebElement modal = driver.findElement(applyModal);
+            String classAttr = modal.getAttribute("class");
+            return classAttr == null || !classAttr.contains("hidden");
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     /**
@@ -194,13 +228,4 @@ public class JobApplicationPage extends BasePage {
         }
         return false;
     }
-
-    private void pauseForDemo(long millis) {
-        try {
-            Thread.sleep(millis);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-    }
 }
-

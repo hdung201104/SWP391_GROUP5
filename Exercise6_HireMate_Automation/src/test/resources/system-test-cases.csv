@@ -1,0 +1,28 @@
+testCaseId,feature,scenario,testType,inputs,expectedOutput
+TC_REG_001,Authentication,Đăng ký thành công tài khoản Ứng viên mới,Positive,Role=CANDIDATE | Dynamic Email,Hiển thị thông báo đăng ký thành công
+TC_REG_002,Authentication,Đăng ký thành công tài khoản Nhà tuyển dụng mới,Positive,Role=RECRUITER | Dynamic Email,Hiển thị thông báo đăng ký thành công
+TC_REG_003,Authentication,Đăng ký thành công Ứng viên vị trí AI Specialist,Positive,Role=CANDIDATE | Dynamic Email,Hiển thị thông báo đăng ký thành công
+TC_REG_004,Authentication,Đăng ký thất bại do email Ứng viên đã tồn tại,Negative,Email=candidate@hiremate.ai,Báo lỗi email đã được đăng ký
+TC_REG_005,Authentication,Đăng ký thất bại do email Nhà tuyển dụng đã tồn tại,Negative,Email=minhanh.hr@fptsoftware.com,Báo lỗi email đã được đăng ký
+TC_REG_006,Authentication,Đăng ký thất bại do mật khẩu xác nhận không khớp,Negative,Password=Password@123 | Confirm=Different@999,Báo lỗi mật khẩu không khớp
+TC_REG_007,Authentication,Đăng ký thất bại do mật khẩu ngắn dưới 6 ký tự,Negative,Password=12345 | Confirm=12345,Báo lỗi mật khẩu tối thiểu 6 ký tự
+TC_REG_008,Authentication,Đăng ký thất bại do bỏ trống họ tên bắt buộc,Negative,FullName=(empty),Báo lỗi vui lòng nhập họ và tên
+TC_REG_009,Authentication,Đăng ký thất bại do bỏ trống địa chỉ email,Negative,Email=(empty),Báo lỗi email không đúng định dạng
+TC_REG_010,Authentication,Đăng ký Nhà tuyển dụng thất bại do mật khẩu không khớp,Negative,Password=RecruiterPass@1 | Confirm=WrongConfirm@2,Báo lỗi mật khẩu không khớp
+TC_LOG_001,Authentication,Đăng ký đăng nhập tài khoản Ứng viên (Happy Path),Positive,candidate@hiremate.ai / Candidate@123,Chuyển hướng Dashboard lưu JWT token
+TC_LOG_002,Authentication,Đăng nhập thất bại do sai mật khẩu (Demo A),Negative,candidate@hiremate.ai / SaiMatKhau@999,Báo lỗi tài khoản hoặc mật khẩu không chính xác
+TC_LOG_003,Authentication,Đăng nhập thất bại do bỏ trống email và mật khẩu,Negative,Email=(empty) / Password=(empty),Báo lỗi yêu cầu nhập đầy đủ email và mật khẩu
+TC_LOG_004,Authentication,Data-Driven CSV: Đăng nhập Candidate 1,Positive,candidate@hiremate.ai / Candidate@123,Đăng nhập thành công chuyển Dashboard
+TC_LOG_005,Authentication,Data-Driven CSV: Đăng nhập Candidate 2,Positive,longtran@candidate.hiremate.ai / Password123@,Đăng nhập thành công chuyển Dashboard
+TC_LOG_006,Authentication,Data-Driven CSV: Đăng nhập Candidate 3,Positive,quocbao.dev@gmail.com / Password123@,Đăng nhập thành công chuyển Dashboard
+TC_LOG_007,Authentication,Data-Driven CSV: Đăng nhập Recruiter,Positive,minhanh.hr@fptsoftware.com / Recruiter@123,Đăng nhập thành công chuyển Dashboard
+TC_LOG_008,Authentication,Data-Driven CSV: Đăng nhập Admin Quản trị,Positive,admin@hiremate.ai / admin123,Đăng nhập thành công chuyển Admin Dashboard
+TC_LOG_009,Authentication,Data-Driven CSV: Báo lỗi sai mật khẩu,Negative,candidate@hiremate.ai / WrongPassword999,Báo lỗi không chính xác
+TC_LOG_010,Authentication,Data-Driven CSV: Báo lỗi email chưa đăng ký,Negative,nonexistent_user@hiremate.ai / WrongPass123,Báo lỗi không chính xác
+TC_LOG_011,Authentication,Data-Driven CSV: Báo lỗi bỏ trống mật khẩu,Negative,candidate@hiremate.ai / (empty),Báo lỗi yêu cầu nhập đầy đủ
+TC_LOG_012,Authentication,Data-Driven CSV: Báo lỗi bỏ trống email,Negative,(empty) / Candidate@123,Báo lỗi yêu cầu nhập đầy đủ
+TC_APP_001,Application Management,Ứng viên nộp đơn thành công (Demo B - Happy Path),Positive,Senior Java Backend Engineer | CV Java,Hiển thị banner xanh và trạng thái Đã ứng tuyển
+TC_APP_002,Application Management,Chặn nộp 2 lần cùng 1 job (Demo C - Single Application Rule),Negative,Senior Java Backend Engineer (lần 2),Hiển thị banner đỏ Chỉ được ứng tuyển 1 lần
+TC_APP_003,Application Management,Ứng tuyển vị trí Frontend React Developer,Positive,Frontend React Developer | CV Fullstack,Hiển thị banner xanh và trạng thái Đã ứng tuyển
+TC_APP_004,Application Management,Ứng tuyển vị trí AI & Machine Learning Engineer,Positive,AI & Machine Learning Engineer | CV AI,Hiển thị banner xanh và trạng thái Đã ứng tuyển
+TC_APP_005,Application Management,Đóng/Hủy popup ứng tuyển an toàn (Modal Cancel),Positive,Click #btnCloseModal,Modal đóng an toàn không tạo đơn nộp nhầm

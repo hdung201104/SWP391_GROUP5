@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Báo Cáo Kiểm Thử Tự Động - HireMate AI</title>
+    <style>
+        :root { --primary: #4f46e5; --success: #10b981; --danger: #ef4444; --bg: #f8fafc; --card: #ffffff; --text: #1e293b; --border: #e2e8f0; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); padding: 24px; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .header { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; border-radius: 16px; padding: 28px; margin-bottom: 24px; box-shadow: 0 10px 25px rgba(79, 70, 229, 0.2); }
+        .header h1 { font-size: 24px; margin-bottom: 6px; }
+        .header p { opacity: 0.9; font-size: 13px; }
+        .badge-meta { display: inline-block; background: rgba(255, 255, 255, 0.2); padding: 4px 12px; border-radius: 9999px; font-size: 12px; margin-top: 10px; margin-right: 8px; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .card-title { font-size: 12px; font-weight: 600; text-transform: uppercase; color: #64748b; margin-bottom: 6px; }
+        .card-val { font-size: 30px; font-weight: 800; }
+        .val-pass { color: var(--success); }
+        .val-fail { color: var(--danger); }
+        .val-rate { color: var(--primary); }
+        .progress-box { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin-bottom: 24px; }
+        .track { height: 12px; background: #fee2e2; border-radius: 9999px; overflow: hidden; margin-top: 8px; }
+        .fill { height: 100%; background: var(--success); border-radius: 9999px; width: 100.0%; }
+        .table-box { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.04); }
+        .table-top { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: #fff; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { background: #f8fafc; padding: 12px 14px; font-weight: 700; color: #475569; border-bottom: 1px solid var(--border); text-transform: uppercase; font-size: 11px; }
+        td { padding: 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+        tr:hover { background: #f8fafc; }
+        .badge-pass { background: #dcfce7; color: #166534; padding: 4px 10px; border-radius: 9999px; font-weight: 700; font-size: 11px; }
+        .badge-fail { background: #fee2e2; color: #991b1b; padding: 4px 10px; border-radius: 9999px; font-weight: 700; font-size: 11px; }
+        .tag-id { font-family: monospace; font-weight: 700; color: #4f46e5; background: #eef2ff; padding: 3px 6px; border-radius: 4px; }
+        .tag-feat { background: #f1f5f9; color: #334155; padding: 3px 8px; border-radius: 6px; font-weight: 600; font-size: 12px; }
+        .cell-data { font-family: monospace; font-size: 11px; max-width: 250px; word-break: break-all; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>BÁO CÁO KIỂM THỬ TỰ ĐỘNG - HIREMATE AI</h1>
+        <p>Khung kiểm thử: Selenium WebDriver 4.x &bull; JUnit 5 &bull; Page Object Model (POM) &bull; Data-Driven Testing (DDT)</p>
+        <span class="badge-meta">Thời gian xuất báo cáo: 09/11/2026 15:27:51</span>
+        <span class="badge-meta">Tác giả: Hoàng Ngọc Dũng - DE191112</span>
+    </div>
+    <div class="stats">
+        <div class="card"><div class="card-title">Tổng số kịch bản</div><div class="card-val">27</div></div>
+        <div class="card"><div class="card-title">Số ca thành công</div><div class="card-val val-pass">27</div></div>
+        <div class="card"><div class="card-title">Số ca thất bại</div><div class="card-val val-fail">0</div></div>
+        <div class="card"><div class="card-title">Tỷ lệ Pass</div><div class="card-val val-rate">100.0%</div></div>
+        <div class="card"><div class="card-title">Tổng thời gian</div><div class="card-val">106.6s</div></div>
+    </div>
+    <div class="progress-box">
+        <div style="display:flex; justify-content:space-between; font-weight:600;"><span>Tiến độ thực thi:</span><span style="color:#10b981;">100.0% HOÀN THÀNH</span></div>
+        <div class="track"><div class="fill"></div></div>
+    </div>
+    <div class="table-box">
+        <div class="table-top"><h2 style="font-size:16px;">DANH SÁCH CHI TIẾT CÁC TEST CASES ĐÃ THỰC THI TỰ ĐỘNG</h2><span class="tag-feat">Nguồn dữ liệu: External CSV Files</span></div>
+        <table>
+            <thead>
+                <tr><th style="width:35px;">#</th><th>Test ID</th><th>Feature</th><th>Kịch bản kiểm thử</th><th>Dữ liệu nạp vào</th><th>Kết quả kỳ vọng</th><th>Kết quả thực tế</th><th>Thời gian</th><th>Trạng thái</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><b>1</b></td>
+                    <td><span class="tag-id">TC_APP_001</span></td>
+                    <td><span class="tag-feat">Application Management</span></td>
+                    <td><b>Ứng viên nộp đơn ứng tuyển thành công (Demo B - Happy Path)</b></td>
+                    <td class="cell-data">Job=Senior Java Backend Engineer | CV=CV_NguyenVanA_JavaBackend.pdf</td>
+                    <td>Hiển thị banner xanh 'Ứng tuyển thành công' và trạng thái 'Đã ứng tuyển'</td>
+                    <td>Ứng tuyển thành công, banner xanh xuất hiện, trạng thái đổi 'Đã ứng tuyển'</td>
+                    <td>7.90s</td>
+                    <td><span class="badge-pass">PASSED</span></td>
+                </tr>
+                <tr>
+                    <td><b>2</b></td>
+                    <td><span class="tag-id">TC_APP_002</span></td>
+                    <td><span class="tag-feat">Application Management</span></td>
+                    <td><b>Chặn nộp hồ sơ 2 lần vào cùng 1 job (Demo C - Single Application Rule)</b></td>
+                    <td class="cell-data">Job=Senior Java Backend Engineer (đã nộp trước đó)</td>
+                    <td>Hệ thống chặn lại, hiện cảnh báo đỏ 'Chỉ cho phép ứng tuyển 1 lần'</td>
+                    <td>Chặn nộp trùng lặp thành công, banner cảnh báo đỏ xuất hiện bảo vệ Single Application Rule</td>
+                    <td>3.93s</td>
+                    <td><span class="badge-pass">PASSED</span></td>
+                </tr>
+                <tr>
+                    <td><b>3</b></td>
+                    <td><span class="tag-id">TC_APP_003</span></td>
+                    <td><span class="tag-feat">Application Management</span></td>
+                    <td><b>Ứng tuyển vị trí Frontend Developer</b></td>
+                    <td class="cell-data">Job=Frontend React Developer | CV=CV_NguyenVanA_Fullstack.pdf</td>
+                    <td>Hiển thị banner xanh thông báo nộp đơn thành công</td>
+                    <td>Nộp đơn thành công cho Frontend React Developer, banner xanh hiển thị</td>
+                    <td>3.49s</td>
+                    <td><span class="badge-pass">PASSED</span></td>
+                </tr>
+                <tr>
+                    <td><b>4</b></td>
+                    <td><span class="tag-id">TC_APP_004</span></td>
+                    <td><span class="tag-feat">Application Management</span></td>
+                    <td><b>Ứng tuyển vị trí AI Engineer</b></td>
+                    <td class="cell-data">Job=AI Engineer | CV=CV_NguyenVanA_AIEngineer.pdf</td>
+                    <td>Hiển thị banner xanh thông báo nộp đơn thành công</td>
+                    <td>Nộp đơn thành công cho AI Engineer, banner xanh hiển thị</td>
+                    <td>3.47s</td>
+                    <td><span class="badge-pass">PASSED</span></td>
+                </tr>
+                <tr>
+                    <td><b>5</b></td>
+                    <td><span class="tag-id">TC_APP_005</span></td>
+                    <td><span class="tag-feat">Application Management</span></td>
+                    <td><b>Đóng/Hủy popup ứng tuyển an toàn (Modal Cancel)</b></td>
+                    <td class="cell-data">Action=Click #btnCloseModal</td>
+                    <td>Modal đóng an toàn, không gửi request ứng tuyển</td>
+                    <td>Modal mở lên và đóng lại chuẩn xác khi nhấn Đóng/Hủy, không phát sinh đơn nộp ngoài ý muốn</td>
+                    <td>2.57s</td>
+                    <td><span class="badge-pass">PASSED</span></td>
+                </tr>
+                <tr>
+                    <td><b>6</b></td>
+                    <td><span class="tag-id">TC_LOG_001</span></td>
+                    <td><span class="tag-feat">Authentication</span></td>
+                    <td><b>Đăng nhập thành công với tài khoản đúng (Candidate)</b></td>
+                    <td class="cell-data">candidate@hiremate.ai / Candidate@123</td>
+                    <td>Chuyển hướng sang Dashboard thành công</td>
+                    <td>Đăng nhập thành công, chuyển hướng trang Dashboard, lưu Token</td>
+                    <td>2.86s</td>
+                    <td><span class="badge-pass">PASSED</span></td>
+                </tr>
+                <tr>
+                    <td><b>7</b></td>
+                    <td><span class="tag-id">TC_LOG_002</span></td>
+                    <td><span class="tag-feat">Authentication</span></td>
+                    <td><b>Đăng nhập thất bại do sai mật khẩu (Demo A)</b></td>
+                    <td class="cell-data">candidate@hiremate.ai / SaiMatKhau@999</td>
+                    <td>Hệ thống từ chối đăng nhập và hiển thị thông báo lỗi đỏ</td>
+                    <td>Hiển thị thông báo lỗi đỏ: 'Email hoặc mật khẩu không chính xác', từ chối đăng nhập</td>
+                    <td>2.90s</td>
+                    <td><span class="badge-pass">PASSED</span></td>
+                </tr>
+                <tr>
+                    <td><b>8</b></td>
+                    <td><span class="tag-id">TC_LOG_003</span></td>
+                    <td><span class="tag-feat">Authentication</span></td>
+                    <td><b>Đăng nhập thất bại do bỏ trống trường bắt buộc</b></td>
+                    <td class="cell-data">Email: (empty) | Pass: (empty)</td>
+                    <td>Hiển thị thông báo yêu cầu nhập đầy đủ trường bắt buộc</td>
+                    <td>Hiển thị thông báo yêu cầu nhập đầy đủ email và mật khẩu</td>
+                    <td>1.99s</td>
+                    <td><span class="badge-pass">PASSED</span></td>
+                </tr>
+                <tr>
+                    <td><b>9</b></td>
+                    <td><span class="tag-id">TC_LOG_CSV_candidate_hiremate.ai</span></td>
+                    <td><span class="tag-feat">Authentication</span></td>
+                    <td><b>Đăng nhập tự động từ CSV: candidate@hiremate.ai</b></td>
+                    <td class="cell-data">Email=candidate@hiremate.ai | Pass=****** | Role=CANDIDATE</td>
+                    <td>Đăng nhập thành công</td>
+                    <td>Đăng nhập thành công, chuyển hướng trang Dashboard</td>
+                    <td>2.84s</td>
+                    <td><span class="badge-pass">PASSED</span></td>
+                </tr>
+                <tr>
+                    <td><b>10</b></td>
+                    <td><span class="tag-id">TC_LOG_CSV_longtran_candidate.hiremate.ai</span></td>
+                    <td><span class="tag-feat">Authentication</span></td>
+                    <td><b>Đăng nhập tự động từ CSV: longtran@candidate.hiremate.ai</b></td>
+                    <td class="cell-data">Email=longtran@candidate.hiremate.ai | Pass=****** | Role=CANDIDATE</td>
+                    <td>Đăng nhập thành công</td>
+                    <td>Đăng nhập thành công, chuyển hướng trang Dashboard</td>
+                    <td>2.84s</td>
+                    <td><span class="badge-pass">PASSED</span></td>
+                </tr>
+                <tr>
+                    <td><b>11</b></td>
+                    <td><span class="tag-id">TC_LOG_CSV_quocbao.dev_gmail.com</span></td>
+                    <td><span class="tag-feat">Authentication</span></td>
+                    <td><b>Đăng nhập tự động từ CSV: quocbao.dev@gmail.com</b></td>
+                    <td class="cell-data">Email=quocbao.dev@gmail.com | Pass=****** | Role=CANDIDATE</td>
+                    <td>Đăng nhập thành công</td>
+                    <td>Đăng nhập thành công, chuyển hướng trang Dashboard</td>
+                    <td>2.84s</td>
+                    <td><span class="badge-pass">PASSED</span></td>
+                </tr>
+                <tr>
+                    <td><b>12</b></td>
+                    <td><span class="tag-id">TC_LOG_CSV_minhanh.hr_fptsoftware.com</span></td>
+                    <td><span class="tag-feat">Authentication</span></td>
+                    <td><b>Đăng nhập tự động từ CSV: minhanh.hr@fptsoftware.com</b></td>
+                    <td class="cell-data">Email=minhanh.hr@fptsoftware.com | Pass=****** | Role=RECRUITER</td>
+                    <td>Đăng nhập thành công</td>
+                    <td>Đăng nhập thành công, chuyển hướng trang Dashboard</td>
+                    <td>2.84s</td>
+                    <td><span class="badge-pass">PASSED</span></td>
+                </tr>
+                <tr>
+                    <td><b>13</b></td>
+                    <td><span class="tag-id">TC_LOG_CSV_admin_hiremate.ai</span></td>
+                    <td><span class="tag-feat">Authentication</span></td>
+                    <td><b>Đăng nhập tự động từ CSV: admin@hiremate.ai</b></td>
+                    <td class="cell-data">Email=admin@hiremate.ai | Pass=****** | Role=ADMIN</td>
+                    <td>Đăng nhập thành công</td>
+                    <td>Đăng nhập thành công, chuyển hướng trang Dashboard</td>
+                    <td>2.80s</td>
+                    <td><span class="badge-pass">PASSED</span></td>
+                </tr>
+                <tr>
+                    <td><b>14</b></td>
+                    <td><span class="tag-id">TC_LOG_CSV_candidate_hiremate.ai</span></td>
+                    <td><span class="tag-feat">Authentication</span></td>
+                    <td><b>Đăng nhập tự động từ CSV: candidate@hiremate.ai</b></td>
+                    <td class="cell-data">Email=candidate@hiremate.ai | Pass=****** | Role=CANDIDATE</td>
+                    <td>Báo lỗi: không chính xác</td>
+                    <td>Hiển thị thông báo lỗi đúng kỳ vọng: Tài khoản hoặc mật khẩu không chính xác.</td>
+                    <td>2.93s</td>
+                    <td><span class="badge-pass">PASSED</span></td>
+                </tr>
+                <tr>
+                    <td><b>15</b></td>
+                    <td><span class="tag-id">TC_LOG_CSV_nonexistent_user_hiremate.ai</span></td>
+                    <td><span class="tag-feat">Authentication</span></td>
+                    <td><b>Đăng nhập tự động từ CSV: nonexistent_user@hiremate.ai</b></td>
+                    <td class="cell-data">Email=nonexistent_user@hiremate.ai | Pass=****** | Role=CANDIDATE</td>
+                    <td>Báo lỗi: không chính xác</td>
+                    <td>Hiển thị thông báo lỗi đúng kỳ vọng: Tài khoản hoặc mật khẩu không chính xác.</td>
+                    <td>2.92s</td>
+                    <td><span class="badge-pass">PASSED</span></td>
+                </tr>
+                <tr>
+                    <td><b>16</b></td>
+                    <td><span class="tag-id">TC_LOG_CSV_candidate_hiremate.ai</span></td>
+                    <td><span class="tag-feat">Authentication</span></td>
+                    <td><b>Đăng nhập tự động từ CSV: candidate@hiremate.ai</b></td>
+                    <td class="cell-data">Email=candidate@hiremate.ai | Pass=(rỗng) | Role=CANDIDATE</td>
+                    <td>Báo lỗi: đầy đủ</td>
+                    <td>Hiển thị thông báo lỗi đúng kỳ vọng: Vui lòng nhập đầy đủ email và mật khẩu</td>
+                    <td>2.90s</td>
+                    <td><span class="badge-pass">PASSED</span></td>
+                </tr>
+                <tr>
+                    <td><b>17</b></td>
+                    <td><span class="tag-id">TC_LOG_CSV_EMPTY</span></td>
+                    <td><span class="tag-feat">Authentication</span></td>
+                    <td><b>Đăng nhập tự động từ CSV: (email rỗng)</b></td>
+                    <td class="cell-data">Email= | Pass=****** | Role=CANDIDATE</td>
+                    <td>Báo lỗi: đầy đủ</td>
+                    <td>Hiển thị thông báo lỗi đúng kỳ vọng: Vui lòng nhập đầy đủ email và mật khẩu</td>
+                    <td>2.87s</td>
+                    <td><span class="badge-pass">PASSED</span></td>
+                </tr>
+                <tr>
+                    <td><b>18</b></td>
+                    <td><span class="tag-id">TC_REG_001</span></td>
+                    <td><span class="tag-feat">Authentication</span></td>
+                    <td><b>Đăng ký thành công tài khoản Ứng viên mới</b></td>
+                    <td class="cell-data">Role=CANDIDATE | Name=Nguyễn Văn Ứng Viên | Email=user_1794212815729@hiremate.ai</td>
+                    <td>Đăng ký thành công</td>
+                    <td>Đăng ký thành công, thông báo hiển thị đúng kỳ vọng</td>
+                    <td>5.18s</td>
+                    <td><span class="badge-pass">PASSED</span></td>
+                </tr>
+                <tr>
+                    <td><b>19</b></td>
+                    <td><span class="tag-id">TC_REG_002</span></td>
+                    <td><span class="tag-feat">Authentication</span></td>
+                    <td><b>Đăng ký thành công tài khoản Nhà tuyển dụng mới</b></td>
+                    <td class="cell-data">Role=RECRUITER | Name=Trần Thị Tuyển Dụng | Email=user_1794212821366@hiremate.ai</td>
+                    <td>Đăng ký thành công</td>
+                    <td>Đăng ký thành công, thông báo hiển thị đúng kỳ vọng</td>
+                    <td>5.14s</td>
+                    <td><span class="badge-pass">PASSED</span></td>
+                </tr>
+                <tr>
+                    <td><b>20</b></td>
+                    <td><span class="tag-id">TC_REG_003</span></td>
+                    <td><span class="tag-feat">Authentication</span></td>
+                    <td><b>Đăng ký thành công Ứng viên vị trí AI Specialist</b></td>
+                    <td class="cell-data">Role=CANDIDATE | Name=Phạm Hoàng Nam AI | Email=user_1794212826973@hiremate.ai</td>
+                    <td>Đăng ký thành công</td>
+                    <td>Đăng ký thành công, thông báo hiển thị đúng kỳ vọng</td>
+                    <td>5.11s</td>
+                    <td><span class="badge-pass">PASSED</span></td>
+                </tr>
+                <tr>
+                    <td><b>21</b></td>
+                    <td><span class="tag-id">TC_REG_004</span></td>
+                    <td><span class="tag-feat">Authentication</span></td>
+                    <td><b>Đăng ký thất bại do email Ứng viên đã tồn tại trong CSDL</b></td>
+                    <td class="cell-data">Role=CANDIDATE | Name=Nguyễn Văn Trùng Email | Email=candidate@hiremate.ai</td>
+                    <td>Báo lỗi: đã được đăng ký</td>
+                    <td>Hiển thị thông báo lỗi đúng: Email "candidate@hiremate.ai" đã được đăng ký trong hệ thống. Vui lòng chuyển sang trang Đăng nhập hoặc sử dụng email khác!</td>
+                    <td>5.22s</td>
+                    <td><span class="badge-pass">PASSED</span></td>
+                </tr>
+                <tr>
+                    <td><b>22</b></td>
+                    <td><span class="tag-id">TC_REG_005</span></td>
+                    <td><span class="tag-feat">Authentication</span></td>
+                    <td><b>Đăng ký thất bại do email Nhà tuyển dụng đã tồn tại trong CSDL</b></td>
+                    <td class="cell-data">Role=RECRUITER | Name=HR Tuyển Dụng Trùng | Email=minhanh.hr@fptsoftware.com</td>
+                    <td>Báo lỗi: đã được đăng ký</td>
+                    <td>Hiển thị thông báo lỗi đúng: Email "minhanh.hr@fptsoftware.com" đã được đăng ký trong hệ thống. Vui lòng chuyển sang trang Đăng nhập hoặc sử dụng email khác!</td>
+                    <td>5.22s</td>
+                    <td><span class="badge-pass">PASSED</span></td>
+                </tr>
+                <tr>
+                    <td><b>23</b></td>
+                    <td><span class="tag-id">TC_REG_006</span></td>
+                    <td><span class="tag-feat">Authentication</span></td>
+                    <td><b>Đăng ký thất bại do mật khẩu xác nhận không khớp</b></td>
+                    <td class="cell-data">Role=CANDIDATE | Name=Lê Thị Kiểm Thử | Email=kiemthu.nomatch@hiremate.ai</td>
+                    <td>Báo lỗi: không khớp</td>
+                    <td>Hiển thị thông báo lỗi đúng: Mật khẩu và xác nhận mật khẩu không khớp. Vui lòng kiểm tra lại!</td>
+                    <td>5.21s</td>
+                    <td><span class="badge-pass">PASSED</span></td>
+                </tr>
+                <tr>
+                    <td><b>24</b></td>
+                    <td><span class="tag-id">TC_REG_007</span></td>
+                    <td><span class="tag-feat">Authentication</span></td>
+                    <td><b>Đăng ký thất bại do mật khẩu quá ngắn dưới 6 ký tự</b></td>
+                    <td class="cell-data">Role=CANDIDATE | Name=Vũ Quốc Bảo | Email=quocbao.shortpwd@hiremate.ai</td>
+                    <td>Báo lỗi: tối thiểu 6 ký tự</td>
+                    <td>Hiển thị thông báo lỗi đúng: Mật khẩu phải có tối thiểu 6 ký tự.</td>
+                    <td>5.18s</td>
+                    <td><span class="badge-pass">PASSED</span></td>
+                </tr>
+                <tr>
+                    <td><b>25</b></td>
+                    <td><span class="tag-id">TC_REG_008</span></td>
+                    <td><span class="tag-feat">Authentication</span></td>
+                    <td><b>Đăng ký thất bại do bỏ trống họ tên bắt buộc</b></td>
+                    <td class="cell-data">Role=CANDIDATE | Name= | Email=cand.noname@hiremate.ai</td>
+                    <td>Báo lỗi: Vui lòng nhập họ và tên</td>
+                    <td>Hiển thị thông báo lỗi đúng: Vui lòng nhập họ và tên ứng viên.</td>
+                    <td>5.16s</td>
+                    <td><span class="badge-pass">PASSED</span></td>
+                </tr>
+                <tr>
+                    <td><b>26</b></td>
+                    <td><span class="tag-id">TC_REG_009</span></td>
+                    <td><span class="tag-feat">Authentication</span></td>
+                    <td><b>Đăng ký thất bại do bỏ trống địa chỉ email bắt buộc</b></td>
+                    <td class="cell-data">Role=CANDIDATE | Name=Hoàng Ngọc Dũng | Email=</td>
+                    <td>Báo lỗi: không đúng định dạng</td>
+                    <td>Hiển thị thông báo lỗi đúng: Địa chỉ email không đúng định dạng (Ví dụ: name@example.com).</td>
+                    <td>5.14s</td>
+                    <td><span class="badge-pass">PASSED</span></td>
+                </tr>
+                <tr>
+                    <td><b>27</b></td>
+                    <td><span class="tag-id">TC_REG_010</span></td>
+                    <td><span class="tag-feat">Authentication</span></td>
+                    <td><b>Đăng ký Nhà tuyển dụng thất bại do mật khẩu không khớp</b></td>
+                    <td class="cell-data">Role=RECRUITER | Name=Giám Đốc Nhân Sự | Email=recruiter.nomatch@hiremate.ai</td>
+                    <td>Báo lỗi: không khớp</td>
+                    <td>Hiển thị thông báo lỗi đúng: Mật khẩu và xác nhận mật khẩu không khớp. Vui lòng kiểm tra lại!</td>
+                    <td>5.20s</td>
+                    <td><span class="badge-pass">PASSED</span></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+</body>
+</html>

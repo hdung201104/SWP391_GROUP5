@@ -1,17 +1,26 @@
 package tests;
 
 import org.junit.jupiter.api.*;
-import org.openqa.selenium.WebDriver;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvFileSource;
 import pages.RegisterPage;
-import utils.DriverFactory;
+import utils.TestReportManager;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * RegisterTest: Kiểm thử tự động chức năng Đăng ký tài khoản trên website HireMate AI (http://localhost:5173).
- * - Test 1: Đăng ký tài khoản ứng viên mới thành công.
- * - Test 2: Đăng ký với email đã tồn tại -> Assert báo lỗi trùng email.
- * - Test 3: Đăng ký với mật khẩu xác nhận không khớp -> Assert báo lỗi mismatch.
+ * RegisterTest: Kiểm thử tự động chức năng Đăng ký tài khoản trên website HireMate AI.
+ * Dữ liệu được tách rời 100% ra file external: src/test/resources/register-data.csv
+ * Kiểm thử đa dạng 10 kịch bản:
+ * - Đăng ký Candidate thành công (Dynamic unique email)
+ * - Đăng ký Recruiter thành công (Dynamic unique email)
+ * - Đăng ký Candidate AI Specialist thành công
+ * - Báo lỗi trùng email Candidate đã có trong CSDL
+ * - Báo lỗi trùng email Recruiter đã có trong CSDL
+ * - Báo lỗi mật khẩu xác nhận không khớp (Candidate & Recruiter)
+ * - Báo lỗi mật khẩu ngắn < 6 ký tự
+ * - Báo lỗi bỏ trống họ tên bắt buộc
+ * - Báo lỗi bỏ trống địa chỉ email bắt buộc
  */
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class RegisterTest extends BaseTest {
@@ -24,68 +33,74 @@ public class RegisterTest extends BaseTest {
         registerPage.open();
     }
 
-    @Test
+    @ParameterizedTest(name = "Register Test #{index}: {0} - {1}")
     @Order(1)
-    @DisplayName("Test 1: Đăng ký tài khoản ứng viên mới thành công")
-    public void testRegisterNewCandidateSuccess() {
-        String uniqueEmail = "candidate_" + System.currentTimeMillis() + "@hiremate.ai";
+    @CsvFileSource(resources = "/register-data.csv", numLinesToSkip = 1)
+    @DisplayName("Kiểm thử tự động các trường hợp đăng ký đọc từ file external register-data.csv")
+    public void testRegisterDataDriven(
+            String testCaseId,
+            String scenario,
+            String role,
+            String fullName,
+            String email,
+            String password,
+            String confirmPassword,
+            boolean expectedSuccess,
+            String expectedMessage
+    ) {
+        long start = System.currentTimeMillis();
+        boolean pass = false;
+        String actualResult = "";
+        String errorMsg = null;
 
-        registerPage.registerCandidate(
-                "Nguyễn Văn Ứng Viên",
-                uniqueEmail,
-                "Candidate@2026",
-                "Candidate@2026"
-        );
+        // Nếu email bỏ trống trong test thành công, tự động sinh email động duy nhất (Dynamic Timestamp Email)
+        String actualEmail = email;
+        if (expectedSuccess && (email == null || email.isBlank())) {
+            actualEmail = "user_" + System.currentTimeMillis() + "@hiremate.ai";
+        }
+        if (fullName == null) fullName = "";
+        if (actualEmail == null) actualEmail = "";
+        if (password == null) password = "";
+        if (confirmPassword == null) confirmPassword = "";
 
-        assertTrue(
-                registerPage.isRegistrationSuccessful(),
-                "Phải hiển thị thông báo đăng ký tài khoản ứng viên mới thành công"
-        );
-    }
+        try {
+            registerPage.registerWithFullData(role, fullName, actualEmail, password, confirmPassword);
 
-    @Test
-    @Order(2)
-    @DisplayName("Test 2: Đăng ký với email đã tồn tại -> Assert báo lỗi trùng email")
-    public void testRegisterWithExistingEmail() {
-        registerPage.registerCandidate(
-                "Nguyễn Văn Trùng Email",
-                "candidate@hiremate.ai",
-                "Candidate@2026",
-                "Candidate@2026"
-        );
-
-        assertTrue(
-                registerPage.isErrorMessageDisplayed(),
-                "Phải hiển thị thông báo lỗi khi đăng ký bằng email đã tồn tại"
-        );
-        String errorMsg = registerPage.getErrorMessageText().toLowerCase();
-        assertTrue(
-                errorMsg.contains("đã được đăng ký") || errorMsg.contains("tồn tại") || errorMsg.contains("already exists"),
-                "Nội dung lỗi phải thông báo trùng email, thực tế: " + errorMsg
-        );
-    }
-
-    @Test
-    @Order(3)
-    @DisplayName("Test 3: Đăng ký với mật khẩu xác nhận không khớp -> Assert báo lỗi mismatch")
-    public void testRegisterWithPasswordMismatch() {
-        String uniqueEmail = "mismatch_" + System.currentTimeMillis() + "@hiremate.ai";
-
-        registerPage.registerCandidate(
-                "Lê Thị Kiểm Thử",
-                uniqueEmail,
-                "Password@123",
-                "DifferentPassword@999"
-        );
-
-        assertTrue(
-                registerPage.isErrorMessageDisplayed(),
-                "Phải hiển thị thông báo lỗi khi mật khẩu và xác nhận mật khẩu không khớp"
-        );
-        String errorMsg = registerPage.getErrorMessageText().toLowerCase();
-        assertTrue(
-                errorMsg.contains("không khớp") || errorMsg.contains("mismatch"),
-                "Nội dung lỗi phải báo mật khẩu xác nhận không khớp, thực tế: " + errorMsg
-        );
+            if (expectedSuccess) {
+                assertTrue(
+                        registerPage.isRegistrationSuccessful(),
+                        "Trường hợp '" + scenario + "' phải hiển thị thông báo đăng ký thành công"
+                );
+                actualResult = "Đăng ký thành công, thông báo hiển thị đúng kỳ vọng";
+            } else {
+                assertTrue(
+                        registerPage.isErrorMessageDisplayed(),
+                        "Trường hợp '" + scenario + "' phải hiển thị thông báo lỗi"
+                );
+                String errText = registerPage.getErrorMessageText().toLowerCase();
+                assertTrue(
+                        errText.contains(expectedMessage.toLowerCase()),
+                        "Thông báo lỗi thực tế ('" + errText + "') phải chứa '" + expectedMessage + "'"
+                );
+                actualResult = "Hiển thị thông báo lỗi đúng: " + registerPage.getErrorMessageText();
+            }
+            pass = true;
+        } catch (Throwable t) {
+            actualResult = "Thất bại: " + t.getMessage();
+            errorMsg = t.getMessage();
+            throw t;
+        } finally {
+            TestReportManager.record(
+                    testCaseId,
+                    "Authentication",
+                    scenario,
+                    "Role=" + role + " | Name=" + fullName + " | Email=" + actualEmail,
+                    expectedSuccess ? "Đăng ký thành công" : "Báo lỗi: " + expectedMessage,
+                    actualResult,
+                    System.currentTimeMillis() - start,
+                    pass,
+                    errorMsg
+            );
+        }
     }
 }

@@ -1,0 +1,6 @@
+testCaseId,scenario,role,email,password,jobTitle,cvName,coverLetter,expectedBannerType,expectedMessage
+TC_APP_001,Ứng viên nộp đơn ứng tuyển thành công (Demo B - Happy Path),CANDIDATE,candidate@hiremate.ai,Candidate@123,Senior Java Backend Engineer,CV_NguyenVanA_JavaBackend.pdf,Kính gửi Hội đồng Tuyển dụng FPT Software tôi có hơn 3 năm kinh nghiệm Java Spring Boot.,SUCCESS,thành công
+TC_APP_002,Chặn ứng viên nộp hồ sơ 2 lần vào cùng 1 việc làm (Demo C - Single Application Rule),CANDIDATE,candidate@hiremate.ai,Candidate@123,Senior Java Backend Engineer,CV_NguyenVanA_JavaBackend.pdf,Thử nộp lại lần 2 vào cùng vị trí tuyển dụng.,ERROR,đã nộp
+TC_APP_003,Ứng tuyển vị trí Frontend Developer,CANDIDATE,candidate@hiremate.ai,Candidate@123,Frontend React Developer,CV_NguyenVanA_Fullstack.pdf,Kính gửi VNG Corporation tôi xin ứng tuyển vị trí Frontend React.,SUCCESS,thành công
+TC_APP_004,Ứng tuyển vị trí AI & Machine Learning Engineer,CANDIDATE,candidate@hiremate.ai,Candidate@123,AI & Machine Learning Engineer,CV_NguyenVanA_AIEngineer.pdf,Kính gửi Viettel AI Lab tôi xin ứng tuyển vị trí Kỹ sư Trí tuệ nhân tạo.,SUCCESS,thành công
+TC_APP_005,Đóng/Hủy popup ứng tuyển an toàn (Modal Cancel),CANDIDATE,candidate@hiremate.ai,Candidate@123,Senior Java Backend Engineer,,Hủy thao tác nộp đơn,CANCEL,đóng an toàn
