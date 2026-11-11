@@ -8,6 +8,7 @@ import AiJobEvaluationReportCard from '../components/jobs/AiJobEvaluationReportC
 import { createCandidateToHrMailto } from '../utils/emailUtils';
 import { AvatarImg, CompanyLogoImg } from '../components/common/SmartImage';
 import { resolveCompanyLogo, resolveCompanyCover, resolveUserAvatar } from '../utils/mediaUtils';
+import { saveCompanyPreviewCache } from '../utils/companyProfileUtils';
 
 // Helper for corporate brand logos
 const getBrandLogo = (companyName = '', logoUrl = null) => resolveCompanyLogo(companyName, logoUrl);
@@ -18,20 +19,18 @@ const getBrandCover = (companyName = '') => resolveCompanyCover(companyName);
 const cacheCompanyPreview = (jobData) => {
   const compId = jobData?.companyId || jobData?.company?.companyId;
   if (!compId) return;
-  try {
-    sessionStorage.setItem(`hiremate_company_preview_${compId}`, JSON.stringify({
-      companyId: compId,
-      companyName: jobData.companyName,
-      logoUrl: resolveCompanyLogo(jobData.companyName, jobData.companyLogo),
-      coverUrl: jobData.companyCover || resolveCompanyCover(jobData.companyName),
-      industry: jobData.companyIndustry,
-      companySize: jobData.companySize,
-      address: jobData.companyAddress,
-      website: jobData.companyWebsite,
-      description: jobData.companyDesc,
-      status: jobData.companyStatus || (jobData.companyBlocked ? 'REJECTED' : (jobData.companyVerified ? 'VERIFIED' : 'PENDING')),
-    }));
-  } catch {}
+  saveCompanyPreviewCache(compId, {
+    companyId: compId,
+    companyName: jobData.companyName,
+    logoUrl: resolveCompanyLogo(jobData.companyName, jobData.companyLogo),
+    coverUrl: jobData.companyCover || resolveCompanyCover(jobData.companyName),
+    industry: jobData.companyIndustry,
+    companySize: jobData.companySize,
+    address: jobData.companyAddress,
+    website: jobData.companyWebsite,
+    description: jobData.companyDesc,
+    status: jobData.companyStatus || (jobData.companyBlocked ? 'REJECTED' : (jobData.companyVerified ? 'VERIFIED' : undefined)),
+  });
 };
 
 // Company initials helper
@@ -860,7 +859,7 @@ export default function JobDetailPage({ user: propUser, jobId }) {
               {/* Left: Avatar & Metadata */}
               <div className="flex items-start gap-4 sm:gap-5">
                 {/* Logo Box */}
-                <div className="w-18 h-18 sm:w-20 sm:h-20 rounded-2xl bg-white border border-purple-200 flex items-center justify-center font-extrabold text-2xl text-[#5b48bd] shrink-0 p-2 overflow-hidden shadow-2xs">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white border border-purple-200 flex items-center justify-center font-extrabold text-2xl text-[#5b48bd] shrink-0 p-2 overflow-hidden shadow-2xs">
                   <CompanyLogoImg
                     src={job.companyLogo}
                     companyName={job.companyName}

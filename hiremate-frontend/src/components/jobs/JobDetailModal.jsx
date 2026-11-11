@@ -4,6 +4,7 @@ import { aiMatchApi, cvApi } from '../../api';
 import AiJobEvaluationReportCard from './AiJobEvaluationReportCard';
 import { CompanyLogoImg } from '../common/SmartImage';
 import { resolveCompanyLogo, getNameInitials } from '../../utils/mediaUtils';
+import { saveCompanyPreviewCache } from '../../utils/companyProfileUtils';
 
 // Helper for brand logos with reliable Cloudinary fallback
 const getBrandLogo = (job) => {
@@ -194,7 +195,7 @@ export default function JobDetailModal({ job, onClose, onApply, onViewCompanyPro
           }
         }
       }
-    } catch {}
+    } catch { }
   }
 
   const rawJobStatus = job.jobStatus || job.status || 'PUBLISHED';
@@ -250,8 +251,8 @@ export default function JobDetailModal({ job, onClose, onApply, onViewCompanyPro
       const allSkills = Array.isArray(job.skills) && job.skills.length > 0
         ? job.skills
         : (typeof job.requirements === 'string' && job.requirements.includes(','))
-        ? job.requirements.split(',').map((s) => s.trim()).filter(Boolean)
-        : [];
+          ? job.requirements.split(',').map((s) => s.trim()).filter(Boolean)
+          : [];
 
       if (allSkills.length > 0) {
         // Tách 70% mandatory, 30% preferred
@@ -323,19 +324,17 @@ export default function JobDetailModal({ job, onClose, onApply, onViewCompanyPro
     } else {
       const compId = job.companyId || job.company?.companyId || '';
       if (compId) {
-        try {
-          sessionStorage.setItem(`hiremate_company_preview_${compId}`, JSON.stringify({
-            companyId: compId,
-            companyName: job.companyName || job.company?.companyName,
-            logoUrl: getBrandLogo(job),
-            industry: job.domain || job.company?.industry,
-            companySize: job.companySize || job.company?.companySize,
-            address: job.company?.address || job.location,
-            website: job.companyWebsite || job.company?.website,
-            description: job.companyDescription || job.company?.description,
-            status: job.companyStatus || (isCompanyBlocked ? 'REJECTED' : (isCompanyVerified ? 'VERIFIED' : 'PENDING')),
-          }));
-        } catch {}
+        saveCompanyPreviewCache(compId, {
+          companyId: compId,
+          companyName: job.companyName || job.company?.companyName,
+          logoUrl: getBrandLogo(job),
+          industry: job.domain || job.company?.industry,
+          companySize: job.companySize || job.company?.companySize,
+          address: job.company?.address || job.location,
+          website: job.companyWebsite || job.company?.website,
+          description: job.companyDescription || job.company?.description,
+          status: job.companyStatus || (isCompanyBlocked ? 'REJECTED' : (isCompanyVerified ? 'VERIFIED' : undefined)),
+        });
       }
       if (onClose) onClose();
       window.location.hash = compId ? `#/companies/${compId}` : '#/';
@@ -352,7 +351,7 @@ export default function JobDetailModal({ job, onClose, onApply, onViewCompanyPro
   const companyInitials = getCompanyInitials(companyName);
   const companyAddress = job.company?.address || job.location || 'Đà Nẵng & Hà Nội (Hybrid)';
   const jobCode = job.code || `JD-${job.companyShort || 'IT'}-${job.jobId || Math.floor(1000 + Math.random() * 9000)}`;
-  
+
   // Tính toán thời hạn tuyển dụng và tình trạng hết hạn
   const deadlineInfo = calculateJobDeadline(job.deadlineDate || job.deadline);
 
@@ -364,8 +363,8 @@ export default function JobDetailModal({ job, onClose, onApply, onViewCompanyPro
     job.aiMatchScore != null
       ? job.aiMatchScore
       : job.matchingScore != null
-      ? Math.round(job.matchingScore)
-      : null
+        ? Math.round(job.matchingScore)
+        : null
   );
   const [matchReasoning, setMatchReasoning] = useState(job.aiReasoning || null);
   const [myCvs, setMyCvs] = useState([]);
@@ -382,7 +381,7 @@ export default function JobDetailModal({ job, onClose, onApply, onViewCompanyPro
           const defaultCv = cvs.find((c) => c.isDefault) || cvs[0];
           if (defaultCv) setSelectedCvId(defaultCv.cvId);
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [isCandidate]);
 
@@ -400,7 +399,7 @@ export default function JobDetailModal({ job, onClose, onApply, onViewCompanyPro
             }
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [isCandidate, job.jobId, job.id, currentMatchScore]);
 
@@ -435,7 +434,7 @@ export default function JobDetailModal({ job, onClose, onApply, onViewCompanyPro
           setMatchReasoning(fbPayload.aiReasoning || fbPayload?.data?.aiReasoning || '');
           return;
         }
-      } catch (e) {}
+      } catch (e) { }
       setEvalError(err?.response?.data?.message || err?.message || 'Không thể chấm điểm AI. Vui lòng thử lại sau.');
     } finally {
       setIsEvaluating(false);
@@ -477,7 +476,7 @@ export default function JobDetailModal({ job, onClose, onApply, onViewCompanyPro
         <div className="px-6 sm:px-8 pt-6 pb-5 bg-gradient-to-r from-purple-50/70 via-indigo-50/30 to-white border-b border-purple-100 shrink-0 pr-26">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
             {/* Company Avatar with Error Fallback */}
-            <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl bg-white border border-purple-200/80 flex items-center justify-center font-black text-xl text-[#5b48bd] shrink-0 shadow-sm overflow-hidden p-2">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white border border-purple-200/80 flex items-center justify-center font-black text-xl text-[#5b48bd] shrink-0 shadow-sm overflow-hidden p-2">
               <CompanyLogoImg
                 src={logoUrl}
                 companyName={companyName}
@@ -547,11 +546,10 @@ export default function JobDetailModal({ job, onClose, onApply, onViewCompanyPro
                   type="button"
                   onClick={handleOpenCompanyProfile}
                   disabled={isCompanyBlocked}
-                  className={`font-bold flex items-center gap-1.5 flex-wrap ${
-                    isCompanyBlocked
-                      ? 'text-slate-600 cursor-not-allowed select-none'
-                      : 'text-[#5b48bd] hover:underline cursor-pointer'
-                  }`}
+                  className={`font-bold flex items-center gap-1.5 flex-wrap ${isCompanyBlocked
+                    ? 'text-slate-600 cursor-not-allowed select-none'
+                    : 'text-[#5b48bd] hover:underline cursor-pointer'
+                    }`}
                   title={isCompanyBlocked ? 'Doanh nghiệp đã bị đình chỉ GPKD' : 'Xem thông tin doanh nghiệp'}
                 >
                   <span>{companyName}</span>
@@ -615,7 +613,7 @@ export default function JobDetailModal({ job, onClose, onApply, onViewCompanyPro
                   <div className="text-slate-800 leading-relaxed font-medium">
                     {isCompanyBlocked ? (
                       <>
-                        Doanh nghiệp <strong>"{compName}"</strong> hiện đang bị tạm khóa hoạt động tuyển dụng do chưa đáp ứng yêu cầu pháp lý hoặc đã bị Ban Quản Trị thu hồi GPKD. 
+                        Doanh nghiệp <strong>"{compName}"</strong> hiện đang bị tạm khóa hoạt động tuyển dụng do chưa đáp ứng yêu cầu pháp lý hoặc đã bị Ban Quản Trị thu hồi GPKD.
                         {companyRejectionReason && (
                           <div className="mt-1.5 p-2 rounded-xl bg-white/80 border border-rose-200 text-rose-900 font-semibold text-xs">
                             📌 Lý do đình chỉ: "{companyRejectionReason}"
@@ -735,8 +733,8 @@ export default function JobDetailModal({ job, onClose, onApply, onViewCompanyPro
                   {job.employmentType === 'FULL_TIME'
                     ? 'Toàn thời gian (Full-time)'
                     : job.employmentType === 'INTERNSHIP'
-                    ? 'Thực tập sinh (Internship)'
-                    : job.employmentType || 'Toàn thời gian'}
+                      ? 'Thực tập sinh (Internship)'
+                      : job.employmentType || 'Toàn thời gian'}
                 </div>
                 <p className="text-[11px] text-slate-500">Cấp bậc: Chuyên viên / Intern</p>
               </div>
@@ -844,11 +842,10 @@ export default function JobDetailModal({ job, onClose, onApply, onViewCompanyPro
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
-                className={`pb-2.5 transition-colors cursor-pointer border-b-2 whitespace-nowrap ${
-                  activeTab === tab.id
-                    ? 'border-[#5b48bd] text-[#5b48bd] font-extrabold'
-                    : 'border-transparent text-slate-400 hover:text-slate-700'
-                }`}
+                className={`pb-2.5 transition-colors cursor-pointer border-b-2 whitespace-nowrap ${activeTab === tab.id
+                  ? 'border-[#5b48bd] text-[#5b48bd] font-extrabold'
+                  : 'border-transparent text-slate-400 hover:text-slate-700'
+                  }`}
               >
                 {tab.label}
               </button>

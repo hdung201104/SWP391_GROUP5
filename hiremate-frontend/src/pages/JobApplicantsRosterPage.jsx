@@ -2003,8 +2003,8 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                         src={cand.avatar}
                         name={cand.name}
                         alt={`Portrait of ${cand.name}`}
-                        className="w-13 h-13 rounded-2xl object-cover ring-1 ring-slate-200 group-hover:ring-purple-400 transition-all shadow-xs"
-                        fallbackClassName="w-13 h-13 rounded-2xl text-white flex items-center justify-center font-bold text-base ring-1 ring-purple-200 shadow-xs"
+                        className="w-14 h-14 rounded-2xl object-cover ring-1 ring-slate-200 group-hover:ring-purple-400 transition-all shadow-xs"
+                        fallbackClassName="w-14 h-14 rounded-2xl text-white flex items-center justify-center font-bold text-base ring-1 ring-purple-200 shadow-xs"
                       />
 
                       {cand.isKnockedOut || (cand.matchScore || 0) < 50 ? (

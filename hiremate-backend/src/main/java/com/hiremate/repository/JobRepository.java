@@ -189,6 +189,25 @@ public interface JobRepository extends JpaRepository<Job, Long> {
     /** Đếm tổng số tin ở trạng thái Nháp hoặc Chờ kiểm duyệt của cá nhân Recruiter */
     @Query("SELECT COUNT(j) FROM Job j WHERE j.recruiter.recruiterId = :recruiterId AND (j.status = com.hiremate.enums.JobStatus.DRAFT OR j.approvalStatus = com.hiremate.enums.JobApprovalStatus.PENDING)")
     long countPendingOrDraftJobsByRecruiterId(@Param("recruiterId") Long recruiterId);
+
+    /** Thống kê tổng số tin & tổng lượt xem của một doanh nghiệp trong 1 query nhẹ */
+    @Query("SELECT COUNT(j), COALESCE(SUM(j.totalViews), 0) FROM Job j WHERE j.company.companyId = :companyId")
+    List<Object[]> getCompanyJobCountAndViews(@Param("companyId") Long companyId);
+
+    /** Đếm số tin đã phát hành & được duyệt còn hạn của doanh nghiệp */
+    @Query("SELECT COUNT(j) FROM Job j WHERE j.company.companyId = :companyId " +
+           "AND j.status = com.hiremate.enums.JobStatus.PUBLISHED " +
+           "AND (j.approvalStatus IS NULL OR j.approvalStatus = com.hiremate.enums.JobApprovalStatus.APPROVED) " +
+           "AND (j.deadlineDate IS NULL OR j.deadlineDate >= CURRENT_DATE)")
+    long countPublishedApprovedJobsByCompanyId(@Param("companyId") Long companyId);
+
+    /** Đếm số tin đang hoạt động theo từng HR trong cùng công ty (tránh N+1 query) */
+    @Query("SELECT j.recruiter.recruiterId, COUNT(j) FROM Job j WHERE j.company.companyId = :companyId " +
+           "AND j.status = com.hiremate.enums.JobStatus.PUBLISHED " +
+           "AND (j.approvalStatus IS NULL OR j.approvalStatus <> com.hiremate.enums.JobApprovalStatus.REJECTED) " +
+           "AND (j.deadlineDate IS NULL OR j.deadlineDate >= CURRENT_DATE) " +
+           "GROUP BY j.recruiter.recruiterId")
+    List<Object[]> countActiveJobsGroupedByRecruiterForCompany(@Param("companyId") Long companyId);
 }
 
 

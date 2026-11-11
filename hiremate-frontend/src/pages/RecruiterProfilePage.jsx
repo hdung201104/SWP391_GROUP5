@@ -2686,8 +2686,8 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
                           src={member.avatar}
                           name={member.name}
                           alt={member.name}
-                          className="w-13 h-13 rounded-2xl object-cover ring-2 ring-purple-100 shrink-0"
-                          fallbackClassName="w-13 h-13 rounded-2xl text-white font-bold text-sm flex items-center justify-center ring-2 ring-purple-100 shrink-0"
+                          className="w-14 h-14 rounded-2xl object-cover ring-2 ring-purple-100 shrink-0"
+                          fallbackClassName="w-14 h-14 rounded-2xl text-white font-bold text-sm flex items-center justify-center ring-2 ring-purple-100 shrink-0"
                         />
                         <div className="min-w-0 flex-1 space-y-1">
                           <div className="flex items-center gap-1.5 flex-wrap">

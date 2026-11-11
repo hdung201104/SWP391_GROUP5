@@ -1,86 +1,11 @@
 import React from 'react';
 import { CompanyLogoImg } from '../common/SmartImage';
-import { resolveCompanyLogo, resolveCompanyCover, sanitizeMediaUrl } from '../../utils/mediaUtils';
-
-// Brand logos helper
-const getBrandLogo = (company) => resolveCompanyLogo(company?.companyName, company?.logoUrl);
-
-// Brand covers helper
-const getBrandCover = (company) => {
-  const directCover = sanitizeMediaUrl(company?.coverUrl);
-  if (directCover) return directCover;
-  const compId = company?.companyId || company?.id;
-  try {
-    if (compId) {
-      const savedCover = sanitizeMediaUrl(localStorage.getItem(`hiremate_company_cover_${compId}`));
-      if (savedCover) return savedCover;
-    }
-  } catch {}
-  return resolveCompanyCover(company?.companyName);
-};
-
-const formatCompanyName = (name) => {
-  if (!name) return 'Doanh Nghiệp Tuyển Dụng';
-  return name.trim().replace(/\b\w/g, l => l.toUpperCase());
-};
-
-// Default Authentic Workplace Photos (matching user's profile spec)
-const DEFAULT_WORKPLACE_PHOTOS = [
-  {
-    title: 'Khuôn viên xanh & Không gian làm việc sinh thái',
-    desc: 'Môi trường làm việc mở, hài hòa thiên nhiên với cảnh quan cây xanh và không gian thư giãn sinh thái.',
-    url: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&auto=format&fit=crop&q=80',
-  },
-  {
-    title: 'Không gian làm việc sáng tạo Open Workspace',
-    desc: 'Trang bị bàn làm việc công thái học, ánh sáng tự nhiên và thiết bị máy trạm hiệu năng cao.',
-    url: 'https://images.unsplash.com/photo-1497215728101-856f4ea42174?w=800&auto=format&fit=crop&q=80',
-  },
-  {
-    title: 'Pantry, Coffee Lounge & Không gian trao đổi ý tưởng',
-    desc: 'Khu vực giải lao tiện nghi với đồ uống miễn phí, trà, cà phê và quầy ăn nhẹ.',
-    url: 'https://images.unsplash.com/photo-1517502884422-41eaead166d4?w=800&auto=format&fit=crop&q=80',
-  },
-  {
-    title: 'Khu thể thao, Bể bơi vô cực & Tiện ích nội khu',
-    desc: 'Sân bóng đá cỏ nhân tạo, phòng gym đa năng, bể bơi giải tỏa căng thẳng sau giờ làm việc.',
-    url: 'https://images.unsplash.com/photo-1540497077202-7c8a3999166f?w=800&auto=format&fit=crop&q=80',
-  },
-];
-
-// Default 6 Exclusive Benefits (matching user's profile spec)
-const DEFAULT_COMPANY_BENEFITS = [
-  {
-    icon: 'savings',
-    title: 'Thưởng hiệu suất & Tháng 13, 14, 15',
-    desc: 'Chính sách đãi ngộ cạnh tranh, xét tăng lương 2 lần/năm, gói thưởng theo kết quả kinh doanh dự án hấp dẫn.',
-  },
-  {
-    icon: 'health_and_safety',
-    title: 'Bảo hiểm sức khỏe cao cấp & Bảo lãnh người thân',
-    desc: 'Gói chăm sóc sức khỏe toàn diện hạn mức cao (nội trú, ngoại trú, nha khoa) cho nhân viên và bảo lãnh người thân tại các bệnh viện quốc tế.',
-  },
-  {
-    icon: 'laptop_mac',
-    title: 'Chế độ Hybrid & Thiết bị xịn',
-    desc: 'Linh hoạt làm việc tại nhà 2 ngày/tuần. Trang bị MacBook Pro hoặc laptop cấu hình cao, màn hình chuyên dụng cho kỹ sư.',
-  },
-  {
-    icon: 'workspace_premium',
-    title: 'Tài trợ 100% chứng chỉ quốc tế',
-    desc: 'Hỗ trợ toàn bộ chi phí thi các chứng chỉ AWS, GCP, Azure, CKA, PMP và thưởng nóng cho nhân sự đạt thành tích xuất sắc.',
-  },
-  {
-    icon: 'directions_bus',
-    title: 'Tuyến xe đưa đón & Trợ cấp di chuyển',
-    desc: 'Hỗ trợ các chuyến xe đưa đón nhân viên thuận tiện tại các điểm chính hoặc trợ cấp chi phí đi lại.',
-  },
-  {
-    icon: 'fitness_center',
-    title: 'Tiện ích thể thao & Thư giãn nội khu',
-    desc: 'Khu vực Pantry giải lao tiện nghi với đồ uống miễn phí, phòng Gym, câu lạc bộ thể thao và teambuilding định kỳ.',
-  },
-];
+import {
+  normalizeCompanyProfile,
+  saveCompanyPreviewCache,
+  FALLBACK_COVER_IMAGE,
+  FALLBACK_WORKPLACE_IMAGE,
+} from '../../utils/companyProfileUtils';
 
 export default function CompanyProfileModal({
   company,
@@ -90,62 +15,18 @@ export default function CompanyProfileModal({
 }) {
   if (!isOpen || !company) return null;
 
-  const displayName = formatCompanyName(company.companyName);
-  const logoSrc = getBrandLogo(company);
-  const coverSrc = getBrandCover(company);
-  const activeJobs = company.activeJobsCount || 0;
-  const locations = Array.isArray(company.locations) && company.locations.length > 0
-    ? company.locations
-    : (company.address ? [company.address] : ['Toàn quốc']);
-
-  const initials = displayName
-    ? displayName.split(' ').map(w => w[0]).join('').slice(0, 3).toUpperCase()
-    : 'ENT';
-
-  const compId = company?.companyId || company?.id;
-
-  // Get workplace photos: from company data, isolated localStorage, or realistic default
-  let workplacePhotos = DEFAULT_WORKPLACE_PHOTOS;
-  if (Array.isArray(company.photos) && company.photos.length > 0) {
-    workplacePhotos = company.photos;
-  } else if (company.workplacePhotosJson) {
-    try {
-      const parsed = JSON.parse(company.workplacePhotosJson);
-      if (Array.isArray(parsed) && parsed.length > 0) workplacePhotos = parsed;
-    } catch {}
-  } else if (compId) {
-    try {
-      const savedPhotos = localStorage.getItem(`hiremate_workplace_photos_${compId}`);
-      if (savedPhotos) workplacePhotos = JSON.parse(savedPhotos);
-    } catch {}
-  }
-
-  // Get benefits: from company data, isolated localStorage, or realistic default
-  let companyBenefits = DEFAULT_COMPANY_BENEFITS;
-  if (Array.isArray(company.benefits) && company.benefits.length > 0) {
-    companyBenefits = company.benefits;
-  } else if (company.benefitsJson) {
-    try {
-      const parsed = JSON.parse(company.benefitsJson);
-      if (Array.isArray(parsed) && parsed.length > 0) companyBenefits = parsed;
-    } catch {}
-  } else if (compId) {
-    try {
-      const savedBenefits = localStorage.getItem(`hiremate_company_benefits_${compId}`);
-      if (savedBenefits) companyBenefits = JSON.parse(savedBenefits);
-    } catch {}
-  }
-
-  // Parse branches from company.branchesJson if available
-  let branchesList = [];
-  if (company.branchesJson) {
-    try {
-      const parsed = typeof company.branchesJson === 'string' ? JSON.parse(company.branchesJson) : company.branchesJson;
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        branchesList = parsed;
-      }
-    } catch {}
-  }
+  const normalized = normalizeCompanyProfile(company);
+  const {
+    companyId: compId,
+    displayName,
+    logoUrl: logoSrc,
+    coverUrl: coverSrc,
+    locations,
+    workplacePhotos,
+    benefits: companyBenefits,
+    branches: branchesList,
+  } = normalized;
+  const activeJobs = normalized.activeJobsCount || 0;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-fade-in font-sans">
@@ -162,7 +43,8 @@ export default function CompanyProfileModal({
             alt={`${displayName} Cover`} 
             className="w-full h-full object-cover transition-transform duration-700 hover:scale-105"
             onError={(e) => {
-              e.target.src = 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1600&auto=format&fit=crop&q=80';
+              e.currentTarget.onerror = null;
+              e.currentTarget.src = FALLBACK_COVER_IMAGE;
             }}
           />
           {/* Subtle gradient overlay to enhance legibility and badge clarity */}
@@ -220,7 +102,7 @@ export default function CompanyProfileModal({
 
                 <div className="flex items-center gap-2 text-xs text-slate-500 font-medium flex-wrap">
                   <span className="px-3 py-0.5 rounded-full bg-[#f4f2fd] text-[#5b48bd] font-bold border border-purple-100">
-                    {company.industry || 'Công nghệ thông tin & Dịch vụ phần mềm'}
+                    {normalized.industry}
                   </span>
                   <span>•</span>
                   <span className="text-emerald-700 font-bold flex items-center gap-1.5">
@@ -232,9 +114,9 @@ export default function CompanyProfileModal({
             </div>
 
             {/* External Website Button */}
-            {company.website && (
+            {normalized.website && (
               <a
-                href={company.website.startsWith('http') ? company.website : `https://${company.website}`}
+                href={normalized.website.startsWith('http') ? normalized.website : `https://${normalized.website}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#f4f2fd] hover:bg-purple-100 text-[#5b48bd] text-xs font-bold transition-all shadow-2xs border border-purple-100 shrink-0"
@@ -256,7 +138,7 @@ export default function CompanyProfileModal({
               <span className="material-symbols-outlined text-[#5b48bd] text-2xl mb-1">groups</span>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Quy mô</p>
               <h4 className="text-xs sm:text-sm font-black text-[#1e1b4b] mt-0.5 truncate">
-                {company.companySize || '10,000+ nhân viên'}
+                {normalized.companySize}
               </h4>
             </div>
 
@@ -264,7 +146,7 @@ export default function CompanyProfileModal({
               <span className="material-symbols-outlined text-emerald-600 text-2xl mb-1">domain_add</span>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Chi nhánh</p>
               <h4 className="text-xs sm:text-sm font-black text-[#1e1b4b] mt-0.5">
-                {locations.length} cơ sở
+                {Math.max(branchesList.length, locations.length)} cơ sở
               </h4>
             </div>
 
@@ -291,8 +173,8 @@ export default function CompanyProfileModal({
               <span className="material-symbols-outlined text-[#5b48bd] text-lg">info</span>
               <span>Giới Thiệu Doanh Nghiệp</span>
             </h3>
-            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed bg-[#fcfbfe] rounded-2xl p-4 border border-purple-100/60 shadow-2xs">
-              {company.description || 'Tập đoàn phần mềm và công nghệ hàng đầu Việt Nam và Châu Á – Thái Bình Dương. Đối tác công nghệ chiến lược cung cấp các giải pháp chuyển đổi số toàn diện và cơ hội phát triển sự nghiệp chuẩn quốc tế.'}
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed bg-[#fcfbfe] rounded-2xl p-4 border border-purple-100/60 shadow-2xs whitespace-pre-line">
+              {normalized.description}
             </p>
           </div>
 
@@ -327,18 +209,18 @@ export default function CompanyProfileModal({
                         <span>{branch.address}</span>
                       </p>
                     )}
-                    {(branch.hotline || branch.size) && (
-                      <div className="flex items-center gap-3 text-[11px] text-slate-500 pt-0.5">
-                        {branch.hotline && (
+                    {(branch.hotline || branch.phone || branch.scale || branch.size) && (
+                      <div className="flex items-center gap-3 text-[11px] text-slate-500 pt-0.5 flex-wrap">
+                        {(branch.hotline || branch.phone) && (
                           <span className="flex items-center gap-0.5">
                             <span className="material-symbols-outlined text-[12px] text-slate-400">call</span>
-                            {branch.hotline}
+                            {branch.hotline || branch.phone}
                           </span>
                         )}
-                        {branch.size && (
+                        {(branch.scale || branch.size) && (
                           <span className="flex items-center gap-0.5">
                             <span className="material-symbols-outlined text-[12px] text-slate-400">group</span>
-                            {branch.size}
+                            {branch.scale || branch.size}
                           </span>
                         )}
                       </div>
@@ -393,7 +275,8 @@ export default function CompanyProfileModal({
                       alt={photo.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       onError={(e) => {
-                        e.target.src = 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&auto=format&fit=crop&q=80';
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = FALLBACK_WORKPLACE_IMAGE;
                       }}
                     />
                   </div>
@@ -463,9 +346,7 @@ export default function CompanyProfileModal({
               <button
                 type="button"
                 onClick={() => {
-                  try {
-                    sessionStorage.setItem(`hiremate_company_preview_${compId}`, JSON.stringify(company));
-                  } catch {}
+                  saveCompanyPreviewCache(compId, company, { authoritative: true });
                   onClose();
                   window.location.hash = `#/companies/${compId}`;
                 }}

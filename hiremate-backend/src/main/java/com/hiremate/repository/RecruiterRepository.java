@@ -20,7 +20,8 @@ public interface RecruiterRepository extends JpaRepository<Recruiter, Long> {
     /** Tìm Recruiter theo company */
     Optional<Recruiter> findByCompany_CompanyId(Long companyId);
 
-    /** Lấy danh sách tất cả Recruiter thuộc cùng một công ty */
+    /** Lấy danh sách tất cả Recruiter thuộc cùng một công ty (kèm User để tránh N+1 query) */
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"user"})
     List<Recruiter> findAllByCompany_CompanyId(Long companyId);
 
     /** Tìm Recruiter theo email của User */
