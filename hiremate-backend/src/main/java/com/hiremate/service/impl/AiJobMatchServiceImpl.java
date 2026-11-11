@@ -777,15 +777,10 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
     public List<AiJobMatchResponse> getMyMatches(User candidateUser) {
         Long candidateId = candidateUser.getUserId();
         List<AiJobMatch> matches = aiJobMatchRepository.findByCandidate_CandidateIdOrderByMatchingScoreDesc(candidateId);
-        if (matches.isEmpty()) {
-            Candidate candidate = candidateRepository.findById(candidateId).orElse(null);
-            Cv defaultCv = cvRepository.findByCandidateIdAndIsDefaultTrue(candidateId)
-                    .orElseGet(() -> {
-                        List<Cv> cvs = cvRepository.findByCandidateId(candidateId);
-                        return cvs.isEmpty() ? null : cvs.get(0);
-                    });
-            if (candidate != null) {
-                computeCandidateJobMatches(candidate, defaultCv);
+        Candidate candidate = candidateRepository.findById(candidateId).orElse(null);
+        if (candidate != null) {
+            Cv defaultCv = resolveCandidateDefaultCv(candidateId);
+            if (backfillMissingJobMatches(candidate, defaultCv, matches)) {
                 matches = aiJobMatchRepository.findByCandidate_CandidateIdOrderByMatchingScoreDesc(candidateId);
             }
         }
@@ -804,24 +799,17 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
         Long candidateId = candidateUser.getUserId();
 
         Candidate candidate = candidateRepository.findById(candidateId).orElse(null);
-        Cv defaultCv = cvRepository.findByCandidateIdAndIsDefaultTrue(candidateId)
-                .orElseGet(() -> {
-                    List<Cv> cvs = cvRepository.findByCandidateId(candidateId);
-                    return cvs.isEmpty() ? null : cvs.get(0);
-                });
+        if (candidate != null) {
+            Cv defaultCv = resolveCandidateDefaultCv(candidateId);
+            List<AiJobMatch> existingAll = aiJobMatchRepository.findByCandidate_CandidateIdOrderByMatchingScoreDesc(candidateId);
+            backfillMissingJobMatches(candidate, defaultCv, existingAll);
+        }
 
         // 1. KIỂM TRA BẢNG LƯU SẴN (ai_job_matches):
         // Đọc trực tiếp từ DB Cache (0ms compute, tuyệt đối KHÔNG xóa toàn bộ cache khi có CV ứng tuyển riêng lẻ)
         List<AiJobMatch> cachedMatches = aiJobMatchRepository.findRecommendations(candidateId, effectiveMinScore);
-
-        // 2. Nếu chưa có kết quả tính toán trong DB, tự động tính toán và lưu cứng vào ai_job_matches
-        if (cachedMatches.isEmpty() && candidate != null) {
-            log.info(">> [AiJobMatch] Chưa có cache so khớp cho candidateId={}. Bắt đầu tính toán tự động...", candidateId);
-            computeCandidateJobMatches(candidate, defaultCv);
-            cachedMatches = aiJobMatchRepository.findRecommendations(candidateId, effectiveMinScore);
-            if (cachedMatches.isEmpty() && effectiveMinScore > 0) {
-                cachedMatches = aiJobMatchRepository.findRecommendations(candidateId, 0.0f);
-            }
+        if (cachedMatches.isEmpty() && effectiveMinScore > 0) {
+            cachedMatches = aiJobMatchRepository.findRecommendations(candidateId, 0.0f);
         }
 
         if (!cachedMatches.isEmpty()) {
@@ -860,61 +848,101 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
         return Collections.emptyList();
     }
 
+    private Cv resolveCandidateDefaultCv(Long candidateId) {
+        return cvRepository.findByCandidateIdAndIsDefaultTrue(candidateId)
+                .orElseGet(() -> {
+                    List<Cv> cvs = cvRepository.findByCandidateId(candidateId);
+                    return cvs.isEmpty() ? null : cvs.get(0);
+                });
+    }
+
+    private List<Job> fetchTargetJobsForCandidate(Candidate candidate) {
+        Long candidateId = candidate.getCandidateId();
+        List<CandidateSkill> candSkills = candidateSkillRepository.findByProfileId(candidateId);
+        List<Long> skillIds = (candSkills != null && !candSkills.isEmpty())
+                ? candSkills.stream().map(CandidateSkill::getSkillId).filter(Objects::nonNull).distinct().toList()
+                : Collections.emptyList();
+
+        Set<Long> processedJobIds = new HashSet<>();
+        List<Job> targetJobs = new ArrayList<>();
+
+        // 1. Lọc thô bằng SQL Database theo kỹ năng hoặc từ khóa chức danh của ứng viên
+        boolean hasSkills = !skillIds.isEmpty();
+        List<Long> querySkillIds = hasSkills ? skillIds : List.of(-1L);
+        String headline = candidate.getHeadline() != null ? candidate.getHeadline().trim() : "";
+        boolean hasKeyword = !headline.isBlank();
+
+        if (hasSkills || hasKeyword) {
+            try {
+                List<Job> preFiltered = jobRepository.findCandidatePreFilteredJobs(
+                        querySkillIds,
+                        hasSkills,
+                        headline,
+                        hasKeyword,
+                        org.springframework.data.domain.PageRequest.of(0, 30)
+                );
+                if (preFiltered != null) {
+                    for (Job j : preFiltered) {
+                        if (j != null && j.getJobId() != null && processedJobIds.add(j.getJobId())) {
+                            targetJobs.add(j);
+                        }
+                    }
+                }
+            } catch (Exception ex) {
+                log.warn(">> [AiJobMatchService] Lọc thô preFilteredJobs gặp lỗi nhỏ, fallback sang recent jobs: {}", ex.getMessage());
+            }
+        }
+
+        // 2. Bổ sung các công việc PUBLISHED & APPROVED mới nhất nếu số lượng còn ít (< 20 việc)
+        if (targetJobs.size() < 20) {
+            try {
+                List<Job> recentJobs = jobRepository.findRecentPublishedJobs(org.springframework.data.domain.PageRequest.of(0, 50));
+                if (recentJobs != null) {
+                    for (Job j : recentJobs) {
+                        if (j != null && j.getJobId() != null && processedJobIds.add(j.getJobId())) {
+                            targetJobs.add(j);
+                        }
+                    }
+                }
+            } catch (Exception ex) {
+                log.warn(">> [AiJobMatchService] Lấy recentPublishedJobs gặp lỗi: {}", ex.getMessage());
+            }
+        }
+
+        return targetJobs;
+    }
+
+    private boolean backfillMissingJobMatches(Candidate candidate, Cv defaultCv, List<AiJobMatch> existingMatches) {
+        if (candidate == null) return false;
+        Set<Long> matchedJobIds = existingMatches == null ? Collections.emptySet() : existingMatches.stream()
+                .filter(m -> m.getJob() != null && m.getJob().getJobId() != null && m.getMatchingScore() != null)
+                .map(m -> m.getJob().getJobId())
+                .collect(Collectors.toSet());
+
+        List<Job> targetJobs = fetchTargetJobsForCandidate(candidate);
+        List<Job> missingJobs = targetJobs.stream()
+                .filter(j -> j.getJobId() != null && !matchedJobIds.contains(j.getJobId()))
+                .toList();
+
+        if (missingJobs.isEmpty()) {
+            return false;
+        }
+
+        log.info(">> [AiJobMatchService] Phát hiện {} việc làm chưa có điểm cho candidateId={} (hiện có {}/{}). Tiến hành tính bổ sung...",
+                missingJobs.size(), candidate.getCandidateId(), matchedJobIds.size(), targetJobs.size());
+        computeJobMatchesSubset(candidate, defaultCv, missingJobs);
+        return true;
+    }
+
     private void computeCandidateJobMatches(Candidate candidate, Cv cv) {
         if (candidate == null) return;
+        computeJobMatchesSubset(candidate, cv, fetchTargetJobsForCandidate(candidate));
+    }
+
+    private void computeJobMatchesSubset(Candidate candidate, Cv cv, List<Job> targetJobs) {
+        if (candidate == null || targetJobs == null || targetJobs.isEmpty()) return;
         try {
             Long candidateId = candidate.getCandidateId();
-            List<CandidateSkill> candSkills = candidateSkillRepository.findByProfileId(candidateId);
-            List<Long> skillIds = (candSkills != null && !candSkills.isEmpty())
-                    ? candSkills.stream().map(CandidateSkill::getSkillId).filter(Objects::nonNull).distinct().toList()
-                    : Collections.emptyList();
-
-            Set<Long> processedJobIds = new HashSet<>();
-            List<Job> targetJobs = new ArrayList<>();
-
-            // 1. Lọc thô bằng SQL Database theo kỹ năng hoặc từ khóa chức danh của ứng viên
-            boolean hasSkills = !skillIds.isEmpty();
-            List<Long> querySkillIds = hasSkills ? skillIds : List.of(-1L);
-            String headline = candidate.getHeadline() != null ? candidate.getHeadline().trim() : "";
-            boolean hasKeyword = !headline.isBlank();
-
-            if (hasSkills || hasKeyword) {
-                try {
-                    List<Job> preFiltered = jobRepository.findCandidatePreFilteredJobs(
-                            querySkillIds,
-                            hasSkills,
-                            headline,
-                            hasKeyword,
-                            org.springframework.data.domain.PageRequest.of(0, 30)
-                    );
-                    if (preFiltered != null) {
-                        for (Job j : preFiltered) {
-                            if (j != null && j.getJobId() != null && processedJobIds.add(j.getJobId())) {
-                                targetJobs.add(j);
-                            }
-                        }
-                    }
-                } catch (Exception ex) {
-                    log.warn(">> [AiJobMatchService] Lọc thô preFilteredJobs gặp lỗi nhỏ, fallback sang recent jobs: {}", ex.getMessage());
-                }
-            }
-
-            // 2. Bổ sung các công việc PUBLISHED & APPROVED mới nhất nếu số lượng còn ít (< 20 việc)
-            if (targetJobs.size() < 20) {
-                try {
-                    List<Job> recentJobs = jobRepository.findRecentPublishedJobs(org.springframework.data.domain.PageRequest.of(0, 30));
-                    if (recentJobs != null) {
-                        for (Job j : recentJobs) {
-                            if (j != null && j.getJobId() != null && processedJobIds.add(j.getJobId())) {
-                                targetJobs.add(j);
-                            }
-                        }
-                    }
-                } catch (Exception ex) {
-                    log.warn(">> [AiJobMatchService] Lấy recentPublishedJobs gặp lỗi: {}", ex.getMessage());
-                }
-            }
-
             log.info(">> [AiJobMatchService] Bắt đầu tính toán ma trận độ tương thích cho candidateId={} với {} công việc...",
                     candidateId, targetJobs.size());
 
@@ -944,15 +972,11 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
             log.warn(">> [AiJobMatchService] Lỗi khi dọn dẹp cache: {}", ex.getMessage());
         }
         Candidate candidate = candidateRepository.findById(candidateId).orElse(null);
-        Cv defaultCv = cvRepository.findByCandidateIdAndIsDefaultTrue(candidateId)
-                .orElseGet(() -> {
-                    List<Cv> cvs = cvRepository.findByCandidateId(candidateId);
-                    return cvs.isEmpty() ? null : cvs.get(0);
-                });
+        Cv defaultCv = resolveCandidateDefaultCv(candidateId);
         if (candidate != null) {
             computeCandidateJobMatches(candidate, defaultCv);
         }
-        return getIndustrialJobRecommendations(candidateUser, 50.0f, 10);
+        return getIndustrialJobRecommendations(candidateUser, 0.0f, 50);
     }
 
     @Override

@@ -378,6 +378,8 @@ public class CvServiceImpl implements CvService {
             log.warn(">> [CvService] Không thể xóa cache AI Job Match cũ: {}", ex.getMessage());
         }
 
+        schedulePostCommitReMatch(candidate, false);
+
         return mapToResponse(targetCv);
     }
 
@@ -861,7 +863,7 @@ public class CvServiceImpl implements CvService {
         Cv updated = cvRepository.save(cv);
         log.info(">> [CvService] CV ID {} analyzed successfully via Gemini ATS Engine", cvId);
 
-        // 7. Làm mới cache AI Job Matching: Xóa cache cũ trước để tránh Race Condition
+        // 7. Làm mới cache AI Job Matching: Xóa cache cũ trước khi transaction commit và chỉ tính lại SAU KHI commit
         try {
             aiJobMatchRepository.deleteByCandidate_CandidateId(candidate.getUserId());
             log.info(">> [CvService] Đã xóa cache AI Job Matching cũ trước khi tính điểm mới cho candidate: {}", candidate.getUserId());
@@ -869,29 +871,8 @@ public class CvServiceImpl implements CvService {
             log.warn(">> [CvService] Không thể xóa cache AI Job Match cũ: {}", ex.getMessage());
         }
 
-        // Tự động tính toán & lưu cache ma trận khớp nối việc làm AI (Rule 3) chạy async ngầm
-        CompletableFuture.runAsync(() -> {
-            try {
-                if (aiJobMatchService != null) {
-                    List<com.hiremate.dto.response.JobResponse> matches = aiJobMatchService.reMatchJobs(candidate);
-                    long highMatchesCount = matches.stream()
-                            .filter(j -> j.getMatchingScore() != null && j.getMatchingScore() >= 70.0f)
-                            .count();
-                    if (notificationService != null && highMatchesCount > 0) {
-                        notificationService.createNotification(
-                                candidate.getUserId(),
-                                com.hiremate.enums.NotificationType.AI_MATCH_DONE,
-                                "🎯 Đã tìm thấy " + highMatchesCount + " việc làm phù hợp với CV mới của bạn!",
-                                "Hệ thống HireMate AI đã tự động so khớp hồ sơ của bạn và tìm thấy " + highMatchesCount + " việc làm có độ tương thích cao (>70%). Hãy khám phá ngay!",
-                                null,
-                                "jobs"
-                        );
-                    }
-                }
-            } catch (Exception matchEx) {
-                log.warn(">> [CvService] Tự động tính toán gợi ý việc làm sau khi phân tích CV gặp lỗi nhỏ: {}", matchEx.getMessage());
-            }
-        });
+        // Chờ parent transaction commit xong (bảo đảm CV mới và candidate_skills đã hiển thị trong DB) rồi mới chạy re-match async
+        schedulePostCommitReMatch(candidate, true);
 
         return mapToResponse(updated);
     }
@@ -994,20 +975,60 @@ public class CvServiceImpl implements CvService {
                 }
             }
 
-            // Tự động tính toán lại AI Matching bất đồng bộ sau khi cập nhật CV
-            CompletableFuture.runAsync(() -> {
-                try {
-                    if (aiJobMatchService != null) {
-                        aiJobMatchService.reMatchJobs(candidate);
-                        log.info(">> [CvService] Re-matched jobs successfully after updating CV skills for user: {}", candidate.getUserId());
-                    }
-                } catch (Exception matchEx) {
-                    log.warn(">> [CvService] Lỗi khi re-match việc làm sau khi cập nhật CV: {}", matchEx.getMessage());
-                }
-            });
+            try {
+                aiJobMatchRepository.deleteByCandidate_CandidateId(candidate.getUserId());
+            } catch (Exception ex) {
+                log.warn(">> [CvService] Không thể xóa cache AI Job Match cũ khi cập nhật CV: {}", ex.getMessage());
+            }
+
+            // Tự động tính toán lại AI Matching sau khi transaction commit xong
+            schedulePostCommitReMatch(candidate, false);
         }
 
         return mapToResponse(cv);
+    }
+
+    private void schedulePostCommitReMatch(User candidate, boolean notifyHighMatch) {
+        if (candidate == null || aiJobMatchService == null) {
+            return;
+        }
+        Runnable asyncTask = () -> CompletableFuture.runAsync(() -> {
+            try {
+                List<com.hiremate.dto.response.JobResponse> matches = aiJobMatchService.reMatchJobs(candidate);
+                if (notifyHighMatch && notificationService != null && matches != null) {
+                    long highMatchesCount = matches.stream()
+                            .filter(j -> j.getMatchingScore() != null && j.getMatchingScore() >= 70.0f)
+                            .count();
+                    if (highMatchesCount > 0) {
+                        notificationService.createNotification(
+                                candidate.getUserId(),
+                                com.hiremate.enums.NotificationType.AI_MATCH_DONE,
+                                "🎯 Đã tìm thấy " + highMatchesCount + " việc làm phù hợp với CV mới của bạn!",
+                                "Hệ thống HireMate AI đã tự động so khớp hồ sơ của bạn và tìm thấy " + highMatchesCount + " việc làm có độ tương thích cao (>70%). Hãy khám phá ngay!",
+                                null,
+                                "jobs"
+                        );
+                    }
+                }
+                log.info(">> [CvService] Re-matched jobs after commit for user: {}", candidate.getUserId());
+            } catch (Exception matchEx) {
+                log.warn(">> [CvService] Lỗi khi re-match việc làm sau commit cho user {}: {}", candidate.getUserId(), matchEx.getMessage());
+            }
+        });
+
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()
+                && org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()) {
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                    new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            asyncTask.run();
+                        }
+                    }
+            );
+        } else {
+            asyncTask.run();
+        }
     }
 
     private CvResponse mapToResponse(Cv cv) {

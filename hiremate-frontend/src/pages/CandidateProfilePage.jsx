@@ -393,10 +393,33 @@ export default function CandidateProfilePage({ user }) {
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [viewingCvFile, setViewingCvFile] = useState(null);
 
-  const fetchRecommendations = async () => {
+  // Subscription Quota State for Candidate
+  const [quotaInfo, setQuotaInfo] = useState(null);
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+  const [upgradeModalMessage, setUpgradeModalMessage] = useState('');
+  const [aiAtsUsageCount, setAiAtsUsageCount] = useState(0);
+
+  const isAdmin = user?.role === 'ADMIN';
+  const planPrice = Number(quotaInfo?.price) || 0;
+  const planName = quotaInfo?.planName || 'Free Candidate';
+  const isPaidPlan = Boolean(quotaInfo?.isPaidPlan || planPrice > 0);
+  const isProOrAce = planPrice >= 100000 || planName.toLowerCase().includes('pro') || planName.toLowerCase().includes('ace') || planName.toLowerCase().includes('vip');
+  const isPlus = (planPrice > 0 && planPrice < 100000) || planName.toLowerCase().includes('plus');
+  const maxCvLimit = isAdmin ? Infinity : isProOrAce ? Infinity : isPlus ? 5 : 2;
+  const maxCvLimitStr = maxCvLimit === Infinity ? 'Không giới hạn' : `${maxCvLimit}`;
+  const recommendationModalLimit = isAdmin || isProOrAce ? 12 : isPlus ? 6 : 3;
+  const recommendationGridLimit = isAdmin || isProOrAce ? 12 : isPlus ? 6 : 4;
+
+  const fetchRecommendations = async ({ minMatch, limit } = {}) => {
     try {
       setLoadingRecommendations(true);
-      const res = await jobApi.getRecommendations({ minMatch: 50, limit: 4 });
+      const effectiveMinMatch = typeof minMatch === 'number'
+        ? minMatch
+        : ((isAdmin || isPaidPlan) ? 0 : 50);
+      const effectiveLimit = typeof limit === 'number'
+        ? limit
+        : recommendationGridLimit;
+      const res = await jobApi.getRecommendations({ minMatch: effectiveMinMatch, limit: effectiveLimit });
       const list = res?.data || res || [];
       if (Array.isArray(list)) {
         setRecommendedJobs(list);
@@ -406,6 +429,16 @@ export default function CandidateProfilePage({ user }) {
     } finally {
       setLoadingRecommendations(false);
     }
+  };
+
+  const handleRefreshRecommendations = async () => {
+    try {
+      setLoadingRecommendations(true);
+      await jobApi.reMatch();
+    } catch (err) {
+      console.warn('Không thể chạy re-match, đọc lại từ cache:', err);
+    }
+    await fetchRecommendations();
   };
 
   // State: Currently selected CV version ID
@@ -441,21 +474,6 @@ export default function CandidateProfilePage({ user }) {
   const [isRewritingBio, setIsRewritingBio] = useState(false);
   const [viewingFile, setViewingFile] = useState(null);
 
-  // Subscription Quota State for Candidate
-  const [quotaInfo, setQuotaInfo] = useState(null);
-  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
-  const [upgradeModalMessage, setUpgradeModalMessage] = useState('');
-  const [aiAtsUsageCount, setAiAtsUsageCount] = useState(0);
-
-  const isAdmin = user?.role === 'ADMIN';
-  const planPrice = Number(quotaInfo?.price) || 0;
-  const planName = quotaInfo?.planName || 'Free Candidate';
-  const isPaidPlan = Boolean(quotaInfo?.isPaidPlan || planPrice > 0);
-  const isProOrAce = planPrice >= 100000 || planName.toLowerCase().includes('pro') || planName.toLowerCase().includes('ace') || planName.toLowerCase().includes('vip');
-  const isPlus = (planPrice > 0 && planPrice < 100000) || planName.toLowerCase().includes('plus');
-  const maxCvLimit = isAdmin ? Infinity : isProOrAce ? Infinity : isPlus ? 5 : 2;
-  const maxCvLimitStr = maxCvLimit === Infinity ? 'Không giới hạn' : `${maxCvLimit}`;
-
   useEffect(() => {
     skillApi.getAllSkills().then(res => {
       const raw = res?.data || res;
@@ -465,12 +483,27 @@ export default function CandidateProfilePage({ user }) {
   }, []);
 
   useEffect(() => {
+    let targetMinMatch = isAdmin ? 0 : 50;
+    let targetLimit = isAdmin ? 12 : 4;
+
     interviewApi.getQuotaStatus()
       .then((res) => {
         const q = res?.data?.data || res?.data;
-        if (q) setQuotaInfo(q);
+        if (q) {
+          setQuotaInfo(q);
+          const qPrice = Number(q?.price) || 0;
+          const qName = (q?.planName || '').toLowerCase();
+          const qProOrAce = qPrice >= 100000 || qName.includes('pro') || qName.includes('ace') || qName.includes('vip');
+          const qPlus = (qPrice > 0 && qPrice < 100000) || qName.includes('plus');
+          const qPaid = Boolean(q?.isPaidPlan || qPrice > 0);
+          targetMinMatch = (isAdmin || qPaid) ? 0 : 50;
+          targetLimit = (isAdmin || qProOrAce) ? 12 : qPlus ? 6 : 4;
+        }
       })
-      .catch((e) => console.warn('Could not load quota status:', e));
+      .catch((e) => console.warn('Could not load quota status:', e))
+      .finally(() => {
+        fetchRecommendations({ minMatch: targetMinMatch, limit: targetLimit });
+      });
   }, [user]);
 
   // CV Files State for ATS Vault Tab (Connected to Supabase PostgreSQL via cvApi)
@@ -1045,7 +1078,6 @@ export default function CandidateProfilePage({ user }) {
 
   useEffect(() => {
     fetchMyCvs();
-    fetchRecommendations();
     if (user?.userId) {
       candidateApi.getProfile(user.userId)
         .then((res) => {
@@ -4288,7 +4320,7 @@ export default function CandidateProfilePage({ user }) {
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={fetchRecommendations}
+                    onClick={handleRefreshRecommendations}
                     disabled={loadingRecommendations}
                     className="px-3.5 py-1.5 rounded-full bg-white border border-purple-200 text-[#5b48bd] hover:bg-purple-50 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
                   >
@@ -4320,7 +4352,7 @@ export default function CandidateProfilePage({ user }) {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {recommendedJobs.slice(0, 4).map((job) => {
+                  {recommendedJobs.slice(0, recommendationGridLimit).map((job) => {
                     const matchScore = job.matchingScore != null ? Math.round(job.matchingScore) : (job.aiMatchScore != null ? Math.round(job.aiMatchScore) : null);
                     return (
                       <div
@@ -4354,8 +4386,12 @@ export default function CandidateProfilePage({ user }) {
 
                             {/* Match Score Badge */}
                             {matchScore != null ? (
-                              <div className="px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-extrabold flex items-center gap-1 shrink-0 shadow-xs">
-                                <span className="material-symbols-outlined text-sm text-emerald-600">auto_awesome</span>
+                              <div className={`px-2.5 py-1 rounded-full border text-xs font-extrabold flex items-center gap-1 shrink-0 shadow-xs ${
+                                matchScore >= 50
+                                  ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                                  : 'bg-amber-50 border-amber-200 text-amber-700'
+                              }`}>
+                                <span className={`material-symbols-outlined text-sm ${matchScore >= 50 ? 'text-emerald-600' : 'text-amber-600'}`}>auto_awesome</span>
                                 <span>{matchScore}% Match</span>
                               </div>
                             ) : (
@@ -4567,7 +4603,9 @@ export default function CandidateProfilePage({ user }) {
                     <span className="material-symbols-outlined text-sm text-[#f97316]">work</span>
                     <span>Top Việc Làm Phù Hợp Nhất (AI Smart Match)</span>
                   </h4>
-                  <span className="text-[10px] text-slate-400">Tự động so khớp 70/30</span>
+                  <span className="text-[10px] text-slate-400">
+                    Tối đa {recommendationModalLimit} đề xuất • 70/30
+                  </span>
                 </div>
 
                 {/* Matched Jobs List */}
@@ -4582,7 +4620,7 @@ export default function CandidateProfilePage({ user }) {
                       Đang đồng bộ dữ liệu so khớp, bạn có thể duyệt việc làm tại Trang chủ!
                     </div>
                   ) : (
-                    recommendedJobs.slice(0, 3).map((job) => {
+                    recommendedJobs.slice(0, recommendationModalLimit).map((job) => {
                       const score = job.matchingScore != null ? Math.round(job.matchingScore) : (job.aiMatchScore != null ? Math.round(job.aiMatchScore) : null);
                       return (
                         <div
@@ -4612,7 +4650,11 @@ export default function CandidateProfilePage({ user }) {
 
                           <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
                             {score != null ? (
-                              <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-extrabold flex items-center gap-1">
+                              <span className={`px-2.5 py-1 rounded-full text-[11px] font-extrabold flex items-center gap-1 ${
+                                score >= 50
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : 'bg-amber-100 text-amber-800'
+                              }`}>
                                 <span className="material-symbols-outlined text-xs">auto_awesome</span>
                                 <span>{score}% Match</span>
                               </span>

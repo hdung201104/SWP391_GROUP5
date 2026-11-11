@@ -43,6 +43,10 @@ public class UserServiceImpl implements UserService {
     private final com.hiremate.service.FileStorageService fileStorageService;
     private final com.hiremate.service.UserCacheService userCacheService;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    @org.springframework.context.annotation.Lazy
+    private com.hiremate.service.AiJobMatchService aiJobMatchService;
+
     @Override
     public UserProfileResponse getProfile(Long userId) {
         User user = userRepository.findById(userId)
@@ -264,13 +268,7 @@ public class UserServiceImpl implements UserService {
 
         CandidateSkill saved = candidateSkillRepository.save(candidateSkill);
 
-        // Xóa cache AI matching để tính lại điểm tương thích khi kỹ năng ứng viên thay đổi
-        try {
-            aiJobMatchRepository.deleteByCandidate_CandidateId(userId);
-            log.info(">> [UserService] Đã làm mới cache AI matching cho candidate #{}", userId);
-        } catch (Exception ex) {
-            log.warn("Không thể xóa cache AI matching: {}", ex.getMessage());
-        }
+        invalidateAndScheduleReMatch(user);
 
         return CandidateSkillResponse.builder()
                 .candidateSkillId(saved.getCandidateSkillId())
@@ -294,29 +292,58 @@ public class UserServiceImpl implements UserService {
             throw new IllegalArgumentException("Chỉ tài khoản Ứng viên mới có thể xóa kỹ năng");
         }
 
-        // 1. Thử tìm theo skillId trước
-        Optional<CandidateSkill> bySkillId = candidateSkillRepository.findByProfileIdAndSkillId(userId, skillId);
-        if (bySkillId.isPresent()) {
-            candidateSkillRepository.delete(bySkillId.get());
-            try {
-                aiJobMatchRepository.deleteByCandidate_CandidateId(userId);
-            } catch (Exception ignored) {}
-            log.info(">> [UserService] Đã xóa skillId {} và làm mới cache AI matching cho candidateId {}", skillId, userId);
-            return;
+        // 1. Thử tìm theo skillId trước (hoặc fallback theo candidateSkillId dòng bản ghi)
+        Optional<CandidateSkill> target = candidateSkillRepository.findByProfileIdAndSkillId(userId, skillId);
+        if (target.isEmpty()) {
+            target = candidateSkillRepository.findById(skillId)
+                    .filter(row -> row.getProfileId().equals(userId));
         }
 
-        // 2. Fallback: Nếu tham số skillId thực chất là candidateSkillId (ID dòng bản ghi)
-        Optional<CandidateSkill> byRowId = candidateSkillRepository.findById(skillId);
-        if (byRowId.isPresent() && byRowId.get().getProfileId().equals(userId)) {
-            candidateSkillRepository.delete(byRowId.get());
-            try {
-                aiJobMatchRepository.deleteByCandidate_CandidateId(userId);
-            } catch (Exception ignored) {}
-            log.info(">> [UserService] Đã xóa candidateSkillId {} và làm mới cache AI matching cho candidateId {}", skillId, userId);
+        CandidateSkill found = target.orElseThrow(() ->
+                new IllegalArgumentException("Không tìm thấy kỹ năng với ID: " + skillId + " trong hồ sơ của bạn"));
+
+        candidateSkillRepository.delete(found);
+        invalidateAndScheduleReMatch(user);
+        log.info(">> [UserService] Đã xóa kỹ năng id={} và lên lịch re-match AI cho candidateId={}", skillId, userId);
+    }
+
+    private void invalidateAndScheduleReMatch(User user) {
+        if (user == null) {
             return;
         }
+        try {
+            aiJobMatchRepository.deleteByCandidate_CandidateId(user.getUserId());
+            log.info(">> [UserService] Đã làm mới cache AI matching cho candidate #{}", user.getUserId());
+        } catch (Exception ex) {
+            log.warn("Không thể xóa cache AI matching: {}", ex.getMessage());
+        }
 
-        throw new IllegalArgumentException("Không tìm thấy kỹ năng với ID: " + skillId + " trong hồ sơ của bạn");
+        if (aiJobMatchService == null) {
+            return;
+        }
+        Runnable asyncTask = () -> java.util.concurrent.CompletableFuture.runAsync(() -> {
+            try {
+                aiJobMatchService.reMatchJobs(user);
+                log.info(">> [UserService] Re-matched AI jobs sau khi thay đổi kỹ năng cho candidate #{}", user.getUserId());
+            } catch (Exception ex) {
+                log.warn(">> [UserService] Lỗi khi re-match AI sau khi thay đổi kỹ năng cho candidate #{}: {}",
+                        user.getUserId(), ex.getMessage());
+            }
+        });
+
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()
+                && org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()) {
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                    new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            asyncTask.run();
+                        }
+                    }
+            );
+        } else {
+            asyncTask.run();
+        }
     }
 
     private List<CandidateSkillResponse> loadCandidateSkills(Long profileId) {
