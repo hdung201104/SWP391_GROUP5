@@ -674,7 +674,8 @@ public class PaymentServiceImpl implements PaymentService {
 
         String rawOrderCode = String.valueOf(data.get("orderCode"));
         if (rawOrderCode == null || rawOrderCode.isBlank() || "null".equals(rawOrderCode)) {
-            throw new IllegalArgumentException("Không tìm thấy orderCode trong webhook PayOS.");
+            log.info("PayOS Webhook ping/verification test received successfully (no orderCode). Returning HTTP 200 OK.");
+            return null;
         }
 
         String cleanCode = rawOrderCode.trim();
