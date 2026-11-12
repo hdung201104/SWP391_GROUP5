@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { cvApi } from '../../api/cvApi';
 import { applicationApi } from '../../api/applicationApi';
+import { getApiBaseUrl } from '../../api/axiosClient';
 import { extractBlob } from '../../utils/excelExportUtils';
 import ModalPortal from './ModalPortal';
 
@@ -57,10 +58,14 @@ export default function CvViewModal({
 
   const isValidPdfBlob = async (blob) => {
     if (!blob || blob.size < 200) return false;
-    if (blob.size < 2048) {
+    if (blob.type === 'text/html') return false;
+    if (blob.size < 4096) {
       try {
         const text = await blob.text();
         if (text.startsWith('{') && (text.includes('"error"') || text.includes('"success":false'))) {
+          return false;
+        }
+        if (text.toLowerCase().includes('<!doctype html') || text.toLowerCase().includes('<html')) {
           return false;
         }
       } catch (ignored) {}
@@ -138,9 +143,13 @@ export default function CvViewModal({
         }
 
         // 2. Fallback: Cloudinary hoặc link trực tiếp
-        if (!loaded && resolvedCvUrl && resolvedCvUrl !== '#' && resolvedCvUrl.startsWith('http')) {
-          if (resolvedCvUrl.includes('res.cloudinary.com') && resolvedCvUrl.toLowerCase().endsWith('.pdf')) {
-            const imgUrl = resolvedCvUrl.replace(/\.pdf$/i, '.png');
+        if (!loaded && resolvedCvUrl && resolvedCvUrl !== '#' && !resolvedCvUrl.includes('/candidate/profile')) {
+          const apiBase = getApiBaseUrl();
+          const targetUrl = resolvedCvUrl.startsWith('http')
+            ? resolvedCvUrl
+            : `${apiBase}${resolvedCvUrl.startsWith('/') ? '' : '/'}${resolvedCvUrl}`;
+          if (targetUrl.includes('res.cloudinary.com') && targetUrl.toLowerCase().endsWith('.pdf')) {
+            const imgUrl = targetUrl.replace(/\.pdf$/i, '.png');
             if (isMounted) {
               setBlobUrl(imgUrl);
               setPreviewType('image');
@@ -148,7 +157,7 @@ export default function CvViewModal({
             }
           } else {
             if (isMounted) {
-              setBlobUrl(resolvedCvUrl);
+              setBlobUrl(targetUrl);
               setPreviewType('pdf');
               loaded = true;
             }

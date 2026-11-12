@@ -65,20 +65,25 @@ public class CompanyController {
         )));
     }
 
-    private ResponseEntity<byte[]> renderLicense(String docUrl, String docName, boolean inline) {
-        if (!CompanyServiceImpl.isValidLicenseDocUrl(docUrl)) {
-            return ResponseEntity.notFound().build();
+    private ResponseEntity<byte[]> renderLicense(String docUrl, String docName, boolean inline, String companyName, String taxCode, String licenseNumber, String legalRepresentative, String address) {
+        byte[] bytes = null;
+        if (CompanyServiceImpl.isValidLicenseDocUrl(docUrl)) {
+            bytes = fileStorageService.loadFileAsBytes(docUrl);
         }
-        byte[] bytes = fileStorageService.loadFileAsBytes(docUrl);
+        if (bytes == null || bytes.length == 0) {
+            bytes = com.hiremate.util.PdfFallbackGenerator.generateLicensePdf(
+                    companyName, taxCode, licenseNumber, legalRepresentative, address
+            );
+        }
         if (bytes == null || bytes.length == 0) {
             return ResponseEntity.notFound().build();
         }
 
         String fn = (docName != null && !docName.isBlank()) ? docName : "Giay_Phep_Kinh_Doanh.pdf";
-        String lowerUrl = docUrl.toLowerCase();
+        String lowerUrl = docUrl != null ? docUrl.toLowerCase() : "";
         String lowerFn = fn.toLowerCase();
 
-        MediaType mediaType = MediaType.APPLICATION_OCTET_STREAM;
+        MediaType mediaType = MediaType.APPLICATION_PDF;
         if (bytes.length >= 4 && bytes[0] == 0x25 && bytes[1] == 0x50 && bytes[2] == 0x44 && bytes[3] == 0x46) {
             mediaType = MediaType.APPLICATION_PDF;
             if (!lowerFn.endsWith(".pdf")) fn += ".pdf";
@@ -174,7 +179,9 @@ public class CompanyController {
         if (myCompany == null) {
             return ResponseEntity.notFound().build();
         }
-        return renderLicense(myCompany.getLicenseDocUrl(), myCompany.getLicenseDocName(), true);
+        return renderLicense(myCompany.getLicenseDocUrl(), myCompany.getLicenseDocName(), true,
+                myCompany.getCompanyName(), myCompany.getTaxCode(), myCompany.getLicenseNumber(),
+                myCompany.getLegalRepresentative(), myCompany.getAddress());
     }
 
     @GetMapping("/my/license/download")
@@ -184,7 +191,9 @@ public class CompanyController {
         if (myCompany == null) {
             return ResponseEntity.notFound().build();
         }
-        return renderLicense(myCompany.getLicenseDocUrl(), myCompany.getLicenseDocName(), false);
+        return renderLicense(myCompany.getLicenseDocUrl(), myCompany.getLicenseDocName(), false,
+                myCompany.getCompanyName(), myCompany.getTaxCode(), myCompany.getLicenseNumber(),
+                myCompany.getLegalRepresentative(), myCompany.getAddress());
     }
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
@@ -220,7 +229,9 @@ public class CompanyController {
             return ResponseEntity.notFound().build();
         }
         checkLicenseAccess(company, user);
-        return renderLicense(company.getLicenseDocUrl(), company.getLicenseDocName(), true);
+        return renderLicense(company.getLicenseDocUrl(), company.getLicenseDocName(), true,
+                company.getCompanyName(), company.getTaxCode(), company.getLicenseNumber(),
+                company.getLegalRepresentative(), company.getAddress());
     }
 
     @GetMapping("/{id:[0-9]+}/license/download")
@@ -231,7 +242,9 @@ public class CompanyController {
             return ResponseEntity.notFound().build();
         }
         checkLicenseAccess(company, user);
-        return renderLicense(company.getLicenseDocUrl(), company.getLicenseDocName(), false);
+        return renderLicense(company.getLicenseDocUrl(), company.getLicenseDocName(), false,
+                company.getCompanyName(), company.getTaxCode(), company.getLicenseNumber(),
+                company.getLegalRepresentative(), company.getAddress());
     }
 
     @GetMapping

@@ -1,4 +1,4 @@
-import axiosClient from './axiosClient';
+import axiosClient, { getApiBaseUrl } from './axiosClient';
 
 export const companyApi = {
   lookupCompanies: (params) => axiosClient.get('/companies/lookup', { params }),
@@ -18,8 +18,18 @@ export const companyApi = {
     headers: { 'Content-Type': 'multipart/form-data' },
   }),
   getCompanyById: (id) => axiosClient.get(`/companies/${id}`),
-  getLicensePreviewUrl: (companyId) => companyId ? `/api/v1/companies/${companyId}/license/preview` : '/api/v1/companies/my/license/preview',
-  getLicenseDownloadUrl: (companyId) => companyId ? `/api/v1/companies/${companyId}/license/download` : '/api/v1/companies/my/license/download',
+  getLicensePreviewUrl: (companyId) => {
+    const apiBase = getApiBaseUrl();
+    return companyId
+      ? `${apiBase}/api/v1/companies/${companyId}/license/preview`
+      : `${apiBase}/api/v1/companies/my/license/preview`;
+  },
+  getLicenseDownloadUrl: (companyId) => {
+    const apiBase = getApiBaseUrl();
+    return companyId
+      ? `${apiBase}/api/v1/companies/${companyId}/license/download`
+      : `${apiBase}/api/v1/companies/my/license/download`;
+  },
   downloadLicenseFile: (companyId) => axiosClient.get(companyId ? `/companies/${companyId}/license/download` : '/companies/my/license/download', {
     responseType: 'blob',
   }),

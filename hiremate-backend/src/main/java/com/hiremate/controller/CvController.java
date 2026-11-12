@@ -32,7 +32,14 @@ public class CvController {
         CvResponse cv = cvService.getCvById(id);
         byte[] bytes = fileStorageService.loadFileAsBytes(cv != null ? cv.getFileUrl() : null);
         if (bytes == null || bytes.length == 0) {
-            bytes = fileStorageService.loadFileAsBytes("fallback.pdf");
+            bytes = com.hiremate.util.PdfFallbackGenerator.generateCvPdf(
+                    cv != null ? (cv.getFullName() != null ? cv.getFullName() : cv.getFileName()) : "Ung Vien HireMate",
+                    cv != null ? cv.getHeadline() : null,
+                    cv != null ? cv.getEmail() : null,
+                    cv != null ? cv.getPhone() : null,
+                    cv != null ? cv.getSummary() : null,
+                    cv != null ? cv.getDetectedSkills() : null
+            );
         }
         if (bytes == null || bytes.length == 0) {
             return ResponseEntity.notFound().build();
@@ -84,7 +91,14 @@ public class CvController {
         CvResponse cv = cvService.getCvById(id);
         byte[] bytes = fileStorageService.loadFileAsBytes(cv != null ? cv.getFileUrl() : null);
         if (bytes == null || bytes.length == 0) {
-            bytes = fileStorageService.loadFileAsBytes("fallback.pdf");
+            bytes = com.hiremate.util.PdfFallbackGenerator.generateCvPdf(
+                    cv != null ? (cv.getFullName() != null ? cv.getFullName() : cv.getFileName()) : "Ung Vien HireMate",
+                    cv != null ? cv.getHeadline() : null,
+                    cv != null ? cv.getEmail() : null,
+                    cv != null ? cv.getPhone() : null,
+                    cv != null ? cv.getSummary() : null,
+                    cv != null ? cv.getDetectedSkills() : null
+            );
         }
         if (bytes == null || bytes.length == 0) {
             return ResponseEntity.notFound().build();

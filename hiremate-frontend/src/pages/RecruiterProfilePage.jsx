@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLivingTheme } from '../context/LivingThemeContext';
 import { companyApi, jobApi, applicationApi, authApi, paymentApi } from '../api';
+import { getApiBaseUrl } from '../api/axiosClient';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import { parseSkillList } from '../utils/helpers';
 import { AvatarImg, CompanyLogoImg } from '../components/common/SmartImage';
@@ -270,12 +271,14 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
             // Nếu là URL Cloudinary PDF bị hạn chế ACL 401, tự động chuyển sang xem trước ảnh .png nét cao
             if (fetchUrl.includes('res.cloudinary.com') && fetchUrl.toLowerCase().endsWith('.pdf')) {
               fetchUrl = fetchUrl.replace(/\.pdf$/i, '.png');
+            } else if (!fetchUrl.startsWith('http://') && !fetchUrl.startsWith('https://')) {
+              fetchUrl = `${getApiBaseUrl()}${fetchUrl.startsWith('/') ? '' : '/'}${fetchUrl}`;
             }
             try {
               const resp = await fetch(fetchUrl);
               if (resp.ok) {
                 const fetchedBlob = await resp.blob();
-                if (fetchedBlob.type !== 'application/json') {
+                if (fetchedBlob.type !== 'application/json' && fetchedBlob.type !== 'text/html' && fetchedBlob.size > 200) {
                   blob = fetchedBlob;
                 }
               }
@@ -315,17 +318,21 @@ export default function RecruiterProfilePage({ user, onNavigate }) {
   const getLicensePreviewUrl = () => {
     if (previewBlobUrl) return previewBlobUrl;
     const token = localStorage.getItem('token');
+    const apiBase = getApiBaseUrl();
     const companyId = companyLegal.companyId || companyLegal.id;
     if (companyId) {
-      return `/api/v1/companies/${companyId}/license/preview?t=${Date.now()}${token ? `&token=${encodeURIComponent(token)}` : ''}`;
+      return `${apiBase}/api/v1/companies/${companyId}/license/preview?t=${Date.now()}${token ? `&token=${encodeURIComponent(token)}` : ''}`;
     }
     if (companyLegal.licenseDocUrl) {
       if (companyLegal.licenseDocUrl.includes('res.cloudinary.com') && companyLegal.licenseDocUrl.toLowerCase().endsWith('.pdf')) {
         return companyLegal.licenseDocUrl.replace(/\.pdf$/i, '.png');
       }
-      return companyLegal.licenseDocUrl;
+      if (companyLegal.licenseDocUrl.startsWith('http://') || companyLegal.licenseDocUrl.startsWith('https://')) {
+        return companyLegal.licenseDocUrl;
+      }
+      return `${apiBase}${companyLegal.licenseDocUrl.startsWith('/') ? '' : '/'}${companyLegal.licenseDocUrl}`;
     }
-    return `/api/v1/companies/my/license/preview${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+    return `${apiBase}/api/v1/companies/my/license/preview${token ? `?token=${encodeURIComponent(token)}` : ''}`;
   };
 
   const handleDownloadLicense = async () => {

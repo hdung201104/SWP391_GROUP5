@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { applicationApi, aiMatchApi, jobApi, interviewApi, paymentApi } from '../api';
 import { cvApi } from '../api/cvApi';
+import { getApiBaseUrl } from '../api/axiosClient';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import { parseSkillList, sanitizeEvidenceText } from '../utils/helpers';
 import { parseSubscriptionPermissions } from '../utils/subscriptionPerms';
@@ -627,7 +628,8 @@ export default function CandidateEvaluationPage({
             : 'application/pdf');
 
           const blob = extractBlob(previewRes, detectedMime);
-          if (blob && blob.size > 200) {
+          const isHtml = blob && (blob.type === 'text/html' || String(detectedMime).includes('text/html'));
+          if (blob && blob.size > 200 && !isHtml) {
             createdBlobUrl = window.URL.createObjectURL(blob);
             if (isMounted) {
               setPdfBlobUrl(createdBlobUrl);
@@ -639,7 +641,8 @@ export default function CandidateEvaluationPage({
           } else {
             const dlRes = await cvApi.downloadCv(targetCvId).catch(() => null);
             const dlBlob = extractBlob(dlRes, detectedMime);
-            if (dlBlob && dlBlob.size > 200) {
+            const isDlHtml = dlBlob && (dlBlob.type === 'text/html' || String(detectedMime).includes('text/html'));
+            if (dlBlob && dlBlob.size > 200 && !isDlHtml) {
               createdBlobUrl = window.URL.createObjectURL(dlBlob);
               if (isMounted) {
                 setPdfBlobUrl(createdBlobUrl);
@@ -657,7 +660,8 @@ export default function CandidateEvaluationPage({
         // Fallback 1: Trực tiếp endpoint API có kèm JWT token xác thực nếu có file URL hợp lệ
         if (fUrl && !fUrl.includes('/candidate/profile')) {
           const token = localStorage.getItem('token') || '';
-          const directApiUrl = `/api/v1/cvs/${targetCvId}/preview${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+          const apiBase = getApiBaseUrl();
+          const directApiUrl = `${apiBase}/api/v1/cvs/${targetCvId}/preview${token ? `?token=${encodeURIComponent(token)}` : ''}`;
           if (isMounted) {
             setPdfBlobUrl(directApiUrl);
             setCvMimeType('application/pdf');
@@ -670,7 +674,8 @@ export default function CandidateEvaluationPage({
 
       // Fallback 2: Nếu targetCvUrl là đường dẫn tệp cụ thể
       if (targetCvUrl && targetCvUrl !== '#' && !targetCvUrl.includes('/candidate/profile')) {
-        const fullUrl = targetCvUrl.startsWith('http') ? targetCvUrl : (targetCvUrl.startsWith('/') ? targetCvUrl : `/${targetCvUrl}`);
+        const apiBase = getApiBaseUrl();
+        const fullUrl = targetCvUrl.startsWith('http') ? targetCvUrl : `${apiBase}${targetCvUrl.startsWith('/') ? '' : '/'}${targetCvUrl}`;
         if (isMounted) {
           setPdfBlobUrl(fullUrl);
           setCvMimeType('application/pdf');
@@ -2520,10 +2525,10 @@ export default function CandidateEvaluationPage({
                         key={`direct-iframe-${cand.cvId || effectiveCvId}-${zoomLevel}`}
                         src={
                           (cand.cvId || effectiveCvId)
-                            ? `/api/v1/cvs/${cand.cvId || effectiveCvId}/preview?token=${encodeURIComponent(localStorage.getItem('token') || '')}#page=1&view=Fit&toolbar=1&navpanes=0`
+                            ? `${getApiBaseUrl()}/api/v1/cvs/${cand.cvId || effectiveCvId}/preview?token=${encodeURIComponent(localStorage.getItem('token') || '')}#page=1&view=Fit&toolbar=1&navpanes=0`
                             : cand.cvUrl.startsWith('http')
                               ? `${cand.cvUrl}#page=1&view=Fit&toolbar=1&navpanes=0`
-                              : `/${cand.cvUrl.replace(/^\//, '')}#page=1&view=Fit&toolbar=1&navpanes=0`
+                              : `${getApiBaseUrl()}/${cand.cvUrl.replace(/^\//, '')}#page=1&view=Fit&toolbar=1&navpanes=0`
                         }
                         title={`CV - ${cand.name}`}
                         style={{

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { adminApi, skillApi, companyApi } from '../api';
+import { getApiBaseUrl } from '../api/axiosClient';
 import { getStoredVouchers, addStoredVoucher, toggleStoredVoucher } from '../utils/voucherStorage';
 import { exportAdminCompaniesToExcel, exportAdminUsersToExcel, exportJobsToExcel, exportAdminOrdersToExcel } from '../utils/excelExportUtils';
 import AnimatedNumber from '../components/dashboard/AnimatedNumber';
@@ -2241,6 +2242,9 @@ export default function AdminDashboardPage({ user, onLogout }) {
             try {
               const res = await companyApi.previewLicenseFile(numId);
               blob = (res instanceof Blob) ? res : (res?.data instanceof Blob ? res.data : null);
+              if (blob && (blob.type === 'text/html' || blob.size < 200)) {
+                blob = null;
+              }
             } catch (err) {
               console.warn('Backend preview failed, trying direct URL fetch:', err);
             }
@@ -2249,12 +2253,14 @@ export default function AdminDashboardPage({ user, onLogout }) {
             let fetchUrl = selectedCompanyDossier.docUrl;
             if (fetchUrl.includes('res.cloudinary.com') && fetchUrl.toLowerCase().endsWith('.pdf')) {
               fetchUrl = fetchUrl.replace(/\.pdf$/i, '.png');
+            } else if (!fetchUrl.startsWith('http://') && !fetchUrl.startsWith('https://')) {
+              fetchUrl = `${getApiBaseUrl()}${fetchUrl.startsWith('/') ? '' : '/'}${fetchUrl}`;
             }
             try {
               const resp = await fetch(fetchUrl);
               if (resp.ok) {
                 const fetchedBlob = await resp.blob();
-                if (fetchedBlob.type !== 'application/json') {
+                if (fetchedBlob.type !== 'application/json' && fetchedBlob.type !== 'text/html' && fetchedBlob.size > 200) {
                   blob = fetchedBlob;
                 }
               }
@@ -2295,15 +2301,19 @@ export default function AdminDashboardPage({ user, onLogout }) {
     if (adminPreviewBlobUrl) return adminPreviewBlobUrl;
     if (!comp) return '';
     const token = localStorage.getItem('token');
+    const apiBase = getApiBaseUrl();
     const numId = getCompanyNumericId(comp);
     if (numId && !isNaN(numId)) {
-      return `/api/v1/companies/${numId}/license/preview?t=${Date.now()}${token ? `&token=${encodeURIComponent(token)}` : ''}`;
+      return `${apiBase}/api/v1/companies/${numId}/license/preview?t=${Date.now()}${token ? `&token=${encodeURIComponent(token)}` : ''}`;
     }
     if (comp.docUrl) {
       if (comp.docUrl.includes('res.cloudinary.com') && comp.docUrl.toLowerCase().endsWith('.pdf')) {
         return comp.docUrl.replace(/\.pdf$/i, '.png');
       }
-      return comp.docUrl;
+      if (comp.docUrl.startsWith('http://') || comp.docUrl.startsWith('https://')) {
+        return comp.docUrl;
+      }
+      return `${apiBase}${comp.docUrl.startsWith('/') ? '' : '/'}${comp.docUrl}`;
     }
     return '';
   };
