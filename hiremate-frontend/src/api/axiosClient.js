@@ -4,7 +4,10 @@ import axios from 'axios';
  * Enterprise Axios Client with automatic JWT Bearer token injection and response handling
  */
 const rawBaseUrl = import.meta.env.VITE_API_BASE_URL;
-const cleanBaseUrl = rawBaseUrl ? rawBaseUrl.replace(/\/+$/, '') : '';
+let cleanBaseUrl = rawBaseUrl ? rawBaseUrl.trim().replace(/\/+$/, '') : '';
+if (cleanBaseUrl && !cleanBaseUrl.startsWith('http://') && !cleanBaseUrl.startsWith('https://')) {
+  cleanBaseUrl = `https://${cleanBaseUrl}`;
+}
 
 const axiosClient = axios.create({
   baseURL: cleanBaseUrl ? `${cleanBaseUrl}/api/v1` : '/api/v1',
