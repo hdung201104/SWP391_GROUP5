@@ -13,6 +13,7 @@ import { parseSkillList, sanitizeEvidenceText } from '../utils/helpers';
 import { createHrToCandidateMailto } from '../utils/emailUtils';
 import CvViewModal from '../components/common/CvViewModal';
 import ModalPortal from '../components/common/ModalPortal';
+import JobDetailModal from '../components/jobs/JobDetailModal';
 import { HIREMATE_LOGO_URL } from '../constants/branding';
 import { exportCandidatesToExcel } from '../utils/excelExportUtils';
 import paymentApi from '../api/paymentApi';
@@ -278,6 +279,7 @@ function generateComprehensiveAiReport(cand, jobDetails, liveAiReport) {
 export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJobs }) {
   const { theme: livingTheme, luminosity } = useLivingTheme();
   const [viewingCvCandidate, setViewingCvCandidate] = useState(null);
+  const [showJdModal, setShowJdModal] = useState(false);
 
   // State
   const [jobDetails, setJobDetails] = useState({
@@ -1454,17 +1456,15 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                 <span>{isExporting ? 'Đang Xuất...' : 'Xuất Excel'}</span>
               </button>
 
-              <a
-                href={`#/jobs/${jobDetails.id}`}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 border border-slate-200 hover:border-purple-300 transition-all cursor-pointer shadow-2xs"
-                title="Mở xem bản mô tả công việc (JD) đăng tuyển trên hệ thống"
+              <button
+                type="button"
+                onClick={() => setShowJdModal(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-purple-50 text-xs font-semibold text-slate-700 hover:text-[#5b48bd] border border-slate-200 hover:border-purple-300 transition-all cursor-pointer shadow-2xs"
+                title="Xem chi tiết bản mô tả công việc (JD) ngay trên trang"
               >
                 <span className="material-symbols-outlined text-[16px] text-purple-600">description</span>
                 <span>Xem JD</span>
-                <span className="material-symbols-outlined text-[12px] text-slate-400">open_in_new</span>
-              </a>
+              </button>
 
               <button
                 type="button"
@@ -3139,6 +3139,14 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
             </div>
           </div>
         </div>
+      )}
+      {/* Quick Job Description Modal (Xem JD ngay trên trang mà không mở tab mới) */}
+      {showJdModal && (
+        <JobDetailModal
+          job={jobDetails.raw || jobDetails}
+          onClose={() => setShowJdModal(false)}
+          isRecruiterView={true}
+        />
       )}
     </div>
   );

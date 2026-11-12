@@ -164,7 +164,7 @@ const getRoleTemplate = (title = '') => {
   };
 };
 
-export default function JobDetailModal({ job, onClose, onApply, onViewCompanyProfile }) {
+export default function JobDetailModal({ job, onClose, onApply, onViewCompanyProfile, isRecruiterView = false }) {
   if (!job) return null;
 
   const compName = job.companyName || job.company?.companyName || job.company || 'Doanh Nghiệp Tuyển Dụng';
@@ -1029,49 +1029,65 @@ export default function JobDetailModal({ job, onClose, onApply, onViewCompanyPro
               Đóng
             </button>
 
-            {!isCompanyBlocked && (
-              <button
-                type="button"
-                onClick={handleStartPracticeInterview}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-[#5b48bd] bg-purple-50 hover:bg-purple-100 border border-purple-200 transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
-              >
-                <span className="material-symbols-outlined text-sm text-[#5b48bd]">psychology</span>
-                <span>Luyện Phỏng Vấn Với AI</span>
-              </button>
-            )}
-
-            {isCompanyBlocked || isJobClosed ? (
-              <button
-                type="button"
-                disabled
-                className="px-6 py-2 rounded-xl text-xs font-bold text-rose-700 bg-rose-100/90 border border-rose-300 cursor-not-allowed flex items-center gap-1.5 shadow-2xs"
-                title="Tin tuyển dụng đã đóng hoặc doanh nghiệp đang bị đình chỉ GPKD"
-              >
-                <span className="material-symbols-outlined text-sm">block</span>
-                <span>{isCompanyBlocked ? 'Doanh Nghiệp Bị Đình Chỉ GPKD' : 'Bài Đăng Đã Đóng Tuyển'}</span>
-              </button>
-            ) : deadlineInfo.isExpired ? (
-              <button
-                type="button"
-                disabled
-                className="px-6 py-2 rounded-xl text-xs font-bold text-rose-500 bg-rose-100/70 border border-rose-200 cursor-not-allowed flex items-center gap-1.5"
-                title="Tin tuyển dụng này đã hết thời hạn nhận hồ sơ"
-              >
-                <span className="material-symbols-outlined text-sm">event_busy</span>
-                <span>Đã Hết Hạn Nộp Hồ Sơ</span>
-              </button>
-            ) : (
+            {isRecruiterView ? (
               <button
                 type="button"
                 onClick={() => {
                   onClose();
-                  if (onApply) onApply(job);
+                  window.location.hash = `#/recruiter-jobs?editId=${job.jobId || job.id}`;
                 }}
-                className="px-6 py-2 rounded-xl text-xs font-extrabold text-white bg-gradient-to-r from-[#221d47] to-[#5b48bd] hover:opacity-95 shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center gap-1.5"
+                className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center gap-1.5"
               >
-                <span>Ứng tuyển ngay</span>
-                <span className="material-symbols-outlined text-sm">send</span>
+                <span className="material-symbols-outlined text-sm">edit</span>
+                <span>Chỉnh Sửa Tin Tuyển Dụng</span>
               </button>
+            ) : (
+              <>
+                {!isCompanyBlocked && (
+                  <button
+                    type="button"
+                    onClick={handleStartPracticeInterview}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-[#5b48bd] bg-purple-50 hover:bg-purple-100 border border-purple-200 transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  >
+                    <span className="material-symbols-outlined text-sm text-[#5b48bd]">psychology</span>
+                    <span>Luyện Phỏng Vấn Với AI</span>
+                  </button>
+                )}
+
+                {isCompanyBlocked || isJobClosed ? (
+                  <button
+                    type="button"
+                    disabled
+                    className="px-6 py-2 rounded-xl text-xs font-bold text-rose-700 bg-rose-100/90 border border-rose-300 cursor-not-allowed flex items-center gap-1.5 shadow-2xs"
+                    title="Tin tuyển dụng đã đóng hoặc doanh nghiệp đang bị đình chỉ GPKD"
+                  >
+                    <span className="material-symbols-outlined text-sm">block</span>
+                    <span>{isCompanyBlocked ? 'Doanh Nghiệp Bị Đình Chỉ GPKD' : 'Bài Đăng Đã Đóng Tuyển'}</span>
+                  </button>
+                ) : deadlineInfo.isExpired ? (
+                  <button
+                    type="button"
+                    disabled
+                    className="px-6 py-2 rounded-xl text-xs font-bold text-rose-500 bg-rose-100/70 border border-rose-200 cursor-not-allowed flex items-center gap-1.5"
+                    title="Tin tuyển dụng này đã hết thời hạn nhận hồ sơ"
+                  >
+                    <span className="material-symbols-outlined text-sm">event_busy</span>
+                    <span>Đã Hết Hạn Nộp Hồ Sơ</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      if (onApply) onApply(job);
+                    }}
+                    className="px-6 py-2 rounded-xl text-xs font-extrabold text-white bg-gradient-to-r from-[#221d47] to-[#5b48bd] hover:opacity-95 shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    <span>Ứng tuyển ngay</span>
+                    <span className="material-symbols-outlined text-sm">send</span>
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>
