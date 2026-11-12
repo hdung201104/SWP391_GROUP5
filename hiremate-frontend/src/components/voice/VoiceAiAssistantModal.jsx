@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { VoiceAgentWebRTCManager } from '../../services/voiceAgentWebRTC';
 import voiceAgentApi from '../../api/voiceAgentApi';
 import interviewApi from '../../api/interviewApi';
+import { getApiBaseUrl } from '../../api/axiosClient';
 
 /**
  * Enterprise Real-Time Voice AI Agent Assistant Modal
@@ -186,7 +187,8 @@ export default function VoiceAiAssistantModal({ isOpen, onClose, user, initialCo
 
     // Ưu tiên 1: Stream giọng nói tự nhiên từ Backend TTS endpoint
     try {
-      const ttsUrl = `/api/v1/ai-interviews/tts?voice=${voiceParam}&text=${encodeURIComponent(chunk)}`;
+      const apiBase = getApiBaseUrl();
+      const ttsUrl = `${apiBase}/api/v1/ai-interviews/tts?voice=${voiceParam}&text=${encodeURIComponent(chunk)}`;
       const audio = new Audio(ttsUrl);
       currentAudioRef.current = audio;
 

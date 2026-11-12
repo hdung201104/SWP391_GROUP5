@@ -4,6 +4,7 @@ import { interviewApi } from '../api/interviewApi';
 import { jobApi } from '../api/jobApi';
 import { cvApi } from '../api/cvApi';
 import { aiMatchApi } from '../api/aiMatchApi';
+import { getApiBaseUrl } from '../api/axiosClient';
 import VoiceAiAssistantModal from '../components/voice/VoiceAiAssistantModal';
 import { HIREMATE_LOGO_URL } from '../constants/branding';
 import { getFaceLandmarker, analyzeFaceFrameWithMediaPipe } from '../utils/faceTracker';
@@ -1995,7 +1996,8 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
     const voiceParam = presetId === 'eleven-george' ? 'male' : presetId === 'eleven-alice' ? 'eleven' : 'female';
 
     try {
-      const audioUrl = `/api/v1/ai-interviews/tts?voice=${voiceParam}&text=${encodeURIComponent(cleanTextForSpeech(sample))}`;
+      const apiBase = getApiBaseUrl();
+      const audioUrl = `${apiBase}/api/v1/ai-interviews/tts?voice=${voiceParam}&text=${encodeURIComponent(cleanTextForSpeech(sample))}`;
       const audio = new Audio(audioUrl);
       currentAudioRef.current = audio;
       audio.onended = () => {
@@ -2706,7 +2708,8 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
 
     try {
       const voiceParam = selectedVoicePreset === 'eleven-george' ? 'male' : selectedVoicePreset === 'eleven-alice' ? 'eleven' : 'female';
-      const ttsUrl = `/api/v1/ai-interviews/tts?voice=${voiceParam}&text=${encodeURIComponent(clean)}`;
+      const apiBase = getApiBaseUrl();
+      const ttsUrl = `${apiBase}/api/v1/ai-interviews/tts?voice=${voiceParam}&text=${encodeURIComponent(clean)}`;
       const audio = new Audio(ttsUrl);
       currentAudioRef.current = audio;
 

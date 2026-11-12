@@ -90,4 +90,8 @@ axiosClient.interceptors.response.use(
   }
 );
 
+export const getApiBaseUrl = () => {
+  return cleanBaseUrl;
+};
+
 export default axiosClient;
