@@ -600,16 +600,18 @@ export default function RecruiterPricingPage({ user, onNavigate }) {
     const finalPrice = calculateFinalPrice();
 
     const isPurchasingAddon = Boolean(selectedAddonForPurchase);
-    const matchedPlan = isPurchasingAddon ? null : dbPlans.find(p => 
-      p.planId === selectedPlanForPurchase?.dbPlanId ||
-      p.planName.toLowerCase().includes(planName.toLowerCase()) || 
-      planName.toLowerCase().includes(p.planName.toLowerCase())
-    );
+    const matchedPlan = isPurchasingAddon 
+      ? (dbPlans.find(p => p.price > 0) || dbPlans[0])
+      : dbPlans.find(p => 
+          p.planId === selectedPlanForPurchase?.dbPlanId ||
+          p.planName.toLowerCase().includes(planName.toLowerCase()) || 
+          planName.toLowerCase().includes(p.planName.toLowerCase())
+        );
 
     const payload = {
       userId: user?.id || user?.userId || null,
       userEmail: user?.email || null,
-      planId: isPurchasingAddon ? null : (selectedPlanForPurchase?.dbPlanId || matchedPlan?.planId || null),
+      planId: selectedPlanForPurchase?.dbPlanId || matchedPlan?.planId || null,
       planName: planName,
       isAddon: isPurchasingAddon,
       targetRole: 'RECRUITER',

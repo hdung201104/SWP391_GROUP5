@@ -365,8 +365,8 @@ public class PaymentServiceImpl implements PaymentService {
                 request.getOrderNote().toLowerCase().contains("huy hiệu")
         ));
 
-        // Nếu vẫn chưa tìm thấy và không phải là đơn hàng Add-on
-        if (plan == null && !isAddon) {
+        // Đảm bảo plan KHÔNG BAO GIỜ bị null (kể cả với gói Add-on / Huy hiệu vì CSDL payment_orders yêu cầu plan_id NOT NULL)
+        if (plan == null) {
             List<SubscriptionPlan> rolePlans = subscriptionPlanRepository.findByTargetRoleAndIsActiveTrueOrderByPriceAsc(role);
             BigDecimal reqAmt = request.getOriginalAmount() != null ? request.getOriginalAmount() : request.getAmount();
             if (reqAmt != null && reqAmt.compareTo(BigDecimal.ZERO) > 0) {
@@ -381,6 +381,9 @@ public class PaymentServiceImpl implements PaymentService {
             }
             if (plan == null && !rolePlans.isEmpty()) {
                 plan = rolePlans.get(0);
+            }
+            if (plan == null) {
+                plan = subscriptionPlanRepository.findAll().stream().findFirst().orElse(null);
             }
         }
 
@@ -674,8 +677,7 @@ public class PaymentServiceImpl implements PaymentService {
 
         String rawOrderCode = String.valueOf(data.get("orderCode"));
         if (rawOrderCode == null || rawOrderCode.isBlank() || "null".equals(rawOrderCode)) {
-            log.info("PayOS Webhook ping/verification test received successfully (no orderCode). Returning HTTP 200 OK.");
-            return null;
+            throw new IllegalArgumentException("Không tìm thấy orderCode trong webhook PayOS.");
         }
 
         String cleanCode = rawOrderCode.trim();

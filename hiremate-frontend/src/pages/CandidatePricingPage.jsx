@@ -531,12 +531,12 @@ export default function CandidatePricingPage({ user, onNavigate }) {
 
     const effectiveBillingCycle = is7DaysPlan ? 'WEEKLY' : billingCycle;
 
-    // Map matched DB Plan ID
+    // Map matched DB Plan ID (Đảm bảo luôn có planId hợp lệ cho CSDL)
     const matchedPlan = dbPlans.find(p => 
       p.planId === selectedPlanForPurchase?.dbPlanId ||
       p.planName.toLowerCase().includes(planName.toLowerCase()) || 
       planName.toLowerCase().includes(p.planName.toLowerCase())
-    );
+    ) || dbPlans.find(p => p.price > 0) || dbPlans[0];
 
     const payload = {
       userId: user?.id || user?.userId || null,
