@@ -1,0 +1,12 @@
+target/
+.git/
+.gitignore
+.env
+*.log
+.settings/
+.vscode/
+.factorypath
+cp2.txt
+temp_*.json
+edge_test.mp3
+voices.json

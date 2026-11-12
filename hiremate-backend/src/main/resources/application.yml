@@ -1,5 +1,5 @@
 server:
-  port: 8088
+  port: ${PORT:8088}
 
 spring:
   application:
@@ -58,8 +58,8 @@ spring:
           writetimeout: 10000
 
 jwt:
-  secret: your-256-bit-secret-key-hiremate-ai-development-token-secret-2026
-  expiration-ms: 86400000
+  secret: ${JWT_SECRET:your-256-bit-secret-key-hiremate-ai-development-token-secret-2026}
+  expiration-ms: ${JWT_EXPIRATION_MS:86400000}
 
 gemini:
   api:
@@ -100,7 +100,7 @@ github:
 cloudinary:
   cloud-name: ${CLOUDINARY_CLOUD_NAME:mezrtcb7}
   api-key: ${CLOUDINARY_API_KEY:632312897439654}
-  api-secret: ${CLOUDINARY_API_SECRET:}
+  api-secret: ${CLOUDINARY_API_SECRET:8xXBIOnHqHLocisqNwH_3f4Aykw}
 
 payos:
   client-id: ${PAYOS_CLIENT_ID:e2d0f50b-68aa-4cd9-b83f-72c4b3293db4}

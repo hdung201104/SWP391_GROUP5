@@ -3,8 +3,11 @@ import axios from 'axios';
 /**
  * Enterprise Axios Client with automatic JWT Bearer token injection and response handling
  */
+const rawBaseUrl = import.meta.env.VITE_API_BASE_URL;
+const cleanBaseUrl = rawBaseUrl ? rawBaseUrl.replace(/\/+$/, '') : '';
+
 const axiosClient = axios.create({
-  baseURL: '/api/v1',
+  baseURL: cleanBaseUrl ? `${cleanBaseUrl}/api/v1` : '/api/v1',
   headers: {
     'Content-Type': 'application/json',
   },
