@@ -98,27 +98,34 @@ export default function HomePage({ user }) {
   const isRecruiter = user?.role === 'RECRUITER';
   const isCandidate = user?.role === 'CANDIDATE' || user?.role === 'ROLE_CANDIDATE';
 
-  // Fetch companies list
-  const fetchCompanies = async () => {
+  // Fetch companies list with automatic cold-start retry
+  const fetchCompanies = async (retryCount = 0) => {
     setCompaniesLoading(true);
     try {
       const res = await companyApi.getAllCompanies();
       const raw = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
       if (raw.length > 0) {
         setCompanies(raw);
+        setCompaniesLoading(false);
+      } else if (retryCount < 3) {
+        setTimeout(() => fetchCompanies(retryCount + 1), 3000);
       } else {
         setCompanies([]);
+        setCompaniesLoading(false);
       }
     } catch (err) {
-      console.warn('Lỗi khi tải danh sách doanh nghiệp, không dùng dữ liệu ảo:', err);
-      setCompanies([]);
-    } finally {
-      setCompaniesLoading(false);
+      console.warn('Lỗi khi tải danh sách doanh nghiệp (đang thử lại nếu cold-start):', err);
+      if (retryCount < 3) {
+        setTimeout(() => fetchCompanies(retryCount + 1), 3500);
+      } else {
+        setCompanies([]);
+        setCompaniesLoading(false);
+      }
     }
   };
 
-  // Fetch real jobs & skills from Supabase PostgreSQL
-  const fetchRealJobs = async (keyword = '', location = '') => {
+  // Fetch real jobs & skills from Supabase PostgreSQL with automatic cold-start retry
+  const fetchRealJobs = async (keyword = '', location = '', retryCount = 0) => {
     setLoading(true);
     try {
       const params = {};
@@ -138,6 +145,11 @@ export default function HomePage({ user }) {
       const dbSkills = skillsRes.status === 'fulfilled' 
         ? (Array.isArray(skillsRes.value?.data) ? skillsRes.value.data : (Array.isArray(skillsRes.value) ? skillsRes.value : [])) 
         : [];
+
+      if (rawJobs.length === 0 && (jobsRes.status === 'rejected' || !jobsRes.value) && retryCount < 3) {
+        setTimeout(() => fetchRealJobs(keyword, location, retryCount + 1), 3500);
+        return;
+      }
 
       // Chỉ hiển thị tin đã được Admin duyệt (APPROVED) lên Trang chủ, ẩn hoàn toàn tin PENDING hoặc REJECTED
       const approvedJobsOnly = Array.isArray(rawJobs)
@@ -1253,35 +1265,43 @@ export default function HomePage({ user }) {
 
               {/* Company Cards Grid matching Image 3 */}
               {companiesLoading ? (
-                <div className="py-20 text-center space-y-4 bg-white rounded-3xl border border-purple-100">
+                <div className="py-20 text-center space-y-4 bg-white rounded-3xl border border-purple-100 p-6">
                   <div className="w-10 h-10 border-3 border-[#5b48bd] border-t-transparent rounded-full animate-spin mx-auto"></div>
-                  <p className="text-sm font-bold text-slate-500">Đang tải danh sách doanh nghiệp đối tác...</p>
+                  <p className="text-sm font-bold text-slate-700">Đang tải danh sách doanh nghiệp đối tác...</p>
+                  <p className="text-xs text-slate-400 max-w-md mx-auto">
+                    💡 Khi truy cập lần đầu sau thời gian nghỉ, máy chủ đám mây (Render) có thể mất 20–30s để khởi động lại. Hệ thống đang tự động kết nối...
+                  </p>
                 </div>
               ) : sortedCompanies.length === 0 ? (
                 <div className="bg-white rounded-3xl p-12 text-center border border-purple-100 shadow-sm space-y-4">
                   <span className="material-symbols-outlined text-5xl text-purple-300">domain_disabled</span>
                   <h3 className="text-base font-bold text-[#1e1b4b]">Không tìm thấy doanh nghiệp phù hợp</h3>
                   <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                    Hãy thử bỏ một số tiêu chí lọc hoặc xóa tìm kiếm để xem danh sách đầy đủ.
+                    Hãy thử bỏ một số tiêu chí lọc hoặc làm mới kết nối đến máy chủ dữ liệu.
                   </p>
-                  <button
-                    onClick={() => {
-                      setCompanySearch('');
-                      setCompanyFilters({
-                        selectedLocations: [],
-                        selectedIndustries: [],
-                        selectedSizes: [],
-                        selectedSalaries: [],
-                        selectedPerks: [],
-                        onlyActiveHiring: false,
-                        onlyManyJobs: false,
-                      });
-                      setCompanyPage(1);
-                    }}
-                    className="px-5 py-2 bg-[#5b48bd] text-white font-bold text-xs rounded-full shadow-md hover:bg-[#4a39a8] transition-all cursor-pointer"
-                  >
-                    Xem tất cả doanh nghiệp
-                  </button>
+                  <div className="flex items-center justify-center gap-3 pt-2">
+                    <button
+                      onClick={() => {
+                        setCompanySearch('');
+                        setCompanyFilters({
+                          selectedLocations: [],
+                          selectedIndustries: [],
+                          selectedSizes: [],
+                          selectedSalaries: [],
+                          selectedPerks: [],
+                          onlyActiveHiring: false,
+                          onlyManyJobs: false,
+                        });
+                        fetchCompanies(0);
+                        fetchRealJobs('', '', 0);
+                        setCompanyPage(1);
+                      }}
+                      className="px-5 py-2.5 rounded-xl bg-[#5b48bd] hover:bg-[#4a39a7] text-white text-xs font-bold transition-all cursor-pointer shadow-md flex items-center gap-1.5"
+                    >
+                      <span className="material-symbols-outlined text-sm">refresh</span>
+                      <span>Tải Lại Dữ Liệu</span>
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <StaggerContainer
