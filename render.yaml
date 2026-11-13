@@ -90,7 +90,4 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_API_BASE_URL
-        fromService:
-          type: web
-          name: hiremate-backend
-          property: host
+        value: https://hiremate-backend-ot3r.onrender.com

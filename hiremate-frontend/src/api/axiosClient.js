@@ -5,6 +5,20 @@ import axios from 'axios';
  */
 const rawBaseUrl = import.meta.env.VITE_API_BASE_URL;
 let cleanBaseUrl = rawBaseUrl ? rawBaseUrl.trim().replace(/\/+$/, '') : '';
+
+// 1. Nếu Render Blueprint truyền vào internal host name không có domain (ví dụ: 'hiremate-backend-ot3r')
+if (cleanBaseUrl && !cleanBaseUrl.includes('.')) {
+  cleanBaseUrl = `${cleanBaseUrl}.onrender.com`;
+}
+
+// 2. Nếu đang chạy trên production cloud (onrender.com) mà chưa có base URL hoặc base URL là localhost
+if (typeof window !== 'undefined' && window.location.hostname.includes('onrender.com')) {
+  if (!cleanBaseUrl || cleanBaseUrl.includes('localhost') || cleanBaseUrl.includes('127.0.0.1')) {
+    cleanBaseUrl = 'https://hiremate-backend-ot3r.onrender.com';
+  }
+}
+
+// 3. Đảm bảo có giao thức https:// cho các domain public
 if (cleanBaseUrl && !cleanBaseUrl.startsWith('http://') && !cleanBaseUrl.startsWith('https://')) {
   cleanBaseUrl = `https://${cleanBaseUrl}`;
 }
