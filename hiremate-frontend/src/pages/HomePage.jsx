@@ -107,7 +107,7 @@ export default function HomePage({ user }) {
       if (raw.length > 0) {
         setCompanies(raw);
         setCompaniesLoading(false);
-      } else if (retryCount < 3) {
+      } else if (retryCount < 5) {
         setTimeout(() => fetchCompanies(retryCount + 1), 3000);
       } else {
         setCompanies([]);
@@ -115,8 +115,8 @@ export default function HomePage({ user }) {
       }
     } catch (err) {
       console.warn('Lỗi khi tải danh sách doanh nghiệp (đang thử lại nếu cold-start):', err);
-      if (retryCount < 3) {
-        setTimeout(() => fetchCompanies(retryCount + 1), 3500);
+      if (retryCount < 5) {
+        setTimeout(() => fetchCompanies(retryCount + 1), 4000);
       } else {
         setCompanies([]);
         setCompaniesLoading(false);
@@ -146,8 +146,8 @@ export default function HomePage({ user }) {
         ? (Array.isArray(skillsRes.value?.data) ? skillsRes.value.data : (Array.isArray(skillsRes.value) ? skillsRes.value : [])) 
         : [];
 
-      if (rawJobs.length === 0 && (jobsRes.status === 'rejected' || !jobsRes.value) && retryCount < 3) {
-        setTimeout(() => fetchRealJobs(keyword, location, retryCount + 1), 3500);
+      if (rawJobs.length === 0 && (jobsRes.status === 'rejected' || !jobsRes.value) && retryCount < 5) {
+        setTimeout(() => fetchRealJobs(keyword, location, retryCount + 1), 4000);
         return;
       }
 
@@ -1128,7 +1128,7 @@ export default function HomePage({ user }) {
                 <span className={`px-2 py-0.5 rounded-full text-[11px] font-black ${
                   activeTab === 'jobs' ? 'bg-white/20 text-white' : 'bg-purple-100 text-[#5b48bd]'
                 }`}>
-                  {filteredJobs.length}
+                  {loading ? '...' : filteredJobs.length}
                 </span>
               </button>
 
@@ -1147,7 +1147,7 @@ export default function HomePage({ user }) {
                 <span className={`px-2 py-0.5 rounded-full text-[11px] font-black ${
                   activeTab === 'companies' ? 'bg-white/20 text-white' : 'bg-purple-100 text-[#5b48bd]'
                 }`}>
-                  {companies.length}
+                  {companiesLoading ? '...' : companies.length}
                 </span>
               </button>
             </div>
@@ -1221,7 +1221,7 @@ export default function HomePage({ user }) {
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-[#10b981] animate-pulse"></span>
                   <span className="font-bold text-base text-[#1e1b4b]">
-                    Tìm thấy <span className="text-[#5b48bd] font-extrabold">{sortedCompanies.length} doanh nghiệp</span> đối tác
+                    Tìm thấy <span className="text-[#5b48bd] font-extrabold">{companiesLoading ? '...' : `${sortedCompanies.length} doanh nghiệp`}</span> đối tác
                   </span>
                 </div>
 
@@ -1271,6 +1271,18 @@ export default function HomePage({ user }) {
                   <p className="text-xs text-slate-400 max-w-md mx-auto">
                     💡 Khi truy cập lần đầu sau thời gian nghỉ, máy chủ đám mây (Render) có thể mất 20–30s để khởi động lại. Hệ thống đang tự động kết nối...
                   </p>
+                  <div className="pt-2">
+                    <button
+                      onClick={() => {
+                        fetchCompanies(0);
+                        fetchRealJobs('', '', 0);
+                      }}
+                      className="px-4 py-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-[#5b48bd] text-xs font-bold transition-all cursor-pointer border border-purple-200 inline-flex items-center gap-1.5"
+                    >
+                      <span className="material-symbols-outlined text-sm">refresh</span>
+                      <span>Thử lại ngay</span>
+                    </button>
+                  </div>
                 </div>
               ) : sortedCompanies.length === 0 ? (
                 <div className="bg-white rounded-3xl p-12 text-center border border-purple-100 shadow-sm space-y-4">
