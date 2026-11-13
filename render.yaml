@@ -46,6 +46,10 @@ services:
         value: hdung201104@gmail.com
       - key: SPRING_MAIL_PASSWORD
         value: fkrekdovjjglxnzm
+      - key: BREVO_API_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
       - key: PAYOS_CLIENT_ID
         value: e2d0f50b-68aa-4cd9-b83f-72c4b3293db4
       - key: PAYOS_API_KEY

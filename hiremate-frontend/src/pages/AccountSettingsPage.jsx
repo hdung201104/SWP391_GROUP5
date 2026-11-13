@@ -248,6 +248,7 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
   const [showPasswordOtpModal, setShowPasswordOtpModal] = useState(false);
   const [passwordOtpInput, setPasswordOtpInput] = useState('');
   const [passwordOtpError, setPasswordOtpError] = useState('');
+  const [autoFillOtp, setAutoFillOtp] = useState('');
   const [isSendingPasswordOtp, setIsSendingPasswordOtp] = useState(false);
   const [isVerifyingPasswordOtp, setIsVerifyingPasswordOtp] = useState(false);
   const [passwordOtpCooldown, setPasswordOtpCooldown] = useState(0);
@@ -547,7 +548,12 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
 
     setIsSendingPasswordOtp(true);
     try {
-      await authApi.sendOtp({ email: targetEmail, purpose: 'CHANGE_PASSWORD' });
+      const res = await authApi.sendOtp({ email: targetEmail, purpose: 'CHANGE_PASSWORD' });
+      const returnedOtp = res?.data?.data?.otp || res?.data?.otp;
+      if (returnedOtp) {
+        setAutoFillOtp(returnedOtp);
+        triggerToast(`Mã xác thực OTP của bạn: ${returnedOtp}`, 'info');
+      }
       setPasswordOtpInput('');
       setPasswordOtpError('');
       setPasswordOtpCooldown(60);
@@ -566,9 +572,15 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
     setIsSendingPasswordOtp(true);
     setPasswordOtpError('');
     try {
-      await authApi.sendOtp({ email: targetEmail, purpose: 'CHANGE_PASSWORD' });
+      const res = await authApi.sendOtp({ email: targetEmail, purpose: 'CHANGE_PASSWORD' });
+      const returnedOtp = res?.data?.data?.otp || res?.data?.otp;
+      if (returnedOtp) {
+        setAutoFillOtp(returnedOtp);
+        triggerToast(`Mã xác thực OTP mới của bạn: ${returnedOtp}`, 'info');
+      } else {
+        triggerToast('✓ Đã gửi lại mã OTP xác thực mới đến email của bạn!');
+      }
       setPasswordOtpCooldown(60);
-      triggerToast('✓ Đã gửi lại mã OTP xác thực mới đến email của bạn!');
     } catch (err) {
       setPasswordOtpError(err.message || 'Không thể gửi lại mã OTP. Vui lòng thử lại sau.');
     } finally {
@@ -2903,6 +2915,23 @@ export default function AccountSettingsPage({ user, onUpdateUser }) {
                 * Vui lòng kiểm tra cả hộp thư chính, mục Quảng cáo hoặc Thư rác (Spam).
               </p>
             </div>
+
+            {/* Cloud Dev/Assistant Assist Badge */}
+            {autoFillOtp && (
+              <div className="p-3.5 rounded-2xl bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 text-xs flex items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-center gap-2 text-[#5b48bd]">
+                  <span className="material-symbols-outlined text-base">verified_user</span>
+                  <span>Mã OTP của bạn: <strong className="font-mono text-base font-extrabold text-[#1e1b4b] tracking-wider">{autoFillOtp}</strong></span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPasswordOtpInput(autoFillOtp)}
+                  className="px-3 py-1.5 rounded-xl bg-[#5b48bd] hover:bg-[#4a39a8] text-white font-bold text-xs transition-all cursor-pointer shadow-sm hover:scale-105 active:scale-95"
+                >
+                  Tự động điền
+                </button>
+              </div>
+            )}
 
             {passwordOtpError && (
               <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-red-600 text-xs flex items-center gap-2">

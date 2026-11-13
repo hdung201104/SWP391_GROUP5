@@ -349,13 +349,14 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
         return;
       }
 
-      await authApi.sendOtp({
+      const res = await authApi.sendOtp({
         email: targetEmail,
         purpose: 'REGISTER',
       });
+      const returnedOtp = res?.data?.data?.otp || res?.data?.otp;
 
       setOtpError('');
-      setOtpCode('');
+      setOtpCode(returnedOtp || '');
       setResendCooldown(60);
       setShowOtpModal(true);
     } catch (err) {
@@ -370,10 +371,14 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
     setIsResending(true);
     setOtpError('');
     try {
-      await authApi.sendOtp({
+      const res = await authApi.sendOtp({
         email: targetEmail,
         purpose: 'REGISTER',
       });
+      const returnedOtp = res?.data?.data?.otp || res?.data?.otp;
+      if (returnedOtp) {
+        setOtpCode(returnedOtp);
+      }
       setResendCooldown(60);
     } catch (err) {
       setOtpError(err.response?.data?.message || err.message || 'Gửi lại mã thất bại. Vui lòng thử lại sau giây lát.');

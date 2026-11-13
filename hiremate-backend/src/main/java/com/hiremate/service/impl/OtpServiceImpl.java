@@ -84,12 +84,14 @@ public class OtpServiceImpl implements OtpService {
         log.info(">> Valid until: {}", expiresAt);
         log.info("=================================================");
 
-        // Trigger real email dispatch via EmailService
-        try {
-            emailService.sendOtpEmail(email, otp, purpose);
-        } catch (Exception e) {
-            log.error(">> [OtpService] Lỗi phát sinh khi gửi email xác thực: {}", e.getMessage());
-        }
+        // Trigger real email dispatch asynchronously so the frontend returns instantly (no hang on cloud)
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            try {
+                emailService.sendOtpEmail(cleanEmail, otp, purpose);
+            } catch (Exception e) {
+                log.error(">> [OtpService] Lỗi phát sinh khi gửi email xác thực bất đồng bộ: {}", e.getMessage());
+            }
+        });
 
         return otp;
     }

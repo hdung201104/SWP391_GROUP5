@@ -15,6 +15,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.ZonedDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.Map;
 
 @Service
 @Slf4j
@@ -31,6 +32,14 @@ public class EmailServiceImpl implements EmailService {
 
     @Value("${spring.mail.password:fkrekdovjjglxnzm}")
     private String mailPassword;
+
+    @Value("${spring.mail.brevo-api-key:${BREVO_API_KEY:}}")
+    private String brevoApiKey;
+
+    @Value("${spring.mail.resend-api-key:${RESEND_API_KEY:}}")
+    private String resendApiKey;
+
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
 
     @Value("${app.frontend.url:http://localhost:5173}")
     private String frontendBaseUrl;
@@ -755,12 +764,22 @@ public class EmailServiceImpl implements EmailService {
             }
         }
 
+        // ƯU TIÊN 1: Gửi qua Brevo HTTP API (Port 443 HTTPS - Không bao giờ bị chặn bởi Render Cloud Firewall)
+        if (sendViaBrevoHttpApi(toEmail, safeSubject, htmlContent)) {
+            return;
+        }
+
+        // ƯU TIÊN 2: Gửi qua Resend HTTP API (Port 443 HTTPS)
+        if (sendViaResendHttpApi(toEmail, safeSubject, htmlContent)) {
+            return;
+        }
+
         if (mailSender == null) {
             log.warn(">> [EmailService] JavaMailSender bean chưa được khởi tạo. Không thể gửi email đến: {}", toEmail);
             return;
         }
 
-        // Đảm bảo mật khẩu gửi mail hợp lệ, fallback về App Password đã kiểm thử thành công
+        // ƯU TIÊN 3: Gửi qua Google SMTP với cấu hình timeout ngắn (4s) để tránh treo hệ thống
         String effectivePassword = (mailPassword != null && !mailPassword.isBlank()) ? mailPassword.trim() : "fkrekdovjjglxnzm";
         if (effectivePassword.length() != 16 && !"fkrekdovjjglxnzm".equals(effectivePassword)) {
             effectivePassword = "fkrekdovjjglxnzm";
@@ -770,7 +789,6 @@ public class EmailServiceImpl implements EmailService {
                 ? fromEmail.trim() 
                 : "hdung201104@gmail.com";
 
-        // Tự động kiểm tra và đồng bộ App Password Gmail hợp lệ vào JavaMailSender
         if (mailSender instanceof org.springframework.mail.javamail.JavaMailSenderImpl mailSenderImpl) {
             mailSenderImpl.setHost("smtp.gmail.com");
             mailSenderImpl.setUsername(effectiveUsername);
@@ -785,9 +803,9 @@ public class EmailServiceImpl implements EmailService {
             props.put("mail.smtp.starttls.enable", "true");
             props.put("mail.smtp.starttls.required", "true");
             props.put("mail.smtp.ssl.trust", "smtp.gmail.com");
-            props.put("mail.smtp.connectiontimeout", "10000");
-            props.put("mail.smtp.timeout", "10000");
-            props.put("mail.smtp.writetimeout", "10000");
+            props.put("mail.smtp.connectiontimeout", "4000");
+            props.put("mail.smtp.timeout", "4000");
+            props.put("mail.smtp.writetimeout", "4000");
             mailSenderImpl.setJavaMailProperties(props);
         }
 
@@ -819,6 +837,9 @@ public class EmailServiceImpl implements EmailService {
                     props.put("mail.smtp.socketFactory.port", "465");
                     props.put("mail.smtp.socketFactory.class", "javax.net.ssl.SSLSocketFactory");
                     props.put("mail.smtp.ssl.trust", "smtp.gmail.com");
+                    props.put("mail.smtp.connectiontimeout", "4000");
+                    props.put("mail.smtp.timeout", "4000");
+                    props.put("mail.smtp.writetimeout", "4000");
                     mailSenderImpl.setJavaMailProperties(props);
 
                     MimeMessage retryMsg = mailSender.createMimeMessage();
@@ -834,7 +855,7 @@ public class EmailServiceImpl implements EmailService {
                     mailSender.send(retryMsg);
                     log.info(">> [EmailService] ĐÃ GỬI THÀNH CÔNG email thực tế đến: {} qua cổng SSL 465!", toEmail);
                 } catch (Exception sslEx) {
-                    log.error(">> [EmailService] Gửi email qua cổng SSL 465 cũng thất bại: {}", sslEx.getMessage());
+                    log.error(">> [EmailService] Gửi email qua cổng SSL 465 cũng thất bại (khả năng do Render Cloud chặn SMTP port 25/465/587): {}", sslEx.getMessage());
                 } finally {
                     mailSenderImpl.setPort(587);
                 }
@@ -842,5 +863,73 @@ public class EmailServiceImpl implements EmailService {
                 log.error(">> [EmailService] Không thể gửi email đến {}: {}", toEmail, primaryEx.getMessage());
             }
         }
+    }
+
+    private boolean sendViaBrevoHttpApi(String toEmail, String subject, String htmlContent) {
+        if (brevoApiKey == null || brevoApiKey.isBlank()) return false;
+        try {
+            java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder()
+                    .connectTimeout(java.time.Duration.ofSeconds(5))
+                    .build();
+            Map<String, Object> payload = Map.of(
+                    "sender", Map.of("name", "HireMate AI Platform", "email", "hdung201104@gmail.com"),
+                    "to", java.util.List.of(Map.of("email", toEmail)),
+                    "subject", subject,
+                    "htmlContent", htmlContent
+            );
+            String json = objectMapper.writeValueAsString(payload);
+            java.net.http.HttpRequest req = java.net.http.HttpRequest.newBuilder()
+                    .uri(java.net.URI.create("https://api.brevo.com/v3/smtp/email"))
+                    .header("accept", "application/json")
+                    .header("api-key", brevoApiKey.trim())
+                    .header("content-type", "application/json")
+                    .timeout(java.time.Duration.ofSeconds(8))
+                    .POST(java.net.http.HttpRequest.BodyPublishers.ofString(json, StandardCharsets.UTF_8))
+                    .build();
+            java.net.http.HttpResponse<String> resp = client.send(req, java.net.http.HttpResponse.BodyHandlers.ofString());
+            if (resp.statusCode() >= 200 && resp.statusCode() < 300) {
+                log.info(">> [EmailService] ĐÃ GỬI THÀNH CÔNG email qua Brevo HTTP API (Port 443) đến: {}", toEmail);
+                return true;
+            } else {
+                log.warn(">> [EmailService] Brevo API status {}: {}", resp.statusCode(), resp.body());
+            }
+        } catch (Exception e) {
+            log.error(">> [EmailService] Lỗi gửi qua Brevo API: {}", e.getMessage());
+        }
+        return false;
+    }
+
+    private boolean sendViaResendHttpApi(String toEmail, String subject, String htmlContent) {
+        if (resendApiKey == null || resendApiKey.isBlank()) return false;
+        try {
+            java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder()
+                    .connectTimeout(java.time.Duration.ofSeconds(5))
+                    .build();
+            Map<String, Object> payload = Map.of(
+                    "from", "HireMate AI <onboarding@resend.dev>",
+                    "to", java.util.List.of(toEmail),
+                    "subject", subject,
+                    "html", htmlContent
+            );
+            String json = objectMapper.writeValueAsString(payload);
+            java.net.http.HttpRequest req = java.net.http.HttpRequest.newBuilder()
+                    .uri(java.net.URI.create("https://api.resend.com/emails"))
+                    .header("Authorization", "Bearer " + resendApiKey.trim())
+                    .header("Content-Type", "application/json")
+                    .header("User-Agent", "HireMate-AI-Backend/2.0")
+                    .timeout(java.time.Duration.ofSeconds(8))
+                    .POST(java.net.http.HttpRequest.BodyPublishers.ofString(json, StandardCharsets.UTF_8))
+                    .build();
+            java.net.http.HttpResponse<String> resp = client.send(req, java.net.http.HttpResponse.BodyHandlers.ofString());
+            if (resp.statusCode() >= 200 && resp.statusCode() < 300) {
+                log.info(">> [EmailService] ĐÃ GỬI THÀNH CÔNG email qua Resend HTTP API (Port 443) đến: {}", toEmail);
+                return true;
+            } else {
+                log.warn(">> [EmailService] Resend API status {}: {}", resp.statusCode(), resp.body());
+            }
+        } catch (Exception e) {
+            log.error(">> [EmailService] Lỗi gửi qua Resend API: {}", e.getMessage());
+        }
+        return false;
     }
 }
