@@ -1117,8 +1117,16 @@ public class CvServiceImpl implements CvService {
                     if (email == null || email.isBlank()) email = candUser.getEmail();
                     if (address == null || address.isBlank()) address = candUser.getAddress();
                 } else {
-                    if (fullName == null || fullName.isBlank()) {
-                        fullName = cv.getFileName() != null ? cv.getFileName().replaceFirst("\\.[^.]+$", "").replaceAll("[-_]", " ") : candUser.getFullName();
+                    boolean isFileName = fullName != null && cv.getFileName() != null &&
+                            (fullName.equalsIgnoreCase(cv.getFileName()) ||
+                             fullName.equalsIgnoreCase(cv.getFileName().replaceFirst("\\.[^.]+$", "").replaceAll("[-_]", " ").trim()) ||
+                             fullName.toLowerCase().contains("communication") ||
+                             fullName.toLowerCase().contains("resume") ||
+                             fullName.toLowerCase().contains("cv"));
+                    if (fullName == null || fullName.isBlank() || isFileName) {
+                        fullName = (candUser.getFullName() != null && !candUser.getFullName().isBlank())
+                                ? candUser.getFullName().trim()
+                                : (cv.getFileName() != null ? cv.getFileName().replaceFirst("\\.[^.]+$", "").replaceAll("[-_]", " ").trim() : "Ung Vien");
                     }
                     if ((phone == null || phone.isBlank()) && cv.getParsedText() != null) {
                         java.util.regex.Matcher pm = java.util.regex.Pattern.compile("(?:\\+?84|0)[35789](?:[\\s.-]?\\d){8}").matcher(cv.getParsedText());
@@ -1128,14 +1136,20 @@ public class CvServiceImpl implements CvService {
                         java.util.regex.Matcher em = java.util.regex.Pattern.compile("[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,6}").matcher(cv.getParsedText());
                         if (em.find()) email = em.group(0).trim();
                     }
+                    if ((headline == null || headline.isBlank()) && parsedData != null && parsedData.getExperiences() != null && !parsedData.getExperiences().isEmpty()) {
+                        var firstExp = parsedData.getExperiences().get(0);
+                        if (firstExp.getRole() != null && !firstExp.getRole().isBlank()) {
+                            headline = firstExp.getRole().trim();
+                        }
+                    }
                     if ((headline == null || headline.isBlank()) && cv.getParsedText() != null) {
                         String[] lines = cv.getParsedText().split("\\r?\\n");
-                        for (int i = 0; i < Math.min(lines.length, 12); i++) {
+                        for (int i = 0; i < Math.min(lines.length, 15); i++) {
                             String l = lines[i].trim();
                             if (fullName != null && l.equalsIgnoreCase(fullName.trim())) continue;
                             if (l.contains("@") || l.contains("http") || l.matches(".*\\d{8,}.*") || l.startsWith("•") || l.startsWith("-")) continue;
                             if (l.length() >= 3 && l.length() <= 60) {
-                                if (l.matches("(?i).*(engineer|developer|specialist|manager|representative|lead|consultant|analyst|chuyên viên|kỹ sư|nhân viên|trưởng nhóm).*")) {
+                                if (l.matches("(?i).*(engineer|developer|specialist|manager|representative|lead|consultant|analyst|tutor|teacher|translator|giảng viên|phiên dịch|biên dịch|chuyên viên|kỹ sư|nhân viên|trưởng nhóm).*")) {
                                     headline = l;
                                     break;
                                 }
@@ -1171,6 +1185,22 @@ public class CvServiceImpl implements CvService {
                         }
                     }
                 }
+            }
+        }
+
+        if (cv.getParsedText() != null) {
+            String ptLower = cv.getParsedText().toLowerCase();
+            if (ptLower.contains("japanese") || ptLower.contains("tiếng nhật")) {
+                if (!detectedSkills.contains("Tiếng Nhật")) detectedSkills.add("Tiếng Nhật");
+            }
+            if (ptLower.contains("translation") || ptLower.contains("dịch thuật") || ptLower.contains("phiên dịch")) {
+                if (!detectedSkills.contains("Biên Phiên Dịch")) detectedSkills.add("Biên Phiên Dịch");
+            }
+            if (ptLower.contains("tutor") || ptLower.contains("giảng dạy") || ptLower.contains("gia sư")) {
+                if (!detectedSkills.contains("Giảng Dạy / Tutor")) detectedSkills.add("Giảng Dạy / Tutor");
+            }
+            if (ptLower.contains("jlpt")) {
+                if (!detectedSkills.contains("Chứng chỉ JLPT")) detectedSkills.add("Chứng chỉ JLPT");
             }
         }
         if (parsedData == null) {
@@ -1220,7 +1250,11 @@ public class CvServiceImpl implements CvService {
                 .fileSizeBytes(cv.getFileSizeBytes())
                 .parseStatus(cv.getParseStatus())
                 .isDefault(cv.getIsDefault())
-                .summary(cv.getSummary())
+                .summary((cv.getSummary() != null && !cv.getSummary().isBlank() && !cv.getSummary().contains("Uploaded via HireMate"))
+                        ? cv.getSummary().trim()
+                        : (parsedData != null && parsedData.getSummary() != null && !parsedData.getSummary().isBlank()
+                                ? parsedData.getSummary().trim()
+                                : null))
                 .createdAt(cv.getCreatedAt())
                 .headline(headline)
                 .experienceYears(experienceYears)

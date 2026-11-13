@@ -55,6 +55,10 @@ public class PdfFallbackGenerator {
      * Generates a professional fallback CV PDF for candidate profile preview.
      */
     public static byte[] generateCvPdf(String fullName, String headline, String email, String phone, String summary, List<String> skills) {
+        return generateCvPdf(fullName, headline, email, phone, summary, skills, null, null);
+    }
+
+    public static byte[] generateCvPdf(String fullName, String headline, String email, String phone, String summary, List<String> skills, String experiencesJson, String educationsJson) {
         try (PDDocument doc = new PDDocument()) {
             PDPage page = new PDPage(PDRectangle.A4);
             doc.addPage(page);
@@ -67,16 +71,16 @@ public class PdfFallbackGenerator {
                 float width = PDRectangle.A4.getWidth();
                 float height = PDRectangle.A4.getHeight();
 
-                // 1. Top Brand Banner (Purple #5b48bd)
+                // 1. Top Brand Banner (Deep Indigo / Purple)
                 cs.setNonStrokingColor(new Color(91, 72, 189));
-                cs.addRect(0, height - 90, width, 90);
+                cs.addRect(0, height - 85, width, 85);
                 cs.fill();
 
                 // Candidate Name in Banner
                 cs.setNonStrokingColor(Color.WHITE);
                 cs.beginText();
-                cs.setFont(fontBold, 22);
-                cs.newLineAtOffset(45, height - 42);
+                cs.setFont(fontBold, 20);
+                cs.newLineAtOffset(45, height - 38);
                 String safeName = toAscii(fullName != null && !fullName.isBlank() ? fullName : "CANDIDATE PROFILE");
                 cs.showText(safeName.toUpperCase());
                 cs.endText();
@@ -84,141 +88,231 @@ public class PdfFallbackGenerator {
                 // Headline in Banner
                 cs.beginText();
                 cs.setFont(fontRegular, 11);
-                cs.newLineAtOffset(45, height - 65);
-                String safeHeadline = toAscii(headline != null && !headline.isBlank() ? headline : "Software Engineer | HireMate AI Verified Candidate");
+                cs.newLineAtOffset(45, height - 60);
+                String safeHeadline = toAscii(headline != null && !headline.isBlank() ? headline : "Professional Candidate | HireMate AI Verified");
                 cs.showText(safeHeadline);
                 cs.endText();
 
                 // 2. Contact Info Strip
                 cs.setNonStrokingColor(new Color(245, 243, 255));
-                cs.addRect(0, height - 120, width, 30);
+                cs.addRect(0, height - 112, width, 27);
                 cs.fill();
 
                 cs.setNonStrokingColor(new Color(60, 60, 70));
                 cs.beginText();
                 cs.setFont(fontRegular, 9);
-                cs.newLineAtOffset(45, height - 108);
+                cs.newLineAtOffset(45, height - 102);
                 String safeEmail = toAscii(email != null && !email.isBlank() ? email : "candidate@hiremate.vn");
                 String safePhone = toAscii(phone != null && !phone.isBlank() ? phone : "(+84) 090-000-0000");
                 cs.showText("Email: " + safeEmail + "   |   Phone: " + safePhone + "   |   Status: Ready for Interviews");
                 cs.endText();
 
-                float currentY = height - 150;
+                float currentY = height - 135;
 
                 // 3. Professional Summary Section
-                cs.setNonStrokingColor(new Color(91, 72, 189));
-                cs.beginText();
-                cs.setFont(fontBold, 12);
-                cs.newLineAtOffset(45, currentY);
-                cs.showText("PROFESSIONAL SUMMARY (EXECUTIVE OVERVIEW)");
-                cs.endText();
-
-                currentY -= 6;
-                cs.setStrokingColor(new Color(220, 220, 235));
-                cs.setLineWidth(1);
-                cs.moveTo(45, currentY);
-                cs.lineTo(width - 45, currentY);
-                cs.stroke();
-
-                currentY -= 16;
-                cs.setNonStrokingColor(new Color(40, 40, 40));
-                String safeSummary = toAscii(summary != null && !summary.isBlank() ? summary
-                        : "Proactive and detail-oriented professional with proven technical competencies and solid communication skills. Committed to high code quality and effective team collaboration.");
-                for (String line : wrapText(safeSummary, 85)) {
+                if (summary != null && !summary.isBlank() && !summary.contains("Uploaded via HireMate")) {
+                    cs.setNonStrokingColor(new Color(91, 72, 189));
                     cs.beginText();
-                    cs.setFont(fontRegular, 10);
+                    cs.setFont(fontBold, 11);
                     cs.newLineAtOffset(45, currentY);
-                    cs.showText(line);
+                    cs.showText("PROFESSIONAL SUMMARY (EXECUTIVE OVERVIEW)");
                     cs.endText();
+
+                    currentY -= 5;
+                    cs.setStrokingColor(new Color(220, 220, 235));
+                    cs.setLineWidth(1);
+                    cs.moveTo(45, currentY);
+                    cs.lineTo(width - 45, currentY);
+                    cs.stroke();
+
                     currentY -= 14;
+                    cs.setNonStrokingColor(new Color(40, 40, 40));
+                    String safeSummary = toAscii(summary);
+                    for (String line : wrapText(safeSummary, 85)) {
+                        if (currentY < 80) break;
+                        cs.beginText();
+                        cs.setFont(fontRegular, 9.5f);
+                        cs.newLineAtOffset(45, currentY);
+                        cs.showText(line);
+                        cs.endText();
+                        currentY -= 13;
+                    }
+                    currentY -= 10;
                 }
 
-                currentY -= 15;
-
                 // 4. Core Competencies & Skills Section
-                cs.setNonStrokingColor(new Color(91, 72, 189));
-                cs.beginText();
-                cs.setFont(fontBold, 12);
-                cs.newLineAtOffset(45, currentY);
-                cs.showText("CORE COMPETENCIES & TECHNICAL SKILLS");
-                cs.endText();
-
-                currentY -= 6;
-                cs.setStrokingColor(new Color(220, 220, 235));
-                cs.moveTo(45, currentY);
-                cs.lineTo(width - 45, currentY);
-                cs.stroke();
-
-                currentY -= 18;
                 List<String> safeSkills = new ArrayList<>();
                 if (skills != null) {
                     for (String sk : skills) {
                         String s = toAscii(sk);
-                        if (!s.isBlank()) safeSkills.add(s);
+                        if (!s.isBlank() && !safeSkills.contains(s)) safeSkills.add(s);
                     }
                 }
-                if (safeSkills.isEmpty()) {
-                    safeSkills.addAll(List.of("Java", "Spring Boot", "React.js", "PostgreSQL", "RESTful API", "Git", "Docker"));
-                }
+                if (!safeSkills.isEmpty() && currentY > 120) {
+                    cs.setNonStrokingColor(new Color(91, 72, 189));
+                    cs.beginText();
+                    cs.setFont(fontBold, 11);
+                    cs.newLineAtOffset(45, currentY);
+                    cs.showText("CORE COMPETENCIES & TECHNICAL SKILLS");
+                    cs.endText();
 
-                cs.setNonStrokingColor(new Color(40, 40, 40));
-                StringBuilder skillRow = new StringBuilder();
-                for (String sk : safeSkills) {
-                    if (skillRow.length() + sk.length() + 3 > 80) {
+                    currentY -= 5;
+                    cs.setStrokingColor(new Color(220, 220, 235));
+                    cs.moveTo(45, currentY);
+                    cs.lineTo(width - 45, currentY);
+                    cs.stroke();
+
+                    currentY -= 15;
+                    cs.setNonStrokingColor(new Color(40, 40, 40));
+                    StringBuilder skillRow = new StringBuilder();
+                    for (String sk : safeSkills) {
+                        if (skillRow.length() + sk.length() + 3 > 80) {
+                            if (currentY < 80) break;
+                            cs.beginText();
+                            cs.setFont(fontRegular, 9.5f);
+                            cs.newLineAtOffset(50, currentY);
+                            cs.showText(skillRow.toString());
+                            cs.endText();
+                            currentY -= 13;
+                            skillRow = new StringBuilder();
+                        }
+                        if (skillRow.length() > 0) skillRow.append("  *  ");
+                        skillRow.append(sk);
+                    }
+                    if (skillRow.length() > 0 && currentY >= 80) {
                         cs.beginText();
-                        cs.setFont(fontRegular, 10);
-                        cs.newLineAtOffset(55, currentY);
+                        cs.setFont(fontRegular, 9.5f);
+                        cs.newLineAtOffset(50, currentY);
                         cs.showText(skillRow.toString());
                         cs.endText();
-                        currentY -= 14;
-                        skillRow = new StringBuilder();
+                        currentY -= 13;
                     }
-                    if (skillRow.length() > 0) skillRow.append("  *  ");
-                    skillRow.append(sk);
-                }
-                if (skillRow.length() > 0) {
-                    cs.beginText();
-                    cs.setFont(fontRegular, 10);
-                    cs.newLineAtOffset(55, currentY);
-                    cs.showText(skillRow.toString());
-                    cs.endText();
-                    currentY -= 14;
+                    currentY -= 10;
                 }
 
-                currentY -= 20;
+                // 5. Work Experience Section
+                if (experiencesJson != null && !experiencesJson.isBlank() && currentY > 140) {
+                    try {
+                        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                        com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(experiencesJson);
+                        if (root.isArray() && root.size() > 0) {
+                            cs.setNonStrokingColor(new Color(91, 72, 189));
+                            cs.beginText();
+                            cs.setFont(fontBold, 11);
+                            cs.newLineAtOffset(45, currentY);
+                            cs.showText("WORK EXPERIENCE & PROFESSIONAL BACKGROUND");
+                            cs.endText();
 
-                // 5. Verification Notice Box
-                cs.setNonStrokingColor(new Color(248, 247, 255));
-                cs.setStrokingColor(new Color(196, 181, 253));
-                cs.addRect(45, currentY - 60, width - 90, 60);
-                cs.fillAndStroke();
+                            currentY -= 5;
+                            cs.setStrokingColor(new Color(220, 220, 235));
+                            cs.moveTo(45, currentY);
+                            cs.lineTo(width - 45, currentY);
+                            cs.stroke();
 
-                cs.setNonStrokingColor(new Color(91, 72, 189));
-                cs.beginText();
-                cs.setFont(fontBold, 10);
-                cs.newLineAtOffset(60, currentY - 22);
-                cs.showText("HIREMATE AI - AUTHENTICATED CANDIDATE DOSSIER");
-                cs.endText();
+                            currentY -= 15;
+                            for (com.fasterxml.jackson.databind.JsonNode node : root) {
+                                if (currentY < 80) break;
+                                String role = toAscii(node.has("role") ? node.get("role").asText() : (node.has("title") ? node.get("title").asText() : ""));
+                                String comp = toAscii(node.has("company") ? node.get("company").asText() : (node.has("employer") ? node.get("employer").asText() : ""));
+                                String period = toAscii(node.has("period") ? node.get("period").asText() : (node.has("duration") ? node.get("duration").asText() : ""));
 
-                cs.setNonStrokingColor(new Color(80, 80, 90));
-                cs.beginText();
-                cs.setFont(fontOblique, 8.5f);
-                cs.newLineAtOffset(60, currentY - 40);
-                cs.showText("This standardized profile document has been generated and verified by the HireMate AI ATS System.");
-                cs.endText();
+                                if (!role.isBlank() || !comp.isBlank()) {
+                                    cs.setNonStrokingColor(new Color(30, 27, 75));
+                                    cs.beginText();
+                                    cs.setFont(fontBold, 10);
+                                    cs.newLineAtOffset(45, currentY);
+                                    cs.showText(role + (!comp.isBlank() ? " - " + comp : ""));
+                                    cs.endText();
 
-                cs.beginText();
-                cs.setFont(fontRegular, 8);
-                cs.newLineAtOffset(60, currentY - 52);
-                cs.showText("View full interactive online profile and live match matrix directly in the HireMate Evaluation Portal.");
-                cs.endText();
+                                    if (!period.isBlank()) {
+                                        cs.setNonStrokingColor(new Color(110, 110, 120));
+                                        cs.beginText();
+                                        cs.setFont(fontRegular, 8.5f);
+                                        float pWidth = period.length() * 5.2f;
+                                        cs.newLineAtOffset(Math.max(300, width - 45 - pWidth), currentY);
+                                        cs.showText(period);
+                                        cs.endText();
+                                    }
 
-                // 6. Footer
+                                    currentY -= 13;
+
+                                    String desc = toAscii(node.has("description") ? node.get("description").asText() : (node.has("summary") ? node.get("summary").asText() : ""));
+                                    if (!desc.isBlank()) {
+                                        cs.setNonStrokingColor(new Color(60, 60, 70));
+                                        for (String l : wrapText(desc, 82)) {
+                                            if (currentY < 75) break;
+                                            cs.beginText();
+                                            cs.setFont(fontRegular, 9);
+                                            cs.newLineAtOffset(55, currentY);
+                                            cs.showText(l);
+                                            cs.endText();
+                                            currentY -= 12;
+                                        }
+                                    }
+                                    currentY -= 5;
+                                }
+                            }
+                            currentY -= 5;
+                        }
+                    } catch (Exception ignored) {}
+                }
+
+                // 6. Education Section
+                if (educationsJson != null && !educationsJson.isBlank() && currentY > 100) {
+                    try {
+                        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                        com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(educationsJson);
+                        if (root.isArray() && root.size() > 0) {
+                            cs.setNonStrokingColor(new Color(91, 72, 189));
+                            cs.beginText();
+                            cs.setFont(fontBold, 11);
+                            cs.newLineAtOffset(45, currentY);
+                            cs.showText("EDUCATION & ACADEMIC CREDENTIALS");
+                            cs.endText();
+
+                            currentY -= 5;
+                            cs.setStrokingColor(new Color(220, 220, 235));
+                            cs.moveTo(45, currentY);
+                            cs.lineTo(width - 45, currentY);
+                            cs.stroke();
+
+                            currentY -= 14;
+                            for (com.fasterxml.jackson.databind.JsonNode node : root) {
+                                if (currentY < 70) break;
+                                String school = toAscii(node.has("school") ? node.get("school").asText() : (node.has("institution") ? node.get("institution").asText() : ""));
+                                String degree = toAscii(node.has("degree") ? node.get("degree").asText() : (node.has("major") ? node.get("major").asText() : ""));
+                                String period = toAscii(node.has("period") ? node.get("period").asText() : (node.has("year") ? node.get("year").asText() : ""));
+
+                                if (!school.isBlank() || !degree.isBlank()) {
+                                    cs.setNonStrokingColor(new Color(30, 27, 75));
+                                    cs.beginText();
+                                    cs.setFont(fontBold, 9.5f);
+                                    cs.newLineAtOffset(45, currentY);
+                                    cs.showText(school + (!degree.isBlank() ? " | " + degree : ""));
+                                    cs.endText();
+
+                                    if (!period.isBlank()) {
+                                        cs.setNonStrokingColor(new Color(110, 110, 120));
+                                        cs.beginText();
+                                        cs.setFont(fontRegular, 8.5f);
+                                        float pWidth = period.length() * 5.2f;
+                                        cs.newLineAtOffset(Math.max(300, width - 45 - pWidth), currentY);
+                                        cs.showText(period);
+                                        cs.endText();
+                                    }
+                                    currentY -= 14;
+                                }
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                }
+
+                // 7. Footer Notice
                 cs.setNonStrokingColor(new Color(150, 150, 160));
                 cs.beginText();
                 cs.setFont(fontRegular, 8);
-                cs.newLineAtOffset(45, 30);
-                cs.showText("Document ID: HM-CV-" + System.currentTimeMillis() + "   *   Generated on: " + LocalDate.now().format(DateTimeFormatter.ISO_DATE) + "   *   HireMate AI Platform");
+                cs.newLineAtOffset(45, 25);
+                cs.showText("HireMate AI Verified ATS Dossier   *   " + LocalDate.now().format(DateTimeFormatter.ISO_DATE) + "   *   View live interactive profile in HireMate Evaluation Portal");
                 cs.endText();
             }
 

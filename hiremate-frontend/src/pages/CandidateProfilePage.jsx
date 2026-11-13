@@ -335,7 +335,13 @@ export default function CandidateProfilePage({ user }) {
   const [canvasTheme, setCanvasTheme] = useState('paper-white');
 
   // Resume Template: 'executive' (2 Cột Cân Đối) | 'harvard' (Tối giản Harvard ATS 100%) | 'modern' (Hiện Đại Sang Trọng)
-  const [cvTemplate, setCvTemplate] = useState('executive');
+  const [cvTemplate, setCvTemplate] = useState(() => {
+    try {
+      return localStorage.getItem('hiremate_candidate_cv_template') || 'executive';
+    } catch {
+      return 'executive';
+    }
+  });
 
   // Mode: Is user currently in direct edit mode?
   const [isEditing, setIsEditing] = useState(false);
@@ -670,14 +676,38 @@ export default function CandidateProfilePage({ user }) {
 
   const applyCvToOnlineView = (cvItem) => {
     if (!cvItem) return;
-    const pData = cvItem.parsedData || {};
-    const candidateName = pData.full_name || pData.fullName || pData.candidate_name || pData.candidateName || cvItem.fullName || cvItem.candidateName;
-    const phone = pData.phone || cvItem.phone;
-    const email = pData.email || cvItem.email;
-    const location = pData.address || pData.location || cvItem.address || cvItem.location;
-    const headline = pData.headline || cvItem.headline || cvData.targetTitle;
-    const summary = pData.summary || cvItem.summary || cvData.summary;
+    const isNameLikeFileName = (nameStr) => {
+      if (!nameStr || typeof nameStr !== 'string') return true;
+      const clean = nameStr.trim().toLowerCase();
+      if (clean === 'ứng viên' || clean === 'ung vien' || clean.length < 2) return true;
+      if (clean.includes('communication') || clean.includes('resume') || clean.endsWith('.pdf') || clean.endsWith('.docx')) return true;
+      return false;
+    };
+    let candidateName = pData.full_name || pData.fullName || pData.candidate_name || pData.candidateName;
+    if (!candidateName || isNameLikeFileName(candidateName)) {
+      candidateName = currentCandidate.accountName || user?.fullName || profileData?.fullName;
+    }
+    const phone = pData.phone || cvItem.phone || user?.phone;
+    const email = pData.email || cvItem.email || user?.email;
+    const location = pData.address || pData.location || cvItem.address || cvItem.location || profileData?.location;
+
     const exp = normalizeExperiences(pData.experiences || cvItem.experiencesJson || []);
+    let headline = pData.headline || cvItem.headline;
+    if (!headline || headline.includes('|')) {
+      if (exp.length > 0 && exp[0]?.role) {
+        headline = exp[0].role;
+      } else {
+        headline = cvData.targetTitle || profileData?.headline;
+      }
+    }
+
+    let summary = pData.summary || cvItem.summary;
+    if ((!summary || summary.includes('Uploaded via HireMate')) && exp.length > 0) {
+      const topRoles = exp.slice(0, 2).map(e => e.role || e.company).filter(Boolean).join(' • ');
+      summary = `Ứng viên có bề dày năng lực và kinh nghiệm thực chiến với vị trí ${topRoles || headline}. Hồ sơ chuyên môn được đối soát và chuẩn hóa tự động theo đúng bản CV này.`;
+    }
+    if (!summary) summary = cvData.summary;
+
     const edu = normalizeEducations(pData.educations || cvItem.educationsJson || []);
     const proj = normalizeProjects(pData.projects || cvItem.projectsJson || []);
     const cert = normalizeCertifications(pData.certifications || cvItem.certificationsJson || [], headline);
@@ -1808,6 +1838,7 @@ export default function CandidateProfilePage({ user }) {
                             return;
                           }
                           setCvTemplate(tpl.id);
+                          try { localStorage.setItem('hiremate_candidate_cv_template', tpl.id); } catch {}
                         }}
                         className={`px-3 py-1 rounded-full text-xs font-sans transition-all cursor-pointer ${cvTemplate === tpl.id
                           ? 'bg-[#32247b] text-white shadow-xs font-bold'
@@ -4828,6 +4859,7 @@ export default function CandidateProfilePage({ user }) {
                             return;
                           }
                           setCvTemplate(tpl.id);
+                          try { localStorage.setItem('hiremate_candidate_cv_template', tpl.id); } catch {}
                         }}
                         className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${cvTemplate === tpl.id
                           ? 'bg-[#32247b] text-white border-[#32247b] shadow-md'

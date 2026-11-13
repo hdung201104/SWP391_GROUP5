@@ -32,32 +32,57 @@ export default function OnlineCvRenderer({
     if (onTemplateChange) onTemplateChange(tId);
   };
 
-  // Chuẩn hóa dữ liệu ứng viên an toàn
-  const name = candidate.name || candidate.accountName || candidate.fullName || 'Ứng Viên HireMate';
-  const title = candidate.title || candidate.targetTitle || candidate.jobTitle || 'Chuyên Viên Công Nghệ';
-  const email = candidate.email || 'ungvien@hiremate.vn';
-  const phone = candidate.phone || '(+84) 090.123.4567';
-  const location = candidate.location || 'Hà Nội, Việt Nam';
-  const avatar = resolveUserAvatar(candidate);
-  const summary = candidate.summary || 'Chuyên viên kỹ thuật tận tâm với kinh nghiệm thực chiến trong phát triển các hệ thống chịu tải cao và kiến trúc hiện đại.';
-  
-  // Kỹ năng
-  const skills = Array.isArray(candidate.skills) ? candidate.skills : [];
-  
+  // Chuẩn hóa dữ liệu ứng viên an toàn, lọc bỏ rác từ file name
+  const isFileName = (s) => typeof s === 'string' && (
+    s.toLowerCase().includes('communication') ||
+    s.toLowerCase().includes('resume') ||
+    s.toLowerCase().endsWith('.pdf') ||
+    s.toLowerCase().endsWith('.docx') ||
+    s.toLowerCase().endsWith('.doc') ||
+    s.trim() === 'Ứng viên' ||
+    s.trim() === 'Ung Vien'
+  );
+  let name = candidate.name;
+  if (!name || isFileName(name)) name = candidate.fullName;
+  if (!name || isFileName(name)) name = candidate.accountName;
+  if (!name || isFileName(name)) name = candidate.candidateName;
+  if (!name || isFileName(name)) name = 'Ứng Viên HireMate';
+
   // Kinh nghiệm làm việc (Chuẩn hóa tự động cho cả bullets & highlights)
-  const rawExperiences = Array.isArray(candidate.experiences) ? candidate.experiences : [];
+  const rawExperiences = Array.isArray(candidate.experiences) ? candidate.experiences : (Array.isArray(candidate.experience) ? candidate.experience : []);
   const experiences = rawExperiences.map((exp) => ({
     ...exp,
-    role: exp.role || exp.title || exp.position || 'Chuyên viên kỹ thuật',
+    role: exp.role || exp.title || exp.position || 'Chuyên viên chuyên môn',
     company: exp.company || exp.employer || exp.organization || '',
     period: exp.period || exp.duration || exp.time || 'Gần đây',
     bullets: Array.isArray(exp.bullets) && exp.bullets.length > 0
       ? exp.bullets
       : (Array.isArray(exp.highlights) && exp.highlights.length > 0 ? exp.highlights : []),
   }));
+
+  let title = candidate.title || candidate.targetTitle || candidate.jobTitle || '';
+  if (!title && experiences.length > 0 && experiences[0]?.role) {
+    title = experiences[0].role;
+  }
+  if (!title) title = 'Chuyên Viên';
+
+  const email = candidate.email || 'ungvien@hiremate.vn';
+  const phone = candidate.phone || '(+84) 090.123.4567';
+  const location = candidate.location || 'Hà Nội, Việt Nam';
+  const avatar = resolveUserAvatar(candidate);
+
+  let summary = candidate.summary || '';
+  if ((!summary || summary.includes('Uploaded via HireMate')) && experiences.length > 0) {
+    const topExp = experiences.slice(0, 2).map(e => e.role || e.company).filter(Boolean).join(' • ');
+    summary = `Ứng viên có bề dày năng lực và kinh nghiệm thực tế với vị trí ${topExp || title}. Hồ sơ chuyên môn được đối soát và chuẩn hóa tự động theo đúng bản CV ứng tuyển.`;
+  }
+  if (!summary) summary = 'Chuyên viên tận tâm với kinh nghiệm thực chiến và tinh thần học hỏi, cầu tiến cao.';
+  
+  // Kỹ năng
+  const skills = Array.isArray(candidate.skills) ? candidate.skills : [];
   
   // Học vấn (Chuẩn hóa tự động cho cả degree & major)
-  const rawEducations = Array.isArray(candidate.educations) ? candidate.educations : [];
+  const rawEducations = Array.isArray(candidate.educations) ? candidate.educations : (Array.isArray(candidate.education) ? candidate.education : []);
   const educations = rawEducations.map((edu) => ({
     ...edu,
     school: edu.school || edu.institution || edu.university || 'Đại học / Học viện',
@@ -76,11 +101,21 @@ export default function OnlineCvRenderer({
     technologies: proj.technologies || (Array.isArray(proj.tags) ? proj.tags.join(', ') : ''),
   }));
 
+  // Chứng chỉ chuyên môn
+  const rawCertifications = Array.isArray(candidate.certifications) ? candidate.certifications : [];
+  const certifications = rawCertifications.map((c) => ({
+    name: c.name || c.title || c.certificateName || '',
+    issuer: c.issuer || c.organization || '',
+    year: c.year || c.period || c.date || '',
+    code: c.code || c.credentialId || '',
+  })).filter((c) => c.name);
+
   // Ngoại ngữ
-  const languages = Array.isArray(candidate.languages) ? candidate.languages : [
-    { name: 'Tiếng Việt', level: 'Bản ngữ' },
-    { name: 'Tiếng Anh', level: 'Chuyên ngành (TOEIC 850+)' }
-  ];
+  const languages = (Array.isArray(candidate.languages) && candidate.languages.length > 0)
+    ? candidate.languages.map(l => typeof l === 'string' ? { name: l, level: 'Thành thạo' } : l)
+    : (skills.some(s => String(s).toLowerCase().includes('tiếng nhật') || String(s).toLowerCase().includes('japanese'))
+        ? [{ name: 'Tiếng Nhật', level: 'Chuyên ngành / Giao tiếp' }]
+        : [{ name: 'Tiếng Việt', level: 'Bản ngữ' }, { name: 'Tiếng Anh', level: 'Chuyên ngành' }]);
 
   // In ấn bản CV
   const handlePrint = () => {
@@ -295,6 +330,24 @@ export default function OnlineCvRenderer({
                   ))}
                 </div>
               </div>
+
+              {/* Chứng chỉ chuyên môn */}
+              {certifications.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-900 pb-1 border-b border-slate-200 flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-sm text-[#5b48bd]">workspace_premium</span>
+                    <span>Chứng Chỉ Chuyên Môn</span>
+                  </h3>
+                  <div className="space-y-2 text-xs">
+                    {certifications.map((cert, cIdx) => (
+                      <div key={cIdx} className="space-y-0.5">
+                        <strong className="text-slate-900 block leading-snug">{cert.name}</strong>
+                        <div className="text-[11px] text-slate-500 font-mono">{cert.issuer} {cert.year ? `• ${cert.year}` : ''}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </aside>
 
             {/* CỘT PHẢI (8/12): TIÊU ĐỀ, TÓM TẮT, KINH NGHIỆM, DỰ ÁN */}
@@ -519,6 +572,26 @@ export default function OnlineCvRenderer({
                 ))}
               </div>
             </section>
+
+            {/* Harvard Section 6: Certifications */}
+            {certifications.length > 0 && (
+              <section className="space-y-2">
+                <h2 className="text-xs font-serif font-black uppercase tracking-wider pb-0.5 border-b border-slate-400 text-slate-900">
+                  CHỨNG CHỈ NGHỀ NGHIỆP (CERTIFICATIONS &amp; LICENSES)
+                </h2>
+                <div className="space-y-1.5 font-sans text-xs">
+                  {certifications.map((cert, cIdx) => (
+                    <div key={cIdx} className="flex items-center justify-between text-slate-800">
+                      <div>
+                        <strong className="text-slate-950">{cert.name}</strong>
+                        {cert.issuer && <span className="text-slate-600"> — {cert.issuer}</span>}
+                      </div>
+                      {cert.year && <span className="font-mono text-slate-500">{cert.year}</span>}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
           </div>
         )}
 
@@ -698,6 +771,26 @@ export default function OnlineCvRenderer({
                     ))}
                   </div>
                 </section>
+
+                {/* Chứng chỉ */}
+                {certifications.length > 0 && (
+                  <section className="p-4 rounded-2xl bg-purple-50/40 border border-purple-100 space-y-3">
+                    <div className="flex items-center gap-2 pb-1 border-b border-purple-200">
+                      <span className="material-symbols-outlined text-base text-[#5b48bd]">workspace_premium</span>
+                      <h3 className="font-extrabold text-xs text-[#1e1b4b] uppercase tracking-wider">
+                        Chứng Chỉ Nghề Nghiệp
+                      </h3>
+                    </div>
+                    <div className="space-y-2 text-xs">
+                      {certifications.map((cert, cIdx) => (
+                        <div key={cIdx} className="space-y-0.5">
+                          <strong className="text-[#1e1b4b] block">{cert.name}</strong>
+                          <div className="text-[11px] text-[#5b48bd] font-mono">{cert.issuer} {cert.year ? `• ${cert.year}` : ''}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
               </div>
             </div>
           </div>

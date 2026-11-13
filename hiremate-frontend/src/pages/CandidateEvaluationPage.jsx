@@ -622,6 +622,7 @@ export default function CandidateEvaluationPage({
       if (targetCvId) {
         try {
           const previewRes = await cvApi.previewCv(targetCvId).catch(() => null);
+          const isFallback = previewRes?.headers?.['x-hiremate-is-fallback'] === 'true';
           let detectedMime = previewRes?.headers?.['content-type']
             || (fn.endsWith('.png') ? 'image/png'
             : fn.endsWith('.jpg') || fn.endsWith('.jpeg') ? 'image/jpeg'
@@ -634,7 +635,12 @@ export default function CandidateEvaluationPage({
             if (isMounted) {
               setPdfBlobUrl(createdBlobUrl);
               setCvMimeType(detectedMime);
-              setCvViewMode('pdf');
+              // Nếu là bản PDF Fallback (tệp vật lý cũ không tồn tại hoặc CV trực tuyến), tự động chuyển sang tab "CV Online" để HR xem toàn bộ hồ sơ chuẩn xác
+              if (isFallback) {
+                setCvViewMode('parsed');
+              } else {
+                setCvViewMode('pdf');
+              }
               setIsPdfLoading(false);
               return;
             }
@@ -647,7 +653,7 @@ export default function CandidateEvaluationPage({
               if (isMounted) {
                 setPdfBlobUrl(createdBlobUrl);
                 setCvMimeType(detectedMime);
-                setCvViewMode('pdf');
+                setCvViewMode('parsed');
                 setIsPdfLoading(false);
                 return;
               }
@@ -1024,22 +1030,55 @@ export default function CandidateEvaluationPage({
 
         const pData = cvData?.parsedData || parsedJson || {};
 
-        // Trích xuất họ tên thật của CV cụ thể (Đảm bảo đúng ứng viên trong bản CV scan/pdf, không bị ghi đè bởi hồ sơ mặc định)
+        // 1. Trích xuất kinh nghiệm làm việc thực tế của chính bản CV đã nộp trước tiên
+        let experiences = [];
+        if (Array.isArray(rawParsed?.experiences) && rawParsed.experiences.length > 0) {
+          experiences = rawParsed.experiences;
+        } else if (pData?.experiences && Array.isArray(pData.experiences) && pData.experiences.length > 0) {
+          experiences = pData.experiences;
+        } else if (parsedJson?.experiences && Array.isArray(parsedJson.experiences) && parsedJson.experiences.length > 0) {
+          experiences = parsedJson.experiences;
+        } else if (parsedJson?.experience && Array.isArray(parsedJson.experience) && parsedJson.experience.length > 0) {
+          experiences = parsedJson.experience;
+        } else if (cvData?.parsedData?.experiences && Array.isArray(cvData.parsedData.experiences) && cvData.parsedData.experiences.length > 0) {
+          experiences = cvData.parsedData.experiences;
+        } else if (cvData?.experiencesJson) {
+          try {
+            const expArr = typeof cvData.experiencesJson === 'string' ? JSON.parse(cvData.experiencesJson) : cvData.experiencesJson;
+            if (Array.isArray(expArr) && expArr.length > 0) experiences = expArr;
+          } catch (ignored) {}
+        } else if (!effectiveCvId && profileData?.experiencesJson) {
+          try {
+            const expArr = typeof profileData.experiencesJson === 'string' ? JSON.parse(profileData.experiencesJson) : profileData.experiencesJson;
+            if (Array.isArray(expArr) && expArr.length > 0) experiences = expArr;
+          } catch (ignored) {}
+        }
+
+        // 2. Trích xuất họ tên thật của CV cụ thể (Lọc bỏ triệt để tên file như "Japanese Communication", "Resume.pdf")
+        const isNameLikeFileName = (nameStr) => {
+          if (!nameStr || typeof nameStr !== 'string') return true;
+          const clean = nameStr.trim().toLowerCase();
+          if (clean === 'ứng viên' || clean === 'ung vien' || clean.includes('đang tải') || clean.length < 2) return true;
+          if (cvData?.fileName && clean === cvData.fileName.toLowerCase().replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ').trim()) return true;
+          if (clean.endsWith('.pdf') || clean.endsWith('.docx') || clean.endsWith('.doc')) return true;
+          if (clean.includes('japanese communication') || clean.includes('resume') || clean.includes('curriculum vitae') || clean.includes('technical stack')) return true;
+          return false;
+        };
+
         const cvCandidateName = rawParsed?.fullName || pData?.fullName || pData?.full_name || pData?.candidateName || pData?.candidate_name ||
           parsedJson?.fullName || parsedJson?.full_name || parsedJson?.candidateName || parsedJson?.candidate_name || parsedJson?.name ||
-          cvData?.fullName || cvData?.candidateName;
+          cvData?.fullName;
 
-        if (cvCandidateName && typeof cvCandidateName === 'string' && cvCandidateName.trim().length > 1 && cvCandidateName.trim() !== 'Ứng viên' && !cvCandidateName.includes('Đang tải')) {
+        if (cvCandidateName && !isNameLikeFileName(cvCandidateName)) {
           candidateName = cvCandidateName.trim();
-        } else if (cvData?.fileName) {
-          candidateName = cvData.fileName.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ').trim();
-        } else if (appData?.candidateName) {
-          candidateName = appData.candidateName;
-        } else if (profileData?.fullName) {
-          candidateName = profileData.fullName;
-        }
-        if (!candidateName || candidateName === 'Đang tải hồ sơ...') {
-          candidateName = cvData?.fileName ? cvData.fileName.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ') : 'Ứng viên';
+        } else if (appData?.candidateName && !isNameLikeFileName(appData.candidateName)) {
+          candidateName = appData.candidateName.trim();
+        } else if (profileData?.fullName && !isNameLikeFileName(profileData.fullName)) {
+          candidateName = profileData.fullName.trim();
+        } else if (appData?.candidateEmail) {
+          candidateName = appData.candidateEmail.split('@')[0];
+        } else {
+          candidateName = 'Ứng viên';
         }
 
         const cvCandidateEmail = rawParsed?.email || pData?.email || parsedJson?.email || cvData?.email;
@@ -1066,7 +1105,7 @@ export default function CandidateEvaluationPage({
           ? cvCandidateAddress.trim()
           : (profileData?.location || profileData?.address || 'Chưa cập nhật địa chỉ');
 
-        // 1. Tiêu đề nghề nghiệp (Headline / Role): Ưu tiên tuyệt đối tiêu đề chính xác từ file CV của ứng viên
+        // 3. Tiêu đề nghề nghiệp (Headline / Role): Ưu tiên tuyệt đối từ bản CV này
         let candidateTitle = '';
         if (rawParsed?.headline && rawParsed.headline.length > 2 && !rawParsed.headline.includes('|')) {
           candidateTitle = rawParsed.headline.trim();
@@ -1078,36 +1117,16 @@ export default function CandidateEvaluationPage({
           candidateTitle = parsedJson.headline.trim();
         } else if (cvData?.headline && typeof cvData.headline === 'string' && !cvData.headline.includes('|')) {
           candidateTitle = cvData.headline.trim();
-        } else if (rawParsed?.headline) {
-          candidateTitle = rawParsed.headline.trim();
-        } else if (pData?.headline || cvData?.headline) {
-          candidateTitle = (pData?.headline || cvData?.headline).trim();
-        } else if (profileData?.headline) {
+        } else if (experiences.length > 0 && experiences[0]?.role) {
+          // Lấy ngay chức danh công việc thực tế gần nhất của chính bản CV này!
+          candidateTitle = experiences[0].role.trim();
+        } else if (profileData?.headline && !profileData.headline.includes('|')) {
           candidateTitle = profileData.headline.trim();
         } else {
           candidateTitle = jobTitle ? `${jobTitle} • Ứng viên` : 'Chuyên viên';
         }
 
-        // 2. Tóm tắt nghề nghiệp / About Me: Ưu tiên bóc tách từ file CV gốc đã nộp
-        let candidateSummary = '';
-        if (rawParsed?.summary && rawParsed.summary.length > 15) {
-          candidateSummary = rawParsed.summary.trim();
-        } else if (pData?.summary && typeof pData.summary === 'string' && pData.summary.length > 15 && !pData.summary.includes('Uploaded via HireMate')) {
-          candidateSummary = pData.summary.trim();
-        } else if (parsedJson?.summary && typeof parsedJson.summary === 'string' && parsedJson.summary.length > 15 && !parsedJson.summary.includes('Uploaded via HireMate')) {
-          candidateSummary = parsedJson.summary.trim();
-        } else if (cvData?.summary && typeof cvData.summary === 'string' && cvData.summary.length > 15 && !cvData.summary.includes('Uploaded via HireMate')) {
-          candidateSummary = cvData.summary.trim();
-        } else if (profileData?.bio && typeof profileData.bio === 'string' && profileData.bio.length > 10) {
-          candidateSummary = profileData.bio.trim();
-        } else {
-          candidateSummary = 'Hồ sơ đã được đồng bộ hóa và thẩm định trên nền tảng HireMate AI.';
-        }
-
-        candidateAvatar = resolveUserAvatar(profileData?.avatarUrl) || resolveUserAvatar(appData?.candidateAvatar) || resolveUserAvatar(candidateAvatar);
-        jobTitle = jobData?.title || appData?.jobTitle || jobTitle || (effectiveJobId ? `Vị trí Tuyển Dụng #${effectiveJobId}` : 'Vị trí Tuyển Dụng');
-
-        // Lấy danh sách kỹ năng thực tế (Ưu tiên CV đã nộp: rawParsed, pData, parsedJson, detectedSkills, profileData)
+        // 4. Lấy danh sách kỹ năng thực tế (Ưu tiên CV đã nộp: rawParsed, pData, parsedJson, detectedSkills, profileData)
         let cleanSkills = [];
         if (Array.isArray(rawParsed?.skills) && rawParsed.skills.length > 0) {
           cleanSkills = rawParsed.skills;
@@ -1122,6 +1141,42 @@ export default function CandidateEvaluationPage({
         } else if (!effectiveCvId && profileData?.skills && Array.isArray(profileData.skills) && profileData.skills.length > 0) {
           cleanSkills = profileData.skills.map((s) => s.skillName || s.name || s).filter(Boolean);
         }
+
+        // Bổ sung kỹ năng ngôn ngữ từ text nếu là hồ sơ ngoại ngữ / dịch thuật
+        if (cvData?.parsedText) {
+          const ptLower = cvData.parsedText.toLowerCase();
+          if ((ptLower.contains ? ptLower.contains('tiếng nhật') : ptLower.includes('tiếng nhật')) || ptLower.includes('japanese')) {
+            if (!cleanSkills.includes('Tiếng Nhật')) cleanSkills.unshift('Tiếng Nhật');
+          }
+          if (ptLower.includes('translation') || ptLower.includes('dịch thuật')) {
+            if (!cleanSkills.includes('Biên Phiên Dịch')) cleanSkills.push('Biên Phiên Dịch');
+          }
+          if (ptLower.includes('tutor') || ptLower.includes('giảng dạy')) {
+            if (!cleanSkills.includes('Giảng Dạy / Tutor')) cleanSkills.push('Giảng Dạy / Tutor');
+          }
+        }
+
+        // 5. Tóm tắt nghề nghiệp / About Me: Ưu tiên bóc tách từ file CV gốc đã nộp
+        let candidateSummary = '';
+        if (rawParsed?.summary && rawParsed.summary.length > 15 && !rawParsed.summary.includes('Uploaded via HireMate')) {
+          candidateSummary = rawParsed.summary.trim();
+        } else if (pData?.summary && typeof pData.summary === 'string' && pData.summary.length > 15 && !pData.summary.includes('Uploaded via HireMate')) {
+          candidateSummary = pData.summary.trim();
+        } else if (parsedJson?.summary && typeof parsedJson.summary === 'string' && parsedJson.summary.length > 15 && !parsedJson.summary.includes('Uploaded via HireMate')) {
+          candidateSummary = parsedJson.summary.trim();
+        } else if (cvData?.summary && typeof cvData.summary === 'string' && cvData.summary.length > 15 && !cvData.summary.includes('Uploaded via HireMate')) {
+          candidateSummary = cvData.summary.trim();
+        } else if (experiences.length > 0) {
+          const topRoles = experiences.slice(0, 2).map(e => e.role || e.company).filter(Boolean).join(' • ');
+          candidateSummary = `Ứng viên có bề dày năng lực và kinh nghiệm thực chiến với vai trò ${topRoles || candidateTitle}. Hồ sơ được đối soát và chuẩn hóa tự động theo đúng bản CV nộp ứng tuyển.`;
+        } else if (profileData?.bio && typeof profileData.bio === 'string' && profileData.bio.length > 10) {
+          candidateSummary = profileData.bio.trim();
+        } else {
+          candidateSummary = 'Hồ sơ đã được đồng bộ hóa và thẩm định trên nền tảng HireMate AI.';
+        }
+
+        candidateAvatar = resolveUserAvatar(profileData?.avatarUrl) || resolveUserAvatar(appData?.candidateAvatar) || resolveUserAvatar(candidateAvatar);
+        jobTitle = jobData?.title || appData?.jobTitle || jobTitle || (effectiveJobId ? `Vị trí Tuyển Dụng #${effectiveJobId}` : 'Vị trí Tuyển Dụng');
 
         if (cleanSkills.length === 0 && directEvalReport?.advantages) {
           directEvalReport.advantages.forEach((adv) => {
@@ -1148,30 +1203,6 @@ export default function CandidateEvaluationPage({
               items: cleanSkills,
             },
           ];
-        }
-
-        // Lấy kinh nghiệm làm việc thực tế của bản CV cụ thể đã nộp (Ưu tiên CV đã nộp)
-        let experiences = [];
-        if (Array.isArray(rawParsed?.experiences) && rawParsed.experiences.length > 0) {
-          experiences = rawParsed.experiences;
-        } else if (pData?.experiences && Array.isArray(pData.experiences) && pData.experiences.length > 0) {
-          experiences = pData.experiences;
-        } else if (parsedJson?.experiences && Array.isArray(parsedJson.experiences) && parsedJson.experiences.length > 0) {
-          experiences = parsedJson.experiences;
-        } else if (parsedJson?.experience && Array.isArray(parsedJson.experience) && parsedJson.experience.length > 0) {
-          experiences = parsedJson.experience;
-        } else if (cvData?.parsedData?.experiences && Array.isArray(cvData.parsedData.experiences) && cvData.parsedData.experiences.length > 0) {
-          experiences = cvData.parsedData.experiences;
-        } else if (cvData?.experiencesJson) {
-          try {
-            const expArr = typeof cvData.experiencesJson === 'string' ? JSON.parse(cvData.experiencesJson) : cvData.experiencesJson;
-            if (Array.isArray(expArr) && expArr.length > 0) experiences = expArr;
-          } catch (ignored) {}
-        } else if (!effectiveCvId && profileData?.experiencesJson) {
-          try {
-            const expArr = typeof profileData.experiencesJson === 'string' ? JSON.parse(profileData.experiencesJson) : profileData.experiencesJson;
-            if (Array.isArray(expArr) && expArr.length > 0) experiences = expArr;
-          } catch (ignored) {}
         }
 
         // Fallback mô tả kinh nghiệm từ coverLetter / summary nếu mảng rỗng

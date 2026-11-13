@@ -4,7 +4,13 @@ import { cvApi, applicationApi, interviewApi, paymentApi } from '../../api';
 export default function ApplyJobModal({ job, user, onClose, onSuccess, initialCvId = null }) {
   const [cvList, setCvList] = useState([]);
   const [selectedCvId, setSelectedCvId] = useState(initialCvId ? Number(initialCvId) : null);
-  const [onlineTemplate, setOnlineTemplate] = useState('executive'); // 'executive' | 'harvard' | 'modern'
+  const [onlineTemplate, setOnlineTemplate] = useState(() => {
+    try {
+      return localStorage.getItem('hiremate_candidate_cv_template') || 'executive';
+    } catch {
+      return 'executive';
+    }
+  }); // 'executive' | 'harvard' | 'modern'
   const [coverLetter, setCoverLetter] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');

@@ -31,14 +31,18 @@ public class CvController {
         }
         CvResponse cv = cvService.getCvById(id);
         byte[] bytes = fileStorageService.loadFileAsBytes(cv != null ? cv.getFileUrl() : null);
+        boolean isFallback = false;
         if (bytes == null || bytes.length == 0) {
+            isFallback = true;
             bytes = com.hiremate.util.PdfFallbackGenerator.generateCvPdf(
                     cv != null ? (cv.getFullName() != null ? cv.getFullName() : cv.getFileName()) : "Ung Vien HireMate",
                     cv != null ? cv.getHeadline() : null,
                     cv != null ? cv.getEmail() : null,
                     cv != null ? cv.getPhone() : null,
                     cv != null ? cv.getSummary() : null,
-                    cv != null ? cv.getDetectedSkills() : null
+                    cv != null ? cv.getDetectedSkills() : null,
+                    cv != null ? cv.getExperiencesJson() : null,
+                    cv != null ? cv.getEducationsJson() : null
             );
         }
         if (bytes == null || bytes.length == 0) {
@@ -76,10 +80,13 @@ public class CvController {
         String contentDisposition = org.springframework.http.ContentDisposition.inline()
                 .filename(fn, java.nio.charset.StandardCharsets.UTF_8)
                 .build().toString();
-        return ResponseEntity.ok()
+        var resp = ResponseEntity.ok()
                 .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, contentDisposition)
-                .contentType(MediaType.parseMediaType(contentType))
-                .body(bytes);
+                .contentType(MediaType.parseMediaType(contentType));
+        if (isFallback) {
+            resp.header("X-HireMate-Is-Fallback", "true");
+        }
+        return resp.body(bytes);
     }
 
     @GetMapping("/{id}/download")
@@ -97,7 +104,9 @@ public class CvController {
                     cv != null ? cv.getEmail() : null,
                     cv != null ? cv.getPhone() : null,
                     cv != null ? cv.getSummary() : null,
-                    cv != null ? cv.getDetectedSkills() : null
+                    cv != null ? cv.getDetectedSkills() : null,
+                    cv != null ? cv.getExperiencesJson() : null,
+                    cv != null ? cv.getEducationsJson() : null
             );
         }
         if (bytes == null || bytes.length == 0) {
