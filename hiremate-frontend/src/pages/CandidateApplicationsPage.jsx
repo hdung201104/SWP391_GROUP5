@@ -263,7 +263,7 @@ export default function CandidateApplicationsPage({ user }) {
               cvId: app.cvId || app.cv?.cvId || app.cv?.id,
               cvUrl: app.cvUrl || app.cv?.fileUrl || app.cv?.url,
               cvUsed:
-                app.cv?.fileName || (app.cvUrl ? app.cvUrl.split('/').pop() : 'CV_Ung_Vien.pdf'),
+                app.cvFileName || app.cv?.fileName || (app.cvUrl ? app.cvUrl.split('/').pop() : 'CV_Ung_Vien.pdf'),
               atsScore: matchScore != null ? matchScore : null,
               responseNotice,
               status: isWithdrawn ? 'WITHDRAWN' : isOfferDeclined ? 'OFFER_DECLINED' : st,

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { cvApi, applicationApi, interviewApi, paymentApi } from '../../api';
 
-export default function ApplyJobModal({ job, user, onClose, onSuccess }) {
+export default function ApplyJobModal({ job, user, onClose, onSuccess, initialCvId = null }) {
   const [cvList, setCvList] = useState([]);
-  const [selectedCvId, setSelectedCvId] = useState(null);
+  const [selectedCvId, setSelectedCvId] = useState(initialCvId ? Number(initialCvId) : null);
   const [onlineTemplate, setOnlineTemplate] = useState('executive'); // 'executive' | 'harvard' | 'modern'
   const [coverLetter, setCoverLetter] = useState('');
   const [loading, setLoading] = useState(false);
@@ -18,12 +18,16 @@ export default function ApplyJobModal({ job, user, onClose, onSuccess }) {
         .then((res) => {
           const list = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : (Array.isArray(res?.data?.data) ? res.data.data : []));
           setCvList(list);
-          const defaultCv = list.find((c) => c.isDefault) || list[0];
-          if (defaultCv) {
-            setSelectedCvId(defaultCv.cvId);
-          } else {
-            setSelectedCvId(null);
-          }
+          setSelectedCvId((prev) => {
+            if (prev && list.some((c) => Number(c.cvId) === Number(prev))) {
+              return Number(prev);
+            }
+            if (initialCvId && list.some((c) => Number(c.cvId) === Number(initialCvId))) {
+              return Number(initialCvId);
+            }
+            const defaultCv = list.find((c) => c.isDefault) || list[0];
+            return defaultCv ? Number(defaultCv.cvId) : null;
+          });
         })
         .catch(() => {
           setCvList([]);
@@ -50,7 +54,7 @@ export default function ApplyJobModal({ job, user, onClose, onSuccess }) {
       setCvList([]);
       setSelectedCvId(null);
     }
-  }, [user]);
+  }, [user?.userId, initialCvId]);
 
   const isAdmin = user?.role === 'ADMIN';
   const planPrice = Number(quotaInfo?.price || quotaInfo?.plan?.price) || 0;
@@ -133,8 +137,8 @@ export default function ApplyJobModal({ job, user, onClose, onSuccess }) {
         : templateTag;
 
       await applicationApi.applyJob({
-        jobId: job.jobId,
-        cvId: selectedCvId,
+        jobId: job.jobId || job.id,
+        cvId: Number(selectedCvId),
         coverLetter: finalCoverLetter,
       });
       try {
@@ -257,34 +261,38 @@ export default function ApplyJobModal({ job, user, onClose, onSuccess }) {
                 </span>
               </div>
 
-              <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
-                {cvList.map((cv) => (
-                  <label
-                    key={cv.cvId}
-                    className={`flex items-center justify-between p-3 rounded-2xl border text-xs cursor-pointer transition-all ${
-                      selectedCvId === cv.cvId
-                        ? 'bg-[#edeafd] border-[#5b48bd] text-[#5b48bd] font-bold shadow-2xs'
-                        : 'bg-[#f8f7ff] border-purple-100 text-slate-600 hover:bg-white'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5 truncate">
-                      <input
-                        type="radio"
-                        name="cvSelect"
-                        checked={selectedCvId === cv.cvId}
-                        onChange={() => setSelectedCvId(cv.cvId)}
-                        className="accent-[#5b48bd]"
-                      />
-                      <span className="material-symbols-outlined text-base text-[#5b48bd]">description</span>
-                      <span className="truncate">{cv.fileName}</span>
+              <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
+                {cvList.map((cv) => {
+                  const isChecked = Number(selectedCvId) === Number(cv.cvId);
+                  return (
+                    <div
+                      key={cv.cvId}
+                      onClick={() => setSelectedCvId(cv.cvId)}
+                      className={`flex items-center justify-between p-3.5 rounded-2xl border text-xs cursor-pointer transition-all ${
+                        isChecked
+                          ? 'bg-[#edeafd] border-[#5b48bd] text-[#5b48bd] font-bold shadow-xs ring-2 ring-[#5b48bd]/25'
+                          : 'bg-[#f8f7ff] border-purple-100 text-slate-600 hover:bg-white hover:border-purple-200'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 truncate">
+                        <input
+                          type="radio"
+                          name="cvSelect"
+                          checked={isChecked}
+                          onChange={() => setSelectedCvId(cv.cvId)}
+                          className="accent-[#5b48bd] w-4 h-4 cursor-pointer"
+                        />
+                        <span className="material-symbols-outlined text-base text-[#5b48bd]">description</span>
+                        <span className="truncate">{cv.fileName}</span>
+                      </div>
+                      {cv.isDefault && (
+                        <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-sans font-bold shrink-0">
+                          Mặc định
+                        </span>
+                      )}
                     </div>
-                    {cv.isDefault && (
-                      <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-sans font-bold shrink-0">
-                        Mặc định
-                      </span>
-                    )}
-                  </label>
-                ))}
+                  );
+                })}
                 {cvList.length >= 2 && !isPaidPlan && (
                   <div className="mt-2.5 p-2.5 rounded-xl bg-amber-50/90 border border-amber-200 text-amber-800 text-[11px] flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 truncate">

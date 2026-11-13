@@ -1128,6 +1128,20 @@ public class CvServiceImpl implements CvService {
                         java.util.regex.Matcher em = java.util.regex.Pattern.compile("[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,6}").matcher(cv.getParsedText());
                         if (em.find()) email = em.group(0).trim();
                     }
+                    if ((headline == null || headline.isBlank()) && cv.getParsedText() != null) {
+                        String[] lines = cv.getParsedText().split("\\r?\\n");
+                        for (int i = 0; i < Math.min(lines.length, 12); i++) {
+                            String l = lines[i].trim();
+                            if (fullName != null && l.equalsIgnoreCase(fullName.trim())) continue;
+                            if (l.contains("@") || l.contains("http") || l.matches(".*\\d{8,}.*") || l.startsWith("•") || l.startsWith("-")) continue;
+                            if (l.length() >= 3 && l.length() <= 60) {
+                                if (l.matches("(?i).*(engineer|developer|specialist|manager|representative|lead|consultant|analyst|chuyên viên|kỹ sư|nhân viên|trưởng nhóm).*")) {
+                                    headline = l;
+                                    break;
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

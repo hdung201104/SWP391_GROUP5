@@ -29,6 +29,7 @@ public class ApplicationResponse {
     private String recruiterEmail;
     private Long cvId;
     private String cvUrl;
+    private String cvFileName;
     private ApplicationStatus status;
     private String coverLetter;
     private Float matchingScore;
@@ -74,6 +75,7 @@ public class ApplicationResponse {
         private String recruiterEmail;
         private Long cvId;
         private String cvUrl;
+        private String cvFileName;
         private ApplicationStatus status;
         private String coverLetter;
         private Float matchingScore;
@@ -170,6 +172,11 @@ public class ApplicationResponse {
 
         public ApplicationResponseBuilder cvUrl(String cvUrl) {
             this.cvUrl = cvUrl;
+            return this;
+        }
+
+        public ApplicationResponseBuilder cvFileName(String cvFileName) {
+            this.cvFileName = cvFileName;
             return this;
         }
 
@@ -276,7 +283,7 @@ public class ApplicationResponse {
                     applicationId, jobId, jobTitle, companyId, companyName, companyLogo, candidateId,
                     candidateName, candidateEmail, candidatePhone, candidateAvatar, withdrawnByCandidate, offerDeclinedByCandidate,
                     recruiterId, recruiterName, recruiterEmail,
-                    cvId, cvUrl, status, coverLetter, matchingScore,
+                    cvId, cvUrl, cvFileName, status, coverLetter, matchingScore,
                     skillsScore, experienceScore, educationScore, semanticScore,
                     evaluationNotes, notes, rejectionReason, createdAt,
                     jobStatus, companyStatus, companyVerified, companyBlocked, companyRejectionReason, jobClosed

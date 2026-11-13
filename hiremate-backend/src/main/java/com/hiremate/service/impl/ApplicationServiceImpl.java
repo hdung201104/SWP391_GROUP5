@@ -981,6 +981,7 @@ public class ApplicationServiceImpl implements ApplicationService {
                 .recruiterEmail(recruiterEmail)
                 .cvId(cv != null ? cv.getCvId() : null)
                 .cvUrl(cv != null ? cv.getFileUrl() : null)
+                .cvFileName(cv != null ? cv.getFileName() : null)
                 .status(app.getStatus())
                 .coverLetter(app.getCoverLetter())
                 .matchingScore(score)

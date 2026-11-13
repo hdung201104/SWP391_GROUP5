@@ -2135,6 +2135,7 @@ export default function JobDetailPage({ user: propUser, jobId }) {
         <ApplyJobModal
           job={job}
           user={user}
+          initialCvId={selectedCvId}
           onClose={() => setIsApplying(false)}
           onSuccess={() => {
             setIsApplying(false);

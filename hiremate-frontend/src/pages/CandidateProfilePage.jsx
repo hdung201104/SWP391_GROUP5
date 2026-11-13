@@ -4732,6 +4732,7 @@ export default function CandidateProfilePage({ user }) {
           <ApplyJobModal
             job={applyingJob}
             user={user}
+            initialCvId={selectedVersionId && selectedVersionId.startsWith('cv_') && selectedVersionId !== 'cv_default_online' ? Number(selectedVersionId.replace('cv_', '')) : null}
             onClose={() => setApplyingJob(null)}
             onSuccess={() => {
               showToast('Nộp hồ sơ ứng tuyển thành công!');

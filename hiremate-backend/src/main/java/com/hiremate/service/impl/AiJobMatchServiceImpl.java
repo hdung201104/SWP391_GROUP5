@@ -139,8 +139,8 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
 
         if (existing.isPresent() && existing.get().getMatchingScore() != null) {
             // Kiểm tra tính tươi mới của Cache (Cache Invalidation):
-            // Chỉ bắt buộc tính lại khi ứng viên chủ động đổi sang một CV khác (cvId khác nhau) hoặc khi bật cờ force recompute (enableGemini)
-            boolean cvSwitched = cv != null && existing.get().getCv() != null && !cv.getCvId().equals(existing.get().getCv().getCvId());
+            // Chỉ bắt buộc tính lại khi ứng viên chủ động đổi sang một CV khác (cvId khác nhau) hoặc khi bản ghi cũ chưa gắn CV hoặc khi bật cờ force recompute (enableGemini)
+            boolean cvSwitched = cv != null && (existing.get().getCv() == null || !cv.getCvId().equals(existing.get().getCv().getCvId()));
             boolean isStaleFlatScore = existing.get().getMatchingScore() == 70.0f || existing.get().getMatchingScore() >= 99.0f;
             boolean hasRawJsonInGap = existing.get().getSkillGapJson() != null && 
                     (existing.get().getSkillGapJson().contains("[{\"school") || existing.get().getSkillGapJson().contains("[{\"highlight"));

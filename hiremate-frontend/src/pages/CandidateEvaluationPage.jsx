@@ -1025,9 +1025,9 @@ export default function CandidateEvaluationPage({
         const pData = cvData?.parsedData || parsedJson || {};
 
         // Trích xuất họ tên thật của CV cụ thể (Đảm bảo đúng ứng viên trong bản CV scan/pdf, không bị ghi đè bởi hồ sơ mặc định)
-        const cvCandidateName = pData?.fullName || pData?.full_name || pData?.candidateName || pData?.candidate_name ||
+        const cvCandidateName = rawParsed?.fullName || pData?.fullName || pData?.full_name || pData?.candidateName || pData?.candidate_name ||
           parsedJson?.fullName || parsedJson?.full_name || parsedJson?.candidateName || parsedJson?.candidate_name || parsedJson?.name ||
-          cvData?.fullName || cvData?.candidateName || rawParsed.fullName;
+          cvData?.fullName || cvData?.candidateName;
 
         if (cvCandidateName && typeof cvCandidateName === 'string' && cvCandidateName.trim().length > 1 && cvCandidateName.trim() !== 'Ứng viên' && !cvCandidateName.includes('Đang tải')) {
           candidateName = cvCandidateName.trim();
@@ -1042,7 +1042,7 @@ export default function CandidateEvaluationPage({
           candidateName = cvData?.fileName ? cvData.fileName.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ') : 'Ứng viên';
         }
 
-        const cvCandidateEmail = pData?.email || parsedJson?.email || cvData?.email || rawParsed.email;
+        const cvCandidateEmail = rawParsed?.email || pData?.email || parsedJson?.email || cvData?.email;
         if (cvCandidateEmail && typeof cvCandidateEmail === 'string' && cvCandidateEmail.trim().length > 3) {
           candidateEmail = cvCandidateEmail.trim();
         } else if (profileData?.email) {
@@ -1051,8 +1051,8 @@ export default function CandidateEvaluationPage({
           candidateEmail = appData.candidateEmail;
         }
 
-        const cvCandidatePhone = pData?.phone || pData?.phoneNumber || pData?.phone_number ||
-          parsedJson?.phone || parsedJson?.phoneNumber || parsedJson?.phone_number || cvData?.phone || rawParsed.phone;
+        const cvCandidatePhone = rawParsed?.phone || pData?.phone || pData?.phoneNumber || pData?.phone_number ||
+          parsedJson?.phone || parsedJson?.phoneNumber || parsedJson?.phone_number || cvData?.phone;
         if (cvCandidatePhone && typeof cvCandidatePhone === 'string' && cvCandidatePhone.trim().length > 5) {
           candidatePhone = cvCandidatePhone.trim();
         } else if (profileData?.phone) {
@@ -1061,27 +1061,57 @@ export default function CandidateEvaluationPage({
           candidatePhone = appData.candidatePhone;
         }
 
-        const cvCandidateAddress = pData?.address || pData?.location || parsedJson?.address || parsedJson?.location || cvData?.address || rawParsed.address;
+        const cvCandidateAddress = rawParsed?.address || pData?.address || pData?.location || parsedJson?.address || parsedJson?.location || cvData?.address;
         const candidateLocation = (cvCandidateAddress && typeof cvCandidateAddress === 'string' && cvCandidateAddress.trim().length > 1)
           ? cvCandidateAddress.trim()
           : (profileData?.location || profileData?.address || 'Chưa cập nhật địa chỉ');
 
-        const cvHeadline = pData?.headline || pData?.title || parsedJson?.headline || parsedJson?.title || cvData?.headline || rawParsed.headline;
-        const candidateTitle = (cvHeadline && typeof cvHeadline === 'string' && cvHeadline.trim().length > 1)
-          ? cvHeadline.trim()
-          : (profileData?.headline || (jobTitle ? `${jobTitle} • Ứng viên` : 'Chuyên viên'));
+        // 1. Tiêu đề nghề nghiệp (Headline / Role): Ưu tiên tuyệt đối tiêu đề chính xác từ file CV của ứng viên
+        let candidateTitle = '';
+        if (rawParsed?.headline && rawParsed.headline.length > 2 && !rawParsed.headline.includes('|')) {
+          candidateTitle = rawParsed.headline.trim();
+        } else if (pData?.headline && typeof pData.headline === 'string' && !pData.headline.includes('|')) {
+          candidateTitle = pData.headline.trim();
+        } else if (pData?.title && typeof pData.title === 'string' && !pData.title.includes('|')) {
+          candidateTitle = pData.title.trim();
+        } else if (parsedJson?.headline && typeof parsedJson.headline === 'string' && !parsedJson.headline.includes('|')) {
+          candidateTitle = parsedJson.headline.trim();
+        } else if (cvData?.headline && typeof cvData.headline === 'string' && !cvData.headline.includes('|')) {
+          candidateTitle = cvData.headline.trim();
+        } else if (rawParsed?.headline) {
+          candidateTitle = rawParsed.headline.trim();
+        } else if (pData?.headline || cvData?.headline) {
+          candidateTitle = (pData?.headline || cvData?.headline).trim();
+        } else if (profileData?.headline) {
+          candidateTitle = profileData.headline.trim();
+        } else {
+          candidateTitle = jobTitle ? `${jobTitle} • Ứng viên` : 'Chuyên viên';
+        }
 
-        const cvSummary = pData?.summary || pData?.bio || parsedJson?.summary || parsedJson?.bio || cvData?.summary || rawParsed.summary;
-        const candidateSummary = (cvSummary && typeof cvSummary === 'string' && cvSummary.trim().length > 10 && !cvSummary.includes('Uploaded via HireMate'))
-          ? cvSummary.trim()
-          : (profileData?.bio || cvData?.summary || 'Chưa có thông tin tóm tắt nghề nghiệp.');
+        // 2. Tóm tắt nghề nghiệp / About Me: Ưu tiên bóc tách từ file CV gốc đã nộp
+        let candidateSummary = '';
+        if (rawParsed?.summary && rawParsed.summary.length > 15) {
+          candidateSummary = rawParsed.summary.trim();
+        } else if (pData?.summary && typeof pData.summary === 'string' && pData.summary.length > 15 && !pData.summary.includes('Uploaded via HireMate')) {
+          candidateSummary = pData.summary.trim();
+        } else if (parsedJson?.summary && typeof parsedJson.summary === 'string' && parsedJson.summary.length > 15 && !parsedJson.summary.includes('Uploaded via HireMate')) {
+          candidateSummary = parsedJson.summary.trim();
+        } else if (cvData?.summary && typeof cvData.summary === 'string' && cvData.summary.length > 15 && !cvData.summary.includes('Uploaded via HireMate')) {
+          candidateSummary = cvData.summary.trim();
+        } else if (profileData?.bio && typeof profileData.bio === 'string' && profileData.bio.length > 10) {
+          candidateSummary = profileData.bio.trim();
+        } else {
+          candidateSummary = 'Hồ sơ đã được đồng bộ hóa và thẩm định trên nền tảng HireMate AI.';
+        }
 
         candidateAvatar = resolveUserAvatar(profileData?.avatarUrl) || resolveUserAvatar(appData?.candidateAvatar) || resolveUserAvatar(candidateAvatar);
         jobTitle = jobData?.title || appData?.jobTitle || jobTitle || (effectiveJobId ? `Vị trí Tuyển Dụng #${effectiveJobId}` : 'Vị trí Tuyển Dụng');
 
-        // Lấy danh sách kỹ năng thực tế (Ưu tiên CV đã nộp: pData, parsedJson, detectedSkills, rawParsed, profileData)
+        // Lấy danh sách kỹ năng thực tế (Ưu tiên CV đã nộp: rawParsed, pData, parsedJson, detectedSkills, profileData)
         let cleanSkills = [];
-        if (pData?.skills && Array.isArray(pData.skills) && pData.skills.length > 0) {
+        if (Array.isArray(rawParsed?.skills) && rawParsed.skills.length > 0) {
+          cleanSkills = rawParsed.skills;
+        } else if (pData?.skills && Array.isArray(pData.skills) && pData.skills.length > 0) {
           cleanSkills = pData.skills.filter((s) => typeof s === 'string' && s.trim().length > 1);
         } else if (parsedJson?.skills && Array.isArray(parsedJson.skills) && parsedJson.skills.length > 0) {
           cleanSkills = parsedJson.skills.filter((s) => typeof s === 'string' && s.trim().length > 1);
@@ -1089,8 +1119,6 @@ export default function CandidateEvaluationPage({
           cleanSkills = cvData.detectedSkills.filter(Boolean);
         } else if (cvData?.parsedData?.skills && Array.isArray(cvData.parsedData.skills) && cvData.parsedData.skills.length > 0) {
           cleanSkills = cvData.parsedData.skills.filter(Boolean);
-        } else if (Array.isArray(rawParsed.skills) && rawParsed.skills.length > 0) {
-          cleanSkills = rawParsed.skills;
         } else if (!effectiveCvId && profileData?.skills && Array.isArray(profileData.skills) && profileData.skills.length > 0) {
           cleanSkills = profileData.skills.map((s) => s.skillName || s.name || s).filter(Boolean);
         }
@@ -1122,9 +1150,11 @@ export default function CandidateEvaluationPage({
           ];
         }
 
-        // Lấy kinh nghiệm làm việc thực tế của bản CV cụ thể đã nộp
+        // Lấy kinh nghiệm làm việc thực tế của bản CV cụ thể đã nộp (Ưu tiên CV đã nộp)
         let experiences = [];
-        if (pData?.experiences && Array.isArray(pData.experiences) && pData.experiences.length > 0) {
+        if (Array.isArray(rawParsed?.experiences) && rawParsed.experiences.length > 0) {
+          experiences = rawParsed.experiences;
+        } else if (pData?.experiences && Array.isArray(pData.experiences) && pData.experiences.length > 0) {
           experiences = pData.experiences;
         } else if (parsedJson?.experiences && Array.isArray(parsedJson.experiences) && parsedJson.experiences.length > 0) {
           experiences = parsedJson.experiences;
@@ -1132,8 +1162,6 @@ export default function CandidateEvaluationPage({
           experiences = parsedJson.experience;
         } else if (cvData?.parsedData?.experiences && Array.isArray(cvData.parsedData.experiences) && cvData.parsedData.experiences.length > 0) {
           experiences = cvData.parsedData.experiences;
-        } else if (Array.isArray(rawParsed.experiences) && rawParsed.experiences.length > 0) {
-          experiences = rawParsed.experiences;
         } else if (cvData?.experiencesJson) {
           try {
             const expArr = typeof cvData.experiencesJson === 'string' ? JSON.parse(cvData.experiencesJson) : cvData.experiencesJson;
@@ -1159,9 +1187,11 @@ export default function CandidateEvaluationPage({
           }
         }
 
-        // Lấy học vấn thực tế của ứng viên
+        // Lấy học vấn thực tế của ứng viên (Ưu tiên CV đã nộp)
         let educations = [];
-        if (pData?.educations && Array.isArray(pData.educations) && pData.educations.length > 0) {
+        if (Array.isArray(rawParsed?.educations) && rawParsed.educations.length > 0) {
+          educations = rawParsed.educations;
+        } else if (pData?.educations && Array.isArray(pData.educations) && pData.educations.length > 0) {
           educations = pData.educations;
         } else if (parsedJson?.educations && Array.isArray(parsedJson.educations) && parsedJson.educations.length > 0) {
           educations = parsedJson.educations;
@@ -1169,8 +1199,6 @@ export default function CandidateEvaluationPage({
           educations = parsedJson.education;
         } else if (cvData?.parsedData?.educations && Array.isArray(cvData.parsedData.educations) && cvData.parsedData.educations.length > 0) {
           educations = cvData.parsedData.educations;
-        } else if (Array.isArray(rawParsed.educations) && rawParsed.educations.length > 0) {
-          educations = rawParsed.educations;
         } else if (cvData?.educationsJson) {
           try {
             const eduArr = typeof cvData.educationsJson === 'string' ? JSON.parse(cvData.educationsJson) : cvData.educationsJson;
@@ -2363,7 +2391,7 @@ export default function CandidateEvaluationPage({
                 </span>
                 <span>{layoutRatio === 'wide-cv' ? 'Cân Đối (5:7)' : 'Mở Rộng CV (4:8)'}</span>
               </button>
-              {cvViewMode === 'pdf' && pdfBlobUrl && (
+              {cvViewMode === 'pdf' && (pdfBlobUrl || (cand.cvId || effectiveCvId || (cand.cvUrl && cand.cvUrl !== '#'))) && (
                 <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl px-2 py-1 shadow-2xs">
                   <button
                     type="button"
@@ -2374,7 +2402,7 @@ export default function CandidateEvaluationPage({
                     -
                   </button>
                   <span className="text-[11px] font-bold text-slate-700 min-w-[36px] text-center">
-                    {zoomLevel}%
+                    {zoomLevel === 100 ? 'Vừa' : `${zoomLevel}%`}
                   </span>
                   <button
                     type="button"
@@ -2387,8 +2415,8 @@ export default function CandidateEvaluationPage({
                   <button
                     type="button"
                     onClick={() => setZoomLevel(100)}
-                    className="ml-1 px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] font-bold cursor-pointer"
-                    title="Vừa chiều rộng chuẩn (Fit to Width)"
+                    className="ml-1 px-1.5 py-0.5 rounded bg-purple-50 hover:bg-purple-100 text-[#5b48bd] text-[10px] font-bold cursor-pointer transition-colors"
+                    title="Vừa vặn chiều ngang tài liệu (Fit to Page Width - Không bị tràn mép)"
                   >
                     Fit
                   </button>
@@ -2479,65 +2507,61 @@ export default function CandidateEvaluationPage({
                       </div>
                     </div>
                   ) : (
-                    <div className="w-full h-[840px] min-h-[840px] flex flex-col overflow-auto bg-slate-100/60 p-2 sm:p-3">
+                    <div className="w-full h-[840px] min-h-[840px] flex flex-col overflow-x-auto overflow-y-hidden bg-slate-100/60 p-0">
                       <div
                         style={{
                           width: zoomLevel === 100 ? '100%' : `${zoomLevel}%`,
                           minWidth: '100%',
-                          height: '840px',
-                          minHeight: '840px',
+                          height: '100%',
                           transition: 'width 0.15s ease-out',
                         }}
-                        className="w-full h-[840px] min-h-[840px] flex flex-col bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mx-auto"
+                        className="h-full flex flex-col bg-white border-0 shadow-none overflow-hidden mx-auto"
                       >
                         <iframe
                           key={`${pdfBlobUrl}-${zoomLevel}`}
                           src={
                             pdfBlobUrl.includes('#')
-                              ? pdfBlobUrl.replace(/#.*$/, '#page=1&view=Fit&toolbar=1&navpanes=0')
-                              : `${pdfBlobUrl}#page=1&view=Fit&toolbar=1&navpanes=0`
+                              ? pdfBlobUrl.replace(/#.*$/, `#page=1&view=FitH&zoom=${zoomLevel === 100 ? 'page-width' : zoomLevel}&toolbar=1&navpanes=0`)
+                              : `${pdfBlobUrl}#page=1&view=FitH&zoom=${zoomLevel === 100 ? 'page-width' : zoomLevel}&toolbar=1&navpanes=0`
                           }
                           title={`CV - ${cand.name}`}
                           style={{
                             width: '100%',
-                            height: '840px',
-                            minHeight: '840px',
+                            height: '100%',
                             border: 'none',
                           }}
-                          className="w-full h-[840px] min-h-[840px] block border-0 bg-white"
+                          className="w-full h-full block border-0 bg-white"
                         />
                       </div>
                     </div>
                   )
                 ) : (cand.cvId || effectiveCvId || (cand.cvUrl && cand.cvUrl !== '#')) && cand.cvUrl && !cand.cvUrl.includes('/candidate/profile') ? (
-                  <div className="w-full h-[840px] min-h-[840px] flex flex-col overflow-auto bg-slate-100/60 p-2 sm:p-3">
+                  <div className="w-full h-[840px] min-h-[840px] flex flex-col overflow-x-auto overflow-y-hidden bg-slate-100/60 p-0">
                     <div
                       style={{
                         width: zoomLevel === 100 ? '100%' : `${zoomLevel}%`,
                         minWidth: '100%',
-                        height: '840px',
-                        minHeight: '840px',
+                        height: '100%',
                         transition: 'width 0.15s ease-out',
                       }}
-                      className="w-full h-[840px] min-h-[840px] flex flex-col bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mx-auto"
+                      className="h-full flex flex-col bg-white border-0 shadow-none overflow-hidden mx-auto"
                     >
                       <iframe
                         key={`direct-iframe-${cand.cvId || effectiveCvId}-${zoomLevel}`}
                         src={
                           (cand.cvId || effectiveCvId)
-                            ? `${getApiBaseUrl()}/api/v1/cvs/${cand.cvId || effectiveCvId}/preview?token=${encodeURIComponent(localStorage.getItem('token') || '')}#page=1&view=Fit&toolbar=1&navpanes=0`
+                            ? `${getApiBaseUrl()}/api/v1/cvs/${cand.cvId || effectiveCvId}/preview?token=${encodeURIComponent(localStorage.getItem('token') || '')}#page=1&view=FitH&zoom=${zoomLevel === 100 ? 'page-width' : zoomLevel}&toolbar=1&navpanes=0`
                             : cand.cvUrl.startsWith('http')
-                              ? `${cand.cvUrl}#page=1&view=Fit&toolbar=1&navpanes=0`
-                              : `${getApiBaseUrl()}/${cand.cvUrl.replace(/^\//, '')}#page=1&view=Fit&toolbar=1&navpanes=0`
+                              ? `${cand.cvUrl}#page=1&view=FitH&zoom=${zoomLevel === 100 ? 'page-width' : zoomLevel}&toolbar=1&navpanes=0`
+                              : `${getApiBaseUrl()}/${cand.cvUrl.replace(/^\//, '')}#page=1&view=FitH&zoom=${zoomLevel === 100 ? 'page-width' : zoomLevel}&toolbar=1&navpanes=0`
                         }
                         title={`CV - ${cand.name}`}
                         style={{
                           width: '100%',
-                          height: '840px',
-                          minHeight: '840px',
+                          height: '100%',
                           border: 'none',
                         }}
-                        className="w-full h-[840px] min-h-[840px] block border-0 bg-white"
+                        className="w-full h-full block border-0 bg-white"
                       />
                     </div>
                   </div>
@@ -2574,7 +2598,7 @@ export default function CandidateEvaluationPage({
                 candidate={cand}
                 matchScore={cand.matchScore}
                 initialTemplate={cand.initialTemplate || 'executive'}
-                showSelector={false}
+                showSelector={true}
               />
             )}
           </div>
