@@ -47,6 +47,7 @@ public class SecurityConfig {
                         // CORS Preflight requests
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         // Public endpoints
+                        .requestMatchers("/health", "/ping", "/api/v1/health", "/api/v1/ping").permitAll()
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers("/api/v1/jobs/recommendations", "/api/v1/jobs/re-match").hasRole("CANDIDATE")
                         .requestMatchers(HttpMethod.GET, "/api/v1/jobs/**").permitAll()
