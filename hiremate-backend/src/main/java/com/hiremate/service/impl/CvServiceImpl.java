@@ -1224,9 +1224,16 @@ public class CvServiceImpl implements CvService {
                     if (address == null || address.isBlank()) address = cand.getLocation();
                 } else {
                     if (experienceYears == null) experienceYears = cand.getExperienceYears();
-                    if (educationsJson == null || educationsJson.isBlank() || "[]".equals(educationsJson)) educationsJson = cand.getEducationsJson();
-                    if (experiencesJson == null || experiencesJson.isBlank() || "[]".equals(experiencesJson)) experiencesJson = cand.getExperiencesJson();
-                    if (projectsJson == null || projectsJson.isBlank() || "[]".equals(projectsJson)) projectsJson = cand.getProjectsJson();
+                    boolean hasOwnExperiences = experiencesJson != null && !experiencesJson.isBlank() && !"[]".equals(experiencesJson);
+                    boolean hasOwnProjects = projectsJson != null && !projectsJson.isBlank() && !"[]".equals(projectsJson);
+                    if (!hasOwnExperiences && !hasOwnProjects) {
+                        if (experiencesJson == null || experiencesJson.isBlank() || "[]".equals(experiencesJson)) {
+                            experiencesJson = cand.getExperiencesJson();
+                        }
+                    }
+                    if (educationsJson == null || educationsJson.isBlank() || "[]".equals(educationsJson)) {
+                        educationsJson = cand.getEducationsJson();
+                    }
                 }
             }
             User candUser = prefetchedUser != null ? prefetchedUser : userRepository.findById(cv.getCandidateId()).orElse(null);
@@ -1260,6 +1267,12 @@ public class CvServiceImpl implements CvService {
                         var firstExp = parsedData.getExperiences().get(0);
                         if (firstExp.getRole() != null && !firstExp.getRole().isBlank()) {
                             headline = firstExp.getRole().trim();
+                        }
+                    }
+                    if ((headline == null || headline.isBlank()) && parsedData != null && parsedData.getProjects() != null && !parsedData.getProjects().isEmpty()) {
+                        var firstProj = parsedData.getProjects().get(0);
+                        if (firstProj.getRole() != null && !firstProj.getRole().isBlank()) {
+                            headline = firstProj.getRole().trim();
                         }
                     }
                     if ((headline == null || headline.isBlank()) && cv.getParsedText() != null) {

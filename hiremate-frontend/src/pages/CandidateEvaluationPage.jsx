@@ -424,7 +424,7 @@ export default function CandidateEvaluationPage({
   const [cvMimeType, setCvMimeType] = useState('application/pdf');
   const [isPdfLoading, setIsPdfLoading] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(100);
-  const [layoutRatio, setLayoutRatio] = useState('balanced'); // 'wide-cv' (4:8) | 'balanced' (5:7)
+  const [layoutRatio, setLayoutRatio] = useState('wide-cv'); // 'wide-cv' (4:8) | 'balanced' (5:7)
 
   // Modals state
   const [showInterviewModal, setShowInterviewModal] = useState(false);
@@ -1030,7 +1030,7 @@ export default function CandidateEvaluationPage({
 
         const pData = cvData?.parsedData || parsedJson || {};
 
-        // 1. Trích xuất kinh nghiệm làm việc thực tế của chính bản CV đã nộp trước tiên
+        // 1. Trích xuất kinh nghiệm & dự án làm việc thực tế của chính bản CV đã nộp trước tiên
         let experiences = [];
         if (Array.isArray(rawParsed?.experiences) && rawParsed.experiences.length > 0) {
           experiences = rawParsed.experiences;
@@ -1048,11 +1048,36 @@ export default function CandidateEvaluationPage({
             if (Array.isArray(expArr) && expArr.length > 0) experiences = expArr;
           } catch (ignored) {}
         }
-        // Fallback an toàn: nếu bản CV thiếu hoặc không bóc tách được kinh nghiệm, sử dụng kinh nghiệm thực tế từ hồ sơ ứng viên
-        if (experiences.length === 0 && profileData?.experiencesJson) {
+
+        // Lấy dự án trọng điểm thực tế của chính bản CV này
+        let projects = [];
+        if (pData?.projects && Array.isArray(pData.projects) && pData.projects.length > 0) {
+          projects = pData.projects;
+        } else if (parsedJson?.projects && Array.isArray(parsedJson.projects) && parsedJson.projects.length > 0) {
+          projects = parsedJson.projects;
+        } else if (cvData?.parsedData?.projects && Array.isArray(cvData.parsedData.projects) && cvData.parsedData.projects.length > 0) {
+          projects = cvData.parsedData.projects;
+        } else if (Array.isArray(rawParsed.projects) && rawParsed.projects.length > 0) {
+          projects = rawParsed.projects;
+        } else if (cvData?.projectsJson) {
+          try {
+            const projArr = typeof cvData.projectsJson === 'string' ? JSON.parse(cvData.projectsJson) : cvData.projectsJson;
+            if (Array.isArray(projArr) && projArr.length > 0) projects = projArr;
+          } catch (ignored) {}
+        }
+
+        // Chỉ fallback sang Profile nếu bản CV này KHÔNG PHẢI file CV upload riêng VÀ thiếu cả experiences lẫn projects
+        const isUploadedCv = cvData?.fileUrl && !cvData.fileUrl.includes('/candidate/profile');
+        if (experiences.length === 0 && projects.length === 0 && !isUploadedCv && profileData?.experiencesJson) {
           try {
             const expArr = typeof profileData.experiencesJson === 'string' ? JSON.parse(profileData.experiencesJson) : profileData.experiencesJson;
             if (Array.isArray(expArr) && expArr.length > 0) experiences = expArr;
+          } catch (ignored) {}
+        }
+        if (projects.length === 0 && !isUploadedCv && profileData?.projectsJson) {
+          try {
+            const projArr = typeof profileData.projectsJson === 'string' ? JSON.parse(profileData.projectsJson) : profileData.projectsJson;
+            if (Array.isArray(projArr) && projArr.length > 0) projects = projArr;
           } catch (ignored) {}
         }
 
@@ -1109,20 +1134,21 @@ export default function CandidateEvaluationPage({
 
         // 3. Tiêu đề nghề nghiệp (Headline / Role): Ưu tiên tuyệt đối từ bản CV này
         let candidateTitle = '';
-        if (rawParsed?.headline && rawParsed.headline.length > 2 && !rawParsed.headline.includes('|')) {
+        if (rawParsed?.headline && rawParsed.headline.length > 2) {
           candidateTitle = rawParsed.headline.trim();
-        } else if (pData?.headline && typeof pData.headline === 'string' && !pData.headline.includes('|')) {
+        } else if (pData?.headline && typeof pData.headline === 'string' && pData.headline.trim().length > 1) {
           candidateTitle = pData.headline.trim();
-        } else if (pData?.title && typeof pData.title === 'string' && !pData.title.includes('|')) {
-          candidateTitle = pData.title.trim();
-        } else if (parsedJson?.headline && typeof parsedJson.headline === 'string' && !parsedJson.headline.includes('|')) {
-          candidateTitle = parsedJson.headline.trim();
-        } else if (cvData?.headline && typeof cvData.headline === 'string' && !cvData.headline.includes('|')) {
+        } else if (cvData?.headline && typeof cvData.headline === 'string' && cvData.headline.trim().length > 1) {
           candidateTitle = cvData.headline.trim();
+        } else if (pData?.title && typeof pData.title === 'string' && pData.title.trim().length > 1) {
+          candidateTitle = pData.title.trim();
+        } else if (parsedJson?.headline && typeof parsedJson.headline === 'string' && parsedJson.headline.trim().length > 1) {
+          candidateTitle = parsedJson.headline.trim();
         } else if (experiences.length > 0 && experiences[0]?.role) {
-          // Lấy ngay chức danh công việc thực tế gần nhất của chính bản CV này!
           candidateTitle = experiences[0].role.trim();
-        } else if (profileData?.headline && !profileData.headline.includes('|')) {
+        } else if (projects.length > 0 && projects[0]?.role) {
+          candidateTitle = projects[0].role.trim();
+        } else if (profileData?.headline) {
           candidateTitle = profileData.headline.trim();
         } else {
           candidateTitle = jobTitle ? `${jobTitle} • Ứng viên` : 'Chuyên viên';
@@ -1302,29 +1328,6 @@ export default function CandidateEvaluationPage({
           try {
             const langArr = typeof profileData.languagesJson === 'string' ? JSON.parse(profileData.languagesJson) : profileData.languagesJson;
             if (Array.isArray(langArr) && langArr.length > 0) languages = langArr;
-          } catch (ignored) {}
-        }
-
-        // Lấy dự án trọng điểm thực tế của ứng viên
-        let projects = [];
-        if (pData?.projects && Array.isArray(pData.projects) && pData.projects.length > 0) {
-          projects = pData.projects;
-        } else if (parsedJson?.projects && Array.isArray(parsedJson.projects) && parsedJson.projects.length > 0) {
-          projects = parsedJson.projects;
-        } else if (cvData?.parsedData?.projects && Array.isArray(cvData.parsedData.projects) && cvData.parsedData.projects.length > 0) {
-          projects = cvData.parsedData.projects;
-        } else if (Array.isArray(rawParsed.projects) && rawParsed.projects.length > 0) {
-          projects = rawParsed.projects;
-        } else if (cvData?.projectsJson) {
-          try {
-            const projArr = typeof cvData.projectsJson === 'string' ? JSON.parse(cvData.projectsJson) : cvData.projectsJson;
-            if (Array.isArray(projArr) && projArr.length > 0) projects = projArr;
-          } catch (ignored) {}
-        }
-        if (projects.length === 0 && profileData?.projectsJson) {
-          try {
-            const projArr = typeof profileData.projectsJson === 'string' ? JSON.parse(profileData.projectsJson) : profileData.projectsJson;
-            if (Array.isArray(projArr) && projArr.length > 0) projects = projArr;
           } catch (ignored) {}
         }
 
@@ -2486,9 +2489,14 @@ export default function CandidateEvaluationPage({
                 </button>
               )}
 
-              {pdfBlobUrl && canDownloadCv && (
+              {canDownloadCv && (
                 <a
-                  href={pdfBlobUrl}
+                  href={
+                    pdfBlobUrl ||
+                    ((cand.cvId || effectiveCvId)
+                      ? `${getApiBaseUrl()}/api/v1/cvs/${cand.cvId || effectiveCvId}/preview?token=${encodeURIComponent(localStorage.getItem('token') || '')}`
+                      : (cand.cvUrl && cand.cvUrl !== '#' && !cand.cvUrl.includes('/candidate/profile') ? cand.cvUrl : '#'))
+                  }
                   target="_blank"
                   rel="noreferrer"
                   className="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold flex items-center gap-1 cursor-pointer transition-all shadow-2xs"
@@ -2558,11 +2566,10 @@ export default function CandidateEvaluationPage({
                       </div>
                     </div>
                   ) : (
-                    <div className="w-full h-[840px] min-h-[840px] flex flex-col overflow-x-auto overflow-y-hidden bg-slate-100/60 p-0">
+                    <div className="w-full h-[840px] min-h-[840px] flex flex-col overflow-x-auto overflow-y-auto bg-slate-100/60 p-0">
                       <div
                         style={{
                           width: zoomLevel === 100 ? '100%' : `${zoomLevel}%`,
-                          minWidth: '100%',
                           height: '100%',
                           transition: 'width 0.15s ease-out',
                         }}
@@ -2572,8 +2579,8 @@ export default function CandidateEvaluationPage({
                           key={`${pdfBlobUrl}-${zoomLevel}`}
                           src={
                             pdfBlobUrl.includes('#')
-                              ? pdfBlobUrl.replace(/#.*$/, `#page=1&view=FitH&zoom=${zoomLevel === 100 ? 'page-width' : zoomLevel}&toolbar=1&navpanes=0`)
-                              : `${pdfBlobUrl}#page=1&view=FitH&zoom=${zoomLevel === 100 ? 'page-width' : zoomLevel}&toolbar=1&navpanes=0`
+                              ? pdfBlobUrl.replace(/#.*$/, `#page=1&view=Fit&zoom=${zoomLevel === 100 ? '100' : zoomLevel}&toolbar=1&navpanes=0`)
+                              : `${pdfBlobUrl}#page=1&view=Fit&zoom=${zoomLevel === 100 ? '100' : zoomLevel}&toolbar=1&navpanes=0`
                           }
                           title={`CV - ${cand.name}`}
                           style={{
@@ -2587,11 +2594,10 @@ export default function CandidateEvaluationPage({
                     </div>
                   )
                 ) : (cand.cvId || effectiveCvId || (cand.cvUrl && cand.cvUrl !== '#')) && cand.cvUrl && !cand.cvUrl.includes('/candidate/profile') ? (
-                  <div className="w-full h-[840px] min-h-[840px] flex flex-col overflow-x-auto overflow-y-hidden bg-slate-100/60 p-0">
+                  <div className="w-full h-[840px] min-h-[840px] flex flex-col overflow-x-auto overflow-y-auto bg-slate-100/60 p-0">
                     <div
                       style={{
                         width: zoomLevel === 100 ? '100%' : `${zoomLevel}%`,
-                        minWidth: '100%',
                         height: '100%',
                         transition: 'width 0.15s ease-out',
                       }}
@@ -2601,10 +2607,10 @@ export default function CandidateEvaluationPage({
                         key={`direct-iframe-${cand.cvId || effectiveCvId}-${zoomLevel}`}
                         src={
                           (cand.cvId || effectiveCvId)
-                            ? `${getApiBaseUrl()}/api/v1/cvs/${cand.cvId || effectiveCvId}/preview?token=${encodeURIComponent(localStorage.getItem('token') || '')}#page=1&view=FitH&zoom=${zoomLevel === 100 ? 'page-width' : zoomLevel}&toolbar=1&navpanes=0`
+                            ? `${getApiBaseUrl()}/api/v1/cvs/${cand.cvId || effectiveCvId}/preview?token=${encodeURIComponent(localStorage.getItem('token') || '')}#page=1&view=Fit&zoom=${zoomLevel === 100 ? '100' : zoomLevel}&toolbar=1&navpanes=0`
                             : cand.cvUrl.startsWith('http')
-                              ? `${cand.cvUrl}#page=1&view=FitH&zoom=${zoomLevel === 100 ? 'page-width' : zoomLevel}&toolbar=1&navpanes=0`
-                              : `${getApiBaseUrl()}/${cand.cvUrl.replace(/^\//, '')}#page=1&view=FitH&zoom=${zoomLevel === 100 ? 'page-width' : zoomLevel}&toolbar=1&navpanes=0`
+                              ? `${cand.cvUrl}#page=1&view=Fit&zoom=${zoomLevel === 100 ? '100' : zoomLevel}&toolbar=1&navpanes=0`
+                              : `${getApiBaseUrl()}/${cand.cvUrl.replace(/^\//, '')}#page=1&view=Fit&zoom=${zoomLevel === 100 ? '100' : zoomLevel}&toolbar=1&navpanes=0`
                         }
                         title={`CV - ${cand.name}`}
                         style={{

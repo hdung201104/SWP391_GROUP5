@@ -554,23 +554,33 @@ export default function CandidateProfilePage({ user }) {
     linkedin: profileData?.linkedinUrl && profileData.linkedinUrl !== 'Chưa liên kết' ? profileData.linkedinUrl : 'Chưa liên kết',
     github: profileData?.githubUrl && profileData.githubUrl !== 'Chưa liên kết' ? profileData.githubUrl : 'Chưa liên kết',
     portfolio: profileData?.portfolioUrl && profileData.portfolioUrl !== 'Chưa liên kết' ? profileData.portfolioUrl : 'Chưa liên kết',
-    cvVersions: cvFiles.length > 0
-      ? cvFiles.map((f, i) => ({
-        id: `cv_${f.id}`,
-        versionName: f.name,
-        versionBadge: f.isDefault ? '⭐ MẶC ĐỊNH FAST APPLY' : `TỆP ĐÃ TẢI LÊN #${i + 1}`,
-        isDefault: Boolean(f.isDefault),
-      }))
-      : (isCustomCreated
-        ? [
-          {
-            id: 'cv_default_online',
-            versionName: cvData.versionName || 'Bản CV Trực Tuyến HireMate',
-            versionBadge: '⭐ MẶC ĐỊNH FAST APPLY',
-            isDefault: true,
-          }
-        ]
-        : [])
+    cvVersions: (() => {
+      const versions = [];
+      const hasOnlineInFiles = cvFiles.some(f => f.fileUrl && f.fileUrl.includes('/candidate/profile'));
+      if (!hasOnlineInFiles) {
+        versions.push({
+          id: 'cv_default_online',
+          versionName: '⭐ Bản CV Trực Tuyến HireMate',
+          versionBadge: selectedVersionId === 'cv_default_online' ? 'ĐANG CHỌN' : 'MẶC ĐỊNH HỒ SƠ',
+          isDefault: selectedVersionId === 'cv_default_online' || cvFiles.length === 0,
+        });
+      }
+      cvFiles.forEach((f, i) => {
+        const isOnline = f.fileUrl && f.fileUrl.includes('/candidate/profile');
+        const duplicateCount = cvFiles.filter(item => item.name === f.name).length;
+        versions.push({
+          id: `cv_${f.id}`,
+          versionName: isOnline
+            ? '⭐ Bản CV Trực Tuyến HireMate'
+            : (duplicateCount > 1
+                ? `${f.name || `CV #${i + 1}`} (${f.uploaded || `#${i + 1}`})`
+                : (f.name || `Tệp CV #${i + 1}`)),
+          versionBadge: f.isDefault ? '⭐ MẶC ĐỊNH FAST APPLY' : (isOnline ? 'CV TRỰC TUYẾN' : `TỆP ĐÃ TẢI LÊN #${i + 1}`),
+          isDefault: Boolean(f.isDefault),
+        });
+      });
+      return versions;
+    })()
   };
   const [isUploading, setIsUploading] = useState(false);
   const [analyzedAtsScore, setAnalyzedAtsScore] = useState(null);
@@ -676,6 +686,18 @@ export default function CandidateProfilePage({ user }) {
 
   const applyCvToOnlineView = (cvItem) => {
     if (!cvItem) return;
+
+    // Resolve parsedData safely from cvItem
+    let pData = cvItem.parsedData || {};
+    if ((!pData || Object.keys(pData).length === 0) && cvItem.parsedJson) {
+      try {
+        pData = typeof cvItem.parsedJson === 'string' ? JSON.parse(cvItem.parsedJson) : cvItem.parsedJson;
+      } catch (e) {
+        pData = {};
+      }
+    }
+    if (!pData) pData = {};
+
     const isNameLikeFileName = (nameStr) => {
       if (!nameStr || typeof nameStr !== 'string') return true;
       const clean = nameStr.trim().toLowerCase();
@@ -683,35 +705,88 @@ export default function CandidateProfilePage({ user }) {
       if (clean.includes('communication') || clean.includes('resume') || clean.endsWith('.pdf') || clean.endsWith('.docx')) return true;
       return false;
     };
-    let candidateName = pData.full_name || pData.fullName || pData.candidate_name || pData.candidateName;
-    if (!candidateName || isNameLikeFileName(candidateName)) {
-      candidateName = currentCandidate.accountName || user?.fullName || profileData?.fullName;
-    }
-    const phone = pData.phone || cvItem.phone || user?.phone;
-    const email = pData.email || cvItem.email || user?.email;
-    const location = pData.address || pData.location || cvItem.address || cvItem.location || profileData?.location;
 
-    const exp = normalizeExperiences(pData.experiences || cvItem.experiencesJson || []);
+    let candidateName = pData.full_name || pData.fullName || pData.candidate_name || pData.candidateName || cvItem.fullName || cvItem.candidateName;
+    if (!candidateName || isNameLikeFileName(candidateName)) {
+      candidateName = profileData?.fullName || user?.fullName || currentCandidate.accountName || 'Ứng viên';
+    }
+
+    const phone = pData.phone || cvItem.phone || user?.phone || profileData?.phone || '';
+    const email = pData.email || cvItem.email || user?.email || profileData?.email || '';
+    const location = pData.address || pData.location || cvItem.address || cvItem.location || profileData?.location || user?.address || 'Việt Nam';
+
+    // Parse experiences
+    let rawExp = pData.experiences;
+    if (!rawExp && cvItem.experiencesJson) {
+      try {
+        rawExp = typeof cvItem.experiencesJson === 'string' ? JSON.parse(cvItem.experiencesJson) : cvItem.experiencesJson;
+      } catch (e) { rawExp = []; }
+    }
+    if (!rawExp && Array.isArray(cvItem.experiences)) rawExp = cvItem.experiences;
+    const exp = normalizeExperiences(rawExp || []);
+
+    // Headline: Format jammed CamelCase words without discarding pipe
     let headline = pData.headline || cvItem.headline;
-    if (!headline || headline.includes('|')) {
+    if (headline) {
+      headline = headline.replace(/([a-z])([A-Z])/g, '$1 $2').trim();
+    }
+    if (!headline) {
       if (exp.length > 0 && exp[0]?.role) {
         headline = exp[0].role;
       } else {
-        headline = cvData.targetTitle || profileData?.headline;
+        headline = profileData?.headline || cvData.targetTitle || 'Chuyên viên Chuyên môn';
       }
     }
 
+    // Summary
     let summary = pData.summary || cvItem.summary;
     if ((!summary || summary.includes('Uploaded via HireMate')) && exp.length > 0) {
       const topRoles = exp.slice(0, 2).map(e => e.role || e.company).filter(Boolean).join(' • ');
       summary = `Ứng viên có bề dày năng lực và kinh nghiệm thực chiến với vị trí ${topRoles || headline}. Hồ sơ chuyên môn được đối soát và chuẩn hóa tự động theo đúng bản CV này.`;
     }
-    if (!summary) summary = cvData.summary;
+    if (!summary) {
+      summary = profileData?.bio || cvData.summary || 'Chuyên viên tận tâm với kinh nghiệm thực chiến và tinh thần học hỏi cao.';
+    }
 
-    const edu = normalizeEducations(pData.educations || cvItem.educationsJson || []);
-    const proj = normalizeProjects(pData.projects || cvItem.projectsJson || []);
-    const cert = normalizeCertifications(pData.certifications || cvItem.certificationsJson || [], headline);
-    const lang = normalizeLanguages(pData.languages || cvItem.languagesJson || [], headline);
+    // Education
+    let rawEdu = pData.educations;
+    if (!rawEdu && cvItem.educationsJson) {
+      try {
+        rawEdu = typeof cvItem.educationsJson === 'string' ? JSON.parse(cvItem.educationsJson) : cvItem.educationsJson;
+      } catch (e) { rawEdu = []; }
+    }
+    if (!rawEdu && Array.isArray(cvItem.education)) rawEdu = cvItem.education;
+    const edu = normalizeEducations(rawEdu || []);
+
+    // Projects
+    let rawProj = pData.projects;
+    if (!rawProj && cvItem.projectsJson) {
+      try {
+        rawProj = typeof cvItem.projectsJson === 'string' ? JSON.parse(cvItem.projectsJson) : cvItem.projectsJson;
+      } catch (e) { rawProj = []; }
+    }
+    if (!rawProj && Array.isArray(cvItem.projects)) rawProj = cvItem.projects;
+    const proj = normalizeProjects(rawProj || []);
+
+    // Certifications
+    let rawCert = pData.certifications;
+    if (!rawCert && cvItem.certificationsJson) {
+      try {
+        rawCert = typeof cvItem.certificationsJson === 'string' ? JSON.parse(cvItem.certificationsJson) : cvItem.certificationsJson;
+      } catch (e) { rawCert = []; }
+    }
+    const cert = normalizeCertifications(rawCert || [], headline);
+
+    // Languages
+    let rawLang = pData.languages;
+    if (!rawLang && cvItem.languagesJson) {
+      try {
+        rawLang = typeof cvItem.languagesJson === 'string' ? JSON.parse(cvItem.languagesJson) : cvItem.languagesJson;
+      } catch (e) { rawLang = []; }
+    }
+    const lang = normalizeLanguages(rawLang || [], headline);
+
+    // Skills
     const sk = (pData.skills && pData.skills.length > 0)
       ? pData.skills
       : (cvItem.detectedSkills && cvItem.detectedSkills.length > 0 ? cvItem.detectedSkills : []);
@@ -765,12 +840,17 @@ export default function CandidateProfilePage({ user }) {
             languagesJson: cv.languagesJson,
             detectedSkills: cv.detectedSkills,
             parsedData: cv.parsedData,
+            parsedJson: cv.parsedJson,
           }));
           setCvFiles(mapped);
 
-          // Tự động load dữ liệu của CV mặc định (hoặc CV đầu tiên) vào bản hiển thị trực tuyến
-          const activeCv = mapped.find(c => c.isDefault) || mapped[0];
-          if (activeCv) {
+          // Tự động load dữ liệu của CV đang chọn, hoặc CV mặc định, hoặc CV đầu tiên
+          const currentSelected = selectedVersionId && selectedVersionId.startsWith('cv_') && selectedVersionId !== 'cv_default_online'
+            ? mapped.find(c => `cv_${c.id}` === selectedVersionId)
+            : null;
+          const activeCv = currentSelected || mapped.find(c => c.isDefault) || mapped[0];
+          if (activeCv && selectedVersionId !== 'cv_default_online') {
+            setSelectedVersionId(`cv_${activeCv.id}`);
             applyCvToOnlineView(activeCv);
           }
         } else {
@@ -812,7 +892,46 @@ export default function CandidateProfilePage({ user }) {
   // Switch between CV versions
   const handleSelectCvVersion = (verId) => {
     setSelectedVersionId(verId);
-    const targetFile = cvFiles.find(f => `cv_${f.id}` === verId);
+    if (verId === 'cv_default_online') {
+      const p = profileData;
+      let pExp = [];
+      let pEdu = [];
+      let pProj = [];
+      let pCert = [];
+      let pLang = [];
+      try { if (p?.experiencesJson) pExp = typeof p.experiencesJson === 'string' ? JSON.parse(p.experiencesJson) : p.experiencesJson; } catch (e) {}
+      try { if (p?.educationsJson) pEdu = typeof p.educationsJson === 'string' ? JSON.parse(p.educationsJson) : p.educationsJson; } catch (e) {}
+      try { if (p?.projectsJson) pProj = typeof p.projectsJson === 'string' ? JSON.parse(p.projectsJson) : p.projectsJson; } catch (e) {}
+      try { if (p?.certificationsJson) pCert = typeof p.certificationsJson === 'string' ? JSON.parse(p.certificationsJson) : p.certificationsJson; } catch (e) {}
+      try { if (p?.languagesJson) pLang = typeof p.languagesJson === 'string' ? JSON.parse(p.languagesJson) : p.languagesJson; } catch (e) {}
+
+      let pSkills = [];
+      if (Array.isArray(p?.skills)) {
+        pSkills = p.skills.map(s => s.skillName || s.name || s).filter(Boolean);
+      }
+
+      setCvData(prev => ({
+        ...prev,
+        id: 'cv_default_online',
+        versionName: 'Bản CV Trực Tuyến HireMate',
+        candidateName: p?.fullName || user?.fullName || prev.candidateName,
+        phone: p?.phone || user?.phone || prev.phone,
+        email: p?.email || user?.email || prev.email,
+        location: p?.location || user?.address || prev.location,
+        targetTitle: p?.headline || prev.targetTitle || 'Chuyên viên Chuyên môn',
+        summary: p?.bio || prev.summary || '',
+        experiences: normalizeExperiences(pExp),
+        education: normalizeEducations(pEdu),
+        projects: normalizeProjects(pProj),
+        certifications: normalizeCertifications(pCert, p?.headline),
+        languages: normalizeLanguages(pLang, p?.headline),
+        skills: normalizeSkillsToCategories(pSkills)
+      }));
+      showToast('Đã chuyển sang: Bản CV Trực Tuyến HireMate');
+      return;
+    }
+
+    const targetFile = cvFiles.find(f => `cv_${f.id}` === verId || String(f.id) === String(verId));
     if (targetFile) {
       applyCvToOnlineView(targetFile);
       showToast(`Đã chuyển sang: ${targetFile.name}`);
@@ -1296,6 +1415,9 @@ export default function CandidateProfilePage({ user }) {
 
       // Re-fetch CVs list
       await fetchMyCvs();
+      if (resData?.cvId) {
+        setSelectedVersionId(`cv_${resData.cvId}`);
+      }
 
       // Read parsed data returned by backend (CvParsedDTO structure)
       const parsedData = resData?.parsedData || {};

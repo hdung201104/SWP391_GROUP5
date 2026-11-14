@@ -64,6 +64,9 @@ export default function OnlineCvRenderer({
   if (!title && experiences.length > 0 && experiences[0]?.role) {
     title = experiences[0].role;
   }
+  if (!title && candidate.projects && candidate.projects.length > 0 && candidate.projects[0]?.role) {
+    title = candidate.projects[0].role;
+  }
   if (!title) title = 'Chuyên Viên';
   title = title.replace(/([a-z])([A-Z])/g, '$1 $2').trim();
 
@@ -76,6 +79,9 @@ export default function OnlineCvRenderer({
   if ((!summary || summary.includes('Uploaded via HireMate')) && experiences.length > 0) {
     const topExp = experiences.slice(0, 2).map(e => e.role || e.company).filter(Boolean).join(' • ');
     summary = `Ứng viên có bề dày năng lực và kinh nghiệm thực tế với vị trí ${topExp || title}. Hồ sơ chuyên môn được đối soát và chuẩn hóa tự động theo đúng bản CV ứng tuyển.`;
+  } else if ((!summary || summary.includes('Uploaded via HireMate')) && candidate.projects && candidate.projects.length > 0) {
+    const topProj = candidate.projects.slice(0, 2).map(p => p.role || p.name).filter(Boolean).join(' • ');
+    summary = `Ứng viên có bề dày năng lực và kinh nghiệm thực chiến qua các dự án tiêu biểu: ${topProj || title}. Hồ sơ chuyên môn được đối soát và chuẩn hóa tự động theo đúng bản CV này.`;
   }
   if (!summary) summary = 'Chuyên viên tận tâm với kinh nghiệm thực chiến và tinh thần học hỏi, cầu tiến cao.';
 
