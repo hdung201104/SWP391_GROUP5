@@ -839,8 +839,14 @@ export default function CandidateProfilePage({ user }) {
     }
 
     if (!realCvId && cvFiles.length > 0) {
-      const matched = cvFiles.find(f => `cv_${f.id}` === verId || String(f.id) === String(verId));
-      if (matched) realCvId = matched.id;
+      if (verId === 'cv_default_online') {
+        const onlineCv = cvFiles.find(f => (f.fileUrl && f.fileUrl.includes('/candidate/profile')) || (f.name && f.name.includes('Trực Tuyến')) || (f.fileName && f.fileName.includes('Trực Tuyến')));
+        if (onlineCv) realCvId = onlineCv.id;
+      }
+      if (!realCvId) {
+        const matched = cvFiles.find(f => `cv_${f.id}` === verId || String(f.id) === String(verId));
+        if (matched) realCvId = matched.id;
+      }
     }
 
     if (realCvId) {
@@ -4763,7 +4769,11 @@ export default function CandidateProfilePage({ user }) {
           <ApplyJobModal
             job={applyingJob}
             user={user}
-            initialCvId={selectedVersionId && selectedVersionId.startsWith('cv_') && selectedVersionId !== 'cv_default_online' ? Number(selectedVersionId.replace('cv_', '')) : null}
+            initialCvId={
+              selectedVersionId === 'cv_default_online'
+                ? 'online'
+                : (selectedVersionId && selectedVersionId.startsWith('cv_') ? Number(selectedVersionId.replace('cv_', '')) : null)
+            }
             onClose={() => setApplyingJob(null)}
             onSuccess={() => {
               showToast('Nộp hồ sơ ứng tuyển thành công!');

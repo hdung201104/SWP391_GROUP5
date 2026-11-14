@@ -96,7 +96,7 @@ export default function CandidateApplicationsPage({ user }) {
           if (Array.isArray(parsed)) {
             setSavedJobs(parsed);
           }
-        } catch {}
+        } catch { }
       }
     }).catch((err) => console.warn('Lỗi tải danh sách việc làm đã lưu từ server:', err));
 
@@ -146,38 +146,38 @@ export default function CandidateApplicationsPage({ user }) {
               app.matchingScore != null
                 ? Math.round(app.matchingScore)
                 : app.aiMatch != null
-                ? Math.round(app.aiMatch)
-                : null;
+                  ? Math.round(app.aiMatch)
+                  : null;
             const responseNotice = isWithdrawn
               ? 'Bạn đã chủ động rút đơn ứng tuyển (Có thể nộp lại với CV cập nhật)'
               : isOfferDeclined
-              ? 'Bạn đã chủ động từ chối lời mời nhận việc (Offer)'
-              : st === 'HIRED'
-              ? '🎉 Chúc mừng! Bạn đã chính thức trúng tuyển vị trí này (Onboarding)'
-              : st === 'OFFER'
-              ? 'Đã Nhận Thư Mời Nhận Việc (Offer)'
-              : st === 'INTERVIEW'
-              ? 'Đã Vào Vòng Phỏng Vấn Tuyển Dụng'
-              : st === 'REJECTED'
-              ? 'Hồ sơ chưa phù hợp trong đợt tuyển này'
-              : st === 'SCREENING'
-              ? 'Hồ sơ đang trong quá trình xét duyệt'
-              : 'Hồ sơ đã nộp thành công qua hệ thống';
+                ? 'Bạn đã chủ động từ chối lời mời nhận việc (Offer)'
+                : st === 'HIRED'
+                  ? '🎉 Chúc mừng! Bạn đã chính thức trúng tuyển vị trí này (Onboarding)'
+                  : st === 'OFFER'
+                    ? 'Đã Nhận Thư Mời Nhận Việc (Offer)'
+                    : st === 'INTERVIEW'
+                      ? 'Đã Vào Vòng Phỏng Vấn Tuyển Dụng'
+                      : st === 'REJECTED'
+                        ? 'Hồ sơ chưa phù hợp trong đợt tuyển này'
+                        : st === 'SCREENING'
+                          ? 'Hồ sơ đang trong quá trình xét duyệt'
+                          : 'Hồ sơ đã nộp thành công qua hệ thống';
             const statusLabel = isWithdrawn
               ? 'Đã Rút Đơn'
               : isOfferDeclined
-              ? 'Đã Từ Chối Offer'
-              : st === 'HIRED'
-              ? 'Trúng Tuyển (Hired)'
-              : st === 'OFFER'
-              ? 'Đã Nhận Offer'
-              : st === 'INTERVIEW'
-              ? 'Vòng Phỏng Vấn'
-              : st === 'SCREENING'
-              ? 'Đang Duyệt CV'
-              : st === 'REJECTED'
-              ? 'Chưa Phù Hợp'
-              : 'Đã Nộp Hồ Sơ';
+                ? 'Đã Từ Chối Offer'
+                : st === 'HIRED'
+                  ? 'Trúng Tuyển (Hired)'
+                  : st === 'OFFER'
+                    ? 'Đã Nhận Offer'
+                    : st === 'INTERVIEW'
+                      ? 'Vòng Phỏng Vấn'
+                      : st === 'SCREENING'
+                        ? 'Đang Duyệt CV'
+                        : st === 'REJECTED'
+                          ? 'Chưa Phù Hợp'
+                          : 'Đã Nộp Hồ Sơ';
 
             const formatJobSalary = (min, max) => {
               if (!min && !max) return 'Theo thỏa thuận';
@@ -231,7 +231,7 @@ export default function CandidateApplicationsPage({ user }) {
                     }
                   }
                 }
-              } catch {}
+              } catch { }
             }
 
             const rawJobStatus = app.jobStatus || app.job?.status || 'PUBLISHED';
@@ -309,12 +309,12 @@ export default function CandidateApplicationsPage({ user }) {
           setApplications(mapped);
           try {
             sessionStorage.setItem('hiremate_cached_applications', JSON.stringify(mapped));
-          } catch {}
+          } catch { }
         } else {
           setApplications([]);
           try {
             sessionStorage.setItem('hiremate_cached_applications', JSON.stringify([]));
-          } catch {}
+          } catch { }
         }
         setLoadError(null);
       })
@@ -391,7 +391,7 @@ export default function CandidateApplicationsPage({ user }) {
           offerNote: offerLog.notes,
         }));
       }
-    } catch (ignored) {}
+    } catch (ignored) { }
   };
 
   const handleOpenInvitationModal = async (app) => {
@@ -407,7 +407,7 @@ export default function CandidateApplicationsPage({ user }) {
           interviewNote: interviewLog.notes,
         }));
       }
-    } catch (ignored) {}
+    } catch (ignored) { }
   };
 
   const handleOpenJobModal = (app) => {
@@ -590,11 +590,10 @@ export default function CandidateApplicationsPage({ user }) {
           <button
             type="button"
             onClick={() => setActiveFilter('ALL')}
-            className={`px-3.5 py-2 rounded-2xl font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
-              activeFilter === 'ALL'
-                ? 'bg-[#5b48bd] text-white shadow-sm'
-                : 'bg-[#f8f7ff] text-slate-700 hover:bg-purple-50 hover:text-[#5b48bd] border border-purple-100/60'
-            }`}
+            className={`px-3.5 py-2 rounded-2xl font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${activeFilter === 'ALL'
+              ? 'bg-[#5b48bd] text-white shadow-sm'
+              : 'bg-[#f8f7ff] text-slate-700 hover:bg-purple-50 hover:text-[#5b48bd] border border-purple-100/60'
+              }`}
           >
             <span>Tất cả</span>
             <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20 text-inherit font-extrabold">
@@ -605,11 +604,10 @@ export default function CandidateApplicationsPage({ user }) {
           <button
             type="button"
             onClick={() => setActiveFilter('SCREENING')}
-            className={`px-3.5 py-2 rounded-2xl font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
-              activeFilter === 'SCREENING'
-                ? 'bg-[#5b48bd] text-white shadow-sm'
-                : 'bg-[#f8f7ff] text-slate-700 hover:bg-purple-50 hover:text-[#5b48bd] border border-purple-100/60'
-            }`}
+            className={`px-3.5 py-2 rounded-2xl font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${activeFilter === 'SCREENING'
+              ? 'bg-[#5b48bd] text-white shadow-sm'
+              : 'bg-[#f8f7ff] text-slate-700 hover:bg-purple-50 hover:text-[#5b48bd] border border-purple-100/60'
+              }`}
           >
             <span>Đang duyệt CV</span>
             <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20 text-inherit font-extrabold">
@@ -620,11 +618,10 @@ export default function CandidateApplicationsPage({ user }) {
           <button
             type="button"
             onClick={() => setActiveFilter('INTERVIEW')}
-            className={`px-3.5 py-2 rounded-2xl font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
-              activeFilter === 'INTERVIEW'
-                ? 'bg-[#5b48bd] text-white shadow-sm'
-                : 'bg-[#f8f7ff] text-slate-700 hover:bg-purple-50 hover:text-[#5b48bd] border border-purple-100/60'
-            }`}
+            className={`px-3.5 py-2 rounded-2xl font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${activeFilter === 'INTERVIEW'
+              ? 'bg-[#5b48bd] text-white shadow-sm'
+              : 'bg-[#f8f7ff] text-slate-700 hover:bg-purple-50 hover:text-[#5b48bd] border border-purple-100/60'
+              }`}
           >
             <span>Phỏng vấn</span>
             {interviewCount > 0 && (
@@ -637,11 +634,10 @@ export default function CandidateApplicationsPage({ user }) {
           <button
             type="button"
             onClick={() => setActiveFilter('OFFER')}
-            className={`px-3.5 py-2 rounded-2xl font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
-              activeFilter === 'OFFER'
-                ? 'bg-[#5b48bd] text-white shadow-sm'
-                : 'bg-[#f8f7ff] text-slate-700 hover:bg-purple-50 hover:text-[#5b48bd] border border-purple-100/60'
-            }`}
+            className={`px-3.5 py-2 rounded-2xl font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${activeFilter === 'OFFER'
+              ? 'bg-[#5b48bd] text-white shadow-sm'
+              : 'bg-[#f8f7ff] text-slate-700 hover:bg-purple-50 hover:text-[#5b48bd] border border-purple-100/60'
+              }`}
           >
             <span>Đã nhận Offer</span>
             {offerCount > 0 && (
@@ -654,11 +650,10 @@ export default function CandidateApplicationsPage({ user }) {
           <button
             type="button"
             onClick={() => setActiveFilter('HIRED')}
-            className={`px-3.5 py-2 rounded-2xl font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
-              activeFilter === 'HIRED'
-                ? 'bg-emerald-600 text-white shadow-sm'
-                : 'bg-[#f8f7ff] text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 border border-emerald-100/60'
-            }`}
+            className={`px-3.5 py-2 rounded-2xl font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${activeFilter === 'HIRED'
+              ? 'bg-emerald-600 text-white shadow-sm'
+              : 'bg-[#f8f7ff] text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 border border-emerald-100/60'
+              }`}
           >
             <span>Trúng tuyển (Hired)</span>
             {hiredCount > 0 && (
@@ -671,11 +666,10 @@ export default function CandidateApplicationsPage({ user }) {
           <button
             type="button"
             onClick={() => setActiveFilter('REJECTED')}
-            className={`px-3.5 py-2 rounded-2xl font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
-              activeFilter === 'REJECTED'
-                ? 'bg-rose-600 text-white shadow-sm'
-                : 'bg-[#f8f7ff] text-slate-700 hover:bg-rose-50 hover:text-rose-700 border border-rose-100/60'
-            }`}
+            className={`px-3.5 py-2 rounded-2xl font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${activeFilter === 'REJECTED'
+              ? 'bg-rose-600 text-white shadow-sm'
+              : 'bg-[#f8f7ff] text-slate-700 hover:bg-rose-50 hover:text-rose-700 border border-rose-100/60'
+              }`}
           >
             <span className="material-symbols-outlined text-[15px]">cancel</span>
             <span>Từ chối / Đã rút</span>
@@ -694,11 +688,10 @@ export default function CandidateApplicationsPage({ user }) {
               setActiveFilter('SAVED');
               window.location.hash = '#/applications?tab=saved';
             }}
-            className={`px-3.5 py-2 rounded-2xl font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
-              activeFilter === 'SAVED'
-                ? 'bg-[#5b48bd] text-white shadow-sm'
-                : 'bg-[#f8f7ff] text-slate-700 hover:bg-purple-50 hover:text-[#5b48bd] border border-purple-100/60'
-            }`}
+            className={`px-3.5 py-2 rounded-2xl font-bold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${activeFilter === 'SAVED'
+              ? 'bg-[#5b48bd] text-white shadow-sm'
+              : 'bg-[#f8f7ff] text-slate-700 hover:bg-purple-50 hover:text-[#5b48bd] border border-purple-100/60'
+              }`}
           >
             <span className="material-symbols-outlined text-[15px]">bookmark</span>
             <span>Đã lưu ({savedJobs.length})</span>
@@ -721,9 +714,8 @@ export default function CandidateApplicationsPage({ user }) {
             <button
               type="button"
               onClick={() => setViewMode('list')}
-              className={`p-1.5 rounded-xl cursor-pointer transition-all ${
-                viewMode === 'list' ? 'bg-[#5b48bd] text-white shadow-xs' : 'text-slate-500 hover:text-[#5b48bd]'
-              }`}
+              className={`p-1.5 rounded-xl cursor-pointer transition-all ${viewMode === 'list' ? 'bg-[#5b48bd] text-white shadow-xs' : 'text-slate-500 hover:text-[#5b48bd]'
+                }`}
               title="Xem danh sách"
             >
               <span className="material-symbols-outlined text-base">format_list_bulleted</span>
@@ -731,9 +723,8 @@ export default function CandidateApplicationsPage({ user }) {
             <button
               type="button"
               onClick={() => setViewMode('kanban')}
-              className={`p-1.5 rounded-xl cursor-pointer transition-all ${
-                viewMode === 'kanban' ? 'bg-[#5b48bd] text-white shadow-xs' : 'text-slate-500 hover:text-[#5b48bd]'
-              }`}
+              className={`p-1.5 rounded-xl cursor-pointer transition-all ${viewMode === 'kanban' ? 'bg-[#5b48bd] text-white shadow-xs' : 'text-slate-500 hover:text-[#5b48bd]'
+                }`}
               title="Xem bảng Kanban"
             >
               <span className="material-symbols-outlined text-base">view_kanban</span>
@@ -1152,21 +1143,20 @@ export default function CandidateApplicationsPage({ user }) {
                       )}
 
                       <span
-                        className={`text-xs px-3.5 py-1.5 rounded-full font-bold border ${
-                          app.status === 'HIRED'
-                            ? 'bg-emerald-100 border-emerald-300 text-emerald-900 font-extrabold'
-                            : app.status === 'OFFER'
+                        className={`text-xs px-3.5 py-1.5 rounded-full font-bold border ${app.status === 'HIRED'
+                          ? 'bg-emerald-100 border-emerald-300 text-emerald-900 font-extrabold'
+                          : app.status === 'OFFER'
                             ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
                             : app.status === 'INTERVIEW'
-                            ? 'bg-purple-50 border-purple-300 text-[#5b48bd]'
-                            : app.status === 'WITHDRAWN'
-                            ? 'bg-slate-100 border-slate-300 text-slate-700 font-bold'
-                            : app.status === 'OFFER_DECLINED'
-                            ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-bold'
-                            : app.status === 'REJECTED'
-                            ? 'bg-rose-50 border-rose-200 text-rose-600'
-                            : 'bg-amber-50 border-amber-200 text-amber-700'
-                        }`}
+                              ? 'bg-purple-50 border-purple-300 text-[#5b48bd]'
+                              : app.status === 'WITHDRAWN'
+                                ? 'bg-slate-100 border-slate-300 text-slate-700 font-bold'
+                                : app.status === 'OFFER_DECLINED'
+                                  ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-bold'
+                                  : app.status === 'REJECTED'
+                                    ? 'bg-rose-50 border-rose-200 text-rose-600'
+                                    : 'bg-amber-50 border-amber-200 text-amber-700'
+                          }`}
                       >
                         {app.statusLabel}
                       </span>
@@ -1190,7 +1180,7 @@ export default function CandidateApplicationsPage({ user }) {
                         <div className="text-slate-800 leading-relaxed font-medium">
                           {app.companyBlocked ? (
                             <>
-                              Công ty <strong className="text-rose-900 font-bold">"{app.company}"</strong> hiện không đủ điều kiện pháp lý hoạt động hoặc đã bị Quản trị viên thu hồi giấy phép. 
+                              Công ty <strong className="text-rose-900 font-bold">"{app.company}"</strong> hiện không đủ điều kiện pháp lý hoạt động hoặc đã bị Quản trị viên thu hồi giấy phép.
                               {app.companyRejectionReason && (
                                 <div className="mt-1.5 p-2 rounded-xl bg-white/80 border border-rose-200 text-rose-900 font-semibold text-xs">
                                   📌 Lý do đình chỉ từ Ban Quản Trị: "{app.companyRejectionReason}"
@@ -1212,13 +1202,12 @@ export default function CandidateApplicationsPage({ user }) {
 
                   {/* Rejection / Withdrawal / Offer Decline feedback */}
                   {app.rejectionReason && (
-                    <div className={`p-3 rounded-2xl border text-xs flex items-start gap-2 ${
-                      app.withdrawnByCandidate
-                        ? 'bg-slate-50 border-slate-200 text-slate-700'
-                        : app.offerDeclinedByCandidate
+                    <div className={`p-3 rounded-2xl border text-xs flex items-start gap-2 ${app.withdrawnByCandidate
+                      ? 'bg-slate-50 border-slate-200 text-slate-700'
+                      : app.offerDeclinedByCandidate
                         ? 'bg-indigo-50/70 border-indigo-200 text-indigo-800'
                         : 'bg-rose-50/80 border-rose-200 text-rose-800'
-                    }`}>
+                      }`}>
                       <span className="material-symbols-outlined text-sm shrink-0 mt-0.5">
                         {app.withdrawnByCandidate ? 'undo' : app.offerDeclinedByCandidate ? 'cancel' : 'info'}
                       </span>
@@ -1227,8 +1216,8 @@ export default function CandidateApplicationsPage({ user }) {
                           {app.withdrawnByCandidate
                             ? 'Thông tin rút đơn: '
                             : app.offerDeclinedByCandidate
-                            ? 'Thông tin từ chối Offer: '
-                            : 'Lý do / Phản hồi từ Nhà tuyển dụng: '}
+                              ? 'Thông tin từ chối Offer: '
+                              : 'Lý do / Phản hồi từ Nhà tuyển dụng: '}
                         </span>
                         <span>{app.rejectionReason.replace(/^(WITHDRAWN_BY_CANDIDATE:\s*|OFFER_DECLINED_BY_CANDIDATE:\s*)/, '')}</span>
                       </div>
@@ -1292,13 +1281,12 @@ export default function CandidateApplicationsPage({ user }) {
                         <div key={st.step} className="flex flex-col items-center sm:items-start text-center sm:text-left">
                           <div className="w-full flex items-center mb-2">
                             <div
-                              className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black shadow-xs shrink-0 transition-all ${
-                                st.status === 'completed'
-                                  ? 'bg-[#5b48bd] text-white'
-                                  : st.status === 'active'
+                              className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black shadow-xs shrink-0 transition-all ${st.status === 'completed'
+                                ? 'bg-[#5b48bd] text-white'
+                                : st.status === 'active'
                                   ? 'bg-gradient-to-r from-[#221d47] to-[#5b48bd] text-white ring-4 ring-purple-200 animate-pulse'
                                   : 'bg-slate-200 text-slate-400'
-                              }`}
+                                }`}
                             >
                               {st.status === 'completed' ? (
                                 <span className="material-symbols-outlined text-sm">check</span>
@@ -1308,24 +1296,22 @@ export default function CandidateApplicationsPage({ user }) {
                             </div>
                             {st.step < 4 && (
                               <div
-                                className={`flex-1 h-1 mx-1.5 rounded-full transition-all ${
-                                  st.status === 'completed'
-                                    ? 'bg-[#5b48bd]'
-                                    : st.status === 'active'
+                                className={`flex-1 h-1 mx-1.5 rounded-full transition-all ${st.status === 'completed'
+                                  ? 'bg-[#5b48bd]'
+                                  : st.status === 'active'
                                     ? 'bg-purple-300'
                                     : 'bg-slate-200'
-                                }`}
+                                  }`}
                               />
                             )}
                           </div>
                           <div
-                            className={`text-xs font-bold ${
-                              st.status === 'active'
-                                ? 'text-[#5b48bd]'
-                                : st.status === 'completed'
+                            className={`text-xs font-bold ${st.status === 'active'
+                              ? 'text-[#5b48bd]'
+                              : st.status === 'completed'
                                 ? 'text-[#1e1b4b]'
                                 : 'text-slate-400'
-                            }`}
+                              }`}
                           >
                             {st.title}
                           </div>
@@ -1440,63 +1426,60 @@ export default function CandidateApplicationsPage({ user }) {
 
             {/* Pagination Bar for Candidate Applications */}
             {filteredApps.length > 0 && (
-            <div className="bg-white/95 backdrop-blur-xs p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
-              <div className="text-xs text-slate-500 font-medium">
-                Hiển thị <span className="font-bold text-[#1e1b4b]">{(validCurrentPage - 1) * PAGE_SIZE + 1}</span> - <span className="font-bold text-[#1e1b4b]">{Math.min(validCurrentPage * PAGE_SIZE, filteredApps.length)}</span> trong tổng số <span className="font-bold text-[#5b48bd]">{filteredApps.length}</span> hồ sơ ứng tuyển đã lọc
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  disabled={validCurrentPage <= 1}
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 transition-all ${
-                    validCurrentPage <= 1
-                      ? 'text-slate-300 bg-slate-50 cursor-not-allowed border border-slate-100'
-                      : 'text-[#47369f] bg-purple-50/80 hover:bg-[#5b48bd] hover:text-white border border-purple-200 cursor-pointer shadow-2xs'
-                  }`}
-                  title="Trang trước"
-                >
-                  <span className="material-symbols-outlined text-[16px]">chevron_left</span>
-                  <span className="hidden sm:inline">Trước</span>
-                </button>
-
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
-                    <button
-                      key={pageNum}
-                      type="button"
-                      onClick={() => setCurrentPage(pageNum)}
-                      className={`w-8 h-8 rounded-xl text-xs font-bold flex items-center justify-center transition-all cursor-pointer ${
-                        validCurrentPage === pageNum
-                          ? 'bg-gradient-to-r from-[#5b48bd] to-[#7c66dc] text-white shadow-sm font-extrabold scale-105'
-                          : 'text-slate-600 hover:text-[#5b48bd] hover:bg-purple-50 border border-transparent hover:border-purple-200'
-                      }`}
-                    >
-                      {pageNum}
-                    </button>
-                  ))}
+              <div className="bg-white/95 backdrop-blur-xs p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
+                <div className="text-xs text-slate-500 font-medium">
+                  Hiển thị <span className="font-bold text-[#1e1b4b]">{(validCurrentPage - 1) * PAGE_SIZE + 1}</span> - <span className="font-bold text-[#1e1b4b]">{Math.min(validCurrentPage * PAGE_SIZE, filteredApps.length)}</span> trong tổng số <span className="font-bold text-[#5b48bd]">{filteredApps.length}</span> hồ sơ ứng tuyển đã lọc
                 </div>
 
-                <button
-                  type="button"
-                  disabled={validCurrentPage >= totalPages}
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 transition-all ${
-                    validCurrentPage >= totalPages
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={validCurrentPage <= 1}
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 transition-all ${validCurrentPage <= 1
                       ? 'text-slate-300 bg-slate-50 cursor-not-allowed border border-slate-100'
                       : 'text-[#47369f] bg-purple-50/80 hover:bg-[#5b48bd] hover:text-white border border-purple-200 cursor-pointer shadow-2xs'
-                  }`}
-                  title="Trang tiếp"
-                >
-                  <span className="hidden sm:inline">Tiếp</span>
-                  <span className="material-symbols-outlined text-[16px]">chevron_right</span>
-                </button>
+                      }`}
+                    title="Trang trước"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">chevron_left</span>
+                    <span className="hidden sm:inline">Trước</span>
+                  </button>
+
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                      <button
+                        key={pageNum}
+                        type="button"
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={`w-8 h-8 rounded-xl text-xs font-bold flex items-center justify-center transition-all cursor-pointer ${validCurrentPage === pageNum
+                          ? 'bg-gradient-to-r from-[#5b48bd] to-[#7c66dc] text-white shadow-sm font-extrabold scale-105'
+                          : 'text-slate-600 hover:text-[#5b48bd] hover:bg-purple-50 border border-transparent hover:border-purple-200'
+                          }`}
+                      >
+                        {pageNum}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={validCurrentPage >= totalPages}
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 transition-all ${validCurrentPage >= totalPages
+                      ? 'text-slate-300 bg-slate-50 cursor-not-allowed border border-slate-100'
+                      : 'text-[#47369f] bg-purple-50/80 hover:bg-[#5b48bd] hover:text-white border border-purple-200 cursor-pointer shadow-2xs'
+                      }`}
+                    title="Trang tiếp"
+                  >
+                    <span className="hidden sm:inline">Tiếp</span>
+                    <span className="material-symbols-outlined text-[16px]">chevron_right</span>
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
-        </div>
-      ))}
+            )}
+          </div>
+        ))}
 
       {/* ========================================================= */}
       {/* 5. MODALS (OFFER, INTERVIEW & 2-WAY CHAT)                 */}

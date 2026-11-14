@@ -18,5 +18,6 @@ public interface CvService {
     CvResponse updateCv(Long cvId, CvParsedDTO updateDto, User candidate);
     String rewriteSummary(com.hiremate.dto.request.RewriteSummaryRequest request, User candidate);
     boolean isAuthorizedToAccessCv(Long cvId, User user);
+    com.hiremate.entity.Cv getOrCreateOnlineCv(Long candidateId);
 }
 

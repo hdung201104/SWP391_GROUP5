@@ -37,6 +37,9 @@ public class ApplicationServiceImpl implements ApplicationService {
     private final com.hiremate.service.NotificationService notificationService;
     private final com.hiremate.service.AiJobMatchService aiJobMatchService;
     private final com.hiremate.service.EmailService emailService;
+    @org.springframework.beans.factory.annotation.Autowired
+    @org.springframework.context.annotation.Lazy
+    private com.hiremate.service.CvService cvService;
     private static final com.fasterxml.jackson.databind.ObjectMapper OBJECT_MAPPER = new com.fasterxml.jackson.databind.ObjectMapper();
     private final Map<Long, CachedApplications> candidateAppsCache = new java.util.concurrent.ConcurrentHashMap<>();
 
@@ -146,6 +149,14 @@ public class ApplicationServiceImpl implements ApplicationService {
                         }
                         return (cvs != null && !cvs.isEmpty()) ? cvs.get(0) : null;
                     });
+        }
+
+        if (cv == null && cvService != null) {
+            try {
+                cv = cvService.getOrCreateOnlineCv(candidate.getCandidateId());
+            } catch (Exception ex) {
+                log.warn("Could not get or create online CV for candidate {}: {}", candidate.getCandidateId(), ex.getMessage());
+            }
         }
 
         if (cv == null) {
@@ -277,6 +288,31 @@ public class ApplicationServiceImpl implements ApplicationService {
                     long daysRemaining = cooldownDays - daysSince;
                     throw new BadRequestException("Hồ sơ ứng tuyển của bạn đã từng bị từ chối cho vị trí này. Theo chính sách tuyển dụng, bạn có thể nộp lại hồ sơ sau " + daysRemaining + " ngày nữa (thời gian giãn cách 30 ngày) để hoàn thiện thêm kỹ năng & kinh nghiệm.");
                 }
+            } else if (existingApp.getStatus() == ApplicationStatus.APPLIED) {
+                // Cho phép ứng viên cập nhật lại bản CV hoặc Thư giới thiệu khi đơn vẫn đang ở giai đoạn nộp (APPLIED)
+                existingApp.setCv(cv);
+                if (request.getCoverLetter() != null && !request.getCoverLetter().isBlank()) {
+                    existingApp.setCoverLetter(request.getCoverLetter());
+                }
+                Application savedApp = applicationRepository.save(existingApp);
+
+                pipelineLogRepository.save(RecruitmentPipelineLog.builder()
+                        .applicationId(savedApp.getApplicationId())
+                        .fromStage(ApplicationStatus.APPLIED)
+                        .toStage(ApplicationStatus.APPLIED)
+                        .notes("Ứng viên đã cập nhật lại bản CV đính kèm: " + (cv != null ? cv.getFileName() : "CV cập nhật"))
+                        .changedBy(user.getUserId())
+                        .build());
+
+                try {
+                    aiJobMatchService.calculateAndSaveMatch(candidate, job, cv);
+                } catch (Throwable ex) {
+                    log.warn("AI match calculation non-blocking warning: {}", ex.getMessage());
+                }
+
+                candidateAppsCache.remove(user.getUserId());
+                log.info(">> [ApplicationService] Ứng viên #{} cập nhật lại CV (#{}) cho đơn #{}", candidate.getCandidateId(), cv.getCvId(), savedApp.getApplicationId());
+                return mapToResponse(savedApp);
             } else {
                 throw new BadRequestException("Bạn đang có hồ sơ ứng tuyển cho vị trí này (trạng thái: " + existingApp.getStatus() + "). Vui lòng theo dõi tiến trình tại mục Việc làm đã ứng tuyển.");
             }

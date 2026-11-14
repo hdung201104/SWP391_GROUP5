@@ -1047,7 +1047,9 @@ export default function CandidateEvaluationPage({
             const expArr = typeof cvData.experiencesJson === 'string' ? JSON.parse(cvData.experiencesJson) : cvData.experiencesJson;
             if (Array.isArray(expArr) && expArr.length > 0) experiences = expArr;
           } catch (ignored) {}
-        } else if (!effectiveCvId && profileData?.experiencesJson) {
+        }
+        // Fallback an toàn: nếu bản CV thiếu hoặc không bóc tách được kinh nghiệm, sử dụng kinh nghiệm thực tế từ hồ sơ ứng viên
+        if (experiences.length === 0 && profileData?.experiencesJson) {
           try {
             const expArr = typeof profileData.experiencesJson === 'string' ? JSON.parse(profileData.experiencesJson) : profileData.experiencesJson;
             if (Array.isArray(expArr) && expArr.length > 0) experiences = expArr;
@@ -1125,6 +1127,9 @@ export default function CandidateEvaluationPage({
         } else {
           candidateTitle = jobTitle ? `${jobTitle} • Ứng viên` : 'Chuyên viên';
         }
+        if (candidateTitle) {
+          candidateTitle = candidateTitle.replace(/([a-z])([A-Z])/g, '$1 $2').trim();
+        }
 
         // 4. Lấy danh sách kỹ năng thực tế (Ưu tiên CV đã nộp: rawParsed, pData, parsedJson, detectedSkills, profileData)
         let cleanSkills = [];
@@ -1138,7 +1143,8 @@ export default function CandidateEvaluationPage({
           cleanSkills = cvData.detectedSkills.filter(Boolean);
         } else if (cvData?.parsedData?.skills && Array.isArray(cvData.parsedData.skills) && cvData.parsedData.skills.length > 0) {
           cleanSkills = cvData.parsedData.skills.filter(Boolean);
-        } else if (!effectiveCvId && profileData?.skills && Array.isArray(profileData.skills) && profileData.skills.length > 0) {
+        }
+        if (cleanSkills.length === 0 && profileData?.skills && Array.isArray(profileData.skills) && profileData.skills.length > 0) {
           cleanSkills = profileData.skills.map((s) => s.skillName || s.name || s).filter(Boolean);
         }
 
@@ -1155,6 +1161,16 @@ export default function CandidateEvaluationPage({
             if (!cleanSkills.includes('Giảng Dạy / Tutor')) cleanSkills.push('Giảng Dạy / Tutor');
           }
         }
+
+        // Lọc sạch các mảnh text vụn từ OCR / 2-column mashing
+        cleanSkills = cleanSkills.filter((s) => {
+          if (!s || typeof s !== 'string') return false;
+          const clean = s.trim();
+          if (clean.length < 2 || clean.length > 30) return false;
+          if (/^(?:and|in|between|with|or|to|for|of|the|a|an)\s+/i.test(clean)) return false;
+          if (clean.split(/\s+/).length > 3) return false;
+          return true;
+        });
 
         // 5. Tóm tắt nghề nghiệp / About Me: Ưu tiên bóc tách từ file CV gốc đã nộp
         let candidateSummary = '';
@@ -1235,7 +1251,8 @@ export default function CandidateEvaluationPage({
             const eduArr = typeof cvData.educationsJson === 'string' ? JSON.parse(cvData.educationsJson) : cvData.educationsJson;
             if (Array.isArray(eduArr) && eduArr.length > 0) educations = eduArr;
           } catch (ignored) {}
-        } else if (!effectiveCvId && profileData?.educationsJson) {
+        }
+        if (educations.length === 0 && profileData?.educationsJson) {
           try {
             const eduArr = typeof profileData.educationsJson === 'string' ? JSON.parse(profileData.educationsJson) : profileData.educationsJson;
             if (Array.isArray(eduArr) && eduArr.length > 0) educations = eduArr;
@@ -1257,7 +1274,8 @@ export default function CandidateEvaluationPage({
             const certArr = typeof cvData.certificationsJson === 'string' ? JSON.parse(cvData.certificationsJson) : cvData.certificationsJson;
             if (Array.isArray(certArr) && certArr.length > 0) certifications = certArr;
           } catch (ignored) {}
-        } else if (!effectiveCvId && profileData?.certificationsJson) {
+        }
+        if (certifications.length === 0 && profileData?.certificationsJson) {
           try {
             const certArr = typeof profileData.certificationsJson === 'string' ? JSON.parse(profileData.certificationsJson) : profileData.certificationsJson;
             if (Array.isArray(certArr) && certArr.length > 0) certifications = certArr;
@@ -1279,7 +1297,8 @@ export default function CandidateEvaluationPage({
             const langArr = typeof cvData.languagesJson === 'string' ? JSON.parse(cvData.languagesJson) : cvData.languagesJson;
             if (Array.isArray(langArr) && langArr.length > 0) languages = langArr;
           } catch (ignored) {}
-        } else if (!effectiveCvId && profileData?.languagesJson) {
+        }
+        if (languages.length === 0 && profileData?.languagesJson) {
           try {
             const langArr = typeof profileData.languagesJson === 'string' ? JSON.parse(profileData.languagesJson) : profileData.languagesJson;
             if (Array.isArray(langArr) && langArr.length > 0) languages = langArr;
@@ -1301,7 +1320,8 @@ export default function CandidateEvaluationPage({
             const projArr = typeof cvData.projectsJson === 'string' ? JSON.parse(cvData.projectsJson) : cvData.projectsJson;
             if (Array.isArray(projArr) && projArr.length > 0) projects = projArr;
           } catch (ignored) {}
-        } else if (!effectiveCvId && profileData?.projectsJson) {
+        }
+        if (projects.length === 0 && profileData?.projectsJson) {
           try {
             const projArr = typeof profileData.projectsJson === 'string' ? JSON.parse(profileData.projectsJson) : profileData.projectsJson;
             if (Array.isArray(projArr) && projArr.length > 0) projects = projArr;

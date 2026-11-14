@@ -60,11 +60,12 @@ export default function OnlineCvRenderer({
       : (Array.isArray(exp.highlights) && exp.highlights.length > 0 ? exp.highlights : []),
   }));
 
-  let title = candidate.title || candidate.targetTitle || candidate.jobTitle || '';
+  let title = candidate.title || candidate.headline || candidate.targetTitle || candidate.jobTitle || '';
   if (!title && experiences.length > 0 && experiences[0]?.role) {
     title = experiences[0].role;
   }
   if (!title) title = 'Chuyên Viên';
+  title = title.replace(/([a-z])([A-Z])/g, '$1 $2').trim();
 
   const email = candidate.email || 'ungvien@hiremate.vn';
   const phone = candidate.phone || '(+84) 090.123.4567';
@@ -77,7 +78,7 @@ export default function OnlineCvRenderer({
     summary = `Ứng viên có bề dày năng lực và kinh nghiệm thực tế với vị trí ${topExp || title}. Hồ sơ chuyên môn được đối soát và chuẩn hóa tự động theo đúng bản CV ứng tuyển.`;
   }
   if (!summary) summary = 'Chuyên viên tận tâm với kinh nghiệm thực chiến và tinh thần học hỏi, cầu tiến cao.';
-  
+
   // Kỹ năng
   const skills = Array.isArray(candidate.skills) ? candidate.skills : [];
   
@@ -89,7 +90,7 @@ export default function OnlineCvRenderer({
     degree: edu.degree || edu.major || edu.fieldOfStudy || 'Chuyên ngành chuyên môn',
     period: edu.period || edu.year || edu.duration || '2023 - 2026',
   }));
-  
+
   // Dự án (Chuẩn hóa tự động cho cả name & project_name)
   const rawProjects = Array.isArray(candidate.projects) ? candidate.projects : [];
   const projects = rawProjects.map((proj) => ({
@@ -145,11 +146,10 @@ export default function OnlineCvRenderer({
                   key={tpl.id}
                   type="button"
                   onClick={() => handleSelectTemplate(tpl.id)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-sans transition-all flex items-center gap-1.5 cursor-pointer ${
-                    template === tpl.id
-                      ? 'bg-[#5b48bd] text-white shadow-xs font-bold'
-                      : 'text-slate-600 hover:text-[#1e1b4b] hover:bg-purple-50/60 font-medium'
-                  }`}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-sans transition-all flex items-center gap-1.5 cursor-pointer ${template === tpl.id
+                    ? 'bg-[#5b48bd] text-white shadow-xs font-bold'
+                    : 'text-slate-600 hover:text-[#1e1b4b] hover:bg-purple-50/60 font-medium'
+                    }`}
                   title={tpl.desc}
                 >
                   <span className="material-symbols-outlined text-[15px]">{tpl.icon}</span>
@@ -380,50 +380,58 @@ export default function OnlineCvRenderer({
               </section>
 
               {/* 2. Kinh nghiệm làm việc */}
-              <section className="space-y-4">
-                <h3 className="text-xs font-extrabold uppercase tracking-widest text-[#1e1b4b] flex items-center gap-2 pb-1 border-b border-slate-100">
-                  <span className="material-symbols-outlined text-base text-[#5b48bd]">work_history</span>
-                  <span>Lịch Sử Kinh Nghiệm Làm Việc</span>
-                </h3>
-                <div className="space-y-4">
-                  {experiences.map((exp, idx) => (
-                    <div key={idx} className="relative pl-4 border-l-2 border-[#5b48bd]/40 space-y-1.5">
-                      <div className="absolute -left-[5px] top-1.5 w-2 h-2 rounded-full bg-[#5b48bd]" />
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <strong className="text-xs sm:text-sm text-[#1e1b4b] font-bold">
-                          {exp.role || exp.title}
-                        </strong>
-                        <span className="text-[11px] font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
-                          {exp.period || exp.duration}
-                        </span>
-                      </div>
-                      <p className="text-xs font-bold text-[#5b48bd]">
-                        {exp.company} {exp.location ? `• ${exp.location}` : ''}
-                      </p>
-                      {Array.isArray(exp.bullets) && exp.bullets.length > 0 ? (
-                        <ul className="list-disc pl-4 text-xs text-slate-600 space-y-1 mt-1">
-                          {exp.bullets.map((b, bi) => (
-                            <li key={bi} className="leading-relaxed">{b}</li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="text-xs text-slate-600 leading-relaxed">
-                          {exp.description || exp.summary}
-                        </p>
-                      )}
-                      {Array.isArray(exp.tags) && exp.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1 pt-1">
-                          {exp.tags.map((t, ti) => (
-                            <span key={ti} className="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-100">
-                              #{t}
+              {(experiences.length > 0 || projects.length === 0) && (
+                <section className="space-y-4">
+                  <h3 className="text-xs font-extrabold uppercase tracking-widest text-[#1e1b4b] flex items-center gap-2 pb-1 border-b border-slate-100">
+                    <span className="material-symbols-outlined text-base text-[#5b48bd]">work_history</span>
+                    <span>Lịch Sử Kinh Nghiệm Làm Việc</span>
+                  </h3>
+                  {experiences.length > 0 ? (
+                    <div className="space-y-4">
+                      {experiences.map((exp, idx) => (
+                        <div key={idx} className="relative pl-4 border-l-2 border-[#5b48bd]/40 space-y-1.5">
+                          <div className="absolute -left-[5px] top-1.5 w-2 h-2 rounded-full bg-[#5b48bd]" />
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <strong className="text-xs sm:text-sm text-[#1e1b4b] font-bold">
+                              {exp.role || exp.title}
+                            </strong>
+                            <span className="text-[11px] font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                              {exp.period || exp.duration}
                             </span>
-                          ))}
+                          </div>
+                          <p className="text-xs font-bold text-[#5b48bd]">
+                            {exp.company} {exp.location ? `• ${exp.location}` : ''}
+                          </p>
+                          {Array.isArray(exp.bullets) && exp.bullets.length > 0 ? (
+                            <ul className="list-disc pl-4 text-xs text-slate-600 space-y-1 mt-1">
+                              {exp.bullets.map((b, bi) => (
+                                <li key={bi} className="leading-relaxed">{b}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="text-xs text-slate-600 leading-relaxed">
+                              {exp.description || exp.summary}
+                            </p>
+                          )}
+                          {Array.isArray(exp.tags) && exp.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 pt-1">
+                              {exp.tags.map((t, ti) => (
+                                <span key={ti} className="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-100">
+                                  #{t}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                      )}
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </section>
+                  ) : (
+                    <p className="text-xs text-slate-500 italic bg-slate-50/80 p-3 rounded-2xl border border-slate-100">
+                      Hồ sơ tập trung vào các dự án công nghệ &amp; năng lực thực chiến tiêu biểu bên dưới.
+                    </p>
+                  )}
+                </section>
+              )}
 
               {/* 3. Dự án tiêu biểu */}
               {projects.length > 0 && (
@@ -501,34 +509,42 @@ export default function OnlineCvRenderer({
             </section>
 
             {/* Harvard Section 3: Professional Experience */}
-            <section className="space-y-4">
-              <h2 className="text-xs font-serif font-black uppercase tracking-wider pb-0.5 border-b border-slate-400 text-slate-900">
-                KINH NGHIỆM LÀM VIỆC (PROFESSIONAL EXPERIENCE)
-              </h2>
-              <div className="space-y-4">
-                {experiences.map((exp, idx) => (
-                  <div key={idx} className="space-y-1 font-sans">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-bold text-xs sm:text-sm text-slate-950">{exp.company}</span>
-                      <span className="text-xs font-mono text-slate-600">{exp.period || exp.duration}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-xs italic text-slate-700 font-serif">
-                      <span>{exp.role || exp.title}</span>
-                      {exp.location && <span>{exp.location}</span>}
-                    </div>
-                    {Array.isArray(exp.bullets) && exp.bullets.length > 0 ? (
-                      <ul className="list-disc pl-5 text-xs text-slate-700 space-y-1 pt-1 font-sans">
-                        {exp.bullets.map((b, bi) => (
-                          <li key={bi} className="leading-relaxed">{b}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-xs text-slate-700 leading-relaxed font-sans">{exp.description || exp.summary}</p>
-                    )}
+            {(experiences.length > 0 || projects.length === 0) && (
+              <section className="space-y-4">
+                <h2 className="text-xs font-serif font-black uppercase tracking-wider pb-0.5 border-b border-slate-400 text-slate-900">
+                  KINH NGHIỆM LÀM VIỆC (PROFESSIONAL EXPERIENCE)
+                </h2>
+                {experiences.length > 0 ? (
+                  <div className="space-y-4">
+                    {experiences.map((exp, idx) => (
+                      <div key={idx} className="space-y-1 font-sans">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-bold text-xs sm:text-sm text-slate-950">{exp.company}</span>
+                          <span className="text-xs font-mono text-slate-600">{exp.period || exp.duration}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs italic text-slate-700 font-serif">
+                          <span>{exp.role || exp.title}</span>
+                          {exp.location && <span>{exp.location}</span>}
+                        </div>
+                        {Array.isArray(exp.bullets) && exp.bullets.length > 0 ? (
+                          <ul className="list-disc pl-5 text-xs text-slate-700 space-y-1 pt-1 font-sans">
+                            {exp.bullets.map((b, bi) => (
+                              <li key={bi} className="leading-relaxed">{b}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="text-xs text-slate-700 leading-relaxed font-sans">{exp.description || exp.summary}</p>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </section>
+                ) : (
+                  <p className="text-xs text-slate-600 italic font-sans">
+                    Ứng viên tập trung vào các dự án công nghệ &amp; nghiên cứu ứng dụng tiêu biểu.
+                  </p>
+                )}
+              </section>
+            )}
 
             {/* Harvard Section 4: Projects */}
             {projects.length > 0 && (
@@ -655,45 +671,53 @@ export default function OnlineCvRenderer({
               {/* Left Column (8/12): Experience & Projects */}
               <div className="md:col-span-8 space-y-6">
                 {/* Kinh nghiệm */}
-                <section className="space-y-4">
-                  <div className="flex items-center gap-2 pb-2 border-b border-slate-200">
-                    <div className="w-7 h-7 rounded-lg bg-purple-100 text-[#5b48bd] flex items-center justify-center font-bold">
-                      <span className="material-symbols-outlined text-base">work</span>
-                    </div>
-                    <h3 className="font-extrabold text-sm text-[#1e1b4b] uppercase tracking-wider">
-                      Kinh Nghiệm Thực Chiến
-                    </h3>
-                  </div>
-
-                  <div className="space-y-4">
-                    {experiences.map((exp, idx) => (
-                      <div key={idx} className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <strong className="text-xs sm:text-sm text-[#1e1b4b] font-bold">
-                            {exp.role || exp.title}
-                          </strong>
-                          <span className="text-[11px] font-mono text-[#5b48bd] bg-purple-50 px-2 py-0.5 rounded-md font-bold">
-                            {exp.period || exp.duration}
-                          </span>
-                        </div>
-                        <div className="text-xs font-semibold text-[#5b48bd]">
-                          {exp.company}
-                        </div>
-                        {Array.isArray(exp.bullets) && exp.bullets.length > 0 ? (
-                          <ul className="list-disc pl-4 text-xs text-slate-600 space-y-1">
-                            {exp.bullets.map((b, bi) => (
-                              <li key={bi} className="leading-relaxed">{b}</li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <p className="text-xs text-slate-600 leading-relaxed">
-                            {exp.description || exp.summary}
-                          </p>
-                        )}
+                {(experiences.length > 0 || projects.length === 0) && (
+                  <section className="space-y-4">
+                    <div className="flex items-center gap-2 pb-2 border-b border-slate-200">
+                      <div className="w-7 h-7 rounded-lg bg-purple-100 text-[#5b48bd] flex items-center justify-center font-bold">
+                        <span className="material-symbols-outlined text-base">work</span>
                       </div>
-                    ))}
-                  </div>
-                </section>
+                      <h3 className="font-extrabold text-sm text-[#1e1b4b] uppercase tracking-wider">
+                        Kinh Nghiệm Thực Chiến
+                      </h3>
+                    </div>
+
+                    {experiences.length > 0 ? (
+                      <div className="space-y-4">
+                        {experiences.map((exp, idx) => (
+                          <div key={idx} className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <strong className="text-xs sm:text-sm text-[#1e1b4b] font-bold">
+                                {exp.role || exp.title}
+                              </strong>
+                              <span className="text-[11px] font-mono text-[#5b48bd] bg-purple-50 px-2 py-0.5 rounded-md font-bold">
+                                {exp.period || exp.duration}
+                              </span>
+                            </div>
+                            <div className="text-xs font-semibold text-[#5b48bd]">
+                              {exp.company}
+                            </div>
+                            {Array.isArray(exp.bullets) && exp.bullets.length > 0 ? (
+                              <ul className="list-disc pl-4 text-xs text-slate-600 space-y-1">
+                                {exp.bullets.map((b, bi) => (
+                                  <li key={bi} className="leading-relaxed">{b}</li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="text-xs text-slate-600 leading-relaxed">
+                                {exp.description || exp.summary}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-500 italic bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
+                        Ứng viên tập trung vào các dự án công nghệ &amp; nghiên cứu ứng dụng tiêu biểu.
+                      </p>
+                    )}
+                  </section>
+                )}
 
                 {/* Dự án */}
                 {projects.length > 0 && (

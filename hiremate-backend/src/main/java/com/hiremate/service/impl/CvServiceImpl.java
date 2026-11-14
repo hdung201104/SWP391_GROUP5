@@ -310,10 +310,127 @@ public class CvServiceImpl implements CvService {
 
     @Override
     @Transactional
+    public Cv getOrCreateOnlineCv(Long candidateId) {
+        if (candidateId == null) return null;
+        com.hiremate.entity.Candidate cand = candidateRepository.findByCandidateId(candidateId).orElse(null);
+        User user = userRepository.findById(candidateId).orElse(null);
+        if (cand == null && user == null) return null;
+
+        List<Cv> cvList = cvRepository.findByCandidateId(candidateId);
+        Cv onlineCv = (cvList != null) ? cvList.stream()
+                .filter(c -> c.getFileUrl() != null && c.getFileUrl().contains("/candidate/profile"))
+                .findFirst()
+                .orElse(null) : null;
+
+        String fullName = user != null && user.getFullName() != null && !user.getFullName().isBlank()
+                ? user.getFullName().trim() : "Ứng Viên";
+        String headline = cand != null && cand.getHeadline() != null && !cand.getHeadline().isBlank()
+                ? cand.getHeadline().trim() : "Chuyên viên";
+        String bio = cand != null && cand.getBio() != null && !cand.getBio().isBlank()
+                ? cand.getBio().trim() : (user != null && user.getBio() != null ? user.getBio().trim() : "");
+        String phone = user != null && user.getPhone() != null ? user.getPhone() : "";
+        String email = user != null && user.getEmail() != null ? user.getEmail() : "";
+        String address = user != null && user.getAddress() != null && !user.getAddress().isBlank()
+                ? user.getAddress().trim() : (cand != null && cand.getLocation() != null ? cand.getLocation().trim() : "");
+
+        Map<String, Object> jsonMap = new HashMap<>();
+        jsonMap.put("fullName", fullName);
+        jsonMap.put("headline", headline);
+        jsonMap.put("summary", bio);
+        jsonMap.put("phone", phone);
+        jsonMap.put("email", email);
+        jsonMap.put("address", address);
+
+        if (cand != null) {
+            try {
+                if (cand.getExperiencesJson() != null && !cand.getExperiencesJson().isBlank() && !"[]".equals(cand.getExperiencesJson().trim())) {
+                    jsonMap.put("experiences", objectMapper.readValue(cand.getExperiencesJson(), Object.class));
+                }
+                if (cand.getEducationsJson() != null && !cand.getEducationsJson().isBlank() && !"[]".equals(cand.getEducationsJson().trim())) {
+                    jsonMap.put("educations", objectMapper.readValue(cand.getEducationsJson(), Object.class));
+                }
+                if (cand.getProjectsJson() != null && !cand.getProjectsJson().isBlank() && !"[]".equals(cand.getProjectsJson().trim())) {
+                    jsonMap.put("projects", objectMapper.readValue(cand.getProjectsJson(), Object.class));
+                }
+            } catch (Exception ignored) {}
+        }
+
+        List<String> profileSkills = new ArrayList<>();
+        var candSkills = candidateSkillRepository.findByProfileId(candidateId);
+        if (!candSkills.isEmpty()) {
+            List<Long> skillIds = candSkills.stream()
+                    .map(com.hiremate.entity.CandidateSkill::getSkillId)
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .toList();
+            List<com.hiremate.entity.Skill> skills = skillRepository.findAllById(skillIds);
+            for (com.hiremate.entity.Skill sk : skills) {
+                if (sk.getSkillName() != null && !sk.getSkillName().isBlank()) {
+                    String skn = sk.getSkillName().trim();
+                    if (!profileSkills.contains(skn)) profileSkills.add(skn);
+                }
+            }
+        }
+        jsonMap.put("skills", profileSkills);
+
+        String rawJson = "{}";
+        try {
+            rawJson = objectMapper.writeValueAsString(jsonMap);
+        } catch (Exception ignored) {}
+
+        StringBuilder textBuilder = new StringBuilder();
+        textBuilder.append("Họ và tên: ").append(fullName).append("\n");
+        textBuilder.append("Chức danh: ").append(headline).append("\n");
+        if (!phone.isBlank()) textBuilder.append("Số điện thoại: ").append(phone).append("\n");
+        if (!email.isBlank()) textBuilder.append("Email: ").append(email).append("\n");
+        if (!address.isBlank()) textBuilder.append("Địa chỉ: ").append(address).append("\n");
+        if (!bio.isBlank()) textBuilder.append("Tóm tắt: ").append(bio).append("\n");
+        if (!profileSkills.isEmpty()) textBuilder.append("Kỹ năng: ").append(String.join(", ", profileSkills)).append("\n");
+        if (cand != null && cand.getExperiencesJson() != null) textBuilder.append("Kinh nghiệm: ").append(cand.getExperiencesJson()).append("\n");
+        if (cand != null && cand.getEducationsJson() != null) textBuilder.append("Học vấn: ").append(cand.getEducationsJson()).append("\n");
+        if (cand != null && cand.getProjectsJson() != null) textBuilder.append("Dự án: ").append(cand.getProjectsJson()).append("\n");
+
+        if (onlineCv == null) {
+            boolean hasAnyDefault = cvList != null && cvList.stream().anyMatch(c -> Boolean.TRUE.equals(c.getIsDefault()));
+            onlineCv = Cv.builder()
+                    .candidateId(candidateId)
+                    .fileName("Bản CV Trực Tuyến - " + fullName + ".pdf")
+                    .fileUrl("/candidate/profile")
+                    .fileType("pdf")
+                    .fileSizeBytes(1024)
+                    .parsedText(textBuilder.toString().trim())
+                    .parsedJson(rawJson)
+                    .summary(bio)
+                    .parseStatus(CvParseStatus.DONE)
+                    .isDefault(!hasAnyDefault)
+                    .build();
+            onlineCv = cvRepository.save(onlineCv);
+            log.info(">> [CvService] Đã tạo bản CV Trực Tuyến cho candidate ID: {}", candidateId);
+        } else {
+            onlineCv.setFileName("Bản CV Trực Tuyến - " + fullName + ".pdf");
+            onlineCv.setParsedText(textBuilder.toString().trim());
+            onlineCv.setParsedJson(rawJson);
+            onlineCv.setSummary(bio);
+            onlineCv.setParseStatus(CvParseStatus.DONE);
+            onlineCv = cvRepository.save(onlineCv);
+        }
+        return onlineCv;
+    }
+
+    @Override
+    @Transactional
     public List<CvResponse> getCandidateCvs(Long candidateId) {
         if (candidateId == null) {
             return Collections.emptyList();
         }
+
+        // Tự động đồng bộ bản CV Trực Tuyến (Online CV) để luôn xuất hiện trong danh sách lựa chọn
+        try {
+            getOrCreateOnlineCv(candidateId);
+        } catch (Exception ex) {
+            log.warn(">> [CvService] Could not ensure online CV for candidate {}: {}", candidateId, ex.getMessage());
+        }
+
         List<Cv> cvList = cvRepository.findByCandidateIdOrderByCreatedAtDesc(candidateId);
         if (cvList == null || cvList.isEmpty()) {
             cvList = cvRepository.findByCandidateId(candidateId);
@@ -1095,7 +1212,7 @@ public class CvServiceImpl implements CvService {
 
         // 2. Chỉ khi parsedData thiếu, mới fallback sang Candidate và User Profile (Tránh ghi đè chéo bản CV upload riêng)
         if (cv.getCandidateId() != null) {
-            boolean isUploadedResumeFile = cv.getFileUrl() != null && !cv.getFileUrl().isBlank();
+            boolean isUploadedResumeFile = cv.getFileUrl() != null && !cv.getFileUrl().isBlank() && !cv.getFileUrl().contains("/candidate/profile");
             var cand = prefetchedCand != null ? prefetchedCand : candidateRepository.findByCandidateId(cv.getCandidateId()).orElse(null);
             if (cand != null) {
                 if (!isUploadedResumeFile) {
@@ -1107,6 +1224,9 @@ public class CvServiceImpl implements CvService {
                     if (address == null || address.isBlank()) address = cand.getLocation();
                 } else {
                     if (experienceYears == null) experienceYears = cand.getExperienceYears();
+                    if (educationsJson == null || educationsJson.isBlank() || "[]".equals(educationsJson)) educationsJson = cand.getEducationsJson();
+                    if (experiencesJson == null || experiencesJson.isBlank() || "[]".equals(experiencesJson)) experiencesJson = cand.getExperiencesJson();
+                    if (projectsJson == null || projectsJson.isBlank() || "[]".equals(projectsJson)) projectsJson = cand.getProjectsJson();
                 }
             }
             User candUser = prefetchedUser != null ? prefetchedUser : userRepository.findById(cv.getCandidateId()).orElse(null);
@@ -1203,6 +1323,23 @@ public class CvServiceImpl implements CvService {
                 if (!detectedSkills.contains("Chứng chỉ JLPT")) detectedSkills.add("Chứng chỉ JLPT");
             }
         }
+        if (headline != null && !headline.isBlank()) {
+            headline = headline.replaceAll("([a-z])([A-Z])", "$1 $2").trim();
+        }
+
+        List<String> cleanDetectedSkills = new ArrayList<>();
+        for (String sk : detectedSkills) {
+            if (sk == null) continue;
+            String cleanSk = sk.trim();
+            if (cleanSk.length() < 2 || cleanSk.length() > 30) continue;
+            if (cleanSk.matches("(?i)^(and|in|between|with|or|to|for|of|the|a|an)\\s+.*")) continue;
+            if (cleanSk.split("\\s+").length > 3) continue;
+            if (!cleanDetectedSkills.contains(cleanSk)) {
+                cleanDetectedSkills.add(cleanSk);
+            }
+        }
+        detectedSkills = cleanDetectedSkills;
+
         if (parsedData == null) {
             parsedData = new CvParsedDTO();
             parsedData.setFullName(fullName);
@@ -1223,6 +1360,30 @@ public class CvServiceImpl implements CvService {
                     parsedData.setProjects(objectMapper.readValue(projectsJson, new com.fasterxml.jackson.core.type.TypeReference<List<CvParsedDTO.ProjectItem>>() {}));
                 }
             } catch (Exception ignored) {}
+        } else {
+            if (headline != null && !headline.isBlank() && (parsedData.getHeadline() == null || parsedData.getHeadline().isBlank())) {
+                parsedData.setHeadline(headline);
+            } else if (parsedData.getHeadline() != null) {
+                parsedData.setHeadline(parsedData.getHeadline().replaceAll("([a-z])([A-Z])", "$1 $2").trim());
+            }
+            if ((parsedData.getExperiences() == null || parsedData.getExperiences().isEmpty()) && experiencesJson != null && !experiencesJson.isBlank() && !"[]".equals(experiencesJson)) {
+                try {
+                    parsedData.setExperiences(objectMapper.readValue(experiencesJson, new com.fasterxml.jackson.core.type.TypeReference<List<CvParsedDTO.ExperienceItem>>() {}));
+                } catch (Exception ignored) {}
+            }
+            if ((parsedData.getEducations() == null || parsedData.getEducations().isEmpty()) && educationsJson != null && !educationsJson.isBlank() && !"[]".equals(educationsJson)) {
+                try {
+                    parsedData.setEducations(objectMapper.readValue(educationsJson, new com.fasterxml.jackson.core.type.TypeReference<List<CvParsedDTO.EducationItem>>() {}));
+                } catch (Exception ignored) {}
+            }
+            if ((parsedData.getProjects() == null || parsedData.getProjects().isEmpty()) && projectsJson != null && !projectsJson.isBlank() && !"[]".equals(projectsJson)) {
+                try {
+                    parsedData.setProjects(objectMapper.readValue(projectsJson, new com.fasterxml.jackson.core.type.TypeReference<List<CvParsedDTO.ProjectItem>>() {}));
+                } catch (Exception ignored) {}
+            }
+            if (parsedData.getSkills() == null || parsedData.getSkills().isEmpty()) {
+                parsedData.setSkills(detectedSkills);
+            }
         }
 
         String certificationsJson = "[]";

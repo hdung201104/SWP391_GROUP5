@@ -3,7 +3,10 @@ import { cvApi, applicationApi, interviewApi, paymentApi } from '../../api';
 
 export default function ApplyJobModal({ job, user, onClose, onSuccess, initialCvId = null }) {
   const [cvList, setCvList] = useState([]);
-  const [selectedCvId, setSelectedCvId] = useState(initialCvId ? Number(initialCvId) : null);
+  const [selectedCvId, setSelectedCvId] = useState(() => {
+    if (initialCvId && !isNaN(Number(initialCvId))) return Number(initialCvId);
+    return null;
+  });
   const [onlineTemplate, setOnlineTemplate] = useState(() => {
     try {
       return localStorage.getItem('hiremate_candidate_cv_template') || 'executive';
@@ -17,8 +20,10 @@ export default function ApplyJobModal({ job, user, onClose, onSuccess, initialCv
   const [submitted, setSubmitted] = useState(false);
   const [quotaInfo, setQuotaInfo] = useState(null);
   const [upgradeNotice, setUpgradeNotice] = useState('');
+  const [isUploadingCv, setIsUploadingCv] = useState(false);
+  const fileInputRef = React.useRef(null);
 
-  useEffect(() => {
+  const fetchCvs = () => {
     if (user && (user.role === 'CANDIDATE' || user.role === 'ROLE_CANDIDATE')) {
       cvApi.getMyCvs()
         .then((res) => {
@@ -28,8 +33,13 @@ export default function ApplyJobModal({ job, user, onClose, onSuccess, initialCv
             if (prev && list.some((c) => Number(c.cvId) === Number(prev))) {
               return Number(prev);
             }
-            if (initialCvId && list.some((c) => Number(c.cvId) === Number(initialCvId))) {
-              return Number(initialCvId);
+            if (initialCvId) {
+              if (initialCvId === 'online' || initialCvId === 'cv_default_online') {
+                const onlineCv = list.find((c) => c.fileUrl?.includes('/candidate/profile') || c.fileName?.includes('Trực Tuyến'));
+                if (onlineCv) return Number(onlineCv.cvId);
+              }
+              const matched = list.find((c) => Number(c.cvId) === Number(initialCvId));
+              if (matched) return Number(matched.cvId);
             }
             const defaultCv = list.find((c) => c.isDefault) || list[0];
             return defaultCv ? Number(defaultCv.cvId) : null;
@@ -39,7 +49,16 @@ export default function ApplyJobModal({ job, user, onClose, onSuccess, initialCv
           setCvList([]);
           setSelectedCvId(null);
         });
+    } else {
+      setCvList([]);
+      setSelectedCvId(null);
+    }
+  };
 
+  useEffect(() => {
+    fetchCvs();
+
+    if (user && (user.role === 'CANDIDATE' || user.role === 'ROLE_CANDIDATE')) {
       if (paymentApi?.getMySubscription) {
         paymentApi.getMySubscription()
           .then((res) => {
@@ -56,11 +75,32 @@ export default function ApplyJobModal({ job, user, onClose, onSuccess, initialCv
           })
           .catch(() => {});
       }
-    } else {
-      setCvList([]);
-      setSelectedCvId(null);
     }
   }, [user?.userId, initialCvId]);
+
+  const handleUploadNewCv = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setIsUploadingCv(true);
+      setError('');
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await cvApi.uploadCv(formData);
+      const newCv = res?.data?.data || res?.data || res;
+      if (newCv && newCv.cvId) {
+        setCvList((prev) => [newCv, ...prev]);
+        setSelectedCvId(Number(newCv.cvId));
+      } else {
+        fetchCvs();
+      }
+    } catch (uploadErr) {
+      setError('Tải lên CV thất bại: ' + (uploadErr?.response?.data?.message || uploadErr.message));
+    } finally {
+      setIsUploadingCv(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   const isAdmin = user?.role === 'ADMIN';
   const planPrice = Number(quotaInfo?.price || quotaInfo?.plan?.price) || 0;
@@ -260,42 +300,79 @@ export default function ApplyJobModal({ job, user, onClose, onSuccess, initialCv
               <div className="flex items-center justify-between mb-2">
                 <label className="text-xs font-bold text-[#221d47] uppercase tracking-wider flex items-center gap-1.5">
                   <span className="w-4 h-4 rounded-full bg-[#5b48bd] text-white text-[10px] flex items-center justify-center font-bold">1</span>
-                  <span>Chọn tệp CV của bạn</span>
+                  <span>Chọn bản CV nộp ứng tuyển</span>
                 </label>
-                <span className="text-[11px] text-slate-400">
-                  Đã tìm thấy {cvList.length} tệp
-                </span>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleUploadNewCv}
+                    accept=".pdf,.doc,.docx"
+                    hidden
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploadingCv}
+                    className="text-[11px] font-bold text-[#5b48bd] hover:text-[#47369f] hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">
+                      {isUploadingCv ? 'progress_activity' : 'cloud_upload'}
+                    </span>
+                    <span>{isUploadingCv ? 'Đang tải...' : '+ Tải CV mới'}</span>
+                  </button>
+                </div>
               </div>
 
-              <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
+              <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
                 {cvList.map((cv) => {
                   const isChecked = Number(selectedCvId) === Number(cv.cvId);
+                  const isOnline = cv.fileUrl?.includes('/candidate/profile') || cv.fileName?.includes('Trực Tuyến');
                   return (
                     <div
                       key={cv.cvId}
-                      onClick={() => setSelectedCvId(cv.cvId)}
-                      className={`flex items-center justify-between p-3.5 rounded-2xl border text-xs cursor-pointer transition-all ${
+                      onClick={() => setSelectedCvId(Number(cv.cvId))}
+                      className={`flex items-center justify-between p-3 sm:p-3.5 rounded-2xl border text-xs cursor-pointer transition-all ${
                         isChecked
-                          ? 'bg-[#edeafd] border-[#5b48bd] text-[#5b48bd] font-bold shadow-xs ring-2 ring-[#5b48bd]/25'
+                          ? isOnline
+                            ? 'bg-gradient-to-r from-purple-50 to-indigo-50/70 border-[#5b48bd] text-[#5b48bd] font-bold shadow-xs ring-2 ring-[#5b48bd]/25'
+                            : 'bg-[#edeafd] border-[#5b48bd] text-[#5b48bd] font-bold shadow-xs ring-2 ring-[#5b48bd]/25'
                           : 'bg-[#f8f7ff] border-purple-100 text-slate-600 hover:bg-white hover:border-purple-200'
                       }`}
                     >
-                      <div className="flex items-center gap-2.5 truncate">
+                      <div className="flex items-center gap-2.5 min-w-0 pr-2">
                         <input
                           type="radio"
                           name="cvSelect"
                           checked={isChecked}
-                          onChange={() => setSelectedCvId(cv.cvId)}
-                          className="accent-[#5b48bd] w-4 h-4 cursor-pointer"
+                          onChange={() => setSelectedCvId(Number(cv.cvId))}
+                          className="accent-[#5b48bd] w-4 h-4 cursor-pointer shrink-0"
                         />
-                        <span className="material-symbols-outlined text-base text-[#5b48bd]">description</span>
-                        <span className="truncate">{cv.fileName}</span>
-                      </div>
-                      {cv.isDefault && (
-                        <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-sans font-bold shrink-0">
-                          Mặc định
+                        <span className={`material-symbols-outlined text-lg shrink-0 ${isOnline ? 'text-amber-500' : 'text-[#5b48bd]'}`}>
+                          {isOnline ? 'stars' : 'description'}
                         </span>
-                      )}
+                        <div className="min-w-0">
+                          <div className="truncate font-bold text-[#1e1b4b]">
+                            {isOnline ? 'Bản CV Trực Tuyến HireMate' : cv.fileName}
+                          </div>
+                          <div className="text-[10px] text-slate-400 truncate">
+                            {isOnline
+                              ? 'Hồ sơ trực tuyến chuẩn ATS • Đầy đủ kinh nghiệm & kỹ năng'
+                              : `${cv.fileSizeBytes ? `${(cv.fileSizeBytes / 1024).toFixed(0)} KB • ` : ''}Tệp đã tải lên`}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {isOnline ? (
+                          <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-purple-100 text-[#5b48bd] border border-purple-200 font-sans font-bold">
+                            ⭐ CV Trực Tuyến
+                          </span>
+                        ) : cv.isDefault ? (
+                          <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-sans font-bold">
+                            Mặc định
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
                   );
                 })}
