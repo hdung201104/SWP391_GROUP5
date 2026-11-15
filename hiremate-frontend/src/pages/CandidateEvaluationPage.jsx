@@ -1087,7 +1087,7 @@ export default function CandidateEvaluationPage({
 
         const pData = cvData?.parsedData || parsedJson || {};
 
-        // 1. Trích xuất kinh nghiệm & dự án làm việc thực tế của chính bản CV đã nộp trước tiên (Ưu tiên tuyệt đối pData từ Gemini AI)
+        // 1. Trích xuất kinh nghiệm & dự án làm việc thực tế của chính bản CV đã nộp trước tiên (Ưu tiên tuyệt đối pData từ Gemini AI & Database)
         let experiences = [];
         if (pData?.experiences && Array.isArray(pData.experiences) && pData.experiences.length > 0) {
           experiences = pData.experiences;
@@ -1097,13 +1097,13 @@ export default function CandidateEvaluationPage({
           experiences = parsedJson.experience;
         } else if (cvData?.parsedData?.experiences && Array.isArray(cvData.parsedData.experiences) && cvData.parsedData.experiences.length > 0) {
           experiences = cvData.parsedData.experiences;
-        } else if (Array.isArray(rawParsed?.experiences) && rawParsed.experiences.length > 0) {
-          experiences = rawParsed.experiences;
         } else if (cvData?.experiencesJson) {
           try {
             const expArr = typeof cvData.experiencesJson === 'string' ? JSON.parse(cvData.experiencesJson) : cvData.experiencesJson;
             if (Array.isArray(expArr) && expArr.length > 0) experiences = expArr;
           } catch (ignored) {}
+        } else if (Array.isArray(rawParsed?.experiences) && rawParsed.experiences.length > 0) {
+          experiences = rawParsed.experiences;
         }
 
         // Lấy dự án trọng điểm thực tế của chính bản CV này
@@ -1114,13 +1114,13 @@ export default function CandidateEvaluationPage({
           projects = parsedJson.projects;
         } else if (cvData?.parsedData?.projects && Array.isArray(cvData.parsedData.projects) && cvData.parsedData.projects.length > 0) {
           projects = cvData.parsedData.projects;
-        } else if (Array.isArray(rawParsed.projects) && rawParsed.projects.length > 0) {
-          projects = rawParsed.projects;
         } else if (cvData?.projectsJson) {
           try {
             const projArr = typeof cvData.projectsJson === 'string' ? JSON.parse(cvData.projectsJson) : cvData.projectsJson;
             if (Array.isArray(projArr) && projArr.length > 0) projects = projArr;
           } catch (ignored) {}
+        } else if (Array.isArray(rawParsed.projects) && rawParsed.projects.length > 0) {
+          projects = rawParsed.projects;
         }
 
         // Chỉ fallback sang Profile nếu bản CV này KHÔNG PHẢI file CV upload riêng VÀ thiếu cả experiences lẫn projects
@@ -1245,60 +1245,67 @@ export default function CandidateEvaluationPage({
           candidateTitle = jobTitle ? `${jobTitle} • Ứng viên` : 'Chuyên viên';
         }
         if (candidateTitle) {
-          candidateTitle = candidateTitle.replace(/([a-z])([A-Z])/g, '$1 $2').trim();
+          candidateTitle = candidateTitle.trim();
+          // Chỉ thêm khoảng trắng giữa chữ thường và chữ hoa nếu là từ dính liền không dấu cách (tránh tách BrSE thành Br SE)
+          if (!candidateTitle.includes(' ') && !candidateTitle.includes('(')) {
+            candidateTitle = candidateTitle.replace(/([a-z])([A-Z])/g, '$1 $2').trim();
+          }
         }
 
-        // 4. Lấy danh sách kỹ năng thực tế (Ưu tiên CV đã nộp: rawParsed, pData, parsedJson, detectedSkills, profileData)
+        // 4. Lấy danh sách kỹ năng thực tế (Ưu tiên tuyệt đối pData từ Gemini AI & Database: pData, parsedJson, detectedSkills)
         let cleanSkills = [];
-        if (Array.isArray(rawParsed?.skills) && rawParsed.skills.length > 0) {
-          cleanSkills = rawParsed.skills;
-        } else if (pData?.skills && Array.isArray(pData.skills) && pData.skills.length > 0) {
-          cleanSkills = pData.skills.filter((s) => typeof s === 'string' && s.trim().length > 1);
+        if (pData?.skills && Array.isArray(pData.skills) && pData.skills.length > 0) {
+          cleanSkills = pData.skills.map((s) => typeof s === 'string' ? s.trim() : (s?.skillName || s?.name || '').trim()).filter((s) => s.length > 1);
         } else if (parsedJson?.skills && Array.isArray(parsedJson.skills) && parsedJson.skills.length > 0) {
-          cleanSkills = parsedJson.skills.filter((s) => typeof s === 'string' && s.trim().length > 1);
+          cleanSkills = parsedJson.skills.map((s) => typeof s === 'string' ? s.trim() : (s?.skillName || s?.name || '').trim()).filter((s) => s.length > 1);
         } else if (cvData?.detectedSkills && Array.isArray(cvData.detectedSkills) && cvData.detectedSkills.length > 0) {
           cleanSkills = cvData.detectedSkills.filter(Boolean);
         } else if (cvData?.parsedData?.skills && Array.isArray(cvData.parsedData.skills) && cvData.parsedData.skills.length > 0) {
           cleanSkills = cvData.parsedData.skills.filter(Boolean);
+        } else if (Array.isArray(rawParsed?.skills) && rawParsed.skills.length > 0) {
+          cleanSkills = rawParsed.skills;
         }
         if (cleanSkills.length === 0 && profileData?.skills && Array.isArray(profileData.skills) && profileData.skills.length > 0) {
           cleanSkills = profileData.skills.map((s) => s.skillName || s.name || s).filter(Boolean);
         }
 
-        // Bổ sung kỹ năng ngôn ngữ từ text nếu là hồ sơ ngoại ngữ / dịch thuật
-        if (cvData?.parsedText) {
-          const ptLower = cvData.parsedText.toLowerCase();
-          if ((ptLower.contains ? ptLower.contains('tiếng nhật') : ptLower.includes('tiếng nhật')) || ptLower.includes('japanese')) {
-            if (!cleanSkills.includes('Tiếng Nhật')) cleanSkills.unshift('Tiếng Nhật');
+        // Chỉ bổ sung từ khóa ngoại ngữ hoặc lọc vụn OCR nếu danh sách kỹ năng bắt buộc phải fallback từ rawParsed
+        const isFromRawOcr = (!pData?.skills || pData.skills.length === 0) && (!parsedJson?.skills || parsedJson.skills.length === 0) && (!cvData?.detectedSkills || cvData.detectedSkills.length === 0);
+        if (isFromRawOcr) {
+          if (cvData?.parsedText) {
+            const ptLower = cvData.parsedText.toLowerCase();
+            if ((ptLower.contains ? ptLower.contains('tiếng nhật') : ptLower.includes('tiếng nhật')) || ptLower.includes('japanese')) {
+              if (!cleanSkills.includes('Tiếng Nhật')) cleanSkills.unshift('Tiếng Nhật');
+            }
+            if (ptLower.includes('translation') || ptLower.includes('dịch thuật')) {
+              if (!cleanSkills.includes('Biên Phiên Dịch')) cleanSkills.push('Biên Phiên Dịch');
+            }
+            if (ptLower.includes('tutor') || ptLower.includes('giảng dạy')) {
+              if (!cleanSkills.includes('Giảng Dạy / Tutor')) cleanSkills.push('Giảng Dạy / Tutor');
+            }
           }
-          if (ptLower.includes('translation') || ptLower.includes('dịch thuật')) {
-            if (!cleanSkills.includes('Biên Phiên Dịch')) cleanSkills.push('Biên Phiên Dịch');
-          }
-          if (ptLower.includes('tutor') || ptLower.includes('giảng dạy')) {
-            if (!cleanSkills.includes('Giảng Dạy / Tutor')) cleanSkills.push('Giảng Dạy / Tutor');
-          }
+
+          // Lọc sạch các mảnh text vụn từ OCR / 2-column mashing
+          cleanSkills = cleanSkills.filter((s) => {
+            if (!s || typeof s !== 'string') return false;
+            const clean = s.trim();
+            if (clean.length < 2 || clean.length > 30) return false;
+            if (/^(?:and|in|between|with|or|to|for|of|the|a|an)\s+/i.test(clean)) return false;
+            if (clean.split(/\s+/).length > 3) return false;
+            return true;
+          });
         }
 
-        // Lọc sạch các mảnh text vụn từ OCR / 2-column mashing
-        cleanSkills = cleanSkills.filter((s) => {
-          if (!s || typeof s !== 'string') return false;
-          const clean = s.trim();
-          if (clean.length < 2 || clean.length > 30) return false;
-          if (/^(?:and|in|between|with|or|to|for|of|the|a|an)\s+/i.test(clean)) return false;
-          if (clean.split(/\s+/).length > 3) return false;
-          return true;
-        });
-
-        // 5. Tóm tắt nghề nghiệp / About Me: Ưu tiên bóc tách từ file CV gốc đã nộp
+        // 5. Tóm tắt nghề nghiệp / About Me: Ưu tiên tuyệt đối pData từ Gemini AI & Database
         let candidateSummary = '';
-        if (rawParsed?.summary && rawParsed.summary.length > 15 && !rawParsed.summary.includes('Uploaded via HireMate')) {
-          candidateSummary = rawParsed.summary.trim();
-        } else if (pData?.summary && typeof pData.summary === 'string' && pData.summary.length > 15 && !pData.summary.includes('Uploaded via HireMate')) {
+        if (pData?.summary && typeof pData.summary === 'string' && pData.summary.length > 15 && !pData.summary.includes('Uploaded via HireMate')) {
           candidateSummary = pData.summary.trim();
         } else if (parsedJson?.summary && typeof parsedJson.summary === 'string' && parsedJson.summary.length > 15 && !parsedJson.summary.includes('Uploaded via HireMate')) {
           candidateSummary = parsedJson.summary.trim();
         } else if (cvData?.summary && typeof cvData.summary === 'string' && cvData.summary.length > 15 && !cvData.summary.includes('Uploaded via HireMate')) {
           candidateSummary = cvData.summary.trim();
+        } else if (rawParsed?.summary && rawParsed.summary.length > 15 && !rawParsed.summary.includes('Uploaded via HireMate')) {
+          candidateSummary = rawParsed.summary.trim();
         } else if (experiences.length > 0) {
           const topRoles = experiences.slice(0, 2).map(e => e.role || e.company).filter(Boolean).join(' • ');
           candidateSummary = `Ứng viên có bề dày năng lực và kinh nghiệm thực chiến với vai trò ${topRoles || candidateTitle}. Hồ sơ được đối soát và chuẩn hóa tự động theo đúng bản CV nộp ứng tuyển.`;
@@ -1351,7 +1358,7 @@ export default function CandidateEvaluationPage({
           }
         }
 
-        // Lấy học vấn thực tế của ứng viên (Ưu tiên tuyệt đối pData từ Gemini AI)
+        // Lấy học vấn thực tế của ứng viên (Ưu tiên tuyệt đối pData từ Gemini AI & Database)
         let educations = [];
         if (pData?.educations && Array.isArray(pData.educations) && pData.educations.length > 0) {
           educations = pData.educations;
@@ -1361,13 +1368,13 @@ export default function CandidateEvaluationPage({
           educations = parsedJson.education;
         } else if (cvData?.parsedData?.educations && Array.isArray(cvData.parsedData.educations) && cvData.parsedData.educations.length > 0) {
           educations = cvData.parsedData.educations;
-        } else if (Array.isArray(rawParsed?.educations) && rawParsed.educations.length > 0) {
-          educations = rawParsed.educations;
         } else if (cvData?.educationsJson) {
           try {
             const eduArr = typeof cvData.educationsJson === 'string' ? JSON.parse(cvData.educationsJson) : cvData.educationsJson;
             if (Array.isArray(eduArr) && eduArr.length > 0) educations = eduArr;
           } catch (ignored) {}
+        } else if (Array.isArray(rawParsed?.educations) && rawParsed.educations.length > 0) {
+          educations = rawParsed.educations;
         }
         if (educations.length === 0 && profileData?.educationsJson) {
           try {
@@ -1376,7 +1383,7 @@ export default function CandidateEvaluationPage({
           } catch (ignored) {}
         }
 
-        // Lấy chứng chỉ quốc tế thực tế của ứng viên
+        // Lấy chứng chỉ quốc tế thực tế của ứng viên (Ưu tiên tuyệt đối pData từ Gemini AI & Database)
         let certifications = [];
         if (pData?.certifications && Array.isArray(pData.certifications) && pData.certifications.length > 0) {
           certifications = pData.certifications;
@@ -1384,13 +1391,13 @@ export default function CandidateEvaluationPage({
           certifications = parsedJson.certifications;
         } else if (cvData?.parsedData?.certifications && Array.isArray(cvData.parsedData.certifications) && cvData.parsedData.certifications.length > 0) {
           certifications = cvData.parsedData.certifications;
-        } else if (Array.isArray(rawParsed.certifications) && rawParsed.certifications.length > 0) {
-          certifications = rawParsed.certifications;
         } else if (cvData?.certificationsJson) {
           try {
             const certArr = typeof cvData.certificationsJson === 'string' ? JSON.parse(cvData.certificationsJson) : cvData.certificationsJson;
             if (Array.isArray(certArr) && certArr.length > 0) certifications = certArr;
           } catch (ignored) {}
+        } else if (Array.isArray(rawParsed.certifications) && rawParsed.certifications.length > 0) {
+          certifications = rawParsed.certifications;
         }
         if (certifications.length === 0 && profileData?.certificationsJson) {
           try {
@@ -1399,7 +1406,7 @@ export default function CandidateEvaluationPage({
           } catch (ignored) {}
         }
 
-        // Lấy ngoại ngữ thành thạo thực tế của ứng viên
+        // Lấy ngoại ngữ thành thạo thực tế của ứng viên (Ưu tiên tuyệt đối pData từ Gemini AI & Database)
         let languages = [];
         if (pData?.languages && Array.isArray(pData.languages) && pData.languages.length > 0) {
           languages = pData.languages;
@@ -1407,13 +1414,13 @@ export default function CandidateEvaluationPage({
           languages = parsedJson.languages;
         } else if (cvData?.parsedData?.languages && Array.isArray(cvData.parsedData.languages) && cvData.parsedData.languages.length > 0) {
           languages = cvData.parsedData.languages;
-        } else if (Array.isArray(rawParsed.languages) && rawParsed.languages.length > 0) {
-          languages = rawParsed.languages;
         } else if (cvData?.languagesJson) {
           try {
             const langArr = typeof cvData.languagesJson === 'string' ? JSON.parse(cvData.languagesJson) : cvData.languagesJson;
             if (Array.isArray(langArr) && langArr.length > 0) languages = langArr;
           } catch (ignored) {}
+        } else if (Array.isArray(rawParsed.languages) && rawParsed.languages.length > 0) {
+          languages = rawParsed.languages;
         }
         if (languages.length === 0 && profileData?.languagesJson) {
           try {

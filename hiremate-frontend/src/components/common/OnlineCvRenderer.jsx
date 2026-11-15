@@ -93,7 +93,9 @@ export default function OnlineCvRenderer({
     }
   }
   if (!title) title = 'Chuyên Viên';
-  title = title.replace(/([a-z])([A-Z])/g, '$1 $2').trim();
+  if (title && !title.includes(' ') && !title.includes('(')) {
+    title = title.replace(/([a-z])([A-Z])/g, '$1 $2').trim();
+  }
 
   // Kiểm tra chuỗi vị trí địa lý có bị lỗi chứa cặp ngoại ngữ / dự án không
   const isInvalidLoc = (l) => {
@@ -121,8 +123,29 @@ export default function OnlineCvRenderer({
   }
   if (!summary) summary = 'Chuyên viên tận tâm với kinh nghiệm thực chiến và tinh thần học hỏi, cầu tiến cao.';
 
-  // Kỹ năng
-  const skills = Array.isArray(candidate.skills) ? candidate.skills : [];
+  // Kỹ năng: Phẳng hóa an toàn kể cả khi candidate.skills là mảng chuỗi, mảng objects, hoặc lấy từ skillCategories
+  let skills = [];
+  if (Array.isArray(candidate.skills)) {
+    candidate.skills.forEach((item) => {
+      if (typeof item === 'string') {
+        skills.push(item.trim());
+      } else if (item && typeof item === 'object') {
+        if (Array.isArray(item.items)) {
+          skills.push(...item.items.map((s) => String(s).trim()));
+        } else if (item.skillName || item.name) {
+          skills.push(String(item.skillName || item.name).trim());
+        }
+      }
+    });
+  }
+  if (skills.length === 0 && Array.isArray(candidate.skillCategories)) {
+    candidate.skillCategories.forEach((cat) => {
+      if (cat && Array.isArray(cat.items)) {
+        skills.push(...cat.items.map((s) => String(s).trim()));
+      }
+    });
+  }
+  skills = [...new Set(skills.filter(Boolean))];
   
   // Học vấn (Chuẩn hóa tự động cho cả degree & major)
   const rawEducations = Array.isArray(candidate.educations) ? candidate.educations : (Array.isArray(candidate.education) ? candidate.education : []);
@@ -155,8 +178,14 @@ export default function OnlineCvRenderer({
 
   // Ngoại ngữ
   const languages = (Array.isArray(candidate.languages) && candidate.languages.length > 0)
-    ? candidate.languages.map(l => typeof l === 'string' ? { name: l, level: 'Thành thạo' } : l)
-    : (skills.some(s => String(s).toLowerCase().includes('tiếng nhật') || String(s).toLowerCase().includes('japanese'))
+    ? candidate.languages.map((l) => {
+        if (typeof l === 'string') return { name: l, level: 'Thành thạo' };
+        return {
+          name: l.name || l.language || 'Ngoại ngữ',
+          level: l.level || l.score || 'Thành thạo',
+        };
+      })
+    : (skills.some((s) => String(s).toLowerCase().includes('tiếng nhật') || String(s).toLowerCase().includes('japanese'))
         ? [{ name: 'Tiếng Nhật', level: 'Chuyên ngành / Giao tiếp' }]
         : [{ name: 'Tiếng Việt', level: 'Bản ngữ' }, { name: 'Tiếng Anh', level: 'Chuyên ngành' }]);
 
