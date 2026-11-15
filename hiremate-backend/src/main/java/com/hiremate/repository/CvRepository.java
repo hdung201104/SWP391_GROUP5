@@ -12,4 +12,7 @@ public interface CvRepository extends JpaRepository<Cv, Long> {
     List<Cv> findByCandidateId(Long candidateId);
     List<Cv> findByCandidateIdOrderByCreatedAtDesc(Long candidateId);
     Optional<Cv> findByCandidateIdAndIsDefaultTrue(Long candidateId);
+    Optional<Cv> findFirstByFileUrl(String fileUrl);
+    List<Cv> findByFileUrlContaining(String fileUrlPart);
+    List<Cv> findByFileName(String fileName);
 }

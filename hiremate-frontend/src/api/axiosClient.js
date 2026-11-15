@@ -60,7 +60,16 @@ axiosClient.interceptors.request.use(
 axiosClient.interceptors.response.use(
   (response) => {
     // If backend wrapped in ApiResponse<T>, return response.data
-    return response.data;
+    const data = response.data;
+    if (data && typeof data === 'object') {
+      try {
+        if (response.headers) {
+          data._headers = response.headers;
+          data._isFallback = response.headers['x-hiremate-is-fallback'] === 'true';
+        }
+      } catch (e) {}
+    }
+    return data;
   },
   async (error) => {
     const originalRequest = error.config;

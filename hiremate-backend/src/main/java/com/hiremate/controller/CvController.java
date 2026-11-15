@@ -39,10 +39,14 @@ public class CvController {
                     cv != null ? cv.getHeadline() : null,
                     cv != null ? cv.getEmail() : null,
                     cv != null ? cv.getPhone() : null,
+                    cv != null ? cv.getAddress() : null,
                     cv != null ? cv.getSummary() : null,
                     cv != null ? cv.getDetectedSkills() : null,
                     cv != null ? cv.getExperiencesJson() : null,
-                    cv != null ? cv.getEducationsJson() : null
+                    cv != null ? cv.getEducationsJson() : null,
+                    cv != null ? cv.getProjectsJson() : null,
+                    cv != null ? cv.getCertificationsJson() : null,
+                    cv != null ? cv.getLanguagesJson() : null
             );
         }
         if (bytes == null || bytes.length == 0) {
@@ -103,10 +107,14 @@ public class CvController {
                     cv != null ? cv.getHeadline() : null,
                     cv != null ? cv.getEmail() : null,
                     cv != null ? cv.getPhone() : null,
+                    cv != null ? cv.getAddress() : null,
                     cv != null ? cv.getSummary() : null,
                     cv != null ? cv.getDetectedSkills() : null,
                     cv != null ? cv.getExperiencesJson() : null,
-                    cv != null ? cv.getEducationsJson() : null
+                    cv != null ? cv.getEducationsJson() : null,
+                    cv != null ? cv.getProjectsJson() : null,
+                    cv != null ? cv.getCertificationsJson() : null,
+                    cv != null ? cv.getLanguagesJson() : null
             );
         }
         if (bytes == null || bytes.length == 0) {

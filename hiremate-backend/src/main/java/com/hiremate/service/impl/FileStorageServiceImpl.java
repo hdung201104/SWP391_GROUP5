@@ -24,6 +24,9 @@ public class FileStorageServiceImpl implements FileStorageService {
     private final FileStorageConfig fileStorageConfig;
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.cloudinary.Cloudinary cloudinary;
+    @org.springframework.context.annotation.Lazy
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.hiremate.repository.CvRepository cvRepository;
 
     @Override
     public String storeFile(MultipartFile file) {
@@ -319,6 +322,44 @@ public class FileStorageServiceImpl implements FileStorageService {
                         log.warn(">> [FileStorage] Thử tải fallback .png từ Cloudinary cũng thất bại: {}", exPng.getMessage());
                     }
                 }
+            }
+        }
+
+        // 3. Fallback: Khôi phục file từ cơ sở dữ liệu Supabase (Zero-Loss Backup trong cvs.parsed_json)
+        if (cvRepository != null) {
+            try {
+                java.util.Optional<com.hiremate.entity.Cv> cvOpt = cvRepository.findFirstByFileUrl(fileUrlOrName);
+                if (cvOpt.isEmpty()) {
+                    String cleanName = fileUrlOrName.replace("/uploads/", "");
+                    int lastSlash = cleanName.lastIndexOf('/');
+                    if (lastSlash >= 0) cleanName = cleanName.substring(lastSlash + 1);
+                    var byName = cvRepository.findByFileName(cleanName);
+                    if (byName != null && !byName.isEmpty()) {
+                        cvOpt = java.util.Optional.of(byName.get(0));
+                    }
+                    if (cvOpt.isEmpty()) {
+                        var containing = cvRepository.findByFileUrlContaining(cleanName);
+                        if (containing != null && !containing.isEmpty()) {
+                            cvOpt = java.util.Optional.of(containing.get(0));
+                        }
+                    }
+                }
+                if (cvOpt.isPresent()) {
+                    com.hiremate.entity.Cv cv = cvOpt.get();
+                    if (cv.getParsedJson() != null && cv.getParsedJson().contains("raw_file_base64")) {
+                        com.fasterxml.jackson.databind.JsonNode root = new com.fasterxml.jackson.databind.ObjectMapper().readTree(cv.getParsedJson());
+                        String b64 = root.path("raw_file_base64").asText("");
+                        if (!b64.isBlank()) {
+                            byte[] decoded = java.util.Base64.getDecoder().decode(b64);
+                            if (decoded != null && decoded.length > 0) {
+                                log.info(">> [FileStorage] Đã khôi phục thành công file gốc từ CSDL Supabase cho CV ID: {}", cv.getCvId());
+                                return decoded;
+                            }
+                        }
+                    }
+                }
+            } catch (Exception exDb) {
+                log.warn(">> [FileStorage] Tra cứu khôi phục CSDL thất bại: {}", exDb.getMessage());
             }
         }
 

@@ -464,6 +464,7 @@ export default function CandidateEvaluationPage({
 
   // Chế độ xem CV: 'pdf' (Xem file gốc PDF/Word) | 'parsed' (Dữ liệu trích xuất ATS)
   const [cvViewMode, setCvViewMode] = useState('pdf');
+  const [isFallbackCv, setIsFallbackCv] = useState(false);
   const [pdfBlobUrl, setPdfBlobUrl] = useState(null);
   const [cvMimeType, setCvMimeType] = useState('application/pdf');
   const [isPdfLoading, setIsPdfLoading] = useState(false);
@@ -666,8 +667,12 @@ export default function CandidateEvaluationPage({
       if (targetCvId) {
         try {
           const previewRes = await cvApi.previewCv(targetCvId).catch(() => null);
-          const isFallback = previewRes?.headers?.['x-hiremate-is-fallback'] === 'true';
+          const isFallback = previewRes?._isFallback 
+            || previewRes?.headers?.['x-hiremate-is-fallback'] === 'true'
+            || (previewRes?._headers && previewRes._headers['x-hiremate-is-fallback'] === 'true')
+            || (fUrl && fUrl.startsWith('/uploads/'));
           let detectedMime = previewRes?.headers?.['content-type']
+            || previewRes?._headers?.['content-type']
             || (fn.endsWith('.png') ? 'image/png'
             : fn.endsWith('.jpg') || fn.endsWith('.jpeg') ? 'image/jpeg'
             : 'application/pdf');
@@ -679,6 +684,7 @@ export default function CandidateEvaluationPage({
             if (isMounted) {
               setPdfBlobUrl(createdBlobUrl);
               setCvMimeType(detectedMime);
+              setIsFallbackCv(!!isFallback);
               // Nếu là bản PDF Fallback (tệp vật lý cũ không tồn tại hoặc CV trực tuyến), tự động chuyển sang tab "CV Online" để HR xem toàn bộ hồ sơ chuẩn xác
               if (isFallback) {
                 setCvViewMode('parsed');
@@ -697,6 +703,7 @@ export default function CandidateEvaluationPage({
               if (isMounted) {
                 setPdfBlobUrl(createdBlobUrl);
                 setCvMimeType(detectedMime);
+                setIsFallbackCv(true);
                 setCvViewMode('parsed');
                 setIsPdfLoading(false);
                 return;
@@ -709,13 +716,19 @@ export default function CandidateEvaluationPage({
 
         // Fallback 1: Trực tiếp endpoint API có kèm JWT token xác thực nếu có file URL hợp lệ
         if (fUrl && !fUrl.includes('/candidate/profile')) {
+          const isLocal = fUrl.startsWith('/uploads/');
           const token = localStorage.getItem('token') || '';
           const apiBase = getApiBaseUrl();
           const directApiUrl = `${apiBase}/api/v1/cvs/${targetCvId}/preview${token ? `?token=${encodeURIComponent(token)}` : ''}`;
           if (isMounted) {
             setPdfBlobUrl(directApiUrl);
             setCvMimeType('application/pdf');
-            setCvViewMode('pdf');
+            setIsFallbackCv(isLocal);
+            if (isLocal) {
+              setCvViewMode('parsed');
+            } else {
+              setCvViewMode('pdf');
+            }
             setIsPdfLoading(false);
             return;
           }
@@ -1505,16 +1518,6 @@ export default function CandidateEvaluationPage({
             initialTpl = 'modern';
           } else if (/executive|2 cột/i.test(appData.coverLetter)) {
             initialTpl = 'executive';
-          }
-        }
-        // Tự động nhận diện mẫu Harvard ATS (1 cột chuẩn) nếu nội dung CV có các section headers đặc thù đơn cột
-        if (initialTpl === 'executive' && cvData?.parsedText) {
-          const ptLower = cvData.parsedText.toLowerCase();
-          if (
-            (ptLower.includes('academic credentials') || ptLower.includes('core competencies') || ptLower.includes('professional summary')) &&
-            !ptLower.includes('executive cv')
-          ) {
-            initialTpl = 'harvard';
           }
         }
 
@@ -2504,7 +2507,7 @@ export default function CandidateEvaluationPage({
                 }`}
               >
                 <span className="material-symbols-outlined text-sm">picture_as_pdf</span>
-                <span>File CV Gốc {pdfBlobUrl ? '(PDF)' : ''}</span>
+                <span>{isFallbackCv ? 'Bản Số Hóa ATS (PDF)' : 'File CV Gốc (PDF)'}</span>
               </button>
               <button
                 type="button"
@@ -2517,6 +2520,9 @@ export default function CandidateEvaluationPage({
               >
                 <span className="material-symbols-outlined text-sm">web</span>
                 <span>CV Online</span>
+                {isFallbackCv && (
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-emerald-500 text-white font-extrabold shadow-2xs">Khuyên Dùng</span>
+                )}
               </button>
             </div>
 
@@ -2655,6 +2661,22 @@ export default function CandidateEvaluationPage({
                     </div>
                   ) : (
                     <div className="w-full h-[840px] min-h-[840px] flex flex-col overflow-x-auto overflow-y-auto bg-slate-100/60 p-0">
+                      {isFallbackCv && (
+                        <div className="bg-gradient-to-r from-purple-50 via-indigo-50 to-purple-50 border-b border-purple-200 px-4 py-2.5 flex items-center justify-between text-xs text-purple-900 shadow-2xs shrink-0 flex-wrap gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="material-symbols-outlined text-base text-[#5b48bd] shrink-0">verified</span>
+                            <span>Tệp tải lên ban đầu đang hiển thị dạng bản sao số hóa ATS. Bạn nên xem tab <strong>"CV Online"</strong> để xem đầy đủ mẫu thiết kế và font tiếng Việt chuẩn xác nhất.</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setCvViewMode('parsed')}
+                            className="px-3 py-1 bg-[#5b48bd] hover:bg-[#47369f] text-white rounded-lg font-bold text-xs cursor-pointer shadow-xs shrink-0 flex items-center gap-1 transition-all"
+                          >
+                            <span>Xem CV Online</span>
+                            <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                          </button>
+                        </div>
+                      )}
                       <div
                         style={{
                           width: zoomLevel === 100 ? '100%' : `${zoomLevel}%`,
@@ -2683,6 +2705,22 @@ export default function CandidateEvaluationPage({
                   )
                 ) : (cand.cvId || effectiveCvId || (cand.cvUrl && cand.cvUrl !== '#')) && cand.cvUrl && !cand.cvUrl.includes('/candidate/profile') ? (
                   <div className="w-full h-[840px] min-h-[840px] flex flex-col overflow-x-auto overflow-y-auto bg-slate-100/60 p-0">
+                    {isFallbackCv && (
+                      <div className="bg-gradient-to-r from-purple-50 via-indigo-50 to-purple-50 border-b border-purple-200 px-4 py-2.5 flex items-center justify-between text-xs text-purple-900 shadow-2xs shrink-0 flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-base text-[#5b48bd] shrink-0">verified</span>
+                          <span>Tệp tải lên ban đầu đang hiển thị dạng bản sao số hóa ATS. Bạn nên xem tab <strong>"CV Online"</strong> để xem đầy đủ mẫu thiết kế và font tiếng Việt chuẩn xác nhất.</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setCvViewMode('parsed')}
+                          className="px-3 py-1 bg-[#5b48bd] hover:bg-[#47369f] text-white rounded-lg font-bold text-xs cursor-pointer shadow-xs shrink-0 flex items-center gap-1 transition-all"
+                        >
+                          <span>Xem CV Online</span>
+                          <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                        </button>
+                      </div>
+                    )}
                     <div
                       style={{
                         width: zoomLevel === 100 ? '100%' : `${zoomLevel}%`,

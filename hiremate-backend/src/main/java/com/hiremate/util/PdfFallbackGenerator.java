@@ -59,6 +59,10 @@ public class PdfFallbackGenerator {
     }
 
     public static byte[] generateCvPdf(String fullName, String headline, String email, String phone, String summary, List<String> skills, String experiencesJson, String educationsJson) {
+        return generateCvPdf(fullName, headline, email, phone, null, summary, skills, experiencesJson, educationsJson, null, null, null);
+    }
+
+    public static byte[] generateCvPdf(String fullName, String headline, String email, String phone, String address, String summary, List<String> skills, String experiencesJson, String educationsJson, String projectsJson, String certificationsJson, String languagesJson) {
         try (PDDocument doc = new PDDocument()) {
             PDPage page = new PDPage(PDRectangle.A4);
             doc.addPage(page);
@@ -100,11 +104,12 @@ public class PdfFallbackGenerator {
 
                 cs.setNonStrokingColor(new Color(60, 60, 70));
                 cs.beginText();
-                cs.setFont(fontRegular, 9);
+                cs.setFont(fontRegular, 8.5f);
                 cs.newLineAtOffset(45, height - 102);
                 String safeEmail = toAscii(email != null && !email.isBlank() ? email : "candidate@hiremate.vn");
                 String safePhone = toAscii(phone != null && !phone.isBlank() ? phone : "(+84) 090-000-0000");
-                cs.showText("Email: " + safeEmail + "   |   Phone: " + safePhone + "   |   Status: Ready for Interviews");
+                String safeLoc = toAscii(address != null && !address.isBlank() ? address : "Vietnam");
+                cs.showText("Email: " + safeEmail + "   |   Phone: " + safePhone + "   |   Location: " + safeLoc);
                 cs.endText();
 
                 float currentY = height - 135;
@@ -129,7 +134,7 @@ public class PdfFallbackGenerator {
                     cs.setNonStrokingColor(new Color(40, 40, 40));
                     String safeSummary = toAscii(summary);
                     for (String line : wrapText(safeSummary, 85)) {
-                        if (currentY < 80) break;
+                        if (currentY < 120) break;
                         cs.beginText();
                         cs.setFont(fontRegular, 9.5f);
                         cs.newLineAtOffset(45, currentY);
@@ -137,7 +142,7 @@ public class PdfFallbackGenerator {
                         cs.endText();
                         currentY -= 13;
                     }
-                    currentY -= 10;
+                    currentY -= 8;
                 }
 
                 // 4. Core Competencies & Skills Section
@@ -148,7 +153,7 @@ public class PdfFallbackGenerator {
                         if (!s.isBlank() && !safeSkills.contains(s)) safeSkills.add(s);
                     }
                 }
-                if (!safeSkills.isEmpty() && currentY > 120) {
+                if (!safeSkills.isEmpty() && currentY > 150) {
                     cs.setNonStrokingColor(new Color(91, 72, 189));
                     cs.beginText();
                     cs.setFont(fontBold, 11);
@@ -167,7 +172,7 @@ public class PdfFallbackGenerator {
                     StringBuilder skillRow = new StringBuilder();
                     for (String sk : safeSkills) {
                         if (skillRow.length() + sk.length() + 3 > 80) {
-                            if (currentY < 80) break;
+                            if (currentY < 120) break;
                             cs.beginText();
                             cs.setFont(fontRegular, 9.5f);
                             cs.newLineAtOffset(50, currentY);
@@ -179,7 +184,7 @@ public class PdfFallbackGenerator {
                         if (skillRow.length() > 0) skillRow.append("  *  ");
                         skillRow.append(sk);
                     }
-                    if (skillRow.length() > 0 && currentY >= 80) {
+                    if (skillRow.length() > 0 && currentY >= 120) {
                         cs.beginText();
                         cs.setFont(fontRegular, 9.5f);
                         cs.newLineAtOffset(50, currentY);
@@ -187,11 +192,11 @@ public class PdfFallbackGenerator {
                         cs.endText();
                         currentY -= 13;
                     }
-                    currentY -= 10;
+                    currentY -= 8;
                 }
 
                 // 5. Work Experience Section
-                if (experiencesJson != null && !experiencesJson.isBlank() && currentY > 140) {
+                if (experiencesJson != null && !experiencesJson.isBlank() && currentY > 160) {
                     try {
                         com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
                         com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(experiencesJson);
@@ -211,7 +216,7 @@ public class PdfFallbackGenerator {
 
                             currentY -= 15;
                             for (com.fasterxml.jackson.databind.JsonNode node : root) {
-                                if (currentY < 80) break;
+                                if (currentY < 130) break;
                                 String role = toAscii(node.has("role") ? node.get("role").asText() : (node.has("title") ? node.get("title").asText() : ""));
                                 String comp = toAscii(node.has("company") ? node.get("company").asText() : (node.has("employer") ? node.get("employer").asText() : ""));
                                 String period = toAscii(node.has("period") ? node.get("period").asText() : (node.has("duration") ? node.get("duration").asText() : ""));
@@ -240,7 +245,7 @@ public class PdfFallbackGenerator {
                                     if (!desc.isBlank()) {
                                         cs.setNonStrokingColor(new Color(60, 60, 70));
                                         for (String l : wrapText(desc, 82)) {
-                                            if (currentY < 75) break;
+                                            if (currentY < 120) break;
                                             cs.beginText();
                                             cs.setFont(fontRegular, 9);
                                             cs.newLineAtOffset(55, currentY);
@@ -249,16 +254,78 @@ public class PdfFallbackGenerator {
                                             currentY -= 12;
                                         }
                                     }
-                                    currentY -= 5;
+                                    currentY -= 4;
                                 }
                             }
-                            currentY -= 5;
+                            currentY -= 4;
                         }
                     } catch (Exception ignored) {}
                 }
 
-                // 6. Education Section
-                if (educationsJson != null && !educationsJson.isBlank() && currentY > 100) {
+                // 6. Projects Section
+                if (projectsJson != null && !projectsJson.isBlank() && currentY > 150) {
+                    try {
+                        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                        com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(projectsJson);
+                        if (root.isArray() && root.size() > 0) {
+                            cs.setNonStrokingColor(new Color(91, 72, 189));
+                            cs.beginText();
+                            cs.setFont(fontBold, 11);
+                            cs.newLineAtOffset(45, currentY);
+                            cs.showText("KEY PROJECTS & NOTABLE APPLICATIONS");
+                            cs.endText();
+
+                            currentY -= 5;
+                            cs.setStrokingColor(new Color(220, 220, 235));
+                            cs.moveTo(45, currentY);
+                            cs.lineTo(width - 45, currentY);
+                            cs.stroke();
+
+                            currentY -= 14;
+                            for (com.fasterxml.jackson.databind.JsonNode node : root) {
+                                if (currentY < 120) break;
+                                String pName = toAscii(node.has("name") ? node.get("name").asText() : (node.has("title") ? node.get("title").asText() : ""));
+                                String pRole = toAscii(node.has("role") ? node.get("role").asText() : "");
+                                String pPeriod = toAscii(node.has("period") ? node.get("period").asText() : "");
+                                String pTech = toAscii(node.has("technologies") ? node.get("technologies").asText() : (node.has("techStack") ? node.get("techStack").asText() : ""));
+
+                                if (!pName.isBlank()) {
+                                    cs.setNonStrokingColor(new Color(30, 27, 75));
+                                    cs.beginText();
+                                    cs.setFont(fontBold, 9.5f);
+                                    cs.newLineAtOffset(45, currentY);
+                                    cs.showText(pName + (!pRole.isBlank() ? " (" + pRole + ")" : ""));
+                                    cs.endText();
+
+                                    if (!pPeriod.isBlank()) {
+                                        cs.setNonStrokingColor(new Color(110, 110, 120));
+                                        cs.beginText();
+                                        cs.setFont(fontRegular, 8.5f);
+                                        float pWidth = pPeriod.length() * 5.2f;
+                                        cs.newLineAtOffset(Math.max(300, width - 45 - pWidth), currentY);
+                                        cs.showText(pPeriod);
+                                        cs.endText();
+                                    }
+                                    currentY -= 13;
+
+                                    if (!pTech.isBlank() && currentY >= 115) {
+                                        cs.setNonStrokingColor(new Color(91, 72, 189));
+                                        cs.beginText();
+                                        cs.setFont(fontRegular, 8.5f);
+                                        cs.newLineAtOffset(55, currentY);
+                                        cs.showText("Tech Stack: " + pTech);
+                                        cs.endText();
+                                        currentY -= 12;
+                                    }
+                                }
+                            }
+                            currentY -= 4;
+                        }
+                    } catch (Exception ignored) {}
+                }
+
+                // 7. Education Section
+                if (educationsJson != null && !educationsJson.isBlank() && currentY > 130) {
                     try {
                         com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
                         com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(educationsJson);
@@ -278,7 +345,7 @@ public class PdfFallbackGenerator {
 
                             currentY -= 14;
                             for (com.fasterxml.jackson.databind.JsonNode node : root) {
-                                if (currentY < 70) break;
+                                if (currentY < 110) break;
                                 String school = toAscii(node.has("school") ? node.get("school").asText() : (node.has("institution") ? node.get("institution").asText() : ""));
                                 String degree = toAscii(node.has("degree") ? node.get("degree").asText() : (node.has("major") ? node.get("major").asText() : ""));
                                 String period = toAscii(node.has("period") ? node.get("period").asText() : (node.has("year") ? node.get("year").asText() : ""));
@@ -303,15 +370,50 @@ public class PdfFallbackGenerator {
                                     currentY -= 14;
                                 }
                             }
+                            currentY -= 4;
                         }
                     } catch (Exception ignored) {}
                 }
 
-                // 7. Footer Notice
+                // 8. Verified ATS Dossier Callout Banner
+                if (currentY > 80) {
+                    float boxH = 42;
+                    float boxY = Math.max(40, currentY - 50);
+                    cs.setNonStrokingColor(new Color(248, 247, 255));
+                    cs.addRect(45, boxY, width - 90, boxH);
+                    cs.fill();
+
+                    cs.setStrokingColor(new Color(210, 200, 245));
+                    cs.setLineWidth(1);
+                    cs.addRect(45, boxY, width - 90, boxH);
+                    cs.stroke();
+
+                    cs.setNonStrokingColor(new Color(91, 72, 189));
+                    cs.beginText();
+                    cs.setFont(fontBold, 8.5f);
+                    cs.newLineAtOffset(55, boxY + 26);
+                    cs.showText("HIREMATE AI - AUTHENTICATED CANDIDATE DOSSIER");
+                    cs.endText();
+
+                    cs.setNonStrokingColor(new Color(90, 90, 110));
+                    cs.beginText();
+                    cs.setFont(fontRegular, 7.5f);
+                    cs.newLineAtOffset(55, boxY + 14);
+                    cs.showText("This standardized profile document has been generated and verified by the HireMate AI ATS System.");
+                    cs.endText();
+
+                    cs.beginText();
+                    cs.setFont(fontRegular, 7.5f);
+                    cs.newLineAtOffset(55, boxY + 4);
+                    cs.showText("View full interactive online profile and live match matrix directly in the HireMate Evaluation Portal.");
+                    cs.endText();
+                }
+
+                // 9. Footer Notice
                 cs.setNonStrokingColor(new Color(150, 150, 160));
                 cs.beginText();
                 cs.setFont(fontRegular, 8);
-                cs.newLineAtOffset(45, 25);
+                cs.newLineAtOffset(45, 20);
                 cs.showText("HireMate AI Verified ATS Dossier   *   " + LocalDate.now().format(DateTimeFormatter.ISO_DATE) + "   *   View live interactive profile in HireMate Evaluation Portal");
                 cs.endText();
             }

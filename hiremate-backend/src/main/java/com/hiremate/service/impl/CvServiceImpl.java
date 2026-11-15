@@ -276,6 +276,11 @@ public class CvServiceImpl implements CvService {
             }
         }
 
+        String rawJsonWithFile = visionRawJson;
+        if (fileBytes != null && fileBytes.length > 0 && fileBytes.length <= 8 * 1024 * 1024) {
+            rawJsonWithFile = attachFileBase64ToJson(rawJsonWithFile, fileBytes);
+        }
+
         Cv cv = Cv.builder()
                 .candidateId(candidate.getUserId())
                 .fileName(originalName)
@@ -283,7 +288,7 @@ public class CvServiceImpl implements CvService {
                 .fileType(fileType)
                 .fileSizeBytes((int) file.getSize())
                 .parsedText(parsedText)
-                .parsedJson(visionRawJson)
+                .parsedJson(rawJsonWithFile)
                 .parseStatus(CvParseStatus.DONE)
                 .summary(summaryText)
                 .isDefault(true)
@@ -652,7 +657,7 @@ public class CvServiceImpl implements CvService {
 
         if (analysis != null) {
             if (analysis.getRawJson() != null && !analysis.getRawJson().isBlank()) {
-                cv.setParsedJson(analysis.getRawJson());
+                cv.setParsedJson(preserveRawFileBase64(analysis.getRawJson(), cv.getParsedJson()));
             }
             if (analysis.getSummary() != null && !analysis.getSummary().isBlank()) {
                 cv.setSummary(analysis.getSummary().trim());
@@ -975,7 +980,7 @@ public class CvServiceImpl implements CvService {
                 : "Hồ sơ ứng viên chuyên nghiệp trên nền tảng HireMate AI.";
         cv.setSummary(cleanSummary.trim());
         if (analysis.getRawJson() != null && !analysis.getRawJson().isBlank()) {
-            cv.setParsedJson(analysis.getRawJson());
+            cv.setParsedJson(preserveRawFileBase64(analysis.getRawJson(), cv.getParsedJson()));
         }
         Cv updated = cvRepository.save(cv);
         log.info(">> [CvService] CV ID {} analyzed successfully via Gemini ATS Engine", cvId);
@@ -1556,5 +1561,45 @@ public class CvServiceImpl implements CvService {
         if (clean.contains("freelance") || clean.contains("part-time") || clean.contains("full-time")) return true;
         if (clean.matches(".*\\d{4}.*")) return true;
         return false;
+    }
+
+    private String attachFileBase64ToJson(String json, byte[] fileBytes) {
+        if (fileBytes == null || fileBytes.length == 0 || fileBytes.length > 8 * 1024 * 1024) {
+            return json;
+        }
+        try {
+            String base64 = java.util.Base64.getEncoder().encodeToString(fileBytes);
+            com.fasterxml.jackson.databind.node.ObjectNode node;
+            if (json != null && !json.isBlank() && json.trim().startsWith("{")) {
+                node = (com.fasterxml.jackson.databind.node.ObjectNode) objectMapper.readTree(json);
+            } else {
+                node = objectMapper.createObjectNode();
+            }
+            node.put("raw_file_base64", base64);
+            return objectMapper.writeValueAsString(node);
+        } catch (Exception e) {
+            return json;
+        }
+    }
+
+    private String preserveRawFileBase64(String newJson, String oldJson) {
+        if (oldJson == null || !oldJson.contains("raw_file_base64")) {
+            return newJson;
+        }
+        try {
+            com.fasterxml.jackson.databind.JsonNode oldRoot = objectMapper.readTree(oldJson);
+            String b64 = oldRoot.path("raw_file_base64").asText("");
+            if (b64.isBlank()) return newJson;
+            com.fasterxml.jackson.databind.node.ObjectNode node;
+            if (newJson != null && !newJson.isBlank() && newJson.trim().startsWith("{")) {
+                node = (com.fasterxml.jackson.databind.node.ObjectNode) objectMapper.readTree(newJson);
+            } else {
+                node = objectMapper.createObjectNode();
+            }
+            node.put("raw_file_base64", b64);
+            return objectMapper.writeValueAsString(node);
+        } catch (Exception e) {
+            return newJson;
+        }
     }
 }

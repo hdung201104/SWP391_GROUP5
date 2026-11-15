@@ -35,7 +35,7 @@ services:
       - key: CLOUDINARY_API_KEY
         value: "632312897439654"
       - key: CLOUDINARY_API_SECRET
-        sync: false
+        value: 8xXBIOnHqHLocisqNwH_3f4Aykw
       - key: JWT_SECRET
         value: your-256-bit-secret-key-hiremate-ai-development-token-secret-2026
       - key: SPRING_MAIL_HOST
