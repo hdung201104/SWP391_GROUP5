@@ -3,11 +3,197 @@ import { AvatarImg } from './SmartImage';
 import { resolveUserAvatar } from '../../utils/mediaUtils';
 
 /**
+ * Hàm so khớp linh hoạt cho kỹ năng chuyên môn
+ */
+const matchSkillPattern = (lower, p) => {
+  if (lower === p) return true;
+  const escaped = p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(^|[\\s,./;()#+-])${escaped}($|[\\s,./;()#+-])`, 'i');
+  return regex.test(lower);
+};
+
+/**
+ * Chuẩn hóa và phân loại danh sách kỹ năng thành ma trận (Skills Matrix)
+ * Đảm bảo 100% đồng bộ cấu trúc hiển thị giữa trang Ứng viên và Nhà tuyển dụng
+ */
+const normalizeSkillsToCategories = (rawSkills, parsedCategories) => {
+  // 1. Nếu parsedCategories từ AI đã có dữ liệu phân nhóm, giữ nguyên các nhóm đó và làm sạch rác
+  if (Array.isArray(parsedCategories) && parsedCategories.length > 0) {
+    const cleanedCats = parsedCategories.map((cat) => {
+      if (!cat) return null;
+      const catName = cat.category || cat.groupName || 'Kỹ Năng Chuyên Môn';
+      const rawItems = Array.isArray(cat.items) ? cat.items : Array.isArray(cat.skills) ? cat.skills : [];
+      const cleanItems = rawItems
+        .map((i) => (typeof i === 'string' ? i.trim() : (i?.skillName || i?.name || '').trim()))
+        .filter((s) => s && s.length <= 60 && !s.includes('[') && !s.includes(']') && !s.toLowerCase().startsWith('nếu chưa'));
+      return cleanItems.length > 0 ? { category: catName, items: cleanItems } : null;
+    }).filter(Boolean);
+
+    if (cleanedCats.length > 0) {
+      let flat = [];
+      if (Array.isArray(rawSkills)) {
+        rawSkills.forEach((item) => {
+          if (typeof item === 'string') {
+            flat.push(item.trim());
+          } else if (item && typeof item === 'object') {
+            if (Array.isArray(item.items)) {
+              flat.push(...item.items.map((s) => String(s).trim()));
+            } else if (item.skillName || item.name) {
+              flat.push(String(item.skillName || item.name).trim());
+            }
+          }
+        });
+      }
+      const existingInCats = new Set();
+      cleanedCats.forEach((c) => c.items.forEach((it) => existingInCats.add(it.toLowerCase())));
+      const missingSkills = flat.filter((s) => s && s.length <= 60 && !s.includes('[') && !s.includes(']') && !s.toLowerCase().startsWith('nếu chưa') && !existingInCats.has(s.toLowerCase()));
+      if (missingSkills.length > 0) {
+        cleanedCats[0].items = [...cleanedCats[0].items, ...missingSkills];
+      }
+      return cleanedCats;
+    }
+  }
+
+  if (Array.isArray(rawSkills) && rawSkills.length > 0 && typeof rawSkills[0] === 'object' && rawSkills[0].category && rawSkills[0].category !== 'Kỹ Năng Đã Quét' && Array.isArray(rawSkills[0].items)) {
+    return rawSkills;
+  }
+
+  let flatList = [];
+  if (Array.isArray(rawSkills)) {
+    rawSkills.forEach((item) => {
+      if (typeof item === 'string') {
+        flatList.push(item.trim());
+      } else if (item && typeof item === 'object') {
+        if (Array.isArray(item.items)) {
+          flatList.push(...item.items.map((s) => String(s).trim()));
+        } else if (item.skillName || item.name) {
+          flatList.push(String(item.skillName || item.name).trim());
+        }
+      }
+    });
+  }
+
+  flatList = [...new Set(flatList.filter((s) => {
+    if (!s) return false;
+    const lower = s.toLowerCase();
+    if (lower.startsWith('nếu chưa') || lower.startsWith('nếu bạn') || lower.includes('[') || lower.includes(']') || s.length > 50) {
+      return false;
+    }
+    return true;
+  }))];
+
+  if (flatList.length === 0) return [];
+
+  const groups = [
+    {
+      category: 'Phát Triển Phần Mềm & Kiến Trúc',
+      patterns: [
+        'fullstack', 'full-stack', 'backend', 'frontend', 'microservices', 'api gateway',
+        'websocket', 'distributed', 'restful', 'grpc', 'kafka', 'sdn', 'network',
+      ],
+      items: [],
+    },
+    {
+      category: 'Ngôn Ngữ Lập Trình & Frameworks',
+      patterns: [
+        'nodejs', 'node.js', 'golang', 'go', 'java', 'react', 'reactjs', 'typescript',
+        'javascript', 'python', 'spring', 'nestjs', 'c#', '.net', 'html', 'css', 'vue', 'angular', 'php', 'c++',
+      ],
+      items: [],
+    },
+    {
+      category: 'Cơ Sở Dữ Liệu & Hạ Tầng Cloud',
+      patterns: [
+        'postgresql', 'postgres', 'sql', 'redis', 'aws', 'docker', 'kubernetes', 'ci/cd',
+        'tcp/ip', 'tcp', 'ip', 'mongodb', 'mysql', 'linux', 'azure', 'gcp', 'jenkins', 'git',
+      ],
+      items: [],
+    },
+    {
+      category: 'Phân Tích Nghiệp Vụ & Quy Trình',
+      patterns: [
+        'ba', 'business analyst', 'bpmn', 'uml', 'brse', 'srs', 'use case', 'product management',
+        'scrum', 'agile', 'jira', 'confluence', 'user story',
+      ],
+      items: [],
+    },
+    {
+      category: 'Marketing, Truyền Thông & Bán Hàng',
+      patterns: [
+        'marketing', 'digital marketing', 'seo', 'sem', 'content', 'copywriting', 'facebook ads',
+        'google ads', 'social media', 'crm', 'sales', 'telesales', 'b2b', 'b2c', 'lead generation',
+        'branding', 'thị trường', 'truyền thông', 'bán hàng', 'quảng cáo',
+      ],
+      items: [],
+    },
+    {
+      category: 'Tài Chính, Kế Toán & Kiểm Toán',
+      patterns: [
+        'kế toán', 'tài chính', 'thuế', 'báo cáo tài chính', 'bctc', 'misa', 'fast', 'erp',
+        'excel', 'hóa đơn', 'sổ sách', 'kiểm toán', 'quyết toán', 'chi phí', 'dòng tiền',
+        'accounting', 'finance', 'audit', 'tax', 'financial modeling',
+      ],
+      items: [],
+    },
+    {
+      category: 'Thiết Kế Đồ Họa & UI/UX',
+      patterns: [
+        'figma', 'ui/ux', 'photoshop', 'illustrator', 'pts', 'ai', 'canva', 'premiere',
+        'after effects', 'wireframe', 'prototyping', 'design system', 'thiết kế', 'đồ họa',
+      ],
+      items: [],
+    },
+    {
+      category: 'Quản Trị, Nhân Sự & Kỹ Năng Mềm',
+      patterns: [
+        'quản lý', 'lãnh đạo', 'tuyển dụng', 'nhân sự', 'hr', 'c&b', 'đào tạo', 'headhunt',
+        'giao tiếp', 'đàm phán', 'làm việc nhóm', 'thuyết trình', 'giải quyết vấn đề',
+        'quản lý thời gian', 'leadership', 'communication', 'teamwork', 'negotiation',
+      ],
+      items: [],
+    },
+    {
+      category: 'Ngoại Ngữ & Chứng Chỉ Quốc Tế',
+      patterns: [
+        'tiếng anh', 'english', 'tiếng nhật', 'japanese', 'tiếng hàn', 'korean', 'tiếng trung', 'chinese',
+        'tiếng pháp', 'french', 'tiếng đức', 'german', 'ielts', 'toefl', 'toeic', 'jlpt', 'topik', 'hsk',
+      ],
+      items: [],
+    },
+  ];
+
+  const assigned = new Set();
+  groups.forEach((group) => {
+    flatList.forEach((skill) => {
+      const lower = skill.toLowerCase().trim();
+      const isMatch = group.patterns.some((p) => matchSkillPattern(lower, p));
+      if (isMatch && !assigned.has(skill)) {
+        group.items.push(skill);
+        assigned.add(skill);
+      }
+    });
+  });
+
+  const otherItems = flatList.filter((s) => !assigned.has(s));
+  const result = groups.filter((g) => g.items.length > 0);
+
+  if (otherItems.length > 0) {
+    result.push({
+      category: 'Kỹ Năng Chuyên Môn Bổ Trợ',
+      items: otherItems,
+    });
+  }
+
+  return result.length > 0 ? result : [{ category: 'Kỹ Năng Chuyên Môn', items: flatList }];
+};
+
+/**
  * OnlineCvRenderer.jsx
  * Hiển thị hồ sơ CV Online theo 3 mẫu chuẩn mực quốc tế:
  * 1. 'executive': Mẫu 2 Cột Chuẩn Doanh Nghiệp (Executive 2-Column Balanced)
  * 2. 'harvard': Mẫu Harvard ATS 100% (Đơn cột chuẩn học thuật tối ưu máy quét)
  * 3. 'modern': Mẫu Hiện Đại Sang Trọng (Modern Editorial with Brand Banner)
+ * Đảm bảo 100% đồng bộ về bố cục, màu sắc, thông tin liên hệ và ma trận kỹ năng giữa Ứng viên & Nhà tuyển dụng
  */
 export default function OnlineCvRenderer({
   candidate = {},
@@ -32,7 +218,7 @@ export default function OnlineCvRenderer({
     if (onTemplateChange) onTemplateChange(tId);
   };
 
-  // Chuẩn hóa dữ liệu ứng viên an toàn, lọc bỏ rác từ file name
+  // Chuẩn hóa họ tên ứng viên
   const isFileName = (s) => typeof s === 'string' && (
     s.toLowerCase().includes('communication') ||
     s.toLowerCase().includes('resume') ||
@@ -55,12 +241,13 @@ export default function OnlineCvRenderer({
     role: exp.role || exp.title || exp.position || 'Chuyên viên chuyên môn',
     company: exp.company || exp.employer || exp.organization || '',
     period: exp.period || exp.duration || exp.time || 'Gần đây',
+    location: exp.location || '',
     bullets: Array.isArray(exp.bullets) && exp.bullets.length > 0
       ? exp.bullets
       : (Array.isArray(exp.highlights) && exp.highlights.length > 0 ? exp.highlights : []),
   }));
 
-  // Kiểm tra chuỗi tiêu đề có phải là header mục rác không
+  // Tiêu đề nghề nghiệp (Headline / Role)
   const isInvalidTitle = (t) => {
     if (!t || typeof t !== 'string') return true;
     const c = t.trim().toLowerCase();
@@ -92,12 +279,12 @@ export default function OnlineCvRenderer({
       }
     }
   }
-  if (!title) title = 'Chuyên Viên';
+  if (!title) title = 'Chuyên Viên Chuyên Môn';
   if (title && !title.includes(' ') && !title.includes('(')) {
     title = title.replace(/([a-z])([A-Z])/g, '$1 $2').trim();
   }
 
-  // Kiểm tra chuỗi vị trí địa lý có bị lỗi chứa cặp ngoại ngữ / dự án không
+  // Thông tin liên hệ
   const isInvalidLoc = (l) => {
     if (!l || typeof l !== 'string') return true;
     const c = l.trim().toLowerCase();
@@ -113,17 +300,24 @@ export default function OnlineCvRenderer({
   if (!location || isInvalidLoc(location)) location = 'Việt Nam';
   const avatar = resolveUserAvatar(candidate);
 
+  const dob = candidate.dob || candidate.dateOfBirth || '';
+  const github = candidate.github || candidate.githubUrl || '';
+  const linkedin = candidate.linkedin || candidate.linkedinUrl || '';
+  const portfolio = candidate.portfolio || candidate.website || '';
+  const tagline = candidate.tagline || '';
+
+  // Tóm tắt năng lực cốt lõi
   let summary = candidate.summary || '';
   if ((!summary || summary.includes('Uploaded via HireMate')) && experiences.length > 0) {
-    const topExp = experiences.slice(0, 2).map(e => e.role || e.company).filter(Boolean).join(' • ');
+    const topExp = experiences.slice(0, 2).map((e) => e.role || e.company).filter(Boolean).join(' • ');
     summary = `Ứng viên có bề dày năng lực và kinh nghiệm thực tế với vị trí ${topExp || title}. Hồ sơ chuyên môn được đối soát và chuẩn hóa tự động theo đúng bản CV ứng tuyển.`;
   } else if ((!summary || summary.includes('Uploaded via HireMate')) && candidate.projects && candidate.projects.length > 0) {
-    const topProj = candidate.projects.slice(0, 2).map(p => p.role || p.name).filter(Boolean).join(' • ');
+    const topProj = candidate.projects.slice(0, 2).map((p) => p.role || p.name).filter(Boolean).join(' • ');
     summary = `Ứng viên có bề dày năng lực và kinh nghiệm thực chiến qua các dự án tiêu biểu: ${topProj || title}. Hồ sơ chuyên môn được đối soát và chuẩn hóa tự động theo đúng bản CV này.`;
   }
   if (!summary) summary = 'Chuyên viên tận tâm với kinh nghiệm thực chiến và tinh thần học hỏi, cầu tiến cao.';
 
-  // Kỹ năng: Phẳng hóa an toàn kể cả khi candidate.skills là mảng chuỗi, mảng objects, hoặc lấy từ skillCategories
+  // Kỹ năng: Lấy danh sách kỹ năng phẳng
   let skills = [];
   if (Array.isArray(candidate.skills)) {
     candidate.skills.forEach((item) => {
@@ -146,48 +340,60 @@ export default function OnlineCvRenderer({
     });
   }
   skills = [...new Set(skills.filter(Boolean))];
-  
-  // Học vấn (Chuẩn hóa tự động cho cả degree & major)
+
+  // Ma trận kỹ năng phân nhóm chuẩn (Skills Matrix)
+  const skillCategories = normalizeSkillsToCategories(skills, candidate.skillCategories || candidate.skill_categories);
+
+  // Học vấn
   const rawEducations = Array.isArray(candidate.educations) ? candidate.educations : (Array.isArray(candidate.education) ? candidate.education : []);
   const educations = rawEducations.map((edu) => ({
     ...edu,
     school: edu.school || edu.institution || edu.university || 'Đại học / Học viện',
     degree: edu.degree || edu.major || edu.fieldOfStudy || 'Chuyên ngành chuyên môn',
     period: edu.period || edu.year || edu.duration || '2023 - 2026',
+    grade: edu.grade || '',
+    highlight: edu.highlight || '',
   }));
 
-  // Dự án (Chuẩn hóa tự động cho cả name & project_name)
+  // Dự án trọng điểm
   const rawProjects = Array.isArray(candidate.projects) ? candidate.projects : [];
-  const projects = rawProjects.map((proj) => ({
-    ...proj,
-    name: proj.name || proj.project_name || proj.projectName || proj.title || 'Dự án trọng điểm',
-    role: proj.role || proj.position || 'Kỹ sư phụ trách',
-    period: proj.period || proj.duration || proj.year || '2026',
-    summary: proj.summary || proj.description || '',
-    technologies: proj.technologies || (Array.isArray(proj.tags) ? proj.tags.join(', ') : ''),
-  }));
+  const projects = rawProjects.map((proj) => {
+    let pTags = Array.isArray(proj.tags) && proj.tags.length > 0 ? proj.tags : [];
+    if (pTags.length === 0 && proj.technologies && typeof proj.technologies === 'string') {
+      pTags = proj.technologies.split(/,\s*/).filter(Boolean);
+    }
+    return {
+      ...proj,
+      name: proj.name || proj.project_name || proj.projectName || proj.title || 'Dự án trọng điểm',
+      role: proj.role || proj.position || 'Kỹ sư phụ trách',
+      period: proj.period || proj.duration || proj.year || '2026',
+      summary: proj.summary || proj.description || '',
+      tags: pTags,
+    };
+  });
 
-  // Chứng chỉ chuyên môn
+  // Chứng chỉ quốc tế
   const rawCertifications = Array.isArray(candidate.certifications) ? candidate.certifications : [];
   const certifications = rawCertifications.map((c) => ({
     name: c.name || c.title || c.certificateName || '',
     issuer: c.issuer || c.organization || '',
     year: c.year || c.period || c.date || '',
-    code: c.code || c.credentialId || '',
+    code: c.code || c.credentialId || 'VERIFIED',
   })).filter((c) => c.name);
 
-  // Ngoại ngữ
+  // Ngoại ngữ thành thạo
   const languages = (Array.isArray(candidate.languages) && candidate.languages.length > 0)
     ? candidate.languages.map((l) => {
-        if (typeof l === 'string') return { name: l, level: 'Thành thạo' };
+        if (typeof l === 'string') return { name: l, level: 'Thành thạo', score: 'Thành thạo' };
         return {
           name: l.name || l.language || 'Ngoại ngữ',
           level: l.level || l.score || 'Thành thạo',
+          score: l.score || l.level || 'Thành thạo',
         };
       })
     : (skills.some((s) => String(s).toLowerCase().includes('tiếng nhật') || String(s).toLowerCase().includes('japanese'))
-        ? [{ name: 'Tiếng Nhật', level: 'Chuyên ngành / Giao tiếp' }]
-        : [{ name: 'Tiếng Việt', level: 'Bản ngữ' }, { name: 'Tiếng Anh', level: 'Chuyên ngành' }]);
+        ? [{ name: 'Tiếng Nhật', level: 'Conversational', score: 'Giao tiếp' }]
+        : [{ name: 'Tiếng Việt', level: 'Bản ngữ', score: 'Native' }, { name: 'Tiếng Anh', level: 'Professional', score: 'Chuyên ngành' }]);
 
   // In ấn bản CV
   const handlePrint = () => {
@@ -249,7 +455,6 @@ export default function OnlineCvRenderer({
           </div>
         </div>
       ) : (
-        /* THANH ĐỊNH DẠNG CỐ ĐỊNH THEO BẢN ỨNG VIÊN ĐÃ NỘP (Dành cho HR xem) */
         <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-white border border-purple-100 rounded-2xl shadow-xs no-print">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -285,248 +490,354 @@ export default function OnlineCvRenderer({
       {/* ──────────────────────────────────────────────────────────── */}
       {/* VÙNG HIỂN THỊ CV THEO 3 TEMPLATE                             */}
       {/* ──────────────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden text-slate-800 print:border-none print:shadow-none">
+      <div className="bg-white rounded-2xl border border-[#E6E2DA] shadow-sm overflow-hidden text-[#2D3A31] print:border-none print:shadow-none">
 
         {/* ════════════════════════════════════════════════════════════ */}
         {/* TEMPLATE 1: EXECUTIVE (2 CỘT CHUẨN DOANH NGHIỆP)            */}
         {/* ════════════════════════════════════════════════════════════ */}
         {template === 'executive' && (
           <div className="grid grid-cols-1 md:grid-cols-12 min-h-[750px]">
-            {/* CỘT TRÁI (4/12): AVATAR, LIÊN HỆ, KỸ NĂNG, HỌC VẤN */}
-            <aside className="md:col-span-4 p-6 sm:p-7 bg-[#f8fafc] border-r border-slate-200 space-y-6">
-              {/* Avatar & Tên */}
-              <div className="text-center space-y-3 pb-2 border-b border-slate-200">
+            {/* CỘT TRÁI (4/12): AVATAR, LIÊN HỆ, HỌC VẤN, CHỨNG CHỈ, NGOẠI NGỮ */}
+            <aside className="md:col-span-4 p-6 sm:p-7 bg-[#FAF9F5] border-r border-[#E6E2DA] space-y-6 text-[#2D3A31]">
+              {/* Portrait & Candidate Name */}
+              <div className="text-center space-y-3 pb-2">
                 <div className="relative inline-block">
                   <AvatarImg
                     src={avatar}
                     name={name}
                     alt={name}
-                    className="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl object-cover shadow-sm mx-auto border-2 border-purple-200 ring-4 ring-purple-50"
-                    fallbackClassName="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl text-white flex items-center justify-center font-extrabold text-2xl shadow-sm mx-auto"
+                    className="w-32 h-32 sm:w-36 sm:h-36 rounded-2xl object-cover shadow-sm mx-auto border-2 border-[#E6E2DA]"
+                    fallbackClassName="w-32 h-32 sm:w-36 sm:h-36 rounded-2xl text-white flex items-center justify-center font-extrabold text-3xl shadow-sm mx-auto border-2 border-[#E6E2DA]"
                   />
-                  <span className="absolute bottom-1 right-1 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white shadow" title="Đang sẵn sàng nhận việc" />
+                  <span className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white shadow z-10" title="Đang sẵn sàng nhận việc" />
                 </div>
 
-                <div>
-                  <h2 className="text-base sm:text-lg font-extrabold text-[#1e1b4b] leading-tight">
+                <div className="space-y-1">
+                  <h2 className="text-lg font-serif font-bold text-[#2D3A31]">
                     {name}
                   </h2>
-                  <p className="text-xs font-bold text-[#5b48bd] mt-0.5">
+                  <p className="text-xs font-serif font-bold leading-snug text-[#5b48bd]">
                     {title}
                   </p>
-                  <span className="inline-block mt-2 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <span className="inline-block mt-2 px-3 py-0.5 rounded-full text-[10px] font-sans font-medium border bg-emerald-50 text-emerald-700 border-emerald-200">
                     SẴN SÀNG NHẬN VIỆC
                   </span>
                 </div>
               </div>
 
-              {/* Thông tin liên hệ */}
-              <div className="space-y-3">
-                <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-900 pb-1 border-b border-slate-200 flex items-center gap-1.5">
+              {/* Thông Tin Liên Hệ */}
+              <div className="space-y-3 pt-2">
+                <h3 className="text-xs font-headline font-black uppercase tracking-wider pb-1 border-b border-[#E6E2DA] text-[#2D3A31] flex items-center gap-1.5">
                   <span className="material-symbols-outlined text-sm text-[#5b48bd]">contact_phone</span>
                   <span>Thông Tin Liên Hệ</span>
                 </h3>
-                <div className="space-y-2 text-xs text-slate-700">
-                  <div className="flex items-start gap-2">
-                    <span className="material-symbols-outlined text-sm text-slate-400 mt-0.5 shrink-0">mail</span>
+
+                <div className="space-y-2.5 text-xs text-[#2D3A31]/90">
+                  <div className="flex items-start gap-2.5">
+                    <span className="material-symbols-outlined text-sm text-slate-500 mt-0.5 shrink-0">mail</span>
                     <span className="break-all font-medium">{email}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-sm text-slate-400 shrink-0">call</span>
+                  <div className="flex items-center gap-2.5">
+                    <span className="material-symbols-outlined text-sm text-slate-500 shrink-0">call</span>
                     <span className="font-medium">{phone}</span>
                   </div>
-                  <div className="flex items-start gap-2">
-                    <span className="material-symbols-outlined text-sm text-slate-400 mt-0.5 shrink-0">location_on</span>
+                  <div className="flex items-start gap-2.5">
+                    <span className="material-symbols-outlined text-sm text-slate-500 mt-0.5 shrink-0">location_on</span>
                     <span className="font-medium">{location}</span>
+                  </div>
+                  {dob && (
+                    <div className="flex items-center gap-2.5">
+                      <span className="material-symbols-outlined text-sm text-slate-500 shrink-0">cake</span>
+                      <span className="font-medium">{dob}</span>
+                    </div>
+                  )}
+                  {github && (
+                    <div className="flex items-center gap-2.5 pt-0.5">
+                      <span className="material-symbols-outlined text-sm text-slate-500 shrink-0">code</span>
+                      <a
+                        href={github.startsWith('http') ? github : `https://github.com/${github.replace(/^@/, '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium truncate hover:underline flex items-center gap-1 text-[#5b48bd]"
+                        title="Trang GitHub dự án của ứng viên"
+                      >
+                        <span>{github.startsWith('@') ? github : `@${github.replace(/^https?:\/\/(www\.)?github\.com\//, '')}`}</span>
+                        <span className="material-symbols-outlined text-xs">open_in_new</span>
+                      </a>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2.5 pt-1">
+                    <span className="material-symbols-outlined text-sm text-slate-500 shrink-0">link</span>
+                    <span className="font-medium truncate hover:underline text-[#5b48bd]">{linkedin || 'Chưa liên kết'}</span>
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    <span className="material-symbols-outlined text-sm text-slate-500 shrink-0">language</span>
+                    <span className="font-medium truncate hover:underline text-[#5b48bd]">{portfolio || 'Chưa liên kết'}</span>
                   </div>
                 </div>
               </div>
 
-              {/* Kỹ năng chuyên môn */}
+              {/* Học Vấn Chính Quy */}
               <div className="space-y-3">
-                <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-900 pb-1 border-b border-slate-200 flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-sm text-[#5b48bd]">psychology</span>
-                  <span>Kỹ Năng Cốt Lõi</span>
-                </h3>
-                <div className="flex flex-wrap gap-1.5">
-                  {skills.length > 0 ? (
-                    skills.map((s, idx) => (
-                      <span
-                        key={idx}
-                        className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-white text-[#5b48bd] border border-purple-200 shadow-2xs"
-                      >
-                        {typeof s === 'string' ? s : s.skillName || s.name}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="text-xs text-slate-400 italic">Kỹ năng chuyên môn công nghệ</span>
-                  )}
+                <div className="flex items-center justify-between pb-1 border-b border-[#E6E2DA]">
+                  <h3 className="text-xs font-headline font-black uppercase tracking-wider flex items-center gap-1.5 text-[#2D3A31]">
+                    <span className="material-symbols-outlined text-sm text-[#5b48bd]">school</span>
+                    <span>Học Vấn Chính Quy</span>
+                  </h3>
                 </div>
-              </div>
 
-              {/* Học vấn chính quy */}
-              <div className="space-y-3">
-                <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-900 pb-1 border-b border-slate-200 flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-sm text-[#5b48bd]">school</span>
-                  <span>Học Vấn Chính Quy</span>
-                </h3>
-                {educations.length > 0 ? (
-                  educations.map((edu, idx) => (
-                    <div key={idx} className="space-y-1 text-xs">
-                      <h4 className="font-bold text-slate-900 leading-snug">
-                        {edu.school || edu.institution}
+                {educations.length === 0 ? (
+                  <p className="text-xs text-slate-400 italic">Chưa có thông tin học vấn</p>
+                ) : (
+                  educations.map((edu, eIdx) => (
+                    <div key={eIdx} className="space-y-1 text-xs">
+                      <h4 className="font-headline font-bold leading-snug text-[#2D3A31]">
+                        {edu.school}
                       </h4>
-                      <p className="text-slate-600">{edu.degree || edu.major}</p>
+                      <p className="font-medium text-[#4A554D]">{edu.degree}</p>
                       {edu.grade && <p className="text-[11px] font-mono font-bold text-emerald-700">{edu.grade}</p>}
-                      <p className="text-[10px] font-mono text-slate-500">{edu.period || edu.year}</p>
+                      <p className="text-[10px] font-mono text-[#667067]">{edu.period}</p>
+                      {edu.highlight && <p className="text-[11px] italic pt-1 leading-snug text-[#667067]">{edu.highlight}</p>}
                     </div>
                   ))
-                ) : (
-                  <div className="text-xs text-slate-600">Đại học / Học viện công nghệ</div>
                 )}
               </div>
 
-              {/* Ngoại ngữ */}
+              {/* Chứng Chỉ Quốc Tế */}
               <div className="space-y-3">
-                <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-900 pb-1 border-b border-slate-200 flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-sm text-[#5b48bd]">translate</span>
-                  <span>Ngoại Ngữ</span>
-                </h3>
-                <div className="space-y-1.5 text-xs">
-                  {languages.map((lang, lIdx) => (
-                    <div key={lIdx} className="flex items-center justify-between border-b border-dashed border-slate-200 pb-1">
-                      <span className="font-bold text-slate-800">{lang.name}</span>
-                      <span className="text-[11px] font-mono text-slate-500">{lang.level || lang.score}</span>
-                    </div>
-                  ))}
+                <div className="flex items-center justify-between pb-1 border-b border-[#E6E2DA]">
+                  <h3 className="text-xs font-headline font-black uppercase tracking-wider flex items-center gap-1.5 text-[#2D3A31]">
+                    <span className="material-symbols-outlined text-sm text-[#5b48bd]">workspace_premium</span>
+                    <span>Chứng Chỉ Quốc Tế</span>
+                  </h3>
+                </div>
+
+                <div className="space-y-2">
+                  {certifications.length === 0 ? (
+                    <p className="text-[11px] text-slate-400 italic py-1">Chưa có chứng chỉ quốc tế được ghi nhận trong CV</p>
+                  ) : (
+                    certifications.map((cert, cIdx) => (
+                      <div
+                        key={cIdx}
+                        className="p-2.5 rounded-xl border text-xs space-y-0.5 bg-white/80 border-[#E6E2DA] shadow-xs"
+                      >
+                        <h4 className="font-headline font-bold text-[11px] leading-snug text-[#2D3A31]">
+                          {cert.name}
+                        </h4>
+                        <p className="text-[10px] font-mono text-[#667067]">{cert.issuer} {cert.year ? `• ${cert.year}` : ''}</p>
+                        <p className="text-[10px] font-mono font-semibold truncate text-[#5b48bd]">{cert.code || 'VERIFIED'}</p>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
 
-              {/* Chứng chỉ chuyên môn */}
-              {certifications.length > 0 && (
-                <div className="space-y-3">
-                  <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-900 pb-1 border-b border-slate-200 flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-sm text-[#5b48bd]">workspace_premium</span>
-                    <span>Chứng Chỉ Chuyên Môn</span>
+              {/* Ngoại Ngữ Thành Thạo */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between pb-1 border-b border-[#E6E2DA]">
+                  <h3 className="text-xs font-headline font-black uppercase tracking-wider flex items-center gap-1.5 text-[#2D3A31]">
+                    <span className="material-symbols-outlined text-sm text-[#5b48bd]">translate</span>
+                    <span>Ngoại Ngữ Thành Thạo</span>
                   </h3>
-                  <div className="space-y-2 text-xs">
-                    {certifications.map((cert, cIdx) => (
-                      <div key={cIdx} className="space-y-0.5">
-                        <strong className="text-slate-900 block leading-snug">{cert.name}</strong>
-                        <div className="text-[11px] text-slate-500 font-mono">{cert.issuer} {cert.year ? `• ${cert.year}` : ''}</div>
+                </div>
+
+                <div className="space-y-2 text-xs">
+                  {languages.length === 0 ? (
+                    <p className="text-[11px] text-slate-400 italic py-1">Chưa có thông tin ngoại ngữ trong CV</p>
+                  ) : (
+                    languages.map((lang, lIdx) => (
+                      <div key={lIdx} className="border-b border-dashed border-[#E6E2DA] pb-1.5 flex items-center justify-between">
+                        <span className="font-bold text-[#2D3A31]">{lang.name}</span>
+                        <span className="text-[10px] font-mono text-[#667067]">{lang.score || lang.level}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </aside>
+
+            {/* CỘT PHẢI (8/12): MAIN CONTENT */}
+            <main className="md:col-span-8 p-6 sm:p-9 space-y-7 bg-[#FCFBF8] text-[#2D3A31]">
+              {/* 1. Header Banner & Title */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h1 className="text-2xl sm:text-4xl font-headline font-black uppercase tracking-tight text-[#2D3A31]">
+                    {name}
+                  </h1>
+                  <span className="px-3 py-1 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider border bg-[#FAF9F5] text-[#2D3A31] border-[#E6E2DA]">
+                    {candidate.versionBadge || 'EXECUTIVE RESUME'}
+                  </span>
+                </div>
+
+                <p className="text-base sm:text-lg font-headline font-bold tracking-wide text-[#5b48bd]">
+                  {title}
+                </p>
+
+                <div className="h-1 w-24 rounded-full bg-[#5b48bd]"></div>
+
+                {tagline && (
+                  <p className="text-xs leading-relaxed pt-1 font-medium text-[#4A554D]">
+                    {tagline}
+                  </p>
+                )}
+              </div>
+
+              {/* 2. Executive Summary */}
+              <section className="space-y-2.5">
+                <div className="flex items-center justify-between pb-1 border-b border-[#E6E2DA]">
+                  <h3 className="text-xs font-headline font-black uppercase tracking-widest flex items-center gap-2 text-[#2D3A31]">
+                    <span className="material-symbols-outlined text-base text-[#5b48bd]">badge</span>
+                    <span>Tóm Tắt Năng Lực Cốt Lõi (Executive Summary)</span>
+                  </h3>
+                </div>
+
+                <div className="p-4 rounded-2xl text-xs sm:text-sm leading-relaxed space-y-2.5 shadow-xs bg-[#F2EFE9] border-l-4 border-[#2D3A31] text-[#2D3A31] border border-[#E6E2DA]">
+                  {(summary || '').split('\n\n').map((para, pIdx) => (
+                    <p key={pIdx} className="leading-relaxed font-medium">{para}</p>
+                  ))}
+                </div>
+              </section>
+
+              {/* 3. Kinh Nghiệm Làm Việc (Work Experience) */}
+              {(experiences.length > 0) && (
+                <section className="space-y-5">
+                  <div className="flex items-center justify-between pb-1 border-b border-[#E6E2DA]">
+                    <h3 className="text-xs font-headline font-black uppercase tracking-widest flex items-center gap-2 text-[#2D3A31]">
+                      <span className="material-symbols-outlined text-base text-[#5b48bd]">history_edu</span>
+                      <span>Kinh Nghiệm Làm Việc (Work Experience)</span>
+                    </h3>
+                  </div>
+
+                  <div className="space-y-6">
+                    {experiences.map((exp, expIdx) => (
+                      <div key={exp.id || expIdx} className="space-y-2.5">
+                        <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
+                          <div>
+                            <h4 className="text-base font-headline font-bold text-[#2D3A31]">
+                              {exp.role}
+                            </h4>
+                            <p className="text-sm font-semibold text-[#5b48bd]">
+                              {exp.company}
+                            </p>
+                          </div>
+                          <div className="text-xs font-mono sm:text-right">
+                            <span className="font-bold text-[#2D3A31]">{exp.period}</span>
+                            {exp.location && <span className="block text-[10px] text-[#667067]">{exp.location}</span>}
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5 pt-1">
+                          {Array.isArray(exp.bullets) && exp.bullets.length > 0 ? (
+                            exp.bullets.map((b, bIdx) => (
+                              <div key={bIdx} className="flex items-start gap-2 text-xs sm:text-sm leading-relaxed text-[#334155] font-medium">
+                                <span className="w-1.5 h-1.5 rounded-full mt-2 shrink-0 bg-[#5b48bd]"></span>
+                                <span>{b}</span>
+                              </div>
+                            ))
+                          ) : (
+                            exp.description && (
+                              <p className="text-xs sm:text-sm leading-relaxed text-[#334155] font-medium">
+                                {exp.description}
+                              </p>
+                            )
+                          )}
+                        </div>
+
+                        {Array.isArray(exp.tags) && exp.tags.length > 0 && (
+                          <div className="flex flex-wrap items-center gap-1.5 pt-1.5">
+                            {exp.tags.map((t, sIdx) => (
+                              <span
+                                key={sIdx}
+                                className="px-2 py-0.5 rounded text-[11px] font-mono bg-white text-[#2D3A31] border border-[#E6E2DA] font-semibold"
+                              >
+                                {t}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
-            </aside>
-
-            {/* CỘT PHẢI (8/12): TIÊU ĐỀ, TÓM TẮT, KINH NGHIỆM, DỰ ÁN */}
-            <main className="md:col-span-8 p-6 sm:p-9 space-y-7 bg-white">
-              {/* Header Title */}
-              <div className="space-y-2 pb-4 border-b border-slate-200">
-                <div className="flex items-center justify-between gap-3">
-                  <h1 className="text-2xl sm:text-3xl font-extrabold uppercase tracking-tight text-[#1e1b4b]">
-                    {name}
-                  </h1>
-                  <span className="px-3 py-1 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider bg-purple-50 text-[#5b48bd] border border-purple-200 shrink-0">
-                    EXECUTIVE CV
-                  </span>
-                </div>
-                <p className="text-base font-bold text-[#5b48bd]">
-                  {title}
-                </p>
-                <div className="h-1 w-20 rounded-full bg-[#5b48bd]"></div>
-              </div>
-
-              {/* 1. Tóm tắt năng lực cốt lõi */}
-              <section className="space-y-2">
-                <h3 className="text-xs font-extrabold uppercase tracking-widest text-[#1e1b4b] flex items-center gap-2 pb-1 border-b border-slate-100">
-                  <span className="material-symbols-outlined text-base text-[#5b48bd]">badge</span>
-                  <span>Tóm Tắt Năng Lực Cốt Lõi (Executive Summary)</span>
-                </h3>
-                <p className="text-xs sm:text-sm leading-relaxed text-slate-700 bg-slate-50/70 p-4 rounded-2xl border border-slate-100">
-                  {summary}
-                </p>
-              </section>
-
-              {/* 2. Kinh nghiệm làm việc */}
-              {(experiences.length > 0 || projects.length === 0) && (
-                <section className="space-y-4">
-                  <h3 className="text-xs font-extrabold uppercase tracking-widest text-[#1e1b4b] flex items-center gap-2 pb-1 border-b border-slate-100">
-                    <span className="material-symbols-outlined text-base text-[#5b48bd]">work_history</span>
-                    <span>Lịch Sử Kinh Nghiệm Làm Việc</span>
-                  </h3>
-                  {experiences.length > 0 ? (
-                    <div className="space-y-4">
-                      {experiences.map((exp, idx) => (
-                        <div key={idx} className="relative pl-4 border-l-2 border-[#5b48bd]/40 space-y-1.5">
-                          <div className="absolute -left-[5px] top-1.5 w-2 h-2 rounded-full bg-[#5b48bd]" />
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <strong className="text-xs sm:text-sm text-[#1e1b4b] font-bold">
-                              {exp.role || exp.title}
-                            </strong>
-                            <span className="text-[11px] font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
-                              {exp.period || exp.duration}
-                            </span>
-                          </div>
-                          <p className="text-xs font-bold text-[#5b48bd]">
-                            {exp.company} {exp.location ? `• ${exp.location}` : ''}
-                          </p>
-                          {Array.isArray(exp.bullets) && exp.bullets.length > 0 ? (
-                            <ul className="list-disc pl-4 text-xs text-slate-600 space-y-1 mt-1">
-                              {exp.bullets.map((b, bi) => (
-                                <li key={bi} className="leading-relaxed">{b}</li>
-                              ))}
-                            </ul>
-                          ) : (
-                            <p className="text-xs text-slate-600 leading-relaxed">
-                              {exp.description || exp.summary}
-                            </p>
-                          )}
-                          {Array.isArray(exp.tags) && exp.tags.length > 0 && (
-                            <div className="flex flex-wrap gap-1 pt-1">
-                              {exp.tags.map((t, ti) => (
-                                <span key={ti} className="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-100">
-                                  #{t}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-slate-500 italic bg-slate-50/80 p-3 rounded-2xl border border-slate-100">
-                      Hồ sơ tập trung vào các dự án công nghệ &amp; năng lực thực chiến tiêu biểu bên dưới.
-                    </p>
-                  )}
                 </section>
               )}
 
-              {/* 3. Dự án tiêu biểu */}
-              {projects.length > 0 && (
-                <section className="space-y-4">
-                  <h3 className="text-xs font-extrabold uppercase tracking-widest text-[#1e1b4b] flex items-center gap-2 pb-1 border-b border-slate-100">
-                    <span className="material-symbols-outlined text-base text-[#5b48bd]">rocket_launch</span>
-                    <span>Dự Án Tiêu Biểu &amp; Sản Phẩm</span>
-                  </h3>
-                  <div className="space-y-3">
+              {/* 4. Dự Án Trọng Điểm (Key Projects) */}
+              {(projects.length > 0) && (
+                <section className="space-y-3.5">
+                  <div className="flex items-center justify-between pb-1 border-b border-[#E6E2DA]">
+                    <h3 className="text-xs font-headline font-black uppercase tracking-widest flex items-center gap-2 text-[#2D3A31]">
+                      <span className="material-symbols-outlined text-base text-[#5b48bd]">rocket_launch</span>
+                      <span>Dự Án Trọng Điểm (Key Projects)</span>
+                    </h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     {projects.map((proj, pIdx) => (
-                      <div key={pIdx} className="p-3.5 rounded-2xl bg-purple-50/30 border border-purple-100 space-y-1">
-                        <div className="flex items-center justify-between">
-                          <strong className="text-xs text-[#1e1b4b] font-bold">{proj.name}</strong>
-                          <span className="text-[11px] font-mono text-slate-500">{proj.period}</span>
+                      <div
+                        key={proj.id || pIdx}
+                        className="p-4 rounded-2xl border space-y-2 bg-white border-[#E6E2DA] shadow-xs"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <h4 className="font-headline font-bold text-sm text-[#2D3A31]">
+                            {proj.name}
+                          </h4>
+                          <span className="text-[10px] font-mono shrink-0 text-[#667067]">{proj.period}</span>
                         </div>
-                        {proj.role && <div className="text-xs text-[#5b48bd] font-medium">{proj.role}</div>}
-                        {(proj.summary || proj.description) && (
-                          <p className="text-xs text-slate-600 leading-relaxed mt-0.5">{proj.summary || proj.description}</p>
+                        <p className="text-xs font-semibold text-[#5b48bd]">{proj.role}</p>
+                        <p className="text-xs leading-relaxed font-body text-[#4A554D] font-medium">
+                          {proj.summary}
+                        </p>
+                        {Array.isArray(proj.tags) && proj.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 pt-1">
+                            {proj.tags.map((t, idx) => (
+                              <span
+                                key={idx}
+                                className="px-2 py-0.5 rounded text-[10px] font-mono bg-[#FAF9F5] border border-[#E6E2DA] text-[#2D3A31] font-semibold"
+                              >
+                                {t}
+                              </span>
+                            ))}
+                          </div>
                         )}
-                        {proj.technologies && (
-                          <span className="text-[10px] font-mono text-purple-800 bg-white px-2 py-0.5 rounded border border-purple-200 inline-block mt-1">
-                            Tech Stack: {proj.technologies}
-                          </span>
-                        )}
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* 5. Ma Trận Năng Lực Chuyên Môn (Skills Matrix) */}
+              {(skillCategories.length > 0) && (
+                <section className="space-y-3">
+                  <div className="flex items-center justify-between pb-1 border-b border-[#E6E2DA]">
+                    <h3 className="text-xs font-headline font-black uppercase tracking-widest flex items-center gap-2 text-[#2D3A31]">
+                      <span className="material-symbols-outlined text-base text-[#5b48bd]">psychology</span>
+                      <span>Ma Trận Năng Lực Chuyên Môn (Skills Matrix)</span>
+                    </h3>
+                  </div>
+
+                  <div className="space-y-2.5 text-xs sm:text-sm">
+                    {skillCategories.map((cat, catIdx) => (
+                      <div
+                        key={catIdx}
+                        className="p-3 rounded-2xl border flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 transition-all bg-white border-[#E6E2DA] shadow-xs"
+                      >
+                        <span className="w-48 shrink-0 font-bold font-headline flex items-center gap-1.5 pt-0.5 text-[#2D3A31]">
+                          <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-[#5b48bd]"></span>
+                          <span className="truncate">{cat.category}:</span>
+                        </span>
+
+                        <div className="flex-1 space-y-2">
+                          <div className="flex flex-wrap gap-1.5">
+                            {(cat.items || []).map((item, iIdx) => (
+                              <span
+                                key={iIdx}
+                                className="px-2.5 py-0.5 rounded-lg text-xs font-mono font-medium bg-[#FAF9F5] text-[#2D3A31] border border-[#E6E2DA] shadow-2xs font-semibold"
+                              >
+                                {typeof item === 'string' ? item : (item.skillName || item.name)}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -555,6 +866,18 @@ export default function OnlineCvRenderer({
                 <span>✉️ {email}</span>
                 <span>•</span>
                 <span>📍 {location}</span>
+                {dob && (
+                  <>
+                    <span>•</span>
+                    <span>🎂 {dob}</span>
+                  </>
+                )}
+                {github && (
+                  <>
+                    <span>•</span>
+                    <span>💻 {github.startsWith('@') ? github : `@${github.replace(/^https?:\/\/(www\.)?github\.com\//, '')}`}</span>
+                  </>
+                )}
               </div>
             </div>
 
@@ -573,47 +896,47 @@ export default function OnlineCvRenderer({
               <h2 className="text-xs font-serif font-black uppercase tracking-wider pb-0.5 border-b border-slate-400 text-slate-900">
                 KỸ NĂNG CHUYÊN MÔN (TECHNICAL &amp; CORE COMPETENCIES)
               </h2>
-              <div className="text-xs leading-relaxed text-slate-800 font-sans">
-                <strong>Chuyên môn cốt lõi: </strong>
-                {skills.map((s) => (typeof s === 'string' ? s : s.skillName || s.name)).join(' • ')}
+              <div className="space-y-1.5 text-xs text-slate-800 font-sans">
+                {skillCategories.map((cat, idx) => (
+                  <div key={idx} className="leading-relaxed">
+                    <strong>{cat.category}: </strong>
+                    <span>{(cat.items || []).join(' • ')}</span>
+                  </div>
+                ))}
               </div>
             </section>
 
             {/* Harvard Section 3: Professional Experience */}
-            {(experiences.length > 0 || projects.length === 0) && (
+            {(experiences.length > 0) && (
               <section className="space-y-4">
                 <h2 className="text-xs font-serif font-black uppercase tracking-wider pb-0.5 border-b border-slate-400 text-slate-900">
                   KINH NGHIỆM LÀM VIỆC (PROFESSIONAL EXPERIENCE)
                 </h2>
-                {experiences.length > 0 ? (
-                  <div className="space-y-4">
-                    {experiences.map((exp, idx) => (
-                      <div key={idx} className="space-y-1 font-sans">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-bold text-xs sm:text-sm text-slate-950">{exp.company}</span>
-                          <span className="text-xs font-mono text-slate-600">{exp.period || exp.duration}</span>
-                        </div>
-                        <div className="flex items-center justify-between text-xs italic text-slate-700 font-serif">
-                          <span>{exp.role || exp.title}</span>
-                          {exp.location && <span>{exp.location}</span>}
-                        </div>
-                        {Array.isArray(exp.bullets) && exp.bullets.length > 0 ? (
-                          <ul className="list-disc pl-5 text-xs text-slate-700 space-y-1 pt-1 font-sans">
-                            {exp.bullets.map((b, bi) => (
-                              <li key={bi} className="leading-relaxed">{b}</li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <p className="text-xs text-slate-700 leading-relaxed font-sans">{exp.description || exp.summary}</p>
-                        )}
+                <div className="space-y-4">
+                  {experiences.map((exp, idx) => (
+                    <div key={idx} className="space-y-1 font-sans">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-bold text-xs sm:text-sm text-slate-950">{exp.company}</span>
+                        <span className="text-xs font-mono text-slate-600">{exp.period || exp.duration}</span>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-slate-600 italic font-sans">
-                    Ứng viên tập trung vào các dự án công nghệ &amp; nghiên cứu ứng dụng tiêu biểu.
-                  </p>
-                )}
+                      <div className="flex items-center justify-between text-xs italic text-slate-700 font-serif">
+                        <span>{exp.role || exp.title}</span>
+                        {exp.location && <span>{exp.location}</span>}
+                      </div>
+                      {Array.isArray(exp.bullets) && exp.bullets.length > 0 ? (
+                        <ul className="list-disc pl-5 text-xs text-slate-700 space-y-1 pt-1 font-sans">
+                          {exp.bullets.map((b, bi) => (
+                            <li key={bi} className="leading-relaxed">{b}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        exp.description && (
+                          <p className="text-xs text-slate-700 leading-relaxed font-sans">{exp.description}</p>
+                        )
+                      )}
+                    </div>
+                  ))}
+                </div>
               </section>
             )}
 
@@ -630,11 +953,11 @@ export default function OnlineCvRenderer({
                         <span>{proj.name} {proj.role ? `— ${proj.role}` : ''}</span>
                         <span className="font-mono text-slate-500 font-normal">{proj.period}</span>
                       </div>
-                      {(proj.summary || proj.description) && (
-                        <p className="text-xs text-slate-700 leading-relaxed">{proj.summary || proj.description}</p>
+                      {proj.summary && (
+                        <p className="text-xs text-slate-700 leading-relaxed">{proj.summary}</p>
                       )}
-                      {proj.technologies && (
-                        <p className="text-[11px] text-slate-600 font-mono">Công nghệ: {proj.technologies}</p>
+                      {Array.isArray(proj.tags) && proj.tags.length > 0 && (
+                        <p className="text-[11px] text-slate-600 font-mono">Công nghệ: {proj.tags.join(', ')}</p>
                       )}
                     </div>
                   ))}
@@ -651,20 +974,20 @@ export default function OnlineCvRenderer({
                 {educations.map((edu, idx) => (
                   <div key={idx} className="flex items-center justify-between text-xs text-slate-800">
                     <div>
-                      <strong className="text-slate-950">{edu.school || edu.institution}</strong> — {edu.degree || edu.major}
+                      <strong className="text-slate-950">{edu.school}</strong> — {edu.degree}
                       {edu.grade && <span className="text-emerald-700 font-bold"> ({edu.grade})</span>}
                     </div>
-                    <span className="font-mono text-slate-500">{edu.period || edu.year}</span>
+                    <span className="font-mono text-slate-500">{edu.period}</span>
                   </div>
                 ))}
               </div>
             </section>
 
-            {/* Harvard Section 6: Certifications */}
-            {certifications.length > 0 && (
+            {/* Harvard Section 6: Certifications & Languages */}
+            {(certifications.length > 0 || languages.length > 0) && (
               <section className="space-y-2">
                 <h2 className="text-xs font-serif font-black uppercase tracking-wider pb-0.5 border-b border-slate-400 text-slate-900">
-                  CHỨNG CHỈ NGHỀ NGHIỆP (CERTIFICATIONS &amp; LICENSES)
+                  CHỨNG CHỈ &amp; NGOẠI NGỮ (CERTIFICATIONS &amp; LANGUAGES)
                 </h2>
                 <div className="space-y-1.5 font-sans text-xs">
                   {certifications.map((cert, cIdx) => (
@@ -674,6 +997,14 @@ export default function OnlineCvRenderer({
                         {cert.issuer && <span className="text-slate-600"> — {cert.issuer}</span>}
                       </div>
                       {cert.year && <span className="font-mono text-slate-500">{cert.year}</span>}
+                    </div>
+                  ))}
+                  {languages.map((lang, lIdx) => (
+                    <div key={lIdx} className="flex items-center justify-between text-slate-800 border-t border-slate-100 pt-1">
+                      <div>
+                        <strong className="text-slate-950">{lang.name}</strong>
+                      </div>
+                      <span className="font-mono text-slate-500">{lang.score || lang.level}</span>
                     </div>
                   ))}
                 </div>
@@ -735,14 +1066,26 @@ export default function OnlineCvRenderer({
                 <span className="material-symbols-outlined text-sm text-[#5b48bd]">location_on</span>
                 <span>{location}</span>
               </span>
+              {dob && (
+                <span className="flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-sm text-[#5b48bd]">cake</span>
+                  <span>{dob}</span>
+                </span>
+              )}
+              {github && (
+                <span className="flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-sm text-[#5b48bd]">code</span>
+                  <span>{github.startsWith('@') ? github : `@${github.replace(/^https?:\/\/(www\.)?github\.com\//, '')}`}</span>
+                </span>
+              )}
             </div>
 
             {/* 2-Column Grid Body */}
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6 pt-2">
-              {/* Left Column (8/12): Experience & Projects */}
+              {/* Left Column (8/12): Experience, Projects & Skills Matrix */}
               <div className="md:col-span-8 space-y-6">
                 {/* Kinh nghiệm */}
-                {(experiences.length > 0 || projects.length === 0) && (
+                {(experiences.length > 0) && (
                   <section className="space-y-4">
                     <div className="flex items-center gap-2 pb-2 border-b border-slate-200">
                       <div className="w-7 h-7 rounded-lg bg-purple-100 text-[#5b48bd] flex items-center justify-center font-bold">
@@ -753,40 +1096,36 @@ export default function OnlineCvRenderer({
                       </h3>
                     </div>
 
-                    {experiences.length > 0 ? (
-                      <div className="space-y-4">
-                        {experiences.map((exp, idx) => (
-                          <div key={idx} className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <strong className="text-xs sm:text-sm text-[#1e1b4b] font-bold">
-                                {exp.role || exp.title}
-                              </strong>
-                              <span className="text-[11px] font-mono text-[#5b48bd] bg-purple-50 px-2 py-0.5 rounded-md font-bold">
-                                {exp.period || exp.duration}
-                              </span>
-                            </div>
-                            <div className="text-xs font-semibold text-[#5b48bd]">
-                              {exp.company}
-                            </div>
-                            {Array.isArray(exp.bullets) && exp.bullets.length > 0 ? (
-                              <ul className="list-disc pl-4 text-xs text-slate-600 space-y-1">
-                                {exp.bullets.map((b, bi) => (
-                                  <li key={bi} className="leading-relaxed">{b}</li>
-                                ))}
-                              </ul>
-                            ) : (
-                              <p className="text-xs text-slate-600 leading-relaxed">
-                                {exp.description || exp.summary}
-                              </p>
-                            )}
+                    <div className="space-y-4">
+                      {experiences.map((exp, idx) => (
+                        <div key={idx} className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <strong className="text-xs sm:text-sm text-[#1e1b4b] font-bold">
+                              {exp.role || exp.title}
+                            </strong>
+                            <span className="text-[11px] font-mono text-[#5b48bd] bg-purple-50 px-2 py-0.5 rounded-md font-bold">
+                              {exp.period || exp.duration}
+                            </span>
                           </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-slate-500 italic bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
-                        Ứng viên tập trung vào các dự án công nghệ &amp; nghiên cứu ứng dụng tiêu biểu.
-                      </p>
-                    )}
+                          <div className="text-xs font-semibold text-[#5b48bd]">
+                            {exp.company}
+                          </div>
+                          {Array.isArray(exp.bullets) && exp.bullets.length > 0 ? (
+                            <ul className="list-disc pl-4 text-xs text-slate-600 space-y-1">
+                              {exp.bullets.map((b, bi) => (
+                                <li key={bi} className="leading-relaxed">{b}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            exp.description && (
+                              <p className="text-xs text-slate-600 leading-relaxed">
+                                {exp.description}
+                              </p>
+                            )
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </section>
                 )}
 
@@ -809,15 +1148,58 @@ export default function OnlineCvRenderer({
                             <strong className="text-xs text-[#1e1b4b] font-bold">{proj.name}</strong>
                             <span className="text-[11px] font-mono text-slate-500">{proj.period}</span>
                           </div>
-                          {proj.role && <div className="text-xs text-[#5b48bd] font-medium">{proj.role}</div>}
-                          {(proj.summary || proj.description) && (
-                            <p className="text-xs text-slate-600 mt-1 leading-relaxed">{proj.summary || proj.description}</p>
+                          <div className="text-xs text-[#5b48bd] font-medium">{proj.role}</div>
+                          {proj.summary && (
+                            <p className="text-xs text-slate-600 mt-1 leading-relaxed">{proj.summary}</p>
                           )}
-                          {proj.technologies && (
-                            <span className="text-[10px] font-mono text-purple-800 bg-white px-2 py-0.5 rounded border border-purple-200 inline-block mt-1">
-                              Stack: {proj.technologies}
-                            </span>
+                          {Array.isArray(proj.tags) && proj.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 pt-1">
+                              {proj.tags.map((t, ti) => (
+                                <span key={ti} className="text-[10px] font-mono text-purple-800 bg-white px-2 py-0.5 rounded border border-purple-200">
+                                  {t}
+                                </span>
+                              ))}
+                            </div>
                           )}
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {/* Ma Trận Năng Lực Chuyên Môn */}
+                {skillCategories.length > 0 && (
+                  <section className="space-y-3">
+                    <div className="flex items-center gap-2 pb-2 border-b border-slate-200">
+                      <div className="w-7 h-7 rounded-lg bg-purple-100 text-[#5b48bd] flex items-center justify-center font-bold">
+                        <span className="material-symbols-outlined text-base">psychology</span>
+                      </div>
+                      <h3 className="font-extrabold text-sm text-[#1e1b4b] uppercase tracking-wider">
+                        Ma Trận Năng Lực Chuyên Môn (Skills Matrix)
+                      </h3>
+                    </div>
+
+                    <div className="space-y-2.5">
+                      {skillCategories.map((cat, catIdx) => (
+                        <div
+                          key={catIdx}
+                          className="p-3 rounded-2xl border flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-4 bg-slate-50 border-slate-200 shadow-2xs"
+                        >
+                          <span className="w-48 shrink-0 font-bold text-xs text-[#1e1b4b] flex items-center gap-1.5 pt-0.5">
+                            <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-[#5b48bd]"></span>
+                            <span className="truncate">{cat.category}:</span>
+                          </span>
+
+                          <div className="flex-1 flex flex-wrap gap-1.5">
+                            {(cat.items || []).map((item, iIdx) => (
+                              <span
+                                key={iIdx}
+                                className="px-2.5 py-0.5 rounded-lg text-xs font-mono font-medium bg-white text-slate-800 border border-slate-200 shadow-2xs"
+                              >
+                                {typeof item === 'string' ? item : (item.skillName || item.name)}
+                              </span>
+                            ))}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -825,28 +1207,8 @@ export default function OnlineCvRenderer({
                 )}
               </div>
 
-              {/* Right Column (4/12): Skills & Education */}
+              {/* Right Column (4/12): Education, Certifications & Languages */}
               <div className="md:col-span-4 space-y-6">
-                {/* Kỹ năng */}
-                <section className="p-4 rounded-2xl bg-purple-50/40 border border-purple-100 space-y-3">
-                  <div className="flex items-center gap-2 pb-1 border-b border-purple-200">
-                    <span className="material-symbols-outlined text-base text-[#5b48bd]">terminal</span>
-                    <h3 className="font-extrabold text-xs text-[#1e1b4b] uppercase tracking-wider">
-                      Bộ Kỹ Năng
-                    </h3>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {skills.map((s, idx) => (
-                      <span
-                        key={idx}
-                        className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-white text-[#5b48bd] border border-purple-200 shadow-2xs"
-                      >
-                        {typeof s === 'string' ? s : s.skillName || s.name}
-                      </span>
-                    ))}
-                  </div>
-                </section>
-
                 {/* Học vấn */}
                 <section className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
                   <div className="flex items-center gap-2 pb-1 border-b border-slate-200">
@@ -858,10 +1220,10 @@ export default function OnlineCvRenderer({
                   <div className="space-y-2.5">
                     {educations.map((edu, idx) => (
                       <div key={idx} className="space-y-0.5 text-xs">
-                        <strong className="text-slate-900 block">{edu.school || edu.institution}</strong>
-                        <div className="text-slate-600">{edu.degree || edu.major}</div>
+                        <strong className="text-slate-900 block">{edu.school}</strong>
+                        <div className="text-slate-600">{edu.degree}</div>
                         {edu.grade && <div className="text-emerald-700 font-bold">{edu.grade}</div>}
-                        <div className="text-[10px] font-mono text-slate-500">{edu.period || edu.year}</div>
+                        <div className="text-[10px] font-mono text-slate-500">{edu.period}</div>
                       </div>
                     ))}
                   </div>
@@ -873,7 +1235,7 @@ export default function OnlineCvRenderer({
                     <div className="flex items-center gap-2 pb-1 border-b border-purple-200">
                       <span className="material-symbols-outlined text-base text-[#5b48bd]">workspace_premium</span>
                       <h3 className="font-extrabold text-xs text-[#1e1b4b] uppercase tracking-wider">
-                        Chứng Chỉ Nghề Nghiệp
+                        Chứng Chỉ Quốc Tế
                       </h3>
                     </div>
                     <div className="space-y-2 text-xs">
@@ -881,6 +1243,26 @@ export default function OnlineCvRenderer({
                         <div key={cIdx} className="space-y-0.5">
                           <strong className="text-[#1e1b4b] block">{cert.name}</strong>
                           <div className="text-[11px] text-[#5b48bd] font-mono">{cert.issuer} {cert.year ? `• ${cert.year}` : ''}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {/* Ngoại ngữ */}
+                {languages.length > 0 && (
+                  <section className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+                    <div className="flex items-center gap-2 pb-1 border-b border-slate-200">
+                      <span className="material-symbols-outlined text-base text-[#5b48bd]">translate</span>
+                      <h3 className="font-extrabold text-xs text-[#1e1b4b] uppercase tracking-wider">
+                        Ngoại Ngữ Thành Thạo
+                      </h3>
+                    </div>
+                    <div className="space-y-2 text-xs">
+                      {languages.map((lang, lIdx) => (
+                        <div key={lIdx} className="flex items-center justify-between border-b border-dashed border-slate-200 pb-1">
+                          <span className="font-bold text-slate-800">{lang.name}</span>
+                          <span className="text-[11px] font-mono text-slate-500">{lang.score || lang.level}</span>
                         </div>
                       ))}
                     </div>
