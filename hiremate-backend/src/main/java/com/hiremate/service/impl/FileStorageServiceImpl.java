@@ -303,66 +303,118 @@ public class FileStorageServiceImpl implements FileStorageService {
                 }
             } catch (Exception e) {
                 log.warn(">> [FileStorage] Không thể đọc trực tiếp từ Remote URL ({}): {}", fileUrlOrName, e.getMessage());
-                // Fallback nếu là file PDF trên Cloudinary CDN bị giới hạn ACL 401: Cloudinary cho phép render trực tiếp sang .png nét cao
+
+                // 2.1 Ưu tiên khôi phục file gốc từ CSDL Supabase (Zero-Loss Backup)
+                byte[] dbBytes = recoverFromDatabase(fileUrlOrName);
+                if (dbBytes != null && dbBytes.length > 0) {
+                    return dbBytes;
+                }
+
+                // 2.2 Fallback nếu là file PDF trên Cloudinary CDN bị giới hạn ACL 401:
+                // Tải các trang ảnh sắc nét (pg_1, pg_2...) và ghép thành file PDF A4 hoàn chỉnh bằng PDFBox
                 if (fileUrlOrName.contains("res.cloudinary.com") && fileUrlOrName.toLowerCase().endsWith(".pdf")) {
-                    String pngUrl = fileUrlOrName.replaceAll("(?i)\\.pdf$", ".png");
                     try {
-                        java.net.URL urlPng = java.net.URI.create(pngUrl).toURL();
-                        java.net.URLConnection connPng = urlPng.openConnection();
-                        connPng.setConnectTimeout(5000);
-                        connPng.setReadTimeout(10000);
-                        try (java.io.InputStream inPng = connPng.getInputStream()) {
-                            byte[] pngBytes = inPng.readAllBytes();
-                            if (pngBytes != null && pngBytes.length > 0) {
-                                log.info(">> [FileStorage] Đã tải thành công ảnh xem trước (.png) thay thế cho PDF Cloudinary: {}", pngUrl);
-                                return pngBytes;
+                        java.util.List<byte[]> pages = new java.util.ArrayList<>();
+                        // Thử tải tuần tự các trang từ Cloudinary CDN (pg_1, pg_2, ...)
+                        for (int pageNo = 1; pageNo <= 10; pageNo++) {
+                            String pageUrl = fileUrlOrName.replace("/image/upload/", "/image/upload/pg_" + pageNo + "/").replaceAll("(?i)\\.pdf$", ".png");
+                            try {
+                                java.net.URL u = java.net.URI.create(pageUrl).toURL();
+                                java.net.HttpURLConnection c = (java.net.HttpURLConnection) u.openConnection();
+                                c.setConnectTimeout(4000);
+                                c.setReadTimeout(6000);
+                                if (c.getResponseCode() == 200) {
+                                    try (java.io.InputStream pin = c.getInputStream()) {
+                                        byte[] pBytes = pin.readAllBytes();
+                                        if (pBytes != null && pBytes.length > 0) {
+                                            pages.add(pBytes);
+                                        }
+                                    }
+                                } else {
+                                    break; // Kết thúc các trang
+                                }
+                            } catch (Exception ignored) {
+                                break;
                             }
+                        }
+
+                        // Nếu không lấy được qua cú pháp pg_, thử tải trực tiếp .png đơn trang
+                        if (pages.isEmpty()) {
+                            String pngUrl = fileUrlOrName.replaceAll("(?i)\\.pdf$", ".png");
+                            java.net.URL urlPng = java.net.URI.create(pngUrl).toURL();
+                            java.net.URLConnection connPng = urlPng.openConnection();
+                            connPng.setConnectTimeout(5000);
+                            connPng.setReadTimeout(10000);
+                            try (java.io.InputStream inPng = connPng.getInputStream()) {
+                                byte[] pngBytes = inPng.readAllBytes();
+                                if (pngBytes != null && pngBytes.length > 0) {
+                                    pages.add(pngBytes);
+                                }
+                            }
+                        }
+
+                        if (!pages.isEmpty()) {
+                            byte[] compiledPdf = com.hiremate.util.PdfFallbackGenerator.convertImagesToPdf(pages);
+                            if (compiledPdf != null && compiledPdf.length > 0) {
+                                log.info(">> [FileStorage] Đã tái tạo thành công PDF A4 hoàn chỉnh từ {} trang Cloudinary CDN", pages.size());
+                                return compiledPdf;
+                            }
+                            return pages.get(0);
                         }
                     } catch (Exception exPng) {
-                        log.warn(">> [FileStorage] Thử tải fallback .png từ Cloudinary cũng thất bại: {}", exPng.getMessage());
+                        log.warn(">> [FileStorage] Thử tái tạo PDF từ Cloudinary thất bại: {}", exPng.getMessage());
                     }
                 }
             }
         }
 
-        // 3. Fallback: Khôi phục file từ cơ sở dữ liệu Supabase (Zero-Loss Backup trong cvs.parsed_json)
-        if (cvRepository != null) {
-            try {
-                java.util.Optional<com.hiremate.entity.Cv> cvOpt = cvRepository.findFirstByFileUrl(fileUrlOrName);
+        // 3. Fallback cuối: Khôi phục file từ cơ sở dữ liệu Supabase (Zero-Loss Backup trong cvs.parsed_json)
+        byte[] finalDbBytes = recoverFromDatabase(fileUrlOrName);
+        if (finalDbBytes != null && finalDbBytes.length > 0) {
+            return finalDbBytes;
+        }
+
+        return null;
+    }
+
+    private byte[] recoverFromDatabase(String fileUrlOrName) {
+        if (cvRepository == null || fileUrlOrName == null || fileUrlOrName.isBlank()) {
+            return null;
+        }
+        try {
+            java.util.Optional<com.hiremate.entity.Cv> cvOpt = cvRepository.findFirstByFileUrl(fileUrlOrName);
+            if (cvOpt.isEmpty()) {
+                String cleanName = fileUrlOrName.replace("/uploads/", "");
+                int lastSlash = cleanName.lastIndexOf('/');
+                if (lastSlash >= 0) cleanName = cleanName.substring(lastSlash + 1);
+                var byName = cvRepository.findByFileName(cleanName);
+                if (byName != null && !byName.isEmpty()) {
+                    cvOpt = java.util.Optional.of(byName.get(0));
+                }
                 if (cvOpt.isEmpty()) {
-                    String cleanName = fileUrlOrName.replace("/uploads/", "");
-                    int lastSlash = cleanName.lastIndexOf('/');
-                    if (lastSlash >= 0) cleanName = cleanName.substring(lastSlash + 1);
-                    var byName = cvRepository.findByFileName(cleanName);
-                    if (byName != null && !byName.isEmpty()) {
-                        cvOpt = java.util.Optional.of(byName.get(0));
-                    }
-                    if (cvOpt.isEmpty()) {
-                        var containing = cvRepository.findByFileUrlContaining(cleanName);
-                        if (containing != null && !containing.isEmpty()) {
-                            cvOpt = java.util.Optional.of(containing.get(0));
-                        }
+                    var containing = cvRepository.findByFileUrlContaining(cleanName);
+                    if (containing != null && !containing.isEmpty()) {
+                        cvOpt = java.util.Optional.of(containing.get(0));
                     }
                 }
-                if (cvOpt.isPresent()) {
-                    com.hiremate.entity.Cv cv = cvOpt.get();
-                    if (cv.getParsedJson() != null && cv.getParsedJson().contains("raw_file_base64")) {
-                        com.fasterxml.jackson.databind.JsonNode root = new com.fasterxml.jackson.databind.ObjectMapper().readTree(cv.getParsedJson());
-                        String b64 = root.path("raw_file_base64").asText("");
-                        if (!b64.isBlank()) {
-                            byte[] decoded = java.util.Base64.getDecoder().decode(b64);
-                            if (decoded != null && decoded.length > 0) {
-                                log.info(">> [FileStorage] Đã khôi phục thành công file gốc từ CSDL Supabase cho CV ID: {}", cv.getCvId());
-                                return decoded;
-                            }
-                        }
-                    }
-                }
-            } catch (Exception exDb) {
-                log.warn(">> [FileStorage] Tra cứu khôi phục CSDL thất bại: {}", exDb.getMessage());
             }
+            if (cvOpt.isPresent()) {
+                com.hiremate.entity.Cv cv = cvOpt.get();
+                if (cv.getParsedJson() != null && cv.getParsedJson().contains("raw_file_base64")) {
+                    com.fasterxml.jackson.databind.JsonNode root = new com.fasterxml.jackson.databind.ObjectMapper().readTree(cv.getParsedJson());
+                    String b64 = root.path("raw_file_base64").asText("");
+                    if (!b64.isBlank()) {
+                        byte[] decoded = java.util.Base64.getDecoder().decode(b64);
+                        if (decoded != null && decoded.length > 0) {
+                            log.info(">> [FileStorage] Đã khôi phục thành công file gốc từ CSDL Supabase cho CV ID: {}", cv.getCvId());
+                            return decoded;
+                        }
+                    }
+                }
+            }
+        } catch (Exception exDb) {
+            log.warn(">> [FileStorage] Tra cứu khôi phục CSDL thất bại: {}", exDb.getMessage());
         }
-
         return null;
     }
 

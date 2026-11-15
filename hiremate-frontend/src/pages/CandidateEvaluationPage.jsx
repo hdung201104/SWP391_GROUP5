@@ -1626,7 +1626,7 @@ export default function CandidateEvaluationPage({
   const getPdfViewerUrl = (baseUrl) => {
     if (!baseUrl) return '';
     const cleanUrl = baseUrl.split('#')[0];
-    let params = 'page=1&toolbar=1&navpanes=0';
+    let params = 'page=1&toolbar=1&navpanes=1';
     if (zoomLevel === 100 || zoomLevel === 'width') {
       params += '&view=FitH'; // Fit Horizontal: Vừa khít 100% chiều ngang, neo đúng đỉnh trang 1
     } else if (zoomLevel === 'page') {
@@ -2659,12 +2659,23 @@ export default function CandidateEvaluationPage({
                   </div>
                 ) : pdfBlobUrl ? (
                   cvMimeType.startsWith('image/') ? (
-                    <div className="w-full min-h-[500px] max-h-[760px] overflow-auto p-4 flex items-center justify-center bg-slate-100 rounded-2xl border border-slate-200">
-                      <img
-                        src={pdfBlobUrl}
-                        alt={`CV - ${cand.name}`}
-                        className="max-w-full h-auto rounded-xl shadow-md border border-slate-200 object-contain"
-                      />
+                    <div className="w-full h-full min-h-[780px] overflow-y-auto p-4 flex flex-col items-center justify-start bg-slate-100/70 rounded-2xl border border-slate-200">
+                      <div
+                        className={`transition-all duration-200 flex justify-center ${
+                          zoomLevel === 'page'
+                            ? 'max-h-[800px] w-auto'
+                            : zoomLevel === 100 || zoomLevel === 'width'
+                            ? 'w-full max-w-[850px]'
+                            : ''
+                        }`}
+                        style={typeof zoomLevel === 'number' && zoomLevel !== 100 ? { width: `${zoomLevel}%` } : {}}
+                      >
+                        <img
+                          src={pdfBlobUrl}
+                          alt={`CV - ${cand.name}`}
+                          className="w-full h-auto rounded-xl shadow-lg border border-slate-200 object-contain block"
+                        />
+                      </div>
                     </div>
                   ) : (cvMimeType.includes('word') || cvMimeType.includes('document') || cand.cvFileName?.toLowerCase().endsWith('.docx') || cand.cvFileName?.toLowerCase().endsWith('.doc')) ? (
                     <div className="bg-white rounded-3xl p-10 text-center border border-purple-100 shadow-sm max-w-lg mx-auto my-auto space-y-4">

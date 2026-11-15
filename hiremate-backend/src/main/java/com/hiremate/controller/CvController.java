@@ -66,6 +66,16 @@ public class CvController {
             fn = fn + ".jpg";
         }
 
+        boolean isImgBytes = (bytes.length >= 4 && (bytes[0] & 0xFF) == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47)
+                || (bytes.length >= 3 && (bytes[0] & 0xFF) == 0xFF && (bytes[1] & 0xFF) == 0xD8 && (bytes[2] & 0xFF) == 0xFF);
+        boolean expectsPdf = fn.toLowerCase().endsWith(".pdf") || lowerUrl.endsWith(".pdf");
+        if (isImgBytes && expectsPdf) {
+            byte[] convertedPdf = com.hiremate.util.PdfFallbackGenerator.convertImageToPdf(bytes);
+            if (convertedPdf != null && convertedPdf.length > 0) {
+                bytes = convertedPdf;
+            }
+        }
+
         String contentType = "application/pdf";
         if (bytes.length >= 4 && (bytes[0] & 0xFF) == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47) {
             contentType = "image/png";
@@ -134,11 +144,23 @@ public class CvController {
             fn = fn + ".jpg";
         }
 
+        boolean isDlImgBytes = (bytes.length >= 4 && (bytes[0] & 0xFF) == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47)
+                || (bytes.length >= 3 && (bytes[0] & 0xFF) == 0xFF && (bytes[1] & 0xFF) == 0xD8 && (bytes[2] & 0xFF) == 0xFF);
+        boolean dlExpectsPdf = fn.toLowerCase().endsWith(".pdf") || lowerUrl.endsWith(".pdf");
+        if (isDlImgBytes && dlExpectsPdf) {
+            byte[] convertedPdf = com.hiremate.util.PdfFallbackGenerator.convertImageToPdf(bytes);
+            if (convertedPdf != null && convertedPdf.length > 0) {
+                bytes = convertedPdf;
+            }
+        }
+
         String contentType = "application/octet-stream";
         if (bytes.length >= 4 && (bytes[0] & 0xFF) == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47) {
             contentType = "image/png";
         } else if (bytes.length >= 3 && (bytes[0] & 0xFF) == 0xFF && (bytes[1] & 0xFF) == 0xD8 && (bytes[2] & 0xFF) == 0xFF) {
             contentType = "image/jpeg";
+        } else if (fn.toLowerCase().endsWith(".pdf")) {
+            contentType = "application/pdf";
         } else if (fn.toLowerCase().endsWith(".png")) {
             contentType = "image/png";
         } else if (fn.toLowerCase().endsWith(".jpg") || fn.toLowerCase().endsWith(".jpeg")) {

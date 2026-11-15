@@ -7,6 +7,7 @@ import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
+import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 
 import java.awt.Color;
 import java.io.ByteArrayOutputStream;
@@ -571,6 +572,59 @@ public class PdfFallbackGenerator {
         } catch (Exception e) {
             log.error("Failed to generate fallback License PDF: {}", e.getMessage(), e);
             return new byte[0];
+        }
+    }
+
+    /**
+     * Converts a single image (PNG/JPEG) into a standard A4 PDF document.
+     * Ensures top alignment and 100% preservation of top headers and avatar photos.
+     */
+    public static byte[] convertImageToPdf(byte[] imgBytes) {
+        if (imgBytes == null || imgBytes.length == 0) return null;
+        List<byte[]> list = new ArrayList<>();
+        list.add(imgBytes);
+        return convertImagesToPdf(list);
+    }
+
+    /**
+     * Converts a list of high-resolution images (e.g. from multi-page Cloudinary render)
+     * into a standard multi-page A4 PDF document.
+     */
+    public static byte[] convertImagesToPdf(List<byte[]> imagePages) {
+        if (imagePages == null || imagePages.isEmpty()) return null;
+        try (PDDocument doc = new PDDocument()) {
+            float a4Width = PDRectangle.A4.getWidth();
+            float a4Height = PDRectangle.A4.getHeight();
+
+            for (byte[] imgBytes : imagePages) {
+                if (imgBytes == null || imgBytes.length == 0) continue;
+                PDImageXObject pdImage = PDImageXObject.createFromByteArray(doc, imgBytes, "page");
+                float imgWidth = pdImage.getWidth();
+                float imgHeight = pdImage.getHeight();
+
+                PDPage page = new PDPage(new PDRectangle(a4Width, a4Height));
+                doc.addPage(page);
+
+                // Scale image to fit A4 page while preserving aspect ratio
+                float scale = Math.min(a4Width / imgWidth, a4Height / imgHeight);
+                float w = imgWidth * scale;
+                float h = imgHeight * scale;
+                float x = (a4Width - w) / 2.0f;
+                float y = a4Height - h; // Place image starting at the very TOP edge of the page
+
+                try (PDPageContentStream cs = new PDPageContentStream(doc, page)) {
+                    cs.drawImage(pdImage, x, y, w, h);
+                }
+            }
+
+            if (doc.getNumberOfPages() == 0) return null;
+
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            doc.save(out);
+            return out.toByteArray();
+        } catch (Exception e) {
+            log.warn("Lỗi chuyển đổi ảnh sang PDF bằng PDFBox: {}", e.getMessage());
+            return null;
         }
     }
 }
