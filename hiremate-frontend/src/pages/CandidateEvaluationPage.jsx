@@ -108,6 +108,39 @@ function buildCandidateAiReport(cand, liveAiReport) {
 }
 
 /**
+ * Kiểm tra xem một chuỗi có phải là tiêu đề hợp lệ hay là tiêu đề mục / rác bóc tách
+ */
+export function isInvalidHeadline(str) {
+  if (!str || typeof str !== 'string') return true;
+  const clean = str.trim().toLowerCase();
+  if (clean.length < 2 || clean.length > 80) return true;
+  if (clean === 'ứng viên' || clean === 'ung vien' || clean === 'chuyên viên' || clean === 'chuyen vien' || clean === 'hồ sơ ứng viên') return true;
+  if (/^(?:work\s+experience|professional\s+experience|kinh\s+nghiệm(?:\s+làm\s+việc)?)/i.test(clean)) return true;
+  if (/^(?:education|academic(?:\s+credentials)?|học\s+vấn(?:\s+chính\s+quy)?)/i.test(clean)) return true;
+  if (/^(?:skills|core\s+competencies|technical\s+skills|kỹ\s+năng(?:\s+cốt\s+lõi)?)/i.test(clean)) return true;
+  if (/^(?:summary|professional\s+summary|executive\s+summary|tóm\s+tắt|about\s+me|mục\s+tiêu)/i.test(clean)) return true;
+  if (/^(?:certifications?|chứng\s+chỉ|projects?|dự\s+án|languages?|ngoại\s+ngữ|achievements?)/i.test(clean)) return true;
+  if (clean.includes('curriculum vitae') || clean.includes('resume') || clean.endsWith('.pdf') || clean.endsWith('.docx')) return true;
+  if (clean.includes('@') || clean.includes('http') || /\d{8,}/.test(clean)) return true;
+  return false;
+}
+
+/**
+ * Kiểm tra xem một chuỗi có phải là địa chỉ địa lý hợp lệ hay là cặp ngôn ngữ / dự án rác
+ */
+export function isInvalidLocation(str) {
+  if (!str || typeof str !== 'string') return true;
+  const clean = str.trim().toLowerCase();
+  if (clean.length < 2 || clean.length > 60) return true;
+  if (/japanese-vietnamese|vietnamese-japanese|english-vietnamese/i.test(clean)) return true;
+  if (/manga|translation|translator|dịch\s+thuật|biên\s+dịch|phiên\s+dịch/i.test(clean)) return true;
+  if (/project|experience|tutor|engineer|developer|giảng\s+dạy/i.test(clean)) return true;
+  if (/freelance|part-time|full-time|remote|hybrid/i.test(clean)) return true;
+  if (/\b(?:19|20)\d{2}\b/.test(clean)) return true;
+  return false;
+}
+
+/**
  * Hàm phân tích động văn bản thô (raw text) bóc tách từ file CV (PDF / DOCX)
  * Giúp đảm bảo 100% hiển thị đúng ứng viên, tiêu đề, kinh nghiệm, học vấn của chính file đã nộp.
  */
@@ -128,13 +161,15 @@ function parseCvRawText(rawText, fileName) {
     const line = lines[i];
     if (line.includes('@') || line.includes('http') || line.match(/\d{9,}/) || line.includes('•')) continue;
     if (/about\s+me|objective|summary|tóm\s+tắt|kỹ\s+năng|skills|education|học\s+vấn/i.test(line)) break;
+    if (isInvalidHeadline(line)) continue;
     if (/^[A-ZÀ-Ỹ][a-zà-ỹ]+(?:\s+[A-ZÀ-Ỹ][a-zà-ỹ]+){1,3}$/u.test(line) ||
         /^[A-ZÀ-Ỹ]{2,}(?:\s+[A-ZÀ-Ỹ]{2,}){1,3}$/u.test(line)) {
       foundName = line;
-      if (i + 1 < lines.length) {
-        const nextLine = lines[i + 1];
-        if (!nextLine.includes('@') && !nextLine.match(/\d{9,}/) && nextLine.length > 2 && nextLine.length < 60) {
+      for (let j = i + 1; j < Math.min(lines.length, i + 4); j++) {
+        const nextLine = lines[j];
+        if (!nextLine.includes('@') && !nextLine.match(/\d{9,}/) && nextLine.length > 2 && nextLine.length < 80 && !isInvalidHeadline(nextLine)) {
           foundHeadline = nextLine;
+          break;
         }
       }
       break;
@@ -143,14 +178,16 @@ function parseCvRawText(rawText, fileName) {
 
   if (!foundName && fileName) {
     const cleanFn = fileName.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
-    if (cleanFn.length > 2) foundName = cleanFn;
+    if (cleanFn.length > 2 && !cleanFn.toLowerCase().includes('resume') && !cleanFn.toLowerCase().includes('curriculum')) foundName = cleanFn;
   }
 
   result.fullName = foundName;
   result.headline = foundHeadline;
 
   for (const line of lines.slice(0, 15)) {
-    if (/nghệ\s+an|hà\s+nội|hồ\s+chí\s+minh|đà\s+nẵng|vietnam|việt\s+nam/i.test(line)) {
+    if (isInvalidLocation(line)) continue;
+    if (/\b(?:nghệ\s+an|hà\s+nội|hồ\s+chí\s+minh|tp\.?\s*hcm|đà\s+nẵng|quảng\s+nam|hải\s+phòng|cần\s+thơ|bình\s+dương)\b/i.test(line) ||
+        (/\b(?:việt\s+nam|vietnam)\b/i.test(line) && !/manga|translator|translation|japanese|english|project|tutor/i.test(line))) {
       result.address = line.replace(/https?:\/\/\S+|www\.\S+/gi, '').replace(/[-•]\s*(?:Nam|Nữ).*/i, '').trim();
       break;
     }
@@ -159,12 +196,12 @@ function parseCvRawText(rawText, fileName) {
   let inSummary = false;
   let summaryParts = [];
   for (const line of lines) {
-    if (/^(?:ABOUT\s+ME|MỤC\s+TIÊU|CAREER\s+OBJECTIVE|TÓM\s+TẮT|SUMMARY)/i.test(line)) {
+    if (/^(?:ABOUT\s+ME|MỤC\s+TIÊU|CAREER\s+OBJECTIVE|TÓM\s+TẮT|SUMMARY|PROFESSIONAL\s+SUMMARY)/i.test(line)) {
       inSummary = true;
       continue;
     }
     if (inSummary) {
-      if (/^(?:PROJECT|EXPERIENCE|EDUCATION|SKILLS|CERTIFICATION|HỌC\s+VẤN|KINH\s+NGHIỆM)/i.test(line)) {
+      if (/^(?:PROJECT|EXPERIENCE|EDUCATION|SKILLS|CERTIFICATION|HỌC\s+VẤN|KINH\s+NGHIỆM|CORE\s+COMPETENCIES)/i.test(line)) {
         inSummary = false;
         break;
       }
@@ -176,7 +213,7 @@ function parseCvRawText(rawText, fileName) {
   // Experience / Projects
   const experiences = [];
   let inExp = false;
-  let currentExp = null;
+  let prevLine = '';
   for (const line of lines) {
     if (/^(?:PROJECT\s+EXPERIENCE|WORK\s+EXPERIENCE|EXPERIENCE|KINH\s+NGHIỆM|DỰ\s+ÁN)/i.test(line)) {
       inExp = true;
@@ -184,68 +221,75 @@ function parseCvRawText(rawText, fileName) {
     }
     if (inExp) {
       if (/^(?:EDUCATION|HỌC\s+VẤN|SKILLS|KỸ\s+NĂNG|CERTIFICATION|CHỨNG\s+CHỈ|LANGUAGE|NGOẠI\s+NGỮ|ACHIEVEMENTS)/i.test(line)) {
-        if (currentExp) experiences.push(currentExp);
         inExp = false;
         break;
       }
       const yearMatch = line.match(/(?:(?:19|20)\d{2}\s*[-–—/]\s*(?:(?:19|20)\d{2}|hiện\s+tại|present|nay))|^(?:19|20)\d{2}\b/i);
       if (yearMatch) {
-        if (currentExp) experiences.push(currentExp);
-        const rest = line.replace(yearMatch[0], '').trim();
-        currentExp = {
-          role: rest || 'Chuyên viên kỹ thuật',
-          company: '',
+        let rest = line.replace(yearMatch[0], '').trim();
+        let role = rest;
+        let company = '';
+        if (prevLine && !isInvalidHeadline(prevLine) && prevLine.length < 50 && !prevLine.startsWith('•') && !prevLine.startsWith('-')) {
+          role = prevLine.replace(/^[•*+–-]\s*/, '').trim();
+          company = rest;
+        } else if (rest.includes('•') || rest.includes('|')) {
+          const parts = rest.split(/[•|]/).map(p => p.trim()).filter(Boolean);
+          role = parts[0];
+          company = parts.slice(1).join(' • ');
+        }
+        if (!role || role.toLowerCase() === 'part-time' || role.toLowerCase() === 'freelance') {
+          role = prevLine || 'Chuyên viên kỹ thuật';
+        }
+        experiences.push({
+          role: role.replace(/^[•*+–-]\s*/, '').trim(),
+          company: company.replace(/^[•*+–-]\s*/, '').trim(),
           duration: yearMatch[0],
           period: yearMatch[0],
           highlights: []
-        };
-      } else if (currentExp) {
-        if (!currentExp.company && line.length < 60 && !line.startsWith('•') && !line.startsWith('-')) {
-          currentExp.company = line;
-        } else {
-          currentExp.highlights.push(line.replace(/^[•*+–-]\s*/, ''));
-        }
+        });
+      } else if (experiences.length > 0 && (line.startsWith('•') || line.startsWith('-') || line.startsWith('*'))) {
+        experiences[experiences.length - 1].highlights.push(line.replace(/^[•*+–-]\s*/, ''));
       }
+      prevLine = line;
     }
   }
-  if (currentExp && !experiences.includes(currentExp)) experiences.push(currentExp);
   if (experiences.length > 0) result.experiences = experiences;
 
   // Education
   const educations = [];
   let inEdu = false;
-  let currentEdu = null;
   for (const line of lines) {
-    if (/^(?:EDUCATION|HỌC\s+VẤN)/i.test(line)) {
+    if (/^(?:EDUCATION|HỌC\s+VẤN|ACADEMIC)/i.test(line)) {
       inEdu = true;
       continue;
     }
     if (inEdu) {
-      if (/^(?:SKILLS|KỸ\s+NĂNG|PROJECT|EXPERIENCE|CERTIFICATION|CHỨNG\s+CHỈ|LANGUAGE|NGOẠI\s+NGỮ)/i.test(line)) {
-        if (currentEdu) educations.push(currentEdu);
+      if (/^(?:SKILLS|KỸ\s+NĂNG|PROJECT|EXPERIENCE|CERTIFICATION|CHỨNG\s+CHỈ|LANGUAGE|NGOẠI\s+NGỮ|CORE\s+COMPETENCIES)/i.test(line)) {
         inEdu = false;
         break;
       }
-      if (/đại\s+học|university|college|fpt|học\s+viện/i.test(line)) {
-        if (currentEdu) {
-          currentEdu.school = line;
+      const hasDate = line.match(/(?:19|20)\d{2}\s*[-–—/]\s*(?:(?:19|20)\d{2}|hiện\s+tại|present|nay)/i);
+      const isSchool = /đại\s+học|university|college|fpt|học\s+viện|trường\s+thpt|high\s+school|trung\s+học/i.test(line);
+      if (isSchool || hasDate) {
+        let school = '';
+        let major = '';
+        let period = hasDate ? hasDate[0] : '2023 - 2026';
+        let textWithoutDate = hasDate ? line.replace(hasDate[0], '').trim() : line;
+        if (textWithoutDate.includes('•') || textWithoutDate.includes('|')) {
+          const parts = textWithoutDate.split(/[•|]/).map(p => p.trim()).filter(Boolean);
+          school = parts[0] || '';
+          major = parts.slice(1).join(' • ') || 'Chuyên ngành';
+        } else if (isSchool) {
+          school = textWithoutDate;
+          major = 'Chuyên ngành';
         } else {
-          currentEdu = { school: line, degree: '', major: '', year: '2023 - 2026', period: '2023 - 2026' };
+          school = 'Đại học / Học viện';
+          major = textWithoutDate;
         }
-      } else if (line.match(/(?:19|20)\d{2}\s*[-–—/]\s*(?:19|20)\d{2}/)) {
-        if (currentEdu) {
-          currentEdu.year = line;
-          currentEdu.period = line;
-        }
-      } else if (!currentEdu) {
-        currentEdu = { degree: line, major: line, school: '', year: '2023 - 2026', period: '2023 - 2026' };
-      } else if (!currentEdu.major) {
-        currentEdu.degree = line;
-        currentEdu.major = line;
+        educations.push({ school, degree: major, major, year: period, period });
       }
     }
   }
-  if (currentEdu && !educations.includes(currentEdu)) educations.push(currentEdu);
   if (educations.length > 0) result.educations = educations;
 
   // Skills
@@ -1030,11 +1074,9 @@ export default function CandidateEvaluationPage({
 
         const pData = cvData?.parsedData || parsedJson || {};
 
-        // 1. Trích xuất kinh nghiệm & dự án làm việc thực tế của chính bản CV đã nộp trước tiên
+        // 1. Trích xuất kinh nghiệm & dự án làm việc thực tế của chính bản CV đã nộp trước tiên (Ưu tiên tuyệt đối pData từ Gemini AI)
         let experiences = [];
-        if (Array.isArray(rawParsed?.experiences) && rawParsed.experiences.length > 0) {
-          experiences = rawParsed.experiences;
-        } else if (pData?.experiences && Array.isArray(pData.experiences) && pData.experiences.length > 0) {
+        if (pData?.experiences && Array.isArray(pData.experiences) && pData.experiences.length > 0) {
           experiences = pData.experiences;
         } else if (parsedJson?.experiences && Array.isArray(parsedJson.experiences) && parsedJson.experiences.length > 0) {
           experiences = parsedJson.experiences;
@@ -1042,6 +1084,8 @@ export default function CandidateEvaluationPage({
           experiences = parsedJson.experience;
         } else if (cvData?.parsedData?.experiences && Array.isArray(cvData.parsedData.experiences) && cvData.parsedData.experiences.length > 0) {
           experiences = cvData.parsedData.experiences;
+        } else if (Array.isArray(rawParsed?.experiences) && rawParsed.experiences.length > 0) {
+          experiences = rawParsed.experiences;
         } else if (cvData?.experiencesJson) {
           try {
             const expArr = typeof cvData.experiencesJson === 'string' ? JSON.parse(cvData.experiencesJson) : cvData.experiencesJson;
@@ -1086,15 +1130,16 @@ export default function CandidateEvaluationPage({
           if (!nameStr || typeof nameStr !== 'string') return true;
           const clean = nameStr.trim().toLowerCase();
           if (clean === 'ứng viên' || clean === 'ung vien' || clean.includes('đang tải') || clean.length < 2) return true;
+          if (isInvalidHeadline(clean)) return true;
           if (cvData?.fileName && clean === cvData.fileName.toLowerCase().replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ').trim()) return true;
           if (clean.endsWith('.pdf') || clean.endsWith('.docx') || clean.endsWith('.doc')) return true;
           if (clean.includes('japanese communication') || clean.includes('resume') || clean.includes('curriculum vitae') || clean.includes('technical stack')) return true;
           return false;
         };
 
-        const cvCandidateName = rawParsed?.fullName || pData?.fullName || pData?.full_name || pData?.candidateName || pData?.candidate_name ||
+        const cvCandidateName = pData?.fullName || pData?.full_name || pData?.candidateName || pData?.candidate_name ||
           parsedJson?.fullName || parsedJson?.full_name || parsedJson?.candidateName || parsedJson?.candidate_name || parsedJson?.name ||
-          cvData?.fullName;
+          rawParsed?.fullName || cvData?.fullName;
 
         if (cvCandidateName && !isNameLikeFileName(cvCandidateName)) {
           candidateName = cvCandidateName.trim();
@@ -1108,7 +1153,7 @@ export default function CandidateEvaluationPage({
           candidateName = 'Ứng viên';
         }
 
-        const cvCandidateEmail = rawParsed?.email || pData?.email || parsedJson?.email || cvData?.email;
+        const cvCandidateEmail = pData?.email || parsedJson?.email || rawParsed?.email || cvData?.email;
         if (cvCandidateEmail && typeof cvCandidateEmail === 'string' && cvCandidateEmail.trim().length > 3) {
           candidateEmail = cvCandidateEmail.trim();
         } else if (profileData?.email) {
@@ -1117,8 +1162,8 @@ export default function CandidateEvaluationPage({
           candidateEmail = appData.candidateEmail;
         }
 
-        const cvCandidatePhone = rawParsed?.phone || pData?.phone || pData?.phoneNumber || pData?.phone_number ||
-          parsedJson?.phone || parsedJson?.phoneNumber || parsedJson?.phone_number || cvData?.phone;
+        const cvCandidatePhone = pData?.phone || pData?.phoneNumber || pData?.phone_number ||
+          parsedJson?.phone || parsedJson?.phoneNumber || parsedJson?.phone_number || rawParsed?.phone || cvData?.phone;
         if (cvCandidatePhone && typeof cvCandidatePhone === 'string' && cvCandidatePhone.trim().length > 5) {
           candidatePhone = cvCandidatePhone.trim();
         } else if (profileData?.phone) {
@@ -1127,30 +1172,63 @@ export default function CandidateEvaluationPage({
           candidatePhone = appData.candidatePhone;
         }
 
-        const cvCandidateAddress = rawParsed?.address || pData?.address || pData?.location || parsedJson?.address || parsedJson?.location || cvData?.address;
-        const candidateLocation = (cvCandidateAddress && typeof cvCandidateAddress === 'string' && cvCandidateAddress.trim().length > 1)
-          ? cvCandidateAddress.trim()
-          : (profileData?.location || profileData?.address || 'Chưa cập nhật địa chỉ');
+        // Trích xuất địa chỉ thực tế (Lọc bỏ triệt để tên dự án ngoại ngữ như "JAPANESE-VIETNAMESE")
+        let candidateLocation = '';
+        const locCandidates = [
+          pData?.address,
+          pData?.location,
+          parsedJson?.address,
+          parsedJson?.location,
+          cvData?.address,
+          rawParsed?.address,
+        ];
+        for (const loc of locCandidates) {
+          if (loc && typeof loc === 'string' && loc.trim().length > 1 && !isInvalidLocation(loc)) {
+            candidateLocation = loc.trim();
+            break;
+          }
+        }
+        if (!candidateLocation) {
+          candidateLocation = (profileData?.location && !isInvalidLocation(profileData.location))
+            ? profileData.location
+            : ((profileData?.address && !isInvalidLocation(profileData.address)) ? profileData.address : 'Việt Nam');
+        }
 
-        // 3. Tiêu đề nghề nghiệp (Headline / Role): Ưu tiên tuyệt đối từ bản CV này
+        // 3. Tiêu đề nghề nghiệp (Headline / Role): Ưu tiên tuyệt đối pData từ Gemini AI & loại bỏ triệt để tên section như "WORK EXPERIENCE"
         let candidateTitle = '';
-        if (rawParsed?.headline && rawParsed.headline.length > 2) {
-          candidateTitle = rawParsed.headline.trim();
-        } else if (pData?.headline && typeof pData.headline === 'string' && pData.headline.trim().length > 1) {
-          candidateTitle = pData.headline.trim();
-        } else if (cvData?.headline && typeof cvData.headline === 'string' && cvData.headline.trim().length > 1) {
-          candidateTitle = cvData.headline.trim();
-        } else if (pData?.title && typeof pData.title === 'string' && pData.title.trim().length > 1) {
-          candidateTitle = pData.title.trim();
-        } else if (parsedJson?.headline && typeof parsedJson.headline === 'string' && parsedJson.headline.trim().length > 1) {
-          candidateTitle = parsedJson.headline.trim();
-        } else if (experiences.length > 0 && experiences[0]?.role) {
+        const rawCandidates = [
+          pData?.headline,
+          cvData?.headline,
+          pData?.title,
+          parsedJson?.headline,
+          rawParsed?.headline,
+        ];
+        for (const titleCandidate of rawCandidates) {
+          if (titleCandidate && typeof titleCandidate === 'string' && titleCandidate.trim().length > 1 && !isInvalidHeadline(titleCandidate)) {
+            candidateTitle = titleCandidate.trim();
+            break;
+          }
+        }
+        // Quét text CV tìm chức danh sinh viên / kỹ sư / BrSE / thực tập sinh thực tế nếu bị rỗng hoặc lỗi
+        if (!candidateTitle && cvData?.parsedText) {
+          const ptLines = cvData.parsedText.split(/\r?\n/);
+          for (let i = 0; i < Math.min(ptLines.length, 12); i++) {
+            const l = ptLines[i].trim();
+            if (candidateName && l.toLowerCase() === candidateName.toLowerCase()) continue;
+            if (l.includes('@') || l.includes('http') || l.match(/\d{8,}/) || isInvalidHeadline(l)) continue;
+            if (l.match(/(?:student|intern|engineer|developer|specialist|manager|representative|lead|consultant|analyst|tutor|teacher|translator|giảng viên|phiên dịch|biên dịch|chuyên viên|kỹ sư|nhân viên|trưởng nhóm)/i)) {
+              candidateTitle = l;
+              break;
+            }
+          }
+        }
+        if (!candidateTitle && experiences.length > 0 && experiences[0]?.role && !isInvalidHeadline(experiences[0].role)) {
           candidateTitle = experiences[0].role.trim();
-        } else if (projects.length > 0 && projects[0]?.role) {
+        } else if (!candidateTitle && projects.length > 0 && projects[0]?.role && !isInvalidHeadline(projects[0].role)) {
           candidateTitle = projects[0].role.trim();
-        } else if (profileData?.headline) {
+        } else if (!candidateTitle && profileData?.headline && !isInvalidHeadline(profileData.headline)) {
           candidateTitle = profileData.headline.trim();
-        } else {
+        } else if (!candidateTitle) {
           candidateTitle = jobTitle ? `${jobTitle} • Ứng viên` : 'Chuyên viên';
         }
         if (candidateTitle) {
@@ -1260,11 +1338,9 @@ export default function CandidateEvaluationPage({
           }
         }
 
-        // Lấy học vấn thực tế của ứng viên (Ưu tiên CV đã nộp)
+        // Lấy học vấn thực tế của ứng viên (Ưu tiên tuyệt đối pData từ Gemini AI)
         let educations = [];
-        if (Array.isArray(rawParsed?.educations) && rawParsed.educations.length > 0) {
-          educations = rawParsed.educations;
-        } else if (pData?.educations && Array.isArray(pData.educations) && pData.educations.length > 0) {
+        if (pData?.educations && Array.isArray(pData.educations) && pData.educations.length > 0) {
           educations = pData.educations;
         } else if (parsedJson?.educations && Array.isArray(parsedJson.educations) && parsedJson.educations.length > 0) {
           educations = parsedJson.educations;
@@ -1272,6 +1348,8 @@ export default function CandidateEvaluationPage({
           educations = parsedJson.education;
         } else if (cvData?.parsedData?.educations && Array.isArray(cvData.parsedData.educations) && cvData.parsedData.educations.length > 0) {
           educations = cvData.parsedData.educations;
+        } else if (Array.isArray(rawParsed?.educations) && rawParsed.educations.length > 0) {
+          educations = rawParsed.educations;
         } else if (cvData?.educationsJson) {
           try {
             const eduArr = typeof cvData.educationsJson === 'string' ? JSON.parse(cvData.educationsJson) : cvData.educationsJson;
@@ -1427,6 +1505,16 @@ export default function CandidateEvaluationPage({
             initialTpl = 'modern';
           } else if (/executive|2 cột/i.test(appData.coverLetter)) {
             initialTpl = 'executive';
+          }
+        }
+        // Tự động nhận diện mẫu Harvard ATS (1 cột chuẩn) nếu nội dung CV có các section headers đặc thù đơn cột
+        if (initialTpl === 'executive' && cvData?.parsedText) {
+          const ptLower = cvData.parsedText.toLowerCase();
+          if (
+            (ptLower.includes('academic credentials') || ptLower.includes('core competencies') || ptLower.includes('professional summary')) &&
+            !ptLower.includes('executive cv')
+          ) {
+            initialTpl = 'harvard';
           }
         }
 

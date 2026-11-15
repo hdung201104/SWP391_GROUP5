@@ -1178,7 +1178,7 @@ public class CvServiceImpl implements CvService {
             if (parsedData.getFullName() != null && !parsedData.getFullName().isBlank()) {
                 fullName = parsedData.getFullName().trim();
             }
-            if (parsedData.getHeadline() != null && !parsedData.getHeadline().isBlank()) {
+            if (parsedData.getHeadline() != null && !parsedData.getHeadline().isBlank() && !isInvalidHeadline(parsedData.getHeadline())) {
                 headline = parsedData.getHeadline().trim();
             }
             if (parsedData.getPhone() != null && !parsedData.getPhone().isBlank()) {
@@ -1187,7 +1187,7 @@ public class CvServiceImpl implements CvService {
             if (parsedData.getEmail() != null && !parsedData.getEmail().isBlank()) {
                 email = parsedData.getEmail().trim();
             }
-            if (parsedData.getAddress() != null && !parsedData.getAddress().isBlank()) {
+            if (parsedData.getAddress() != null && !parsedData.getAddress().isBlank() && !isInvalidLocation(parsedData.getAddress())) {
                 address = parsedData.getAddress().trim();
             }
             if (parsedData.getYearsOfExperience() != null) {
@@ -1211,17 +1211,22 @@ public class CvServiceImpl implements CvService {
         }
 
         // 2. Chỉ khi parsedData thiếu, mới fallback sang Candidate và User Profile (Tránh ghi đè chéo bản CV upload riêng)
+        User candUser = null;
         if (cv.getCandidateId() != null) {
             boolean isUploadedResumeFile = cv.getFileUrl() != null && !cv.getFileUrl().isBlank() && !cv.getFileUrl().contains("/candidate/profile");
             var cand = prefetchedCand != null ? prefetchedCand : candidateRepository.findByCandidateId(cv.getCandidateId()).orElse(null);
             if (cand != null) {
                 if (!isUploadedResumeFile) {
-                    if (headline == null || headline.isBlank()) headline = cand.getHeadline();
+                    if ((headline == null || headline.isBlank() || isInvalidHeadline(headline)) && !isInvalidHeadline(cand.getHeadline())) {
+                        headline = cand.getHeadline();
+                    }
                     if (experienceYears == null) experienceYears = cand.getExperienceYears();
                     if (educationsJson == null || educationsJson.isBlank() || "[]".equals(educationsJson)) educationsJson = cand.getEducationsJson();
                     if (experiencesJson == null || experiencesJson.isBlank() || "[]".equals(experiencesJson)) experiencesJson = cand.getExperiencesJson();
                     if (projectsJson == null || projectsJson.isBlank() || "[]".equals(projectsJson)) projectsJson = cand.getProjectsJson();
-                    if (address == null || address.isBlank()) address = cand.getLocation();
+                    if ((address == null || address.isBlank() || isInvalidLocation(address)) && !isInvalidLocation(cand.getLocation())) {
+                        address = cand.getLocation();
+                    }
                 } else {
                     if (experienceYears == null) experienceYears = cand.getExperienceYears();
                     boolean hasOwnExperiences = experiencesJson != null && !experiencesJson.isBlank() && !"[]".equals(experiencesJson);
@@ -1236,13 +1241,13 @@ public class CvServiceImpl implements CvService {
                     }
                 }
             }
-            User candUser = prefetchedUser != null ? prefetchedUser : userRepository.findById(cv.getCandidateId()).orElse(null);
+            candUser = prefetchedUser != null ? prefetchedUser : userRepository.findById(cv.getCandidateId()).orElse(null);
             if (candUser != null) {
                 if (!isUploadedResumeFile) {
                     if (fullName == null || fullName.isBlank()) fullName = candUser.getFullName();
                     if (phone == null || phone.isBlank()) phone = candUser.getPhone();
                     if (email == null || email.isBlank()) email = candUser.getEmail();
-                    if (address == null || address.isBlank()) address = candUser.getAddress();
+                    if (address == null || address.isBlank() || isInvalidLocation(address)) address = candUser.getAddress();
                 } else {
                     boolean isFileName = fullName != null && cv.getFileName() != null &&
                             (fullName.equalsIgnoreCase(cv.getFileName()) ||
@@ -1263,26 +1268,41 @@ public class CvServiceImpl implements CvService {
                         java.util.regex.Matcher em = java.util.regex.Pattern.compile("[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,6}").matcher(cv.getParsedText());
                         if (em.find()) email = em.group(0).trim();
                     }
-                    if ((headline == null || headline.isBlank()) && parsedData != null && parsedData.getExperiences() != null && !parsedData.getExperiences().isEmpty()) {
-                        var firstExp = parsedData.getExperiences().get(0);
-                        if (firstExp.getRole() != null && !firstExp.getRole().isBlank()) {
-                            headline = firstExp.getRole().trim();
+                    if ((address == null || address.isBlank() || isInvalidLocation(address)) && cv.getParsedText() != null) {
+                        java.util.regex.Matcher lm = java.util.regex.Pattern.compile("(?i)\\b(Hà Nội|Hồ Chí Minh|TP\\.?\\s*HCM|Đà Nẵng|Nghệ An|Quảng Nam|Bình Dương|Hải Phòng|Cần Thơ)\\b").matcher(cv.getParsedText());
+                        if (lm.find()) {
+                            address = lm.group(0).trim();
+                        } else if (candUser != null && candUser.getAddress() != null && !isInvalidLocation(candUser.getAddress())) {
+                            address = candUser.getAddress().trim();
+                        } else {
+                            address = "Việt Nam";
                         }
                     }
-                    if ((headline == null || headline.isBlank()) && parsedData != null && parsedData.getProjects() != null && !parsedData.getProjects().isEmpty()) {
-                        var firstProj = parsedData.getProjects().get(0);
-                        if (firstProj.getRole() != null && !firstProj.getRole().isBlank()) {
-                            headline = firstProj.getRole().trim();
+                    if ((headline == null || headline.isBlank() || isInvalidHeadline(headline)) && parsedData != null && parsedData.getExperiences() != null && !parsedData.getExperiences().isEmpty()) {
+                        for (var exp : parsedData.getExperiences()) {
+                            if (exp.getRole() != null && !exp.getRole().isBlank() && !isInvalidHeadline(exp.getRole())) {
+                                headline = exp.getRole().trim();
+                                break;
+                            }
                         }
                     }
-                    if ((headline == null || headline.isBlank()) && cv.getParsedText() != null) {
+                    if ((headline == null || headline.isBlank() || isInvalidHeadline(headline)) && parsedData != null && parsedData.getProjects() != null && !parsedData.getProjects().isEmpty()) {
+                        for (var proj : parsedData.getProjects()) {
+                            if (proj.getRole() != null && !proj.getRole().isBlank() && !isInvalidHeadline(proj.getRole())) {
+                                headline = proj.getRole().trim();
+                                break;
+                            }
+                        }
+                    }
+                    if ((headline == null || headline.isBlank() || isInvalidHeadline(headline)) && cv.getParsedText() != null) {
                         String[] lines = cv.getParsedText().split("\\r?\\n");
                         for (int i = 0; i < Math.min(lines.length, 15); i++) {
                             String l = lines[i].trim();
                             if (fullName != null && l.equalsIgnoreCase(fullName.trim())) continue;
                             if (l.contains("@") || l.contains("http") || l.matches(".*\\d{8,}.*") || l.startsWith("•") || l.startsWith("-")) continue;
+                            if (isInvalidHeadline(l)) continue;
                             if (l.length() >= 3 && l.length() <= 60) {
-                                if (l.matches("(?i).*(engineer|developer|specialist|manager|representative|lead|consultant|analyst|tutor|teacher|translator|giảng viên|phiên dịch|biên dịch|chuyên viên|kỹ sư|nhân viên|trưởng nhóm).*")) {
+                                if (l.matches("(?i).*(student|intern|engineer|developer|specialist|manager|representative|lead|consultant|analyst|tutor|teacher|translator|giảng viên|phiên dịch|biên dịch|chuyên viên|kỹ sư|nhân viên|trưởng nhóm).*")) {
                                     headline = l;
                                     break;
                                 }
@@ -1337,7 +1357,17 @@ public class CvServiceImpl implements CvService {
             }
         }
         if (headline != null && !headline.isBlank()) {
-            headline = headline.replaceAll("([a-z])([A-Z])", "$1 $2").trim();
+            if (isInvalidHeadline(headline)) {
+                headline = "Chuyên viên";
+            } else {
+                headline = headline.replaceAll("([a-z])([A-Z])", "$1 $2").trim();
+            }
+        } else {
+            headline = "Chuyên viên";
+        }
+        if (address != null && isInvalidLocation(address)) {
+            address = (candUser != null && candUser.getAddress() != null && !isInvalidLocation(candUser.getAddress()))
+                    ? candUser.getAddress().trim() : "Việt Nam";
         }
 
         List<String> cleanDetectedSkills = new ArrayList<>();
@@ -1374,10 +1404,13 @@ public class CvServiceImpl implements CvService {
                 }
             } catch (Exception ignored) {}
         } else {
-            if (headline != null && !headline.isBlank() && (parsedData.getHeadline() == null || parsedData.getHeadline().isBlank())) {
+            if (parsedData.getHeadline() == null || parsedData.getHeadline().isBlank() || isInvalidHeadline(parsedData.getHeadline())) {
                 parsedData.setHeadline(headline);
-            } else if (parsedData.getHeadline() != null) {
+            } else {
                 parsedData.setHeadline(parsedData.getHeadline().replaceAll("([a-z])([A-Z])", "$1 $2").trim());
+            }
+            if (parsedData.getAddress() == null || parsedData.getAddress().isBlank() || isInvalidLocation(parsedData.getAddress())) {
+                parsedData.setAddress(address);
             }
             if ((parsedData.getExperiences() == null || parsedData.getExperiences().isEmpty()) && experiencesJson != null && !experiencesJson.isBlank() && !"[]".equals(experiencesJson)) {
                 try {
@@ -1495,5 +1528,33 @@ public class CvServiceImpl implements CvService {
             return false;
         }
         return name.matches("^[A-ZÀ-Ỹa-zà-ỹ]{2,}(?:\\s+[A-ZÀ-Ỹa-zà-ỹ]{2,}){1,4}$");
+    }
+
+    private boolean isInvalidHeadline(String h) {
+        if (h == null || h.isBlank()) return true;
+        String clean = h.trim().toLowerCase();
+        if (clean.length() < 2 || clean.length() > 80) return true;
+        if (clean.equals("ứng viên") || clean.equals("ung vien") || clean.equals("chuyên viên") || clean.equals("chuyen vien")) return true;
+        if (clean.contains("work experience") || clean.contains("kinh nghiệm") || clean.contains("kinh nghiem")) return true;
+        if (clean.contains("education") || clean.contains("học vấn") || clean.contains("hoc van")) return true;
+        if (clean.contains("skills") || clean.contains("kỹ năng") || clean.contains("ky nang") || clean.contains("competencies")) return true;
+        if (clean.contains("summary") || clean.contains("tóm tắt") || clean.contains("tom tat") || clean.contains("about me") || clean.contains("overview")) return true;
+        if (clean.contains("certification") || clean.contains("chứng chỉ") || clean.contains("chung chi") || clean.contains("credentials")) return true;
+        if (clean.contains("projects") || clean.contains("dự án") || clean.contains("du an")) return true;
+        if (clean.contains("curriculum vitae") || clean.contains("resume") || clean.endsWith(".pdf") || clean.endsWith(".docx")) return true;
+        if (clean.contains("@") || clean.contains("http") || clean.matches(".*\\d{8,}.*")) return true;
+        return false;
+    }
+
+    private boolean isInvalidLocation(String loc) {
+        if (loc == null || loc.isBlank()) return true;
+        String clean = loc.trim().toLowerCase();
+        if (clean.length() < 2 || clean.length() > 60) return true;
+        if (clean.contains("japanese-vietnamese") || clean.contains("vietnamese-japanese") || clean.contains("english-vietnamese")) return true;
+        if (clean.contains("translation") || clean.contains("translator") || clean.contains("manga") || clean.contains("dịch")) return true;
+        if (clean.contains("project") || clean.contains("experience") || clean.contains("tutor") || clean.contains("engineer") || clean.contains("developer")) return true;
+        if (clean.contains("freelance") || clean.contains("part-time") || clean.contains("full-time")) return true;
+        if (clean.matches(".*\\d{4}.*")) return true;
+        return false;
     }
 }

@@ -60,19 +60,55 @@ export default function OnlineCvRenderer({
       : (Array.isArray(exp.highlights) && exp.highlights.length > 0 ? exp.highlights : []),
   }));
 
-  let title = candidate.title || candidate.headline || candidate.targetTitle || candidate.jobTitle || '';
-  if (!title && experiences.length > 0 && experiences[0]?.role) {
-    title = experiences[0].role;
+  // Kiểm tra chuỗi tiêu đề có phải là header mục rác không
+  const isInvalidTitle = (t) => {
+    if (!t || typeof t !== 'string') return true;
+    const c = t.trim().toLowerCase();
+    if (c.length < 2 || c.length > 80) return true;
+    if (c === 'ứng viên' || c === 'ung vien' || c === 'chuyên viên' || c === 'chuyen vien' || c === 'hồ sơ ứng viên') return true;
+    if (/^(?:work\s+experience|professional\s+experience|kinh\s+nghiệm|education|học\s+vấn|skills|kỹ\s+năng|summary|tóm\s+tắt|about\s+me|certifications?|projects?|languages?)/i.test(c)) return true;
+    if (c.includes('curriculum vitae') || c.includes('resume') || c.endsWith('.pdf') || c.endsWith('.docx') || c.includes('@')) return true;
+    return false;
+  };
+
+  let title = (!isInvalidTitle(candidate.title) ? candidate.title : null) ||
+    (!isInvalidTitle(candidate.headline) ? candidate.headline : null) ||
+    (!isInvalidTitle(candidate.targetTitle) ? candidate.targetTitle : null) ||
+    (!isInvalidTitle(candidate.jobTitle) ? candidate.jobTitle : null) || '';
+
+  if (!title && experiences.length > 0) {
+    for (const exp of experiences) {
+      if (exp.role && !isInvalidTitle(exp.role)) {
+        title = exp.role;
+        break;
+      }
+    }
   }
-  if (!title && candidate.projects && candidate.projects.length > 0 && candidate.projects[0]?.role) {
-    title = candidate.projects[0].role;
+  if (!title && candidate.projects && candidate.projects.length > 0) {
+    for (const proj of candidate.projects) {
+      if (proj.role && !isInvalidTitle(proj.role)) {
+        title = proj.role;
+        break;
+      }
+    }
   }
   if (!title) title = 'Chuyên Viên';
   title = title.replace(/([a-z])([A-Z])/g, '$1 $2').trim();
 
+  // Kiểm tra chuỗi vị trí địa lý có bị lỗi chứa cặp ngoại ngữ / dự án không
+  const isInvalidLoc = (l) => {
+    if (!l || typeof l !== 'string') return true;
+    const c = l.trim().toLowerCase();
+    if (c.length < 2 || c.length > 60) return true;
+    if (/japanese-vietnamese|vietnamese-japanese|english-vietnamese|translation|manga|project|tutor|engineer|developer|freelance|part-time/i.test(c)) return true;
+    if (/\b(?:19|20)\d{2}\b/.test(c)) return true;
+    return false;
+  };
+
   const email = candidate.email || 'ungvien@hiremate.vn';
   const phone = candidate.phone || '(+84) 090.123.4567';
-  const location = candidate.location || 'Hà Nội, Việt Nam';
+  let location = candidate.location;
+  if (!location || isInvalidLoc(location)) location = 'Việt Nam';
   const avatar = resolveUserAvatar(candidate);
 
   let summary = candidate.summary || '';

@@ -713,7 +713,27 @@ export default function CandidateProfilePage({ user }) {
 
     const phone = pData.phone || cvItem.phone || user?.phone || profileData?.phone || '';
     const email = pData.email || cvItem.email || user?.email || profileData?.email || '';
-    const location = pData.address || pData.location || cvItem.address || cvItem.location || profileData?.location || user?.address || 'Việt Nam';
+    const isInvalidTitle = (t) => {
+      if (!t || typeof t !== 'string') return true;
+      const c = t.trim().toLowerCase();
+      if (c.length < 2 || c.length > 80) return true;
+      if (c === 'ứng viên' || c === 'ung vien' || c === 'chuyên viên' || c === 'chuyen vien' || c === 'hồ sơ ứng viên') return true;
+      if (/^(?:work\s+experience|professional\s+experience|kinh\s+nghiệm|education|học\s+vấn|skills|kỹ\s+năng|summary|tóm\s+tắt|about\s+me|certifications?|projects?|languages?)/i.test(c)) return true;
+      if (c.includes('curriculum vitae') || c.includes('resume') || c.endsWith('.pdf') || c.endsWith('.docx') || c.includes('@')) return true;
+      return false;
+    };
+
+    const isInvalidLoc = (l) => {
+      if (!l || typeof l !== 'string') return true;
+      const c = l.trim().toLowerCase();
+      if (c.length < 2 || c.length > 60) return true;
+      if (/japanese-vietnamese|vietnamese-japanese|english-vietnamese|translation|manga|project|tutor|engineer|developer|freelance|part-time/i.test(c)) return true;
+      if (/\b(?:19|20)\d{2}\b/.test(c)) return true;
+      return false;
+    };
+
+    let rawLoc = pData.address || pData.location || cvItem.address || cvItem.location || profileData?.location || user?.address;
+    const location = (rawLoc && !isInvalidLoc(rawLoc)) ? rawLoc : 'Việt Nam';
 
     // Parse experiences
     let rawExp = pData.experiences;
@@ -725,16 +745,26 @@ export default function CandidateProfilePage({ user }) {
     if (!rawExp && Array.isArray(cvItem.experiences)) rawExp = cvItem.experiences;
     const exp = normalizeExperiences(rawExp || []);
 
-    // Headline: Format jammed CamelCase words without discarding pipe
-    let headline = pData.headline || cvItem.headline;
+    // Headline: Format jammed CamelCase words without discarding pipe & lọc bỏ rác section header
+    let headline = (!isInvalidTitle(pData.headline) ? pData.headline : null) ||
+      (!isInvalidTitle(cvItem.headline) ? cvItem.headline : null);
     if (headline) {
       headline = headline.replace(/([a-z])([A-Z])/g, '$1 $2').trim();
     }
     if (!headline) {
-      if (exp.length > 0 && exp[0]?.role) {
-        headline = exp[0].role;
-      } else {
-        headline = profileData?.headline || cvData.targetTitle || 'Chuyên viên Chuyên môn';
+      if (exp.length > 0) {
+        for (const e of exp) {
+          if (e.role && !isInvalidTitle(e.role)) {
+            headline = e.role;
+            break;
+          }
+        }
+      }
+      if (!headline && !isInvalidTitle(profileData?.headline)) {
+        headline = profileData.headline;
+      }
+      if (!headline) {
+        headline = cvData.targetTitle || 'Chuyên viên Chuyên môn';
       }
     }
 
