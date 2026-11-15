@@ -1613,9 +1613,29 @@ export default function CandidateEvaluationPage({
     };
   }, [parsedCandId, parsedJobId, parsedCvId, parsedAppId]);
 
-  // Điều khiển Zoom
-  const handleZoomIn = () => setZoomLevel((prev) => Math.min(prev + 15, 160));
-  const handleZoomOut = () => setZoomLevel((prev) => Math.max(prev - 15, 75));
+  // Điều khiển Zoom & Tính toán URL nhúng PDF chuẩn mực quốc tế: Tránh lỗi tràn mép, cắt góc, tự động vừa khít khung hình
+  const handleZoomIn = () => setZoomLevel((prev) => {
+    const cur = typeof prev === 'number' ? prev : 100;
+    return Math.min(cur + 15, 160);
+  });
+  const handleZoomOut = () => setZoomLevel((prev) => {
+    const cur = typeof prev === 'number' ? prev : 100;
+    return Math.max(cur - 15, 50);
+  });
+
+  const getPdfViewerUrl = (baseUrl) => {
+    if (!baseUrl) return '';
+    const cleanUrl = baseUrl.split('#')[0];
+    let params = 'page=1&toolbar=1&navpanes=0';
+    if (zoomLevel === 100 || zoomLevel === 'width') {
+      params += '&view=FitH'; // Fit Horizontal: Vừa khít 100% chiều ngang, neo đúng đỉnh trang 1
+    } else if (zoomLevel === 'page') {
+      params += '&view=Fit'; // Fit Entire Page: Toàn bộ trang A4 vừa vặn trong chiều cao
+    } else {
+      params += `&zoom=${zoomLevel}`;
+    }
+    return `${cleanUrl}#${params}`;
+  };
 
   // Thêm ghi chú nội bộ (Lưu vào localStorage và state)
   const handleAddNote = () => {
@@ -2543,18 +2563,18 @@ export default function CandidateEvaluationPage({
                 <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl px-2 py-1 shadow-2xs">
                   <button
                     type="button"
-                    onClick={() => setZoomLevel((prev) => Math.max(prev - 10, 50))}
+                    onClick={handleZoomOut}
                     className="w-6 h-6 rounded-lg text-slate-600 hover:bg-slate-100 flex items-center justify-center font-bold text-sm cursor-pointer"
                     title="Thu nhỏ CV (-)"
                   >
                     -
                   </button>
                   <span className="text-[11px] font-bold text-slate-700 min-w-[36px] text-center">
-                    {zoomLevel === 100 ? 'Vừa' : `${zoomLevel}%`}
+                    {zoomLevel === 100 || zoomLevel === 'width' ? 'Vừa' : zoomLevel === 'page' ? 'Trang' : `${zoomLevel}%`}
                   </span>
                   <button
                     type="button"
-                    onClick={() => setZoomLevel((prev) => Math.min(prev + 10, 160))}
+                    onClick={handleZoomIn}
                     className="w-6 h-6 rounded-lg text-slate-600 hover:bg-slate-100 flex items-center justify-center font-bold text-sm cursor-pointer"
                     title="Phóng to CV (+)"
                   >
@@ -2563,10 +2583,26 @@ export default function CandidateEvaluationPage({
                   <button
                     type="button"
                     onClick={() => setZoomLevel(100)}
-                    className="ml-1 px-1.5 py-0.5 rounded bg-purple-50 hover:bg-purple-100 text-[#5b48bd] text-[10px] font-bold cursor-pointer transition-colors"
-                    title="Vừa vặn chiều ngang tài liệu (Fit to Page Width - Không bị tràn mép)"
+                    className={`ml-1 px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-colors ${
+                      zoomLevel === 100 || zoomLevel === 'width'
+                        ? 'bg-[#5b48bd] text-white shadow-2xs'
+                        : 'bg-purple-50 hover:bg-purple-100 text-[#5b48bd]'
+                    }`}
+                    title="Căn vừa khít chiều ngang (Fit to Width - Không bị tràn mép hay cắt góc)"
                   >
-                    Fit
+                    Vừa Ngang
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setZoomLevel(zoomLevel === 'page' ? 100 : 'page')}
+                    className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-colors ${
+                      zoomLevel === 'page'
+                        ? 'bg-[#5b48bd] text-white shadow-2xs'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                    }`}
+                    title="Căn vừa vặn toàn bộ trang A4 (Fit Entire Page - thấy trọn vẹn cả trang)"
+                  >
+                    Toàn Trang
                   </button>
                 </div>
               )}
@@ -2660,7 +2696,7 @@ export default function CandidateEvaluationPage({
                       </div>
                     </div>
                   ) : (
-                    <div className="w-full h-[840px] min-h-[840px] flex flex-col overflow-x-auto overflow-y-auto bg-slate-100/60 p-0">
+                    <div className="w-full h-full flex-1 min-h-[780px] flex flex-col overflow-hidden bg-slate-100/60 p-0">
                       {isFallbackCv && (
                         <div className="bg-gradient-to-r from-purple-50 via-indigo-50 to-purple-50 border-b border-purple-200 px-4 py-2.5 flex items-center justify-between text-xs text-purple-900 shadow-2xs shrink-0 flex-wrap gap-2">
                           <div className="flex items-center gap-2">
@@ -2677,34 +2713,25 @@ export default function CandidateEvaluationPage({
                           </button>
                         </div>
                       )}
-                      <div
-                        style={{
-                          width: zoomLevel === 100 ? '100%' : `${zoomLevel}%`,
-                          height: '100%',
-                          transition: 'width 0.15s ease-out',
-                        }}
-                        className="h-full flex flex-col bg-white border-0 shadow-none overflow-hidden mx-auto"
-                      >
+                      <div className="w-full h-full flex-1 overflow-hidden bg-white">
                         <iframe
                           key={`${pdfBlobUrl}-${zoomLevel}`}
-                          src={
-                            pdfBlobUrl.includes('#')
-                              ? pdfBlobUrl.replace(/#.*$/, `#page=1&view=Fit&zoom=${zoomLevel === 100 ? '100' : zoomLevel}&toolbar=1&navpanes=0`)
-                              : `${pdfBlobUrl}#page=1&view=Fit&zoom=${zoomLevel === 100 ? '100' : zoomLevel}&toolbar=1&navpanes=0`
-                          }
+                          src={getPdfViewerUrl(pdfBlobUrl)}
                           title={`CV - ${cand.name}`}
                           style={{
                             width: '100%',
                             height: '100%',
+                            minHeight: '780px',
                             border: 'none',
+                            display: 'block',
                           }}
-                          className="w-full h-full block border-0 bg-white"
+                          className="w-full h-full flex-1 block border-0 bg-white"
                         />
                       </div>
                     </div>
                   )
                 ) : (cand.cvId || effectiveCvId || (cand.cvUrl && cand.cvUrl !== '#')) && cand.cvUrl && !cand.cvUrl.includes('/candidate/profile') ? (
-                  <div className="w-full h-[840px] min-h-[840px] flex flex-col overflow-x-auto overflow-y-auto bg-slate-100/60 p-0">
+                  <div className="w-full h-full flex-1 min-h-[780px] flex flex-col overflow-hidden bg-slate-100/60 p-0">
                     {isFallbackCv && (
                       <div className="bg-gradient-to-r from-purple-50 via-indigo-50 to-purple-50 border-b border-purple-200 px-4 py-2.5 flex items-center justify-between text-xs text-purple-900 shadow-2xs shrink-0 flex-wrap gap-2">
                         <div className="flex items-center gap-2">
@@ -2721,30 +2748,25 @@ export default function CandidateEvaluationPage({
                         </button>
                       </div>
                     )}
-                    <div
-                      style={{
-                        width: zoomLevel === 100 ? '100%' : `${zoomLevel}%`,
-                        height: '100%',
-                        transition: 'width 0.15s ease-out',
-                      }}
-                      className="h-full flex flex-col bg-white border-0 shadow-none overflow-hidden mx-auto"
-                    >
+                    <div className="w-full h-full flex-1 overflow-hidden bg-white">
                       <iframe
                         key={`direct-iframe-${cand.cvId || effectiveCvId}-${zoomLevel}`}
-                        src={
+                        src={getPdfViewerUrl(
                           (cand.cvId || effectiveCvId)
-                            ? `${getApiBaseUrl()}/api/v1/cvs/${cand.cvId || effectiveCvId}/preview?token=${encodeURIComponent(localStorage.getItem('token') || '')}#page=1&view=Fit&zoom=${zoomLevel === 100 ? '100' : zoomLevel}&toolbar=1&navpanes=0`
+                            ? `${getApiBaseUrl()}/api/v1/cvs/${cand.cvId || effectiveCvId}/preview?token=${encodeURIComponent(localStorage.getItem('token') || '')}`
                             : cand.cvUrl.startsWith('http')
-                              ? `${cand.cvUrl}#page=1&view=Fit&zoom=${zoomLevel === 100 ? '100' : zoomLevel}&toolbar=1&navpanes=0`
-                              : `${getApiBaseUrl()}/${cand.cvUrl.replace(/^\//, '')}#page=1&view=Fit&zoom=${zoomLevel === 100 ? '100' : zoomLevel}&toolbar=1&navpanes=0`
-                        }
+                              ? cand.cvUrl
+                              : `${getApiBaseUrl()}/${cand.cvUrl.replace(/^\//, '')}`
+                        )}
                         title={`CV - ${cand.name}`}
                         style={{
                           width: '100%',
                           height: '100%',
+                          minHeight: '780px',
                           border: 'none',
+                          display: 'block',
                         }}
-                        className="w-full h-full block border-0 bg-white"
+                        className="w-full h-full flex-1 block border-0 bg-white"
                       />
                     </div>
                   </div>
