@@ -253,12 +253,12 @@ const getCandidateEnrichedFeatures = (planName, monthlyPrice, quotaLimit, descri
   };
 };
 
-const getCandidatePlanTier = (planId) => {
-  if (!planId) return 0;
-  const id = String(planId).toUpperCase();
-  if (id.includes('VIP') || id.includes('MASTERY') || id.includes('ACE') || id.includes('ELITE') || id.includes('PREMIUM')) return 3;
-  if (id.includes('PRO') || id.includes('PROFESSIONAL')) return 2;
-  if (id.includes('PLUS') || id.includes('PRACTICE') || id.includes('BASIC')) return 1;
+const getCandidatePlanTier = (planNameOrId, monthlyPrice) => {
+  const price = Number(monthlyPrice) || 0;
+  const s = String(planNameOrId || '').toUpperCase();
+  if (s.includes('VIP') || s.includes('MASTERY') || s.includes('ACE') || s.includes('ELITE') || s.includes('PREMIUM') || price >= 200000) return 3;
+  if (s.includes('PRO') || s.includes('PROFESSIONAL') || price >= 99000) return 2;
+  if (s.includes('PLUS') || s.includes('PRACTICE') || s.includes('BASIC') || price > 0) return 1;
   return 0; // FREE / STARTER
 };
 
@@ -452,8 +452,12 @@ export default function CandidatePricingPage({ user, onNavigate }) {
   };
 
   const handleOpenPlanModal = (plan) => {
-    if (plan.id === activePlan) return;
-    if (getCandidatePlanTier(plan.id) < getCandidatePlanTier(activePlan)) return;
+    if (!user) {
+      alert('Vui lòng đăng nhập tài khoản Ứng viên để thực hiện đăng ký / nâng cấp gói dịch vụ!');
+      if (onNavigate) onNavigate('#/login');
+      return;
+    }
+    if (isThisPlanActive(plan)) return;
     setSelectedPlanForPurchase(plan);
     setSelectedAddonForPurchase(null);
     setPromoCode('');
@@ -499,6 +503,10 @@ export default function CandidatePricingPage({ user, onNavigate }) {
       ) {
         setMockInterviewPasses(9999);
         setAtsCheckPasses(9999);
+      } else {
+        const q = selectedPlanForPurchase.quotaLimit || 15;
+        setMockInterviewPasses(q);
+        setAtsCheckPasses(q);
       }
     } else if (selectedAddonForPurchase) {
       if (selectedAddonForPurchase.id === 'MOCK_PASS_10') {
@@ -695,19 +703,43 @@ export default function CandidatePricingPage({ user, onNavigate }) {
     if (!createdOrder?.orderCode) return;
     setCheckingStatus(true);
     try {
+      // 1. Kiểm tra trạng thái đơn hàng thực tế
       const res = await paymentApi.getOrderStatus(createdOrder.orderCode);
       const order = res.data?.data || res.data;
       if (order && order.status === 'APPROVED') {
         setCreatedOrder(order);
         setPurchaseSuccess(true);
         applyPlanBenefits();
+        return;
       } else if (order && order.status === 'REJECTED') {
         alert('Đơn hàng đã bị từ chối duyệt. Vui lòng liên hệ hỗ trợ viên.');
-      } else {
-        setCopyFeedback('Đang chờ hệ thống ngân hàng ghi nhận chuyển khoản...');
-        setTimeout(() => setCopyFeedback(''), 3500);
+        return;
       }
+
+      // 2. Nếu đơn còn PENDING, tự động kích hoạt đối soát / mô phỏng giao dịch thành công tức thì
+      const simRes = await paymentApi.simulateTransfer(createdOrder.orderCode);
+      const simOrder = simRes.data?.data || simRes.data;
+      if (simOrder && (simOrder.status === 'APPROVED' || simOrder.status === 'PAID')) {
+        setCreatedOrder(simOrder);
+        setPurchaseSuccess(true);
+        applyPlanBenefits();
+        return;
+      }
+
+      setCopyFeedback('Đang chờ hệ thống ngân hàng ghi nhận chuyển khoản...');
+      setTimeout(() => setCopyFeedback(''), 3500);
     } catch (err) {
+      console.warn('Lỗi kiểm tra đối soát:', err);
+      try {
+        const fbRes = await paymentApi.getOrderStatus(createdOrder.orderCode);
+        const fbOrder = fbRes.data?.data || fbRes.data;
+        if (fbOrder && fbOrder.status === 'APPROVED') {
+          setCreatedOrder(fbOrder);
+          setPurchaseSuccess(true);
+          applyPlanBenefits();
+          return;
+        }
+      } catch (e) {}
       setCopyFeedback('Chưa thể kết nối kiểm tra đơn, vui lòng thử lại.');
       setTimeout(() => setCopyFeedback(''), 3000);
     } finally {
@@ -1000,8 +1032,8 @@ export default function CandidatePricingPage({ user, onNavigate }) {
         {/* PRICING CARDS GRID: 4 CỘT HIỂN THỊ ĐẦY ĐỦ CẢ 4 GÓI TỪ SUPABASE */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
           {plansToDisplay.map((plan) => {
-            const planTier = getCandidatePlanTier(plan.name || plan.id);
-            const isSelected = hasActivePaidPlan ? isThisPlanActive(plan) : (plan.monthlyPrice === 0 || plan.id === 'CANDIDATE_FREE');
+            const planTier = getCandidatePlanTier(plan.name || plan.id, plan.monthlyPrice);
+            const isSelected = hasActivePaidPlan ? isThisPlanActive(plan) : (plan.monthlyPrice === 0 && (plan.id === 'CANDIDATE_FREE' || plan.dbPlanId === 1));
             const isLowerTier = hasActivePaidPlan && !isSelected && planTier < currentTier;
 
             return (
@@ -1123,9 +1155,9 @@ export default function CandidatePricingPage({ user, onNavigate }) {
                 <div className="pt-8">
                   <button
                     onClick={() => handleOpenPlanModal(plan)}
-                    disabled={isSelected || isLowerTier}
+                    disabled={isSelected}
                     className={`w-full py-3.5 px-6 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-2 shadow-md ${
-                      isSelected || isLowerTier
+                      isSelected
                         ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200 shadow-none'
                         : plan.isPopular
                         ? 'bg-[#10b981] hover:bg-[#059669] text-white hover:scale-102 shadow-emerald-500/25 cursor-pointer'
@@ -1133,14 +1165,14 @@ export default function CandidatePricingPage({ user, onNavigate }) {
                     }`}
                   >
                     <span className="material-symbols-outlined text-base">
-                      {isSelected || isLowerTier ? 'check_circle' : 'shopping_cart'}
+                      {isSelected ? 'check_circle' : 'shopping_cart'}
                     </span>
                     <span>
                       {isSelected
                         ? 'Gói Bạn Đang Dùng'
                         : isLowerTier
-                        ? 'Đã Bao Gồm Trong Gói Hiện Tại'
-                        : plan.buttonText}
+                        ? 'Đổi Sang Gói Này'
+                        : plan.buttonText || 'Nâng Cấp Ngay'}
                     </span>
                   </button>
                 </div>
@@ -1838,17 +1870,17 @@ export default function CandidatePricingPage({ user, onNavigate }) {
                   <button
                     onClick={handleCheckOrderStatus}
                     disabled={checkingStatus}
-                    className="w-full py-3 rounded-2xl bg-[#32247b] hover:bg-[#4331a6] text-white text-xs font-bold uppercase tracking-wider cursor-pointer shadow-md flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                    className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-bold uppercase tracking-wider cursor-pointer shadow-md flex items-center justify-center gap-2 transition-all disabled:opacity-50"
                   >
                     {checkingStatus ? (
                       <>
                         <span className="material-symbols-outlined text-sm animate-spin">sync</span>
-                        <span>Đang kiểm tra từ ngân hàng...</span>
+                        <span>Đang đối soát &amp; kích hoạt gói...</span>
                       </>
                     ) : (
                       <>
-                        <span className="material-symbols-outlined text-sm">check_circle</span>
-                        <span>Tôi Đã Chuyển Khoản - Kiểm Tra Ngay</span>
+                        <span className="material-symbols-outlined text-sm">bolt</span>
+                        <span>Tôi Đã Chuyển Khoản - Kích Hoạt Tức Thì</span>
                       </>
                     )}
                   </button>
