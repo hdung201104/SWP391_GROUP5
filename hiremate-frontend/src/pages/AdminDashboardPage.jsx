@@ -10597,8 +10597,19 @@ export default function AdminDashboardPage({ user, onLogout }) {
                     min="0"
                     step="10000"
                     placeholder="499000"
-                    value={newPackageForm.price}
-                    onChange={(e) => setNewPackageForm((prev) => ({ ...prev, price: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
+                    value={newPackageForm.price === '' ? '' : (newPackageForm.price ?? '')}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setNewPackageForm((prev) => ({
+                        ...prev,
+                        price: val === '' ? '' : Math.max(0, parseInt(val, 10) || 0)
+                      }));
+                    }}
+                    onBlur={() => {
+                      if (newPackageForm.price === '' || isNaN(newPackageForm.price)) {
+                        setNewPackageForm((prev) => ({ ...prev, price: 0 }));
+                      }
+                    }}
                     className="w-full px-4 py-2 border border-purple-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#5b48bd]/30"
                   />
                   <div className="text-[10px] text-slate-400 mt-0.5">0 = Miễn phí</div>
@@ -10626,8 +10637,19 @@ export default function AdminDashboardPage({ user, onLogout }) {
                     type="number"
                     min="1"
                     placeholder="10"
-                    value={newPackageForm.quotaLimit}
-                    onChange={(e) => setNewPackageForm((prev) => ({ ...prev, quotaLimit: Math.max(1, parseInt(e.target.value, 10) || 1) }))}
+                    value={newPackageForm.quotaLimit === '' ? '' : (newPackageForm.quotaLimit ?? '')}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setNewPackageForm((prev) => ({
+                        ...prev,
+                        quotaLimit: val === '' ? '' : Math.max(1, parseInt(val, 10) || 1)
+                      }));
+                    }}
+                    onBlur={() => {
+                      if (newPackageForm.quotaLimit === '' || isNaN(newPackageForm.quotaLimit)) {
+                        setNewPackageForm((prev) => ({ ...prev, quotaLimit: 10 }));
+                      }
+                    }}
                     className="w-full px-4 py-2 border border-purple-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#5b48bd]/30"
                   />
                   <div className="text-[10px] text-slate-400 mt-0.5">999 = Không giới hạn</div>
@@ -10865,8 +10887,19 @@ export default function AdminDashboardPage({ user, onLogout }) {
                     type="number"
                     min="0"
                     step="10000"
-                    value={editPackageForm.price}
-                    onChange={(e) => setEditPackageForm((prev) => ({ ...prev, price: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
+                    value={editPackageForm.price === '' ? '' : (editPackageForm.price ?? '')}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setEditPackageForm((prev) => ({
+                        ...prev,
+                        price: val === '' ? '' : Math.max(0, parseInt(val, 10) || 0)
+                      }));
+                    }}
+                    onBlur={() => {
+                      if (editPackageForm.price === '' || isNaN(editPackageForm.price)) {
+                        setEditPackageForm((prev) => ({ ...prev, price: 0 }));
+                      }
+                    }}
                     className="w-full px-4 py-2 border border-purple-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#5b48bd]/30"
                   />
                 </div>
@@ -10876,8 +10909,19 @@ export default function AdminDashboardPage({ user, onLogout }) {
                   <input
                     type="number"
                     min="1"
-                    value={editPackageForm.durationDays}
-                    onChange={(e) => setEditPackageForm((prev) => ({ ...prev, durationDays: Math.max(1, parseInt(e.target.value, 10) || 1) }))}
+                    value={editPackageForm.durationDays === '' ? '' : (editPackageForm.durationDays ?? '')}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setEditPackageForm((prev) => ({
+                        ...prev,
+                        durationDays: val === '' ? '' : Math.max(1, parseInt(val, 10) || 1)
+                      }));
+                    }}
+                    onBlur={() => {
+                      if (editPackageForm.durationDays === '' || isNaN(editPackageForm.durationDays)) {
+                        setEditPackageForm((prev) => ({ ...prev, durationDays: 30 }));
+                      }
+                    }}
                     className="w-full px-4 py-2 border border-purple-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#5b48bd]/30"
                   />
                 </div>
@@ -10889,8 +10933,19 @@ export default function AdminDashboardPage({ user, onLogout }) {
                   <input
                     type="number"
                     min="1"
-                    value={editPackageForm.quotaLimit}
-                    onChange={(e) => setEditPackageForm((prev) => ({ ...prev, quotaLimit: Math.max(1, parseInt(e.target.value, 10) || 1) }))}
+                    value={editPackageForm.quotaLimit === '' ? '' : (editPackageForm.quotaLimit ?? '')}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setEditPackageForm((prev) => ({
+                        ...prev,
+                        quotaLimit: val === '' ? '' : Math.max(1, parseInt(val, 10) || 1)
+                      }));
+                    }}
+                    onBlur={() => {
+                      if (editPackageForm.quotaLimit === '' || isNaN(editPackageForm.quotaLimit)) {
+                        setEditPackageForm((prev) => ({ ...prev, quotaLimit: 10 }));
+                      }
+                    }}
                     className="w-full px-4 py-2 border border-purple-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#5b48bd]/30"
                   />
                 </div>
@@ -11127,8 +11182,16 @@ export default function AdminDashboardPage({ user, onLogout }) {
                     type="number"
                     min="1"
                     max="10000"
-                    value={tierFormData.customQuota}
-                    onChange={(e) => setTierFormData(prev => ({ ...prev, customQuota: parseInt(e.target.value, 10) || 0 }))}
+                    value={tierFormData.customQuota === '' ? '' : (tierFormData.customQuota ?? '')}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setTierFormData((prev) => ({ ...prev, customQuota: val === '' ? '' : Math.max(1, parseInt(val, 10) || 1) }));
+                    }}
+                    onBlur={() => {
+                      if (tierFormData.customQuota === '' || isNaN(tierFormData.customQuota)) {
+                        setTierFormData((prev) => ({ ...prev, customQuota: 10 }));
+                      }
+                    }}
                     className="w-full px-3 py-2 border border-purple-200 rounded-xl font-bold focus:outline-none focus:ring-2 focus:ring-[#5b48bd]/30"
                     required
                   />
@@ -11140,8 +11203,16 @@ export default function AdminDashboardPage({ user, onLogout }) {
                     type="number"
                     min="1"
                     max="3650"
-                    value={tierFormData.durationDays}
-                    onChange={(e) => setTierFormData(prev => ({ ...prev, durationDays: parseInt(e.target.value, 10) || 30 }))}
+                    value={tierFormData.durationDays === '' ? '' : (tierFormData.durationDays ?? '')}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setTierFormData((prev) => ({ ...prev, durationDays: val === '' ? '' : Math.max(1, parseInt(val, 10) || 1) }));
+                    }}
+                    onBlur={() => {
+                      if (tierFormData.durationDays === '' || isNaN(tierFormData.durationDays)) {
+                        setTierFormData((prev) => ({ ...prev, durationDays: 30 }));
+                      }
+                    }}
                     className="w-full px-3 py-2 border border-purple-200 rounded-xl font-bold focus:outline-none focus:ring-2 focus:ring-[#5b48bd]/30"
                     required
                   />
@@ -11307,10 +11378,18 @@ export default function AdminDashboardPage({ user, onLogout }) {
                     min="1"
                     max="100"
                     placeholder="20"
-                    value={newVoucherForm.discountPercent}
+                    value={newVoucherForm.discountPercent === '' ? '' : (newVoucherForm.discountPercent ?? '')}
                     onChange={(e) => {
-                      const num = Math.min(100, Math.max(1, parseInt(e.target.value, 10) || 1));
-                      setNewVoucherForm((prev) => ({ ...prev, discountPercent: num }));
+                      const val = e.target.value;
+                      setNewVoucherForm((prev) => ({
+                        ...prev,
+                        discountPercent: val === '' ? '' : Math.min(100, Math.max(1, parseInt(val, 10) || 1))
+                      }));
+                    }}
+                    onBlur={() => {
+                      if (newVoucherForm.discountPercent === '' || isNaN(newVoucherForm.discountPercent)) {
+                        setNewVoucherForm((prev) => ({ ...prev, discountPercent: 20 }));
+                      }
                     }}
                     className="w-full px-4 py-2 border border-purple-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#5b48bd]/30"
                   />
@@ -11323,10 +11402,18 @@ export default function AdminDashboardPage({ user, onLogout }) {
                     min="0"
                     step="10000"
                     placeholder="100000"
-                    value={newVoucherForm.maxDiscountAmount}
+                    value={newVoucherForm.maxDiscountAmount === '' ? '' : (newVoucherForm.maxDiscountAmount ?? '')}
                     onChange={(e) => {
-                      const num = Math.max(0, parseInt(e.target.value, 10) || 0);
-                      setNewVoucherForm((prev) => ({ ...prev, maxDiscountAmount: num }));
+                      const val = e.target.value;
+                      setNewVoucherForm((prev) => ({
+                        ...prev,
+                        maxDiscountAmount: val === '' ? '' : Math.max(0, parseInt(val, 10) || 0)
+                      }));
+                    }}
+                    onBlur={() => {
+                      if (newVoucherForm.maxDiscountAmount === '' || isNaN(newVoucherForm.maxDiscountAmount)) {
+                        setNewVoucherForm((prev) => ({ ...prev, maxDiscountAmount: 0 }));
+                      }
                     }}
                     className="w-full px-4 py-2 border border-purple-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#5b48bd]/30"
                   />
@@ -11374,10 +11461,18 @@ export default function AdminDashboardPage({ user, onLogout }) {
                     min="0"
                     step="10000"
                     placeholder="0"
-                    value={newVoucherForm.minOrderAmount || 0}
+                    value={newVoucherForm.minOrderAmount === '' ? '' : (newVoucherForm.minOrderAmount ?? '')}
                     onChange={(e) => {
-                      const num = Math.max(0, parseInt(e.target.value, 10) || 0);
-                      setNewVoucherForm((prev) => ({ ...prev, minOrderAmount: num }));
+                      const val = e.target.value;
+                      setNewVoucherForm((prev) => ({
+                        ...prev,
+                        minOrderAmount: val === '' ? '' : Math.max(0, parseInt(val, 10) || 0)
+                      }));
+                    }}
+                    onBlur={() => {
+                      if (newVoucherForm.minOrderAmount === '' || isNaN(newVoucherForm.minOrderAmount)) {
+                        setNewVoucherForm((prev) => ({ ...prev, minOrderAmount: 0 }));
+                      }
                     }}
                     className="w-full px-4 py-2 border border-purple-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#5b48bd]/30"
                   />
@@ -11391,10 +11486,18 @@ export default function AdminDashboardPage({ user, onLogout }) {
                   <input
                     type="number"
                     min="1"
-                    value={newVoucherForm.usageLimit}
+                    value={newVoucherForm.usageLimit === '' ? '' : (newVoucherForm.usageLimit ?? '')}
                     onChange={(e) => {
-                      const num = Math.max(1, parseInt(e.target.value, 10) || 1);
-                      setNewVoucherForm((prev) => ({ ...prev, usageLimit: num }));
+                      const val = e.target.value;
+                      setNewVoucherForm((prev) => ({
+                        ...prev,
+                        usageLimit: val === '' ? '' : Math.max(1, parseInt(val, 10) || 1)
+                      }));
+                    }}
+                    onBlur={() => {
+                      if (newVoucherForm.usageLimit === '' || isNaN(newVoucherForm.usageLimit)) {
+                        setNewVoucherForm((prev) => ({ ...prev, usageLimit: 100 }));
+                      }
                     }}
                     className="w-full px-4 py-2 border border-purple-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#5b48bd]/30"
                   />
