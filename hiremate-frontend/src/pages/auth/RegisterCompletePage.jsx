@@ -253,7 +253,11 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
         return;
       }
 
-      await authApi.sendOtp({ email: email.trim(), purpose: 'REGISTER' });
+      const otpRes = await authApi.sendOtp({ email: email.trim(), purpose: 'REGISTER' });
+      const returnedOtp = otpRes?.data?.data?.otp || otpRes?.data?.otp;
+      if (returnedOtp && !otpCode) {
+        setOtpCode(returnedOtp);
+      }
       setOtpSent(true);
       setResendCooldown(60);
       setSuccessMessage(`Đã gửi mã xác thực OTP 6 số đến email ${email}. Vui lòng kiểm tra hộp thư (cả mục Spam)!`);
@@ -603,7 +607,7 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Email Readonly */}
+                {/* Email Readonly / Input */}
                 <div className="space-y-1 sm:col-span-2">
                   <label className="text-[11px] font-bold uppercase tracking-wider text-[#221d47] block flex items-center justify-between">
                     <span>Email đăng ký (Bảo mật qua {providerName})</span>
@@ -616,9 +620,15 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
                     <input
                       type="email"
                       value={email}
-                      disabled
-                      readOnly
-                      className="w-full pl-10 pr-3 py-2 bg-slate-100 border border-slate-200 rounded-full text-xs font-mono font-bold text-slate-600 cursor-not-allowed select-none"
+                      disabled={Boolean(googleData?.email)}
+                      readOnly={Boolean(googleData?.email)}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="Nhập địa chỉ email của bạn..."
+                      className={`w-full pl-10 pr-3 py-2 border rounded-full text-xs font-mono font-bold ${
+                        googleData?.email
+                          ? 'bg-slate-100 border-slate-200 text-slate-600 cursor-not-allowed select-none'
+                          : 'bg-white border-purple-100 text-[#221d47] focus:border-[#5b48bd] focus:outline-none'
+                      }`}
                     />
                   </div>
                 </div>

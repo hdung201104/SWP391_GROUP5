@@ -64,11 +64,11 @@ jwt:
 gemini:
   api:
     key: ${GEMINI_API_KEY:your_gemini_api_key_here}
-    model: ${GEMINI_MODEL:gemini-2.5-flash}
+    model: ${GEMINI_MODEL:gemini-3.5-flash-lite}
     base-url: https://generativelanguage.googleapis.com/v1beta
   voice:
     api-key: ${GEMINI_VOICE_API_KEY:${GEMINI_API_KEY:}}
-    model: ${GEMINI_VOICE_MODEL:gemini-2.5-flash}
+    model: ${GEMINI_VOICE_MODEL:gemini-3.5-flash-lite}
 
 openai:
   api:
@@ -95,7 +95,7 @@ google:
 github:
   oauth2:
     client-id: ${GITHUB_CLIENT_ID:Ov23lin7fKu1DTd2VWAB}
-    client-secret: ${GITHUB_CLIENT_SECRET:}
+    client-secret: ${GITHUB_CLIENT_SECRET:5a845ff134b283d3eb40526625f82575f37bf034}
 
 cloudinary:
   cloud-name: ${CLOUDINARY_CLOUD_NAME:mezrtcb7}

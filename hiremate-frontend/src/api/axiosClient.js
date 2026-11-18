@@ -37,6 +37,11 @@ axiosClient.interceptors.request.use(
     const isPublicAuth = config.url && (
       config.url.includes('/auth/login') || 
       config.url.includes('/auth/register') ||
+      config.url.includes('/auth/google') ||
+      config.url.includes('/auth/github') ||
+      config.url.includes('/auth/send-otp') ||
+      config.url.includes('/auth/verify-otp') ||
+      config.url.includes('/auth/check-email') ||
       config.url.includes('/auth/forgot-password') ||
       config.url.includes('/auth/reset-password')
     );
@@ -74,6 +79,24 @@ axiosClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
+    // Automatic failover to Render Production Cloud if local backend (localhost:8088) is not running,
+    // or retry once if Render backend is waking up from cold start
+    if (!error.response && originalRequest) {
+      const RENDER_CLOUD_API = 'https://hiremate-backend-ot3r.onrender.com/api/v1';
+      const currentBase = originalRequest.baseURL || axiosClient.defaults.baseURL || '';
+      if (!currentBase.includes('onrender.com') && !originalRequest._cloudFailoverRetry) {
+        originalRequest._cloudFailoverRetry = true;
+        cleanBaseUrl = 'https://hiremate-backend-ot3r.onrender.com';
+        axiosClient.defaults.baseURL = RENDER_CLOUD_API;
+        originalRequest.baseURL = RENDER_CLOUD_API;
+        return axiosClient(originalRequest);
+      } else if (currentBase.includes('onrender.com') && !originalRequest._renderWakeRetry) {
+        originalRequest._renderWakeRetry = true;
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        return axiosClient(originalRequest);
+      }
+    }
+
     if (error.response && error.response.status === 401 && !originalRequest._retry) {
       const refreshToken = localStorage.getItem('refreshToken');
       const isRefreshEndpoint = originalRequest.url && originalRequest.url.includes('/auth/refresh-token');
@@ -81,7 +104,8 @@ axiosClient.interceptors.response.use(
       if (refreshToken && !isRefreshEndpoint) {
         originalRequest._retry = true;
         try {
-          const res = await axios.post('/api/v1/auth/refresh-token', { refreshToken });
+          const activeBase = axiosClient.defaults.baseURL || '/api/v1';
+          const res = await axios.post(`${activeBase}/auth/refresh-token`, { refreshToken });
           const payload = res.data?.data || res.data;
           if (payload && payload.token) {
             localStorage.setItem('token', payload.token);

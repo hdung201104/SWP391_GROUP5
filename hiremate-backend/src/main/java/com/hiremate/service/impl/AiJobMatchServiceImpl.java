@@ -726,7 +726,18 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
                 throw new org.springframework.security.access.AccessDeniedException("Bạn không có quyền đánh giá bằng CV của người khác");
             }
         } else {
-            targetCv = cvRepository.findByCandidateIdAndIsDefaultTrue(candidate.getCandidateId())
+            // Ưu tiên bản CV thực tế mà ứng viên đã nộp cho bài tuyển dụng này nếu đã có application
+            Cv appCv = null;
+            try {
+                if (applicationRepository != null) {
+                    Optional<Application> appOpt = applicationRepository.findByJob_JobIdAndCandidate_CandidateId(jobId, candidate.getCandidateId());
+                    if (appOpt.isPresent() && appOpt.get().getCv() != null) {
+                        appCv = appOpt.get().getCv();
+                    }
+                }
+            } catch (Exception ignored) {}
+
+            targetCv = (appCv != null) ? appCv : cvRepository.findByCandidateIdAndIsDefaultTrue(candidate.getCandidateId())
                     .orElseGet(() -> {
                         List<Cv> cvs = cvRepository.findByCandidateId(candidate.getCandidateId());
                         return cvs.isEmpty() ? null : cvs.get(0);

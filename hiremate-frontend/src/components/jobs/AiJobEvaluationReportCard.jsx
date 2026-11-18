@@ -55,6 +55,27 @@ export default function AiJobEvaluationReportCard({
     return () => { mounted = false; };
   }, [jobId]);
 
+  // Lắng nghe sự kiện yêu cầu chấm lại từ Header hoặc bên ngoài để cập nhật báo cáo đồng bộ
+  useEffect(() => {
+    const handleGlobalRefresh = (e) => {
+      if (e.detail?.jobId && String(e.detail.jobId) === String(jobId)) {
+        if (e.detail?.report) {
+          setReport(e.detail.report);
+          setIsExpanded(true);
+        } else {
+          aiMatchApi.getCandidateJobReport(jobId, selectedCvId || undefined, false)
+            .then((res) => {
+              const data = res?.data || res;
+              if (data) setReport(data);
+            })
+            .catch(() => {});
+        }
+      }
+    };
+    window.addEventListener('hiremate:refresh-candidate-ai-report', handleGlobalRefresh);
+    return () => window.removeEventListener('hiremate:refresh-candidate-ai-report', handleGlobalRefresh);
+  }, [jobId, selectedCvId]);
+
   // 2. Kích hoạt AI phân tích chuyên sâu & viết báo cáo theo yêu cầu
   const handleGenerateReport = async () => {
     if (!jobId) return;

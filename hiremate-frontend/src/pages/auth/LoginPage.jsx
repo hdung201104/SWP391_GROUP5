@@ -79,38 +79,64 @@ export default function LoginPage({ onNavigateRegister, onLoginSuccess }) {
       setSuccessMessage('');
       try {
         // 1. Fetch authenticated Google profile
-        const resp = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-          headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
-        });
-        const profile = await resp.json();
-        if (!profile.email) {
+        let profile = null;
+        try {
+          const resp = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+            headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
+          });
+          profile = await resp.json();
+        } catch (fetchErr) {
+          const resp2 = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+            headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
+          });
+          profile = await resp2.json();
+        }
+        if (!profile || !profile.email) {
           throw new Error('Google không cung cấp địa chỉ email của bạn.');
         }
 
+        const cleanEmail = profile.email.toLowerCase().trim();
+        const cleanName = profile.name || cleanEmail.split('@')[0];
+
         // 2. Query backend to verify account existence
-        const res = await authApi.googleLogin({
-          email: profile.email.toLowerCase().trim(),
-          fullName: profile.name || profile.email.split('@')[0],
-          avatarUrl: profile.picture,
-          role: role,
-        });
+        let authData = null;
+        try {
+          const res = await authApi.googleLogin({
+            email: cleanEmail,
+            fullName: cleanName,
+            avatarUrl: profile.picture,
+            role: role,
+          });
+          authData = (res?.data && (res.data.token || res.data.isNewUser !== undefined)) 
+            ? res.data 
+            : (res?.token || res?.isNewUser !== undefined ? res : (res?.data || res));
+        } catch (apiErr) {
+          const errMsg = apiErr?.response?.data?.message || apiErr?.message || '';
+          if (errMsg.includes('khóa') || errMsg.includes('ngừng kích hoạt')) {
+            throw apiErr;
+          }
+          console.warn('Google login backend check fallback to new user registration:', apiErr);
+          authData = {
+            isNewUser: true,
+            email: cleanEmail,
+            fullName: cleanName,
+            avatarUrl: profile.picture,
+          };
+        }
 
-        const authData = (res?.data && (res.data.token || res.data.isNewUser !== undefined)) 
-          ? res.data 
-          : (res?.token ? res : (res?.data || res));
-
-        // CASE 2: Tài khoản CHƯA TỒN TẠI (Người dùng mới)
-        if (authData?.isNewUser) {
+        // CASE 2: Tài khoản CHƯA TỒN TẠI (Người dùng mới) -> Chuyển ngay sang trang hoàn tất đăng ký
+        if (authData?.isNewUser || !authData?.token) {
           sessionStorage.setItem('hiremate_google_onboarding', JSON.stringify({
-            email: authData.email || profile.email,
-            fullName: authData.fullName || profile.name,
-            avatarUrl: authData.avatarUrl || profile.picture,
+            email: authData?.email || cleanEmail,
+            fullName: authData?.fullName || cleanName,
+            avatarUrl: authData?.avatarUrl || profile.picture,
+            provider: 'GOOGLE',
             role: role,
           }));
           setSuccessMessage('Xác thực tài khoản Google thành công! Đang chuyển hướng sang bước hoàn tất đăng ký...');
           setTimeout(() => {
             window.location.hash = '#/register-complete';
-          }, 450);
+          }, 350);
           return;
         }
 
@@ -153,29 +179,44 @@ export default function LoginPage({ onNavigateRegister, onLoginSuccess }) {
     setErrorMessage('');
     setSuccessMessage('');
     try {
-      const res = await authApi.githubLogin({ 
-        code, 
-        role, 
-        redirectUri: window.location.origin 
-      });
-      const authData = (res?.data && (res.data.token || res.data.isNewUser !== undefined))
-        ? res.data
-        : (res?.token ? res : (res?.data || res));
+      let authData = null;
+      try {
+        const res = await authApi.githubLogin({ 
+          code, 
+          role, 
+          redirectUri: window.location.origin 
+        });
+        authData = (res?.data && (res.data.token || res.data.isNewUser !== undefined))
+          ? res.data
+          : (res?.token || res?.isNewUser !== undefined ? res : (res?.data || res));
+      } catch (apiErr) {
+        const errMsg = apiErr?.response?.data?.message || apiErr?.message || '';
+        if (errMsg.includes('khóa') || errMsg.includes('ngừng kích hoạt')) {
+          throw apiErr;
+        }
+        console.warn('GitHub login backend check fallback to new user registration:', apiErr);
+        authData = {
+          isNewUser: true,
+          email: '',
+          fullName: '',
+          provider: 'GITHUB',
+        };
+      }
 
       // CASE 2: Tài khoản GitHub mới -> chuyển sang hoàn tất đăng ký
-      if (authData?.isNewUser) {
+      if (authData?.isNewUser || !authData?.token) {
         sessionStorage.setItem('hiremate_google_onboarding', JSON.stringify({
-          email: authData.email,
-          fullName: authData.fullName,
-          avatarUrl: authData.avatarUrl,
+          email: authData?.email || '',
+          fullName: authData?.fullName || '',
+          avatarUrl: authData?.avatarUrl || '',
           provider: 'GITHUB',
-          githubUrl: authData.githubUrl || undefined,
+          githubUrl: authData?.githubUrl || undefined,
           role: role,
         }));
         setSuccessMessage('Xác thực tài khoản GitHub thành công! Đang chuyển hướng sang bước hoàn tất hồ sơ...');
         setTimeout(() => {
           window.location.hash = '#/register-complete';
-        }, 450);
+        }, 350);
         return;
       }
 

@@ -27,9 +27,9 @@ services:
       - key: GEMINI_API_KEY
         sync: false
       - key: GEMINI_MODEL
-        value: gemini-2.5-flash
+        value: gemini-3.5-flash-lite
       - key: GEMINI_VOICE_MODEL
-        value: gemini-2.5-flash
+        value: gemini-3.5-flash-lite
       - key: CLOUDINARY_CLOUD_NAME
         value: mezrtcb7
       - key: CLOUDINARY_API_KEY
@@ -63,7 +63,7 @@ services:
       - key: GITHUB_CLIENT_ID
         value: Ov23lin7fKu1DTd2VWAB
       - key: GITHUB_CLIENT_SECRET
-        sync: false
+        value: 5a845ff134b283d3eb40526625f82575f37bf034
       - key: ELEVENLABS_API_KEY
         sync: false
       - key: ELEVENLABS_VOICE_ID_FEMALE

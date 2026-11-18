@@ -42,29 +42,29 @@ public class GeminiAiServiceImpl implements GeminiAiService {
         String candidate = null;
         if (systemSettingsService != null && systemSettingsService.getSettings() != null) {
             String m = systemSettingsService.getSettings().getAiModel();
-            if (m != null && !m.isBlank() && !m.contains("3.5")) {
+            if (m != null && !m.isBlank() && !m.contains("1.5") && !m.contains("2.0-flash") && !m.contains("2.5")) {
                 candidate = m.trim();
             }
         }
         if (candidate == null || candidate.isBlank()) {
             String cfgModel = geminiAiConfig != null ? geminiAiConfig.getModel() : null;
-            if (cfgModel != null && !cfgModel.isBlank() && !cfgModel.contains("3.5")) {
+            if (cfgModel != null && !cfgModel.isBlank() && !cfgModel.contains("1.5") && !cfgModel.contains("2.0-flash") && !cfgModel.contains("2.5")) {
                 candidate = cfgModel.trim();
             }
         }
         if (candidate == null || candidate.isBlank() || notFoundModelsCache.contains(candidate)) {
-            for (String fb : List.of("gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-lite-latest", "gemini-3-flash-preview")) {
+            for (String fb : List.of("gemini-3.5-flash-lite", "gemini-3-flash-preview", "gemini-flash-lite-latest")) {
                 if (!notFoundModelsCache.contains(fb)) {
                     return fb;
                 }
             }
-            return "gemini-2.5-flash";
+            return "gemini-3.5-flash-lite";
         }
         return candidate;
     }
 
     private String getNextFallbackModel(Set<String> triedModels) {
-        for (String fb : List.of("gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-lite-latest", "gemini-3-flash-preview")) {
+        for (String fb : List.of("gemini-3.5-flash-lite", "gemini-3-flash-preview", "gemini-flash-lite-latest")) {
             if (!triedModels.contains(fb) && !notFoundModelsCache.contains(fb)) {
                 return fb;
             }
@@ -1897,10 +1897,10 @@ public class GeminiAiServiceImpl implements GeminiAiService {
         if (cachedWorking != null && !cachedWorking.isBlank() && !notFoundModelsCache.contains(cachedWorking)) {
             modelsToTry.add(cachedWorking);
         }
-        if (primaryModel != null && !primaryModel.isBlank() && !primaryModel.contains("3.5") && !notFoundModelsCache.contains(primaryModel.trim()) && !modelsToTry.contains(primaryModel.trim())) {
+        if (primaryModel != null && !primaryModel.isBlank() && !primaryModel.contains("1.5") && !primaryModel.contains("2.0") && !primaryModel.contains("2.5") && !notFoundModelsCache.contains(primaryModel.trim()) && !modelsToTry.contains(primaryModel.trim())) {
             modelsToTry.add(primaryModel.trim());
         }
-        for (String fb : List.of("gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-lite-latest", "gemini-3-flash-preview")) {
+        for (String fb : List.of("gemini-3.5-flash-lite", "gemini-3-flash-preview", "gemini-flash-lite-latest")) {
             if (!notFoundModelsCache.contains(fb) && !modelsToTry.contains(fb)) {
                 modelsToTry.add(fb);
             }

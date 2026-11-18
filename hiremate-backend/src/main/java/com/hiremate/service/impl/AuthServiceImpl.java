@@ -57,7 +57,7 @@ public class AuthServiceImpl implements AuthService {
     @org.springframework.beans.factory.annotation.Value("${github.oauth2.client-id:Ov23lin7fKu1DTd2VWAB}")
     private String githubClientId;
 
-    @org.springframework.beans.factory.annotation.Value("${github.oauth2.client-secret:}")
+    @org.springframework.beans.factory.annotation.Value("${github.oauth2.client-secret:5a845ff134b283d3eb40526625f82575f37bf034}")
     private String githubClientSecret;
 
     @Override
@@ -580,7 +580,6 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    @Transactional
     public AuthResponse googleLogin(GoogleAuthRequest request) {
         String email;
         String fullName;
@@ -881,7 +880,6 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    @Transactional
     public AuthResponse githubLogin(GitHubAuthRequest request) {
         String email = null;
         String fullName = null;
@@ -890,19 +888,25 @@ public class AuthServiceImpl implements AuthService {
 
         if (request.getCode() != null && !request.getCode().isBlank()) {
             try {
-                // 1. Trao đổi OAuth code để lấy access_token từ GitHub
-                org.springframework.web.client.RestTemplate restTemplate = new org.springframework.web.client.RestTemplate();
+                // 1. Trao đổi OAuth code để lấy access_token từ GitHub (có timeout bảo vệ và fallback secret)
+                org.springframework.http.client.SimpleClientHttpRequestFactory requestFactory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
+                requestFactory.setConnectTimeout(8000);
+                requestFactory.setReadTimeout(10000);
+                org.springframework.web.client.RestTemplate restTemplate = new org.springframework.web.client.RestTemplate(requestFactory);
                 org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
                 headers.setAccept(java.util.Collections.singletonList(org.springframework.http.MediaType.APPLICATION_JSON));
 
+                String effectiveClientId = (githubClientId != null && !githubClientId.isBlank())
+                        ? githubClientId.trim() : "Ov23lin7fKu1DTd2VWAB";
+                String effectiveClientSecret = (githubClientSecret != null && !githubClientSecret.isBlank())
+                        ? githubClientSecret.trim() : "5a845ff134b283d3eb40526625f82575f37bf034";
+
                 Map<String, String> tokenParams = new HashMap<>();
-                tokenParams.put("client_id", githubClientId);
-                tokenParams.put("client_secret", githubClientSecret);
+                tokenParams.put("client_id", effectiveClientId);
+                tokenParams.put("client_secret", effectiveClientSecret);
                 tokenParams.put("code", request.getCode().trim());
                 if (request.getRedirectUri() != null && !request.getRedirectUri().isBlank()) {
                     tokenParams.put("redirect_uri", request.getRedirectUri().trim());
-                } else {
-                    tokenParams.put("redirect_uri", "http://localhost:3000");
                 }
 
                 org.springframework.http.HttpEntity<Map<String, String>> tokenEntity = new org.springframework.http.HttpEntity<>(tokenParams, headers);
@@ -911,6 +915,18 @@ public class AuthServiceImpl implements AuthService {
                         org.springframework.http.HttpMethod.POST,
                         tokenEntity,
                         new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {});
+
+                if (tokenResponse.getBody() != null && tokenResponse.getBody().get("error") != null && tokenParams.containsKey("redirect_uri")) {
+                    log.warn(">> [AuthService] GitHub OAuth exchange with redirect_uri returned {}, retrying without redirect_uri...",
+                            tokenResponse.getBody().get("error"));
+                    tokenParams.remove("redirect_uri");
+                    tokenEntity = new org.springframework.http.HttpEntity<>(tokenParams, headers);
+                    tokenResponse = restTemplate.exchange(
+                            "https://github.com/login/oauth/access_token",
+                            org.springframework.http.HttpMethod.POST,
+                            tokenEntity,
+                            new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {});
+                }
 
                 if (tokenResponse.getBody() != null) {
                     if (tokenResponse.getBody().get("error") != null) {

@@ -254,6 +254,14 @@ export default function JobDetailPage({ user: propUser, jobId }) {
   const [isEvaluatingMatch, setIsEvaluatingMatch] = useState(false);
   const [matchError, setMatchError] = useState(null);
   const [matchDetails, setMatchDetails] = useState(null);
+  const [aiToastMessage, setAiToastMessage] = useState('');
+
+  const triggerAiToast = (msg) => {
+    setAiToastMessage(msg);
+    setTimeout(() => {
+      setAiToastMessage('');
+    }, 4000);
+  };
 
   const fetchCandidateApplication = () => {
     if (isCandidate && applicationApi?.getMyApplications && currentId) {
@@ -316,37 +324,70 @@ export default function JobDetailPage({ user: propUser, jobId }) {
     if (!job) return;
     setIsEvaluatingMatch(true);
     setMatchError(null);
+    triggerAiToast('🤖 AI đang phân tích hồ sơ & chấm lại độ phù hợp cho bạn...');
+
+    const targetJobId = job.jobId || currentId;
+    const effectiveCvId = selectedCvId || myApplication?.cvId || myApplication?.cv?.cvId || (candidateCvs.length > 0 ? (candidateCvs.find((c) => c.isDefault)?.cvId || candidateCvs[0]?.cvId) : undefined);
+
     try {
-      const res = await aiMatchApi.evaluateJobWithCv(job.jobId || currentId, selectedCvId || undefined);
-      const payload = res?.data || res;
-      const score = payload?.matchingScore != null ? payload.matchingScore : payload?.data?.matchingScore;
-      if (score != null) {
-        const rounded = Math.round(score);
+      let freshScore = null;
+      let freshReasoning = null;
+      let freshData = null;
+
+      // 1. Ưu tiên gọi getCandidateJobReport với forceRefresh = true để kích hoạt đối soát chuyên sâu
+      try {
+        const reportRes = await aiMatchApi.getCandidateJobReport(targetJobId, effectiveCvId, true);
+        const rData = reportRes?.data || reportRes;
+        if (rData && rData.matchingScore != null) {
+          freshScore = rData.matchingScore;
+          freshReasoning = rData.overallVerdict || rData.aiReasoning;
+          freshData = rData;
+          // Đồng bộ với AiJobEvaluationReportCard bên dưới
+          try {
+            window.dispatchEvent(new CustomEvent('hiremate:refresh-candidate-ai-report', {
+              detail: { jobId: targetJobId, report: rData }
+            }));
+          } catch (e) {}
+        }
+      } catch (reportErr) {
+        console.warn('Lỗi gọi getCandidateJobReport forceRefresh, chuyển sang evaluateJobWithCv:', reportErr);
+      }
+
+      // 2. Nếu getCandidateJobReport chưa trả về điểm, gọi evaluateJobWithCv
+      if (freshScore == null) {
+        const res = await aiMatchApi.evaluateJobWithCv(targetJobId, effectiveCvId);
+        const payload = res?.data || res;
+        freshScore = payload?.matchingScore != null ? payload.matchingScore : payload?.data?.matchingScore;
+        freshReasoning = payload?.aiReasoning || payload?.data?.aiReasoning;
+        freshData = payload?.data || payload;
+      }
+
+      // 3. Fallback cuối cùng nếu cần: gọi getCandidateJobMatch
+      if (freshScore == null) {
+        const fallbackRes = await aiMatchApi.getCandidateJobMatch(targetJobId);
+        const fallbackPayload = fallbackRes?.data || fallbackRes;
+        freshScore = fallbackPayload?.matchingScore != null ? fallbackPayload.matchingScore : fallbackPayload?.data?.matchingScore;
+        freshReasoning = fallbackPayload?.aiReasoning || fallbackPayload?.data?.aiReasoning;
+        freshData = fallbackPayload?.data || fallbackPayload;
+      }
+
+      if (freshScore != null) {
+        const rounded = Math.round(freshScore);
         setJob((prev) => ({
           ...prev,
           aiMatchScore: rounded,
-          aiReasoning: payload.aiReasoning || payload?.data?.aiReasoning,
+          aiReasoning: freshReasoning || prev.aiReasoning,
         }));
-        setMatchDetails(payload.data || payload);
+        setMatchDetails(freshData);
+        triggerAiToast(`🎉 AI đã hoàn tất chấm lại độ phù hợp: ${rounded}%!`);
       } else {
-        const fallbackRes = await aiMatchApi.getCandidateJobMatch(job.jobId || currentId);
-        const fallbackPayload = fallbackRes?.data || fallbackRes;
-        const fbScore = fallbackPayload?.matchingScore != null ? fallbackPayload.matchingScore : fallbackPayload?.data?.matchingScore;
-        if (fbScore != null) {
-          const rounded = Math.round(fbScore);
-          setJob((prev) => ({
-            ...prev,
-            aiMatchScore: rounded,
-            aiReasoning: fallbackPayload.aiReasoning || fallbackPayload?.data?.aiReasoning,
-          }));
-          setMatchDetails(fallbackPayload.data || fallbackPayload);
-        }
+        triggerAiToast('Đã đối soát xong hồ sơ CV của bạn với vị trí này.');
       }
     } catch (err) {
       console.error('Lỗi khi nhờ AI chấm điểm:', err);
       // Fallback: Thử gọi getCandidateJobMatch để lấy kết quả tính nhanh không bị nghẽn mạng
       try {
-        const fallbackRes = await aiMatchApi.getCandidateJobMatch(job.jobId || currentId);
+        const fallbackRes = await aiMatchApi.getCandidateJobMatch(targetJobId);
         const fallbackPayload = fallbackRes?.data || fallbackRes;
         const fbScore = fallbackPayload?.matchingScore != null ? fallbackPayload.matchingScore : fallbackPayload?.data?.matchingScore;
         if (fbScore != null) {
@@ -357,10 +398,13 @@ export default function JobDetailPage({ user: propUser, jobId }) {
             aiReasoning: fallbackPayload.aiReasoning || fallbackPayload?.data?.aiReasoning,
           }));
           setMatchDetails(fallbackPayload.data || fallbackPayload);
+          triggerAiToast(`🎉 Độ tương thích AI hiện tại: ${rounded}%`);
           return;
         }
       } catch (e) {}
-      setMatchError(err?.response?.data?.message || err?.message || 'Không thể chấm điểm AI. Vui lòng thử lại sau.');
+      const msg = err?.response?.data?.message || err?.message || 'Không thể chấm điểm AI. Vui lòng thử lại sau.';
+      setMatchError(msg);
+      triggerAiToast(`⚠️ ${msg}`);
     } finally {
       setIsEvaluatingMatch(false);
     }
@@ -775,6 +819,14 @@ export default function JobDetailPage({ user: propUser, jobId }) {
         </div>
       )}
 
+      {/* AI Evaluation Toast Notification */}
+      {aiToastMessage && (
+        <div className="fixed top-20 right-6 z-50 px-5 py-3 rounded-2xl bg-[#221d47] text-white text-xs font-bold shadow-2xl flex items-center gap-2.5 animate-in fade-in slide-in-from-top-4 border border-purple-400/50 backdrop-blur-xl">
+          <span className="material-symbols-outlined text-base text-amber-400">auto_awesome</span>
+          <span>{aiToastMessage}</span>
+        </div>
+      )}
+
       {/* TOP BREADCRUMB */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-5 pb-3">
         <nav className="flex items-center gap-2 text-xs text-slate-500 font-medium">
@@ -1128,19 +1180,25 @@ export default function JobDetailPage({ user: propUser, jobId }) {
                   <>
                     {/* AI Match Pill for Candidate */}
                     {job.aiMatchScore != null ? (
-                      <div className="flex items-center gap-1.5 self-end">
+                      <div className="flex items-center gap-2 self-end">
                         <div className="px-3.5 py-1.5 rounded-full bg-gradient-to-r from-orange-50 to-purple-50 border border-orange-200 text-[#ea580c] font-extrabold text-xs flex items-center gap-1.5 shadow-2xs" title={job.aiReasoning || "Độ so khớp giữa CV cá nhân của bạn và tiêu chuẩn công việc"}>
                           <span className="material-symbols-outlined text-sm text-[#ea580c]">auto_awesome</span>
                           <span>Match AI: {job.aiMatchScore}%</span>
                         </div>
                         <button
                           type="button"
-                          onClick={handleEvaluateAiMatch}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleEvaluateAiMatch();
+                          }}
                           disabled={isEvaluatingMatch}
-                          className="p-1 rounded-full text-slate-400 hover:text-[#5b48bd] hover:bg-purple-50 transition-colors cursor-pointer"
-                          title="Bấm để chấm lại bằng AI"
+                          className="inline-flex items-center justify-center p-1.5 rounded-full text-slate-500 hover:text-white bg-slate-100 hover:bg-[#5b48bd] border border-slate-200 hover:border-[#5b48bd] transition-all shadow-2xs hover:shadow cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed group"
+                          title="Bấm để nhờ AI chấm lại độ phù hợp"
                         >
-                          <span className={`material-symbols-outlined text-[15px] ${isEvaluatingMatch ? 'animate-spin text-[#5b48bd]' : ''}`}>refresh</span>
+                          <span className={`material-symbols-outlined text-[16px] transition-transform group-hover:rotate-180 ${isEvaluatingMatch ? 'animate-spin text-[#5b48bd] group-hover:text-white' : ''}`}>
+                            refresh
+                          </span>
                         </button>
                       </div>
                     ) : (
