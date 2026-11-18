@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Configuration;
 import java.util.List;
 
 @Configuration
+
 @Getter
 public class GeminiAiConfig {
 
@@ -34,7 +35,8 @@ public class GeminiAiConfig {
             return voiceApiKey.trim();
         }
         List<String> keys = getApiKeys();
-        if (!keys.isEmpty()) return keys.get(0);
+        if (!keys.isEmpty())
+            return keys.get(0);
         return apiKey;
     }
 
@@ -46,8 +48,10 @@ public class GeminiAiConfig {
     }
 
     /**
-     * Trích xuất danh sách API Keys để hỗ trợ cơ chế Xoay vòng Key (Key Rotation Pool),
-     * cho phép cấu hình nhiều keys ngăn cách bởi dấu phẩy hoặc chấm phẩy: KEY_1,KEY_2,KEY_3
+     * Trích xuất danh sách API Keys để hỗ trợ cơ chế Xoay vòng Key (Key Rotation
+     * Pool),
+     * cho phép cấu hình nhiều keys ngăn cách bởi dấu phẩy hoặc chấm phẩy:
+     * KEY_1,KEY_2,KEY_3
      */
     public java.util.List<String> getApiKeys() {
         if (apiKey == null || apiKey.isBlank()) {
@@ -58,7 +62,8 @@ public class GeminiAiConfig {
         for (String t : tokens) {
             String clean = t.trim();
             String upper = clean.toUpperCase();
-            if (!clean.isEmpty() && !upper.contains("YOUR_GEMINI_API_KEY") && !upper.contains("YOUR_GEMINI_API_KEY_HERE") && clean.length() >= 15) {
+            if (!clean.isEmpty() && !upper.contains("YOUR_GEMINI_API_KEY")
+                    && !upper.contains("YOUR_GEMINI_API_KEY_HERE") && clean.length() >= 15) {
                 list.add(clean);
             }
         }

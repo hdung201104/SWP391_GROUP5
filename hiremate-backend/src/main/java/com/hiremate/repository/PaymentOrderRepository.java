@@ -11,15 +11,21 @@ import java.util.Optional;
 @Repository
 public interface PaymentOrderRepository extends JpaRepository<PaymentOrder, Long> {
     Optional<PaymentOrder> findByOrderCode(String orderCode);
+
     List<PaymentOrder> findAllByOrderByCreatedAtDesc();
+
     List<PaymentOrder> findByStatusOrderByCreatedAtDesc(PaymentOrderStatus status);
+
     List<PaymentOrder> findByUser_UserIdOrderByCreatedAtDesc(Long userId);
+
     long countByStatus(PaymentOrderStatus status);
 
     @org.springframework.data.jpa.repository.Query("SELECT COALESCE(SUM(p.amount), 0) FROM PaymentOrder p WHERE p.status = com.hiremate.enums.PaymentOrderStatus.APPROVED")
     java.math.BigDecimal sumTotalRevenue();
 
     boolean existsByPlan_PlanId(Long planId);
+
     List<PaymentOrder> findByPlan_PlanId(Long planId);
+
     boolean existsByVoucher_VoucherId(Long voucherId);
 }

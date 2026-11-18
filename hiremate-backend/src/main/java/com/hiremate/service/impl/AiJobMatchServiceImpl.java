@@ -126,12 +126,12 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional
     public AiJobMatchResponse calculateAndSaveMatch(Candidate candidate, Job job, Cv cv) {
         return calculateAndSaveMatch(candidate, job, cv, false);
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional
     public AiJobMatchResponse calculateAndSaveMatch(Candidate candidate, Job job, Cv cv, boolean enableGemini) {
         // Cache rule: Check if already calculated
         Optional<AiJobMatch> existing = aiJobMatchRepository
@@ -890,7 +890,7 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
                         hasSkills,
                         headline,
                         hasKeyword,
-                        org.springframework.data.domain.PageRequest.of(0, 30)
+                        org.springframework.data.domain.PageRequest.of(0, 15)
                 );
                 if (preFiltered != null) {
                     for (Job j : preFiltered) {
@@ -904,10 +904,10 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
             }
         }
 
-        // 2. Bổ sung các công việc PUBLISHED & APPROVED mới nhất nếu số lượng còn ít (< 20 việc)
-        if (targetJobs.size() < 20) {
+        // 2. Bổ sung các công việc PUBLISHED & APPROVED mới nhất nếu số lượng còn ít (< 12 việc)
+        if (targetJobs.size() < 12) {
             try {
-                List<Job> recentJobs = jobRepository.findRecentPublishedJobs(org.springframework.data.domain.PageRequest.of(0, 50));
+                List<Job> recentJobs = jobRepository.findRecentPublishedJobs(org.springframework.data.domain.PageRequest.of(0, 15));
                 if (recentJobs != null) {
                     for (Job j : recentJobs) {
                         if (j != null && j.getJobId() != null && processedJobIds.add(j.getJobId())) {
@@ -954,10 +954,11 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
         if (candidate == null || targetJobs == null || targetJobs.isEmpty()) return;
         try {
             Long candidateId = candidate.getCandidateId();
+            List<Job> effectiveJobs = targetJobs.size() > 15 ? targetJobs.subList(0, 15) : targetJobs;
             log.info(">> [AiJobMatchService] Bắt đầu tính toán ma trận độ tương thích cho candidateId={} với {} công việc...",
-                    candidateId, targetJobs.size());
+                    candidateId, effectiveJobs.size());
 
-            for (Job job : targetJobs) {
+            for (Job job : effectiveJobs) {
                 try {
                     calculateAndSaveMatch(candidate, job, cv, false);
                 } catch (Exception matchEx) {

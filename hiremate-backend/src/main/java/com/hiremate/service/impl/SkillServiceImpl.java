@@ -524,7 +524,7 @@ public class SkillServiceImpl implements SkillService {
 
     public String normalizeSkillName(String raw) {
         if (raw == null || raw.isBlank()) return "";
-        String cleaned = raw.replaceAll("[\\[\\]•|;,\t]", " ").trim();
+        String cleaned = raw.replaceAll("[\\[\\]\\(\\)•|;,\t]", " ").trim();
         cleaned = cleaned.replaceAll("\\s+", " ");
         cleaned = cleaned.replaceAll("^[\\.\\,\\-\\:\\;\"']+|[\\.\\,\\-\\:\\;\"']+$", "").trim();
         String lower = cleaned.toLowerCase();

@@ -18,6 +18,9 @@ public interface AiJobMatchRepository extends JpaRepository<AiJobMatch, Long> {
     /** Tìm match cụ thể theo candidate và job (dùng để check cache) */
     Optional<AiJobMatch> findByCandidate_CandidateIdAndJob_JobId(Long candidateId, Long jobId);
 
+    /** Tìm matches của một candidate trong danh sách các jobs (phục vụ batch matching siêu tốc) */
+    List<AiJobMatch> findByCandidate_CandidateIdAndJob_JobIdIn(Long candidateId, java.util.Collection<Long> jobIds);
+
     /** Lấy tất cả matches của một job, sắp xếp điểm cao nhất trước (JOIN FETCH để diệt N+1 queries) */
     @org.springframework.data.jpa.repository.Query("SELECT m FROM AiJobMatch m " +
             "JOIN FETCH m.job j " +
