@@ -2044,7 +2044,9 @@ export default function AdminDashboardPage({ user, onLogout }) {
       }
 
       if (plansRes.status === 'fulfilled' && plansRes.value?.data && Array.isArray(plansRes.value.data) && plansRes.value.data.length > 0) {
-        setPackagesList(plansRes.value.data.map((p) => {
+        setPackagesList(plansRes.value.data
+          .filter((p) => !p.description || !p.description.includes('[DELETED]'))
+          .map((p) => {
           const isCand = String(p.targetRole || '').toUpperCase() === 'CANDIDATE';
           const targetRoleStr = isCand ? 'CANDIDATE' : 'RECRUITER';
           const sameRoleUsers = realUsers.filter((u) => String(u.role || '').toUpperCase() === targetRoleStr);
@@ -2883,8 +2885,9 @@ export default function AdminDashboardPage({ user, onLogout }) {
       triggerToast('Đã xóa gói dịch vụ thành công!');
       await fetchRealData();
     } catch (err) {
-      console.warn('Lỗi xóa gói trên backend:', err);
-      triggerToast('Đã xóa gói dịch vụ cục bộ', 'info');
+      console.error('Lỗi xóa gói trên backend:', err);
+      triggerToast(err.response?.data?.message || err.message || 'Lỗi xóa gói dịch vụ trên hệ thống', 'warning');
+      await fetchRealData();
     }
   };
 

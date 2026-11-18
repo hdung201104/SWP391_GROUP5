@@ -885,7 +885,9 @@ public class AdminServiceImpl implements AdminService {
     @Override
     @Transactional(readOnly = true)
     public List<SubscriptionPlan> getAllPlans() {
-        return subscriptionPlanRepository.findAll();
+        return subscriptionPlanRepository.findAll().stream()
+                .filter(p -> p.getDescription() == null || !p.getDescription().contains("[DELETED]"))
+                .toList();
     }
 
     @Override
@@ -980,17 +982,39 @@ public class AdminServiceImpl implements AdminService {
         SubscriptionPlan plan = subscriptionPlanRepository.findById(planId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy gói dịch vụ với ID: " + planId));
         
-        boolean hasOrders = paymentOrderRepository.existsByPlan_PlanId(planId);
-        boolean hasSubs = subscriptionRepository.existsByPlan_PlanId(planId);
+        // 1. Dọn dẹp các đơn hàng nháp / bị từ chối / chưa thanh toán gắn với gói này
+        List<PaymentOrder> unpaidOrders = paymentOrderRepository.findByPlan_PlanId(planId).stream()
+                .filter(o -> o.getStatus() == PaymentOrderStatus.PENDING || o.getStatus() == PaymentOrderStatus.REJECTED)
+                .toList();
+        if (!unpaidOrders.isEmpty()) {
+            paymentOrderRepository.deleteAll(unpaidOrders);
+            log.info(">> [AdminService] Đã dọn dẹp {} đơn hàng PENDING/REJECTED của gói #{}", unpaidOrders.size(), planId);
+        }
 
-        if (!hasOrders && !hasSubs) {
+        // 2. Dọn dẹp các bản ghi đăng ký đã hết hạn (EXPIRED) nếu có
+        List<Subscription> expiredSubs = subscriptionRepository.findByPlan_PlanId(planId).stream()
+                .filter(s -> s.getStatus() == com.hiremate.enums.SubscriptionStatus.EXPIRED)
+                .toList();
+        if (!expiredSubs.isEmpty()) {
+            subscriptionRepository.deleteAll(expiredSubs);
+            log.info(">> [AdminService] Đã dọn dẹp {} gói thuê bao EXPIRED của gói #{}", expiredSubs.size(), planId);
+        }
+
+        boolean hasApprovedOrders = paymentOrderRepository.existsByPlan_PlanId(planId);
+        boolean hasActiveSubs = subscriptionRepository.existsByPlan_PlanId(planId);
+
+        if (!hasApprovedOrders && !hasActiveSubs) {
             subscriptionPlanRepository.delete(plan);
-            log.info(">> [AdminService] Gói dịch vụ ID #{} chưa có phát sinh giao dịch, đã xóa vĩnh viễn khỏi hệ thống.", planId);
+            log.info(">> [AdminService] Gói dịch vụ ID #{} ({}) đã được xóa vĩnh viễn khỏi CSDL PostgreSQL.", planId, plan.getPlanName());
         } else {
-            // Đã có dữ liệu lịch sử phát sinh -> chuyển sang lưu trữ ẩn (Soft Archive)
+            // Còn ràng buộc ngoại đơn hàng APPROVED hoặc SUBSCRIPTION ACTIVE của người dùng thực tế
             plan.setIsActive(false);
+            String desc = plan.getDescription() != null ? plan.getDescription() : "";
+            if (!desc.contains("[DELETED]")) {
+                plan.setDescription("[DELETED] " + desc);
+            }
             subscriptionPlanRepository.save(plan);
-            log.info(">> [AdminService] Gói dịch vụ ID #{} đã có lịch sử đơn hàng/đăng ký. Hệ thống đã tự động chuyển sang trạng thái Tạm ẩn (Lưu trữ).", planId);
+            log.info(">> [AdminService] Gói dịch vụ ID #{} có đơn hàng APPROVED / ACTIVE thực tế, đã đánh dấu [DELETED] lưu trữ bảo toàn lịch sử giao dịch.", planId);
         }
     }
 

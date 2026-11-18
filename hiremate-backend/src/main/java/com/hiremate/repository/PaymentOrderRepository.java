@@ -20,5 +20,6 @@ public interface PaymentOrderRepository extends JpaRepository<PaymentOrder, Long
     java.math.BigDecimal sumTotalRevenue();
 
     boolean existsByPlan_PlanId(Long planId);
+    List<PaymentOrder> findByPlan_PlanId(Long planId);
     boolean existsByVoucher_VoucherId(Long voucherId);
 }

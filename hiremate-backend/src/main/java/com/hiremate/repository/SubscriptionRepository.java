@@ -31,5 +31,6 @@ public interface SubscriptionRepository extends JpaRepository<Subscription, Long
     List<Subscription> findByStatusWithDetails(@org.springframework.data.repository.query.Param("status") SubscriptionStatus status);
 
     boolean existsByPlan_PlanId(Long planId);
+    List<Subscription> findByPlan_PlanId(Long planId);
 }
 
