@@ -2950,10 +2950,26 @@ export default function AdminDashboardPage({ user, onLogout }) {
       triggerToast('Vui lòng nhập mã voucher!', 'warning');
       return;
     }
+    if (!newVoucherForm.validTo) {
+      triggerToast('Vui lòng chọn Hạn sử dụng (Ngày hết hạn) cho voucher!', 'warning');
+      return;
+    }
+    const todayNow = new Date();
+    const todayStr = `${todayNow.getFullYear()}-${String(todayNow.getMonth() + 1).padStart(2, '0')}-${String(todayNow.getDate()).padStart(2, '0')}`;
+    if (newVoucherForm.validTo < todayStr) {
+      triggerToast('Hạn sử dụng (Ngày hết hạn) không được là ngày trong quá khứ! Vui lòng chọn từ ngày hôm nay trở đi.', 'warning');
+      return;
+    }
+
     const cleanCode = newVoucherForm.code.trim().toUpperCase();
     const discountVal = Number(newVoucherForm.discountPercent) || 20;
     const maxVal = Number(newVoucherForm.maxDiscountAmount) || 100000;
     const usage = Number(newVoucherForm.usageLimit) || 100;
+
+    if (discountVal <= 0 || discountVal > 100) {
+      triggerToast('Phần trăm giảm giá phải từ 1% đến 100%!', 'warning');
+      return;
+    }
 
     if (newVoucherForm.applicableScope === 'SPECIFIC' && (!newVoucherForm.applicablePlanIds || newVoucherForm.applicablePlanIds.length === 0)) {
       triggerToast('Vui lòng chọn ít nhất 1 gói dịch vụ được áp dụng, hoặc chọn "Tất cả các gói"!', 'warning');
@@ -11280,12 +11296,32 @@ export default function AdminDashboardPage({ user, onLogout }) {
                   <label className="font-bold text-slate-700 block mb-1">
                     Hạn sử dụng (Ngày hết hạn) <span className="text-rose-500">*</span>
                   </label>
-                  <input
-                    type="date"
-                    value={newVoucherForm.validTo}
-                    onChange={(e) => setNewVoucherForm((prev) => ({ ...prev, validTo: e.target.value }))}
-                    className="w-full px-3 py-2 border border-purple-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#5b48bd]/30"
-                  />
+                  {(() => {
+                    const now = new Date();
+                    const minToday = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+                    const isPastDate = Boolean(newVoucherForm.validTo && newVoucherForm.validTo < minToday);
+                    return (
+                      <>
+                        <input
+                          type="date"
+                          min={minToday}
+                          value={newVoucherForm.validTo}
+                          onChange={(e) => setNewVoucherForm((prev) => ({ ...prev, validTo: e.target.value }))}
+                          className={`w-full px-3 py-2 border rounded-xl text-xs font-bold focus:outline-none focus:ring-2 ${
+                            isPastDate
+                              ? 'border-rose-400 bg-rose-50/50 text-rose-700 focus:ring-rose-300'
+                              : 'border-purple-200 focus:ring-[#5b48bd]/30'
+                          }`}
+                        />
+                        {isPastDate && (
+                          <div className="text-[11px] font-bold text-rose-600 mt-1 flex items-center gap-1">
+                            <span className="material-symbols-outlined text-xs">error</span>
+                            <span>Hạn sử dụng không được là ngày trong quá khứ!</span>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
 
                 <div>

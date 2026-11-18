@@ -1195,8 +1195,8 @@ public class AdminServiceImpl implements AdminService {
         if (voucher.getValidTo() == null) {
             voucher.setValidTo(LocalDateTime.now().plusDays(30));
         }
-        if (voucher.getValidTo().isBefore(voucher.getValidFrom())) {
-            throw new BadRequestException("Ngày hết hạn của voucher không được trước ngày bắt đầu có hiệu lực!");
+        if (voucher.getValidTo().toLocalDate().isBefore(java.time.LocalDate.now()) || voucher.getValidTo().isBefore(voucher.getValidFrom())) {
+            throw new BadRequestException("Hạn sử dụng (Ngày hết hạn) của voucher không được là ngày trong quá khứ!");
         }
         if (voucher.getIsActive() == null) {
             voucher.setIsActive(true);
