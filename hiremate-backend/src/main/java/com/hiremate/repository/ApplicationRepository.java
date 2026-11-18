@@ -94,6 +94,7 @@ public interface ApplicationRepository extends JpaRepository<Application, Long> 
     List<Object[]> countApplicationsByJobIds(@Param("jobIds") java.util.Collection<Long> jobIds);
 
     /** Xóa tham chiếu cv khi CV bị xóa để tránh vi phạm khóa ngoại */
+    @org.springframework.transaction.annotation.Transactional
     @org.springframework.data.jpa.repository.Modifying
     @Query("UPDATE Application a SET a.cv = null WHERE a.cv.cvId = :cvId")
     void clearCvReference(@Param("cvId") Long cvId);

@@ -51,7 +51,6 @@ public class CvServiceImpl implements CvService {
     private com.hiremate.service.AiInterviewService aiInterviewService;
 
     @Override
-    @Transactional
     public CvResponse uploadCv(MultipartFile file, User candidate) {
         byte[] fileBytes;
         try {
@@ -77,10 +76,13 @@ public class CvServiceImpl implements CvService {
                         .build()));
 
         List<Cv> existingCvs = cvRepository.findByCandidateId(candidate.getUserId());
+        long uploadedCvsCount = existingCvs.stream()
+                .filter(c -> c.getFileUrl() == null || !c.getFileUrl().contains("/candidate/profile"))
+                .count();
 
         // Kiểm tra phân quyền giới hạn lưu trữ CV theo gói dịch vụ thật trên Supabase (Admin luôn được bypass)
         if (candidate.getRole() != com.hiremate.enums.UserRole.ADMIN) {
-            int maxCvAllowed = 2; // Mặc định gói Free Candidate: tối đa 2 bản CV
+            int maxCvAllowed = 10; // Mặc định gói Free Candidate: tối đa 10 bản CV
             String planName = "Free Candidate";
             if (aiInterviewService != null) {
                 try {
@@ -91,17 +93,17 @@ public class CvServiceImpl implements CvService {
                         if (price.compareTo(new java.math.BigDecimal("100000")) >= 0 || planName.toLowerCase().contains("pro") || planName.toLowerCase().contains("ace") || planName.toLowerCase().contains("vip")) {
                             maxCvAllowed = Integer.MAX_VALUE; // Không giới hạn cho Practice Pro / Career Ace
                         } else if (price.compareTo(java.math.BigDecimal.ZERO) > 0 || planName.toLowerCase().contains("plus")) {
-                            maxCvAllowed = 5; // Tối đa 5 bản CV cho Practice Plus
+                            maxCvAllowed = 20; // Tối đa 20 bản CV cho Practice Plus
                         }
                     }
                 } catch (Exception e) {
                     log.warn(">> Không thể kiểm tra quota gói của ứng viên khi upload CV: {}", e.getMessage());
                 }
             }
-            if (maxCvAllowed != Integer.MAX_VALUE && existingCvs.size() >= maxCvAllowed) {
+            if (maxCvAllowed != Integer.MAX_VALUE && uploadedCvsCount >= maxCvAllowed) {
                 throw new IllegalArgumentException(String.format(
                         "Bạn đã đạt giới hạn lưu trữ tối đa (%d/%d bản CV) của gói \"%s\". Vui lòng xóa bớt CV cũ hoặc nâng cấp gói dịch vụ để lưu trữ thêm CV.",
-                        existingCvs.size(), maxCvAllowed, planName));
+                        uploadedCvsCount, maxCvAllowed, planName));
             }
         }
 
@@ -120,18 +122,18 @@ public class CvServiceImpl implements CvService {
                     log.info(">> [CvService] Đã trích xuất thành công {} ký tự text từ CV PDF (vị trí tọa độ): {}", parsedText.length(), originalName);
                 }
 
-                // Nếu PDF dạng ảnh scan (không có text stream hoặc ít hơn 50 ký tự), dùng Gemini Vision OCR
+                // Nếu PDF dạng ảnh scan (không có text stream hoặc ít hơn 50 ký tự), dùng Gemini Vision OCR (100 DPI JPEG siêu nhẹ)
                 if ((parsedText == null || parsedText.length() < 50) && document.getNumberOfPages() > 0) {
                     log.info(">> [CvService] PDF có ít text (<50 ký tự), tiến hành render ảnh để OCR bằng Gemini Vision...");
                     try {
-                        int maxPages = Math.min(document.getNumberOfPages(), 3);
+                        int maxPages = Math.min(document.getNumberOfPages(), 2);
                         org.apache.pdfbox.rendering.PDFRenderer renderer = new org.apache.pdfbox.rendering.PDFRenderer(document);
                         List<java.awt.image.BufferedImage> pageImages = new ArrayList<>();
                         int totalHeight = 0;
                         int maxWidth = 0;
 
                         for (int p = 0; p < maxPages; p++) {
-                            java.awt.image.BufferedImage pageImg = renderer.renderImageWithDPI(p, 140);
+                            java.awt.image.BufferedImage pageImg = renderer.renderImageWithDPI(p, 100);
                             pageImages.add(pageImg);
                             totalHeight += pageImg.getHeight();
                             if (pageImg.getWidth() > maxWidth) {
@@ -149,9 +151,9 @@ public class CvServiceImpl implements CvService {
                         g2d.dispose();
 
                         java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
-                        javax.imageio.ImageIO.write(stitched, "png", baos);
+                        javax.imageio.ImageIO.write(stitched, "jpg", baos);
                         byte[] stitchedBytes = baos.toByteArray();
-                        visionAnalysisResult = geminiAiService.analyzeCvImage(stitchedBytes, "image/png");
+                        visionAnalysisResult = geminiAiService.analyzeCvImage(stitchedBytes, "image/jpeg");
                     } catch (Exception ocrEx) {
                         log.warn(">> [CvService] Không thể OCR file PDF scan: {}", ocrEx.getMessage());
                     }
@@ -586,12 +588,11 @@ public class CvServiceImpl implements CvService {
     }
 
     @Override
-    @Transactional
     public CvResponse getCvById(Long cvId) {
         Cv cv = cvRepository.findById(cvId)
                 .orElseThrow(() -> new IllegalArgumentException("CV not found: " + cvId));
         boolean isUploaded = cv.getFileUrl() != null && !cv.getFileUrl().isBlank();
-        boolean hasMissingJson = cv.getParsedJson() == null || cv.getParsedJson().isBlank() || "{}".equals(cv.getParsedJson().trim());
+        boolean hasMissingJson = !hasRealParsedFields(cv.getParsedJson());
         // Nếu là CV upload từ file nhưng parsedJson bị ghi đè chéo (ví dụ tên trong parsedJson là Võ Hồ Uyển Nhi nhưng tên file là Dũng)
         boolean isMismatched = isUploaded && cv.getParsedJson() != null
                 && cv.getParsedJson().contains("Võ Hồ Uyển Nhi")
@@ -607,7 +608,7 @@ public class CvServiceImpl implements CvService {
 
     private void ensureCvParsed(Cv cv) {
         if (cv == null) return;
-        if (cv.getParsedJson() != null && !cv.getParsedJson().isBlank() && !"{}".equals(cv.getParsedJson().trim())) {
+        if (hasRealParsedFields(cv.getParsedJson())) {
             return;
         }
 
@@ -635,7 +636,7 @@ public class CvServiceImpl implements CvService {
                     }
                 }
             } catch (Exception e) {
-                log.warn(">> [CvService] Could not load file bytes for CV {}: {}", cv.getCvId(), e.getMessage());
+                log.warn(">> [CvService] Could not load file bytes for CV {}: {}", e.getMessage());
             }
         }
 
@@ -672,7 +673,6 @@ public class CvServiceImpl implements CvService {
     }
 
     @Override
-    @Transactional
     public CvResponse analyzeCv(Long cvId, User candidate) {
         Cv cv = cvRepository.findById(cvId)
                 .orElseThrow(() -> new IllegalArgumentException("CV not found: " + cvId));
@@ -684,15 +684,16 @@ public class CvServiceImpl implements CvService {
         com.hiremate.dto.ai.AiCvAnalysis analysis = null;
         String textToAnalyze = cv.getParsedText();
 
-        // 1. Nếu cv.getParsedJson() đã có sẵn JSON hợp lệ và KHÔNG phải dữ liệu fallback lỗi (ví dụ không bị Technical Stack),
-        // hãy tái sử dụng và parse trực tiếp thay vì gọi lại Gemini API lần thứ 2
-        if (cv.getParsedJson() != null && !cv.getParsedJson().isBlank() && cv.getParsedJson().trim().startsWith("{")) {
-            String existingJson = cv.getParsedJson().toUpperCase();
-            boolean isCorruptedFallback = existingJson.contains("\"FULL_NAME\": \"TECHNICAL STACK\"")
-                    || existingJson.contains("\"FULLNAME\": \"TECHNICAL STACK\"");
+        // 1. Nếu cv.getParsedJson() đã có sẵn JSON hợp lệ có trường dữ liệu thật (không phải chỉ chứa raw_file_base64)
+        // và KHÔNG phải dữ liệu fallback lỗi (ví dụ không bị Technical Stack), hãy tái sử dụng thay vì gọi lại Gemini API lần thứ 2
+        if (hasRealParsedFields(cv.getParsedJson())) {
+            String cleanExistingJson = stripRawFileBase64(cv.getParsedJson());
+            String existingUpper = cleanExistingJson.toUpperCase();
+            boolean isCorruptedFallback = existingUpper.contains("\"FULL_NAME\": \"TECHNICAL STACK\"")
+                    || existingUpper.contains("\"FULLNAME\": \"TECHNICAL STACK\"");
             if (!isCorruptedFallback) {
                 try {
-                    analysis = geminiAiService.parseCvAnalysisJson(cv.getParsedJson(), textToAnalyze);
+                    analysis = geminiAiService.parseCvAnalysisJson(cleanExistingJson, textToAnalyze);
                     log.info(">> [CvService] Tái sử dụng kết quả phân tích JSON đã lưu trữ cho CV ID: {}", cvId);
                 } catch (Exception e) {
                     log.warn(">> [CvService] Parse cached parsedJson failed, fallback to fresh analysis: {}", e.getMessage());
@@ -780,43 +781,33 @@ public class CvServiceImpl implements CvService {
             allDetectedSkills = analysis.getTopSkills();
         }
 
-        // Nếu CV không có mục kỹ năng riêng biệt (< 2 kỹ năng), tự động suy luận kỹ năng từ tiêu đề, tóm tắt và kinh nghiệm
+        // Nếu CV không có mục kỹ năng riêng biệt (< 2 kỹ năng), tự động đối sánh tức thời từ kho Master Skills trong bộ nhớ (0ms, không gọi lại Gemini lần 2)
         if ((allDetectedSkills == null || allDetectedSkills.size() < 2) && skillService != null) {
             try {
-                String contextTitle = analysis.getHeadline() != null && !analysis.getHeadline().isBlank()
-                        ? analysis.getHeadline()
-                        : "Chuyên viên";
-                String contextDesc = String.join("\n",
+                String contextLower = String.join("\n",
+                        textToAnalyze != null ? textToAnalyze : "",
+                        analysis.getHeadline() != null ? analysis.getHeadline() : "",
                         analysis.getSummary() != null ? analysis.getSummary() : "",
                         analysis.getExperiencesJson() != null ? analysis.getExperiencesJson() : "",
-                        analysis.getEducationsJson() != null ? analysis.getEducationsJson() : ""
-                ).trim();
-                if (!contextDesc.isBlank()) {
-                    com.hiremate.dto.request.AiJdSkillExtractRequest extractReq = com.hiremate.dto.request.AiJdSkillExtractRequest.builder()
-                            .title(contextTitle)
-                            .description(contextDesc)
-                            .build();
-                    com.hiremate.dto.response.AiJdSkillExtractResponse autoSkills = skillService.extractSkillsFromJd(extractReq);
-                    if (autoSkills != null) {
-                        List<String> inferred = new ArrayList<>();
-                        if (allDetectedSkills != null) inferred.addAll(allDetectedSkills);
-                        if (autoSkills.getMandatorySkills() != null) {
-                            for (com.hiremate.dto.response.SkillItemDTO item : autoSkills.getMandatorySkills()) {
-                                if (item.getSkillName() != null && !inferred.contains(item.getSkillName())) {
-                                    inferred.add(item.getSkillName());
-                                }
+                        analysis.getEducationsJson() != null ? analysis.getEducationsJson() : "",
+                        analysis.getProjectsJson() != null ? analysis.getProjectsJson() : ""
+                ).toLowerCase();
+                if (!contextLower.isBlank()) {
+                    List<String> inferred = new ArrayList<>();
+                    if (allDetectedSkills != null) inferred.addAll(allDetectedSkills);
+                    for (com.hiremate.dto.response.SkillResponse sr : skillService.getAllSkills(null, null)) {
+                        if (inferred.size() >= 10) break;
+                        String sName = sr.getSkillName();
+                        if (sName != null && sName.length() >= 2 && !inferred.contains(sName)) {
+                            if (contextLower.contains(sName.toLowerCase())) {
+                                inferred.add(sName);
                             }
                         }
-                        if (autoSkills.getPreferredSkills() != null) {
-                            for (com.hiremate.dto.response.SkillItemDTO item : autoSkills.getPreferredSkills()) {
-                                if (item.getSkillName() != null && !inferred.contains(item.getSkillName())) {
-                                    inferred.add(item.getSkillName());
-                                }
-                            }
-                        }
+                    }
+                    if (!inferred.isEmpty()) {
                         allDetectedSkills = inferred;
                         analysis.setSkills(inferred);
-                        log.info(">> [CvService] Tự động suy luận {} kỹ năng chuyên môn từ hồ sơ CV ID: {}", inferred.size(), cvId);
+                        log.info(">> [CvService] Tự động đối sánh {} kỹ năng chuyên môn từ từ điển cho CV ID: {}", inferred.size(), cvId);
                     }
                 }
             } catch (Exception ex) {
@@ -1169,10 +1160,11 @@ public class CvServiceImpl implements CvService {
         String address = null;
         List<String> detectedSkills = new ArrayList<>();
 
+        String cleanParsedJson = stripRawFileBase64(cv.getParsedJson());
         CvParsedDTO parsedData = null;
-        if (cv.getParsedJson() != null && !cv.getParsedJson().isBlank()) {
+        if (cleanParsedJson != null && !cleanParsedJson.isBlank()) {
             try {
-                parsedData = objectMapper.readValue(cv.getParsedJson(), CvParsedDTO.class);
+                parsedData = objectMapper.readValue(cleanParsedJson, CvParsedDTO.class);
             } catch (Exception e) {
                 log.warn("Error parsing parsedJson for CV {}: {}", cv.getCvId(), e.getMessage());
             }
@@ -1480,7 +1472,7 @@ public class CvServiceImpl implements CvService {
                 .phone(phone)
                 .email(email)
                 .address(address)
-                .parsedJson(cv.getParsedJson())
+                .parsedJson(cleanParsedJson)
                 .parsedData(parsedData)
                 .parsedText(cv.getParsedText())
                 .build();
@@ -1563,15 +1555,55 @@ public class CvServiceImpl implements CvService {
         return false;
     }
 
+    private boolean hasRealParsedFields(String json) {
+        if (json == null || json.isBlank()) return false;
+        String trimmed = json.trim();
+        if (!trimmed.startsWith("{") || "{}".equals(trimmed)) return false;
+        return json.contains("\"full_name\"")
+                || json.contains("\"fullName\"")
+                || json.contains("\"skills\"")
+                || json.contains("\"experiences\"")
+                || json.contains("\"educations\"")
+                || json.contains("\"projects\"");
+    }
+
+    private String stripRawFileBase64(String json) {
+        if (json == null || !json.contains("\"raw_file_base64\"")) {
+            return json;
+        }
+        int keyIdx = json.indexOf("\"raw_file_base64\"");
+        if (keyIdx < 0) return json;
+        int colonIdx = json.indexOf(':', keyIdx);
+        if (colonIdx < 0) return json;
+        int quoteStart = json.indexOf('"', colonIdx + 1);
+        if (quoteStart < 0) return json;
+        int quoteEnd = json.indexOf('"', quoteStart + 1);
+        if (quoteEnd < 0) return json;
+        int removeStart = keyIdx;
+        int removeEnd = quoteEnd + 1;
+        while (removeStart > 0 && Character.isWhitespace(json.charAt(removeStart - 1))) removeStart--;
+        if (removeStart > 0 && json.charAt(removeStart - 1) == ',') {
+            removeStart--;
+        } else {
+            while (removeEnd < json.length() && Character.isWhitespace(json.charAt(removeEnd))) removeEnd++;
+            if (removeEnd < json.length() && json.charAt(removeEnd) == ',') {
+                removeEnd++;
+            }
+        }
+        String result = (json.substring(0, removeStart) + json.substring(removeEnd)).trim();
+        return "{}".equals(result) ? null : result;
+    }
+
     private String attachFileBase64ToJson(String json, byte[] fileBytes) {
-        if (fileBytes == null || fileBytes.length == 0 || fileBytes.length > 8 * 1024 * 1024) {
+        if (fileBytes == null || fileBytes.length == 0 || fileBytes.length > 2 * 1024 * 1024) {
             return json;
         }
         try {
             String base64 = java.util.Base64.getEncoder().encodeToString(fileBytes);
             com.fasterxml.jackson.databind.node.ObjectNode node;
-            if (json != null && !json.isBlank() && json.trim().startsWith("{")) {
-                node = (com.fasterxml.jackson.databind.node.ObjectNode) objectMapper.readTree(json);
+            String cleanJson = stripRawFileBase64(json);
+            if (cleanJson != null && !cleanJson.isBlank() && cleanJson.trim().startsWith("{")) {
+                node = (com.fasterxml.jackson.databind.node.ObjectNode) objectMapper.readTree(cleanJson);
             } else {
                 node = objectMapper.createObjectNode();
             }
@@ -1583,16 +1615,23 @@ public class CvServiceImpl implements CvService {
     }
 
     private String preserveRawFileBase64(String newJson, String oldJson) {
-        if (oldJson == null || !oldJson.contains("raw_file_base64")) {
+        if (oldJson == null || !oldJson.contains("\"raw_file_base64\"")) {
             return newJson;
         }
         try {
-            com.fasterxml.jackson.databind.JsonNode oldRoot = objectMapper.readTree(oldJson);
-            String b64 = oldRoot.path("raw_file_base64").asText("");
+            int keyIdx = oldJson.indexOf("\"raw_file_base64\"");
+            int colonIdx = oldJson.indexOf(':', keyIdx);
+            int quoteStart = oldJson.indexOf('"', colonIdx + 1);
+            int quoteEnd = oldJson.indexOf('"', quoteStart + 1);
+            if (keyIdx < 0 || colonIdx < 0 || quoteStart < 0 || quoteEnd <= quoteStart) {
+                return newJson;
+            }
+            String b64 = oldJson.substring(quoteStart + 1, quoteEnd);
             if (b64.isBlank()) return newJson;
+            String cleanNew = stripRawFileBase64(newJson);
             com.fasterxml.jackson.databind.node.ObjectNode node;
-            if (newJson != null && !newJson.isBlank() && newJson.trim().startsWith("{")) {
-                node = (com.fasterxml.jackson.databind.node.ObjectNode) objectMapper.readTree(newJson);
+            if (cleanNew != null && !cleanNew.isBlank() && cleanNew.trim().startsWith("{")) {
+                node = (com.fasterxml.jackson.databind.node.ObjectNode) objectMapper.readTree(cleanNew);
             } else {
                 node = objectMapper.createObjectNode();
             }

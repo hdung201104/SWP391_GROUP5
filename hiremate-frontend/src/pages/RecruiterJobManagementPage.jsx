@@ -301,8 +301,8 @@ export default function RecruiterJobManagementPage({ user, onNavigateToPipeline 
     const today = new Date().toISOString().split('T')[0];
     const key = `hiremate_ai_jd_usage_${today}_${user?.userId || user?.id || 'default'}`;
     const currentUsage = parseInt(localStorage.getItem(key) || '0', 10);
-    if (currentUsage >= 2) {
-      setQuotaModalMessage('Bạn đã sử dụng hết 2 lượt dùng thử tính năng AI Phân Tích JD & Đề Xuất Kỹ Năng trong ngày của gói Free Recruiter. Vui lòng nâng cấp lên gói Hiring Starter (199.000đ) để sử dụng KHÔNG GIỚI HẠN tính năng AI trích xuất JD tự động!');
+    if (currentUsage >= 15) {
+      setQuotaModalMessage('Bạn đã sử dụng hết 15 lượt dùng thử tính năng AI Phân Tích JD & Đề Xuất Kỹ Năng trong ngày của gói Free Recruiter. Vui lòng nâng cấp lên gói Hiring Starter (199.000đ) để sử dụng KHÔNG GIỚI HẠN tính năng AI trích xuất JD tự động!');
       setShowQuotaExceededModal(true);
       return false;
     }

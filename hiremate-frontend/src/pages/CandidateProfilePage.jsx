@@ -411,7 +411,7 @@ export default function CandidateProfilePage({ user }) {
   const isPaidPlan = Boolean(quotaInfo?.isPaidPlan || planPrice > 0);
   const isProOrAce = planPrice >= 100000 || planName.toLowerCase().includes('pro') || planName.toLowerCase().includes('ace') || planName.toLowerCase().includes('vip');
   const isPlus = (planPrice > 0 && planPrice < 100000) || planName.toLowerCase().includes('plus');
-  const maxCvLimit = isAdmin ? Infinity : isProOrAce ? Infinity : isPlus ? 5 : 2;
+  const maxCvLimit = isAdmin ? Infinity : isProOrAce ? Infinity : isPlus ? 20 : 10;
   const maxCvLimitStr = maxCvLimit === Infinity ? 'Không giới hạn' : `${maxCvLimit}`;
   const recommendationModalLimit = isAdmin || isProOrAce ? 12 : isPlus ? 6 : 3;
   const recommendationGridLimit = isAdmin || isProOrAce ? 12 : isPlus ? 6 : 4;

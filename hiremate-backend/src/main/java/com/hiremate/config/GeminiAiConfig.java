@@ -13,7 +13,7 @@ public class GeminiAiConfig {
     @Value("${gemini.api.key:YOUR_GEMINI_API_KEY}")
     private String apiKey;
 
-    @Value("${gemini.api.model:gemini-3.5-flash-lite}")
+    @Value("${gemini.api.model:gemini-2.5-flash}")
     private String model;
 
     @Value("${gemini.api.base-url:https://generativelanguage.googleapis.com/v1beta}")
@@ -22,7 +22,7 @@ public class GeminiAiConfig {
     @Value("${gemini.voice.api-key:}")
     private String voiceApiKey;
 
-    @Value("${gemini.voice.model:gemini-3.5-flash-lite}")
+    @Value("${gemini.voice.model:gemini-2.5-flash}")
     private String voiceModel;
 
     /**
@@ -39,10 +39,10 @@ public class GeminiAiConfig {
     }
 
     public String getEffectiveVoiceModel() {
-        if (voiceModel != null && !voiceModel.isBlank()) {
+        if (voiceModel != null && !voiceModel.isBlank() && !voiceModel.contains("3.5")) {
             return voiceModel.trim();
         }
-        return "gemini-3.5-flash-lite";
+        return "gemini-2.5-flash";
     }
 
     /**

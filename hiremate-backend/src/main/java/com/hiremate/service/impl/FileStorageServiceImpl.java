@@ -1,3 +1,4 @@
+
 package com.hiremate.service.impl;
 
 import com.hiremate.config.FileStorageConfig;
@@ -90,20 +91,27 @@ public class FileStorageServiceImpl implements FileStorageService {
             log.error("Failed to store file to local disk: {}", originalFilename, e);
         }
 
-        // 2. Tải lên Cloudinary Cloud Storage & CDN nếu đã cấu hình
+        // 2. Tải lên Cloudinary Cloud Storage & CDN nếu đã cấu hình (bọc timeout 8s để không làm treo luồng quét CV trên Render)
         if (fileStorageConfig.isCloudinaryEnabled() && cloudinary != null) {
             try {
                 String cldUuid = UUID.randomUUID().toString();
                 String publicId = "hiremate/" + safeFolder + "/" + cldUuid;
-                @SuppressWarnings("unchecked")
-                java.util.Map<String, Object> uploadResult = cloudinary.uploader().upload(
-                        fileBytes,
-                        com.cloudinary.utils.ObjectUtils.asMap(
-                                "resource_type", "auto",
-                                "public_id", publicId
-                        )
-                );
-                String secureUrl = (String) uploadResult.get("secure_url");
+                java.util.concurrent.CompletableFuture<String> cldFuture = java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+                    try {
+                        @SuppressWarnings("unchecked")
+                        java.util.Map<String, Object> uploadResult = cloudinary.uploader().upload(
+                                fileBytes,
+                                com.cloudinary.utils.ObjectUtils.asMap(
+                                        "resource_type", "auto",
+                                        "public_id", publicId
+                                )
+                        );
+                        return (String) uploadResult.get("secure_url");
+                    } catch (Exception ex) {
+                        throw new RuntimeException(ex);
+                    }
+                });
+                String secureUrl = cldFuture.get(8, java.util.concurrent.TimeUnit.SECONDS);
                 if (secureUrl != null && !secureUrl.isBlank()) {
                     log.info(">> [CloudStorage] File tải lên thành công Cloudinary CDN ({}/{}): {}", safeFolder, originalFilename, secureUrl);
                     Path cldTarget = Paths.get(fileStorageConfig.getUploadDir()).resolve(cldUuid + extension);
@@ -115,7 +123,7 @@ public class FileStorageServiceImpl implements FileStorageService {
                     return secureUrl;
                 }
             } catch (Exception ex) {
-                log.warn(">> [CloudStorage] Không thể tải lên Cloudinary ({}), tự động dùng bản lưu trữ cục bộ.", ex.getMessage());
+                log.warn(">> [CloudStorage] Không thể tải lên Cloudinary trong 8s ({}), tự động dùng bản lưu trữ cục bộ.", ex.getMessage());
             }
         }
 
@@ -401,8 +409,17 @@ public class FileStorageServiceImpl implements FileStorageService {
             if (cvOpt.isPresent()) {
                 com.hiremate.entity.Cv cv = cvOpt.get();
                 if (cv.getParsedJson() != null && cv.getParsedJson().contains("raw_file_base64")) {
-                    com.fasterxml.jackson.databind.JsonNode root = new com.fasterxml.jackson.databind.ObjectMapper().readTree(cv.getParsedJson());
-                    String b64 = root.path("raw_file_base64").asText("");
+                    String json = cv.getParsedJson();
+                    String b64 = "";
+                    int keyIdx = json.indexOf("\"raw_file_base64\"");
+                    if (keyIdx >= 0) {
+                        int colonIdx = json.indexOf(':', keyIdx);
+                        int quoteStart = colonIdx >= 0 ? json.indexOf('"', colonIdx + 1) : -1;
+                        int quoteEnd = quoteStart >= 0 ? json.indexOf('"', quoteStart + 1) : -1;
+                        if (quoteStart >= 0 && quoteEnd > quoteStart) {
+                            b64 = json.substring(quoteStart + 1, quoteEnd);
+                        }
+                    }
                     if (!b64.isBlank()) {
                         byte[] decoded = java.util.Base64.getDecoder().decode(b64);
                         if (decoded != null && decoded.length > 0) {

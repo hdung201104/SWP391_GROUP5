@@ -1474,18 +1474,18 @@ public class JobServiceImpl implements JobService {
                     try (org.apache.pdfbox.pdmodel.PDDocument document = org.apache.pdfbox.Loader.loadPDF(bytes)) {
                         org.apache.pdfbox.text.PDFTextStripper stripper = new org.apache.pdfbox.text.PDFTextStripper();
                         extractedText = stripper.getText(document);
-                        // Nếu PDF scan dạng ảnh (<50 ký tự), OCR đa trang (tối đa 3 trang) bằng Gemini Vision
+                        // Nếu PDF scan dạng ảnh (<50 ký tự), OCR đa trang (tối đa 2 trang, 100 DPI JPEG) bằng Gemini Vision
                         if ((extractedText == null || extractedText.trim().length() < 50) && document.getNumberOfPages() > 0 && geminiAiService != null) {
                             log.info(">> [JobService] PDF có ít text (<50 ký tự), OCR đa trang qua Gemini Vision...");
                             try {
-                                int maxPages = Math.min(document.getNumberOfPages(), 3);
+                                int maxPages = Math.min(document.getNumberOfPages(), 2);
                                 org.apache.pdfbox.rendering.PDFRenderer renderer = new org.apache.pdfbox.rendering.PDFRenderer(document);
                                 List<java.awt.image.BufferedImage> pageImages = new ArrayList<>();
                                 int totalHeight = 0;
                                 int maxWidth = 0;
 
                                 for (int p = 0; p < maxPages; p++) {
-                                    java.awt.image.BufferedImage pageImg = renderer.renderImageWithDPI(p, 140);
+                                    java.awt.image.BufferedImage pageImg = renderer.renderImageWithDPI(p, 100);
                                     pageImages.add(pageImg);
                                     totalHeight += pageImg.getHeight();
                                     if (pageImg.getWidth() > maxWidth) {
@@ -1503,8 +1503,8 @@ public class JobServiceImpl implements JobService {
                                 g2d.dispose();
 
                                 java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
-                                javax.imageio.ImageIO.write(stitched, "png", baos);
-                                java.util.Map<String, Object> pdfImgParsed = geminiAiService.parseJobDescriptionImage(baos.toByteArray(), "image/png");
+                                javax.imageio.ImageIO.write(stitched, "jpg", baos);
+                                java.util.Map<String, Object> pdfImgParsed = geminiAiService.parseJobDescriptionImage(baos.toByteArray(), "image/jpeg");
                                 return postProcessParsedJd(pdfImgParsed, extractedText);
                             } catch (Exception ocrEx) {
                                 log.warn(">> [JobService] OCR scanned PDF failed: {}", ocrEx.getMessage());
@@ -1579,14 +1579,7 @@ public class JobServiceImpl implements JobService {
         }
 
         if (aiResult == null) {
-            if (geminiAiService != null) {
-                try {
-                    aiResult = geminiAiService.parseJobDescription(extractedText != null ? extractedText : "");
-                } catch (Exception ignored) {}
-            }
-            if (aiResult == null) {
-                aiResult = createSmartFallbackJd(extractedText);
-            }
+            aiResult = createSmartFallbackJd(extractedText);
         }
 
         java.util.Map<String, Object> result = postProcessParsedJd(aiResult, extractedText);
@@ -1636,33 +1629,25 @@ public class JobServiceImpl implements JobService {
             }
         }
 
-        // Nếu cả 2 danh sách kỹ năng rỗng, tự động suy luận qua skillService.extractSkillsFromJd
-        if (mandList.isEmpty() && prefList.isEmpty() && skillService != null) {
+        // Nếu cả 2 danh sách kỹ năng rỗng, tự động suy luận tức thời qua createSmartFallbackJd (không gọi lại Gemini lần 2 gây trễ)
+        if (mandList.isEmpty() && prefList.isEmpty()) {
             try {
                 String title = parsed.get("title") != null ? parsed.get("title").toString() : "Vị trí tuyển dụng";
                 String desc = parsed.get("description") != null ? parsed.get("description").toString() : "";
                 String req = parsed.get("requirements") != null ? parsed.get("requirements").toString() : "";
-                String fullContext = (desc + "\n" + req).trim();
-                if (fullContext.isBlank()) fullContext = rawText != null ? rawText : "";
-                com.hiremate.dto.request.AiJdSkillExtractRequest extractReq = com.hiremate.dto.request.AiJdSkillExtractRequest.builder()
-                        .title(title)
-                        .description(fullContext)
-                        .industry(parsed.get("domain") != null ? parsed.get("domain").toString() : null)
-                        .build();
-                com.hiremate.dto.response.AiJdSkillExtractResponse autoExtracted = skillService.extractSkillsFromJd(extractReq);
-                if (autoExtracted != null) {
-                    if (autoExtracted.getMandatorySkills() != null) {
-                        for (com.hiremate.dto.response.SkillItemDTO item : autoExtracted.getMandatorySkills()) {
-                            if (item.getSkillName() != null && !mandList.contains(item.getSkillName())) {
-                                mandList.add(item.getSkillName());
-                            }
+                String fullContext = (title + "\n" + desc + "\n" + req + "\n" + (rawText != null ? rawText : "")).trim();
+                java.util.Map<String, Object> fbSkills = createSmartFallbackJd(fullContext);
+                if (fbSkills.get("mandatorySkills") instanceof List<?>) {
+                    for (Object o : (List<?>) fbSkills.get("mandatorySkills")) {
+                        if (o != null && !o.toString().isBlank() && !mandList.contains(o.toString())) {
+                            mandList.add(o.toString());
                         }
                     }
-                    if (autoExtracted.getPreferredSkills() != null) {
-                        for (com.hiremate.dto.response.SkillItemDTO item : autoExtracted.getPreferredSkills()) {
-                            if (item.getSkillName() != null && !mandList.contains(item.getSkillName()) && !prefList.contains(item.getSkillName())) {
-                                prefList.add(item.getSkillName());
-                            }
+                }
+                if (fbSkills.get("preferredSkills") instanceof List<?>) {
+                    for (Object o : (List<?>) fbSkills.get("preferredSkills")) {
+                        if (o != null && !o.toString().isBlank() && !mandList.contains(o.toString()) && !prefList.contains(o.toString())) {
+                            prefList.add(o.toString());
                         }
                     }
                 }

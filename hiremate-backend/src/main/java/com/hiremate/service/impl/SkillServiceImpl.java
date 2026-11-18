@@ -733,7 +733,6 @@ public class SkillServiceImpl implements SkillService {
     }
 
     @Override
-    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public Skill findOrCreateNormalizedSkill(String rawName, String suggestedCategory, String aliases) {
         if (rawName == null || rawName.isBlank()) {
             return null;
@@ -742,23 +741,36 @@ public class SkillServiceImpl implements SkillService {
         String normalized = normalizeSkillName(rawName);
         if (normalized.isBlank()) return null;
 
-        // 1. Kiểm tra chính xác theo tên (case-insensitive)
-        Optional<Skill> existing = skillRepository.findBySkillNameIgnoreCase(normalized);
-        if (existing.isPresent()) {
-            return existing.get();
-        }
-
-        // 2. Tìm kiếm trong aliases của các skill hiện có (sử dụng in-memory cache, tránh query findAll lặp lại)
+        // 1. Tra cứu siêu tốc trong in-memory cache trước (0ms, không tốn round-trip tới Supabase)
         List<SkillResponse> cachedSkills = getAllSkills(null, null);
         for (SkillResponse s : cachedSkills) {
+            if (s.getSkillName() != null && (s.getSkillName().equalsIgnoreCase(normalized) || s.getSkillName().equalsIgnoreCase(rawName.trim()))) {
+                return Skill.builder()
+                        .skillId(s.getSkillId())
+                        .skillName(s.getSkillName())
+                        .category(s.getCategory())
+                        .aliases(s.getAliases())
+                        .build();
+            }
             if (s.getAliases() != null && !s.getAliases().isBlank()) {
                 String[] aliasArr = s.getAliases().split("[,;]");
                 for (String a : aliasArr) {
                     if (a.trim().equalsIgnoreCase(normalized) || a.trim().equalsIgnoreCase(rawName.trim())) {
-                        return skillRepository.findById(s.getSkillId()).orElse(null);
+                        return Skill.builder()
+                                .skillId(s.getSkillId())
+                                .skillName(s.getSkillName())
+                                .category(s.getCategory())
+                                .aliases(s.getAliases())
+                                .build();
                     }
                 }
             }
+        }
+
+        // 2. Kiểm tra chính xác theo tên trong DB nếu cache chưa có
+        Optional<Skill> existing = skillRepository.findBySkillNameIgnoreCase(normalized);
+        if (existing.isPresent()) {
+            return existing.get();
         }
 
         // 3. Kiểm tra tính hợp lệ nghiêm ngặt: Tuyệt đối không lưu từ vựng đơn lẻ, câu văn, placeholder vào skills
@@ -845,7 +857,6 @@ public class SkillServiceImpl implements SkillService {
     }
 
     @Override
-    @Transactional
     public AiJdSkillExtractResponse extractSkillsFromJd(AiJdSkillExtractRequest request) {
         if (request == null || request.getTitle() == null || request.getTitle().isBlank()) {
             throw new IllegalArgumentException("Vui lòng cung cấp tiêu đề tuyển dụng!");
@@ -857,10 +868,15 @@ public class SkillServiceImpl implements SkillService {
                 request.getIndustry()
         );
 
+        Set<String> existingNamesLower = new HashSet<>();
+        for (SkillResponse sr : getAllSkills(null, null)) {
+            if (sr.getSkillName() != null) existingNamesLower.add(sr.getSkillName().toLowerCase());
+        }
+
         // Lưu trữ tự động & liên kết vào bảng skills trên Supabase
         if (aiResp.getMandatorySkills() != null) {
             for (SkillItemDTO item : aiResp.getMandatorySkills()) {
-                boolean existed = skillRepository.existsBySkillNameIgnoreCase(normalizeSkillName(item.getSkillName()));
+                boolean existed = existingNamesLower.contains(normalizeSkillName(item.getSkillName()).toLowerCase());
                 Skill s = findOrCreateNormalizedSkill(item.getSkillName(), item.getCategory(), item.getAliases());
                 if (s != null) {
                     item.setSkillId(s.getSkillId());
@@ -873,7 +889,7 @@ public class SkillServiceImpl implements SkillService {
 
         if (aiResp.getPreferredSkills() != null) {
             for (SkillItemDTO item : aiResp.getPreferredSkills()) {
-                boolean existed = skillRepository.existsBySkillNameIgnoreCase(normalizeSkillName(item.getSkillName()));
+                boolean existed = existingNamesLower.contains(normalizeSkillName(item.getSkillName()).toLowerCase());
                 Skill s = findOrCreateNormalizedSkill(item.getSkillName(), item.getCategory(), item.getAliases());
                 if (s != null) {
                     item.setSkillId(s.getSkillId());
@@ -888,7 +904,6 @@ public class SkillServiceImpl implements SkillService {
     }
 
     @Override
-    @Transactional
     public AiIndustrySkillGenerateResponse generateSkillsForIndustry(AiIndustrySkillGenerateRequest request) {
         if (request == null || request.getIndustryName() == null || request.getIndustryName().isBlank()) {
             throw new IllegalArgumentException("Vui lòng nhập tên ngành nghề!");
@@ -896,6 +911,11 @@ public class SkillServiceImpl implements SkillService {
 
         String indName = request.getIndustryName().trim();
         boolean isPreview = Boolean.TRUE.equals(request.getPreviewOnly());
+
+        Set<String> existingNamesLower = new HashSet<>();
+        for (SkillResponse sr : getAllSkills(null, null)) {
+            if (sr.getSkillName() != null) existingNamesLower.add(sr.getSkillName().toLowerCase());
+        }
 
         // BƯỚC 2: NẾU ĐÂY LÀ YÊU CẦU LƯU (ADMIN ĐÃ CHỌN LỌC CÁC KỸ NĂNG TỪ PREVIEW MODAL)
         if (!isPreview && request.getSelectedSkills() != null && !request.getSelectedSkills().isEmpty()) {
@@ -906,7 +926,7 @@ public class SkillServiceImpl implements SkillService {
             for (SkillItemDTO item : request.getSelectedSkills()) {
                 if (item.getSkillName() == null || item.getSkillName().isBlank()) continue;
                 String norm = normalizeSkillName(item.getSkillName());
-                boolean existed = skillRepository.existsBySkillNameIgnoreCase(norm);
+                boolean existed = existingNamesLower.contains(norm.toLowerCase());
                 Skill s = findOrCreateNormalizedSkill(item.getSkillName(), item.getCategory(), item.getAliases());
                 if (s != null) {
                     if (!existed) {
@@ -940,7 +960,7 @@ public class SkillServiceImpl implements SkillService {
         for (SkillItemDTO item : aiItems) {
             if (item.getSkillName() == null || item.getSkillName().isBlank()) continue;
             String norm = normalizeSkillName(item.getSkillName());
-            boolean existed = skillRepository.existsBySkillNameIgnoreCase(norm);
+            boolean existed = existingNamesLower.contains(norm.toLowerCase());
             if (!existed) {
                 newCandidatesCount++;
             }

@@ -31,12 +31,45 @@ public class GeminiAiServiceImpl implements GeminiAiService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.hiremate.service.SystemSettingsService systemSettingsService;
 
+    private final java.util.concurrent.atomic.AtomicReference<String> workingModelCache = new java.util.concurrent.atomic.AtomicReference<>(null);
+    private final Set<String> notFoundModelsCache = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
     private String getEffectiveModel() {
+        String cachedWorking = workingModelCache.get();
+        if (cachedWorking != null && !cachedWorking.isBlank() && !notFoundModelsCache.contains(cachedWorking)) {
+            return cachedWorking;
+        }
+        String candidate = null;
         if (systemSettingsService != null && systemSettingsService.getSettings() != null) {
             String m = systemSettingsService.getSettings().getAiModel();
-            if (m != null && !m.isBlank() && !m.contains("1.5") && !m.contains("2.0-flash")) return m;
+            if (m != null && !m.isBlank() && !m.contains("3.5")) {
+                candidate = m.trim();
+            }
         }
-        return geminiAiConfig.getModel();
+        if (candidate == null || candidate.isBlank()) {
+            String cfgModel = geminiAiConfig != null ? geminiAiConfig.getModel() : null;
+            if (cfgModel != null && !cfgModel.isBlank() && !cfgModel.contains("3.5")) {
+                candidate = cfgModel.trim();
+            }
+        }
+        if (candidate == null || candidate.isBlank() || notFoundModelsCache.contains(candidate)) {
+            for (String fb : List.of("gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-lite-latest", "gemini-3-flash-preview")) {
+                if (!notFoundModelsCache.contains(fb)) {
+                    return fb;
+                }
+            }
+            return "gemini-2.5-flash";
+        }
+        return candidate;
+    }
+
+    private String getNextFallbackModel(Set<String> triedModels) {
+        for (String fb : List.of("gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-lite-latest", "gemini-3-flash-preview")) {
+            if (!triedModels.contains(fb) && !notFoundModelsCache.contains(fb)) {
+                return fb;
+            }
+        }
+        return null;
     }
 
     private String resolvePersonaPrompt(String pos, String lvl) {
@@ -114,32 +147,49 @@ public class GeminiAiServiceImpl implements GeminiAiService {
     }
 
     private String getNextAvailableApiKey() {
+        String healthy = getNextHealthyApiKey(Collections.emptySet());
+        if (healthy != null) {
+            return healthy;
+        }
+        if (geminiAiConfig != null) {
+            List<String> keys = geminiAiConfig.getApiKeys();
+            for (String k : keys) {
+                if (isValidApiKey(k)) return k;
+            }
+            return geminiAiConfig.getApiKey();
+        }
+        return null;
+    }
+
+    private String getNextHealthyApiKey(Set<String> excludedKeys) {
+        long now = System.currentTimeMillis();
         if (systemSettingsService != null && systemSettingsService.getSettings() != null) {
             String customKey = systemSettingsService.getSettings().getCustomGeminiApiKey();
             if (isValidApiKey(customKey)) {
-                return customKey.trim();
+                String cleanCustom = customKey.trim();
+                if ((excludedKeys == null || !excludedKeys.contains(cleanCustom))) {
+                    Long backoffUntil = rateLimitedKeysUntil.get(cleanCustom);
+                    if (backoffUntil == null || now > backoffUntil) {
+                        return cleanCustom;
+                    }
+                }
             }
         }
         if (geminiAiConfig == null) return null;
         List<String> keys = geminiAiConfig.getApiKeys();
         if (!keys.isEmpty()) {
-            long now = System.currentTimeMillis();
             for (int i = 0; i < keys.size(); i++) {
                 int idx = Math.abs(keyIndex.getAndIncrement() % keys.size());
                 String candidateKey = keys.get(idx);
-                if (isValidApiKey(candidateKey)) {
+                if (isValidApiKey(candidateKey) && (excludedKeys == null || !excludedKeys.contains(candidateKey))) {
                     Long backoffUntil = rateLimitedKeysUntil.get(candidateKey);
                     if (backoffUntil == null || now > backoffUntil) {
                         return candidateKey;
                     }
                 }
             }
-            // Fallback to first valid key in pool
-            for (String k : keys) {
-                if (isValidApiKey(k)) return k;
-            }
         }
-        return geminiAiConfig.getApiKey();
+        return null;
     }
 
     private void markApiKeyRateLimited(String apiKey) {
@@ -459,7 +509,8 @@ public class GeminiAiServiceImpl implements GeminiAiService {
                     "  \"recommendedTasks\": [\"task 1\", \"task 2\"]\n" +
                     "}";
 
-            String responseText = callGeminiApi(prompt, 900);
+            java.util.concurrent.CompletableFuture<String> future = java.util.concurrent.CompletableFuture.supplyAsync(() -> callGeminiApi(prompt, 900));
+            String responseText = future.get(15, java.util.concurrent.TimeUnit.SECONDS);
             if (responseText != null && !responseText.isBlank()) {
                 String jsonStr = extractJson(responseText);
                 JsonNode root = objectMapper.readTree(jsonStr);
@@ -595,9 +646,9 @@ public class GeminiAiServiceImpl implements GeminiAiService {
             String responseText = null;
             try {
                 java.util.concurrent.CompletableFuture<String> future = java.util.concurrent.CompletableFuture.supplyAsync(() -> callGeminiApi(prompt, 2200));
-                responseText = future.get(30, java.util.concurrent.TimeUnit.SECONDS);
+                responseText = future.get(18, java.util.concurrent.TimeUnit.SECONDS);
             } catch (java.util.concurrent.TimeoutException te) {
-                log.warn(">> [GeminiAiService] Gemini CV analysis took >30s (quota/network delay). Falling back immediately to local ATS parser.");
+                log.warn(">> [GeminiAiService] Gemini CV analysis took >18s (quota/network delay). Falling back immediately to local ATS parser.");
             } catch (Exception ex) {
                 log.warn(">> [GeminiAiService] Gemini CV call failed: {}", ex.getMessage());
             }
@@ -708,7 +759,7 @@ public class GeminiAiServiceImpl implements GeminiAiService {
             String responseText = null;
             try {
                 java.util.concurrent.CompletableFuture<String> future = java.util.concurrent.CompletableFuture.supplyAsync(() -> callGeminiApiWithParts(parts, 2500));
-                responseText = future.get(35, java.util.concurrent.TimeUnit.SECONDS);
+                responseText = future.get(22, java.util.concurrent.TimeUnit.SECONDS);
             } catch (Exception e) {
                 log.warn(">> [GeminiAiService] CV image analysis call failed: {}", e.getMessage());
             }
@@ -1842,14 +1893,20 @@ public class GeminiAiServiceImpl implements GeminiAiService {
         }
 
         List<String> modelsToTry = new ArrayList<>();
-        if (primaryModel != null && !primaryModel.isBlank()) {
+        String cachedWorking = workingModelCache.get();
+        if (cachedWorking != null && !cachedWorking.isBlank() && !notFoundModelsCache.contains(cachedWorking)) {
+            modelsToTry.add(cachedWorking);
+        }
+        if (primaryModel != null && !primaryModel.isBlank() && !primaryModel.contains("3.5") && !notFoundModelsCache.contains(primaryModel.trim()) && !modelsToTry.contains(primaryModel.trim())) {
             modelsToTry.add(primaryModel.trim());
         }
-        if (!modelsToTry.contains("gemini-3.5-flash-lite")) modelsToTry.add("gemini-3.5-flash-lite");
-        if (!modelsToTry.contains("gemini-3-flash-preview")) modelsToTry.add("gemini-3-flash-preview");
-        if (!modelsToTry.contains("gemini-2.5-flash")) modelsToTry.add("gemini-2.5-flash");
-        if (!modelsToTry.contains("gemini-2.0-flash")) modelsToTry.add("gemini-2.0-flash");
+        for (String fb : List.of("gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-lite-latest", "gemini-3-flash-preview")) {
+            if (!notFoundModelsCache.contains(fb) && !modelsToTry.contains(fb)) {
+                modelsToTry.add(fb);
+            }
+        }
 
+        Set<String> triedKeys = new HashSet<>();
         for (String model : modelsToTry) {
             try {
                 String endpoint = baseUrl + "/models/" + model + ":generateContent?key=" + apiKey;
@@ -1869,13 +1926,14 @@ public class GeminiAiServiceImpl implements GeminiAiService {
                         .uri(URI.create(endpoint))
                         .header("Content-Type", "application/json")
                         .header("X-goog-api-key", apiKey)
-                        .timeout(Duration.ofSeconds(12)) // Tăng lên 12s để Gemini suy nghĩ câu hỏi đầy đủ mà không bị timeout sớm
+                        .timeout(Duration.ofSeconds(12))
                         .POST(HttpRequest.BodyPublishers.ofString(requestBodyJson))
                         .build();
 
                 HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
                 if (response.statusCode() == 200) {
+                    workingModelCache.set(model);
                     JsonNode root = objectMapper.readTree(response.body());
                     JsonNode candidates = root.get("candidates");
                     if (candidates != null && candidates.isArray() && !candidates.isEmpty()) {
@@ -1894,8 +1952,19 @@ public class GeminiAiServiceImpl implements GeminiAiService {
                             }
                         }
                     }
+                } else if (response.statusCode() == 404) {
+                    notFoundModelsCache.add(model);
+                    log.warn(">> [GeminiVoice] Model {} returned 404. Trying next fallback model...", model);
+                } else if (response.statusCode() == 429) {
+                    markApiKeyRateLimited(apiKey);
+                    triedKeys.add(apiKey);
+                    String nextKey = getNextHealthyApiKey(triedKeys);
+                    if (nextKey != null) {
+                        apiKey = nextKey;
+                    } else {
+                        break;
+                    }
                 } else if (response.statusCode() == 400 || response.statusCode() == 401 || response.statusCode() == 403) {
-                    // Lỗi xác thực khóa API từ Google -> Không thử lại các model khác để tránh làm đơ phòng phỏng vấn
                     log.warn(">> [GeminiVoice] API Key không hợp lệ hoặc bị từ chối (HTTP {}). Chuyển ngay sang Local Adaptive Engine trong 0ms.", response.statusCode());
                     break;
                 } else {
@@ -1919,60 +1988,38 @@ public class GeminiAiServiceImpl implements GeminiAiService {
             String baseUrl = geminiAiConfig.getBaseUrl();
             String model = getEffectiveModel();
             String apiKey = getNextAvailableApiKey();
-
-            String endpoint = baseUrl + "/models/" + model + ":generateContent?key=" + apiKey;
+            if (!isValidApiKey(apiKey)) {
+                return null;
+            }
 
             List<Map<String, Object>> contents = new ArrayList<>();
             contents.add(Map.of("role", "user", "parts", userParts));
 
-            Map<String, Object> requestBodyMap = new HashMap<>();
-            requestBodyMap.put("contents", contents);
-            requestBodyMap.put("generationConfig", buildGenerationConfig(model, 0.2, maxTokens));
+            Set<String> triedModels = new HashSet<>();
+            Set<String> triedKeys = new HashSet<>();
 
-            String requestBodyJson = objectMapper.writeValueAsString(requestBodyMap);
+            for (int attempt = 0; attempt < 3; attempt++) {
+                String endpoint = baseUrl + "/models/" + model + ":generateContent?key=" + apiKey;
 
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(endpoint))
-                    .header("Content-Type", "application/json")
-                    .header("X-goog-api-key", apiKey)
-                    .timeout(Duration.ofSeconds(25))
-                    .POST(HttpRequest.BodyPublishers.ofString(requestBodyJson))
-                    .build();
+                Map<String, Object> requestBodyMap = new HashMap<>();
+                requestBodyMap.put("contents", contents);
+                requestBodyMap.put("generationConfig", buildGenerationConfig(model, 0.2, maxTokens));
 
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+                String requestBodyJson = objectMapper.writeValueAsString(requestBodyMap);
 
-            if (response.statusCode() == 200) {
-                JsonNode root = objectMapper.readTree(response.body());
-                JsonNode candidates = root.get("candidates");
-                if (candidates != null && candidates.isArray() && !candidates.isEmpty()) {
-                    JsonNode partsNode = candidates.get(0).path("content").path("parts");
-                    if (partsNode.isArray() && !partsNode.isEmpty()) {
-                        StringBuilder textResponse = new StringBuilder();
-                        for (JsonNode part : partsNode) {
-                            JsonNode textNode = part.path("text");
-                            if (!textNode.isMissingNode()) {
-                                textResponse.append(textNode.asText());
-                            }
-                        }
-                        if (textResponse.length() > 0) {
-                            return textResponse.toString();
-                        }
-                    }
-                }
-            } else if (response.statusCode() == 404) {
-                String fallbackM = !model.equals("gemini-3-flash-preview") ? "gemini-3-flash-preview" : "gemini-flash-lite-latest";
-                log.warn(">> [GeminiAiService] Vision model {} returned 404. Tự động chuyển sang {}...", model, fallbackM);
-                String fbEndpoint = baseUrl + "/models/" + fallbackM + ":generateContent?key=" + apiKey;
-                HttpRequest fbReq = HttpRequest.newBuilder()
-                        .uri(URI.create(fbEndpoint))
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(URI.create(endpoint))
                         .header("Content-Type", "application/json")
                         .header("X-goog-api-key", apiKey)
-                        .timeout(Duration.ofSeconds(25))
+                        .timeout(Duration.ofSeconds(18))
                         .POST(HttpRequest.BodyPublishers.ofString(requestBodyJson))
                         .build();
-                HttpResponse<String> fbRes = httpClient.send(fbReq, HttpResponse.BodyHandlers.ofString());
-                if (fbRes.statusCode() == 200) {
-                    JsonNode root = objectMapper.readTree(fbRes.body());
+
+                HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+                if (response.statusCode() == 200) {
+                    workingModelCache.set(model);
+                    JsonNode root = objectMapper.readTree(response.body());
                     JsonNode candidates = root.get("candidates");
                     if (candidates != null && candidates.isArray() && !candidates.isEmpty()) {
                         JsonNode partsNode = candidates.get(0).path("content").path("parts");
@@ -1989,12 +2036,32 @@ public class GeminiAiServiceImpl implements GeminiAiService {
                             }
                         }
                     }
+                    break;
+                } else if (response.statusCode() == 404) {
+                    notFoundModelsCache.add(model);
+                    triedModels.add(model);
+                    String nextM = getNextFallbackModel(triedModels);
+                    if (nextM != null) {
+                        log.warn(">> [GeminiAiService] Vision model {} returned 404. Tự động chuyển sang {}...", model, nextM);
+                        model = nextM;
+                        continue;
+                    }
+                    break;
+                } else if (response.statusCode() == 429) {
+                    markApiKeyRateLimited(apiKey);
+                    triedKeys.add(apiKey);
+                    String nextKey = getNextHealthyApiKey(triedKeys);
+                    if (nextKey != null) {
+                        log.info(">> [GeminiAiService] Vision HTTP 429 trên Key hiện tại. Tự động xoay sang Key mới...");
+                        apiKey = nextKey;
+                        continue;
+                    }
+                    log.warn(">> [GeminiAiService] Rate limit 429 when calling Gemini Vision (all keys exhausted).");
+                    break;
+                } else {
+                    log.warn(">> [GeminiAiService] Google Gemini Vision returned HTTP status: {}", response.statusCode());
+                    break;
                 }
-            } else if (response.statusCode() == 429) {
-                markApiKeyRateLimited(apiKey);
-                log.warn(">> [GeminiAiService] Rate limit 429 when calling Gemini Vision.");
-            } else {
-                log.warn(">> [GeminiAiService] Google Gemini Vision returned HTTP status: {}", response.statusCode());
             }
         } catch (Exception e) {
             log.warn(">> [GeminiAiService] Multimodal request to Gemini failed: {}", e.getMessage());
@@ -2012,6 +2079,9 @@ public class GeminiAiServiceImpl implements GeminiAiService {
             String baseUrl = geminiAiConfig.getBaseUrl();
             String model = getEffectiveModel();
             String apiKey = getNextAvailableApiKey();
+            if (!isValidApiKey(apiKey)) {
+                return null;
+            }
 
             String endpoint = baseUrl + "/models/" + model + ":generateContent?key=" + apiKey;
 
@@ -2020,9 +2090,14 @@ public class GeminiAiServiceImpl implements GeminiAiService {
 
             final int MAX_REACT_STEPS = 4;
             int step = 0;
+            int totalAttempts = 0;
+            final int MAX_TOTAL_ATTEMPTS = 5;
+            Set<String> triedModels = new HashSet<>();
+            Set<String> triedKeys = new HashSet<>();
 
-            while (step < MAX_REACT_STEPS) {
+            while (step < MAX_REACT_STEPS && totalAttempts < MAX_TOTAL_ATTEMPTS) {
                 step++;
+                totalAttempts++;
                 Map<String, Object> requestBodyMap = new HashMap<>();
                 requestBodyMap.put("contents", contents);
                 requestBodyMap.put("generationConfig", buildGenerationConfig(model, 0.3, maxTokens));
@@ -2037,13 +2112,14 @@ public class GeminiAiServiceImpl implements GeminiAiService {
                         .uri(URI.create(endpoint))
                         .header("Content-Type", "application/json")
                         .header("X-goog-api-key", apiKey)
-                        .timeout(Duration.ofSeconds(35))
+                        .timeout(Duration.ofSeconds(16))
                         .POST(HttpRequest.BodyPublishers.ofString(requestBodyJson))
                         .build();
 
                 HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
                 if (response.statusCode() == 200) {
+                    workingModelCache.set(model);
                     JsonNode root = objectMapper.readTree(response.body());
                     JsonNode candidates = root.get("candidates");
                     if (candidates == null || !candidates.isArray() || candidates.isEmpty()) {
@@ -2091,12 +2167,9 @@ public class GeminiAiServiceImpl implements GeminiAiService {
 
                     // Nếu có bất kỳ Tool Calls nào được AI kích hoạt:
                     if (!functionResponses.isEmpty()) {
-                        // Thêm lượt của model vào lịch sử đối thoại
                         contents.add(Map.of("role", "model", "parts", modelParts));
-                        // Thêm kết quả tool (role: function) vào đối thoại để model suy luận tiếp
                         contents.add(Map.of("role", "function", "parts", functionResponses));
                         log.info(">> [GeminiAiService] Đã gửi {} kết quả FunctionResponse về cho Agent tiếp tục ReAct loop.", functionResponses.size());
-                        // Tiếp tục vòng lặp ReAct để mô hình suy luận tiếp
                         continue;
                     }
 
@@ -2105,20 +2178,27 @@ public class GeminiAiServiceImpl implements GeminiAiService {
                         return textResponse.toString();
                     }
                 } else if (response.statusCode() == 404) {
-                    String fallbackM = !model.equals("gemini-3-flash-preview") ? "gemini-3-flash-preview" : "gemini-flash-lite-latest";
-                    log.warn(">> [GeminiAiService] Model {} returned 404. Tự động chuyển sang {} và thử lại...", model, fallbackM);
-                    model = fallbackM;
-                    endpoint = baseUrl + "/models/" + model + ":generateContent?key=" + apiKey;
-                    step--; // Retry current step with the new active model
-                    continue;
+                    notFoundModelsCache.add(model);
+                    triedModels.add(model);
+                    String fallbackM = getNextFallbackModel(triedModels);
+                    if (fallbackM != null) {
+                        log.warn(">> [GeminiAiService] Model {} returned 404. Tự động chuyển sang {} và thử lại...", model, fallbackM);
+                        model = fallbackM;
+                        endpoint = baseUrl + "/models/" + model + ":generateContent?key=" + apiKey;
+                        step--;
+                        continue;
+                    }
+                    log.warn(">> [GeminiAiService] Không còn model fallback khả dụng sau HTTP 404. Chuyển sang Heuristic Fallback.");
+                    break;
                 } else if (response.statusCode() == 429) {
                     markApiKeyRateLimited(apiKey);
-                    String nextKey = getNextAvailableApiKey();
-                    if (!nextKey.equals(apiKey)) {
+                    triedKeys.add(apiKey);
+                    String nextKey = getNextHealthyApiKey(triedKeys);
+                    if (nextKey != null && !nextKey.equals(apiKey)) {
                         log.info(">> [GeminiAiService] HTTP 429 trên Key hiện tại. Tự động xoay sang Key mới trong Rotation Pool và thử lại...");
                         apiKey = nextKey;
                         endpoint = baseUrl + "/models/" + model + ":generateContent?key=" + apiKey;
-                        step--; // Re-attempt with new healthy key
+                        step--;
                         continue;
                     }
                     log.warn(">> [GeminiAiService] Toàn bộ API Keys trong Pool đều vượt hạn mức (HTTP 429). Falling back.");
@@ -3289,12 +3369,13 @@ public class GeminiAiServiceImpl implements GeminiAiService {
                 "<jd_content>\n" + sanitizedJd + "\n</jd_content>";
 
         try {
-            String responseText = callGeminiApi(prompt, 2000);
+            java.util.concurrent.CompletableFuture<String> future = java.util.concurrent.CompletableFuture.supplyAsync(() -> callGeminiApi(prompt, 2000));
+            String responseText = future.get(18, java.util.concurrent.TimeUnit.SECONDS);
             if (responseText != null && !responseText.isBlank()) {
                 return parseJdJson(responseText, detectedTitle, cleanJd);
             }
         } catch (Exception e) {
-            log.warn(">> [GeminiAiService] parseJobDescription via Gemini failed: {}. Using heuristic fallback.", e.getMessage());
+            log.warn(">> [GeminiAiService] parseJobDescription via Gemini failed/timed out: {}. Using heuristic fallback.", e.getMessage());
         }
 
         return fallbackJdParse(detectedTitle, jdText);
@@ -3348,12 +3429,13 @@ public class GeminiAiServiceImpl implements GeminiAiService {
                     "data", base64Image
             )));
 
-            String responseText = callGeminiApiWithParts(parts, 2200);
+            java.util.concurrent.CompletableFuture<String> future = java.util.concurrent.CompletableFuture.supplyAsync(() -> callGeminiApiWithParts(parts, 2200));
+            String responseText = future.get(22, java.util.concurrent.TimeUnit.SECONDS);
             if (responseText != null && !responseText.isBlank()) {
                 return parseJdJson(responseText, "Vị trí tuyển dụng", "Job posting image scan");
             }
         } catch (Exception e) {
-            log.warn(">> [GeminiAiService] parseJobDescriptionImage via Gemini failed: {}. Using heuristic fallback.", e.getMessage());
+            log.warn(">> [GeminiAiService] parseJobDescriptionImage via Gemini failed/timed out: {}. Using heuristic fallback.", e.getMessage());
         }
 
         return fallbackJdParse("Vị trí tuyển dụng", "Job posting image scan");
@@ -4910,7 +4992,8 @@ public class GeminiAiServiceImpl implements GeminiAiService {
                     "  ]\n" +
                     "}";
 
-            String responseText = callGeminiApi(prompt, 900);
+            java.util.concurrent.CompletableFuture<String> future = java.util.concurrent.CompletableFuture.supplyAsync(() -> callGeminiApi(prompt, 900));
+            String responseText = future.get(15, java.util.concurrent.TimeUnit.SECONDS);
             if (responseText != null && !responseText.isBlank()) {
                 String jsonStr = extractJson(responseText);
                 JsonNode root = objectMapper.readTree(jsonStr);
