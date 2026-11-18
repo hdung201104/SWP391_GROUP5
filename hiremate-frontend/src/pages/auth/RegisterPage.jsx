@@ -349,14 +349,13 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
         return;
       }
 
-      const res = await authApi.sendOtp({
+      await authApi.sendOtp({
         email: targetEmail,
         purpose: 'REGISTER',
       });
-      const returnedOtp = res?.data?.data?.otp || res?.data?.otp;
 
       setOtpError('');
-      setOtpCode(returnedOtp || '');
+      setOtpCode(''); // Không tự động điền - người dùng cần kiểm tra email thực tế
       setResendCooldown(60);
       setShowOtpModal(true);
     } catch (err) {
@@ -371,14 +370,11 @@ export default function RegisterPage({ onNavigateLogin, onRegisterSuccess }) {
     setIsResending(true);
     setOtpError('');
     try {
-      const res = await authApi.sendOtp({
+      await authApi.sendOtp({
         email: targetEmail,
         purpose: 'REGISTER',
       });
-      const returnedOtp = res?.data?.data?.otp || res?.data?.otp;
-      if (returnedOtp) {
-        setOtpCode(returnedOtp);
-      }
+      setOtpCode(''); // Reset ô nhập để người dùng nhập mã mới nhận được
       setResendCooldown(60);
     } catch (err) {
       setOtpError(err.response?.data?.message || err.message || 'Gửi lại mã thất bại. Vui lòng thử lại sau giây lát.');

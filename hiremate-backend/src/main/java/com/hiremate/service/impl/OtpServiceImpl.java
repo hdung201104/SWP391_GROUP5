@@ -87,9 +87,11 @@ public class OtpServiceImpl implements OtpService {
         // Trigger real email dispatch asynchronously so the frontend returns instantly (no hang on cloud)
         java.util.concurrent.CompletableFuture.runAsync(() -> {
             try {
+                log.info(">> [OtpService] Bắt đầu kích hoạt gửi email OTP thực tế đến: {}", cleanEmail);
                 emailService.sendOtpEmail(cleanEmail, otp, purpose);
+                log.info(">> [OtpService] Hoàn tất gửi email OTP đến: {}", cleanEmail);
             } catch (Exception e) {
-                log.error(">> [OtpService] Lỗi phát sinh khi gửi email xác thực bất đồng bộ: {}", e.getMessage());
+                log.error(">> [OtpService] Lỗi phát sinh khi gửi email xác thực bất đồng bộ đến {}: {}", cleanEmail, e.getMessage(), e);
             }
         });
 

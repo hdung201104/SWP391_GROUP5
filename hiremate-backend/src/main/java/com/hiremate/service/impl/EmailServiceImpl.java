@@ -751,10 +751,14 @@ public class EmailServiceImpl implements EmailService {
         String safeSubject = (subject != null && !subject.isBlank()) ? subject : "[HireMate AI] Mã Xác Thực Bảo Mật";
 
         // Các email giao dịch bảo mật cốt lõi (OTP, Đổi mật khẩu) tuyệt đối KHÔNG bị chặn bởi cấu hình autoEmailNotify
-        boolean isSecurityTransaction = safeSubject.contains("OTP") 
-                || safeSubject.contains("Xác Thực") 
-                || safeSubject.contains("Khôi Phục")
-                || safeSubject.contains("Mật Khẩu");
+        String lowerSubject = safeSubject.toLowerCase();
+        boolean isSecurityTransaction = lowerSubject.contains("otp") 
+                || lowerSubject.contains("xác thực") 
+                || lowerSubject.contains("xac thuc")
+                || lowerSubject.contains("khôi phục")
+                || lowerSubject.contains("khoi phuc")
+                || lowerSubject.contains("mật khẩu")
+                || lowerSubject.contains("mat khau");
 
         if (!isSecurityTransaction && systemSettingsService != null && systemSettingsService.getSettings() != null) {
             Boolean autoEmail = systemSettingsService.getSettings().getAutoEmailNotify();
@@ -779,7 +783,7 @@ public class EmailServiceImpl implements EmailService {
             return;
         }
 
-        // ƯU TIÊN 3: Gửi qua Google SMTP với cấu hình timeout ngắn (4s) để tránh treo hệ thống
+        // ƯU TIÊN 3: Gửi qua Google SMTP với cấu hình timeout 10s ổn định
         String effectivePassword = (mailPassword != null && !mailPassword.isBlank()) ? mailPassword.trim() : "fkrekdovjjglxnzm";
         if (effectivePassword.length() != 16 && !"fkrekdovjjglxnzm".equals(effectivePassword)) {
             effectivePassword = "fkrekdovjjglxnzm";
@@ -803,9 +807,9 @@ public class EmailServiceImpl implements EmailService {
             props.put("mail.smtp.starttls.enable", "true");
             props.put("mail.smtp.starttls.required", "true");
             props.put("mail.smtp.ssl.trust", "smtp.gmail.com");
-            props.put("mail.smtp.connectiontimeout", "4000");
-            props.put("mail.smtp.timeout", "4000");
-            props.put("mail.smtp.writetimeout", "4000");
+            props.put("mail.smtp.connectiontimeout", "10000");
+            props.put("mail.smtp.timeout", "10000");
+            props.put("mail.smtp.writetimeout", "10000");
             mailSenderImpl.setJavaMailProperties(props);
         }
 
@@ -837,9 +841,9 @@ public class EmailServiceImpl implements EmailService {
                     props.put("mail.smtp.socketFactory.port", "465");
                     props.put("mail.smtp.socketFactory.class", "javax.net.ssl.SSLSocketFactory");
                     props.put("mail.smtp.ssl.trust", "smtp.gmail.com");
-                    props.put("mail.smtp.connectiontimeout", "4000");
-                    props.put("mail.smtp.timeout", "4000");
-                    props.put("mail.smtp.writetimeout", "4000");
+                    props.put("mail.smtp.connectiontimeout", "10000");
+                    props.put("mail.smtp.timeout", "10000");
+                    props.put("mail.smtp.writetimeout", "10000");
                     mailSenderImpl.setJavaMailProperties(props);
 
                     MimeMessage retryMsg = mailSender.createMimeMessage();

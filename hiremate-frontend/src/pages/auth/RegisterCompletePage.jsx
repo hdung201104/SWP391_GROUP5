@@ -253,11 +253,8 @@ export default function RegisterCompletePage({ onNavigateLogin, onRegisterSucces
         return;
       }
 
-      const otpRes = await authApi.sendOtp({ email: email.trim(), purpose: 'REGISTER' });
-      const returnedOtp = otpRes?.data?.data?.otp || otpRes?.data?.otp;
-      if (returnedOtp && !otpCode) {
-        setOtpCode(returnedOtp);
-      }
+      await authApi.sendOtp({ email: email.trim(), purpose: 'REGISTER' });
+      setOtpCode(''); // Không tự động điền - yêu cầu nhập từ email thực tế
       setOtpSent(true);
       setResendCooldown(60);
       setSuccessMessage(`Đã gửi mã xác thực OTP 6 số đến email ${email}. Vui lòng kiểm tra hộp thư (cả mục Spam)!`);
