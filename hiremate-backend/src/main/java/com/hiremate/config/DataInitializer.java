@@ -35,7 +35,7 @@ public class DataInitializer implements CommandLineRunner {
         initDatabaseSchema();
         initAdminUser();
         initDefaultSubscriptionPlans();
-        initPendingJobsForModeration();
+        autoApproveVerifiedJobs();
         initPaymentOrders();
         if (brandMediaSyncService != null) {
             brandMediaSyncService.syncAllMediaOnStartup();
@@ -213,22 +213,26 @@ public class DataInitializer implements CommandLineRunner {
         }
     }
 
-    private void initPendingJobsForModeration() {
+    private void autoApproveVerifiedJobs() {
         try {
-            long pendingCount = jobRepository.countByApprovalStatus(JobApprovalStatus.PENDING);
-            if (pendingCount == 0) {
-                List<Job> allJobs = jobRepository.findAll();
-                if (!allJobs.isEmpty()) {
-                    // Đặt tin thứ 2 (hoặc tin đầu) thành PENDING để Admin có thể thử nghiệm tính năng Duyệt / Từ chối bài đăng thực tế
-                    Job testJob = allJobs.size() > 1 ? allJobs.get(1) : allJobs.get(0);
-                    testJob.setApprovalStatus(JobApprovalStatus.PENDING);
+            List<Job> pendingJobs = jobRepository.findByApprovalStatusOrderByCreatedAtDesc(JobApprovalStatus.PENDING);
+            for (Job testJob : pendingJobs) {
+                // Tự động khôi phục bài đăng của DN đã VERIFIED/ACTIVE hoặc bài mẫu hệ thống về APPROVED / PUBLISHED
+                boolean isVerifiedComp = testJob.getCompany() == null ||
+                        testJob.getCompany().getStatus() == com.hiremate.enums.CompanyStatus.VERIFIED ||
+                        testJob.getCompany().getStatus() == com.hiremate.enums.CompanyStatus.ACTIVE;
+                if (isVerifiedComp) {
+                    testJob.setApprovalStatus(JobApprovalStatus.APPROVED);
+                    if (testJob.getStatus() == JobStatus.DRAFT || testJob.getStatus() == null) {
+                        testJob.setStatus(JobStatus.PUBLISHED);
+                    }
                     jobRepository.save(testJob);
-                    log.info(">> [DataInitializer] Đã chuyển bài đăng ID #{} ({}) về trạng thái PENDING để Admin kiểm duyệt.",
+                    log.info(">> [DataInitializer] Đã tự động khôi phục bài đăng ID #{} ({}) về trạng thái APPROVED / PUBLISHED.",
                             testJob.getJobId(), testJob.getTitle());
                 }
             }
         } catch (Exception e) {
-            log.warn(">> [DataInitializer] Lỗi cập nhật bài đăng PENDING: {}", e.getMessage());
+            log.warn(">> [DataInitializer] Lỗi tự động duyệt bài đăng: {}", e.getMessage());
         }
     }
 

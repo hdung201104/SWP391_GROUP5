@@ -3,7 +3,7 @@
   "preferredWeight" : 30,
   "autoPublishVerified" : true,
   "requireGpkdToPost" : true,
-  "moderateNewJobs" : true,
+  "moderateNewJobs" : false,
   "aiInterviewDifficulty" : "STANDARD",
   "interviewMaxQuestions" : 5,
   "interviewResponseSeconds" : 120,

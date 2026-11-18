@@ -2419,7 +2419,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
   const [candidateFreeInterviewsPerDay, setCandidateFreeInterviewsPerDay] = useState(3);
   const [recruiterFreeJobPostsPerMonth, setRecruiterFreeJobPostsPerMonth] = useState(3);
   const [requireGpkdToPost, setRequireGpkdToPost] = useState(true);
-  const [moderateNewJobs, setModerateNewJobs] = useState(true);
+  const [moderateNewJobs, setModerateNewJobs] = useState(false);
   const [vietqrBankName, setVietqrBankName] = useState('MBBank - Ngân hàng TMCP Quân Đội');
   const [vietqrAccountNumber, setVietqrAccountNumber] = useState('VQRQAMWSJ4104');
   const [vietqrAccountHolder, setVietqrAccountHolder] = useState('HOANG NGOC DUNG');
@@ -2448,7 +2448,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
   const [matchingPreset, setMatchingPreset] = useState('ATS_STANDARD'); // 'ATS_STANDARD' | 'INTERN_FRESHER' | 'SENIOR_LEAD' | 'CUSTOM'
   const [adaptiveRoleWeighting, setAdaptiveRoleWeighting] = useState(true);
 
-  const [autoPublishVerified, setAutoPublishVerified] = useState(false);
+  const [autoPublishVerified, setAutoPublishVerified] = useState(true);
   const [aiInterviewDifficulty, setAiInterviewDifficulty] = useState('STANDARD');
   const [interviewMaxMinutes, setInterviewMaxMinutes] = useState(30);
   const [targetWpm, setTargetWpm] = useState(132);
@@ -3661,7 +3661,8 @@ export default function AdminDashboardPage({ user, onLogout }) {
     setCandidateFreeInterviewsPerDay(3);
     setRecruiterFreeJobPostsPerMonth(3);
     setRequireGpkdToPost(true);
-    setModerateNewJobs(true);
+    setModerateNewJobs(false);
+    setAutoPublishVerified(true);
     setVietqrBankName('MBBank - Ngân hàng TMCP Quân Đội');
     setVietqrAccountNumber('VQRQAMWSJ4104');
     setVietqrAccountHolder('HOANG NGOC DUNG');
@@ -7510,7 +7511,49 @@ export default function AdminDashboardPage({ user, onLogout }) {
                         <span className={`font-bold font-mono px-2 py-0.5 rounded text-[10px] ${
                           moderateNewJobs ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700'
                         }`}>
-                          {moderateNewJobs ? '✓ Bật Kiểm Duyệt Thủ Công (Chuẩn UC-34)' : '⚠ Tự Động Phê Duyệt Ngay'}
+                          {moderateNewJobs ? '✓ Bật Kiểm Duyệt Thủ Công (Chuẩn UC-34)' : '✓ Tự Động Phê Duyệt Ngay (Không Cần Admin)'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* TẦNG 2.1: TỰ ĐỘNG XUẤT BẢN TIN CHO DOANH NGHIỆP ĐÃ XÁC THỰC GPKD */}
+                    <div className="bg-white p-4 rounded-xl border border-indigo-100/90 shadow-2xs space-y-2">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 font-mono">
+                              AUTO-PUBLISH
+                            </span>
+                            <span className="text-xs font-bold text-slate-800">
+                              Tự động xuất bản tin cho Doanh nghiệp đã xác thực GPKD
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 leading-relaxed">
+                            Khi kích hoạt, bài đăng từ các doanh nghiệp đã xác thực GPKD hợp lệ (<code className="text-emerald-700 font-bold">VERIFIED / ACTIVE</code>) sẽ được xuất bản công khai ngay (<code className="text-emerald-700 font-bold">APPROVED & PUBLISHED</code>), người đăng không cần chờ Admin thao tác duyệt thủ công.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setAutoPublishVerified(!autoPublishVerified)}
+                          className={`w-12 h-6 rounded-full transition-colors cursor-pointer p-0.5 shrink-0 ${
+                            autoPublishVerified ? 'bg-[#5b48bd]' : 'bg-slate-300'
+                          }`}
+                          title="Bật/Tắt tự động xuất bản cho Doanh nghiệp đã xác thực"
+                        >
+                          <div
+                            className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                              autoPublishVerified ? 'translate-x-6' : 'translate-x-0'
+                            }`}
+                          ></div>
+                        </button>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                        <span className="text-slate-400 font-medium">Trạng thái:</span>
+                        <span className={`font-bold font-mono px-2 py-0.5 rounded text-[10px] ${
+                          autoPublishVerified ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700'
+                        }`}>
+                          {autoPublishVerified ? '✓ Bật Tự Động Xuất Bản DN Đã Xác Minh' : '⚠ Bắt Buộc Duyệt Thủ Công Tất Cả'}
                         </span>
                       </div>
                     </div>

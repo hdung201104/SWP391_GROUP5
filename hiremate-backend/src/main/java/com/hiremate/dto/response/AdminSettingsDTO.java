@@ -39,7 +39,7 @@ public class AdminSettingsDTO {
     private Boolean requireGpkdToPost = true;
 
     @Builder.Default
-    private Boolean moderateNewJobs = true;
+    private Boolean moderateNewJobs = false;
 
     @Builder.Default
     private String aiInterviewDifficulty = "STANDARD";

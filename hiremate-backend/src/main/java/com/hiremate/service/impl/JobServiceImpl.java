@@ -1101,9 +1101,20 @@ public class JobServiceImpl implements JobService {
                 ? currentRecruiter.getBranchName()
                 : originalJob.getBranchName();
 
+        boolean moderateJobs = false;
+        boolean autoPublishVerified = true;
+        if (systemSettingsService != null && systemSettingsService.getSettings() != null) {
+            com.hiremate.dto.response.AdminSettingsDTO settings = systemSettingsService.getSettings();
+            if (settings.getModerateNewJobs() != null) moderateJobs = settings.getModerateNewJobs();
+            if (settings.getAutoPublishVerified() != null) autoPublishVerified = settings.getAutoPublishVerified();
+        }
+        Company cloneCompany = originalJob.getCompany() != null ? originalJob.getCompany() : (currentRecruiter != null ? currentRecruiter.getCompany() : null);
+        boolean isCompanyVerified = cloneCompany != null && (cloneCompany.getStatus() == CompanyStatus.VERIFIED || cloneCompany.getStatus() == CompanyStatus.ACTIVE);
+        boolean isCloneApproved = !moderateJobs || (autoPublishVerified && isCompanyVerified);
+
         Job cloned = Job.builder()
                 .recruiter(currentRecruiter)
-                .company(originalJob.getCompany() != null ? originalJob.getCompany() : (currentRecruiter != null ? currentRecruiter.getCompany() : null))
+                .company(cloneCompany)
                 .title("[Bản sao] " + originalJob.getTitle())
                 .description(originalJob.getDescription())
                 .requirements(originalJob.getRequirements())
@@ -1117,8 +1128,8 @@ public class JobServiceImpl implements JobService {
                 .employmentType(originalJob.getEmploymentType())
                 .vacanciesCount(originalJob.getVacanciesCount() != null ? originalJob.getVacanciesCount() : 1)
                 .deadlineDate(newDeadline)
-                .status(JobStatus.DRAFT)
-                .approvalStatus(JobApprovalStatus.PENDING)
+                .status(isCloneApproved ? JobStatus.PUBLISHED : JobStatus.DRAFT)
+                .approvalStatus(isCloneApproved ? JobApprovalStatus.APPROVED : JobApprovalStatus.PENDING)
                 .totalViews(0)
                 .build();
 
