@@ -54,17 +54,14 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
     private SubscriptionRepository subscriptionRepository;
 
     private final Map<Long, Skill> skillCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<String, Skill> skillByNameCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final java.util.concurrent.ConcurrentHashMap<String, java.util.regex.Pattern> PATTERN_CACHE = new java.util.concurrent.ConcurrentHashMap<>(512);
+    private volatile long lastSkillCacheSync = 0L;
+    private static final long CACHE_TTL_MS = 10 * 60 * 1000L;
 
     @jakarta.annotation.PostConstruct
     public void preloadSkillCache() {
-        try {
-            skillRepository.findAll().forEach(s -> {
-                if (s.getSkillId() != null) {
-                    skillCache.put(s.getSkillId(), s);
-                }
-            });
-            log.info(">> [AiJobMatchService] Preloaded {} skills into cache", skillCache.size());
-        } catch (Exception ignored) {}
+        refreshSkillCacheInternal();
 
         // Tự động đồng bộ & lưu cứng điểm + báo cáo ATS vào CSDL khi khởi động (0ms Gemini Token, tuyệt đối KHÔNG xóa cache)
         java.util.concurrent.CompletableFuture.runAsync(() -> {
@@ -110,19 +107,42 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
         });
     }
 
-    public Map<Long, Skill> getActiveSkillCache() {
+    private synchronized void refreshSkillCacheInternal() {
         try {
-            long count = skillRepository.count();
-            if (count != skillCache.size()) {
-                skillRepository.findAll().forEach(s -> {
-                    if (s.getSkillId() != null) {
-                        skillCache.put(s.getSkillId(), s);
-                    }
-                });
-                log.info(">> [AiJobMatchService] Synchronized dynamic skillCache (total: {})", skillCache.size());
+            List<Skill> allSkills = skillRepository.findAll();
+            skillCache.clear();
+            skillByNameCache.clear();
+            for (Skill s : allSkills) {
+                if (s.getSkillId() != null) {
+                    skillCache.put(s.getSkillId(), s);
+                }
+                if (s.getSkillName() != null && !s.getSkillName().isBlank()) {
+                    skillByNameCache.put(s.getSkillName().trim().toLowerCase(), s);
+                }
             }
-        } catch (Exception ignored) {}
+            lastSkillCacheSync = System.currentTimeMillis();
+            log.info(">> [AiJobMatchService] Synchronized dynamic skillCache in-memory (total: {})", skillCache.size());
+        } catch (Exception ex) {
+            log.warn(">> [AiJobMatchService] Error syncing skillCache: {}", ex.getMessage());
+        }
+    }
+
+    public Map<Long, Skill> getActiveSkillCache() {
+        long now = System.currentTimeMillis();
+        if (skillCache.isEmpty() || (now - lastSkillCacheSync > CACHE_TTL_MS)) {
+            refreshSkillCacheInternal();
+        }
         return skillCache;
+    }
+
+    public Skill getSkillByName(String name) {
+        if (name == null || name.isBlank()) return null;
+        getActiveSkillCache();
+        return skillByNameCache.get(name.trim().toLowerCase());
+    }
+
+    private java.util.regex.Pattern getCachedPattern(String regex) {
+        return PATTERN_CACHE.computeIfAbsent(regex, r -> java.util.regex.Pattern.compile(r, java.util.regex.Pattern.CASE_INSENSITIVE));
     }
 
     @Override
@@ -297,13 +317,8 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
                 missingMandatory.add(skillName);
                 continue;
             }
-            String aliases = null;
-            for (Skill s : getActiveSkillCache().values()) {
-                if (s.getSkillName() != null && s.getSkillName().equalsIgnoreCase(skillName.trim())) {
-                    aliases = s.getAliases();
-                    break;
-                }
-            }
+            Skill s = getSkillByName(skillName);
+            String aliases = (s != null) ? s.getAliases() : null;
             if (isSkillPresentInText(candProfileStr, skillName, aliases)) {
                 matchedMandatory.add(skillName);
             } else {
@@ -318,13 +333,8 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
                 missingPreferred.add(skillName);
                 continue;
             }
-            String aliases = null;
-            for (Skill s : getActiveSkillCache().values()) {
-                if (s.getSkillName() != null && s.getSkillName().equalsIgnoreCase(skillName.trim())) {
-                    aliases = s.getAliases();
-                    break;
-                }
-            }
+            Skill s = getSkillByName(skillName);
+            String aliases = (s != null) ? s.getAliases() : null;
             if (isSkillPresentInText(candProfileStr, skillName, aliases)) {
                 matchedPreferred.add(skillName);
             } else {
@@ -418,6 +428,22 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
 
         if (candProfileStr.isBlank()) {
             finalMatchingScore = 0.0f;
+        } else if (settings == null) {
+            // Chuẩn Rule 3 Master Specification (70% Kỹ năng bắt buộc - 30% Kỹ năng ưu tiên)
+            float scoreMandatory = mandatorySkillNames.isEmpty() ? 100.0f : ((float) matchedMandatory.size() / mandatorySkillNames.size()) * 100.0f;
+            float scorePreferred = preferredSkillNames.isEmpty() ? 100.0f : ((float) matchedPreferred.size() / preferredSkillNames.size()) * 100.0f;
+            if (preferredSkillNames.isEmpty()) {
+                finalMatchingScore = scoreMandatory;
+            } else if (mandatorySkillNames.isEmpty()) {
+                finalMatchingScore = scorePreferred;
+            } else {
+                finalMatchingScore = (scoreMandatory * 0.70f) + (scorePreferred * 0.30f);
+            }
+            if (scoreMandatory == 100.0f && (preferredSkillNames.isEmpty() || scorePreferred == 100.0f)) {
+                finalMatchingScore = 100.0f;
+            }
+            skillsScore = finalMatchingScore;
+            finalMatchingScore = Math.round(finalMatchingScore * 10.0f) / 10.0f;
         } else {
             // Trụ Cột 1: Kỹ Năng Chuyên Môn (Core & Preferred Skills)
             float scoreMandatory = mandatorySkillNames.isEmpty() ? 100.0f : ((float) matchedMandatory.size() / mandatorySkillNames.size()) * 100.0f;
@@ -809,15 +835,8 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
         int effectiveLimit = (limit != null && limit > 0) ? Math.min(100, limit) : 50;
         Long candidateId = candidateUser.getUserId();
 
-        Candidate candidate = candidateRepository.findById(candidateId).orElse(null);
-        if (candidate != null) {
-            Cv defaultCv = resolveCandidateDefaultCv(candidateId);
-            List<AiJobMatch> existingAll = aiJobMatchRepository.findByCandidate_CandidateIdOrderByMatchingScoreDesc(candidateId);
-            backfillMissingJobMatches(candidate, defaultCv, existingAll);
-        }
-
         // 1. KIỂM TRA BẢNG LƯU SẴN (ai_job_matches):
-        // Đọc trực tiếp từ DB Cache (0ms compute, tuyệt đối KHÔNG xóa toàn bộ cache khi có CV ứng tuyển riêng lẻ)
+        // Đọc trực tiếp từ DB Cache (0ms compute, không block giao diện người dùng)
         List<AiJobMatch> cachedMatches = aiJobMatchRepository.findRecommendations(candidateId, effectiveMinScore);
         if (cachedMatches.isEmpty() && effectiveMinScore > 0) {
             cachedMatches = aiJobMatchRepository.findRecommendations(candidateId, 0.0f);
@@ -854,6 +873,51 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
                 responses = responses.subList(0, effectiveLimit);
             }
             return responses;
+        }
+
+        // 2. NẾU CHƯA CÓ MATCHES NÀO (bản ghi rỗng cho ứng viên này):
+        Candidate candidate = candidateRepository.findById(candidateId).orElse(null);
+        if (candidate != null) {
+            Cv defaultCv = resolveCandidateDefaultCv(candidateId);
+            List<Job> targetJobs = fetchTargetJobsForCandidate(candidate);
+            if (!targetJobs.isEmpty()) {
+                List<Job> quickBatch = targetJobs.size() > 6 ? targetJobs.subList(0, 6) : targetJobs;
+                computeJobMatchesSubset(candidate, defaultCv, quickBatch);
+
+                cachedMatches = aiJobMatchRepository.findRecommendations(candidateId, 0.0f);
+                if (!cachedMatches.isEmpty()) {
+                    List<Job> matchedJobs = cachedMatches.stream()
+                            .map(AiJobMatch::getJob)
+                            .filter(Objects::nonNull)
+                            .toList();
+
+                    List<com.hiremate.dto.response.JobResponse> responses = (jobService != null)
+                            ? jobService.mapToResponses(matchedJobs)
+                            : new ArrayList<>();
+
+                    Map<Long, AiJobMatch> matchMap = cachedMatches.stream()
+                            .filter(m -> m.getJob() != null && m.getJob().getJobId() != null)
+                            .collect(Collectors.toMap(m -> m.getJob().getJobId(), m -> m, (a, b) -> a));
+
+                    for (com.hiremate.dto.response.JobResponse resp : responses) {
+                        AiJobMatch m = matchMap.get(resp.getJobId());
+                        if (m != null) {
+                            resp.setMatchingScore(m.getMatchingScore());
+                            resp.setAiReasoning(m.getAiReasoning());
+                        }
+                    }
+
+                    responses.sort((a, b) -> Float.compare(
+                            b.getMatchingScore() != null ? b.getMatchingScore() : 0f,
+                            a.getMatchingScore() != null ? a.getMatchingScore() : 0f
+                    ));
+
+                    if (responses.size() > effectiveLimit) {
+                        responses = responses.subList(0, effectiveLimit);
+                    }
+                    return responses;
+                }
+            }
         }
 
         return Collections.emptyList();
@@ -976,13 +1040,7 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
     @Transactional
     public List<com.hiremate.dto.response.JobResponse> reMatchJobs(User candidateUser) {
         Long candidateId = candidateUser.getUserId();
-        log.info(">> [AiJobMatchService] Ứng viên {} yêu cầu Làm mới gợi ý AI (Re-Match). Xóa cache cũ...", candidateId);
-        try {
-            aiJobMatchRepository.deleteByCandidate_CandidateId(candidateId);
-            aiJobMatchRepository.flush();
-        } catch (Exception ex) {
-            log.warn(">> [AiJobMatchService] Lỗi khi dọn dẹp cache: {}", ex.getMessage());
-        }
+        log.info(">> [AiJobMatchService] Ứng viên {} yêu cầu Làm mới gợi ý AI (Re-Match).", candidateId);
         Candidate candidate = candidateRepository.findById(candidateId).orElse(null);
         Cv defaultCv = resolveCandidateDefaultCv(candidateId);
         if (candidate != null) {
@@ -1303,19 +1361,15 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
             }
         }
 
-        // 6. Tra cứu từ đồng nghĩa (aliases) trong kho từ điển động getActiveSkillCache()
-        for (Skill s : getActiveSkillCache().values()) {
-            if (s.getSkillName() != null && s.getSkillName().equalsIgnoreCase(cleanSkill)) {
-                if (s.getAliases() != null && !s.getAliases().isBlank()) {
-                    String[] aliasArr = s.getAliases().split("[,;]");
-                    for (String a : aliasArr) {
-                        String trimmed = a.trim();
-                        if (!trimmed.isBlank() && (hasRegexMatchWithNegation(text, trimmed) || hasRegexMatchDirect(text, trimmed))) {
-                            return true;
-                        }
-                    }
+        // 6. Tra cứu từ đồng nghĩa (aliases) trong kho từ điển động O(1)
+        Skill s = getSkillByName(cleanSkill);
+        if (s != null && s.getAliases() != null && !s.getAliases().isBlank()) {
+            String[] aliasArr = s.getAliases().split("[,;]");
+            for (String a : aliasArr) {
+                String trimmed = a.trim();
+                if (!trimmed.isBlank() && (hasRegexMatchWithNegation(text, trimmed) || hasRegexMatchDirect(text, trimmed))) {
+                    return true;
                 }
-                break;
             }
         }
 
@@ -1412,10 +1466,7 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
         }
         patternBuilder.append("(?![\\p{L}\\p{N}+#])");
 
-        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(
-                patternBuilder.toString(),
-                java.util.regex.Pattern.CASE_INSENSITIVE
-        );
+        java.util.regex.Pattern pattern = getCachedPattern(patternBuilder.toString());
         java.util.regex.Matcher matcher = pattern.matcher(text);
         while (matcher.find()) {
             int start = matcher.start();
@@ -1469,8 +1520,8 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
             patternBuilder.append(java.util.regex.Pattern.quote(tokens[i]));
         }
         patternBuilder.append("(?![\\p{L}\\p{N}+#])");
-        java.util.regex.Matcher m = java.util.regex.Pattern.compile(patternBuilder.toString(), java.util.regex.Pattern.CASE_INSENSITIVE).matcher(text);
-        return m.find();
+        java.util.regex.Pattern pattern = getCachedPattern(patternBuilder.toString());
+        return pattern.matcher(text).find();
     }
 
     private String formatEducationSummary(String educationsJson) {

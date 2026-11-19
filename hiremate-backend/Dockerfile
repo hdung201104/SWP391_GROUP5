@@ -23,11 +23,12 @@ WORKDIR /app
 COPY --from=builder /app/target/*.jar app.jar
 
 # JVM memory management strictly optimized for Render Free Tier (512MB RAM limit)
-# -XX:+UseContainerSupport: Detect cgroups container memory limits
-# -XX:MaxRAMPercentage=75.0: Allocate max 384MB heap out of 512MB, leaving 128MB for metaspace & OS threads
-# -Xss512k: Reduce thread stack size to conserve memory
-# -XX:+ExitOnOutOfMemoryError: Fail-fast and trigger immediate restart instead of freezing
-ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -Xss512k -XX:+ExitOnOutOfMemoryError"
+# -Xmx300m: Capping maximum heap at 300MB
+# -Xms128m: Initial heap at 128MB
+# -Xss256k: Reduced thread stack size to 256KB
+# -XX:MaxMetaspaceSize=120m: Guard metaspace from expanding indefinitely
+# -XX:+UseSerialGC: Serial GC saves ~40MB RAM overhead compared to G1GC
+ENV JAVA_OPTS="-Xmx300m -Xms128m -Xss256k -XX:MaxMetaspaceSize=120m -XX:+UseSerialGC -XX:+ExitOnOutOfMemoryError"
 ENV PORT=8088
 
 EXPOSE ${PORT}

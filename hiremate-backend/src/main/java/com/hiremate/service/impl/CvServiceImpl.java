@@ -300,13 +300,6 @@ public class CvServiceImpl implements CvService {
         log.info("CV saved successfully for candidate ID: {}, file: {}", candidate.getUserId(), originalName);
 
         try {
-            aiJobMatchRepository.deleteByCandidate_CandidateId(candidate.getUserId());
-            log.info(">> [CvService] Đã làm mới cache AI Job Matching khi tải lên CV mới cho candidate: {}", candidate.getUserId());
-        } catch (Exception ex) {
-            log.warn(">> [CvService] Không thể xóa cache AI Job Match cũ: {}", ex.getMessage());
-        }
-
-        try {
             // Automatically scan and parse CV with Gemini AI to extract real profile data
             return analyzeCv(saved.getCvId(), candidate);
         } catch (Throwable e) {
@@ -494,13 +487,6 @@ public class CvServiceImpl implements CvService {
             throw new IllegalArgumentException("CV not found or does not belong to candidate.");
         }
         cvRepository.saveAll(cvList);
-
-        try {
-            aiJobMatchRepository.deleteByCandidate_CandidateId(candidate.getUserId());
-            log.info(">> [CvService] Đã làm mới cache AI Job Matching khi đổi CV mặc định cho candidate: {}", candidate.getUserId());
-        } catch (Exception ex) {
-            log.warn(">> [CvService] Không thể xóa cache AI Job Match cũ: {}", ex.getMessage());
-        }
 
         schedulePostCommitReMatch(candidate, false);
 
@@ -976,15 +962,7 @@ public class CvServiceImpl implements CvService {
         Cv updated = cvRepository.save(cv);
         log.info(">> [CvService] CV ID {} analyzed successfully via Gemini ATS Engine", cvId);
 
-        // 7. Làm mới cache AI Job Matching: Xóa cache cũ trước khi transaction commit và chỉ tính lại SAU KHI commit
-        try {
-            aiJobMatchRepository.deleteByCandidate_CandidateId(candidate.getUserId());
-            log.info(">> [CvService] Đã xóa cache AI Job Matching cũ trước khi tính điểm mới cho candidate: {}", candidate.getUserId());
-        } catch (Exception ex) {
-            log.warn(">> [CvService] Không thể xóa cache AI Job Match cũ: {}", ex.getMessage());
-        }
-
-        // Chờ parent transaction commit xong (bảo đảm CV mới và candidate_skills đã hiển thị trong DB) rồi mới chạy re-match async
+        // Chờ parent transaction commit xong rồi mới chạy re-match async
         schedulePostCommitReMatch(candidate, true);
 
         return mapToResponse(updated);
@@ -1086,12 +1064,6 @@ public class CvServiceImpl implements CvService {
                             .aiDetected(true)
                             .build());
                 }
-            }
-
-            try {
-                aiJobMatchRepository.deleteByCandidate_CandidateId(candidate.getUserId());
-            } catch (Exception ex) {
-                log.warn(">> [CvService] Không thể xóa cache AI Job Match cũ khi cập nhật CV: {}", ex.getMessage());
             }
 
             // Tự động tính toán lại AI Matching sau khi transaction commit xong

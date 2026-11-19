@@ -425,10 +425,27 @@ export default function CandidateProfilePage({ user }) {
       const effectiveLimit = typeof limit === 'number'
         ? limit
         : recommendationGridLimit;
-      const res = await jobApi.getRecommendations({ minMatch: effectiveMinMatch, limit: effectiveLimit });
+
+      // Đặt timeout an toàn 7s để không bao giờ bị treo loader vô tận trên giao diện
+      const fetchPromise = jobApi.getRecommendations({ minMatch: effectiveMinMatch, limit: effectiveLimit });
+      const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve({ data: [] }), 7000));
+      const res = await Promise.race([fetchPromise, timeoutPromise]);
+
       const list = res?.data || res || [];
       if (Array.isArray(list)) {
         setRecommendedJobs(list);
+        if (list.length === 0) {
+          // Tự động kéo lại sau 1.5s nếu hệ thống đang hoàn tất lưu điểm async
+          setTimeout(async () => {
+            try {
+              const retryRes = await jobApi.getRecommendations({ minMatch: 0, limit: effectiveLimit });
+              const retryList = retryRes?.data || retryRes || [];
+              if (Array.isArray(retryList) && retryList.length > 0) {
+                setRecommendedJobs(retryList);
+              }
+            } catch (ignored) {}
+          }, 1500);
+        }
       }
     } catch (err) {
       console.warn('Lỗi khi tải việc làm gợi ý:', err);
@@ -4805,8 +4822,16 @@ export default function CandidateProfilePage({ user }) {
                       <span className="font-semibold">AI đang phân tích và tìm kiếm việc làm phù hợp nhất...</span>
                     </div>
                   ) : recommendedJobs.length === 0 ? (
-                    <div className="py-8 text-center text-xs text-slate-400 bg-purple-50/40 rounded-2xl">
-                      Đang đồng bộ dữ liệu so khớp, bạn có thể duyệt việc làm tại Trang chủ!
+                    <div className="py-6 px-4 text-center text-xs text-slate-500 bg-purple-50/40 rounded-2xl border border-dashed border-purple-200 flex flex-col items-center gap-2">
+                      <span>Đang đồng bộ dữ liệu việc làm phù hợp cho hồ sơ mới của bạn.</span>
+                      <button
+                        type="button"
+                        onClick={() => fetchRecommendations({ minMatch: 0 })}
+                        className="px-3 py-1.5 rounded-lg bg-[#5b48bd] text-white font-medium text-xs hover:bg-[#48369e] transition-colors flex items-center gap-1 shadow-xs cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-sm">refresh</span>
+                        <span>Tải lại đề xuất</span>
+                      </button>
                     </div>
                   ) : (
                     recommendedJobs.slice(0, recommendationModalLimit).map((job) => {
