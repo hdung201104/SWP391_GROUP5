@@ -9,6 +9,11 @@ import java.util.List;
 
 public interface GeminiAiService {
 
+    /** Trả về trạng thái chẩn đoán an toàn (không chứa API key) của lượt gọi Gemini Voice/Eval gần nhất. */
+    default String getLastVoiceAiStatus() {
+        return "unknown";
+    }
+
     /**
      * Kiểm tra xem cấu hình Gemini API key có hợp lệ và sẵn sàng hay không.
      */

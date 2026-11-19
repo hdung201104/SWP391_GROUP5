@@ -6446,7 +6446,7 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
                   <div className="flex items-center gap-1.5 truncate">
                     <span className="material-symbols-outlined text-sm text-[#32247b]">record_voice_over</span>
                     <span className="text-[11px] font-medium truncate">
-                      Giọng đọc: <strong className="text-slate-800">{selectedVoice?.name?.replace(/Microsoft |Online \(Natural\) - |Google /g, '') || 'Tự động (Tiếng Việt)'}</strong>
+                      Giọng đọc: <strong className="text-slate-800">{(VOICE_PRESETS.find((v) => v.id === selectedVoicePreset)?.name) || 'Giọng Nữ Chuẩn Mực'}</strong>
                     </span>
                   </div>
                   {availableVoices.length > 1 && (

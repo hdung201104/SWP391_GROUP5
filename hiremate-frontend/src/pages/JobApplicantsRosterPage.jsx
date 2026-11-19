@@ -86,11 +86,11 @@ function generateComprehensiveAiReport(cand, jobDetails, liveAiReport) {
 
       // Nếu kỹ năng đã được xác nhận sở hữu trong advantages hoặc matched, TUYỆT ĐỐI không đưa vào nhược điểm
       if (verifiedSkillsText.includes(sLower) || verifiedSkillsText.includes(nameLower)
-          || matchedSkillsList.some((m) => m.includes(sLower) || sLower.includes(m))) {
+        || matchedSkillsList.some((m) => m.includes(sLower) || sLower.includes(m))) {
         return;
       }
 
-      const exists = fullDisadvantages.some((d) => 
+      const exists = fullDisadvantages.some((d) =>
         (d.title && (d.title.toLowerCase().includes(nameLower) || d.title.toLowerCase().includes(sLower))) ||
         (d.jobRequirement && (d.jobRequirement.toLowerCase().includes(nameLower) || d.jobRequirement.toLowerCase().includes(sLower)))
       );
@@ -111,11 +111,11 @@ function generateComprehensiveAiReport(cand, jobDetails, liveAiReport) {
       const nameLower = skillName.toLowerCase();
 
       if (verifiedSkillsText.includes(sLower) || verifiedSkillsText.includes(nameLower)
-          || matchedSkillsList.some((m) => m.includes(sLower) || sLower.includes(m))) {
+        || matchedSkillsList.some((m) => m.includes(sLower) || sLower.includes(m))) {
         return;
       }
 
-      const exists = fullDisadvantages.some((d) => 
+      const exists = fullDisadvantages.some((d) =>
         (d.title && (d.title.toLowerCase().includes(nameLower) || d.title.toLowerCase().includes(sLower))) ||
         (d.jobRequirement && (d.jobRequirement.toLowerCase().includes(nameLower) || d.jobRequirement.toLowerCase().includes(sLower)))
       );
@@ -438,7 +438,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
               }
             }
           }
-        } catch {}
+        } catch { }
       }
 
       if (isMounted && resolvedStatus) {
@@ -563,7 +563,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
       setUnlockedCandidateIds(next);
       try {
         localStorage.setItem('hiremate_unlocked_candidates', JSON.stringify(next));
-      } catch {}
+      } catch { }
       triggerToast(`🎉 Đã mở khóa thông tin liên hệ của ứng viên ${cand.name}!`);
     }
   };
@@ -662,7 +662,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
           setIsLoadingInterviewData(false);
           return;
         }
-      } catch {}
+      } catch { }
     }
 
     // Nếu ứng viên chưa có báo cáo và chưa yêu cầu AI -> Không tự động gọi Gemini API để tránh tốn Token
@@ -691,10 +691,10 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
             prev.map((c) =>
               c.candidateId === candId
                 ? {
-                    ...c,
-                    matchScore: freshScore,
-                    matchCategory: data.matchTier || (freshScore >= 80 ? '⭐ Phù Hợp Xuất Sắc' : freshScore >= 70 ? '✨ Phù Hợp Tốt' : 'Trau Dồi Kỹ Năng'),
-                  }
+                  ...c,
+                  matchScore: freshScore,
+                  matchCategory: data.matchTier || (freshScore >= 80 ? '⭐ Phù Hợp Xuất Sắc' : freshScore >= 70 ? '✨ Phù Hợp Tốt' : 'Trau Dồi Kỹ Năng'),
+                }
                 : c
             )
           );
@@ -740,7 +740,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
           if (Array.isArray(myJobsRes?.data) && myJobsRes.data.length > 0) {
             currentJob = myJobsRes.data.find((j) => String(j.jobId) === String(jobId)) || myJobsRes.data[0];
           }
-        } catch (ignored) {}
+        } catch (ignored) { }
       }
 
       const activeJobId = currentJob?.jobId || jobId;
@@ -805,11 +805,11 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
 
         const statusLabel = stage === 'NEW' ? 'Mới Nhận'
           : stage === 'REVIEWING' ? 'Đang Xem Xét'
-          : stage === 'INTERVIEW' ? 'Duyệt Phỏng Vấn'
-          : stage === 'PASSED' ? 'Đạt Yêu Cầu (Offer)'
-          : stage === 'HIRED' ? 'Trúng Tuyển (Hired)'
-          : stage === 'WITHDRAWN' ? 'Ứng Viên Đã Rút Đơn'
-          : 'Từ Chối';
+            : stage === 'INTERVIEW' ? 'Duyệt Phỏng Vấn'
+              : stage === 'PASSED' ? 'Đạt Yêu Cầu (Offer)'
+                : stage === 'HIRED' ? 'Trúng Tuyển (Hired)'
+                  : stage === 'WITHDRAWN' ? 'Ứng Viên Đã Rút Đơn'
+                    : 'Từ Chối';
 
         const name = app.candidateName || `Ứng viên #${app.candidateId || idx + 1}`;
         const initials = name
@@ -887,7 +887,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                   reportsCacheRef.current[`${activeJobId}_${app.candidateId}`] = parsedEval;
                   return true;
                 }
-              } catch {}
+              } catch { }
             }
             return Boolean(
               score > 0 ||
@@ -1042,7 +1042,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
       if (data?.matchingScore != null) {
         const freshScore = Math.round(data.matchingScore);
         const freshTier = data.matchTier || (freshScore >= 85 ? '⭐ Phù Hợp Xuất Sắc' : freshScore >= 70 ? '✨ Phù Hợp Tốt' : freshScore >= 50 ? '💡 Tiềm Năng' : 'Trau Dồi Kỹ Năng');
-        
+
         const freshSkillsScore = data.skillsScore != null ? Math.round(data.skillsScore) : freshScore;
         const freshExpScore = data.experienceScore != null ? Math.round(data.experienceScore) : freshScore;
         const freshEduScore = data.educationScore != null ? Math.round(data.educationScore) : freshScore;
@@ -1063,22 +1063,22 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
           const updated = prev.map((c) =>
             c.candidateId === cand.candidateId
               ? {
-                  ...c,
-                  matchScore: freshScore,
-                  matchCategory: freshTier,
-                  skillsScore: freshSkillsScore,
-                  experienceScore: freshExpScore,
-                  educationScore: freshEduScore,
-                  semanticScore: freshSemScore,
-                  mandatoryMatched: mandMatched,
-                  mandatoryMissing: mandMissing,
-                  preferredMatched: prefMatched,
-                  techChips: freshTechChips,
-                  aiQuote: data.overallVerdict || c.aiQuote,
-                  isLowerScore: freshScore < 60,
-                  hasAiReport: true,
-                  evaluationNotes: JSON.stringify(data),
-                }
+                ...c,
+                matchScore: freshScore,
+                matchCategory: freshTier,
+                skillsScore: freshSkillsScore,
+                experienceScore: freshExpScore,
+                educationScore: freshEduScore,
+                semanticScore: freshSemScore,
+                mandatoryMatched: mandMatched,
+                mandatoryMissing: mandMissing,
+                preferredMatched: prefMatched,
+                techChips: freshTechChips,
+                aiQuote: data.overallVerdict || c.aiQuote,
+                isLowerScore: freshScore < 60,
+                hasAiReport: true,
+                evaluationNotes: JSON.stringify(data),
+              }
               : c
           );
           updated.sort((a, b) => {
@@ -1149,7 +1149,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
     try {
       setIsExporting(true);
       triggerToast('Đang tạo tệp Excel danh sách ứng viên...');
-      
+
       const listToExport = filteredCandidates.length > 0 ? filteredCandidates : candidates;
       if (!listToExport || listToExport.length === 0) {
         triggerToast('Chưa có ứng viên nào để xuất dữ liệu.');
@@ -1170,7 +1170,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
     }
   };
 
-    // Dynamic Skill options for filter
+  // Dynamic Skill options for filter
   const availableSkillOptions = useMemo(() => {
     const s = new Set();
     if (Array.isArray(jobDetails.mandatorySkills)) jobDetails.mandatorySkills.forEach(x => s.add(x));
@@ -1296,7 +1296,7 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
 
         {/* Main Workspace Container */}
         <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-8 flex flex-col gap-6 relative z-10">
-          
+
           {/* CẢNH BÁO DOANH NGHIỆP CHƯA DUYỆT HOẶC ĐÃ BỊ ĐÌNH CHỈ GPKD */}
           {!isCompanyVerified && (
             <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-rose-50 via-rose-50/95 to-amber-50/80 border-2 border-rose-300 text-rose-950 text-xs shadow-md flex items-start gap-4 animate-in fade-in">
@@ -1424,11 +1424,10 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                       triggerToast('Lỗi cập nhật trạng thái tin: ' + (err.response?.data?.message || err.message));
                     }
                   }}
-                  className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs border ${
-                    jobDetails.status === 'CLOSED'
-                      ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200'
-                      : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200'
-                  }`}
+                  className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs border ${jobDetails.status === 'CLOSED'
+                    ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200'
+                    : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200'
+                    }`}
                   title={
                     jobDetails.status === 'CLOSED'
                       ? 'Mở lại bài đăng để tiếp tục nhận hồ sơ ứng viên trên Trang chủ'
@@ -1647,13 +1646,12 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                           <h4 className="text-xs sm:text-sm font-bold text-slate-900 truncate group-hover:text-purple-700 transition-colors">
                             {cand.name}
                           </h4>
-                          <span className={`px-2 py-0.2 rounded-full text-[10px] font-bold shrink-0 ${
-                            cand.matchScore >= 80
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                              : cand.matchScore >= 65
+                          <span className={`px-2 py-0.2 rounded-full text-[10px] font-bold shrink-0 ${cand.matchScore >= 80
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            : cand.matchScore >= 65
                               ? 'bg-purple-50 text-purple-700 border border-purple-200'
                               : 'bg-amber-50 text-amber-700 border border-amber-200'
-                          }`}>
+                            }`}>
                             {cand.matchScore}% AI
                           </span>
                         </div>
@@ -1769,11 +1767,10 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                       setActiveFilter(st.id);
                       setCurrentPage(1);
                     }}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                      activeFilter === st.id
-                        ? 'bg-purple-100 text-purple-900 border border-purple-300 font-extrabold'
-                        : 'text-slate-600 hover:text-purple-700 hover:bg-slate-50'
-                    }`}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${activeFilter === st.id
+                      ? 'bg-purple-100 text-purple-900 border border-purple-300 font-extrabold'
+                      : 'text-slate-600 hover:text-purple-700 hover:bg-slate-50'
+                      }`}
                   >
                     {st.label} <span className="opacity-70 text-[10px]">({st.count})</span>
                   </button>
@@ -1820,11 +1817,10 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                       key={item.id}
                       type="button"
                       onClick={() => { setScoreFilter(item.id); setCurrentPage(1); }}
-                      className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
-                        scoreFilter === item.id
-                          ? 'bg-white text-purple-700 shadow-2xs border border-purple-200'
-                          : 'text-slate-600 hover:text-purple-700'
-                      }`}
+                      className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${scoreFilter === item.id
+                        ? 'bg-white text-purple-700 shadow-2xs border border-purple-200'
+                        : 'text-slate-600 hover:text-purple-700'
+                        }`}
                     >
                       {item.label}
                     </button>
@@ -1881,9 +1877,8 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                   </span>
                   <div className="w-7 h-3.5 bg-purple-200 rounded-full flex items-center p-0.5">
                     <div
-                      className={`w-2.5 h-2.5 bg-[#5b48bd] rounded-full transition-transform ${
-                        isAiSortDescending ? 'ml-auto' : 'mr-auto'
-                      }`}
+                      className={`w-2.5 h-2.5 bg-[#5b48bd] rounded-full transition-transform ${isAiSortDescending ? 'ml-auto' : 'mr-auto'
+                        }`}
                     />
                   </div>
                 </button>
@@ -1974,9 +1969,8 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                 {paginatedCandidates.map((cand) => (
                   <div
                     key={cand.id}
-                    className={`p-5 rounded-2xl flex flex-col xl:flex-row xl:items-center justify-between gap-4 transition-all shadow-xs hover:shadow-md hover:border-purple-300 group border border-slate-200/90 bg-white ${
-                      cand.isLowerScore ? 'opacity-90' : ''
-                    }`}
+                    className={`p-5 rounded-2xl flex flex-col xl:flex-row xl:items-center justify-between gap-4 transition-all shadow-xs hover:shadow-md hover:border-purple-300 group border border-slate-200/90 bg-white ${cand.isLowerScore ? 'opacity-90' : ''
+                      }`}
                   >
                     {/* Checkbox for item */}
                     <div className="flex items-center shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -1985,257 +1979,252 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                         checked={selectedAppIds.includes(cand.applicationId)}
                         disabled={cand.stage === 'WITHDRAWN' || cand.stage === 'HIRED' || cand.stage === 'REJECTED' || !canManageJob}
                         onChange={() => toggleSelectApplicant(cand.applicationId)}
-                        className={`w-4 h-4 rounded text-[#5b48bd] focus:ring-purple-400 border-slate-300 ${
-                          cand.stage === 'WITHDRAWN' || cand.stage === 'HIRED' || cand.stage === 'REJECTED' || !canManageJob ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'
-                        }`}
+                        className={`w-4 h-4 rounded text-[#5b48bd] focus:ring-purple-400 border-slate-300 ${cand.stage === 'WITHDRAWN' || cand.stage === 'HIRED' || cand.stage === 'REJECTED' || !canManageJob ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'
+                          }`}
                         title={
                           !canManageJob
                             ? 'Tin thuộc chi nhánh khác (Chỉ xem)'
                             : cand.stage === 'WITHDRAWN'
-                            ? 'Ứng viên đã rút đơn, không thể chọn'
-                            : cand.stage === 'HIRED' || cand.stage === 'REJECTED'
-                            ? 'Hồ sơ đã chốt kết quả, không thể thao tác hàng loạt'
-                            : 'Chọn ứng viên này'
+                              ? 'Ứng viên đã rút đơn, không thể chọn'
+                              : cand.stage === 'HIRED' || cand.stage === 'REJECTED'
+                                ? 'Hồ sơ đã chốt kết quả, không thể thao tác hàng loạt'
+                                : 'Chọn ứng viên này'
                         }
                       />
                     </div>
 
                     {/* Col 1: Identity & Credentials (26% fixed width on XL) */}
-                  <div 
-                    onClick={() => {
-                      window.location.hash = `#/candidate-evaluation?candidateId=${cand.candidateId}&jobId=${jobDetails.id}&appId=${cand.applicationId}&cvId=${cand.cvId || ''}&atsScore=${cand.matchScore || ''}`;
-                    }}
-                    className="flex items-start gap-3.5 min-w-0 xl:w-[26%] shrink-0 cursor-pointer"
-                    title="Nhấp để xem hồ sơ và CV chi tiết của ứng viên này"
-                  >
-                    <div className="relative shrink-0">
-                      <AvatarImg
-                        src={cand.avatar}
-                        name={cand.name}
-                        alt={`Portrait of ${cand.name}`}
-                        className="w-14 h-14 rounded-2xl object-cover ring-1 ring-slate-200 group-hover:ring-purple-400 transition-all shadow-xs"
-                        fallbackClassName="w-14 h-14 rounded-2xl text-white flex items-center justify-center font-bold text-base ring-1 ring-purple-200 shadow-xs"
-                      />
-
-                      {cand.isKnockedOut || (cand.matchScore || 0) < 50 ? (
-                        <span
-                          className="absolute -bottom-1 -right-1 px-1.5 py-0.2 rounded-full text-[9px] font-extrabold bg-slate-500 text-white shadow-xs"
-                          title={cand.knockoutReason || 'Dưới ngưỡng phù hợp (< 50%)'}
-                        >
-                          {cand.isKnockedOut ? 'Loại' : 'Chưa đạt'}
-                        </span>
-                      ) : cand.rank && (
-                        <span
-                          className={`absolute -bottom-1 -right-1 px-1.5 py-0.2 rounded-full text-[9px] font-extrabold ${
-                            cand.rank === 1
-                              ? 'bg-amber-500 text-white shadow-xs ring-1 ring-amber-300'
-                              : cand.isTop10
-                              ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-xs'
-                              : cand.isTop20
-                              ? 'bg-[#5b48bd] text-white shadow-xs'
-                              : 'bg-slate-800 text-white'
-                          }`}
-                        >
-                          #{cand.rank} Top
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex flex-col min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-sm font-bold text-slate-900 group-hover:text-purple-700 transition-colors truncate">
-                          {cand.name}
-                        </span>
-                        {cand.verified && (
-                          <span className="material-symbols-outlined text-[15px] text-emerald-600 shrink-0" title="Đã xác thực hồ sơ">
-                            verified
-                          </span>
-                        )}
-                        <span className="material-symbols-outlined text-[13px] text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                          open_in_new
-                        </span>
-                      </div>
-                      <span className="text-xs text-slate-500 font-medium truncate mt-0.5">
-                        {cand.email || cand.role}
-                      </span>
-                      <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-1.5 font-medium">
-                        <span className="flex items-center gap-1 text-purple-700 font-semibold truncate max-w-[150px]">
-                          <span className="material-symbols-outlined text-[13px]">description</span>
-                          <span>{cand.experience}</span>
-                        </span>
-                        <span>&bull;</span>
-                        <span className="flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[13px]">schedule</span>
-                          <span>{cand.appliedTime}</span>
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Col 2: Match Badge & Xem Báo Cáo AI Button (Chỉ chấm AI cho Top 10, ứng viên khác chấm theo yêu cầu) */}
-                  <div className="flex items-center gap-2.5 min-w-0 xl:flex-1 xl:px-4 flex-wrap">
-                    {cand.isEvaluated && (cand.matchScore || 0) > 0 ? (
-                      <>
-                        <div
-                          className={`px-3 py-1 rounded-full flex items-center gap-1.5 border shrink-0 ${
-                            cand.matchScore >= 80
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200 shadow-xs'
-                              : cand.matchScore >= 65
-                              ? 'bg-purple-50 text-purple-700 border-purple-200 shadow-xs'
-                              : 'bg-amber-50 text-amber-700 border-amber-200'
-                          }`}
-                        >
-                          <span className="material-symbols-outlined text-[15px]">
-                            {cand.matchScore >= 80 ? 'verified' : cand.matchScore >= 65 ? 'insights' : 'warning'}
-                          </span>
-                          <span className="text-xs font-black tracking-wide">
-                            {cand.matchScore}% AI Match
-                          </span>
-                        </div>
-
-                        <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
-                          {cand.matchCategory}
-                        </span>
-
-                        <button
-                          type="button"
-                          onClick={() => setSelectedCandidateForModal(cand)}
-                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#5b48bd] hover:bg-[#47369f] text-white text-xs font-bold transition-all cursor-pointer shadow-xs hover:scale-105 shrink-0"
-                          title="Xem báo cáo AI chuyên sâu đã lưu trong CSDL (0ms, 0 Token)"
-                        >
-                          <span className="material-symbols-outlined text-[15px]">description</span>
-                          <span>Xem Báo Cáo (Đã lưu)</span>
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 ml-0.5"></span>
-                        </button>
-                      </>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
-                          Chờ Chấm AI
-                        </span>
-                        <button
-                          type="button"
-                          disabled={evaluatingCandId === cand.candidateId}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeepEvaluateCandidate(cand);
-                          }}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-bold transition-all cursor-pointer shadow-xs hover:scale-105 shrink-0"
-                          title="Bấm để kích hoạt AI thẩm định và chấm điểm hồ sơ này (Lưu cứng vào CSDL)"
-                        >
-                          <span className={`material-symbols-outlined text-[15px] ${evaluatingCandId === cand.candidateId ? 'animate-spin' : ''}`}>
-                            {evaluatingCandId === cand.candidateId ? 'sync' : 'auto_awesome'}
-                          </span>
-                          <span>{evaluatingCandId === cand.candidateId ? 'AI Đang Chấm Điểm...' : '🤖 Chấm Điểm AI'}</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Col 3: Actions & Status Management (Shrink-0, intrinsic width, perfectly aligned right, no overlapping) */}
-                  <div className="flex items-center justify-start xl:justify-end gap-2 shrink-0 flex-wrap sm:flex-nowrap">
-                    {/* Direct Quick View CV Modal */}
-                    <button
-                      type="button"
-                      onClick={() => setViewingCvCandidate(cand)}
-                      className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer bg-slate-100 hover:bg-purple-50 text-slate-700 hover:text-purple-700 border border-slate-200 hover:border-purple-300 flex items-center gap-1.5 shadow-2xs shrink-0"
-                      title="Mở xem trực tiếp bản CV ứng viên đã nộp"
-                    >
-                      <span className="material-symbols-outlined text-[15px] text-rose-500">picture_as_pdf</span>
-                      <span>Xem CV</span>
-                    </button>
-
-                    {/* View CV & Profile Button */}
-                    <button
-                      type="button"
+                    <div
                       onClick={() => {
                         window.location.hash = `#/candidate-evaluation?candidateId=${cand.candidateId}&jobId=${jobDetails.id}&appId=${cand.applicationId}&cvId=${cand.cvId || ''}&atsScore=${cand.matchScore || ''}`;
                       }}
-                      className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer bg-gradient-to-r from-[#221d47] to-[#5b48bd] hover:from-[#1b1739] hover:to-[#47369f] text-white shadow-2xs hover:shadow flex items-center gap-1.5 shrink-0"
-                      title="Xem hồ sơ chi tiết & đánh giá phỏng vấn"
+                      className="flex items-start gap-3.5 min-w-0 xl:w-[26%] shrink-0 cursor-pointer"
+                      title="Nhấp để xem hồ sơ và CV chi tiết của ứng viên này"
                     >
-                      <span className="material-symbols-outlined text-[15px]">badge</span>
-                      <span>Hồ Sơ &amp; CV</span>
-                    </button>
+                      <div className="relative shrink-0">
+                        <AvatarImg
+                          src={cand.avatar}
+                          name={cand.name}
+                          alt={`Portrait of ${cand.name}`}
+                          className="w-14 h-14 rounded-2xl object-cover ring-1 ring-slate-200 group-hover:ring-purple-400 transition-all shadow-xs"
+                          fallbackClassName="w-14 h-14 rounded-2xl text-white flex items-center justify-center font-bold text-base ring-1 ring-purple-200 shadow-xs"
+                        />
 
-                    {/* Direct Email to Candidate (Compact icon button) */}
-                    <a
-                      href={createHrToCandidateMailto({
-                        candidateEmail: cand.email || cand.role,
-                        candidateName: cand.name,
-                        jobTitle: jobDetails.title,
-                        companyName: user?.companyName || user?.company?.companyName || 'Công ty Tuyển dụng',
-                        hrName: user?.fullName || user?.name || 'Bộ phận Tuyển dụng',
-                        hrPosition: user?.position || 'Talent Acquisition Team',
-                      })}
-                      className="p-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200 hover:border-emerald-300 flex items-center justify-center shadow-2xs shrink-0"
-                      title="Gửi email trực tiếp cho ứng viên này"
-                    >
-                      <span className="material-symbols-outlined text-[16px] text-emerald-600">mail</span>
-                    </a>
+                        {cand.isKnockedOut || (cand.matchScore || 0) < 50 ? (
+                          <span
+                            className="absolute -bottom-1 -right-1 px-1.5 py-0.2 rounded-full text-[9px] font-extrabold bg-slate-500 text-white shadow-xs"
+                            title={cand.knockoutReason || 'Dưới ngưỡng phù hợp (< 50%)'}
+                          >
+                            {cand.isKnockedOut ? 'Loại' : 'Chưa đạt'}
+                          </span>
+                        ) : cand.rank && (
+                          <span
+                            className={`absolute -bottom-1 -right-1 px-1.5 py-0.2 rounded-full text-[9px] font-extrabold ${cand.rank === 1
+                              ? 'bg-amber-500 text-white shadow-xs ring-1 ring-amber-300'
+                              : cand.isTop10
+                                ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-xs'
+                                : cand.isTop20
+                                  ? 'bg-[#5b48bd] text-white shadow-xs'
+                                  : 'bg-slate-800 text-white'
+                              }`}
+                          >
+                            #{cand.rank} Top
+                          </span>
+                        )}
+                      </div>
 
-                    <button
-                      type="button"
-                      disabled={cand.stage === 'WITHDRAWN' || cand.stage === 'HIRED' || cand.stage === 'REJECTED' || !canManageJob}
-                      onClick={() => setSchedulingCandidate(cand)}
-                      className={`p-1.5 rounded-xl text-xs font-bold transition-all border flex items-center justify-center shadow-2xs shrink-0 ${
-                        cand.stage === 'WITHDRAWN' || cand.stage === 'HIRED' || cand.stage === 'REJECTED' || !canManageJob
+                      <div className="flex flex-col min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm font-bold text-slate-900 group-hover:text-purple-700 transition-colors truncate">
+                            {cand.name}
+                          </span>
+                          {cand.verified && (
+                            <span className="material-symbols-outlined text-[15px] text-emerald-600 shrink-0" title="Đã xác thực hồ sơ">
+                              verified
+                            </span>
+                          )}
+                          <span className="material-symbols-outlined text-[13px] text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                            open_in_new
+                          </span>
+                        </div>
+                        <span className="text-xs text-slate-500 font-medium truncate mt-0.5">
+                          {cand.email || cand.role}
+                        </span>
+                        <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-1.5 font-medium">
+                          <span className="flex items-center gap-1 text-purple-700 font-semibold truncate max-w-[150px]">
+                            <span className="material-symbols-outlined text-[13px]">description</span>
+                            <span>{cand.experience}</span>
+                          </span>
+                          <span>&bull;</span>
+                          <span className="flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[13px]">schedule</span>
+                            <span>{cand.appliedTime}</span>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Col 2: Match Badge & Xem Báo Cáo AI Button (Chỉ chấm AI cho Top 10, ứng viên khác chấm theo yêu cầu) */}
+                    <div className="flex items-center gap-2.5 min-w-0 xl:flex-1 xl:px-4 flex-wrap">
+                      {cand.isEvaluated && (cand.matchScore || 0) > 0 ? (
+                        <>
+                          <div
+                            className={`px-3 py-1 rounded-full flex items-center gap-1.5 border shrink-0 ${cand.matchScore >= 80
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200 shadow-xs'
+                              : cand.matchScore >= 65
+                                ? 'bg-purple-50 text-purple-700 border-purple-200 shadow-xs'
+                                : 'bg-amber-50 text-amber-700 border-amber-200'
+                              }`}
+                          >
+                            <span className="material-symbols-outlined text-[15px]">
+                              {cand.matchScore >= 80 ? 'verified' : cand.matchScore >= 65 ? 'insights' : 'warning'}
+                            </span>
+                            <span className="text-xs font-black tracking-wide">
+                              {cand.matchScore}% AI Match
+                            </span>
+                          </div>
+
+                          <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
+                            {cand.matchCategory}
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={() => setSelectedCandidateForModal(cand)}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#5b48bd] hover:bg-[#47369f] text-white text-xs font-bold transition-all cursor-pointer shadow-xs hover:scale-105 shrink-0"
+                            title="Xem báo cáo AI chuyên sâu đã lưu trong CSDL (0ms, 0 Token)"
+                          >
+                            <span className="material-symbols-outlined text-[15px]">description</span>
+                            <span>Xem Báo Cáo (Đã lưu)</span>
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 ml-0.5"></span>
+                          </button>
+                        </>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
+                            Chờ Chấm AI
+                          </span>
+                          <button
+                            type="button"
+                            disabled={evaluatingCandId === cand.candidateId}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeepEvaluateCandidate(cand);
+                            }}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-bold transition-all cursor-pointer shadow-xs hover:scale-105 shrink-0"
+                            title="Bấm để kích hoạt AI thẩm định và chấm điểm hồ sơ này (Lưu cứng vào CSDL)"
+                          >
+                            <span className={`material-symbols-outlined text-[15px] ${evaluatingCandId === cand.candidateId ? 'animate-spin' : ''}`}>
+                              {evaluatingCandId === cand.candidateId ? 'sync' : 'auto_awesome'}
+                            </span>
+                            <span>{evaluatingCandId === cand.candidateId ? 'AI Đang Chấm Điểm...' : '🤖 Chấm Điểm AI'}</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Col 3: Actions & Status Management (Shrink-0, intrinsic width, perfectly aligned right, no overlapping) */}
+                    <div className="flex items-center justify-start xl:justify-end gap-2 shrink-0 flex-wrap sm:flex-nowrap">
+                      {/* Direct Quick View CV Modal */}
+                      <button
+                        type="button"
+                        onClick={() => setViewingCvCandidate(cand)}
+                        className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer bg-slate-100 hover:bg-purple-50 text-slate-700 hover:text-purple-700 border border-slate-200 hover:border-purple-300 flex items-center gap-1.5 shadow-2xs shrink-0"
+                        title="Mở xem trực tiếp bản CV ứng viên đã nộp"
+                      >
+                        <span className="material-symbols-outlined text-[15px] text-rose-500">picture_as_pdf</span>
+                        <span>Xem CV</span>
+                      </button>
+
+                      {/* View CV & Profile Button */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          window.location.hash = `#/candidate-evaluation?candidateId=${cand.candidateId}&jobId=${jobDetails.id}&appId=${cand.applicationId}&cvId=${cand.cvId || ''}&atsScore=${cand.matchScore || ''}`;
+                        }}
+                        className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer bg-gradient-to-r from-[#221d47] to-[#5b48bd] hover:from-[#1b1739] hover:to-[#47369f] text-white shadow-2xs hover:shadow flex items-center gap-1.5 shrink-0"
+                        title="Xem hồ sơ chi tiết & đánh giá phỏng vấn"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">badge</span>
+                        <span>Hồ Sơ &amp; CV</span>
+                      </button>
+
+                      {/* Direct Email to Candidate (Compact icon button) */}
+                      <a
+                        href={createHrToCandidateMailto({
+                          candidateEmail: cand.email || cand.role,
+                          candidateName: cand.name,
+                          jobTitle: jobDetails.title,
+                          companyName: user?.companyName || user?.company?.companyName || 'Công ty Tuyển dụng',
+                          hrName: user?.fullName || user?.name || 'Bộ phận Tuyển dụng',
+                          hrPosition: user?.position || 'Talent Acquisition Team',
+                        })}
+                        className="p-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200 hover:border-emerald-300 flex items-center justify-center shadow-2xs shrink-0"
+                        title="Gửi email trực tiếp cho ứng viên này"
+                      >
+                        <span className="material-symbols-outlined text-[16px] text-emerald-600">mail</span>
+                      </a>
+
+                      <button
+                        type="button"
+                        disabled={cand.stage === 'WITHDRAWN' || cand.stage === 'HIRED' || cand.stage === 'REJECTED' || !canManageJob}
+                        onClick={() => setSchedulingCandidate(cand)}
+                        className={`p-1.5 rounded-xl text-xs font-bold transition-all border flex items-center justify-center shadow-2xs shrink-0 ${cand.stage === 'WITHDRAWN' || cand.stage === 'HIRED' || cand.stage === 'REJECTED' || !canManageJob
                           ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400 border-slate-200'
                           : 'cursor-pointer bg-slate-100 hover:bg-purple-50 text-slate-700 hover:text-purple-700 border-slate-200 hover:border-purple-300'
-                      }`}
-                      title={
-                        !canManageJob
-                          ? 'Tin thuộc chi nhánh khác (Chỉ xem)'
-                          : cand.stage === 'WITHDRAWN'
-                          ? 'Ứng viên đã rút đơn, không thể xếp lịch phỏng vấn'
-                          : cand.stage === 'HIRED' || cand.stage === 'REJECTED'
-                          ? 'Hồ sơ đã chốt kết quả, không thể xếp lịch phỏng vấn'
-                          : 'Lên lịch phỏng vấn với ứng viên này'
-                      }
-                    >
-                      <span className="material-symbols-outlined text-[16px] text-purple-600">event_available</span>
-                    </button>
+                          }`}
+                        title={
+                          !canManageJob
+                            ? 'Tin thuộc chi nhánh khác (Chỉ xem)'
+                            : cand.stage === 'WITHDRAWN'
+                              ? 'Ứng viên đã rút đơn, không thể xếp lịch phỏng vấn'
+                              : cand.stage === 'HIRED' || cand.stage === 'REJECTED'
+                                ? 'Hồ sơ đã chốt kết quả, không thể xếp lịch phỏng vấn'
+                                : 'Lên lịch phỏng vấn với ứng viên này'
+                        }
+                      >
+                        <span className="material-symbols-outlined text-[16px] text-purple-600">event_available</span>
+                      </button>
 
-                    {/* Stage Dropdown or Badges */}
-                    {cand.withdrawnByCandidate || cand.stage === 'WITHDRAWN' ? (
-                      <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 text-xs font-bold shadow-2xs shrink-0" title="Ứng viên đã chủ động rút đơn ứng tuyển">
-                        <span className="material-symbols-outlined text-[15px] text-amber-600">undo</span>
-                        <span>Ứng viên đã rút đơn</span>
-                      </span>
-                    ) : cand.stage === 'HIRED' || cand.stage === 'REJECTED' || !canManageJob ? (
-                      <span className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border text-xs font-bold shadow-2xs shrink-0 ${
-                        cand.stage === 'HIRED'
+                      {/* Stage Dropdown or Badges */}
+                      {cand.withdrawnByCandidate || cand.stage === 'WITHDRAWN' ? (
+                        <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 text-xs font-bold shadow-2xs shrink-0" title="Ứng viên đã chủ động rút đơn ứng tuyển">
+                          <span className="material-symbols-outlined text-[15px] text-amber-600">undo</span>
+                          <span>Ứng viên đã rút đơn</span>
+                        </span>
+                      ) : cand.stage === 'HIRED' || cand.stage === 'REJECTED' || !canManageJob ? (
+                        <span className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border text-xs font-bold shadow-2xs shrink-0 ${cand.stage === 'HIRED'
                           ? 'bg-teal-50 text-teal-800 border-teal-200'
                           : cand.stage === 'REJECTED'
-                          ? 'bg-rose-50 text-rose-800 border-rose-200'
-                          : 'bg-slate-100 text-slate-600 border-slate-200'
-                      }`} title={!canManageJob ? 'Tin thuộc chi nhánh khác (Chỉ xem)' : 'Trạng thái đã chốt, không thể thay đổi'}>
-                        <span>{cand.statusLabel || (cand.stage === 'HIRED' ? 'Trúng Tuyển' : cand.stage === 'REJECTED' ? 'Từ Chối' : 'Chỉ xem')}</span>
-                        <span className="material-symbols-outlined text-[14px] text-slate-400">lock</span>
-                      </span>
-                    ) : (
-                      <div className="relative shrink-0">
-                        <select
-                          value={cand.statusLabel}
-                          onChange={(e) => handleStageChange(cand.id, e.target.value)}
-                          className="appearance-none bg-slate-50 hover:bg-white text-xs font-semibold py-1.5 pl-2.5 pr-7 rounded-xl cursor-pointer focus:outline-none border border-slate-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 text-slate-800 transition-all shadow-xs"
-                        >
-                          {STAGE_OPTIONS.map((opt, i) => (
-                            <option key={i} value={opt.label} className="bg-white text-slate-800">
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
-                        <span className="material-symbols-outlined absolute right-1.5 top-2 text-[15px] pointer-events-none text-slate-400">
-                          expand_more
+                            ? 'bg-rose-50 text-rose-800 border-rose-200'
+                            : 'bg-slate-100 text-slate-600 border-slate-200'
+                          }`} title={!canManageJob ? 'Tin thuộc chi nhánh khác (Chỉ xem)' : 'Trạng thái đã chốt, không thể thay đổi'}>
+                          <span>{cand.statusLabel || (cand.stage === 'HIRED' ? 'Trúng Tuyển' : cand.stage === 'REJECTED' ? 'Từ Chối' : 'Chỉ xem')}</span>
+                          <span className="material-symbols-outlined text-[14px] text-slate-400">lock</span>
                         </span>
-                      </div>
-                    )}
+                      ) : (
+                        <div className="relative shrink-0">
+                          <select
+                            value={cand.statusLabel}
+                            onChange={(e) => handleStageChange(cand.id, e.target.value)}
+                            className="appearance-none bg-slate-50 hover:bg-white text-xs font-semibold py-1.5 pl-2.5 pr-7 rounded-xl cursor-pointer focus:outline-none border border-slate-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 text-slate-800 transition-all shadow-xs"
+                          >
+                            {STAGE_OPTIONS.map((opt, i) => (
+                              <option key={i} value={opt.label} className="bg-white text-slate-800">
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                          <span className="material-symbols-outlined absolute right-1.5 top-2 text-[15px] pointer-events-none text-slate-400">
+                            expand_more
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </>
-          )}
+                ))}
+              </>
+            )}
           </div>
 
           {/* Floating Batch Action Bar */}
@@ -2295,9 +2284,8 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                 type="button"
                 disabled={validCurrentPage <= 1}
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
-                  validCurrentPage <= 1 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-700 hover:bg-slate-100 cursor-pointer'
-                }`}
+                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${validCurrentPage <= 1 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-700 hover:bg-slate-100 cursor-pointer'
+                  }`}
                 title="Trang trước"
               >
                 <span className="material-symbols-outlined text-[18px]">chevron_left</span>
@@ -2308,11 +2296,10 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                   key={pageNum}
                   type="button"
                   onClick={() => setCurrentPage(pageNum)}
-                  className={`w-8 h-8 rounded-lg text-xs font-semibold flex items-center justify-center cursor-pointer transition-all ${
-                    validCurrentPage === pageNum
-                      ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-xs font-bold'
-                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                  }`}
+                  className={`w-8 h-8 rounded-lg text-xs font-semibold flex items-center justify-center cursor-pointer transition-all ${validCurrentPage === pageNum
+                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-xs font-bold'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
                 >
                   {pageNum}
                 </button>
@@ -2322,9 +2309,8 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                 type="button"
                 disabled={validCurrentPage >= totalPages}
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
-                  validCurrentPage >= totalPages ? 'text-slate-300 cursor-not-allowed' : 'text-slate-700 hover:bg-slate-100 cursor-pointer'
-                }`}
+                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${validCurrentPage >= totalPages ? 'text-slate-300 cursor-not-allowed' : 'text-slate-700 hover:bg-slate-100 cursor-pointer'
+                  }`}
                 title="Trang tiếp"
               >
                 <span className="material-symbols-outlined text-[18px]">chevron_right</span>
@@ -2342,539 +2328,539 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
         return (
           <ModalPortal isOpen={!!selectedCandidateForModal}>
             <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-md animate-fade-in font-sans">
-            <div className="relative w-full max-w-[1280px] break-words bg-white border border-slate-200/90 rounded-[28px] max-h-[92vh] overflow-y-auto shadow-2xl flex flex-col text-slate-800">
-              
-              {/* Header Bar */}
-              <div className="px-6 py-4.5 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white/95 backdrop-blur-sm z-20">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-purple-50 text-[#5b48bd] border border-purple-100 flex items-center justify-center shrink-0 shadow-2xs">
-                    <img src={HIREMATE_LOGO_URL} alt="HireMate AI" className="w-6 h-6 object-contain" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
-                        Báo Cáo Đối Soát Hồ Sơ CV &amp; Bài Đăng Tuyển Dụng
-                      </h3>
-                      {isReportLoading ? (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
-                          <span className="w-1.5 h-1.5 rounded-full bg-purple-600 animate-ping"></span>
-                          Đang thẩm định chuyên sâu qua Gemini AI...
-                        </span>
-                      ) : aiReportData ? (
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200 shadow-2xs">
-                            <span className="material-symbols-outlined text-sm text-purple-600">database</span>
-                            <span>✓ Dữ liệu thẩm định đã lưu trong CSDL</span>
-                          </span>
-                          <button
-                            type="button"
-                            disabled={isReportLoading}
-                            onClick={() => {
-                              setIsReportLoading(true);
-                              aiMatchApi.getDetailedCandidateEvaluation(jobDetails.id, selectedCandidateForModal.candidateId, true)
-                                .then((res) => {
-                                  const data = res?.data?.data || res?.data || res;
-                                  reportsCacheRef.current[`${jobDetails.id}_${selectedCandidateForModal.candidateId}`] = data;
-                                  setAiReportData(data);
-                                  if (data?.matchingScore != null) {
-                                    const freshScore = Math.round(data.matchingScore);
-                                    setCandidates((prev) =>
-                                      prev.map((c) =>
-                                        c.candidateId === selectedCandidateForModal.candidateId
-                                          ? { ...c, matchScore: freshScore, matchCategory: data.matchTier || '✨ Phù Hợp', hasAiReport: true, evaluationNotes: JSON.stringify(data) }
-                                          : c
-                                      )
-                                    );
-                                    setSelectedCandidateForModal((prev) => (prev ? { ...prev, matchScore: freshScore, hasAiReport: true } : null));
-                                  }
-                                  triggerToast('🎉 Đã thẩm định lại qua AI và lưu kết quả mới vào CSDL!');
-                                })
-                                .catch((err) => {
-                                  console.warn('Lỗi gọi lại API AI:', err);
-                                  triggerToast('Không thể thẩm định lại lúc này.');
-                                })
-                                .finally(() => setIsReportLoading(false));
-                            }}
-                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-slate-100 hover:bg-purple-50 text-slate-700 hover:text-purple-700 border border-slate-200 hover:border-purple-300 transition-colors cursor-pointer"
-                            title="Yêu cầu Gemini AI phân tích lại toàn diện CV ứng viên này và lưu đè vào CSDL"
-                          >
-                            <span className={`material-symbols-outlined text-[13px] ${isReportLoading ? 'animate-spin' : ''}`}>sync</span>
-                            <span>🔄 Phân tích lại</span>
-                          </button>
-                        </div>
-                      ) : null}
-                    </div>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Đối soát độc lập nội dung CV thực tế với yêu cầu bài đăng: <strong>{report.jobTitle}</strong>
-                    </p>
-                  </div>
-                </div>
+              <div className="relative w-full max-w-[1280px] break-words bg-white border border-slate-200/90 rounded-[28px] max-h-[92vh] overflow-y-auto shadow-2xl flex flex-col text-slate-800">
 
-                <button
-                  type="button"
-                  onClick={() => setSelectedCandidateForModal(null)}
-                  className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors cursor-pointer shrink-0"
-                  title="Đóng báo cáo"
-                >
-                  <span className="material-symbols-outlined text-base">close</span>
-                </button>
-              </div>
-
-              {/* Modal Body */}
-              <div className="p-6 sm:p-8 lg:p-10 space-y-6">
-
-                {/* Nếu chưa có báo cáo AI chuyên sâu trong DB: Hiển thị Banner Yêu cầu Phân tích Sâu */}
-                {!aiReportData && !isReportLoading && (
-                  <div className="p-8 text-center bg-gradient-to-b from-purple-50/70 to-white rounded-3xl border border-purple-200 space-y-4 shadow-xs">
-                    <div className="w-14 h-14 mx-auto rounded-2xl bg-purple-100 text-[#5b48bd] flex items-center justify-center shadow-xs">
-                      <span className="material-symbols-outlined text-3xl">psychology</span>
+                {/* Header Bar */}
+                <div className="px-6 py-4.5 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white/95 backdrop-blur-sm z-20">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-purple-50 text-[#5b48bd] border border-purple-100 flex items-center justify-center shrink-0 shadow-2xs">
+                      <img src={HIREMATE_LOGO_URL} alt="HireMate AI" className="w-6 h-6 object-contain" />
                     </div>
-                    <div className="max-w-md mx-auto space-y-1">
-                      <h4 className="text-base font-bold text-slate-900">Chưa Có Báo Cáo Phân Tích Sâu (Lazy AI Report)</h4>
-                      <p className="text-xs text-slate-500 leading-relaxed">
-                        Ứng viên đã được sàng lọc và chấm điểm tự động qua Ma trận ATS (Tầng 2). Bấm nút bên dưới để yêu cầu Gemini AI phân tích sâu Điểm mạnh cốt lõi, Lỗ hổng kỹ năng (Skill Gap) và 3 câu hỏi phỏng vấn thực chiến.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleDeepEvaluateCandidate(selectedCandidateForModal)}
-                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-[#5b48bd] to-indigo-600 hover:from-[#47369f] hover:to-indigo-700 text-white font-bold text-xs shadow-md hover:scale-105 transition-all cursor-pointer"
-                    >
-                      <span className="material-symbols-outlined text-base">auto_awesome</span>
-                      <span>[🤖 Yêu Cầu AI Phân Tích Sâu] (Lưu Cứng Vào CSDL)</span>
-                    </button>
-                  </div>
-                )}
-                
-                {/* 1. Candidate Hero & ATS Score Gauge Card */}
-                <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-slate-50 via-purple-50/20 to-indigo-50/30 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-5 shadow-xs">
-                  <div className="flex items-center gap-4">
-                    <AvatarImg
-                      src={selectedCandidateForModal.avatar}
-                      name={selectedCandidateForModal.name}
-                      alt={selectedCandidateForModal.name}
-                      className="w-16 h-16 rounded-2xl object-cover ring-2 ring-purple-200 shadow-sm shrink-0"
-                      fallbackClassName="w-16 h-16 rounded-2xl text-white flex items-center justify-center font-bold text-2xl shadow-sm shrink-0"
-                    />
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h4 className="text-lg font-bold text-slate-900">
-                          {selectedCandidateForModal.name}
-                        </h4>
-                        {selectedCandidateForModal.rank && (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-white shadow-2xs">
-                            #{selectedCandidateForModal.rank} Top
+                        <h3 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+                          Báo Cáo Đối Soát Hồ Sơ CV &amp; Bài Đăng Tuyển Dụng
+                        </h3>
+                        {isReportLoading ? (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-purple-600 animate-ping"></span>
+                            Đang thẩm định chuyên sâu qua Gemini AI...
                           </span>
-                        )}
-                        <span className="material-symbols-outlined text-emerald-600 text-lg" title="Hồ sơ đã qua kiểm định hệ thống ATS">
-                          verified
-                        </span>
+                        ) : aiReportData ? (
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200 shadow-2xs">
+                              <span className="material-symbols-outlined text-sm text-purple-600">database</span>
+                              <span>✓ Dữ liệu thẩm định đã lưu trong CSDL</span>
+                            </span>
+                            <button
+                              type="button"
+                              disabled={isReportLoading}
+                              onClick={() => {
+                                setIsReportLoading(true);
+                                aiMatchApi.getDetailedCandidateEvaluation(jobDetails.id, selectedCandidateForModal.candidateId, true)
+                                  .then((res) => {
+                                    const data = res?.data?.data || res?.data || res;
+                                    reportsCacheRef.current[`${jobDetails.id}_${selectedCandidateForModal.candidateId}`] = data;
+                                    setAiReportData(data);
+                                    if (data?.matchingScore != null) {
+                                      const freshScore = Math.round(data.matchingScore);
+                                      setCandidates((prev) =>
+                                        prev.map((c) =>
+                                          c.candidateId === selectedCandidateForModal.candidateId
+                                            ? { ...c, matchScore: freshScore, matchCategory: data.matchTier || '✨ Phù Hợp', hasAiReport: true, evaluationNotes: JSON.stringify(data) }
+                                            : c
+                                        )
+                                      );
+                                      setSelectedCandidateForModal((prev) => (prev ? { ...prev, matchScore: freshScore, hasAiReport: true } : null));
+                                    }
+                                    triggerToast('🎉 Đã thẩm định lại qua AI và lưu kết quả mới vào CSDL!');
+                                  })
+                                  .catch((err) => {
+                                    console.warn('Lỗi gọi lại API AI:', err);
+                                    triggerToast('Không thể thẩm định lại lúc này.');
+                                  })
+                                  .finally(() => setIsReportLoading(false));
+                              }}
+                              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-slate-100 hover:bg-purple-50 text-slate-700 hover:text-purple-700 border border-slate-200 hover:border-purple-300 transition-colors cursor-pointer"
+                              title="Yêu cầu Gemini AI phân tích lại toàn diện CV ứng viên này và lưu đè vào CSDL"
+                            >
+                              <span className={`material-symbols-outlined text-[13px] ${isReportLoading ? 'animate-spin' : ''}`}>sync</span>
+                              <span>🔄 Phân tích lại</span>
+                            </button>
+                          </div>
+                        ) : null}
                       </div>
-                      <p className="text-xs text-slate-600 font-medium mt-1">
-                        {selectedCandidateForModal.email} • Ứng tuyển: <strong className="text-purple-700">{report.jobTitle}</strong>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Đối soát độc lập nội dung CV thực tế với yêu cầu bài đăng: <strong>{report.jobTitle}</strong>
                       </p>
-                      <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-1.5 font-medium">
-                        <span>Nộp lúc: <strong className="text-slate-600">{selectedCandidateForModal.appliedTime}</strong></span>
-                        <span>&bull;</span>
-                        <span className="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-700 font-semibold text-[10px]">
-                          {selectedCandidateForModal.statusLabel}
-                        </span>
-                      </div>
                     </div>
                   </div>
 
-                  {/* Overall Match Score Showcase */}
-                  <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center border-t sm:border-t-0 sm:border-l border-slate-200 pt-3 sm:pt-0 sm:pl-6 shrink-0">
-                    <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block mb-0.5">
-                      Điểm Tương Thích Tuyển Dụng
-                    </span>
-                    <div className="text-4xl font-black font-mono text-[#5b48bd] flex items-baseline gap-1">
-                      {report.score}%
-                      <span className="text-xs font-normal text-slate-400">/ 100%</span>
-                    </div>
-                    <span className="inline-flex items-center gap-1 mt-1 text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
-                      {report.matchCategory}
-                    </span>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCandidateForModal(null)}
+                    className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                    title="Đóng báo cáo"
+                  >
+                    <span className="material-symbols-outlined text-base">close</span>
+                  </button>
                 </div>
 
-                {/* 1.1. Ma Trận Đánh Giá Đa Tiêu Chí 4 Trụ Cột ATS */}
-                <div className="p-5 rounded-2xl bg-white border border-purple-200/80 shadow-xs space-y-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
-                        <span className="material-symbols-outlined text-base">analytics</span>
+                {/* Modal Body */}
+                <div className="p-6 sm:p-8 lg:p-10 space-y-6">
+
+                  {/* Nếu chưa có báo cáo AI chuyên sâu trong DB: Hiển thị Banner Yêu cầu Phân tích Sâu */}
+                  {!aiReportData && !isReportLoading && (
+                    <div className="p-8 text-center bg-gradient-to-b from-purple-50/70 to-white rounded-3xl border border-purple-200 space-y-4 shadow-xs">
+                      <div className="w-14 h-14 mx-auto rounded-2xl bg-purple-100 text-[#5b48bd] flex items-center justify-center shadow-xs">
+                        <span className="material-symbols-outlined text-3xl">psychology</span>
                       </div>
+                      <div className="max-w-md mx-auto space-y-1">
+                        <h4 className="text-base font-bold text-slate-900">Chưa Có Báo Cáo Phân Tích Sâu (Lazy AI Report)</h4>
+                        <p className="text-xs text-slate-500 leading-relaxed">
+                          Ứng viên đã được sàng lọc và chấm điểm tự động qua Ma trận ATS (Tầng 2). Bấm nút bên dưới để yêu cầu Gemini AI phân tích sâu Điểm mạnh cốt lõi, Lỗ hổng kỹ năng (Skill Gap) và 3 câu hỏi phỏng vấn thực chiến.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDeepEvaluateCandidate(selectedCandidateForModal)}
+                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-[#5b48bd] to-indigo-600 hover:from-[#47369f] hover:to-indigo-700 text-white font-bold text-xs shadow-md hover:scale-105 transition-all cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-base">auto_awesome</span>
+                        <span>[🤖 Yêu Cầu AI Phân Tích Sâu] (Lưu Cứng Vào CSDL)</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* 1. Candidate Hero & ATS Score Gauge Card */}
+                  <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-slate-50 via-purple-50/20 to-indigo-50/30 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-5 shadow-xs">
+                    <div className="flex items-center gap-4">
+                      <AvatarImg
+                        src={selectedCandidateForModal.avatar}
+                        name={selectedCandidateForModal.name}
+                        alt={selectedCandidateForModal.name}
+                        className="w-16 h-16 rounded-2xl object-cover ring-2 ring-purple-200 shadow-sm shrink-0"
+                        fallbackClassName="w-16 h-16 rounded-2xl text-white flex items-center justify-center font-bold text-2xl shadow-sm shrink-0"
+                      />
                       <div>
-                        <h5 className="text-xs sm:text-sm font-bold text-slate-900 tracking-tight">
-                          Ma Trận 4 Trụ Cột Đánh Giá Chuẩn ATS Tuyển Dụng Quốc Tế
-                        </h5>
-                        <p className="text-[10px] text-slate-500">
-                          Đo lường đa chiều: Kỹ năng chuyên môn, Thâm niên, Bằng cấp &amp; Tiềm năng dự án
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="text-lg font-bold text-slate-900">
+                            {selectedCandidateForModal.name}
+                          </h4>
+                          {selectedCandidateForModal.rank && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-white shadow-2xs">
+                              #{selectedCandidateForModal.rank} Top
+                            </span>
+                          )}
+                          <span className="material-symbols-outlined text-emerald-600 text-lg" title="Hồ sơ đã qua kiểm định hệ thống ATS">
+                            verified
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-600 font-medium mt-1">
+                          {selectedCandidateForModal.email} • Ứng tuyển: <strong className="text-purple-700">{report.jobTitle}</strong>
+                        </p>
+                        <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-1.5 font-medium">
+                          <span>Nộp lúc: <strong className="text-slate-600">{selectedCandidateForModal.appliedTime}</strong></span>
+                          <span>&bull;</span>
+                          <span className="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-700 font-semibold text-[10px]">
+                            {selectedCandidateForModal.statusLabel}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Overall Match Score Showcase */}
+                    <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center border-t sm:border-t-0 sm:border-l border-slate-200 pt-3 sm:pt-0 sm:pl-6 shrink-0">
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block mb-0.5">
+                        Điểm Tương Thích Tuyển Dụng
+                      </span>
+                      <div className="text-4xl font-black font-mono text-[#5b48bd] flex items-baseline gap-1">
+                        {report.score}%
+                        <span className="text-xs font-normal text-slate-400">/ 100%</span>
+                      </div>
+                      <span className="inline-flex items-center gap-1 mt-1 text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
+                        {report.matchCategory}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 1.1. Ma Trận Đánh Giá Đa Tiêu Chí 4 Trụ Cột ATS */}
+                  <div className="p-5 rounded-2xl bg-white border border-purple-200/80 shadow-xs space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
+                          <span className="material-symbols-outlined text-base">analytics</span>
+                        </div>
+                        <div>
+                          <h5 className="text-xs sm:text-sm font-bold text-slate-900 tracking-tight">
+                            Ma Trận 4 Trụ Cột Đánh Giá Chuẩn ATS Tuyển Dụng Quốc Tế
+                          </h5>
+                          <p className="text-[10px] text-slate-500">
+                            Đo lường đa chiều: Kỹ năng chuyên môn, Thâm niên, Bằng cấp &amp; Tiềm năng dự án
+                          </p>
+                        </div>
+                      </div>
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-purple-50 text-purple-800 border border-purple-200 shrink-0 self-start sm:self-auto">
+                        <span className="w-1.5 h-1.5 rounded-full bg-purple-600"></span>
+                        {selectedCandidateForModal.matchingFormula || 'Chuẩn ATS Doanh Nghiệp (40/30/15/15)'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                      {/* Trụ 1 */}
+                      <div className="p-3.5 rounded-xl bg-purple-50/40 border border-purple-100/90">
+                        <div className="flex items-center justify-between text-xs mb-1.5">
+                          <span className="text-purple-900 font-semibold flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[15px] text-purple-600">code</span>
+                            Kỹ Năng Cốt Lõi
+                          </span>
+                          <span className="font-mono font-bold text-purple-800 text-sm">
+                            {Math.round(selectedCandidateForModal.skillsScore || 0)}%
+                          </span>
+                        </div>
+                        <div className="w-full bg-purple-200/50 h-2 rounded-full overflow-hidden">
+                          <div
+                            className="bg-purple-600 h-full rounded-full transition-all duration-500"
+                            style={{ width: `${Math.min(100, Math.round(selectedCandidateForModal.skillsScore || 0))}%` }}
+                          ></div>
+                        </div>
+                        <p className="text-[9.5px] text-purple-700/80 mt-1.5">
+                          Khớp {selectedCandidateForModal.mandatoryMatched?.length || 0} kỹ năng yêu cầu
+                        </p>
+                      </div>
+
+                      {/* Trụ 2 */}
+                      <div className="p-3.5 rounded-xl bg-indigo-50/40 border border-indigo-100/90">
+                        <div className="flex items-center justify-between text-xs mb-1.5">
+                          <span className="text-indigo-900 font-semibold flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[15px] text-indigo-600">work_history</span>
+                            Kinh Nghiệm &amp; Cấp Bậc
+                          </span>
+                          <span className="font-mono font-bold text-indigo-800 text-sm">
+                            {Math.round(selectedCandidateForModal.experienceScore || 0)}%
+                          </span>
+                        </div>
+                        <div className="w-full bg-indigo-200/50 h-2 rounded-full overflow-hidden">
+                          <div
+                            className="bg-indigo-600 h-full rounded-full transition-all duration-500"
+                            style={{ width: `${Math.min(100, Math.round(selectedCandidateForModal.experienceScore || 0))}%` }}
+                          ></div>
+                        </div>
+                        <p className="text-[9.5px] text-indigo-700/80 mt-1.5">
+                          Tương thích cấp bậc vị trí
+                        </p>
+                      </div>
+
+                      {/* Trụ 3 */}
+                      <div className="p-3.5 rounded-xl bg-emerald-50/40 border border-emerald-100/90">
+                        <div className="flex items-center justify-between text-xs mb-1.5">
+                          <span className="text-emerald-900 font-semibold flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[15px] text-emerald-600">school</span>
+                            Học Vấn &amp; Bằng Cấp
+                          </span>
+                          <span className="font-mono font-bold text-emerald-800 text-sm">
+                            {Math.round(selectedCandidateForModal.educationScore || 0)}%
+                          </span>
+                        </div>
+                        <div className="w-full bg-emerald-200/50 h-2 rounded-full overflow-hidden">
+                          <div
+                            className="bg-emerald-600 h-full rounded-full transition-all duration-500"
+                            style={{ width: `${Math.min(100, Math.round(selectedCandidateForModal.educationScore || 0))}%` }}
+                          ></div>
+                        </div>
+                        <p className="text-[9.5px] text-emerald-700/80 mt-1.5">
+                          Đào tạo ĐH / Cử nhân CNTT
+                        </p>
+                      </div>
+
+                      {/* Trụ 4 */}
+                      <div className="p-3.5 rounded-xl bg-amber-50/40 border border-amber-100/90">
+                        <div className="flex items-center justify-between text-xs mb-1.5">
+                          <span className="text-amber-900 font-semibold flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[15px] text-amber-600">developer_mode</span>
+                            Dự Án &amp; Công Nghệ Thực Chiến
+                          </span>
+                          <span className="font-mono font-bold text-amber-800 text-sm">
+                            {Math.round(selectedCandidateForModal.semanticScore || 0)}%
+                          </span>
+                        </div>
+                        <div className="w-full bg-amber-200/50 h-2 rounded-full overflow-hidden">
+                          <div
+                            className="bg-amber-600 h-full rounded-full transition-all duration-500"
+                            style={{ width: `${Math.min(100, Math.round(selectedCandidateForModal.semanticScore || 0))}%` }}
+                          ></div>
+                        </div>
+                        <p className="text-[9.5px] text-amber-700/80 mt-1.5">
+                          Độ phức tạp &amp; quy mô dự án thực tế
                         </p>
                       </div>
                     </div>
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-purple-50 text-purple-800 border border-purple-200 shrink-0 self-start sm:self-auto">
-                      <span className="w-1.5 h-1.5 rounded-full bg-purple-600"></span>
-                      {selectedCandidateForModal.matchingFormula || 'Chuẩn ATS Doanh Nghiệp (40/30/15/15)'}
-                    </span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                    {/* Trụ 1 */}
-                    <div className="p-3.5 rounded-xl bg-purple-50/40 border border-purple-100/90">
-                      <div className="flex items-center justify-between text-xs mb-1.5">
-                        <span className="text-purple-900 font-semibold flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[15px] text-purple-600">code</span>
-                          Kỹ Năng Cốt Lõi
-                        </span>
-                        <span className="font-mono font-bold text-purple-800 text-sm">
-                          {Math.round(selectedCandidateForModal.skillsScore || 0)}%
-                        </span>
+                  {/* 2 & 3. Hai Khối Trọng Tâm: Ưu Điểm vs Điểm Yếu & Khuyến Nghị Tuyển Dụng AI */}
+                  {!isProOrHigher ? (
+                    <div className="relative rounded-2xl overflow-hidden border border-purple-200/90 p-8 bg-gradient-to-br from-purple-50/70 via-white to-indigo-50/50 text-center space-y-4 shadow-sm my-3">
+                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#5b48bd] to-indigo-600 text-white flex items-center justify-center mx-auto shadow-md">
+                        <span className="material-symbols-outlined text-2xl">lock</span>
                       </div>
-                      <div className="w-full bg-purple-200/50 h-2 rounded-full overflow-hidden">
-                        <div
-                          className="bg-purple-600 h-full rounded-full transition-all duration-500"
-                          style={{ width: `${Math.min(100, Math.round(selectedCandidateForModal.skillsScore || 0))}%` }}
-                        ></div>
+                      <div className="max-w-md mx-auto space-y-2">
+                        <h3 className="text-base font-bold text-[#1e1b4b]">
+                          Mở Khóa Báo Cáo Phân Tích Chuyên Sâu AI (Copilot Đọc Hộ CV)
+                        </h3>
+                        <p className="text-xs text-slate-600 leading-relaxed">
+                          Tài khoản <strong>Free</strong> và <strong>Hiring Starter</strong> chỉ xem được Điểm % ATS và Ma trận trụ cột. Trọn bộ <strong>Báo Cáo Phân Tích Chuyên Sâu AI</strong> (Ưu/Nhược điểm, Bằng chứng trích xuất từ CV, Skill Gap và Khuyến nghị tuyển dụng) chỉ mở khóa độc quyền từ gói <strong>Hiring Pro (499.000đ)</strong> hoặc <strong>Hiring Elite</strong>.
+                        </p>
                       </div>
-                      <p className="text-[9.5px] text-purple-700/80 mt-1.5">
-                        Khớp {selectedCandidateForModal.mandatoryMatched?.length || 0} kỹ năng yêu cầu
-                      </p>
+                      <div className="flex items-center justify-center gap-3 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            window.location.hash = '#/recruiter-pricing';
+                          }}
+                          className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#5b48bd] to-indigo-600 hover:from-[#4a39a7] hover:to-indigo-700 text-white text-xs font-bold shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center gap-2"
+                        >
+                          <span className="material-symbols-outlined text-base">workspace_premium</span>
+                          <span>Nâng Cấp Lên Hiring Pro (499.000đ) Ngay</span>
+                        </button>
+                      </div>
                     </div>
+                  ) : (
+                    <>
+                      {/* 2. Hai Khối Trọng Tâm: Ưu Điểm vs Điểm Yếu (Chuẩn Báo Cáo Đánh Giá Tuyển Dụng) */}
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
 
-                    {/* Trụ 2 */}
-                    <div className="p-3.5 rounded-xl bg-indigo-50/40 border border-indigo-100/90">
-                      <div className="flex items-center justify-between text-xs mb-1.5">
-                        <span className="text-indigo-900 font-semibold flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[15px] text-indigo-600">work_history</span>
-                          Kinh Nghiệm &amp; Cấp Bậc
-                        </span>
-                        <span className="font-mono font-bold text-indigo-800 text-sm">
-                          {Math.round(selectedCandidateForModal.experienceScore || 0)}%
-                        </span>
-                      </div>
-                      <div className="w-full bg-indigo-200/50 h-2 rounded-full overflow-hidden">
-                        <div
-                          className="bg-indigo-600 h-full rounded-full transition-all duration-500"
-                          style={{ width: `${Math.min(100, Math.round(selectedCandidateForModal.experienceScore || 0))}%` }}
-                        ></div>
-                      </div>
-                      <p className="text-[9.5px] text-indigo-700/80 mt-1.5">
-                        Tương thích cấp bậc vị trí
-                      </p>
-                    </div>
-
-                    {/* Trụ 3 */}
-                    <div className="p-3.5 rounded-xl bg-emerald-50/40 border border-emerald-100/90">
-                      <div className="flex items-center justify-between text-xs mb-1.5">
-                        <span className="text-emerald-900 font-semibold flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[15px] text-emerald-600">school</span>
-                          Học Vấn &amp; Bằng Cấp
-                        </span>
-                        <span className="font-mono font-bold text-emerald-800 text-sm">
-                          {Math.round(selectedCandidateForModal.educationScore || 0)}%
-                        </span>
-                      </div>
-                      <div className="w-full bg-emerald-200/50 h-2 rounded-full overflow-hidden">
-                        <div
-                          className="bg-emerald-600 h-full rounded-full transition-all duration-500"
-                          style={{ width: `${Math.min(100, Math.round(selectedCandidateForModal.educationScore || 0))}%` }}
-                        ></div>
-                      </div>
-                      <p className="text-[9.5px] text-emerald-700/80 mt-1.5">
-                        Đào tạo ĐH / Cử nhân CNTT
-                      </p>
-                    </div>
-
-                    {/* Trụ 4 */}
-                    <div className="p-3.5 rounded-xl bg-amber-50/40 border border-amber-100/90">
-                      <div className="flex items-center justify-between text-xs mb-1.5">
-                        <span className="text-amber-900 font-semibold flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[15px] text-amber-600">developer_mode</span>
-                          Dự Án &amp; Công Nghệ Thực Chiến
-                        </span>
-                        <span className="font-mono font-bold text-amber-800 text-sm">
-                          {Math.round(selectedCandidateForModal.semanticScore || 0)}%
-                        </span>
-                      </div>
-                      <div className="w-full bg-amber-200/50 h-2 rounded-full overflow-hidden">
-                        <div
-                          className="bg-amber-600 h-full rounded-full transition-all duration-500"
-                          style={{ width: `${Math.min(100, Math.round(selectedCandidateForModal.semanticScore || 0))}%` }}
-                        ></div>
-                      </div>
-                      <p className="text-[9.5px] text-amber-700/80 mt-1.5">
-                        Độ phức tạp &amp; quy mô dự án thực tế
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 2 & 3. Hai Khối Trọng Tâm: Ưu Điểm vs Điểm Yếu & Khuyến Nghị Tuyển Dụng AI */}
-                {!isProOrHigher ? (
-                  <div className="relative rounded-2xl overflow-hidden border border-purple-200/90 p-8 bg-gradient-to-br from-purple-50/70 via-white to-indigo-50/50 text-center space-y-4 shadow-sm my-3">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#5b48bd] to-indigo-600 text-white flex items-center justify-center mx-auto shadow-md">
-                      <span className="material-symbols-outlined text-2xl">lock</span>
-                    </div>
-                    <div className="max-w-md mx-auto space-y-2">
-                      <h3 className="text-base font-bold text-[#1e1b4b]">
-                        Mở Khóa Báo Cáo Phân Tích Chuyên Sâu AI (Copilot Đọc Hộ CV)
-                      </h3>
-                      <p className="text-xs text-slate-600 leading-relaxed">
-                        Tài khoản <strong>Free</strong> và <strong>Hiring Starter</strong> chỉ xem được Điểm % ATS và Ma trận trụ cột. Trọn bộ <strong>Báo Cáo Phân Tích Chuyên Sâu AI</strong> (Ưu/Nhược điểm, Bằng chứng trích xuất từ CV, Skill Gap và Khuyến nghị tuyển dụng) chỉ mở khóa độc quyền từ gói <strong>Hiring Pro (499.000đ)</strong> hoặc <strong>Hiring Elite</strong>.
-                      </p>
-                    </div>
-                    <div className="flex items-center justify-center gap-3 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          window.location.hash = '#/recruiter-pricing';
-                        }}
-                        className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#5b48bd] to-indigo-600 hover:from-[#4a39a7] hover:to-indigo-700 text-white text-xs font-bold shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center gap-2"
-                      >
-                        <span className="material-symbols-outlined text-base">workspace_premium</span>
-                        <span>Nâng Cấp Lên Hiring Pro (499.000đ) Ngay</span>
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    {/* 2. Hai Khối Trọng Tâm: Ưu Điểm vs Điểm Yếu (Chuẩn Báo Cáo Đánh Giá Tuyển Dụng) */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-                      
-                      {/* Cột 1: Ưu Điểm & Năng Lực Phù Hợp Với Bài Tuyển Dụng */}
-                      <div className="p-5 rounded-2xl bg-emerald-50/40 border border-emerald-200/90 space-y-3.5">
-                        <div className="flex items-center justify-between pb-2.5 border-b border-emerald-100">
-                          <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-                              <span className="material-symbols-outlined text-base">check_circle</span>
+                        {/* Cột 1: Ưu Điểm & Năng Lực Phù Hợp Với Bài Tuyển Dụng */}
+                        <div className="p-5 rounded-2xl bg-emerald-50/40 border border-emerald-200/90 space-y-3.5">
+                          <div className="flex items-center justify-between pb-2.5 border-b border-emerald-100">
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                                <span className="material-symbols-outlined text-base">check_circle</span>
+                              </div>
+                              <div>
+                                <h4 className="text-xs sm:text-sm font-bold text-emerald-950 uppercase tracking-wide">
+                                  1. Ưu Điểm &amp; Năng Lực Phù Hợp ({report.advantages?.length || 0})
+                                </h4>
+                                <p className="text-[10px] text-emerald-700">
+                                  Kỹ năng, Bằng cấp, Chứng chỉ &amp; Lợi thế từ CV đáp ứng yêu cầu tuyển dụng
+                                </p>
+                              </div>
                             </div>
-                            <div>
-                              <h4 className="text-xs sm:text-sm font-bold text-emerald-950 uppercase tracking-wide">
-                                1. Ưu Điểm &amp; Năng Lực Phù Hợp ({report.advantages?.length || 0})
-                              </h4>
-                              <p className="text-[10px] text-emerald-700">
-                                Kỹ năng, Bằng cấp, Chứng chỉ &amp; Lợi thế từ CV đáp ứng yêu cầu tuyển dụng
-                              </p>
-                            </div>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0">
+                              Phù Hợp
+                            </span>
                           </div>
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0">
-                            Phù Hợp
-                          </span>
-                        </div>
 
-                        <div className="space-y-3">
-                          {report.advantages?.map((item, idx) => (
-                            <div key={idx} className="p-3.5 rounded-xl bg-white border border-emerald-100 hover:border-emerald-300 transition-all shadow-2xs space-y-1.5 text-xs">
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0">
-                                  {item.category || 'Kỹ năng chuyên môn'}
-                                </span>
-                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
-                                  {item.assessment || 'Đạt chuẩn'}
-                                </span>
-                              </div>
-                              <div className="font-bold text-slate-900 text-xs pt-0.5">
-                                {item.title}
-                              </div>
-                              <div className="text-[11px] text-slate-700">
-                                <strong className="text-emerald-900">🎯 Đáp ứng yêu cầu JD: </strong>
-                                <span>{sanitizeEvidenceText(item.jobMatch)}</span>
-                              </div>
-                              <div className="p-2 rounded-lg bg-slate-50 border border-slate-100 text-[11px] text-slate-600 leading-relaxed font-normal">
-                                <strong className="text-slate-800">📄 Minh chứng thực tế từ CV: </strong>
-                                <span>{sanitizeEvidenceText(item.cvEvidence)}</span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Cột 2: Điểm Yếu & Tiêu Chí Chưa Đạt Yêu Cầu Của Nhà Tuyển Dụng */}
-                      <div className="p-5 rounded-2xl bg-amber-50/40 border border-amber-200/90 space-y-3.5">
-                        <div className="flex items-center justify-between pb-2.5 border-b border-amber-100">
-                          <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
-                              <span className="material-symbols-outlined text-base">warning</span>
-                            </div>
-                            <div>
-                              <h4 className="text-xs sm:text-sm font-bold text-amber-950 uppercase tracking-wide">
-                                2. Điểm Yếu &amp; Tiêu Chí Chưa Đạt ({report.disadvantages?.length || 0})
-                              </h4>
-                              <p className="text-[10px] text-amber-700">
-                                Kỹ năng còn thiếu, Kinh nghiệm chưa đủ hoặc Chứng chỉ/Bằng cấp chưa đạt chuẩn
-                              </p>
-                            </div>
-                          </div>
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 shrink-0">
-                            Chưa Đạt / Cần Lưu Ý
-                          </span>
-                        </div>
-
-                        <div className="space-y-3">
-                          {(!report.disadvantages || report.disadvantages.length === 0) ? (
-                            <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-center space-y-1">
-                              <span className="material-symbols-outlined text-emerald-600 text-2xl">verified</span>
-                              <p className="text-xs font-bold text-emerald-900">Không có điểm yếu nghiêm trọng</p>
-                              <p className="text-[11px] text-emerald-700">Ứng viên đáp ứng trọn vẹn mọi yêu cầu cốt lõi của bài tuyển dụng!</p>
-                            </div>
-                          ) : (
-                            report.disadvantages.map((item, idx) => {
-                              const catLower = (item.category || '').toLowerCase();
-                              const isMandatory = catLower.includes('bắt buộc') || (item.severity || '').toLowerCase().includes('bắt buộc');
-                              const isExp = catLower.includes('kinh nghiệm');
-                              const isPref = catLower.includes('ưu tiên');
-                              const isCert = catLower.includes('chứng chỉ') || catLower.includes('bằng cấp') || catLower.includes('ngoại ngữ');
-
-                              const badgeStyle = isMandatory 
-                                ? 'bg-rose-100 text-rose-800 border-rose-300'
-                                : isPref
-                                ? 'bg-sky-100 text-sky-800 border-sky-300'
-                                : isExp
-                                ? 'bg-amber-100 text-amber-800 border-amber-300'
-                                : isCert
-                                ? 'bg-indigo-100 text-indigo-800 border-indigo-300'
-                                : 'bg-amber-50 text-amber-900 border-amber-200';
-
-                              const cardBorder = isMandatory 
-                                ? 'border-rose-200/90 bg-rose-50/25 hover:border-rose-300'
-                                : 'border-amber-200/70 bg-white hover:border-amber-300';
-
-                              return (
-                                <div key={idx} className={`p-3.5 rounded-xl border ${cardBorder} transition-all shadow-2xs space-y-1.5 text-xs`}>
-                                  <div className="flex items-center justify-between gap-2">
-                                    <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold border shrink-0 flex items-center gap-1 ${badgeStyle}`}>
-                                      <span className="material-symbols-outlined text-xs">
-                                        {isMandatory ? 'cancel' : isPref ? 'star_half' : isExp ? 'history_toggle_off' : isCert ? 'verified' : 'warning'}
-                                      </span>
-                                      {item.category || 'Kỹ năng còn thiếu'}
-                                    </span>
-                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-800 border border-rose-200 shrink-0">
-                                      {item.severity || 'Cần lưu ý'}
-                                    </span>
-                                  </div>
-                                  <div className="font-bold text-slate-900 text-xs pt-0.5">
-                                    {item.title}
-                                  </div>
-                                  <div className="text-[11px] text-slate-700">
-                                    <strong className="text-amber-950">📌 Yêu cầu bài tuyển dụng: </strong>
-                                    <span>{sanitizeEvidenceText(item.jobRequirement)}</span>
-                                  </div>
-                                  <div className="p-2 rounded-lg bg-amber-50/60 border border-amber-100 text-[11px] text-amber-950 leading-relaxed font-normal">
-                                    <strong className="text-amber-900">⚠️ Hiện trạng trong CV: </strong>
-                                    <span>{sanitizeEvidenceText(item.cvShortfall)}</span>
-                                  </div>
+                          <div className="space-y-3">
+                            {report.advantages?.map((item, idx) => (
+                              <div key={idx} className="p-3.5 rounded-xl bg-white border border-emerald-100 hover:border-emerald-300 transition-all shadow-2xs space-y-1.5 text-xs">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0">
+                                    {item.category || 'Kỹ năng chuyên môn'}
+                                  </span>
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
+                                    {item.assessment || 'Đạt chuẩn'}
+                                  </span>
                                 </div>
-                              );
-                            })
-                          )}
+                                <div className="font-bold text-slate-900 text-xs pt-0.5">
+                                  {item.title}
+                                </div>
+                                <div className="text-[11px] text-slate-700">
+                                  <strong className="text-emerald-900">🎯 Đáp ứng yêu cầu JD: </strong>
+                                  <span>{sanitizeEvidenceText(item.jobMatch)}</span>
+                                </div>
+                                <div className="p-2 rounded-lg bg-slate-50 border border-slate-100 text-[11px] text-slate-600 leading-relaxed font-normal">
+                                  <strong className="text-slate-800">📄 Minh chứng thực tế từ CV: </strong>
+                                  <span>{sanitizeEvidenceText(item.cvEvidence)}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Cột 2: Điểm Yếu & Tiêu Chí Chưa Đạt Yêu Cầu Của Nhà Tuyển Dụng */}
+                        <div className="p-5 rounded-2xl bg-amber-50/40 border border-amber-200/90 space-y-3.5">
+                          <div className="flex items-center justify-between pb-2.5 border-b border-amber-100">
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                                <span className="material-symbols-outlined text-base">warning</span>
+                              </div>
+                              <div>
+                                <h4 className="text-xs sm:text-sm font-bold text-amber-950 uppercase tracking-wide">
+                                  2. Điểm Yếu &amp; Tiêu Chí Chưa Đạt ({report.disadvantages?.length || 0})
+                                </h4>
+                                <p className="text-[10px] text-amber-700">
+                                  Kỹ năng còn thiếu, Kinh nghiệm chưa đủ hoặc Chứng chỉ/Bằng cấp chưa đạt chuẩn
+                                </p>
+                              </div>
+                            </div>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 shrink-0">
+                              Chưa Đạt / Cần Lưu Ý
+                            </span>
+                          </div>
+
+                          <div className="space-y-3">
+                            {(!report.disadvantages || report.disadvantages.length === 0) ? (
+                              <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-center space-y-1">
+                                <span className="material-symbols-outlined text-emerald-600 text-2xl">verified</span>
+                                <p className="text-xs font-bold text-emerald-900">Không có điểm yếu nghiêm trọng</p>
+                                <p className="text-[11px] text-emerald-700">Ứng viên đáp ứng trọn vẹn mọi yêu cầu cốt lõi của bài tuyển dụng!</p>
+                              </div>
+                            ) : (
+                              report.disadvantages.map((item, idx) => {
+                                const catLower = (item.category || '').toLowerCase();
+                                const isMandatory = catLower.includes('bắt buộc') || (item.severity || '').toLowerCase().includes('bắt buộc');
+                                const isExp = catLower.includes('kinh nghiệm');
+                                const isPref = catLower.includes('ưu tiên');
+                                const isCert = catLower.includes('chứng chỉ') || catLower.includes('bằng cấp') || catLower.includes('ngoại ngữ');
+
+                                const badgeStyle = isMandatory
+                                  ? 'bg-rose-100 text-rose-800 border-rose-300'
+                                  : isPref
+                                    ? 'bg-sky-100 text-sky-800 border-sky-300'
+                                    : isExp
+                                      ? 'bg-amber-100 text-amber-800 border-amber-300'
+                                      : isCert
+                                        ? 'bg-indigo-100 text-indigo-800 border-indigo-300'
+                                        : 'bg-amber-50 text-amber-900 border-amber-200';
+
+                                const cardBorder = isMandatory
+                                  ? 'border-rose-200/90 bg-rose-50/25 hover:border-rose-300'
+                                  : 'border-amber-200/70 bg-white hover:border-amber-300';
+
+                                return (
+                                  <div key={idx} className={`p-3.5 rounded-xl border ${cardBorder} transition-all shadow-2xs space-y-1.5 text-xs`}>
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold border shrink-0 flex items-center gap-1 ${badgeStyle}`}>
+                                        <span className="material-symbols-outlined text-xs">
+                                          {isMandatory ? 'cancel' : isPref ? 'star_half' : isExp ? 'history_toggle_off' : isCert ? 'verified' : 'warning'}
+                                        </span>
+                                        {item.category || 'Kỹ năng còn thiếu'}
+                                      </span>
+                                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-800 border border-rose-200 shrink-0">
+                                        {item.severity || 'Cần lưu ý'}
+                                      </span>
+                                    </div>
+                                    <div className="font-bold text-slate-900 text-xs pt-0.5">
+                                      {item.title}
+                                    </div>
+                                    <div className="text-[11px] text-slate-700">
+                                      <strong className="text-amber-950">📌 Yêu cầu bài tuyển dụng: </strong>
+                                      <span>{sanitizeEvidenceText(item.jobRequirement)}</span>
+                                    </div>
+                                    <div className="p-2 rounded-lg bg-amber-50/60 border border-amber-100 text-[11px] text-amber-950 leading-relaxed font-normal">
+                                      <strong className="text-amber-900">⚠️ Hiện trạng trong CV: </strong>
+                                      <span>{sanitizeEvidenceText(item.cvShortfall)}</span>
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* 3. Nhận Định Chuyên Môn & Khuyến Nghị Tuyển Dụng Từ HireMate AI Copilot */}
-                    <div className="p-5 rounded-2xl bg-gradient-to-r from-purple-50/80 via-indigo-50/40 to-white border border-purple-200/80 space-y-2.5 shadow-xs">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-lg bg-[#5b48bd] text-white flex items-center justify-center shrink-0">
-                          <span className="material-symbols-outlined text-sm">psychology</span>
+                      {/* 3. Nhận Định Chuyên Môn & Khuyến Nghị Tuyển Dụng Từ HireMate AI Copilot */}
+                      <div className="p-5 rounded-2xl bg-gradient-to-r from-purple-50/80 via-indigo-50/40 to-white border border-purple-200/80 space-y-2.5 shadow-xs">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-lg bg-[#5b48bd] text-white flex items-center justify-center shrink-0">
+                            <span className="material-symbols-outlined text-sm">psychology</span>
+                          </div>
+                          <span className="text-xs font-bold text-[#1e1b4b] uppercase tracking-wide">
+                            3. Nhận Định Đánh Giá &amp; Khuyến Nghị Tuyển Dụng Cho HR:
+                          </span>
                         </div>
-                        <span className="text-xs font-bold text-[#1e1b4b] uppercase tracking-wide">
-                          3. Nhận Định Đánh Giá &amp; Khuyến Nghị Tuyển Dụng Cho HR:
+                        <p className="text-xs text-slate-700 leading-relaxed pl-3 border-l-2 border-[#5b48bd]">
+                          {report.overallVerdict}
+                        </p>
+                        <div className="pt-2 border-t border-purple-100 text-xs text-purple-950 flex items-center gap-1.5 font-semibold">
+                          <span className="material-symbols-outlined text-sm text-[#5b48bd]">forward</span>
+                          <span><strong>Khuyến nghị hành động: </strong>{report.executiveRecommendation}</span>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* 4. Attached CV Row */}
+                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                        <span className="material-symbols-outlined text-lg">picture_as_pdf</span>
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-xs font-bold text-slate-800 truncate block">
+                          CV_${selectedCandidateForModal.name.replace(/\s+/g, '_')}.pdf
                         </span>
-                      </div>
-                      <p className="text-xs text-slate-700 leading-relaxed pl-3 border-l-2 border-[#5b48bd]">
-                        {report.overallVerdict}
-                      </p>
-                      <div className="pt-2 border-t border-purple-100 text-xs text-purple-950 flex items-center gap-1.5 font-semibold">
-                        <span className="material-symbols-outlined text-sm text-[#5b48bd]">forward</span>
-                        <span><strong>Khuyến nghị hành động: </strong>{report.executiveRecommendation}</span>
+                        <span className="text-[10px] text-slate-400 font-mono">Bản CV gốc ứng viên đã nộp qua hệ thống HireMate</span>
                       </div>
                     </div>
-                  </>
-                )}
-
-                {/* 4. Attached CV Row */}
-                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-8 h-8 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
-                      <span className="material-symbols-outlined text-lg">picture_as_pdf</span>
-                    </div>
-                    <div className="min-w-0">
-                      <span className="text-xs font-bold text-slate-800 truncate block">
-                        CV_${selectedCandidateForModal.name.replace(/\s+/g, '_')}.pdf
-                      </span>
-                      <span className="text-[10px] text-slate-400 font-mono">Bản CV gốc ứng viên đã nộp qua hệ thống HireMate</span>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setViewingCvCandidate(selectedCandidateForModal)}
+                      className="px-3.5 py-1.5 rounded-xl bg-white hover:bg-purple-50 text-[#5b48bd] text-xs font-bold border border-purple-200 transition-colors cursor-pointer shadow-2xs flex items-center gap-1.5 shrink-0"
+                    >
+                      <span className="material-symbols-outlined text-sm text-[#5b48bd]">visibility</span>
+                      <span>Mở Xem CV PDF</span>
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setViewingCvCandidate(selectedCandidateForModal)}
-                    className="px-3.5 py-1.5 rounded-xl bg-white hover:bg-purple-50 text-[#5b48bd] text-xs font-bold border border-purple-200 transition-colors cursor-pointer shadow-2xs flex items-center gap-1.5 shrink-0"
-                  >
-                    <span className="material-symbols-outlined text-sm text-[#5b48bd]">visibility</span>
-                    <span>Mở Xem CV PDF</span>
-                  </button>
                 </div>
-              </div>
 
-              {/* Action Footer */}
-              <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/80 flex flex-col sm:flex-row items-center justify-between gap-3 sticky bottom-0 z-20">
-                <button
-                  type="button"
-                  onClick={() => setSelectedCandidateForModal(null)}
-                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-200/80 text-xs font-semibold transition-colors cursor-pointer"
-                >
-                  Đóng Báo Cáo
-                </button>
-
-                <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end flex-wrap sm:flex-nowrap">
-                  <a
-                    href={createHrToCandidateMailto({
-                      candidateEmail: selectedCandidateForModal.email || selectedCandidateForModal.role,
-                      candidateName: selectedCandidateForModal.name,
-                      jobTitle: jobDetails.title,
-                      companyName: user?.companyName || user?.company?.companyName || 'Công ty Tuyển dụng',
-                      hrName: user?.fullName || user?.name || 'Bộ phận Tuyển dụng',
-                      hrPosition: user?.position || 'Talent Acquisition Team',
-                    })}
-                    className="px-3.5 py-2 rounded-xl text-xs font-bold bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200 hover:border-emerald-300 transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                  >
-                    <span className="material-symbols-outlined text-sm text-emerald-600">mail</span>
-                    <span>Gửi Email</span>
-                  </a>
-
+                {/* Action Footer */}
+                <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/80 flex flex-col sm:flex-row items-center justify-between gap-3 sticky bottom-0 z-20">
                   <button
                     type="button"
-                    onClick={() => {
-                      window.location.hash = `#/candidate-evaluation?candidateId=${selectedCandidateForModal.candidateId}&jobId=${jobDetails.id}&appId=${selectedCandidateForModal.applicationId || selectedCandidateForModal.id}&cvId=${selectedCandidateForModal.cvId || ''}&atsScore=${selectedCandidateForModal.matchScore || ''}`;
-                    }}
-                    className="px-3.5 py-2 rounded-xl text-xs font-bold bg-white hover:bg-purple-50 text-[#5b48bd] border border-purple-200 transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                    onClick={() => setSelectedCandidateForModal(null)}
+                    className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-200/80 text-xs font-semibold transition-colors cursor-pointer"
                   >
-                    <span className="material-symbols-outlined text-sm">badge</span>
-                    <span>Hồ Sơ &amp; Đánh Giá</span>
+                    Đóng Báo Cáo
                   </button>
 
-                  {canManageJob && selectedCandidateForModal.stage !== 'WITHDRAWN' && selectedCandidateForModal.stage !== 'HIRED' && selectedCandidateForModal.stage !== 'REJECTED' && (
+                  <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end flex-wrap sm:flex-nowrap">
+                    <a
+                      href={createHrToCandidateMailto({
+                        candidateEmail: selectedCandidateForModal.email || selectedCandidateForModal.role,
+                        candidateName: selectedCandidateForModal.name,
+                        jobTitle: jobDetails.title,
+                        companyName: user?.companyName || user?.company?.companyName || 'Công ty Tuyển dụng',
+                        hrName: user?.fullName || user?.name || 'Bộ phận Tuyển dụng',
+                        hrPosition: user?.position || 'Talent Acquisition Team',
+                      })}
+                      className="px-3.5 py-2 rounded-xl text-xs font-bold bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200 hover:border-emerald-300 transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                    >
+                      <span className="material-symbols-outlined text-sm text-emerald-600">mail</span>
+                      <span>Gửi Email</span>
+                    </a>
+
                     <button
                       type="button"
                       onClick={() => {
-                        handleStageChange(selectedCandidateForModal.id, 'Duyệt Phỏng Vấn');
-                        setSelectedCandidateForModal(null);
+                        window.location.hash = `#/candidate-evaluation?candidateId=${selectedCandidateForModal.candidateId}&jobId=${jobDetails.id}&appId=${selectedCandidateForModal.applicationId || selectedCandidateForModal.id}&cvId=${selectedCandidateForModal.cvId || ''}&atsScore=${selectedCandidateForModal.matchScore || ''}`;
                       }}
-                      className="px-5 py-2 rounded-xl bg-gradient-to-r from-[#5b48bd] to-indigo-600 hover:from-[#4a39a7] hover:to-indigo-700 text-white font-bold text-xs shadow-sm hover:shadow transition-all cursor-pointer flex items-center gap-1.5"
+                      className="px-3.5 py-2 rounded-xl text-xs font-bold bg-white hover:bg-purple-50 text-[#5b48bd] border border-purple-200 transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
                     >
-                      <span className="material-symbols-outlined text-sm">check</span>
-                      <span>Duyệt Phỏng Vấn Ngay</span>
+                      <span className="material-symbols-outlined text-sm">badge</span>
+                      <span>Hồ Sơ &amp; Đánh Giá</span>
                     </button>
-                  )}
+
+                    {canManageJob && selectedCandidateForModal.stage !== 'WITHDRAWN' && selectedCandidateForModal.stage !== 'HIRED' && selectedCandidateForModal.stage !== 'REJECTED' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleStageChange(selectedCandidateForModal.id, 'Duyệt Phỏng Vấn');
+                          setSelectedCandidateForModal(null);
+                        }}
+                        className="px-5 py-2 rounded-xl bg-gradient-to-r from-[#5b48bd] to-indigo-600 hover:from-[#4a39a7] hover:to-indigo-700 text-white font-bold text-xs shadow-sm hover:shadow transition-all cursor-pointer flex items-center gap-1.5"
+                      >
+                        <span className="material-symbols-outlined text-sm">check</span>
+                        <span>Duyệt Phỏng Vấn Ngay</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </ModalPortal>
-      );
-    })()}
+          </ModalPortal>
+        );
+      })()}
 
 
 
@@ -2900,125 +2886,123 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
       {schedulingCandidate && (
         <ModalPortal isOpen={!!schedulingCandidate}>
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in font-sans">
-          <div className="relative w-full max-w-lg bg-white border border-purple-100 rounded-[32px] p-6 sm:p-7 shadow-2xl space-y-5 text-slate-800">
-            <button
-              onClick={() => setSchedulingCandidate(null)}
-              className="absolute top-5 right-5 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-base">close</span>
-            </button>
+            <div className="relative w-full max-w-lg bg-white border border-purple-100 rounded-[32px] p-6 sm:p-7 shadow-2xl space-y-5 text-slate-800">
+              <button
+                onClick={() => setSchedulingCandidate(null)}
+                className="absolute top-5 right-5 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-base">close</span>
+              </button>
 
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-2xl">calendar_month</span>
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
+                  <span className="material-symbols-outlined text-2xl">calendar_month</span>
+                </div>
+                <div>
+                  <h3 className="text-lg font-extrabold text-slate-900 leading-snug">
+                    Lên Lịch Phỏng Vấn Trực Tiếp
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Ứng viên: <strong className="text-purple-700">{schedulingCandidate.name}</strong> • Vị trí: {jobDetails?.title}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-lg font-extrabold text-slate-900 leading-snug">
-                  Lên Lịch Phỏng Vấn Trực Tiếp
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Ứng viên: <strong className="text-purple-700">{schedulingCandidate.name}</strong> • Vị trí: {jobDetails?.title}
-                </p>
-              </div>
+
+              <form onSubmit={handleScheduleSubmit} className="space-y-4 text-xs">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="font-bold text-slate-700">Ngày phỏng vấn</label>
+                    <input
+                      type="date"
+                      required
+                      min={new Date().toISOString().split('T')[0]}
+                      value={scheduleForm.date}
+                      onChange={(e) => setScheduleForm({ ...scheduleForm, date: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:outline-none focus:border-purple-500"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="font-bold text-slate-700">Giờ phỏng vấn</label>
+                    <input
+                      type="time"
+                      required
+                      value={scheduleForm.time}
+                      onChange={(e) => setScheduleForm({ ...scheduleForm, time: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:outline-none focus:border-purple-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-bold text-slate-700">Hình thức phỏng vấn</label>
+                  <select
+                    value={scheduleForm.type}
+                    onChange={(e) => setScheduleForm({ ...scheduleForm, type: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:outline-none focus:border-purple-500"
+                  >
+                    <option value="Google Meet">Trực tuyến (Google Meet)</option>
+                    <option value="Zoom Meeting">Trực tuyến (Zoom Meeting)</option>
+                    <option value="Microsoft Teams">Trực tuyến (Microsoft Teams)</option>
+                    <option value="Phỏng vấn trực tiếp tại văn phòng">Trực tiếp tại văn phòng công ty</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-bold text-slate-700">Đường dẫn cuộc họp / Địa điểm</label>
+                  <input
+                    type="text"
+                    required
+                    value={scheduleForm.meetLink}
+                    onChange={(e) => setScheduleForm({ ...scheduleForm, meetLink: e.target.value })}
+                    placeholder="https://meet.google.com/..."
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:outline-none focus:border-purple-500"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-bold text-slate-700">Lời nhắn / Hướng dẫn ứng viên</label>
+                  <textarea
+                    rows={3}
+                    value={scheduleForm.note}
+                    onChange={(e) => setScheduleForm({ ...scheduleForm, note: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:outline-none focus:border-purple-500 resize-none"
+                  />
+                </div>
+
+                <div className="pt-2 flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setSchedulingCandidate(null)}
+                    className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold cursor-pointer"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold cursor-pointer shadow-md flex items-center gap-1.5"
+                  >
+                    <span className="material-symbols-outlined text-sm">send</span>
+                    <span>Xác Nhận &amp; Gửi Lời Mời</span>
+                  </button>
+                </div>
+              </form>
             </div>
-
-            <form onSubmit={handleScheduleSubmit} className="space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="font-bold text-slate-700">Ngày phỏng vấn</label>
-                  <input
-                    type="date"
-                    required
-                    min={new Date().toISOString().split('T')[0]}
-                    value={scheduleForm.date}
-                    onChange={(e) => setScheduleForm({ ...scheduleForm, date: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:outline-none focus:border-purple-500"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="font-bold text-slate-700">Giờ phỏng vấn</label>
-                  <input
-                    type="time"
-                    required
-                    value={scheduleForm.time}
-                    onChange={(e) => setScheduleForm({ ...scheduleForm, time: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:outline-none focus:border-purple-500"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="font-bold text-slate-700">Hình thức phỏng vấn</label>
-                <select
-                  value={scheduleForm.type}
-                  onChange={(e) => setScheduleForm({ ...scheduleForm, type: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:outline-none focus:border-purple-500"
-                >
-                  <option value="Google Meet">Trực tuyến (Google Meet)</option>
-                  <option value="Zoom Meeting">Trực tuyến (Zoom Meeting)</option>
-                  <option value="Microsoft Teams">Trực tuyến (Microsoft Teams)</option>
-                  <option value="Phỏng vấn trực tiếp tại văn phòng">Trực tiếp tại văn phòng công ty</option>
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="font-bold text-slate-700">Đường dẫn cuộc họp / Địa điểm</label>
-                <input
-                  type="text"
-                  required
-                  value={scheduleForm.meetLink}
-                  onChange={(e) => setScheduleForm({ ...scheduleForm, meetLink: e.target.value })}
-                  placeholder="https://meet.google.com/..."
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:outline-none focus:border-purple-500"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="font-bold text-slate-700">Lời nhắn / Hướng dẫn ứng viên</label>
-                <textarea
-                  rows={3}
-                  value={scheduleForm.note}
-                  onChange={(e) => setScheduleForm({ ...scheduleForm, note: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:outline-none focus:border-purple-500 resize-none"
-                />
-              </div>
-
-              <div className="pt-2 flex items-center justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setSchedulingCandidate(null)}
-                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold cursor-pointer"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold cursor-pointer shadow-md flex items-center gap-1.5"
-                >
-                  <span className="material-symbols-outlined text-sm">send</span>
-                  <span>Xác Nhận &amp; Gửi Lời Mời</span>
-                </button>
-              </div>
-            </form>
           </div>
-        </div>
-      </ModalPortal>
-    )}
+        </ModalPortal>
+      )}
 
       {/* Unverified Company Legal GPKD Warning Modal */}
       {showUnverifiedWarningModal && companyStatus !== 'VERIFIED' && companyStatus !== 'ACTIVE' && currentUser?.role !== 'ADMIN' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-fadeIn font-sans">
           <div className="relative w-full max-w-lg bg-white border border-slate-100 rounded-3xl shadow-2xl text-slate-800 overflow-hidden">
-            <div className={`h-2.5 w-full bg-gradient-to-r ${
-              companyStatus === 'REJECTED' ? 'from-rose-500 via-red-500 to-amber-500' : 'from-amber-500 via-orange-500 to-yellow-400'
-            }`} />
+            <div className={`h-2.5 w-full bg-gradient-to-r ${companyStatus === 'REJECTED' ? 'from-rose-500 via-red-500 to-amber-500' : 'from-amber-500 via-orange-500 to-yellow-400'
+              }`} />
 
             <div className="p-6 sm:p-7">
               <div className="flex items-start justify-between gap-4 mb-4">
                 <div className="flex items-center gap-3.5">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-md ${
-                    companyStatus === 'REJECTED' ? 'bg-gradient-to-br from-rose-500 to-red-600 shadow-rose-500/20' : 'bg-gradient-to-br from-amber-500 to-orange-600 shadow-amber-500/20'
-                  }`}>
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-md ${companyStatus === 'REJECTED' ? 'bg-gradient-to-br from-rose-500 to-red-600 shadow-rose-500/20' : 'bg-gradient-to-br from-amber-500 to-orange-600 shadow-amber-500/20'
+                    }`}>
                     <span className="material-symbols-outlined text-2xl">
                       {companyStatus === 'REJECTED' ? 'cancel' : 'verified_user'}
                     </span>
@@ -3028,13 +3012,12 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
                       Yêu Cầu Xác Minh GPKD Doanh Nghiệp
                     </h3>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider ${
-                        companyStatus === 'PENDING'
-                          ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                          : companyStatus === 'REJECTED'
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider ${companyStatus === 'PENDING'
+                        ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                        : companyStatus === 'REJECTED'
                           ? 'bg-rose-100 text-rose-800 border border-rose-300'
                           : 'bg-slate-100 text-slate-700 border border-slate-300'
-                      }`}>
+                        }`}>
                         <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                         {companyStatus === 'PENDING' ? 'Chờ Duyệt GPKD (PENDING)' : companyStatus === 'REJECTED' ? 'Bị Từ Chối GPKD (REJECTED)' : 'Chưa Xác Minh GPKD'}
                       </span>
