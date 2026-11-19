@@ -183,9 +183,9 @@ const detectFillerWords = (text) => {
   return { count, lastWord };
 };
 
-// Thời gian im lặng cơ bản (VAD) trước khi AI nhận biết ứng viên đã nói xong
-const BASE_QUIET_MS = 1400; // 1.4 giây im lặng tự nhiên
-const PATIENCE_QUIET_MS = 1800;
+// Thời gian im lặng cơ bản (VAD) trước khi AI nhận biết ứng viên đã nói xong (tránh cắt ngang khi đang suy nghĩ!)
+const BASE_QUIET_MS = 2400; // 2.4 giây im lặng tự nhiên
+const PATIENCE_QUIET_MS = 2000;
 const MAX_PATIENCE_ROUNDS = 2;
 
 const DANGLING_WORDS = new Set(['và', 'nhưng', 'thì', 'là', 'mà', 'vì', 'nên', 'để', 'của', 'với', 'như', 'các', 'những', 'một', 'ở', 'trong', 'khi', 'nếu', 'hoặc', 'cũng', 'ờ', 'à', 'ừm', 'kiểu', 'tức', 'thêm', 'rồi', 'sau', 'đó', 'bởi', 'do', 'tại', 'cho', 'and', 'or', 'but', 'so', 'because']);
@@ -2656,8 +2656,9 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
         return;
       }
 
-      // 2. Nếu câu nói kết thúc lửng bằng từ nối (và, nhưng, thì, là, mà, vì, or, but, so...) -> đợi thêm chút
-      if (endsWithDanglingWord(ans)) {
+      // 2. Nếu câu nói kết thúc lửng bằng từ nối HOẶC mới nói quá ngắn (< 7 từ, trừ câu hỏi lại/xin gợi ý) -> đợi thêm để không cắt lời!
+      const isShortFragment = wordCountOf(ans) < 7 && !/^(nhắc lại|lặp lại|nói lại|gợi ý|không biết|chưa rõ)/i.test(ans);
+      if (endsWithDanglingWord(ans) || (isShortFragment && patienceRoundsRef.current < 1)) {
         if (patienceRoundsRef.current < MAX_PATIENCE_ROUNDS) {
           patienceRoundsRef.current += 1;
           setListenStatus('waiting');
@@ -2666,7 +2667,7 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
         }
       }
 
-      // 3. Đã có câu trả lời đầy đủ (>= 3 từ) -> Gửi ngay cho AI xử lý phản hồi tức thì
+      // 3. Đã có câu trả lời đầy đủ (>= 4 từ hoặc đã chờ đủ kiên nhẫn) -> Gửi cho AI đào sâu tiếp nối
       if (wordCountOf(ans) >= 3) {
         handleSendCandidateTurn(ans);
       }
