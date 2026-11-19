@@ -1523,7 +1523,7 @@ public class AiInterviewServiceImpl implements AiInterviewService {
 
             if (resp.statusCode() == 200 && resp.body() != null && resp.body().length > 0) {
                 log.info(">> [ElevenLabs] Tổng hợp giọng nói Generative AI (voiceId={}, lang={}) - {} bytes", voiceId, isEnglish ? "en" : "vi", resp.body().length);
-                if (ttsMemoryCache.size() > 500) ttsMemoryCache.clear();
+                if (ttsMemoryCache.size() >= 30) ttsMemoryCache.clear();
                 ttsMemoryCache.put(cacheKey, resp.body());
                 return resp.body();
             } else {
@@ -1601,7 +1601,8 @@ public class AiInterviewServiceImpl implements AiInterviewService {
 
             byte[] audioBytes = out.toByteArray();
             if (audioBytes.length > 0) {
-                if (ttsMemoryCache.size() > 500) ttsMemoryCache.clear();
+                // Giới hạn tối đa 30 audio clip (~2-3MB) để bảo vệ container 512MB RAM
+                if (ttsMemoryCache.size() >= 30) ttsMemoryCache.clear();
                 ttsMemoryCache.put(cacheKey, audioBytes);
             }
             return audioBytes;

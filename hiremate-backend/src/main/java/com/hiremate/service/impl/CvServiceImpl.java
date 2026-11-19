@@ -147,11 +147,15 @@ public class CvServiceImpl implements CvService {
                         for (java.awt.image.BufferedImage pageImg : pageImages) {
                             g2d.drawImage(pageImg, 0, currentY, null);
                             currentY += pageImg.getHeight();
+                            pageImg.flush();
                         }
+                        pageImages.clear();
                         g2d.dispose();
 
                         java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
                         javax.imageio.ImageIO.write(stitched, "jpg", baos);
+                        stitched.flush();
+                        stitched = null;
                         byte[] stitchedBytes = baos.toByteArray();
                         visionAnalysisResult = geminiAiService.analyzeCvImage(stitchedBytes, "image/jpeg");
                     } catch (Exception ocrEx) {

@@ -2,7 +2,7 @@ server:
   port: ${PORT:8088}
   tomcat:
     threads:
-      max: ${TOMCAT_MAX_THREADS:25}
+      max: ${TOMCAT_MAX_THREADS:16}
       min-spare: 2
 
 spring:

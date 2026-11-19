@@ -61,50 +61,11 @@ public class AiJobMatchServiceImpl implements AiJobMatchService {
 
     @jakarta.annotation.PostConstruct
     public void preloadSkillCache() {
+        // Chỉ tải nhẹ danh mục skills (~vài chục KB) lúc khởi động.
+        // KHÔNG gọi findAll() kéo toàn bộ bảng applications + ai_job_matches + CV JSON vào RAM lúc startup
+        // (nguyên nhân chính gây đỉnh RAM > 512MB và vòng lặp OOM restart trên Render Free Tier).
+        // Mọi bản ghi match & báo cáo chi tiết vẫn được tự động tính & lưu ngay khi ứng viên xem hoặc ứng tuyển!
         refreshSkillCacheInternal();
-
-        // Tự động đồng bộ & lưu cứng điểm + báo cáo ATS vào CSDL khi khởi động (0ms Gemini Token, tuyệt đối KHÔNG xóa cache)
-        java.util.concurrent.CompletableFuture.runAsync(() -> {
-            try {
-                int syncedApps = 0;
-                if (applicationRepository != null) {
-                    List<Application> allApps = applicationRepository.findAll();
-                    for (Application app : allApps) {
-                        if (app.getCandidate() != null && app.getJob() != null) {
-                            try {
-                                Optional<AiJobMatch> mOpt = aiJobMatchRepository.findByCandidate_CandidateIdAndJob_JobId(
-                                        app.getCandidate().getCandidateId(), app.getJob().getJobId());
-                                boolean missingMatchOrReport = mOpt.isEmpty()
-                                        || mOpt.get().getMatchingScore() == null
-                                        || mOpt.get().getSkillGapJson() == null
-                                        || !mOpt.get().getSkillGapJson().contains("\"detailedReport\"");
-                                boolean missingAppNotes = app.getEvaluationNotes() == null
-                                        || !app.getEvaluationNotes().trim().startsWith("{");
-                                if (missingMatchOrReport || missingAppNotes) {
-                                    calculateAndSaveMatch(app.getCandidate(), app.getJob(), app.getCv(), false);
-                                    syncedApps++;
-                                }
-                            } catch (Exception ignored) {}
-                        }
-                    }
-                }
-                int backfilledMatches = 0;
-                List<AiJobMatch> matches = aiJobMatchRepository.findAll();
-                for (AiJobMatch m : matches) {
-                    if (m.getCandidate() != null && m.getJob() != null
-                            && (m.getSkillGapJson() == null || !m.getSkillGapJson().contains("\"detailedReport\""))) {
-                        try {
-                            calculateAndSaveMatch(m.getCandidate(), m.getJob(), m.getCv(), false);
-                            backfilledMatches++;
-                        } catch (Exception ignored) {}
-                    }
-                }
-                if (syncedApps > 0 || backfilledMatches > 0) {
-                    log.info(">> [AiJobMatchService] Đã đồng bộ & lưu cứng vào DB {} đơn ứng tuyển và {} bản ghi AI Match khi khởi động.",
-                            syncedApps, backfilledMatches);
-                }
-            } catch (Exception ignored) {}
-        });
     }
 
     private synchronized void refreshSkillCacheInternal() {

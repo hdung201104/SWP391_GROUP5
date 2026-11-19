@@ -62,7 +62,8 @@ public class EdgeTtsClient {
         byte[] audio = doSynthesize(text.trim(), targetVoice);
         if (audio.length > 0) {
             consecutiveFailures.set(0);
-            if (cache.size() > 400) cache.clear();
+            // Giới hạn tối đa 30 audio clip (~2MB) để chống tràn RAM trên container 512MB Render
+            if (cache.size() >= 30) cache.clear();
             cache.put(key, audio);
         } else {
             int fails = consecutiveFailures.incrementAndGet();

@@ -29,6 +29,9 @@ public class VoiceAgentServiceImpl implements VoiceAgentService {
     private final OpenAiConfig openAiConfig;
     private final ObjectMapper objectMapper;
     private final CandidateRepository candidateRepository;
+    private final HttpClient sharedHttpClient = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(15))
+            .build();
 
     @org.springframework.beans.factory.annotation.Autowired
     @org.springframework.context.annotation.Lazy
@@ -141,10 +144,6 @@ public class VoiceAgentServiceImpl implements VoiceAgentService {
 
             log.info("Requesting OpenAI Realtime ephemeral session token from: {} for user: {}", url, user != null ? user.getEmail() : "anonymous");
 
-            HttpClient httpClient = HttpClient.newBuilder()
-                    .connectTimeout(Duration.ofSeconds(15))
-            .build();
-
             HttpRequest httpRequest = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .header("Authorization", "Bearer " + openAiConfig.getApiKey())
@@ -153,7 +152,7 @@ public class VoiceAgentServiceImpl implements VoiceAgentService {
                     .timeout(Duration.ofSeconds(20))
                     .build();
 
-            HttpResponse<String> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = sharedHttpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 log.error("Failed to create OpenAI Realtime session. Status: {}, Body: {}", response.statusCode(), response.body());

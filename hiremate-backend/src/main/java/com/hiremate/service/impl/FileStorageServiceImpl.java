@@ -28,6 +28,10 @@ public class FileStorageServiceImpl implements FileStorageService {
     @org.springframework.context.annotation.Lazy
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.hiremate.repository.CvRepository cvRepository;
+    private final java.net.http.HttpClient sharedHttpClient = java.net.http.HttpClient.newBuilder()
+            .connectTimeout(java.time.Duration.ofSeconds(15))
+            .build();
+    private final com.fasterxml.jackson.databind.ObjectMapper sharedObjectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
 
     @Override
     public String storeFile(MultipartFile file) {
@@ -201,18 +205,15 @@ public class FileStorageServiceImpl implements FileStorageService {
                     + "&api_key=" + java.net.URLEncoder.encode(fileStorageConfig.getCloudinaryApiKey(), java.nio.charset.StandardCharsets.UTF_8)
                     + "&signature=" + hex;
 
-            java.net.http.HttpClient http = java.net.http.HttpClient.newBuilder()
-                    .connectTimeout(java.time.Duration.ofSeconds(15))
-                    .build();
             java.net.http.HttpRequest req = java.net.http.HttpRequest.newBuilder()
                     .uri(java.net.URI.create("https://api.cloudinary.com/v1_1/" + fileStorageConfig.getCloudinaryCloudName() + "/image/upload"))
                     .timeout(java.time.Duration.ofSeconds(25))
                     .header("Content-Type", "application/x-www-form-urlencoded")
                     .POST(java.net.http.HttpRequest.BodyPublishers.ofString(form))
                     .build();
-            java.net.http.HttpResponse<String> res = http.send(req, java.net.http.HttpResponse.BodyHandlers.ofString());
+            java.net.http.HttpResponse<String> res = sharedHttpClient.send(req, java.net.http.HttpResponse.BodyHandlers.ofString());
             if (res.statusCode() == 200) {
-                com.fasterxml.jackson.databind.JsonNode root = new com.fasterxml.jackson.databind.ObjectMapper().readTree(res.body());
+                com.fasterxml.jackson.databind.JsonNode root = sharedObjectMapper.readTree(res.body());
                 String secureUrl = root.path("secure_url").asText("");
                 if (!secureUrl.isBlank()) {
                     log.info(">> [CloudStorage] Ảnh đã đẩy lên Cloudinary qua HTTPS API ({}): {}", publicId, secureUrl);

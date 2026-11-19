@@ -40,6 +40,9 @@ public class EmailServiceImpl implements EmailService {
     private String resendApiKey;
 
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
+    private final java.net.http.HttpClient sharedHttpClient = java.net.http.HttpClient.newBuilder()
+            .connectTimeout(java.time.Duration.ofSeconds(5))
+            .build();
 
     @Value("${app.frontend.url:http://localhost:5173}")
     private String frontendBaseUrl;
@@ -872,9 +875,6 @@ public class EmailServiceImpl implements EmailService {
     private boolean sendViaBrevoHttpApi(String toEmail, String subject, String htmlContent) {
         if (brevoApiKey == null || brevoApiKey.isBlank()) return false;
         try {
-            java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder()
-                    .connectTimeout(java.time.Duration.ofSeconds(5))
-                    .build();
             Map<String, Object> payload = Map.of(
                     "sender", Map.of("name", "HireMate AI Platform", "email", "hdung201104@gmail.com"),
                     "to", java.util.List.of(Map.of("email", toEmail)),
@@ -890,7 +890,7 @@ public class EmailServiceImpl implements EmailService {
                     .timeout(java.time.Duration.ofSeconds(8))
                     .POST(java.net.http.HttpRequest.BodyPublishers.ofString(json, StandardCharsets.UTF_8))
                     .build();
-            java.net.http.HttpResponse<String> resp = client.send(req, java.net.http.HttpResponse.BodyHandlers.ofString());
+            java.net.http.HttpResponse<String> resp = sharedHttpClient.send(req, java.net.http.HttpResponse.BodyHandlers.ofString());
             if (resp.statusCode() >= 200 && resp.statusCode() < 300) {
                 log.info(">> [EmailService] ĐÃ GỬI THÀNH CÔNG email qua Brevo HTTP API (Port 443) đến: {}", toEmail);
                 return true;
@@ -906,9 +906,6 @@ public class EmailServiceImpl implements EmailService {
     private boolean sendViaResendHttpApi(String toEmail, String subject, String htmlContent) {
         if (resendApiKey == null || resendApiKey.isBlank()) return false;
         try {
-            java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder()
-                    .connectTimeout(java.time.Duration.ofSeconds(5))
-                    .build();
             Map<String, Object> payload = Map.of(
                     "from", "HireMate AI <onboarding@resend.dev>",
                     "to", java.util.List.of(toEmail),
@@ -924,7 +921,7 @@ public class EmailServiceImpl implements EmailService {
                     .timeout(java.time.Duration.ofSeconds(8))
                     .POST(java.net.http.HttpRequest.BodyPublishers.ofString(json, StandardCharsets.UTF_8))
                     .build();
-            java.net.http.HttpResponse<String> resp = client.send(req, java.net.http.HttpResponse.BodyHandlers.ofString());
+            java.net.http.HttpResponse<String> resp = sharedHttpClient.send(req, java.net.http.HttpResponse.BodyHandlers.ofString());
             if (resp.statusCode() >= 200 && resp.statusCode() < 300) {
                 log.info(">> [EmailService] ĐÃ GỬI THÀNH CÔNG email qua Resend HTTP API (Port 443) đến: {}", toEmail);
                 return true;

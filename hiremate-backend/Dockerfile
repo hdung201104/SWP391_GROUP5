@@ -22,13 +22,16 @@ WORKDIR /app
 # Copy the built jar from builder stage
 COPY --from=builder /app/target/*.jar app.jar
 
-# JVM memory management strictly optimized for Render Free Tier (512MB RAM limit)
-# -Xmx300m: Capping maximum heap at 300MB
-# -Xms128m: Initial heap at 128MB
-# -Xss256k: Reduced thread stack size to 256KB
-# -XX:MaxMetaspaceSize=120m: Guard metaspace from expanding indefinitely
-# -XX:+UseSerialGC: Serial GC saves ~40MB RAM overhead compared to G1GC
-ENV JAVA_OPTS="-Xmx300m -Xms128m -Xss256k -XX:MaxMetaspaceSize=120m -XX:+UseSerialGC -XX:+ExitOnOutOfMemoryError"
+# JVM + Linux native memory strictly tuned for Render Free Tier (512MB hard RAM limit)
+# - MALLOC_ARENA_MAX=2: Prevents glibc multi-arena RSS bloat (~40-80MB saved in Docker)
+# - -Xmx220m: Hard heap cap at 220MB (leaving ~290MB headroom for Metaspace/CodeCache/OS/PDFBox)
+# - -Xms96m: Lean initial heap so container boots fast under low RAM
+# - -XX:MaxMetaspaceSize=105m: Cap Metaspace strictly
+# - -XX:ReservedCodeCacheSize=36m: Cap JIT CodeCache (saves ~40MB vs default)
+# - -XX:MaxDirectMemorySize=32m: Cap NIO direct buffers
+# - -XX:+UseSerialGC -XX:MinHeapFreeRatio=15 -XX:MaxHeapFreeRatio=35: Aggressively return free heap to OS
+ENV MALLOC_ARENA_MAX=2
+ENV JAVA_OPTS="-Xmx220m -Xms96m -Xss256k -XX:MaxMetaspaceSize=105m -XX:ReservedCodeCacheSize=36m -XX:MaxDirectMemorySize=32m -XX:+UseSerialGC -XX:MinHeapFreeRatio=15 -XX:MaxHeapFreeRatio=35 -XX:+ExitOnOutOfMemoryError"
 ENV PORT=8088
 
 EXPOSE ${PORT}
