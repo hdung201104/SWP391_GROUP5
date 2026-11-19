@@ -5899,6 +5899,37 @@ public class GeminiAiServiceImpl implements GeminiAiService {
             list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Điện toán Đám mây Doanh nghiệp (AWS / Google Cloud / Azure)").category(cat).aliases("Amazon Web Services, EC2, S3, Lambda, GCP, Cloud Server").build());
             list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Tự động Hóa Tích hợp & Triển khai Liên tục (CI/CD Pipeline)").category(cat).aliases("GitHub Actions, GitLab CI, Jenkins, DevOps Pipeline").build());
             list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Bảo mật Ứng dụng Web & Xác thực An toàn (OWASP / OAuth2 / JWT)").category(cat).aliases("Application Security, Spring Security, JWT Token, Penetration Testing").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Thiết kế & Chuẩn hóa Giao diện Lập trình (RESTful API / GraphQL)").category(cat).aliases("API Specification, OpenAPI Swagger, Postman, GraphQL Schema").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Tự động Hóa Kiểm thử Phần mềm (Automation Testing / JUnit / Selenium)").category(cat).aliases("Unit Test, Cypress, Selenium, Mockito, Test-Driven Development").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Giám sát Hiệu năng Hệ thống & Ghi nhận Log (Prometheus / Grafana / ELK)").category(cat).aliases("APM Monitoring, Grafana Dashboard, ELK Stack, Logstash").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Quản lý Mã nguồn & Phối hợp Nhóm (Git / GitHub / GitLab Flow)").category(cat).aliases("Git Branching, Pull Request Review, Conflict Resolution").build());
+        }
+        // 16. MẶC ĐỊNH CHO CÁC NGÀNH NGHỀ QUẢN TRỊ KINH DOANH, ĐIỀU HÀNH & DỰ ÁN TỔNG QUÁT (BUSINESS MANAGEMENT)
+        else {
+            String cat = "BUSINESS_MANAGEMENT";
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Hoạch định Chiến lược Doanh nghiệp & Kế hoạch Kinh doanh").category(cat).aliases("Business Plan, Chiến lược phát triển kinh doanh").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Quản lý Dự án Thực chiến (Phương pháp Agile / Scrum)").category(cat).aliases("Project Management, Quản lý tiến độ dự án, Jira, Trello").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Phân tích Nghiệp vụ Kinh doanh (Business Analysis / BPMN)").category(cat).aliases("Business Analyst, Sơ đồ quy trình BPMN, Use Cases").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Quản trị Vận hành & Tối ưu Hóa Quy trình Doanh nghiệp (SOP)").category(cat).aliases("Chuẩn hóa quy trình vận hành, Lean Six Sigma, Cải tiến liên tục").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Thiết lập & Theo dõi Hệ thống Chỉ số Hiệu suất Cốt lõi (KPIs / OKRs)").category(cat).aliases("Quản trị mục tiêu OKRs, Đo lường hiệu suất công việc KPIs").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Quản trị Rủi ro Vận hành & Kiểm soát Khủng hoảng Doanh nghiệp").category(cat).aliases("Risk Management, Kế hoạch ứng phó khủng hoảng").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Kỹ năng Lãnh đạo Đội ngũ, Ủy quyền & Ra Quyết định Chiến lược").category(cat).aliases("Leadership Skills, Quản lý đội ngũ nhân viên, Quyết định kinh doanh").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Đàm phán Đối tác Chiến lược & Quản lý Quan hệ Hợp tác").category(cat).aliases("Partnership Negotiation, Ký kết thỏa thuận hợp tác MOU").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Phân tích Dữ liệu Báo cáo Quản trị (Power BI / Excel Dashboard)").category(cat).aliases("Báo cáo số liệu quản trị, Power BI, Dashboard trực quan").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Quản lý Ngân sách Vận hành & Kiểm soát Chi phí Bộ phận").category(cat).aliases("Budget Control, Chi phí hoạt động OPEX, Định mức ngân sách").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Kỹ năng Thuyết trình Cấp cao & Báo cáo Ban Giám đốc").category(cat).aliases("Executive Presentation, Báo cáo Hội đồng Quản trị").build());
+            list.add(com.hiremate.dto.response.SkillItemDTO.builder().skillName("Quản trị Thay đổi & Đổi mới Sáng tạo Tổ chức (Change Management)").category(cat).aliases("Chuyển đổi số doanh nghiệp, Đổi mới quy trình làm việc").build());
+        }
+
+        return list;
+    }
+
+    @Override
+    public String rewriteCandidateSummary(String targetTitle, String currentSummary, java.util.List<String> skills, java.util.List<String> experiences, java.util.List<String> educations) {
+        if (!isAvailable()) {
+            return generateFallbackCandidateSummary(targetTitle, skills, experiences);
+        }
+        try {
             StringBuilder prompt = new StringBuilder();
             prompt.append("Bạn là chuyên gia tư vấn tuyển dụng & tối ưu hóa hồ sơ ATS hàng đầu.\n");
             prompt.append("Hãy viết lại đoạn giới thiệu bản thân (Professional Summary / Bio) dài từ 3-4 câu, súc tích, mang tính thuyết phục cao và chuẩn ATS cho ứng viên dựa trên thông tin thực tế sau:\n");

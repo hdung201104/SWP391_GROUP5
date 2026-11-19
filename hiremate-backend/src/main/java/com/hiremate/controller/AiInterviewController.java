@@ -188,7 +188,9 @@ public class AiInterviewController {
                 }
             } catch (Exception ignored) {}
         }
-        return ResponseEntity.ok(ApiResponse.ok("Voice turn generated", result));
+        return ResponseEntity.ok()
+                .header("X-HireMate-AI-Status", geminiAiService.getLastVoiceAiStatus())
+                .body(ApiResponse.ok("Voice turn generated", result));
     }
 
     @PostMapping("/turn-complete")
@@ -210,7 +212,9 @@ public class AiInterviewController {
         String cvSnippet = body.get("cvSnippet") != null ? body.get("cvSnippet").toString() : null;
         String level = body.get("level") != null ? body.get("level").toString() : null;
         java.util.Map<String, Object> coaching = geminiAiService.generateAnswerCoaching(targetPosition, question, cvSnippet, level);
-        return ResponseEntity.ok(ApiResponse.ok("Answer coaching", coaching));
+        return ResponseEntity.ok()
+                .header("X-HireMate-AI-Status", geminiAiService.getLastVoiceAiStatus())
+                .body(ApiResponse.ok("Answer coaching", coaching));
     }
 
     @PostMapping("/voice-turn")
@@ -270,7 +274,9 @@ public class AiInterviewController {
                 }
             } catch (Exception ignored) {}
         }
-        return ResponseEntity.ok(ApiResponse.ok("Voice turn generated", result));
+        return ResponseEntity.ok()
+                .header("X-HireMate-AI-Status", geminiAiService.getLastVoiceAiStatus())
+                .body(ApiResponse.ok("Voice turn generated", result));
     }
 
     @PostMapping("/{sessionId}/complete")
