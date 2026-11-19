@@ -51,6 +51,13 @@ public class AiInterviewServiceImpl implements AiInterviewService {
     private com.hiremate.repository.SubscriptionPlanRepository subscriptionPlanRepository;
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.hiremate.service.SystemSettingsService systemSettingsService;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.hiremate.util.EdgeTtsClient edgeTtsClient;
+
+    private final java.net.http.HttpClient ttsHttpClient = java.net.http.HttpClient.newBuilder()
+            .connectTimeout(java.time.Duration.ofSeconds(5))
+            .build();
+    private volatile long elevenlabsQuotaBlockedUntilMs = 0L;
 
     @org.springframework.beans.factory.annotation.Value("${elevenlabs.api-key:}")
     private String elevenlabsApiKey;
@@ -316,13 +323,15 @@ public class AiInterviewServiceImpl implements AiInterviewService {
             quotaLimit = (plan != null && plan.getQuotaLimit() != null && plan.getQuotaLimit() > 0) ? plan.getQuotaLimit() : 2;
         }
 
+        // Truy vấn active subscriptions ĐÚNG 1 LẦN duy nhất (tránh nhân đôi DB round-trip tới Supabase)
+        List<com.hiremate.entity.Subscription> activeSubs = (candidate != null && subscriptionRepository != null)
+                ? subscriptionRepository.findActiveCandidateSubscriptions(
+                        candidate.getUserId(), com.hiremate.enums.SubscriptionStatus.ACTIVE, LocalDateTime.now())
+                : java.util.Collections.emptyList();
+
         // Ưu tiên customQuota của subscription đang kích hoạt nếu Admin đã cấu hình riêng cho ứng viên
-        if (candidate != null && subscriptionRepository != null) {
-            List<com.hiremate.entity.Subscription> activeSubs = subscriptionRepository.findActiveCandidateSubscriptions(
-                    candidate.getUserId(), com.hiremate.enums.SubscriptionStatus.ACTIVE, LocalDateTime.now());
-            if (!activeSubs.isEmpty() && activeSubs.get(0).getCustomQuota() != null && activeSubs.get(0).getCustomQuota() > 0) {
-                quotaLimit = activeSubs.get(0).getCustomQuota();
-            }
+        if (!activeSubs.isEmpty() && activeSubs.get(0).getCustomQuota() != null && activeSubs.get(0).getCustomQuota() > 0) {
+            quotaLimit = activeSubs.get(0).getCustomQuota();
         }
 
         // Đồng bộ hạn ngạch miễn phí theo cấu hình hệ thống của Admin nếu ứng viên dùng gói miễn phí và chưa ép cứng quota tùy chỉnh
@@ -378,11 +387,6 @@ public class AiInterviewServiceImpl implements AiInterviewService {
         LocalDateTime startOfDay = java.time.LocalDate.now().atStartOfDay();
         String endDateStr = null;
 
-        List<com.hiremate.entity.Subscription> activeSubs = (candidate != null && subscriptionRepository != null)
-                ? subscriptionRepository.findActiveCandidateSubscriptions(
-                        candidate.getUserId(), com.hiremate.enums.SubscriptionStatus.ACTIVE, LocalDateTime.now())
-                : java.util.Collections.emptyList();
-
         com.hiremate.entity.Subscription currentSub = activeSubs.isEmpty() ? null : activeSubs.get(0);
 
         if (currentSub != null && currentSub.getEndDate() != null) {
@@ -414,6 +418,17 @@ public class AiInterviewServiceImpl implements AiInterviewService {
                 .unlockFullStar(unlockFullStar)
                 .unlockRoadmapStages(unlockRoadmap)
                 .build();
+    }
+
+    @Override
+    public Map<String, Object> getCandidateVoicePlanLimits(User candidate) {
+        if (candidate == null) {
+            return Map.of("maxQuestions", 3, "planName", "Free Candidate");
+        }
+        com.hiremate.entity.SubscriptionPlan plan = resolveActiveOrFreePlan(candidate);
+        String planName = (plan != null && plan.getPlanName() != null) ? plan.getPlanName() : "Free Candidate";
+        int maxQuestions = calculateMaxQuestions(plan);
+        return Map.of("maxQuestions", maxQuestions, "planName", planName);
     }
 
     /**
@@ -1427,42 +1442,47 @@ public class AiInterviewServiceImpl implements AiInterviewService {
         if (normalized.isBlank()) return new byte[0];
 
         boolean isEn = com.hiremate.util.SpeechPhoneticNormalizer.isMostlyEnglish(normalized);
-        String vLower = voice != null ? voice.toLowerCase() : "female";
 
-        // 1. Nếu văn bản là tiếng Anh HOẶC người dùng chỉ định giọng ElevenLabs Quốc Tế
-        boolean requestEleven = isEn || vLower.contains("eleven") || vLower.contains("alice") || vLower.contains("george") || vLower.contains("male");
-        if (requestEleven && elevenlabsApiKey != null && !elevenlabsApiKey.isBlank()) {
+        // 1. ƯU TIÊN SỐ 1: Microsoft Azure / Edge Neural TTS (Hoàn toàn miễn phí, KHÔNG giới hạn quota!)
+        //    - Giọng Nữ Chuẩn Mực (female): vi-VN-HoaiMyNeural
+        //    - Giọng Nữ Song Ngữ Việt-Anh (eleven/alice): en-US-AvaMultilingualNeural
+        //    - Giọng Nam Trầm Ấm (male/george): vi-VN-NamMinhNeural
+        if (edgeTtsClient != null) {
+            byte[] edgeAudio = edgeTtsClient.synthesize(normalized, voice, isEn);
+            if (edgeAudio != null && edgeAudio.length > 0) {
+                return edgeAudio;
+            }
+        }
+
+        // 2. DỰ PHÒNG #2: ElevenLabs Generative AI (Chỉ gọi khi còn quota - tự động skip 30 phút nếu HTTP 401/402/429)
+        if (elevenlabsApiKey != null && !elevenlabsApiKey.isBlank()
+                && System.currentTimeMillis() >= elevenlabsQuotaBlockedUntilMs) {
             byte[] elevenAudio = synthesizeWithElevenLabs(normalized, voice, isEn);
             if (elevenAudio != null && elevenAudio.length > 0) {
                 return elevenAudio;
             }
         }
 
-        // 2. MẶC ĐỊNH CHO TIẾNG VIỆT BẢN XỨ (100% chuẩn giọng đọc Việt Nam, không ngọng, không lơ lớ):
-        // Dùng động cơ Native Vietnamese Audio Stream với tl=vi
+        // 3. DỰ PHÒNG #3 (Tốc độ cao): Google Translate TTS song song giữ nguyên 1 giọng thống nhất cả câu
         byte[] nativeAudio = synthesizeSpeech(normalized);
         if (nativeAudio != null && nativeAudio.length > 0) {
             return nativeAudio;
-        }
-
-        // 3. Dự phòng cuối cùng: ElevenLabs Turbo v2.5 nếu các kênh khác gặp sự cố
-        if (elevenlabsApiKey != null && !elevenlabsApiKey.isBlank()) {
-            byte[] fallbackEleven = synthesizeWithElevenLabs(normalized, voice, isEn);
-            if (fallbackEleven != null && fallbackEleven.length > 0) {
-                return fallbackEleven;
-            }
         }
 
         return new byte[0];
     }
 
     private byte[] synthesizeWithElevenLabs(String text, String voice, boolean isEnglish) {
+        if (System.currentTimeMillis() < elevenlabsQuotaBlockedUntilMs) {
+            return new byte[0];
+        }
         try {
             String clean = text.trim();
             if (clean.isEmpty()) return new byte[0];
             if (clean.length() > 2000) clean = clean.substring(0, 2000);
 
-            boolean male = voice != null && (voice.toLowerCase().contains("male") || voice.toLowerCase().contains("george") || voice.toLowerCase().contains("nam"));
+            String vLower = voice != null ? voice.toLowerCase().trim() : "female";
+            boolean male = !vLower.contains("female") && (vLower.equals("male") || vLower.contains("-male") || vLower.contains("_male") || vLower.contains("george") || vLower.contains("nam"));
             String voiceId = male ? elevenlabsVoiceMale : elevenlabsVoiceFemale;
             if (voiceId == null || voiceId.isBlank()) {
                 voiceId = male ? "JBFqnCBsd6RMkjVDRZzb" : "Xb7hH8MSUJpSbSDYk0k2";
@@ -1494,11 +1514,11 @@ public class AiInterviewServiceImpl implements AiInterviewService {
                     .uri(java.net.URI.create("https://api.elevenlabs.io/v1/text-to-speech/" + voiceId + "?output_format=mp3_44100_128"))
                     .header("Content-Type", "application/json")
                     .header("xi-api-key", elevenlabsApiKey.trim())
-                    .timeout(java.time.Duration.ofSeconds(12))
+                    .timeout(java.time.Duration.ofSeconds(8))
                     .POST(java.net.http.HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body)))
                     .build();
 
-            java.net.http.HttpResponse<byte[]> resp = java.net.http.HttpClient.newHttpClient()
+            java.net.http.HttpResponse<byte[]> resp = ttsHttpClient
                     .send(req, java.net.http.HttpResponse.BodyHandlers.ofByteArray());
 
             if (resp.statusCode() == 200 && resp.body() != null && resp.body().length > 0) {
@@ -1507,7 +1527,15 @@ public class AiInterviewServiceImpl implements AiInterviewService {
                 ttsMemoryCache.put(cacheKey, resp.body());
                 return resp.body();
             } else {
-                log.warn(">> [ElevenLabs] HTTP {}: {}", resp.statusCode(), resp.body() != null ? new String(resp.body(), java.nio.charset.StandardCharsets.UTF_8) : "");
+                String errBody = resp.body() != null ? new String(resp.body(), java.nio.charset.StandardCharsets.UTF_8) : "";
+                if (resp.statusCode() == 401 || resp.statusCode() == 402 || resp.statusCode() == 429
+                        || errBody.contains("quota_exceeded")) {
+                    // Circuit breaker 30 phút để không làm chậm mọi lượt nói khi API key hết quota
+                    elevenlabsQuotaBlockedUntilMs = System.currentTimeMillis() + 30 * 60_000L;
+                    log.warn(">> [ElevenLabs] Hết quota hoặc bị chặn (HTTP {}). Tạm ngưng ElevenLabs 30 phút để tránh làm chậm TTS.", resp.statusCode());
+                } else {
+                    log.warn(">> [ElevenLabs] HTTP {}: {}", resp.statusCode(), errBody);
+                }
             }
         } catch (Exception e) {
             log.warn(">> [ElevenLabs] Lỗi tổng hợp giọng nói: {}", e.getMessage());
@@ -1523,43 +1551,51 @@ public class AiInterviewServiceImpl implements AiInterviewService {
             return new byte[0];
         }
         try {
-            // Chuẩn hóa phát âm và phiên âm ngữ âm cho TTS tiếng Việt (xử lý triệt để lỗi nuốt từ / đọc sai thuật ngữ tiếng Anh)
+            // Chuẩn hóa phát âm cho TTS tiếng Việt
             String clean = com.hiremate.util.SpeechPhoneticNormalizer.normalizeForVietnameseTts(text);
             if (clean.isEmpty()) return new byte[0];
 
-            String cacheKey = clean.trim();
+            String cacheKey = "gtts|" + clean.trim();
             byte[] cached = ttsMemoryCache.get(cacheKey);
             if (cached != null && cached.length > 0) {
                 return cached;
             }
 
-            // Tối ưu gom câu tự nhiên để tránh đứt đoạn, khoảng lặng chết (dead air)
-            List<String> chunks = splitTextForTts(clean, 180);
-            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
-            java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder()
-                    .connectTimeout(java.time.Duration.ofSeconds(6))
-                    .build();
+            // Xác định 1 ngôn ngữ duy nhất cho toàn bộ phát biểu (tránh nhảy giọng giữa tiếng Việt và tiếng Anh giữa câu)
+            final String langCode = com.hiremate.util.SpeechPhoneticNormalizer.isMostlyEnglish(clean) ? "en" : "vi";
 
+            // Tải song song toàn bộ các đoạn audio chunk thay vì tuần tự -> giảm 2-3x độ trễ!
+            List<String> chunks = splitTextForTts(clean, 180);
+            List<java.util.concurrent.CompletableFuture<byte[]>> futures = new ArrayList<>();
             for (String chunk : chunks) {
                 if (chunk.isBlank()) continue;
+                final String c = chunk;
+                futures.add(java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+                    try {
+                        String encoded = java.net.URLEncoder.encode(c, java.nio.charset.StandardCharsets.UTF_8);
+                        String url = "https://translate.google.com/translate_tts?ie=UTF-8&tl=" + langCode + "&client=tw-ob&q=" + encoded;
+                        java.net.http.HttpRequest req = java.net.http.HttpRequest.newBuilder()
+                                .uri(java.net.URI.create(url))
+                                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+                                .timeout(java.time.Duration.ofSeconds(6))
+                                .GET()
+                                .build();
+                        java.net.http.HttpResponse<byte[]> resp = ttsHttpClient.send(req, java.net.http.HttpResponse.BodyHandlers.ofByteArray());
+                        if (resp.statusCode() == 200 && resp.body() != null && resp.body().length > 0) {
+                            return resp.body();
+                        }
+                    } catch (Exception ex) {
+                        log.warn(">> [GoogleTTS] Chunk failed: {}", ex.getMessage());
+                    }
+                    return new byte[0];
+                }));
+            }
 
-                // Tự động nhận diện ngôn ngữ của câu: Tiếng Anh (en) hay Tiếng Việt (vi)
-                boolean isEn = com.hiremate.util.SpeechPhoneticNormalizer.isMostlyEnglish(chunk);
-                String langCode = isEn ? "en" : "vi";
-
-                String encoded = java.net.URLEncoder.encode(chunk, java.nio.charset.StandardCharsets.UTF_8);
-                String url = "https://translate.google.com/translate_tts?ie=UTF-8&tl=" + langCode + "&client=tw-ob&q=" + encoded;
-
-                java.net.http.HttpRequest req = java.net.http.HttpRequest.newBuilder()
-                        .uri(java.net.URI.create(url))
-                        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-                        .timeout(java.time.Duration.ofSeconds(6))
-                        .GET()
-                        .build();
-
-                java.net.http.HttpResponse<byte[]> resp = client.send(req, java.net.http.HttpResponse.BodyHandlers.ofByteArray());
-                if (resp.statusCode() == 200 && resp.body() != null && resp.body().length > 0) {
-                    out.write(resp.body());
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            for (java.util.concurrent.CompletableFuture<byte[]> f : futures) {
+                byte[] part = f.get(7, java.util.concurrent.TimeUnit.SECONDS);
+                if (part != null && part.length > 0) {
+                    out.write(part);
                 }
             }
 

@@ -38,6 +38,10 @@ export default function VoiceAiAssistantModal({ isOpen, onClose, user, initialCo
   const isProcessingRef = useRef(false);
 
   const currentAudioRef = useRef(null);
+  const persistentAudioRef = useRef(null);
+  const ttsAbortRef = useRef(null);
+  const blobUrlRef = useRef(null);
+  const speakGenRef = useRef(0);
 
   // Auto-scroll transcript container
   useEffect(() => {
@@ -98,14 +102,26 @@ export default function VoiceAiAssistantModal({ isOpen, onClose, user, initialCo
   };
 
   const stopSpeaking = () => {
+    speakGenRef.current += 1;
     speechQueueRef.current = [];
     isSpeakingRef.current = false;
+    if (ttsAbortRef.current) {
+      try { ttsAbortRef.current.abort(); } catch (e) {}
+      ttsAbortRef.current = null;
+    }
     if (currentAudioRef.current) {
       try {
+        currentAudioRef.current.onplay = null;
+        currentAudioRef.current.onended = null;
+        currentAudioRef.current.onerror = null;
         currentAudioRef.current.pause();
         currentAudioRef.current.currentTime = 0;
       } catch (e) {}
       currentAudioRef.current = null;
+    }
+    if (blobUrlRef.current) {
+      try { URL.revokeObjectURL(blobUrlRef.current); } catch (e) {}
+      blobUrlRef.current = null;
     }
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       try {
@@ -173,45 +189,78 @@ export default function VoiceAiAssistantModal({ isOpen, onClose, user, initialCo
     speakNextSentenceChunk();
   };
 
-  const speakNextSentenceChunk = () => {
+  const speakNextSentenceChunk = async () => {
+    const myGen = speakGenRef.current;
     if (speechQueueRef.current.length === 0) {
       isSpeakingRef.current = false;
       setTimeout(() => {
-        setConnectionState('listening');
+        if (myGen === speakGenRef.current) {
+          setConnectionState('listening');
+        }
       }, 500);
       return;
     }
 
     const chunk = speechQueueRef.current.shift();
     const voiceParam = voiceChoice === 'vi-male' ? 'male' : 'female';
+    const controller = new AbortController();
+    ttsAbortRef.current = controller;
 
-    // Ưu tiên 1: Stream giọng nói tự nhiên từ Backend TTS endpoint
+    // Ưu tiên 1: Tải giọng nói chuẩn phòng thu từ Backend Neural TTS (POST ưu tiên, tự fallback GET)
     try {
       const apiBase = getApiBaseUrl();
-      const ttsUrl = `${apiBase}/api/v1/ai-interviews/tts?voice=${voiceParam}&text=${encodeURIComponent(chunk)}`;
-      const audio = new Audio(ttsUrl);
+      let resp = await fetch(`${apiBase}/api/v1/ai-interviews/tts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: chunk, voice: voiceParam }),
+        signal: controller.signal,
+      });
+      if (resp.status === 404 || resp.status === 405) {
+        resp = await fetch(`${apiBase}/api/v1/ai-interviews/tts?voice=${voiceParam}&text=${encodeURIComponent(chunk)}`, {
+          signal: controller.signal,
+        });
+      }
+      if (!resp.ok) throw new Error(`TTS HTTP ${resp.status}`);
+      const blob = await resp.blob();
+      if (!blob || blob.size < 200) throw new Error('Empty TTS blob');
+      if (myGen !== speakGenRef.current) return;
+
+      if (blobUrlRef.current) {
+        try { URL.revokeObjectURL(blobUrlRef.current); } catch (e) {}
+      }
+      const blobUrl = URL.createObjectURL(blob);
+      blobUrlRef.current = blobUrl;
+
+      const audio = persistentAudioRef.current || new Audio();
+      persistentAudioRef.current = audio;
+      audio.onplay = null;
+      audio.onended = null;
+      audio.onerror = null;
+      audio.src = blobUrl;
       currentAudioRef.current = audio;
 
       audio.onplay = () => {
+        if (myGen !== speakGenRef.current) return;
         isSpeakingRef.current = true;
         setConnectionState('speaking');
       };
 
       audio.onended = () => {
+        if (myGen !== speakGenRef.current) return;
         currentAudioRef.current = null;
         speakNextSentenceChunk();
       };
 
       audio.onerror = () => {
+        if (myGen !== speakGenRef.current) return;
         currentAudioRef.current = null;
         fallbackBrowserSpeech(chunk);
       };
 
-      audio.play().catch(() => {
-        currentAudioRef.current = null;
-        fallbackBrowserSpeech(chunk);
-      });
+      await audio.play();
     } catch (e) {
+      if (myGen !== speakGenRef.current || e?.name === 'AbortError') return;
+      currentAudioRef.current = null;
       fallbackBrowserSpeech(chunk);
     }
   };
@@ -230,7 +279,7 @@ export default function VoiceAiAssistantModal({ isOpen, onClose, user, initialCo
       const isMale = voiceChoice === 'vi-male';
       let selectedVoice = null;
       if (isEn) {
-        selectedVoice = voices.find((v) => v.lang.startsWith('en') && (isMale ? /male|david|guy|andrew/i.test(v.name) : /female|jenny|zira|aria/i.test(v.name))) || voices.find((v) => v.lang.startsWith('en'));
+        selectedVoice = voices.find((v) => v.lang.startsWith('en') && (isMale ? /\bmale\b|david|guy|andrew/i.test(v.name) : /female|jenny|zira|aria/i.test(v.name))) || voices.find((v) => v.lang.startsWith('en'));
       } else {
         selectedVoice = voices.find((v) =>
           v.lang.toLowerCase().startsWith('vi') &&

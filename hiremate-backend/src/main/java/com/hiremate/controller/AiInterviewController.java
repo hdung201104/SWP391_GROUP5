@@ -159,8 +159,8 @@ public class AiInterviewController {
 
         if (user != null) {
             try {
-                var quota = aiInterviewService.getCandidateQuotaStatus(user);
-                int allowedMaxQuestions = quota.getMaxQuestions();
+                var limits = aiInterviewService.getCandidateVoicePlanLimits(user);
+                int allowedMaxQuestions = ((Number) limits.getOrDefault("maxQuestions", 3)).intValue();
                 if (user.getRole() != com.hiremate.enums.UserRole.ADMIN) {
                     if (maxQuestions == null || maxQuestions > allowedMaxQuestions) {
                         maxQuestions = allowedMaxQuestions;
@@ -168,7 +168,9 @@ public class AiInterviewController {
                 } else if (maxQuestions == null) {
                     maxQuestions = allowedMaxQuestions;
                 }
-                if (planName == null) planName = quota.getPlanName();
+                if (planName == null && limits.get("planName") != null) {
+                    planName = limits.get("planName").toString();
+                }
             } catch (Exception ignored) {}
         }
 
@@ -229,8 +231,8 @@ public class AiInterviewController {
 
         if (user != null) {
             try {
-                var quota = aiInterviewService.getCandidateQuotaStatus(user);
-                int allowedMaxQuestions = quota.getMaxQuestions();
+                var limits = aiInterviewService.getCandidateVoicePlanLimits(user);
+                int allowedMaxQuestions = ((Number) limits.getOrDefault("maxQuestions", 3)).intValue();
                 if (user.getRole() != com.hiremate.enums.UserRole.ADMIN) {
                     if (maxQuestions == null || maxQuestions > allowedMaxQuestions) {
                         maxQuestions = allowedMaxQuestions;
@@ -238,7 +240,9 @@ public class AiInterviewController {
                 } else if (maxQuestions == null) {
                     maxQuestions = allowedMaxQuestions;
                 }
-                if (planName == null) planName = quota.getPlanName();
+                if (planName == null && limits.get("planName") != null) {
+                    planName = limits.get("planName").toString();
+                }
             } catch (Exception ignored) {}
         }
 
@@ -330,6 +334,20 @@ public class AiInterviewController {
     @GetMapping("/tts")
     public ResponseEntity<byte[]> streamTts(@RequestParam String text,
                                             @RequestParam(defaultValue = "female") String voice) {
+        byte[] audio = aiInterviewService.synthesizeSpeech(text, voice);
+        if (audio == null || audio.length == 0) {
+            return ResponseEntity.status(503).build();
+        }
+        return ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_TYPE, "audio/mpeg")
+                .header(org.springframework.http.HttpHeaders.CACHE_CONTROL, "public, max-age=86400")
+                .body(audio);
+    }
+
+    @PostMapping("/tts")
+    public ResponseEntity<byte[]> synthesizeTtsPost(@RequestBody java.util.Map<String, Object> body) {
+        String text = body != null && body.get("text") != null ? body.get("text").toString() : "";
+        String voice = body != null && body.get("voice") != null ? body.get("voice").toString() : "female";
         byte[] audio = aiInterviewService.synthesizeSpeech(text, voice);
         if (audio == null || audio.length == 0) {
             return ResponseEntity.status(503).build();

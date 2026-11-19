@@ -34,35 +34,61 @@ public class EdgeTtsClient {
     private static final String TRUSTED_CLIENT_TOKEN = "6A5AA1D4EAFF4E9FB37E23D68491D6F4";
     private static final String CHROMIUM_VERSION = "143.0.3650.75";
     private static final String WSS_BASE =
-            "wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=" + TRUSTED_CLIENT_TOKEN;
+            "wss://api.msedgeservices.com/tts/cognitiveservices/websocket/v1?Ocp-Apim-Subscription-Key=" + TRUSTED_CLIENT_TOKEN;
     private static final long WIN_EPOCH_SECONDS = 11644473600L;
 
     private final HttpClient httpClient = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(6))
+            .connectTimeout(Duration.ofSeconds(5))
             .build();
 
     private final ConcurrentHashMap<String, byte[]> cache = new ConcurrentHashMap<>();
+    private final java.util.concurrent.atomic.AtomicInteger consecutiveFailures = new java.util.concurrent.atomic.AtomicInteger(0);
+    private volatile long circuitOpenUntilMs = 0L;
 
     public byte[] synthesize(String text, String voiceName) {
+        return synthesize(text, voiceName, false);
+    }
+
+    public byte[] synthesize(String text, String voiceName, boolean isEnglish) {
         if (text == null || text.isBlank()) return new byte[0];
-        String targetVoice = resolveVoiceName(voiceName);
+        if (System.currentTimeMillis() < circuitOpenUntilMs) {
+            return new byte[0];
+        }
+        String targetVoice = resolveVoiceName(voiceName, isEnglish);
         String key = targetVoice + "|" + text.trim();
         byte[] cached = cache.get(key);
-        if (cached != null) return cached;
+        if (cached != null && cached.length > 0) return cached;
 
         byte[] audio = doSynthesize(text.trim(), targetVoice);
         if (audio.length > 0) {
-            if (cache.size() > 300) cache.clear();
+            consecutiveFailures.set(0);
+            if (cache.size() > 400) cache.clear();
             cache.put(key, audio);
+        } else {
+            int fails = consecutiveFailures.incrementAndGet();
+            if (fails >= 3) {
+                circuitOpenUntilMs = System.currentTimeMillis() + 60_000L;
+                log.warn(">> [EdgeTTS] Tạm ngưng 60s sau {} lỗi liên tiếp, chuyển ngay sang kênh dự phòng.", fails);
+            }
         }
         return audio;
     }
 
-    private String resolveVoiceName(String voice) {
-        if (voice == null) return "vi-VN-HoaiMyNeural";
-        String v = voice.toLowerCase().trim();
-        if (v.contains("nam") || v.contains("male") || v.contains("minh")) {
+    private String resolveVoiceName(String voice, boolean isEnglish) {
+        String v = voice != null ? voice.toLowerCase().trim() : "female";
+        boolean isFemaleExplicit = v.contains("female") || v.contains("nữ") || v.contains("hoaimy") || v.equals("vi-native");
+        boolean isMale = !isFemaleExplicit && (v.equals("male") || v.contains("-male") || v.contains("_male")
+                || v.contains("nam") || v.contains("minh") || v.contains("george"));
+        boolean isBilingual = !isMale && (v.contains("eleven") || v.contains("alice") || v.contains("bilingual") || v.contains("song"));
+
+        if (isEnglish) {
+            return isMale ? "en-US-AndrewMultilingualNeural" : "en-US-AvaMultilingualNeural";
+        }
+        if (isMale) {
             return "vi-VN-NamMinhNeural";
+        }
+        if (isBilingual) {
+            return "en-US-AvaMultilingualNeural";
         }
         return "vi-VN-HoaiMyNeural";
     }
@@ -70,6 +96,7 @@ public class EdgeTtsClient {
     private byte[] doSynthesize(String text, String voiceName) {
         try {
             String connectionId = UUID.randomUUID().toString().replace("-", "");
+            String muid = UUID.randomUUID().toString().replace("-", "").toUpperCase(Locale.ROOT);
             String url = WSS_BASE
                     + "&ConnectionId=" + connectionId
                     + "&Sec-MS-GEC=" + generateSecMsGec()
@@ -139,12 +166,13 @@ public class EdgeTtsClient {
                     .header("Pragma", "no-cache")
                     .header("Cache-Control", "no-cache")
                     .header("Origin", "chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold")
+                    .header("Cookie", "muid=" + muid + ";")
                     .header("Accept-Language", "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7")
                     .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/"
                             + CHROMIUM_VERSION.split("\\.")[0] + ".0.0.0 Safari/537.36 Edg/" + CHROMIUM_VERSION.split("\\.")[0] + ".0.0.0")
-                    .connectTimeout(Duration.ofSeconds(6))
+                    .connectTimeout(Duration.ofSeconds(5))
                     .buildAsync(URI.create(url), listener)
-                    .get(8, TimeUnit.SECONDS);
+                    .get(6, TimeUnit.SECONDS);
 
             String timestamp = DateTimeFormatter.ofPattern("EEE MMM dd yyyy HH:mm:ss 'GMT+0000 (Coordinated Universal Time)'", Locale.US)
                     .format(ZonedDateTime.now(ZoneOffset.UTC));
@@ -154,18 +182,21 @@ public class EdgeTtsClient {
                     + "Path:speech.config\r\n\r\n"
                     + "{\"context\":{\"synthesis\":{\"audio\":{\"metadataoptions\":{\"sentenceBoundaryEnabled\":\"false\",\"wordBoundaryEnabled\":\"false\"},"
                     + "\"outputFormat\":\"audio-24khz-48kbitrate-mono-mp3\"}}}}\r\n";
-            ws.sendText(config, true).get(4, TimeUnit.SECONDS);
+            ws.sendText(config, true).get(3, TimeUnit.SECONDS);
 
-            String ssml = "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='vi-VN'>"
-                    + "<voice name='" + voiceName + "'><prosody pitch='+0Hz' rate='+10%' volume='+0%'>"
+            String xmlLang = voiceName.startsWith("en-") ? "en-US" : "vi-VN";
+            String rate = voiceName.startsWith("en-") ? "+2%" : "+4%";
+            String pitch = voiceName.contains("NamMinh") ? "-2Hz" : "+0Hz";
+            String ssml = "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='" + xmlLang + "'>"
+                    + "<voice name='" + voiceName + "'><prosody pitch='" + pitch + "' rate='" + rate + "' volume='+0%'>"
                     + escapeXml(text) + "</prosody></voice></speak>";
             String ssmlMsg = "X-RequestId:" + UUID.randomUUID().toString().replace("-", "") + "\r\n"
                     + "Content-Type:application/ssml+xml\r\n"
                     + "X-Timestamp:" + timestamp + "Z\r\n"
                     + "Path:ssml\r\n\r\n" + ssml;
-            ws.sendText(ssmlMsg, true).get(4, TimeUnit.SECONDS);
+            ws.sendText(ssmlMsg, true).get(3, TimeUnit.SECONDS);
 
-            done.get(10, TimeUnit.SECONDS);
+            done.get(8, TimeUnit.SECONDS);
             try {
                 ws.sendClose(WebSocket.NORMAL_CLOSURE, "done");
             } catch (Exception ignored) {}

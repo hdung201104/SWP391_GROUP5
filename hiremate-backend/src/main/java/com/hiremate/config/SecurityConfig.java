@@ -58,7 +58,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/cvs/*/download", "/api/v1/cvs/*/preview").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/ai-interviews/config").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/ai-interviews/tts").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/v1/ai-interviews/voice-turn", "/api/v1/ai-interviews/*/voice-turn", "/api/v1/ai-interviews/turn-complete", "/api/v1/ai-interviews/coach").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/ai-interviews/tts", "/api/v1/ai-interviews/voice-turn", "/api/v1/ai-interviews/*/voice-turn", "/api/v1/ai-interviews/turn-complete", "/api/v1/ai-interviews/coach").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/voice-agent/status").permitAll()
                         .requestMatchers("/api/v1/voice-agent/**").hasRole("CANDIDATE")
                         .requestMatchers("/api/v1/payment/**").permitAll()

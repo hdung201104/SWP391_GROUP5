@@ -667,6 +667,19 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
   const isTurnProcessingRef = useRef(false);
   const patienceRoundsRef = useRef(0);
   const currentAudioRef = useRef(null);
+  const persistentAudioRef = useRef(null);
+  const ttsAbortControllerRef = useRef(null);
+  const currentAudioBlobUrlRef = useRef(null);
+  const speakGenRef = useRef(0);
+  const isAiThinkingRef = useRef(false);
+  isAiThinkingRef.current = isAiThinking;
+  const isStartingInterviewRef = useRef(false);
+  const currentSessionIdRef = useRef(null);
+  currentSessionIdRef.current = currentSessionId;
+  const selectedVoicePresetRef = useRef(selectedVoicePreset);
+  selectedVoicePresetRef.current = selectedVoicePreset;
+  const selectedPersonaRef = useRef(selectedPersona);
+  selectedPersonaRef.current = selectedPersona;
   // Luôn giữ bản mới nhất của hội thoại để các callback của micro/timer không đọc phải state cũ (nguyên nhân AI hỏi lặp/“ngố”)
   const dialogueHistoryRef = useRef([]);
   dialogueHistoryRef.current = dialogueHistory;
@@ -1902,7 +1915,7 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
         setIsMicOn(true);
         isMicDesiredRef.current = true;
         startAcousticAnalysis().then(() => {
-          if (!isAiSpeakingRef.current && !isSpeakingRef.current && !currentAudioRef.current) {
+          if (!isAiSpeakingRef.current && !isSpeakingRef.current && !isAiThinkingRef.current && !currentAudioRef.current) {
             startSpeechRecognizer();
             startTurnAudioRecording();
           }
@@ -1987,44 +2000,148 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
     }
   }, [currentAnswer]);
 
+  const SILENT_WAV_DATA_URI = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+
+  // Mở khóa Autoplay vĩnh viễn cho đúng 1 HTMLAudioElement dùng xuyên suốt cả phiên phỏng vấn
+  // (Tránh triệt để việc Chrome/Cốc Cốc chặn NotAllowedError khi tạo new Audio() sau >5s chờ API)
+  const unlockPersistentAudio = () => {
+    if (typeof window === 'undefined') return null;
+    try {
+      if (!persistentAudioRef.current) {
+        persistentAudioRef.current = new Audio();
+        persistentAudioRef.current.preload = 'auto';
+      }
+      const el = persistentAudioRef.current;
+      el.muted = true;
+      el.src = SILENT_WAV_DATA_URI;
+      const p = el.play();
+      if (p && typeof p.then === 'function') {
+        p.then(() => {
+          if (el.src === SILENT_WAV_DATA_URI) {
+            try { el.pause(); el.currentTime = 0; } catch (e) {}
+          }
+          el.muted = false;
+        }).catch(() => {
+          el.muted = false;
+        });
+      } else {
+        el.muted = false;
+      }
+      return el;
+    } catch (e) {
+      return null;
+    }
+  };
+
+  // Tải âm thanh phòng thu từ Backend TTS (POST ưu tiên để không giới hạn độ dài URL, tự fallback GET nếu cần)
+  const fetchTtsAudioBlob = async (cleanText, voiceParam, signal) => {
+    const apiBase = getApiBaseUrl();
+    const postUrl = `${apiBase}/api/v1/ai-interviews/tts`;
+    const getUrl = `${apiBase}/api/v1/ai-interviews/tts?voice=${encodeURIComponent(voiceParam)}&text=${encodeURIComponent(cleanText)}`;
+
+    const attemptFetch = async () => {
+      const timeoutCtrl = new AbortController();
+      const timeoutId = setTimeout(() => timeoutCtrl.abort(), 9000);
+      const onParentAbort = () => timeoutCtrl.abort();
+      if (signal) {
+        if (signal.aborted) {
+          clearTimeout(timeoutId);
+          throw new DOMException('Aborted', 'AbortError');
+        }
+        signal.addEventListener('abort', onParentAbort, { once: true });
+      }
+      try {
+        let resp = await fetch(postUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: cleanText, voice: voiceParam }),
+          signal: timeoutCtrl.signal,
+        });
+        // Tương thích ngược nếu backend cũ chưa bật POST /tts
+        if (resp.status === 404 || resp.status === 405) {
+          resp = await fetch(getUrl, { method: 'GET', signal: timeoutCtrl.signal });
+        }
+        if (!resp.ok) {
+          throw new Error(`TTS HTTP ${resp.status}`);
+        }
+        const blob = await resp.blob();
+        if (!blob || blob.size < 200) {
+          throw new Error('TTS returned empty audio');
+        }
+        return blob;
+      } finally {
+        clearTimeout(timeoutId);
+        if (signal) signal.removeEventListener('abort', onParentAbort);
+      }
+    };
+
+    try {
+      return await attemptFetch();
+    } catch (firstErr) {
+      if (signal?.aborted) throw firstErr;
+      // Retry 1 lần nhanh sau 250ms nếu gặp chập chờn mạng tức thời
+      await new Promise((r) => setTimeout(r, 250));
+      if (signal?.aborted) throw firstErr;
+      return await attemptFetch();
+    }
+  };
+
   // Nghe thử giọng nói AI chuẩn phòng thu (Voice Preview - Microsoft Azure Neural Voice Stream)
-  const handlePreviewVoice = (presetId) => {
+  const handlePreviewVoice = async (presetId) => {
     stopSpeaking();
+    unlockPersistentAudio();
+    const myGen = speakGenRef.current;
     setIsPreviewingVoice(true);
     const preset = VOICE_PRESETS.find((p) => p.id === presetId) || VOICE_PRESETS[0];
     const sample = preset.sampleText;
     const voiceParam = presetId === 'eleven-george' ? 'male' : presetId === 'eleven-alice' ? 'eleven' : 'female';
 
+    const controller = new AbortController();
+    ttsAbortControllerRef.current = controller;
+
     try {
-      const apiBase = getApiBaseUrl();
-      const audioUrl = `${apiBase}/api/v1/ai-interviews/tts?voice=${voiceParam}&text=${encodeURIComponent(cleanTextForSpeech(sample))}`;
-      const audio = new Audio(audioUrl);
+      const blob = await fetchTtsAudioBlob(cleanTextForSpeech(sample), voiceParam, controller.signal);
+      if (myGen !== speakGenRef.current) return;
+
+      const blobUrl = URL.createObjectURL(blob);
+      currentAudioBlobUrlRef.current = blobUrl;
+
+      const audio = persistentAudioRef.current || new Audio();
+      persistentAudioRef.current = audio;
+      audio.muted = false;
+      audio.src = blobUrl;
       currentAudioRef.current = audio;
+
       audio.onended = () => {
+        if (myGen !== speakGenRef.current) return;
         currentAudioRef.current = null;
+        if (currentAudioBlobUrlRef.current === blobUrl) {
+          try { URL.revokeObjectURL(blobUrl); } catch (e) {}
+          currentAudioBlobUrlRef.current = null;
+        }
         setIsPreviewingVoice(false);
       };
       audio.onerror = () => {
+        if (myGen !== speakGenRef.current) return;
         currentAudioRef.current = null;
-        if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-          window.speechSynthesis.cancel();
-          const utterance = new SpeechSynthesisUtterance(sample);
-          utterance.lang = 'vi-VN';
-          utterance.onend = () => setIsPreviewingVoice(false);
-          utterance.onerror = () => setIsPreviewingVoice(false);
-          window.speechSynthesis.speak(utterance);
-        } else {
-          setIsPreviewingVoice(false);
-        }
+        setIsPreviewingVoice(false);
       };
-      const playPromise = audio.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(() => {
-          setIsPreviewingVoice(false);
-        });
-      }
+      await audio.play();
     } catch (e) {
-      setIsPreviewingVoice(false);
+      if (myGen !== speakGenRef.current) return;
+      console.warn('Voice preview backend failed, fallback browser speech:', e?.message || e);
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(sample);
+        utterance.lang = 'vi-VN';
+        const bestVi = getBestVietnameseVoice(presetId);
+        if (bestVi) utterance.voice = bestVi;
+        utterance.onend = () => setIsPreviewingVoice(false);
+        utterance.onerror = () => setIsPreviewingVoice(false);
+        window.speechSynthesis.speak(utterance);
+      } else {
+        setIsPreviewingVoice(false);
+      }
     }
   };
 
@@ -2446,15 +2563,27 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
   };
 
   const stopSpeaking = () => {
+    speakGenRef.current += 1; // Hủy mọi callback / fetch TTS cũ để không bao giờ phát đè hoặc rơi sang giọng robot
     speechQueueRef.current = [];
     isSpeakingRef.current = false;
     isAiSpeakingRef.current = false;
+    if (ttsAbortControllerRef.current) {
+      try { ttsAbortControllerRef.current.abort(); } catch (e) {}
+      ttsAbortControllerRef.current = null;
+    }
     if (currentAudioRef.current) {
       try {
+        currentAudioRef.current.onplay = null;
+        currentAudioRef.current.onended = null;
+        currentAudioRef.current.onerror = null;
         currentAudioRef.current.pause();
         currentAudioRef.current.currentTime = 0;
       } catch (e) {}
       currentAudioRef.current = null;
+    }
+    if (currentAudioBlobUrlRef.current) {
+      try { URL.revokeObjectURL(currentAudioBlobUrlRef.current); } catch (e) {}
+      currentAudioBlobUrlRef.current = null;
     }
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       try {
@@ -2472,7 +2601,7 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
 
     if (presetId === 'eleven-george') {
       const maleVoice = voices.find((v) => /namminh|nam minh/i.test(v.name)) ||
-                        voices.find((v) => v.lang.startsWith('vi') && /male/i.test(v.name)) ||
+                        voices.find((v) => v.lang.startsWith('vi') && /\bmale\b/i.test(v.name)) ||
                         voices.find((v) => v.lang.startsWith('vi') && !/an\b|female/i.test(v.name));
       if (maleVoice) return maleVoice;
     } else {
@@ -2632,7 +2761,7 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
       const isMale = selectedVoicePreset === 'eleven-george';
       let voiceToUse = null;
       if (isEn) {
-        voiceToUse = voices.find(v => v.lang.startsWith('en') && (isMale ? /male|david|guy|andrew/i.test(v.name) : /female|jenny|zira|aria/i.test(v.name))) || voices.find(v => v.lang.startsWith('en'));
+        voiceToUse = voices.find(v => v.lang.startsWith('en') && (isMale ? /\bmale\b|david|guy|andrew/i.test(v.name) : /female|jenny|zira|aria/i.test(v.name))) || voices.find(v => v.lang.startsWith('en'));
       } else {
         // Tuyệt đối không để voice tiếng Anh (như David/Zira) đọc tiếng Việt gây bập bẹ!
         voiceToUse = getBestVietnameseVoice(selectedVoicePreset) || voices.find(v => (v.lang && v.lang.toLowerCase().startsWith('vi')) || /vietnamese|tiếng việt|namminh|hoaimy/i.test(v.name)) || null;
@@ -2685,11 +2814,12 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
   };
 
 
-  // Phát âm toàn vẹn mượt mà với Microsoft Azure / Edge Neural TTS (Tuyệt đối không chia nhỏ câu gây đứt quãng và nghẽn mic)
-  const speakNeuralAudio = (text) => {
+  // Phát âm toàn vẹn mượt mà với Microsoft Azure / Edge Neural TTS (dùng persistent unlocked audio + generation guard)
+  const speakNeuralAudio = async (text) => {
     if (!isLiveSessionRef.current) return;
 
     stopSpeaking();
+    const myGen = speakGenRef.current;
 
     // VẬT LÝ HỌC: Ngay khi AI chuẩn bị phát âm, lập tức ABORT Micro để loa máy tính không dội ngược vào micro!
     setListenStatus('idle');
@@ -2706,48 +2836,66 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
     isSpeakingRef.current = true;
     setIsAiSpeaking(true);
 
+    let finishedCalled = false;
+    const handleAudioFinished = () => {
+      if (finishedCalled || myGen !== speakGenRef.current) return;
+      finishedCalled = true;
+      currentAudioRef.current = null;
+      if (currentAudioBlobUrlRef.current) {
+        try { URL.revokeObjectURL(currentAudioBlobUrlRef.current); } catch (e) {}
+        currentAudioBlobUrlRef.current = null;
+      }
+      lastAiFinishedTimeRef.current = Date.now();
+      // Đệm trễ 500ms sau khi AI dứt câu để âm vang trong phòng tan hết trước khi mở lại micro
+      if (speechCooldownTimerRef.current) clearTimeout(speechCooldownTimerRef.current);
+      speechCooldownTimerRef.current = setTimeout(() => {
+        if (!isLiveSessionRef.current || myGen !== speakGenRef.current) return;
+        isAiSpeakingRef.current = false;
+        isSpeakingRef.current = false;
+        setIsAiSpeaking(false);
+        baseSpeechRef.current = '';
+        currentAnswerRef.current = '';
+        setCurrentAnswer('');
+        // Chỉ mở lại micro nếu ứng viên mong muốn bật mic và phiên vẫn đang diễn ra
+        if (isMicDesiredRef.current && isLiveSessionRef.current) {
+          startSpeechRecognizer();
+          startTurnAudioRecording();
+        }
+      }, 500);
+    };
+
+    let fallbackUsed = false;
+    const triggerFallbackOnce = (reason) => {
+      if (fallbackUsed || finishedCalled || myGen !== speakGenRef.current || !isLiveSessionRef.current) return;
+      fallbackUsed = true;
+      console.warn('Backend Neural TTS unavailable, fallback sang Web Speech API:', reason);
+      fallbackBrowserSpeech(clean, handleAudioFinished);
+    };
+
+    const controller = new AbortController();
+    ttsAbortControllerRef.current = controller;
+
     try {
-      const voiceParam = selectedVoicePreset === 'eleven-george' ? 'male' : selectedVoicePreset === 'eleven-alice' ? 'eleven' : 'female';
-      const apiBase = getApiBaseUrl();
-      const ttsUrl = `${apiBase}/api/v1/ai-interviews/tts?voice=${voiceParam}&text=${encodeURIComponent(clean)}`;
-      const audio = new Audio(ttsUrl);
+      const activeVoicePreset = selectedVoicePresetRef.current || selectedVoicePreset;
+      const voiceParam = activeVoicePreset === 'eleven-george' ? 'male' : activeVoicePreset === 'eleven-alice' ? 'eleven' : 'female';
+      const blob = await fetchTtsAudioBlob(clean, voiceParam, controller.signal);
+
+      if (myGen !== speakGenRef.current || !isLiveSessionRef.current) return;
+
+      const blobUrl = URL.createObjectURL(blob);
+      currentAudioBlobUrlRef.current = blobUrl;
+
+      const audio = persistentAudioRef.current || new Audio();
+      persistentAudioRef.current = audio;
+      audio.muted = false;
+      audio.onplay = null;
+      audio.onended = null;
+      audio.onerror = null;
+      audio.src = blobUrl;
       currentAudioRef.current = audio;
 
-      let audioStarted = false;
-      const handleAudioFinished = () => {
-        currentAudioRef.current = null;
-        lastAiFinishedTimeRef.current = Date.now();
-        // Đệm trễ 500ms sau khi AI dứt câu để âm vang trong phòng tan hết trước khi mở lại micro
-        if (speechCooldownTimerRef.current) clearTimeout(speechCooldownTimerRef.current);
-        speechCooldownTimerRef.current = setTimeout(() => {
-          if (!isLiveSessionRef.current) return;
-          isAiSpeakingRef.current = false;
-          isSpeakingRef.current = false;
-          setIsAiSpeaking(false);
-          baseSpeechRef.current = '';
-          currentAnswerRef.current = '';
-          setCurrentAnswer('');
-          // Chỉ mở lại micro nếu ứng viên mong muốn bật mic và phiên vẫn đang diễn ra
-          if (isMicDesiredRef.current && isLiveSessionRef.current) {
-            startSpeechRecognizer();
-            startTurnAudioRecording();
-          }
-        }, 500);
-      };
-
-      // Watchdog: Nếu stream backend bị trễ mạng > 3.5s, tự động chuyển sang Web Speech API của trình duyệt ngay
-      const streamWatchdog = setTimeout(() => {
-        if (!audioStarted && currentAudioRef.current === audio) {
-          console.warn('Backend TTS stream latency > 3.5s, fallback sang Web Speech API');
-          try { audio.pause(); } catch (e) {}
-          currentAudioRef.current = null;
-          fallbackBrowserSpeech(clean, handleAudioFinished);
-        }
-      }, 3500);
-
       audio.onplay = () => {
-        audioStarted = true;
-        clearTimeout(streamWatchdog);
+        if (myGen !== speakGenRef.current) return;
         isAiSpeakingRef.current = true;
         isSpeakingRef.current = true;
         setIsAiSpeaking(true);
@@ -2755,32 +2903,21 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
       };
 
       audio.onended = () => {
-        clearTimeout(streamWatchdog);
+        if (myGen !== speakGenRef.current) return;
         handleAudioFinished();
       };
 
       audio.onerror = (err) => {
-        clearTimeout(streamWatchdog);
-        console.warn('Backend TTS stream error, fallback to browser SpeechSynthesis:', err);
-        fallbackBrowserSpeech(clean, handleAudioFinished);
+        if (myGen !== speakGenRef.current) return;
+        triggerFallbackOnce(err?.type || 'audio_error');
       };
 
-      const playPromise = audio.play();
-      if (playPromise !== undefined) {
-        playPromise.catch((err) => {
-          clearTimeout(streamWatchdog);
-          console.warn('Audio auto-play prevented or stream delay, fallback to browser SpeechSynthesis:', err);
-          fallbackBrowserSpeech(clean, handleAudioFinished);
-        });
-      }
+      await audio.play();
     } catch (err) {
-      fallbackBrowserSpeech(clean, () => {
-        isAiSpeakingRef.current = false;
-        setIsAiSpeaking(false);
-        if (isMicDesiredRef.current && isLiveSessionRef.current) {
-          startSpeechRecognizer();
-        }
-      });
+      if (myGen !== speakGenRef.current || !isLiveSessionRef.current || err?.name === 'AbortError') {
+        return;
+      }
+      triggerFallbackOnce(err?.message || err);
     }
   };
 
@@ -3052,8 +3189,10 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
     setSelectedVoicePreset(voice.id);
   };
 
-  // Bắt đầu phiên phỏng vấn: Trực tiếp, không kịch bản câu hỏi soạn sẵn
+  // Bắt đầu phiên phỏng vấn: Khởi tạo song song (Start Session + AI Greeting) để vào phòng tức thì (~2 giây)
   const handleStartInterview = async () => {
+    if (isStartingInterviewRef.current) return;
+
     // 0. Kiểm tra hạn ngạch gói Supabase trước khi khởi tạo
     if (quotaStatus?.isQuotaExceeded) {
       setQuotaExceededMessage(quotaStatus?.planName || 'Free Candidate');
@@ -3062,17 +3201,14 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
       return;
     }
 
-    // 1. Mở khóa âm thanh trình duyệt ngay trong cử chỉ click của người dùng (Tránh triệt để NotAllowedError Autoplay)
-    if (typeof window !== 'undefined') {
-      try {
-        const dummyAudio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
-        dummyAudio.play().catch(() => {});
-      } catch (e) {}
-    }
+    isStartingInterviewRef.current = true;
+
+    // 1. Mở khóa Autoplay VĨNH VIỄN cho persistentAudioRef ngay trong cử chỉ click (chống Chrome chặn âm thanh sau vài giây)
+    unlockPersistentAudio();
 
     const isJob = contextMode === 'job' || contextMode === 'ai-recommend';
-    const targetPos = isJob && selectedJob 
-      ? selectedJob.title 
+    const targetPos = isJob && selectedJob
+      ? selectedJob.title
       : (customPosition.trim() || 'Chuyên viên Công nghệ');
 
     const levelObj = LEVELS.find((l) => l.id === selectedLevel);
@@ -3092,47 +3228,20 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
 
     const validJobId = (isJob && selectedJob && typeof selectedJob.jobId === 'number') ? selectedJob.jobId : null;
     const isBiz = targetPos.toLowerCase().includes('kinh tế') || targetPos.toLowerCase().includes('kinh doanh') || targetPos.toLowerCase().includes('sales') || targetPos.toLowerCase().includes('marketing') || targetPos.toLowerCase().includes('kế toán') || targetPos.toLowerCase().includes('tài chính') || targetPos.toLowerCase().includes('nhân sự');
+    const isRetry = Boolean(retryParentSessionId);
+    const parentIdSnapshot = retryParentSessionId;
 
-    // Khởi tạo phiên phỏng vấn thật trên Supabase (kiểm tra subscription và trừ lượt)
-    let sid = null;
-    try {
-      const isRetry = Boolean(retryParentSessionId);
-      const res = await interviewApi.startSession({
-        targetPosition: targetPos,
-        jobId: validJobId,
-        level: levelLabel,
-        interviewType: isBiz ? 'BEHAVIORAL' : 'TECHNICAL',
-        sessionType: isRetry ? 'PRACTICE_RETRY' : 'MOCK',
-        parentSessionId: isRetry ? retryParentSessionId : null,
-      });
-      sid = res?.data?.sessionId || res?.sessionId || res?.data?.data?.sessionId;
-      if (sid) {
-        setCurrentSessionId(sid);
-      }
-      setRetryParentSessionId(null);
-    } catch (err) {
-      const errMsg = err?.response?.data?.message || err?.message || '';
-      if (errMsg.includes('hạn ngạch') || errMsg.includes('miễn phí') || errMsg.includes('nâng cấp') || errMsg.includes('gói')) {
-        setQuotaExceededMessage(quotaStatus?.planName || 'Free Candidate');
-        setIsQuotaModalOpen(true);
-        showToast('⚠️ ' + errMsg);
-        return; // Dừng lại, không cho phép vào phòng phỏng vấn
-      }
-      console.warn('Backend startSession failed, continuing local session:', err);
-    }
-
-    // Cập nhật lại trạng thái quota sau khi tạo phiên thành công
-    fetchQuotaStatus();
-
-    // 2. Chuyển phòng Live ngay lập tức và bật trạng thái AI đang chuẩn bị phỏng vấn
+    // 2. Chuyển phòng Live NGAY LẬP TỨC (0ms chờ đợi giao diện) và đánh dấu AI đang chuẩn bị để micro KHÔNG mở sớm
     setCoachUsageCount(0);
     setCurrentAnswer('');
+    setDialogueHistory([]);
     setTimerSec(0);
     setTimerOn(true);
-    setView('live');
+    isAiThinkingRef.current = true;
+    setIsAiThinking(true);
     isLiveSessionRef.current = true;
     isMicDesiredRef.current = true;
-    setIsAiThinking(true);
+    setView('live');
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
     // Reset toàn bộ Telemetry về giá trị thực tế cho phiên mới
@@ -3157,53 +3266,97 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
     const computedDifficulty = (selectedLevel === 'intern' || selectedLevel === 'junior') ? 'EASY' : (selectedLevel === 'senior' || selectedLevel === 'lead') ? 'HARD' : 'STANDARD';
     const fullTargetPosition = `${levelLabel} - ${targetPos}`;
 
-    // 4. Sinh câu hỏi mở đầu 100% ĐỘNG từ Gemini AI Agent dựa trên đúng bảng tin tuyển dụng và CV đã chọn
-    let dynamicGreeting = openingGreetingFallback;
     try {
-      const voiceTurnPromise = interviewApi.processVoiceTurnStandalone({
-        targetPosition: fullTargetPosition,
-        userSpeech: `Xin chào ban phỏng vấn, tôi là ${candidateName}, đã sẵn sàng cho buổi phỏng vấn vị trí ${fullTargetPosition}${selectedJob?.companyName ? ' tại ' + selectedJob.companyName : ''}.`,
-        history: [],
-        focusNotes: focusPrompt,
-        cvSnippet,
-        jobSnippet,
-        persona: selectedPersona || interviewConfig?.interviewerPersona || 'HR_MANAGER',
-        difficulty: computedDifficulty,
-        maxQuestions: quotaStatus?.maxQuestions || 3,
-        planName: quotaStatus?.planName || 'Free Candidate',
+      // 4. CHẠY SONG SONG: Tạo phiên Supabase + Sinh câu chào mở đầu từ Gemini AI cùng một lúc!
+      let quotaErrorMsg = null;
+      const startSessionPromise = interviewApi.startSession({
+        targetPosition: targetPos,
+        jobId: validJobId,
+        level: levelLabel,
+        interviewType: isBiz ? 'BEHAVIORAL' : 'TECHNICAL',
+        sessionType: isRetry ? 'PRACTICE_RETRY' : 'MOCK',
+        parentSessionId: isRetry ? parentIdSnapshot : null,
+      }).then((res) => {
+        const sid = res?.data?.sessionId || res?.sessionId || res?.data?.data?.sessionId;
+        if (sid) {
+          currentSessionIdRef.current = sid;
+          setCurrentSessionId(sid);
+        }
+        setRetryParentSessionId(null);
+        fetchQuotaStatus();
+        return sid;
+      }).catch((err) => {
+        const errMsg = err?.response?.data?.message || err?.message || '';
+        if (errMsg.includes('hạn ngạch') || errMsg.includes('miễn phí') || errMsg.includes('nâng cấp') || errMsg.includes('gói')) {
+          quotaErrorMsg = errMsg;
+        } else {
+          console.warn('Backend startSession failed, continuing local session:', err);
+        }
+        return null;
       });
 
-      // Giới hạn thời gian chờ tối đa 10 giây để Gemini kịp suy nghĩ và sinh câu hỏi mở đầu độc nhất
-      const voiceRes = await Promise.race([
-        voiceTurnPromise,
-        new Promise((resolve) => setTimeout(() => resolve(null), 10000))
+      const voiceTurnPromise = Promise.race([
+        interviewApi.processVoiceTurnStandalone({
+          targetPosition: fullTargetPosition,
+          userSpeech: `Xin chào ban phỏng vấn, tôi là ${candidateName}, đã sẵn sàng cho buổi phỏng vấn vị trí ${fullTargetPosition}${selectedJob?.companyName ? ' tại ' + selectedJob.companyName : ''}.`,
+          history: [],
+          focusNotes: focusPrompt,
+          cvSnippet,
+          jobSnippet,
+          persona: selectedPersona || interviewConfig?.interviewerPersona || 'HR_MANAGER',
+          difficulty: computedDifficulty,
+          maxQuestions: quotaStatus?.maxQuestions || 3,
+          planName: quotaStatus?.planName || 'Free Candidate',
+        }).catch((apiErr) => {
+          console.warn('Lỗi gọi Gemini cho câu hỏi mở đầu, dùng fallback:', apiErr);
+          return null;
+        }),
+        new Promise((resolve) => setTimeout(() => resolve(null), 7000))
       ]);
 
+      const [, voiceRes] = await Promise.all([startSessionPromise, voiceTurnPromise]);
+
+      // Nếu backend xác nhận đã vượt hạn ngạch gói -> đóng phòng Live an toàn & bật modal nâng cấp
+      if (quotaErrorMsg) {
+        cleanupAudioResources();
+        stopCamera();
+        isAiThinkingRef.current = false;
+        setIsAiThinking(false);
+        setTimerOn(false);
+        setView('setup');
+        setQuotaExceededMessage(quotaStatus?.planName || 'Free Candidate');
+        setIsQuotaModalOpen(true);
+        showToast('⚠️ ' + quotaErrorMsg);
+        return;
+      }
+
+      if (!isLiveSessionRef.current) return;
+
+      let dynamicGreeting = openingGreetingFallback;
       const aiReply = (voiceRes?.data?.reply || voiceRes?.reply || voiceRes?.data?.data?.reply || '')?.trim();
       if (aiReply && aiReply.length >= 15) {
         dynamicGreeting = aiReply;
       }
-    } catch (apiErr) {
-      console.warn('Lỗi gọi Gemini cho câu hỏi mở đầu, dùng fallback:', apiErr);
+
+      isAiThinkingRef.current = false;
+      setIsAiThinking(false);
+
+      const initialTurn = {
+        id: `ai-init-${Date.now()}`,
+        sender: 'ai',
+        speakerName: 'HireMate AI',
+        text: dynamicGreeting,
+        timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+      };
+
+      setDialogueHistory([initialTurn]);
+      recentAiTurnsRef.current = [dynamicGreeting];
+
+      // Phát âm câu mở đầu tự sinh độc nhất bằng giọng Neural AI chuẩn phòng thu
+      speakNeuralAudio(dynamicGreeting);
+    } finally {
+      isStartingInterviewRef.current = false;
     }
-
-    if (!isLiveSessionRef.current) return;
-
-    setIsAiThinking(false);
-
-    const initialTurn = {
-      id: `ai-init-${Date.now()}`,
-      sender: 'ai',
-      speakerName: 'HireMate AI',
-      text: dynamicGreeting,
-      timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-    };
-
-    setDialogueHistory([initialTurn]);
-    recentAiTurnsRef.current = [dynamicGreeting];
-
-    // Phát âm câu mở đầu tự sinh độc nhất bằng giọng Neural AI chuẩn phòng thu
-    speakNeuralAudio(dynamicGreeting);
   };
 
   // Trình tạo phản hồi thích ứng theo ngữ cảnh dự phòng nâng cao (Advanced Dynamic Adaptive Fallback)
@@ -3386,6 +3539,7 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
       const computedDifficulty = (selectedLevel === 'intern' || selectedLevel === 'junior') ? 'EASY' : (selectedLevel === 'senior' || selectedLevel === 'lead') ? 'HARD' : 'STANDARD';
       const fullTargetPosition = `${levelLabel} - ${targetPos}`;
 
+      const activeSid = currentSessionIdRef.current || currentSessionId;
       const payload = {
         targetPosition: fullTargetPosition,
         userSpeech: ansText,
@@ -3393,20 +3547,20 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
         focusNotes: (focusPrompt || '') + endingDirective,
         cvSnippet,
         jobSnippet,
-        persona: selectedPersona || interviewConfig?.interviewerPersona || 'HR_MANAGER',
+        persona: selectedPersonaRef.current || selectedPersona || interviewConfig?.interviewerPersona || 'HR_MANAGER',
         difficulty: computedDifficulty,
         maxQuestions: maxQ,
         planName: quotaStatus?.planName || 'Free Candidate',
       };
 
-      const callVoiceTurn = () => (currentSessionId
-        ? interviewApi.processVoiceTurn(currentSessionId, payload)
+      const callVoiceTurn = () => (activeSid
+        ? interviewApi.processVoiceTurn(activeSid, payload)
         : interviewApi.processVoiceTurnStandalone(payload));
 
-      // Đua thời gian (Race condition): Cho phép tối đa 14 giây để Gemini Generative AI xử lý và sinh câu hỏi đào sâu thông minh.
+      // Đua thời gian (Race condition): Cho phép tối đa 10 giây (Gemini Fast Voice thực tế chỉ ~1.5s)
       let voiceRes = null;
       try {
-        const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 14000));
+        const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 10000));
         voiceRes = await Promise.race([callVoiceTurn(), timeoutPromise]);
       } catch (turnErr) {
         console.warn('Voice turn API gặp sự cố mạng, chuyển ngay sang Adaptive Fallback:', turnErr);
@@ -3428,7 +3582,7 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
 
       const questionText = questionTextBefore;
 
-      if (currentSessionId && !isAskToRepeat) {
+      if (activeSid && !isAskToRepeat) {
         const hasSpokenAudio = Boolean(isMicOn && (turnSpeechStart > 0 || liveWpm > 0 || livePitchHz > 0));
         const hasCameraActive = Boolean(isCameraOn || isSimulatedCamera);
 
@@ -3446,7 +3600,7 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
             }
           }
 
-          return interviewApi.submitAnswer(currentSessionId, {
+          return interviewApi.submitAnswer(activeSid, {
             questionNumber: historySnapshot.filter((d) => d.sender === 'ai').length,
             questionText: questionText,
             candidateAnswerText: ansText,

@@ -23,6 +23,7 @@ public interface AiInterviewService {
     byte[] synthesizeSpeech(String text, String voice);
 
     com.hiremate.dto.response.InterviewQuotaStatusResponse getCandidateQuotaStatus(User candidate);
+    java.util.Map<String, Object> getCandidateVoicePlanLimits(User candidate);
     InterviewSummaryResponse getLatestCompletedCandidateInterview(Long candidateId, Long jobId);
 }
 

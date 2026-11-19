@@ -32,7 +32,13 @@ public class GeminiAiServiceImpl implements GeminiAiService {
     private com.hiremate.service.SystemSettingsService systemSettingsService;
 
     private final java.util.concurrent.atomic.AtomicReference<String> workingModelCache = new java.util.concurrent.atomic.AtomicReference<>(null);
+    private final java.util.concurrent.atomic.AtomicReference<String> workingVoiceModelCache = new java.util.concurrent.atomic.AtomicReference<>(null);
     private final Set<String> notFoundModelsCache = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private static final List<String> VOICE_FAST_MODELS = List.of(
+            "gemini-3-flash-preview",
+            "gemini-3.1-flash-lite",
+            "gemini-3.5-flash-lite"
+    );
 
     private String getEffectiveModel() {
         String cachedWorking = workingModelCache.get();
@@ -1881,13 +1887,36 @@ public class GeminiAiServiceImpl implements GeminiAiService {
         return cfg;
     }
 
+    private Map<String, Object> buildVoiceGenerationConfig(String model, double temperature, int maxTokens) {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("temperature", temperature);
+        cfg.put("maxOutputTokens", Math.max(maxTokens, 260));
+        if (model != null && (model.contains("gemini-3-flash") || model.contains("gemini-3.1-flash") || model.contains("gemini-3.5-flash"))) {
+            // Tắt suy luận dài dòng (thinking) cho hội thoại giọng nói thời gian thực -> giảm độ trễ từ ~10s xuống ~1.5s!
+            cfg.put("thinkingConfig", Map.of("thinkingLevel", "minimal"));
+        }
+        return cfg;
+    }
+
+    private String getNextFastVoiceModel(Set<String> triedModels) {
+        for (String m : VOICE_FAST_MODELS) {
+            if (!triedModels.contains(m) && !notFoundModelsCache.contains(m)) {
+                return m;
+            }
+        }
+        String cfgVoice = geminiAiConfig != null ? geminiAiConfig.getEffectiveVoiceModel() : null;
+        if (cfgVoice != null && !cfgVoice.isBlank() && !triedModels.contains(cfgVoice.trim()) && !notFoundModelsCache.contains(cfgVoice.trim())) {
+            return cfgVoice.trim();
+        }
+        return null;
+    }
+
     private String callGeminiVoiceApi(String promptText, int maxTokens) {
         return callGeminiVoiceApi(null, List.of(Map.of("role", "user", "parts", List.of(Map.of("text", promptText)))), maxTokens);
     }
 
     private String callGeminiVoiceApi(String systemPrompt, List<Map<String, Object>> contents, int maxTokens) {
         String baseUrl = geminiAiConfig.getBaseUrl();
-        String primaryModel = geminiAiConfig.getEffectiveVoiceModel();
         String apiKey = getNextAvailableApiKey();
 
         if (!isValidApiKey(apiKey)) {
@@ -1895,20 +1924,25 @@ public class GeminiAiServiceImpl implements GeminiAiService {
             return null;
         }
 
-        String model = (primaryModel != null && !primaryModel.isBlank() && !notFoundModelsCache.contains(primaryModel.trim()))
-                ? primaryModel.trim()
-                : "gemini-3.5-flash-lite";
-
-        String cachedWorking = workingModelCache.get();
-        if (cachedWorking != null && !cachedWorking.isBlank() && !notFoundModelsCache.contains(cachedWorking)) {
-            model = cachedWorking;
+        // Ưu tiên model tốc độ siêu nhanh cho hội thoại Voice thời gian thực (độc lập với workingModelCache 3.5 của quét CV/Matching)
+        String model = workingVoiceModelCache.get();
+        if (model == null || model.isBlank() || notFoundModelsCache.contains(model)) {
+            model = getNextFastVoiceModel(Collections.emptySet());
+        }
+        if (model == null || model.isBlank()) {
+            model = "gemini-3-flash-preview";
         }
 
         Set<String> triedModels = new HashSet<>();
         Set<String> triedKeys = new HashSet<>();
-        int maxAttempts = Math.max(5, getAllConfiguredApiKeys().size() * 2);
+        int maxAttempts = Math.min(4, Math.max(3, getAllConfiguredApiKeys().size() + 1));
+        long deadlineMs = System.currentTimeMillis() + 8500L;
 
         for (int attempt = 0; attempt < maxAttempts; attempt++) {
+            if (attempt > 0 && System.currentTimeMillis() > deadlineMs) {
+                log.warn(">> [GeminiVoice] Vượt ngân sách thời gian thực (8.5s). Chuyển ngay sang Adaptive Engine.");
+                break;
+            }
             try {
                 String endpoint = baseUrl + "/models/" + model + ":generateContent?key=" + apiKey;
 
@@ -1919,7 +1953,7 @@ public class GeminiAiServiceImpl implements GeminiAiService {
                     ));
                 }
                 requestBodyMap.put("contents", contents);
-                requestBodyMap.put("generationConfig", buildGenerationConfig(model, 0.7, maxTokens > 0 ? maxTokens : 250));
+                requestBodyMap.put("generationConfig", buildVoiceGenerationConfig(model, 0.7, maxTokens > 0 ? maxTokens : 250));
 
                 String requestBodyJson = objectMapper.writeValueAsString(requestBodyMap);
 
@@ -1927,14 +1961,14 @@ public class GeminiAiServiceImpl implements GeminiAiService {
                         .uri(URI.create(endpoint))
                         .header("Content-Type", "application/json")
                         .header("X-goog-api-key", apiKey)
-                        .timeout(Duration.ofSeconds(12))
+                        .timeout(Duration.ofSeconds(6))
                         .POST(HttpRequest.BodyPublishers.ofString(requestBodyJson))
                         .build();
 
                 HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
                 if (response.statusCode() == 200) {
-                    workingModelCache.set(model);
+                    workingVoiceModelCache.set(model);
                     JsonNode root = objectMapper.readTree(response.body());
                     JsonNode candidates = root.get("candidates");
                     if (candidates != null && candidates.isArray() && !candidates.isEmpty()) {
@@ -1948,7 +1982,7 @@ public class GeminiAiServiceImpl implements GeminiAiService {
                                 }
                             }
                             if (textResponse.length() > 0) {
-                                log.info(">> [GeminiVoice] Live turn successfully generated via model: {}", model);
+                                log.info(">> [GeminiVoice] Live turn successfully generated via fast voice model: {}", model);
                                 return textResponse.toString();
                             }
                         }
@@ -1957,9 +1991,9 @@ public class GeminiAiServiceImpl implements GeminiAiService {
                 } else if (response.statusCode() == 404) {
                     notFoundModelsCache.add(model);
                     triedModels.add(model);
-                    String fallbackM = getNextFallbackModel(triedModels);
+                    String fallbackM = getNextFastVoiceModel(triedModels);
                     if (fallbackM != null) {
-                        log.warn(">> [GeminiVoice] Model {} returned 404. Trying next fallback model {}...", model, fallbackM);
+                        log.warn(">> [GeminiVoice] Model {} returned 404. Trying next fast voice model {}...", model, fallbackM);
                         model = fallbackM;
                         continue;
                     }
@@ -1976,12 +2010,28 @@ public class GeminiAiServiceImpl implements GeminiAiService {
                     }
                     log.warn(">> [GeminiVoice] Toàn bộ API Keys trong Pool đều vượt hạn mức (HTTP {}). Chuyển ngay sang Local Adaptive Engine.", response.statusCode());
                     break;
+                } else if (response.statusCode() == 503 || response.statusCode() == 500 || response.statusCode() == 400) {
+                    triedModels.add(model);
+                    String fallbackM = getNextFastVoiceModel(triedModels);
+                    if (fallbackM != null) {
+                        log.warn(">> [GeminiVoice] Model {} returned HTTP {}. Chuyển nhanh sang {}...", model, response.statusCode(), fallbackM);
+                        model = fallbackM;
+                        continue;
+                    }
+                    break;
                 } else {
                     log.warn(">> [GeminiVoice] Google Gemini Voice returned HTTP status: {}. Chuyển sang fallback.", response.statusCode());
                     break;
                 }
             } catch (Exception e) {
-                log.warn(">> [GeminiVoice] Request failed: {}", e.getMessage());
+                log.warn(">> [GeminiVoice] Request failed on model {}: {}", model, e.getMessage());
+                triedModels.add(model);
+                String fallbackM = getNextFastVoiceModel(triedModels);
+                if (fallbackM != null) {
+                    model = fallbackM;
+                    continue;
+                }
+                break;
             }
         }
         return null;
