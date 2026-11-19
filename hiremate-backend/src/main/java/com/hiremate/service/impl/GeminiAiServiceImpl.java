@@ -36,9 +36,34 @@ public class GeminiAiServiceImpl implements GeminiAiService {
     private final Set<String> notFoundModelsCache = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private static final List<String> VOICE_FAST_MODELS = List.of(
             "gemini-3-flash-preview",
-            "gemini-3.1-flash-lite",
             "gemini-3.5-flash-lite"
     );
+    private final Map<String, Long> rateLimitedModelKeysUntil = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private boolean isModelKeyRateLimited(String model, String apiKey) {
+        if (model == null || apiKey == null) return false;
+        Long until = rateLimitedModelKeysUntil.get(model + "|" + apiKey.trim());
+        return until != null && System.currentTimeMillis() < until;
+    }
+
+    private void markModelKeyRateLimited(String model, String apiKey) {
+        if (model != null && apiKey != null && !apiKey.isBlank()) {
+            rateLimitedModelKeysUntil.put(model + "|" + apiKey.trim(), System.currentTimeMillis() + 60_000L);
+        }
+    }
+
+    private String getNextHealthyKeyForModel(String model, Set<String> excludedKeys) {
+        List<String> keys = getAllConfiguredApiKeys();
+        if (keys.isEmpty()) return null;
+        int startIdx = Math.abs(keyIndex.getAndIncrement());
+        for (int i = 0; i < keys.size(); i++) {
+            String k = keys.get((startIdx + i) % keys.size());
+            if (isValidApiKey(k) && (excludedKeys == null || !excludedKeys.contains(k)) && !isModelKeyRateLimited(model, k)) {
+                return k;
+            }
+        }
+        return null;
+    }
 
     private String getEffectiveModel() {
         String cachedWorking = workingModelCache.get();
@@ -1281,6 +1306,7 @@ public class GeminiAiServiceImpl implements GeminiAiService {
             if (fastReply != null && !fastReply.isBlank()) {
                 return fastReply.trim().replaceAll("^\"|\"$", "");
             }
+            return generateSmartAdaptiveTurnReply(pos, speech, conversationHistory, focusNotes, cvSnippet, jobSnippet, persona, difficulty, 0);
         }
 
         // 3. Xây dựng Chỉ dẫn Chuyên sâu theo Vị trí (Domain-Specific Expertise)
@@ -1975,15 +2001,27 @@ public class GeminiAiServiceImpl implements GeminiAiService {
         if (model == null || model.isBlank()) {
             model = "gemini-3-flash-preview";
         }
+        String healthyForModel = getNextHealthyKeyForModel(model, Collections.emptySet());
+        if (healthyForModel != null) {
+            apiKey = healthyForModel;
+        } else {
+            // Model hiện tại đang bị 429 trên mọi key -> chuyển ngay sang model dự phòng (vd: gemini-3.5-flash-lite)
+            String altModel = getNextFastVoiceModel(Set.of(model));
+            if (altModel != null) {
+                model = altModel;
+                String altKey = getNextHealthyKeyForModel(model, Collections.emptySet());
+                if (altKey != null) apiKey = altKey;
+            }
+        }
 
         Set<String> triedModels = new HashSet<>();
         Set<String> triedKeys = new HashSet<>();
-        int maxAttempts = Math.min(4, Math.max(3, getAllConfiguredApiKeys().size() + 1));
-        long deadlineMs = System.currentTimeMillis() + 8500L;
+        int maxAttempts = Math.min(6, Math.max(4, getAllConfiguredApiKeys().size() * 2 + 2));
+        long deadlineMs = System.currentTimeMillis() + 11500L;
 
         for (int attempt = 0; attempt < maxAttempts; attempt++) {
             if (attempt > 0 && System.currentTimeMillis() > deadlineMs) {
-                log.warn(">> [GeminiVoice] Vượt ngân sách thời gian thực (8.5s). Chuyển ngay sang Adaptive Engine.");
+                log.warn(">> [GeminiVoice] Vượt ngân sách thời gian thực (11.5s). Chuyển ngay sang Adaptive Engine.");
                 break;
             }
             try {
@@ -2004,7 +2042,7 @@ public class GeminiAiServiceImpl implements GeminiAiService {
                         .uri(URI.create(endpoint))
                         .header("Content-Type", "application/json")
                         .header("X-goog-api-key", apiKey)
-                        .timeout(Duration.ofSeconds(6))
+                        .timeout(Duration.ofSeconds(8))
                         .POST(HttpRequest.BodyPublishers.ofString(requestBodyJson))
                         .build();
 
@@ -2034,31 +2072,48 @@ public class GeminiAiServiceImpl implements GeminiAiService {
                 } else if (response.statusCode() == 404) {
                     notFoundModelsCache.add(model);
                     triedModels.add(model);
+                    workingVoiceModelCache.compareAndSet(model, null);
                     String fallbackM = getNextFastVoiceModel(triedModels);
                     if (fallbackM != null) {
                         log.warn(">> [GeminiVoice] Model {} returned 404. Trying next fast voice model {}...", model, fallbackM);
                         model = fallbackM;
+                        triedKeys.clear();
                         continue;
                     }
                     break;
                 } else if (response.statusCode() == 429 || response.statusCode() == 403) {
-                    markApiKeyRateLimited(apiKey);
+                    // Đánh dấu rate-limit RIÊNG cho cặp (model, key) để KHÔNG làm chết chùm sang gemini-3.5-flash-lite!
+                    markModelKeyRateLimited(model, apiKey);
                     triedKeys.add(apiKey);
-                    String nextKey = getNextHealthyApiKey(triedKeys);
+                    String nextKey = getNextHealthyKeyForModel(model, triedKeys);
                     if (nextKey != null && !nextKey.equals(apiKey)) {
-                        log.info(">> [GeminiVoice] HTTP {} trên Key [***{}]. Tự động xoay sang Key mới trong Rotation Pool và thử lại...",
-                                response.statusCode(), apiKey.length() > 6 ? apiKey.substring(apiKey.length() - 6) : "...");
+                        log.info(">> [GeminiVoice] HTTP {} trên ({} / Key ***{}). Xoay sang Key kế tiếp...",
+                                response.statusCode(), model, apiKey.length() > 6 ? apiKey.substring(apiKey.length() - 6) : "...");
                         apiKey = nextKey;
                         continue;
                     }
-                    log.warn(">> [GeminiVoice] Toàn bộ API Keys trong Pool đều vượt hạn mức (HTTP {}). Chuyển ngay sang Local Adaptive Engine.", response.statusCode());
+                    // Hết quota toàn bộ key cho model này -> tự động chuyển sang model kế tiếp có hạn mức riêng (vd: gemini-3.5-flash-lite)!
+                    triedModels.add(model);
+                    workingVoiceModelCache.compareAndSet(model, null);
+                    String fallbackM = getNextFastVoiceModel(triedModels);
+                    if (fallbackM != null) {
+                        log.warn(">> [GeminiVoice] Hết hạn mức HTTP {} trên model {}. Chuyển ngay sang {}...", response.statusCode(), model, fallbackM);
+                        model = fallbackM;
+                        triedKeys.clear();
+                        String freshKey = getNextHealthyKeyForModel(model, Collections.emptySet());
+                        if (freshKey != null) apiKey = freshKey;
+                        continue;
+                    }
+                    log.warn(">> [GeminiVoice] Toàn bộ Models & API Keys trong Pool đều vượt hạn mức (HTTP {}). Chuyển sang Local Adaptive Engine.", response.statusCode());
                     break;
                 } else if (response.statusCode() == 503 || response.statusCode() == 500 || response.statusCode() == 400) {
                     triedModels.add(model);
+                    workingVoiceModelCache.compareAndSet(model, null);
                     String fallbackM = getNextFastVoiceModel(triedModels);
                     if (fallbackM != null) {
                         log.warn(">> [GeminiVoice] Model {} returned HTTP {}. Chuyển nhanh sang {}...", model, response.statusCode(), fallbackM);
                         model = fallbackM;
+                        triedKeys.clear();
                         continue;
                     }
                     break;
@@ -2069,9 +2124,11 @@ public class GeminiAiServiceImpl implements GeminiAiService {
             } catch (Exception e) {
                 log.warn(">> [GeminiVoice] Request failed on model {}: {}", model, e.getMessage());
                 triedModels.add(model);
+                workingVoiceModelCache.compareAndSet(model, null);
                 String fallbackM = getNextFastVoiceModel(triedModels);
                 if (fallbackM != null) {
                     model = fallbackM;
+                    triedKeys.clear();
                     continue;
                 }
                 break;
@@ -2084,6 +2141,7 @@ public class GeminiAiServiceImpl implements GeminiAiService {
      * Lời gọi Gemini JSON tốc độ cao chuyên dụng cho Chấm điểm Phỏng vấn AI, Đáp án mẫu STAR,
      * Tổng kết phiên và Gợi ý trả lời (Coach).
      * - Dùng model nhánh phỏng vấn siêu nhanh (VOICE_FAST_MODELS + thinkingLevel minimal + responseMimeType JSON)
+     * - Cô lập hạn mức 429 theo từng cặp (model, key) và tự chuyển sang gemini-3.5-flash-lite nếu gemini-3-flash-preview hết RPD.
      * - Độc lập hoàn toàn với workingModelCache (gemini-3.5-flash-lite) của quét CV & Job Matching.
      */
     private String callGeminiInterviewEvalApi(String promptText, int maxTokens) {
@@ -2100,6 +2158,17 @@ public class GeminiAiServiceImpl implements GeminiAiService {
         if (model == null || model.isBlank()) {
             model = "gemini-3-flash-preview";
         }
+        String healthyForModel = getNextHealthyKeyForModel(model, Collections.emptySet());
+        if (healthyForModel != null) {
+            apiKey = healthyForModel;
+        } else {
+            String altModel = getNextFastVoiceModel(Set.of(model));
+            if (altModel != null) {
+                model = altModel;
+                String altKey = getNextHealthyKeyForModel(model, Collections.emptySet());
+                if (altKey != null) apiKey = altKey;
+            }
+        }
 
         List<Map<String, Object>> contents = List.of(Map.of(
                 "role", "user",
@@ -2108,7 +2177,7 @@ public class GeminiAiServiceImpl implements GeminiAiService {
 
         Set<String> triedModels = new HashSet<>();
         Set<String> triedKeys = new HashSet<>();
-        int maxAttempts = Math.min(5, Math.max(3, getAllConfiguredApiKeys().size() + 2));
+        int maxAttempts = Math.min(6, Math.max(4, getAllConfiguredApiKeys().size() * 2 + 2));
 
         for (int attempt = 0; attempt < maxAttempts; attempt++) {
             try {
@@ -2161,18 +2230,32 @@ public class GeminiAiServiceImpl implements GeminiAiService {
                 } else if (response.statusCode() == 404) {
                     notFoundModelsCache.add(model);
                     triedModels.add(model);
+                    workingVoiceModelCache.compareAndSet(model, null);
                     String fallbackM = getNextFastVoiceModel(triedModels);
                     if (fallbackM != null) {
                         model = fallbackM;
+                        triedKeys.clear();
                         continue;
                     }
                     break;
                 } else if (response.statusCode() == 429 || response.statusCode() == 403) {
-                    markApiKeyRateLimited(apiKey);
+                    markModelKeyRateLimited(model, apiKey);
                     triedKeys.add(apiKey);
-                    String nextKey = getNextHealthyApiKey(triedKeys);
+                    String nextKey = getNextHealthyKeyForModel(model, triedKeys);
                     if (nextKey != null && !nextKey.equals(apiKey)) {
                         apiKey = nextKey;
+                        continue;
+                    }
+                    // Chuyển sang model kế tiếp có hạn mức riêng (vd: gemini-3.5-flash-lite)
+                    triedModels.add(model);
+                    workingVoiceModelCache.compareAndSet(model, null);
+                    String fallbackM = getNextFastVoiceModel(triedModels);
+                    if (fallbackM != null) {
+                        log.warn(">> [GeminiInterviewEval] HTTP {} trên model {}. Chuyển sang {}...", response.statusCode(), model, fallbackM);
+                        model = fallbackM;
+                        triedKeys.clear();
+                        String freshKey = getNextHealthyKeyForModel(model, Collections.emptySet());
+                        if (freshKey != null) apiKey = freshKey;
                         continue;
                     }
                     break;
@@ -2180,9 +2263,11 @@ public class GeminiAiServiceImpl implements GeminiAiService {
                     log.warn(">> [GeminiInterviewEval] Model {} returned HTTP {}: {}", model, response.statusCode(),
                             response.body() != null ? truncateText(response.body(), 200) : "");
                     triedModels.add(model);
+                    workingVoiceModelCache.compareAndSet(model, null);
                     String fallbackM = getNextFastVoiceModel(triedModels);
                     if (fallbackM != null) {
                         model = fallbackM;
+                        triedKeys.clear();
                         continue;
                     }
                     break;
@@ -2190,9 +2275,11 @@ public class GeminiAiServiceImpl implements GeminiAiService {
             } catch (Exception e) {
                 log.warn(">> [GeminiInterviewEval] Request failed on model {}: {}", model, e.getMessage());
                 triedModels.add(model);
+                workingVoiceModelCache.compareAndSet(model, null);
                 String fallbackM = getNextFastVoiceModel(triedModels);
                 if (fallbackM != null) {
                     model = fallbackM;
+                    triedKeys.clear();
                     continue;
                 }
                 break;
@@ -5759,45 +5846,4 @@ public class GeminiAiServiceImpl implements GeminiAiService {
             return generateFallbackCandidateSummary(targetTitle, skills, experiences);
         }
         try {
-            StringBuilder prompt = new StringBuilder();
-            prompt.append("Bạn là chuyên gia tư vấn tuyển dụng & tối ưu hóa hồ sơ ATS hàng đầu.\n");
-            prompt.append("Hãy viết lại đoạn giới thiệu bản thân (Professional Summary / Bio) dài từ 3-4 câu, súc tích, mang tính thuyết phục cao và chuẩn ATS cho ứng viên dựa trên thông tin thực tế sau:\n");
-            prompt.append("- Vị trí ứng tuyển / Định hướng: ").append(targetTitle != null ? targetTitle : "Chuyên viên").append("\n");
-            if (currentSummary != null && !currentSummary.isBlank()) {
-                prompt.append("- Giới thiệu hiện tại: ").append(currentSummary).append("\n");
-            }
-            if (skills != null && !skills.isEmpty()) {
-                prompt.append("- Kỹ năng nổi bật: ").append(String.join(", ", skills)).append("\n");
-            }
-            if (experiences != null && !experiences.isEmpty()) {
-                prompt.append("- Kinh nghiệm thực tế: ").append(String.join("; ", experiences)).append("\n");
-            }
-            if (educations != null && !educations.isEmpty()) {
-                prompt.append("- Học vấn: ").append(String.join("; ", educations)).append("\n");
-            }
-            prompt.append("\nYêu cầu:\n");
-            prompt.append("1. Giữ nguyên ngành nghề, số năm kinh nghiệm và các kỹ năng thực tế của ứng viên, tuyệt đối không bịa đặt kinh nghiệm không liên quan.\n");
-            prompt.append("2. Sử dụng các từ khóa hành động (action verbs) mạnh mẽ, tự nhiên và phù hợp với tiêu chuẩn ATS hiện đại.\n");
-            prompt.append("3. Chỉ trả về duy nhất đoạn văn giới thiệu hoàn chỉnh (3-4 câu bằng tiếng Việt), không thêm lời mở đầu hay giải thích.\n");
-
-            String responseText = callGeminiApi(prompt.toString(), 500);
-            if (responseText != null && !responseText.isBlank()) {
-                String clean = responseText.trim().replace("```", "").replace("\"", "");
-                if (clean.startsWith("Giới thiệu:") || clean.startsWith("Summary:")) {
-                    clean = clean.substring(clean.indexOf(":") + 1).trim();
-                }
-                return clean;
-            }
-        } catch (Exception e) {
-            log.warn("Gemini rewrite summary failed: {}", e.getMessage());
-        }
-        return generateFallbackCandidateSummary(targetTitle, skills, experiences);
-    }
-
-    private String generateFallbackCandidateSummary(String targetTitle, java.util.List<String> skills, java.util.List<String> experiences) {
-        String title = (targetTitle != null && !targetTitle.isBlank()) ? targetTitle : "Chuyên viên";
-        String skillText = (skills != null && !skills.isEmpty()) ? String.join(", ", skills.subList(0, Math.min(skills.size(), 4))) : "kỹ năng chuyên môn";
-        return String.format("%s với định hướng chuyên sâu và tinh thần trách nhiệm cao. Sở hữu nền tảng vững chắc về %s cùng khả năng giải quyết vấn đề hiệu quả và thích ứng nhanh với môi trường làm việc thực tế. Cam kết đóng góp tích cực vào hiệu suất của đội ngũ và mang lại giá trị bền vững cho tổ chức.", title, skillText);
-    }
-}
-
+... [truncated for diff preview]
