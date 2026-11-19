@@ -40,6 +40,23 @@ public class GeminiAiConfig {
         return apiKey;
     }
 
+    public List<String> getVoiceApiKeys() {
+        if (voiceApiKey != null && !voiceApiKey.isBlank() && !voiceApiKey.contains("YOUR_GEMINI_VOICE_API_KEY")) {
+            String[] tokens = voiceApiKey.split("[,;\\s]+");
+            java.util.List<String> list = new java.util.ArrayList<>();
+            for (String t : tokens) {
+                String clean = t.trim();
+                if (!clean.isEmpty() && clean.length() >= 15 && !list.contains(clean)) {
+                    list.add(clean);
+                }
+            }
+            if (!list.isEmpty()) {
+                return list;
+            }
+        }
+        return getApiKeys();
+    }
+
     public String getEffectiveVoiceModel() {
         if (voiceModel != null && !voiceModel.isBlank()) {
             return voiceModel.trim();
@@ -48,23 +65,24 @@ public class GeminiAiConfig {
     }
 
     /**
-     * Trích xuất danh sách API Keys để hỗ trợ cơ chế Xoay vòng Key (Key Rotation
-     * Pool),
-     * cho phép cấu hình nhiều keys ngăn cách bởi dấu phẩy hoặc chấm phẩy:
-     * KEY_1,KEY_2,KEY_3
+     * Trích xuất danh sách API Keys để hỗ trợ cơ chế Xoay vòng Key (Key Rotation Pool),
+     * cho phép cấu hình nhiều keys ngăn cách bởi dấu phẩy, chấm phẩy, khoảng trắng hoặc xuống dòng:
+     * KEY_1,KEY_2,KEY_3 hoặc KEY_1 KEY_2 KEY_3
      */
     public java.util.List<String> getApiKeys() {
         if (apiKey == null || apiKey.isBlank()) {
             return java.util.Collections.emptyList();
         }
-        String[] tokens = apiKey.split("[,;]");
+        String[] tokens = apiKey.split("[,;\\s]+");
         java.util.List<String> list = new java.util.ArrayList<>();
         for (String t : tokens) {
             String clean = t.trim();
             String upper = clean.toUpperCase();
             if (!clean.isEmpty() && !upper.contains("YOUR_GEMINI_API_KEY")
                     && !upper.contains("YOUR_GEMINI_API_KEY_HERE") && clean.length() >= 15) {
-                list.add(clean);
+                if (!list.contains(clean)) {
+                    list.add(clean);
+                }
             }
         }
         return list;

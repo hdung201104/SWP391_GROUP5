@@ -146,46 +146,73 @@ public class GeminiAiServiceImpl implements GeminiAiService {
         return key.trim().length() >= 15;
     }
 
+    /**
+     * Thu thập toàn bộ danh sách API Keys hợp lệ từ SystemSettingsService và GeminiAiConfig.
+     * Tự động phân tách đa định dạng (dấu phẩy, chấm phẩy, khoảng trắng, xuống dòng) và loại trừ trùng lặp.
+     */
+    private List<String> getAllConfiguredApiKeys() {
+        List<String> allKeys = new ArrayList<>();
+        if (systemSettingsService != null && systemSettingsService.getSettings() != null) {
+            String customKey = systemSettingsService.getSettings().getCustomGeminiApiKey();
+            if (customKey != null && !customKey.isBlank()) {
+                String[] tokens = customKey.split("[,;\\s]+");
+                for (String t : tokens) {
+                    String clean = t.trim();
+                    if (isValidApiKey(clean) && !allKeys.contains(clean)) {
+                        allKeys.add(clean);
+                    }
+                }
+            }
+        }
+        if (geminiAiConfig != null) {
+            List<String> configKeys = geminiAiConfig.getApiKeys();
+            for (String k : configKeys) {
+                if (isValidApiKey(k) && !allKeys.contains(k)) {
+                    allKeys.add(k);
+                }
+            }
+            if (allKeys.isEmpty() && isValidApiKey(geminiAiConfig.getApiKey())) {
+                allKeys.add(geminiAiConfig.getApiKey().trim());
+            }
+        }
+        return allKeys;
+    }
+
     private String getNextAvailableApiKey() {
         String healthy = getNextHealthyApiKey(Collections.emptySet());
         if (healthy != null) {
             return healthy;
         }
-        if (geminiAiConfig != null) {
-            List<String> keys = geminiAiConfig.getApiKeys();
+        List<String> keys = getAllConfiguredApiKeys();
+        if (!keys.isEmpty()) {
+            long minCooldown = Long.MAX_VALUE;
+            String bestKey = keys.get(0);
             for (String k : keys) {
-                if (isValidApiKey(k)) return k;
+                Long backoff = rateLimitedKeysUntil.get(k);
+                if (backoff == null) return k;
+                if (backoff < minCooldown) {
+                    minCooldown = backoff;
+                    bestKey = k;
+                }
             }
-            return geminiAiConfig.getApiKey();
+            return bestKey;
         }
         return null;
     }
 
     private String getNextHealthyApiKey(Set<String> excludedKeys) {
         long now = System.currentTimeMillis();
-        if (systemSettingsService != null && systemSettingsService.getSettings() != null) {
-            String customKey = systemSettingsService.getSettings().getCustomGeminiApiKey();
-            if (isValidApiKey(customKey)) {
-                String cleanCustom = customKey.trim();
-                if ((excludedKeys == null || !excludedKeys.contains(cleanCustom))) {
-                    Long backoffUntil = rateLimitedKeysUntil.get(cleanCustom);
-                    if (backoffUntil == null || now > backoffUntil) {
-                        return cleanCustom;
-                    }
-                }
-            }
-        }
-        if (geminiAiConfig == null) return null;
-        List<String> keys = geminiAiConfig.getApiKeys();
-        if (!keys.isEmpty()) {
-            for (int i = 0; i < keys.size(); i++) {
-                int idx = Math.abs(keyIndex.getAndIncrement() % keys.size());
-                String candidateKey = keys.get(idx);
-                if (isValidApiKey(candidateKey) && (excludedKeys == null || !excludedKeys.contains(candidateKey))) {
-                    Long backoffUntil = rateLimitedKeysUntil.get(candidateKey);
-                    if (backoffUntil == null || now > backoffUntil) {
-                        return candidateKey;
-                    }
+        List<String> keys = getAllConfiguredApiKeys();
+        if (keys.isEmpty()) return null;
+
+        int startIdx = Math.abs(keyIndex.getAndIncrement());
+        for (int i = 0; i < keys.size(); i++) {
+            int idx = (startIdx + i) % keys.size();
+            String candidateKey = keys.get(idx);
+            if (isValidApiKey(candidateKey) && (excludedKeys == null || !excludedKeys.contains(candidateKey))) {
+                Long backoffUntil = rateLimitedKeysUntil.get(candidateKey);
+                if (backoffUntil == null || now > backoffUntil) {
+                    return candidateKey;
                 }
             }
         }
@@ -194,28 +221,17 @@ public class GeminiAiServiceImpl implements GeminiAiService {
 
     private void markApiKeyRateLimited(String apiKey) {
         if (apiKey != null && !apiKey.isBlank()) {
+            String clean = apiKey.trim();
             long backoffUntil = System.currentTimeMillis() + 60_000L;
-            rateLimitedKeysUntil.put(apiKey, backoffUntil);
-            log.warn(">> [GeminiAiService] API Key [***{}] gặp HTTP 429, tạm ngưng trong 60s và tự động xoay sang Key tiếp theo.",
-                    apiKey.length() > 6 ? apiKey.substring(apiKey.length() - 6) : "...");
+            rateLimitedKeysUntil.put(clean, backoffUntil);
+            String masked = clean.length() > 6 ? clean.substring(clean.length() - 6) : "...";
+            log.warn(">> [GeminiAiService] API Key [***{}] gặp HTTP 429/403 (Quota/Rate limit). Tạm ngưng 60s và tự động xoay sang Key tiếp theo trong Pool.", masked);
         }
     }
 
     @Override
     public boolean isAvailable() {
-        if (systemSettingsService != null && systemSettingsService.getSettings() != null) {
-            String customKey = systemSettingsService.getSettings().getCustomGeminiApiKey();
-            if (isValidApiKey(customKey)) return true;
-        }
-        if (geminiAiConfig == null) return false;
-        List<String> keys = geminiAiConfig.getApiKeys();
-        if (!keys.isEmpty()) {
-            for (String k : keys) {
-                if (isValidApiKey(k)) return true;
-            }
-        }
-        String key = geminiAiConfig.getApiKey();
-        return isValidApiKey(key);
+        return !getAllConfiguredApiKeys().isEmpty();
     }
 
     @Override
@@ -1872,42 +1888,27 @@ public class GeminiAiServiceImpl implements GeminiAiService {
     private String callGeminiVoiceApi(String systemPrompt, List<Map<String, Object>> contents, int maxTokens) {
         String baseUrl = geminiAiConfig.getBaseUrl();
         String primaryModel = geminiAiConfig.getEffectiveVoiceModel();
-        String apiKey = null;
+        String apiKey = getNextAvailableApiKey();
 
-        if (systemSettingsService != null && systemSettingsService.getSettings() != null) {
-            String customKey = systemSettingsService.getSettings().getCustomGeminiApiKey();
-            if (customKey != null && !customKey.isBlank()) {
-                apiKey = customKey.trim();
-            }
-        }
-        if (apiKey == null || apiKey.isBlank()) {
-            apiKey = geminiAiConfig.getEffectiveVoiceApiKey();
-        }
-        if (apiKey == null || apiKey.isBlank() || apiKey.contains("YOUR_GEMINI_VOICE_API_KEY")) {
-            apiKey = geminiAiConfig.getApiKey();
-        }
-
-        if (apiKey == null || apiKey.isBlank() || apiKey.contains("YOUR_GEMINI_")) {
+        if (!isValidApiKey(apiKey)) {
             log.info(">> [GeminiVoice] Khóa API Google AI Studio chưa cấu hình. Kích hoạt Động cơ AI Thích ứng Chuyên sâu Cục bộ (Local Adaptive Agent Engine).");
             return null;
         }
 
-        List<String> modelsToTry = new ArrayList<>();
+        String model = (primaryModel != null && !primaryModel.isBlank() && !notFoundModelsCache.contains(primaryModel.trim()))
+                ? primaryModel.trim()
+                : "gemini-3.5-flash-lite";
+
         String cachedWorking = workingModelCache.get();
         if (cachedWorking != null && !cachedWorking.isBlank() && !notFoundModelsCache.contains(cachedWorking)) {
-            modelsToTry.add(cachedWorking);
-        }
-        if (primaryModel != null && !primaryModel.isBlank() && !primaryModel.contains("1.5") && !primaryModel.contains("2.0") && !primaryModel.contains("2.5") && !notFoundModelsCache.contains(primaryModel.trim()) && !modelsToTry.contains(primaryModel.trim())) {
-            modelsToTry.add(primaryModel.trim());
-        }
-        for (String fb : List.of("gemini-3.5-flash-lite", "gemini-3-flash-preview", "gemini-flash-lite-latest")) {
-            if (!notFoundModelsCache.contains(fb) && !modelsToTry.contains(fb)) {
-                modelsToTry.add(fb);
-            }
+            model = cachedWorking;
         }
 
+        Set<String> triedModels = new HashSet<>();
         Set<String> triedKeys = new HashSet<>();
-        for (String model : modelsToTry) {
+        int maxAttempts = Math.max(5, getAllConfiguredApiKeys().size() * 2);
+
+        for (int attempt = 0; attempt < maxAttempts; attempt++) {
             try {
                 String endpoint = baseUrl + "/models/" + model + ":generateContent?key=" + apiKey;
 
@@ -1952,26 +1953,35 @@ public class GeminiAiServiceImpl implements GeminiAiService {
                             }
                         }
                     }
+                    break;
                 } else if (response.statusCode() == 404) {
                     notFoundModelsCache.add(model);
-                    log.warn(">> [GeminiVoice] Model {} returned 404. Trying next fallback model...", model);
-                } else if (response.statusCode() == 429) {
+                    triedModels.add(model);
+                    String fallbackM = getNextFallbackModel(triedModels);
+                    if (fallbackM != null) {
+                        log.warn(">> [GeminiVoice] Model {} returned 404. Trying next fallback model {}...", model, fallbackM);
+                        model = fallbackM;
+                        continue;
+                    }
+                    break;
+                } else if (response.statusCode() == 429 || response.statusCode() == 403) {
                     markApiKeyRateLimited(apiKey);
                     triedKeys.add(apiKey);
                     String nextKey = getNextHealthyApiKey(triedKeys);
-                    if (nextKey != null) {
+                    if (nextKey != null && !nextKey.equals(apiKey)) {
+                        log.info(">> [GeminiVoice] HTTP {} trên Key [***{}]. Tự động xoay sang Key mới trong Rotation Pool và thử lại...",
+                                response.statusCode(), apiKey.length() > 6 ? apiKey.substring(apiKey.length() - 6) : "...");
                         apiKey = nextKey;
-                    } else {
-                        break;
+                        continue;
                     }
-                } else if (response.statusCode() == 400 || response.statusCode() == 401 || response.statusCode() == 403) {
-                    log.warn(">> [GeminiVoice] API Key không hợp lệ hoặc bị từ chối (HTTP {}). Chuyển ngay sang Local Adaptive Engine trong 0ms.", response.statusCode());
+                    log.warn(">> [GeminiVoice] Toàn bộ API Keys trong Pool đều vượt hạn mức (HTTP {}). Chuyển ngay sang Local Adaptive Engine.", response.statusCode());
                     break;
                 } else {
-                    log.warn(">> [GeminiVoice] Model {} returned HTTP status: {}. Trying fallback model...", model, response.statusCode());
+                    log.warn(">> [GeminiVoice] Google Gemini Voice returned HTTP status: {}. Chuyển sang fallback.", response.statusCode());
+                    break;
                 }
             } catch (Exception e) {
-                log.warn(">> [GeminiVoice] Attempt with model {} failed ({}).", model, e.getMessage());
+                log.warn(">> [GeminiVoice] Request failed: {}", e.getMessage());
             }
         }
         return null;
@@ -1997,8 +2007,9 @@ public class GeminiAiServiceImpl implements GeminiAiService {
 
             Set<String> triedModels = new HashSet<>();
             Set<String> triedKeys = new HashSet<>();
+            int maxAttempts = Math.max(5, getAllConfiguredApiKeys().size() * 2);
 
-            for (int attempt = 0; attempt < 3; attempt++) {
+            for (int attempt = 0; attempt < maxAttempts; attempt++) {
                 String endpoint = baseUrl + "/models/" + model + ":generateContent?key=" + apiKey;
 
                 Map<String, Object> requestBodyMap = new HashMap<>();
@@ -2047,16 +2058,17 @@ public class GeminiAiServiceImpl implements GeminiAiService {
                         continue;
                     }
                     break;
-                } else if (response.statusCode() == 429) {
+                } else if (response.statusCode() == 429 || response.statusCode() == 403) {
                     markApiKeyRateLimited(apiKey);
                     triedKeys.add(apiKey);
                     String nextKey = getNextHealthyApiKey(triedKeys);
-                    if (nextKey != null) {
-                        log.info(">> [GeminiAiService] Vision HTTP 429 trên Key hiện tại. Tự động xoay sang Key mới...");
+                    if (nextKey != null && !nextKey.equals(apiKey)) {
+                        log.info(">> [GeminiAiService] Vision HTTP {} trên Key [***{}]. Tự động xoay sang Key mới trong Rotation Pool và thử lại...",
+                                response.statusCode(), apiKey.length() > 6 ? apiKey.substring(apiKey.length() - 6) : "...");
                         apiKey = nextKey;
                         continue;
                     }
-                    log.warn(">> [GeminiAiService] Rate limit 429 when calling Gemini Vision (all keys exhausted).");
+                    log.warn(">> [GeminiAiService] Rate limit {} when calling Gemini Vision (all keys exhausted).", response.statusCode());
                     break;
                 } else {
                     log.warn(">> [GeminiAiService] Google Gemini Vision returned HTTP status: {}", response.statusCode());
@@ -2083,21 +2095,22 @@ public class GeminiAiServiceImpl implements GeminiAiService {
                 return null;
             }
 
-            String endpoint = baseUrl + "/models/" + model + ":generateContent?key=" + apiKey;
-
             List<Map<String, Object>> contents = new ArrayList<>();
             contents.add(Map.of("role", "user", "parts", List.of(Map.of("text", promptText))));
 
             final int MAX_REACT_STEPS = 4;
             int step = 0;
             int totalAttempts = 0;
-            final int MAX_TOTAL_ATTEMPTS = 5;
+            int poolSize = Math.max(3, getAllConfiguredApiKeys().size());
+            final int MAX_TOTAL_ATTEMPTS = MAX_REACT_STEPS + (poolSize * 2);
             Set<String> triedModels = new HashSet<>();
             Set<String> triedKeys = new HashSet<>();
 
             while (step < MAX_REACT_STEPS && totalAttempts < MAX_TOTAL_ATTEMPTS) {
                 step++;
                 totalAttempts++;
+                String endpoint = baseUrl + "/models/" + model + ":generateContent?key=" + apiKey;
+
                 Map<String, Object> requestBodyMap = new HashMap<>();
                 requestBodyMap.put("contents", contents);
                 requestBodyMap.put("generationConfig", buildGenerationConfig(model, 0.3, maxTokens));
@@ -2184,24 +2197,23 @@ public class GeminiAiServiceImpl implements GeminiAiService {
                     if (fallbackM != null) {
                         log.warn(">> [GeminiAiService] Model {} returned 404. Tự động chuyển sang {} và thử lại...", model, fallbackM);
                         model = fallbackM;
-                        endpoint = baseUrl + "/models/" + model + ":generateContent?key=" + apiKey;
                         step--;
                         continue;
                     }
                     log.warn(">> [GeminiAiService] Không còn model fallback khả dụng sau HTTP 404. Chuyển sang Heuristic Fallback.");
                     break;
-                } else if (response.statusCode() == 429) {
+                } else if (response.statusCode() == 429 || response.statusCode() == 403) {
                     markApiKeyRateLimited(apiKey);
                     triedKeys.add(apiKey);
                     String nextKey = getNextHealthyApiKey(triedKeys);
                     if (nextKey != null && !nextKey.equals(apiKey)) {
-                        log.info(">> [GeminiAiService] HTTP 429 trên Key hiện tại. Tự động xoay sang Key mới trong Rotation Pool và thử lại...");
+                        log.info(">> [GeminiAiService] HTTP {} trên Key [***{}]. Tự động xoay sang Key mới trong Rotation Pool và thử lại...",
+                                response.statusCode(), apiKey.length() > 6 ? apiKey.substring(apiKey.length() - 6) : "...");
                         apiKey = nextKey;
-                        endpoint = baseUrl + "/models/" + model + ":generateContent?key=" + apiKey;
                         step--;
                         continue;
                     }
-                    log.warn(">> [GeminiAiService] Toàn bộ API Keys trong Pool đều vượt hạn mức (HTTP 429). Falling back.");
+                    log.warn(">> [GeminiAiService] Toàn bộ API Keys trong Pool đều vượt hạn mức (HTTP {}). Falling back.", response.statusCode());
                     break;
                 } else {
                     log.warn(">> [GeminiAiService] Google Gemini returned HTTP status: {}", response.statusCode());
