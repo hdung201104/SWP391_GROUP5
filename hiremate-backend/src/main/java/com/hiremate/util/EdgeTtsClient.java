@@ -55,11 +55,16 @@ public class EdgeTtsClient {
             return new byte[0];
         }
         String targetVoice = resolveVoiceName(voiceName, isEnglish);
-        String key = targetVoice + "|" + text.trim();
+        String spokenText = (!isEnglish && targetVoice.startsWith("vi-VN-"))
+                ? SpeechPhoneticNormalizer.normalizeForMonolingualVietnameseEdgeTts(text.trim())
+                : text.trim();
+        if (spokenText.isBlank()) return new byte[0];
+
+        String key = targetVoice + "|" + spokenText;
         byte[] cached = cache.get(key);
         if (cached != null && cached.length > 0) return cached;
 
-        byte[] audio = doSynthesize(text.trim(), targetVoice);
+        byte[] audio = doSynthesize(spokenText, targetVoice);
         if (audio.length > 0) {
             consecutiveFailures.set(0);
             // Giới hạn tối đa 30 audio clip (~2MB) để chống tràn RAM trên container 512MB Render

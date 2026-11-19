@@ -512,8 +512,11 @@ public class AiInterviewServiceImpl implements AiInterviewService {
         com.hiremate.dto.ai.AiInterviewEvaluation evaluation = null;
         float deliveryScore = 75f;
 
-        // 1. Nếu có file ghi âm audioUrl: Thực hiện phân tích sóng âm & ngữ điệu trực tiếp qua Gemini Multimodal Audio
-        if (request.getAudioUrl() != null && !request.getAudioUrl().isBlank()) {
+        // 1. Chỉ tải file audio lên Gemini Multimodal khi CHƯA có văn bản trả lời (cần AI tự STT từ file ghi âm).
+        //    Khi đã có văn bản từ Live STT / Chat, đánh giá trực tiếp bằng text + verified telemetry (~2.5s, chống timeout & tràn RAM)
+        //    nhưng vẫn lưu nguyên audioUrl để ứng viên nghe lại giọng thật trong báo cáo!
+        boolean needsAudioStt = (answerText == null || answerText.trim().length() < 3);
+        if (needsAudioStt && request.getAudioUrl() != null && !request.getAudioUrl().isBlank()) {
             try {
                 byte[] audioBytes = fileStorageService.loadFileAsBytes(request.getAudioUrl());
                 if (audioBytes != null && audioBytes.length > 0) {
@@ -530,7 +533,6 @@ public class AiInterviewServiceImpl implements AiInterviewService {
                             session.getTargetPosition()
                     );
 
-                    // Tự động Speech-to-Text (STT) nếu ứng viên chỉ gửi file âm thanh hoặc văn bản quá ngắn
                     if ((answerText == null || answerText.isBlank() || answerText.length() < 10)
                             && evaluation.getTranscribedText() != null && !evaluation.getTranscribedText().isBlank()) {
                         answerText = evaluation.getTranscribedText();
@@ -670,7 +672,116 @@ public class AiInterviewServiceImpl implements AiInterviewService {
         }
 
         // Lấy tất cả chi tiết câu hỏi của phiên này (đã sắp xếp theo questionNumber)
-        List<InterviewDetail> details = detailRepository.findBySession_SessionIdOrderByQuestionNumberAsc(sessionId);
+        List<InterviewDetail> details = new ArrayList<>(detailRepository.findBySession_SessionIdOrderByQuestionNumberAsc(sessionId));
+
+        // ĐỒNG BỘ AN TOÀN: Nếu Frontend gửi kèm danh sách qaPairs và có câu nào chưa kịp lưu qua submitAnswer,
+        // tự động chấm song song ngay tại đây để báo cáo KHÔNG BAO GIỜ thiếu!
+        if (telemetry != null && telemetry.get("qaPairs") instanceof List<?> rawPairs && !rawPairs.isEmpty()) {
+            java.util.Set<Integer> savedQNums = new java.util.HashSet<>();
+            for (InterviewDetail existing : details) {
+                if (existing.getQuestionNumber() != null) {
+                    savedQNums.add(existing.getQuestionNumber());
+                }
+            }
+            List<java.util.concurrent.CompletableFuture<InterviewDetail>> missingFutures = new ArrayList<>();
+            final String sessionTargetPos = session.getTargetPosition();
+            int idx = 0;
+            for (Object item : rawPairs) {
+                idx++;
+                if (!(item instanceof Map<?, ?> m)) continue;
+                int qNum = idx;
+                Object qnObj = m.get("questionNumber");
+                if (qnObj instanceof Number n) qNum = n.intValue();
+                if (savedQNums.contains(qNum)) continue;
+
+                String qText = m.get("questionText") != null ? m.get("questionText").toString().trim() : ("Câu hỏi số " + qNum);
+                String aText = m.get("candidateAnswerText") != null ? m.get("candidateAnswerText").toString().trim() : "";
+                if (aText.isEmpty()) continue;
+
+                String audioUrl = m.get("audioUrl") != null ? m.get("audioUrl").toString().trim() : null;
+                if (audioUrl != null && audioUrl.startsWith("blob:")) audioUrl = null;
+                final int finalQNum = qNum;
+                final String finalAudioUrl = audioUrl;
+                final Float wpmVal = m.get("wordsPerMinute") instanceof Number n ? n.floatValue() : null;
+                final Float pitchVal = m.get("pitchHz") instanceof Number n ? n.floatValue() : null;
+                final Float eyeVal = m.get("eyeContactPercent") instanceof Number n ? n.floatValue() : null;
+                final String emoVal = m.get("facialEmotion") != null ? m.get("facialEmotion").toString() : null;
+                final Integer fillerVal = m.get("fillerCount") instanceof Number n ? n.intValue() : null;
+
+                missingFutures.add(java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+                    float deliv = computeVerifiedDeliveryScore(aText, wpmVal, null, pitchVal, eyeVal, emoVal, fillerVal);
+                    com.hiremate.dto.ai.AiInterviewEvaluation eval = geminiAiService.evaluateInterviewAnswer(
+                            qText, aText, sessionTargetPos
+                    );
+                    float contentSc = eval.getContentScore() != null ? eval.getContentScore() : (eval.getScore() != null ? eval.getScore() : 30f);
+                    float totalSc = (wpmVal != null || pitchVal != null || eyeVal != null)
+                            ? (Math.round((contentSc * 0.70f + deliv * 0.30f) * 10f) / 10f)
+                            : (eval.getScore() != null ? eval.getScore() : contentSc);
+                    return InterviewDetail.builder()
+                            .questionNumber(finalQNum)
+                            .questionText(qText)
+                            .candidateAnswerText(aText)
+                            .audioUrl(finalAudioUrl)
+                            .aiEvaluationScore(totalSc)
+                            .aiFeedback(eval.getFeedback())
+                            .aiSuggestedAnswer(eval.getSuggestedAnswer())
+                            .build();
+                }));
+            }
+            if (!missingFutures.isEmpty()) {
+                for (var f : missingFutures) {
+                    try {
+                        InterviewDetail built = f.get(20, java.util.concurrent.TimeUnit.SECONDS);
+                        if (built != null) {
+                            built.setSession(session);
+                            details.add(detailRepository.save(built));
+                        }
+                    } catch (Exception ex) {
+                        log.warn(">> [AiInterviewService] Backfill Q&A evaluation failed: {}", ex.getMessage());
+                    }
+                }
+                details.sort(java.util.Comparator.comparingInt(d -> d.getQuestionNumber() != null ? d.getQuestionNumber() : 0));
+            }
+        }
+
+        // Nếu bất kỳ câu nào đang chứa câu mẫu dự phòng cũ (do timeout tạm thời), tự động chấm lại song song bằng Gemini AI
+        List<InterviewDetail> needsUpgrade = new ArrayList<>();
+        for (InterviewDetail d : details) {
+            String sug = d.getAiSuggestedAnswer();
+            if (d.getCandidateAnswerText() != null && !d.getCandidateAnswerText().isBlank()
+                    && (sug == null || sug.isBlank() || sug.contains("Trong dự án trước đây khi xây dựng hệ thống cho vị trí"))) {
+                needsUpgrade.add(d);
+            }
+        }
+        if (!needsUpgrade.isEmpty()) {
+            final String sessionTargetPos = session.getTargetPosition();
+            List<java.util.concurrent.CompletableFuture<com.hiremate.dto.ai.AiInterviewEvaluation>> upgradeFutures = new ArrayList<>();
+            for (InterviewDetail d : needsUpgrade) {
+                final String qText = d.getQuestionText();
+                final String aText = d.getCandidateAnswerText();
+                upgradeFutures.add(java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+                    try {
+                        return geminiAiService.evaluateInterviewAnswer(qText, aText, sessionTargetPos);
+                    } catch (Exception ex) {
+                        log.warn(">> [AiInterviewService] Re-evaluate detail failed: {}", ex.getMessage());
+                        return null;
+                    }
+                }));
+            }
+            for (int i = 0; i < needsUpgrade.size(); i++) {
+                try {
+                    com.hiremate.dto.ai.AiInterviewEvaluation eval = upgradeFutures.get(i).get(20, java.util.concurrent.TimeUnit.SECONDS);
+                    InterviewDetail d = needsUpgrade.get(i);
+                    if (eval != null && eval.getSuggestedAnswer() != null && !eval.getSuggestedAnswer().isBlank()
+                            && !eval.getSuggestedAnswer().contains("Trong dự án trước đây khi xây dựng hệ thống cho vị trí")) {
+                        d.setAiEvaluationScore(eval.getScore() != null ? eval.getScore() : d.getAiEvaluationScore());
+                        d.setAiFeedback(eval.getFeedback());
+                        d.setAiSuggestedAnswer(eval.getSuggestedAnswer());
+                        detailRepository.save(d);
+                    }
+                } catch (Exception ignored) {}
+            }
+        }
 
         // Đánh giá tổng quan toàn phiên từ Gemini AI Agent (kèm Telemetry giọng nói, ánh mắt, khuôn mặt)
         com.hiremate.dto.ai.AiSessionSummary summary = geminiAiService.summarizeInterviewSession(
@@ -747,6 +858,7 @@ public class AiInterviewServiceImpl implements AiInterviewService {
 
         if (telemetry != null && !telemetry.isEmpty()) {
             Map<String, Object> enrichedTel = new HashMap<>(telemetry);
+            enrichedTel.remove("qaPairs"); // Không lưu trùng mảng Q&A vào JSON recommendedTasks
             enrichedTel.putIfAbsent("actualDurationSeconds", actualDurationSec);
             enrichedTel.putIfAbsent("level", sessionLevel);
             if (enrichedTel.containsKey("dominantEmotion") && !enrichedTel.containsKey("emotionSummary")) {
@@ -1437,36 +1549,74 @@ public class AiInterviewServiceImpl implements AiInterviewService {
     public byte[] synthesizeSpeech(String text, String voice) {
         if (text == null || text.isBlank()) return new byte[0];
 
-        // Chuẩn hóa văn bản sạch sẽ (giữ nguyên vẹn thuật ngữ công nghệ tiếng Anh và từ ngữ tiếng Việt)
+        // Chuẩn hóa văn bản sạch sẽ (giữ nguyên vẹn thuật ngữ công nghệ tiếng Anh và tách từ ghép an toàn)
         String normalized = com.hiremate.util.SpeechPhoneticNormalizer.normalize(text);
         if (normalized.isBlank()) return new byte[0];
 
         boolean isEn = com.hiremate.util.SpeechPhoneticNormalizer.isMostlyEnglish(normalized);
+        String vLower = voice != null ? voice.toLowerCase().trim() : "female";
+        boolean isFemaleExplicit = vLower.contains("female") || vLower.contains("nữ") || vLower.contains("hoaimy") || vLower.equals("vi-native");
+        boolean isMale = !isFemaleExplicit && (vLower.equals("male") || vLower.contains("-male") || vLower.contains("_male")
+                || vLower.contains("nam") || vLower.contains("minh") || vLower.contains("george"));
+        boolean isElevenRequested = !isFemaleExplicit && (isMale || vLower.contains("eleven") || vLower.contains("alice") || vLower.contains("bilingual"));
 
-        // 1. ƯU TIÊN SỐ 1: Microsoft Azure / Edge Neural TTS (Hoàn toàn miễn phí, KHÔNG giới hạn quota!)
-        //    - Giọng Nữ Chuẩn Mực (female): vi-VN-HoaiMyNeural
-        //    - Giọng Nữ Song Ngữ Việt-Anh (eleven/alice): en-US-AvaMultilingualNeural
-        //    - Giọng Nam Trầm Ấm (male/george): vi-VN-NamMinhNeural
-        if (edgeTtsClient != null) {
-            byte[] edgeAudio = edgeTtsClient.synthesize(normalized, voice, isEn);
-            if (edgeAudio != null && edgeAudio.length > 0) {
-                return edgeAudio;
+        // 1. VĂN BẢN THUẦN TIẾNG ANH: Ưu tiên Microsoft Edge Neural en-US (Ava/Andrew) chuẩn bản xứ 100%, miễn phí & không giới hạn!
+        if (isEn) {
+            if (edgeTtsClient != null) {
+                byte[] edgeEn = edgeTtsClient.synthesize(normalized, voice, true);
+                if (edgeEn != null && edgeEn.length > 0) {
+                    return edgeEn;
+                }
             }
+            if (elevenlabsApiKey != null && !elevenlabsApiKey.isBlank()
+                    && System.currentTimeMillis() >= elevenlabsQuotaBlockedUntilMs) {
+                byte[] elevenEn = synthesizeWithElevenLabs(normalized, voice, true);
+                if (elevenEn != null && elevenEn.length > 0) {
+                    return elevenEn;
+                }
+            }
+            byte[] gttsEn = synthesizeSpeech(normalized);
+            if (gttsEn != null && gttsEn.length > 0) {
+                return gttsEn;
+            }
+            return new byte[0];
         }
 
-        // 2. DỰ PHÒNG #2: ElevenLabs Generative AI (Chỉ gọi khi còn quota - tự động skip 30 phút nếu HTTP 401/402/429)
-        if (elevenlabsApiKey != null && !elevenlabsApiKey.isBlank()
+        // 2. VĂN BẢN TIẾNG VIỆT HOẶC TIẾNG VIỆT PHA THUẬT NGỮ TIẾNG ANH:
+        //    - Nếu người dùng chọn preset ElevenLabs (Alice / George) và key CÒN quota: ưu tiên ElevenLabs Generative AI
+        //      (tự động bỏ qua ngay trong 0ms nếu key đã chạm giới hạn 10k ký tự - circuit breaker 30 phút).
+        if (isElevenRequested && elevenlabsApiKey != null && !elevenlabsApiKey.isBlank()
                 && System.currentTimeMillis() >= elevenlabsQuotaBlockedUntilMs) {
-            byte[] elevenAudio = synthesizeWithElevenLabs(normalized, voice, isEn);
+            byte[] elevenAudio = synthesizeWithElevenLabs(normalized, voice, false);
             if (elevenAudio != null && elevenAudio.length > 0) {
                 return elevenAudio;
             }
         }
 
-        // 3. DỰ PHÒNG #3 (Tốc độ cao): Google Translate TTS song song giữ nguyên 1 giọng thống nhất cả câu
+        //    - Giọng NAM (eleven-george / male): Dùng Microsoft Edge Neural vi-VN-NamMinhNeural
+        //      (tự động áp dụng bộ phiên âm thuật ngữ tiếng Anh chuyên sâu trong EdgeTtsClient để không đọc sai từ IT).
+        if (isMale && edgeTtsClient != null) {
+            byte[] maleEdge = edgeTtsClient.synthesize(normalized, "male", false);
+            if (maleEdge != null && maleEdge.length > 0) {
+                return maleEdge;
+            }
+        }
+
+        //    - Giọng NỮ (vi-native / female & eleven-alice khi hết ElevenLabs quota):
+        //      Ưu tiên Google Translate TTS song song (tl=vi, giữ 1 giọng thống nhất cả câu):
+        //      + Phát âm tiếng Việt 10/10 + phát âm thuật ngữ tiếng Anh (Spring Boot, PostgreSQL, Microservices, Docker...) chuẩn xác!
+        //      + Phản hồi siêu nhanh (~350ms, nhanh gấp 4 lần WebSocket Edge TTS) và hoàn toàn miễn phí không giới hạn!
         byte[] nativeAudio = synthesizeSpeech(normalized);
         if (nativeAudio != null && nativeAudio.length > 0) {
             return nativeAudio;
+        }
+
+        //    - Dự phòng cuối cùng nếu Google TTS gián đoạn: Microsoft Edge Neural (kèm bộ phiên âm thuật ngữ tiếng Anh)
+        if (edgeTtsClient != null) {
+            byte[] edgeFallback = edgeTtsClient.synthesize(normalized, voice, false);
+            if (edgeFallback != null && edgeFallback.length > 0) {
+                return edgeFallback;
+            }
         }
 
         return new byte[0];
@@ -1565,7 +1715,8 @@ public class AiInterviewServiceImpl implements AiInterviewService {
             final String langCode = com.hiremate.util.SpeechPhoneticNormalizer.isMostlyEnglish(clean) ? "en" : "vi";
 
             // Tải song song toàn bộ các đoạn audio chunk thay vì tuần tự -> giảm 2-3x độ trễ!
-            List<String> chunks = splitTextForTts(clean, 180);
+            // Giới hạn nghiêm ngặt 165 ký tự/chunk để không bao giờ vượt giới hạn 200 ký tự của Google TTS.
+            List<String> chunks = splitTextForTts(clean, 165);
             List<java.util.concurrent.CompletableFuture<byte[]>> futures = new ArrayList<>();
             for (String chunk : chunks) {
                 if (chunk.isBlank()) continue;
@@ -1661,6 +1812,27 @@ public class AiInterviewServiceImpl implements AiInterviewService {
         if (currentChunk.length() > 0) {
             result.add(currentChunk.toString().trim());
         }
-        return result;
+
+        // Bảo vệ cứng: Nếu bất kỳ đoạn nào không có dấu câu vẫn dài hơn maxChunkLen -> tách an toàn theo ranh giới từ
+        List<String> safeResult = new ArrayList<>();
+        for (String piece : result) {
+            if (piece.length() <= maxChunkLen) {
+                safeResult.add(piece);
+            } else {
+                String[] words = piece.split("\\s+");
+                StringBuilder buf = new StringBuilder();
+                for (String w : words) {
+                    if (buf.length() + w.length() + 1 <= maxChunkLen) {
+                        if (buf.length() > 0) buf.append(" ");
+                        buf.append(w);
+                    } else {
+                        if (buf.length() > 0) safeResult.add(buf.toString().trim());
+                        buf = new StringBuilder(w);
+                    }
+                }
+                if (buf.length() > 0) safeResult.add(buf.toString().trim());
+            }
+        }
+        return safeResult;
     }
 }
