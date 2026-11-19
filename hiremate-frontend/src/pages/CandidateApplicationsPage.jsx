@@ -496,12 +496,30 @@ export default function CandidateApplicationsPage({ user }) {
       return matchesFilter && matchesSearch;
     })
     .sort((a, b) => {
-      if (sortBy === 'MATCH') return (b.aiMatch || 0) - (a.aiMatch || 0);
+      // 1. Phân tầng ưu tiên: Hồ sơ đang xử lý / chờ duyệt luôn đẩy lên TRÊN hồ sơ đã rút đơn hoặc từ chối
+      const isAClosed = a.status === 'WITHDRAWN' || a.status === 'REJECTED' || a.status === 'OFFER_DECLINED' || Boolean(a.withdrawnByCandidate);
+      const isBClosed = b.status === 'WITHDRAWN' || b.status === 'REJECTED' || b.status === 'OFFER_DECLINED' || Boolean(b.withdrawnByCandidate);
+
+      if (isAClosed !== isBClosed) {
+        return isAClosed ? 1 : -1;
+      }
+
+      // 2. Khi cùng nhóm trạng thái: Sắp xếp theo tiêu chí sortBy
+      if (sortBy === 'MATCH') {
+        const diff = (b.aiMatch || 0) - (a.aiMatch || 0);
+        if (diff !== 0) return diff;
+        return (b.id || 0) - (a.id || 0);
+      }
+
       if (sortBy === 'ACTION') {
         const priority = { HIRED: 5, OFFER: 4, INTERVIEW: 3, SCREENING: 2, APPLIED: 1, REJECTED: 0, WITHDRAWN: 0, OFFER_DECLINED: 0 };
-        return (priority[b.status] || 0) - (priority[a.status] || 0);
+        const pDiff = (priority[b.status] || 0) - (priority[a.status] || 0);
+        if (pDiff !== 0) return pDiff;
+        return (b.id || 0) - (a.id || 0);
       }
-      return b.id - a.id;
+
+      // Default: 'RECENT' (Mới nộp gần đây)
+      return (b.id || 0) - (a.id || 0);
     });
 
   // Paginated Applications calculation

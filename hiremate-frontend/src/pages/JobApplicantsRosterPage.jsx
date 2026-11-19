@@ -899,8 +899,13 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
         };
       });
 
-      // Sắp xếp danh sách ứng viên theo điểm matchScore giảm dần (ứng viên điểm cao lên đầu)
+      // Sắp xếp danh sách ứng viên theo điểm matchScore giảm dần (ứng viên điểm cao lên đầu, ưu tiên hồ sơ còn ứng tuyển lên trên hồ sơ đã rút đơn)
       mappedCandidates.sort((a, b) => {
+        const aWithdrawn = a.stage === 'WITHDRAWN' || Boolean(a.withdrawnByCandidate);
+        const bWithdrawn = b.stage === 'WITHDRAWN' || Boolean(b.withdrawnByCandidate);
+        if (aWithdrawn !== bWithdrawn) {
+          return aWithdrawn ? 1 : -1;
+        }
         return (b.matchScore || 0) - (a.matchScore || 0);
       });
 
@@ -1251,10 +1256,15 @@ export default function JobApplicantsRosterPage({ user, jobId = 101, onBackToJob
       });
     }
 
-    // Sort by AI Match score
-    list.sort((a, b) =>
-      isAiSortDescending ? b.matchScore - a.matchScore : a.matchScore - b.matchScore
-    );
+    // Sort by AI Match score (ưu tiên ứng viên còn hiệu lực lên trên ứng viên đã rút đơn)
+    list.sort((a, b) => {
+      const aWithdrawn = a.stage === 'WITHDRAWN' || Boolean(a.withdrawnByCandidate);
+      const bWithdrawn = b.stage === 'WITHDRAWN' || Boolean(b.withdrawnByCandidate);
+      if (aWithdrawn !== bWithdrawn) {
+        return aWithdrawn ? 1 : -1;
+      }
+      return isAiSortDescending ? b.matchScore - a.matchScore : a.matchScore - b.matchScore;
+    });
 
     return list;
   }, [candidates, activeFilter, searchQuery, isAiSortDescending, scoreFilter, expFilter, skillFilter]);

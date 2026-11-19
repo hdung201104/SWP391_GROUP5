@@ -414,6 +414,21 @@ public class ApplicationServiceImpl implements ApplicationService {
             Float score = (preloadedMatch != null) ? preloadedMatch.getMatchingScore() : null;
             list.add(mapToResponse(app, score, defaultCv, preloadedMatch));
         }
+
+        // Ưu tiên các đơn đang chờ duyệt / đang xử lý lên TRÊN các đơn đã rút hoặc từ chối
+        list.sort((a, b) -> {
+            boolean aClosed = Boolean.TRUE.equals(a.getWithdrawnByCandidate()) || a.getStatus() == ApplicationStatus.REJECTED;
+            boolean bClosed = Boolean.TRUE.equals(b.getWithdrawnByCandidate()) || b.getStatus() == ApplicationStatus.REJECTED;
+            if (aClosed != bClosed) {
+                return aClosed ? 1 : -1;
+            }
+            if (b.getCreatedAt() != null && a.getCreatedAt() != null) {
+                return b.getCreatedAt().compareTo(a.getCreatedAt());
+            }
+            return Long.compare(b.getApplicationId() != null ? b.getApplicationId() : 0L,
+                                a.getApplicationId() != null ? a.getApplicationId() : 0L);
+        });
+
         return list;
     }
 
@@ -477,8 +492,13 @@ public class ApplicationServiceImpl implements ApplicationService {
             list.add(mapToResponse(app, score, null, preloadedMatch));
         }
 
-        // Sắp xếp ứng viên theo matching_score DESC (theo chuẩn UC-28: View Rank Candidates)
+        // Sắp xếp ứng viên theo matching_score DESC, ưu tiên ứng viên còn hiệu lực lên trên hồ sơ đã rút đơn
         list.sort((a, b) -> {
+            boolean aClosed = Boolean.TRUE.equals(a.getWithdrawnByCandidate()) || a.getStatus() == ApplicationStatus.REJECTED;
+            boolean bClosed = Boolean.TRUE.equals(b.getWithdrawnByCandidate()) || b.getStatus() == ApplicationStatus.REJECTED;
+            if (aClosed != bClosed) {
+                return aClosed ? 1 : -1;
+            }
             float sA = a.getMatchingScore() != null ? a.getMatchingScore() : 0f;
             float sB = b.getMatchingScore() != null ? b.getMatchingScore() : 0f;
             return Float.compare(sB, sA);
