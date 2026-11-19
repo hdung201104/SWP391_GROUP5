@@ -175,10 +175,20 @@ public class AiInterviewController {
         }
 
         String aiReply = geminiAiService.processVoiceInterviewTurn(targetPosition, userSpeech, history, focusNotes, cvSnippet, jobSnippet, persona, difficulty, maxQuestions, planName);
-        return ResponseEntity.ok(ApiResponse.ok("Voice turn generated", java.util.Map.of(
-                "reply", aiReply,
-                "timestamp", System.currentTimeMillis()
-        )));
+        java.util.Map<String, Object> result = new java.util.LinkedHashMap<>();
+        result.put("reply", aiReply);
+        result.put("timestamp", System.currentTimeMillis());
+        if (Boolean.TRUE.equals(body.get("includeAudio")) && aiReply != null && !aiReply.isBlank()) {
+            String voice = body.get("voice") != null ? body.get("voice").toString() : "female";
+            try {
+                byte[] audio = aiInterviewService.synthesizeSpeech(aiReply, voice);
+                if (audio != null && audio.length > 0) {
+                    result.put("audioBase64", java.util.Base64.getEncoder().encodeToString(audio));
+                    result.put("audioMimeType", "audio/mpeg");
+                }
+            } catch (Exception ignored) {}
+        }
+        return ResponseEntity.ok(ApiResponse.ok("Voice turn generated", result));
     }
 
     @PostMapping("/turn-complete")
@@ -247,10 +257,20 @@ public class AiInterviewController {
         }
 
         String aiReply = geminiAiService.processVoiceInterviewTurn(targetPosition, userSpeech, history, focusNotes, cvSnippet, jobSnippet, persona, difficulty, maxQuestions, planName);
-        return ResponseEntity.ok(ApiResponse.ok("Voice turn generated", java.util.Map.of(
-                "reply", aiReply,
-                "timestamp", System.currentTimeMillis()
-        )));
+        java.util.Map<String, Object> result = new java.util.LinkedHashMap<>();
+        result.put("reply", aiReply);
+        result.put("timestamp", System.currentTimeMillis());
+        if (Boolean.TRUE.equals(body.get("includeAudio")) && aiReply != null && !aiReply.isBlank()) {
+            String voice = body.get("voice") != null ? body.get("voice").toString() : "female";
+            try {
+                byte[] audio = aiInterviewService.synthesizeSpeech(aiReply, voice);
+                if (audio != null && audio.length > 0) {
+                    result.put("audioBase64", java.util.Base64.getEncoder().encodeToString(audio));
+                    result.put("audioMimeType", "audio/mpeg");
+                }
+            } catch (Exception ignored) {}
+        }
+        return ResponseEntity.ok(ApiResponse.ok("Voice turn generated", result));
     }
 
     @PostMapping("/{sessionId}/complete")

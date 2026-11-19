@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import interviewApi from '../api/interviewApi';
+import { getApiBaseUrl } from '../api/axiosClient';
 
 const HIREMATE_LOGO_URL = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=120&h=120&q=80';
 
@@ -410,7 +411,7 @@ export const enrichFeedbackAndModelAnswer = (
   let enrichedCritique = (rawCritique || '').trim();
   const isCritiqueGeneric =
     !enrichedCritique ||
-    enrichedCritique.length < 80 ||
+    enrichedCritique.length < 35 ||
     /Chưa có nhận xét/i.test(enrichedCritique) ||
     /Nội dung bước đầu nêu được ý chính/i.test(enrichedCritique);
 
@@ -439,10 +440,18 @@ export const enrichFeedbackAndModelAnswer = (
   }
 
   let enrichedModel = (rawModel || '').trim();
+  // Tách dòng [Chiến lược]: riêng do Gemini AI sinh ra cho đúng câu hỏi này (nếu có)
+  let aiStrategyGuide = '';
+  const stratMatch = enrichedModel.match(/^\[Chiến lược\]\s*:\s*([^\n\r]+)/i);
+  if (stratMatch) {
+    aiStrategyGuide = stratMatch[1].trim();
+    enrichedModel = enrichedModel.replace(/^\[Chiến lược\]\s*:\s*[^\n\r]+[\r\n]*/i, '').trim();
+  }
+
   const isModelDefective =
     !enrichedModel ||
-    enrichedModel.length < 80 ||
-    /Gợi ý câu trả lời chuẩn theo mô hình STAR/i.test(enrichedModel);
+    enrichedModel.length < 35 ||
+    /Gợi ý câu trả lời (chuẩn theo mô hình STAR|mẫu chuẩn điểm 10)/i.test(enrichedModel);
 
   if (isModelDefective) {
     const kw1 = taxonomy.keywords[0] || 'Chuyên môn';
@@ -470,7 +479,7 @@ export const enrichFeedbackAndModelAnswer = (
     }
   }
 
-  const strategyGuide = `Nêu rõ bối cảnh thực tế -> Xác định trách nhiệm cá nhân -> Lựa chọn công cụ chuyên môn (${taxonomy.keywords.slice(0, 3).join(', ')}) -> Khẳng định hiệu quả bằng số liệu định lượng (${taxonomy.metricsTerm}).`;
+  const strategyGuide = aiStrategyGuide || `Nêu rõ bối cảnh thực tế -> Xác định trách nhiệm cá nhân -> Lựa chọn công cụ chuyên môn (${taxonomy.keywords.slice(0, 3).join(', ')}) -> Khẳng định hiệu quả bằng số liệu định lượng (${taxonomy.metricsTerm}).`;
 
   return { qType, critique: enrichedCritique, modelAnswer: enrichedModel, strategyGuide };
 };
@@ -616,6 +625,7 @@ export default function AiInterviewReportPage({
   const [playingQuestionIdx, setPlayingQuestionIdx] = useState(null);
   const [playingCandidateIdx, setPlayingCandidateIdx] = useState(null);
   const candidateAudioRef = useRef(null);
+  const modelAudioRef = useRef(null);
   const [toast, setToast] = useState('');
 
   // Subscription Quota & Tiers for Candidate
@@ -816,9 +826,13 @@ export default function AiInterviewReportPage({
       .finally(() => setLoading(false));
   }, [sessionData, sessionIdProp]);
 
-  // Phát âm thanh giọng đọc TTS
-  const playModelAudio = (text, qIdx) => {
+  // Phát âm thanh giọng đọc TTS chất lượng cao qua Backend (phát âm chuẩn cả tiếng Việt lẫn thuật ngữ tiếng Anh)
+  const playModelAudio = async (text, qIdx) => {
     if (!text) return;
+    if (modelAudioRef.current) {
+      try { modelAudioRef.current.pause(); } catch (e) {}
+      modelAudioRef.current = null;
+    }
     if (playingQuestionIdx === qIdx) {
       if (typeof window !== 'undefined' && window.speechSynthesis) {
         window.speechSynthesis.cancel();
@@ -827,11 +841,51 @@ export default function AiInterviewReportPage({
       return;
     }
 
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
     setPlayingQuestionIdx(qIdx);
+
+    const speakText = text
+      .replace(/^\[Chiến lược\]\s*:\s*[^\n\r]+[\r\n]*/i, '')
+      .replace(/\[(S|T|A|R)\]\s*/gi, '')
+      .trim();
+
+    try {
+      const apiBase = getApiBaseUrl();
+      const resp = await fetch(`${apiBase}/api/v1/ai-interviews/tts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: speakText, voice: 'female' }),
+      });
+      if (resp.ok) {
+        const blob = await resp.blob();
+        if (blob && blob.size > 200) {
+          const url = URL.createObjectURL(blob);
+          const audio = new Audio(url);
+          modelAudioRef.current = audio;
+          audio.onended = () => {
+            try { URL.revokeObjectURL(url); } catch (e) {}
+            if (modelAudioRef.current === audio) modelAudioRef.current = null;
+            setPlayingQuestionIdx(null);
+          };
+          audio.onerror = () => {
+            try { URL.revokeObjectURL(url); } catch (e) {}
+            if (modelAudioRef.current === audio) modelAudioRef.current = null;
+            setPlayingQuestionIdx(null);
+          };
+          await audio.play();
+          showToast('🔊 Đang đọc phát biểu mẫu chuẩn STAR...');
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn('Backend TTS for model answer unavailable, fallback browser speech:', e);
+    }
+
     try {
       if (typeof window !== 'undefined' && window.speechSynthesis) {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
+        const utterance = new SpeechSynthesisUtterance(speakText);
         utterance.lang = 'vi-VN';
         utterance.rate = 1.0;
         utterance.pitch = 1.0;
@@ -865,6 +919,10 @@ export default function AiInterviewReportPage({
     }
 
     // 2. Dừng mọi âm thanh khác đang phát (bao gồm câu mẫu)
+    if (modelAudioRef.current) {
+      try { modelAudioRef.current.pause(); } catch (e) {}
+      modelAudioRef.current = null;
+    }
     if (candidateAudioRef.current) {
       try { candidateAudioRef.current.pause(); } catch (e) {}
       candidateAudioRef.current = null;
