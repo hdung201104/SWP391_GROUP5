@@ -15,6 +15,7 @@ public interface PaymentService {
     PaymentOrderResponse getOrderByCode(String orderCode);
     List<PaymentOrderResponse> getMyOrders(User user);
     List<SubscriptionPlan> getActivePlans(String targetRole);
+    List<com.hiremate.entity.Voucher> getActiveVouchers(String targetRole);
     PaymentOrderResponse processPayOSWebhook(java.util.Map<String, Object> webhookData);
     com.hiremate.dto.response.SubscriptionResponse getMyActiveSubscription(User user);
     PaymentOrderResponse cancelOrder(User user, String orderCode);

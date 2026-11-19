@@ -538,13 +538,84 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     @Override
-    @org.springframework.cache.annotation.Cacheable(value = "subscriptionPlans", key = "#targetRole != null ? #targetRole.toUpperCase() : 'ALL'")
+    @org.springframework.cache.annotation.Cacheable(value = "subscriptionPlans", key = "#targetRole != null ? #targetRole.trim().toUpperCase() : 'ALL'")
     @Transactional(readOnly = true)
     public List<SubscriptionPlan> getActivePlans(String targetRole) {
-        if (targetRole != null && !targetRole.isBlank()) {
-            return subscriptionPlanRepository.findByTargetRoleAndIsActiveTrueOrderByPriceAsc(targetRole.toUpperCase());
+        List<SubscriptionPlan> raw = (targetRole != null && !targetRole.isBlank())
+                ? subscriptionPlanRepository.findByTargetRoleAndIsActiveTrueOrderByPriceAsc(targetRole.trim().toUpperCase())
+                : subscriptionPlanRepository.findByIsActiveTrueOrderByPriceAsc();
+        return raw.stream()
+                .filter(p -> p.getDescription() == null || !p.getDescription().contains("[DELETED]"))
+                .sorted(java.util.Comparator
+                        .comparing((SubscriptionPlan p) -> p.getPrice() != null ? p.getPrice() : BigDecimal.ZERO)
+                        .thenComparing(p -> p.getDurationDays() != null ? p.getDurationDays() : 30)
+                        .thenComparing(p -> p.getPlanId() != null ? p.getPlanId() : Long.MAX_VALUE))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Voucher> getActiveVouchers(String targetRole) {
+        LocalDateTime now = LocalDateTime.now();
+        String requestedRole = (targetRole != null && !targetRole.isBlank()) ? targetRole.trim().toUpperCase() : null;
+        java.util.Map<String, VoucherRuleMeta> rules = (systemSettingsService != null
+                && systemSettingsService.getSettings() != null
+                && systemSettingsService.getSettings().getVoucherRules() != null)
+                ? systemSettingsService.getSettings().getVoucherRules()
+                : java.util.Collections.emptyMap();
+
+        List<Voucher> all = voucherRepository.findAllByOrderByCreatedAtDesc();
+        List<Voucher> result = new java.util.ArrayList<>();
+
+        for (Voucher v : all) {
+            if (!Boolean.TRUE.equals(v.getIsActive())) continue;
+            if (v.getValidTo() != null && now.isAfter(v.getValidTo())) continue;
+            if (v.getUsageLimit() != null && v.getUsedCount() != null && v.getUsedCount() >= v.getUsageLimit()) continue;
+
+            String code = v.getCode() != null ? v.getCode().trim().toUpperCase() : "";
+            VoucherRuleMeta meta = rules.get(code);
+
+            // Suy luận vai trò mặc định thông minh nếu meta chưa được lưu (vd: voucher seed hoặc sau restart container)
+            String effectiveRole = (meta != null && meta.getTargetRole() != null && !meta.getTargetRole().isBlank())
+                    ? meta.getTargetRole().trim().toUpperCase()
+                    : inferDefaultVoucherRole(code);
+
+            if (requestedRole != null && !"ALL".equalsIgnoreCase(effectiveRole) && !requestedRole.equalsIgnoreCase(effectiveRole)) {
+                continue;
+            }
+
+            v.setTargetRole(effectiveRole);
+            if (meta != null) {
+                v.setMinOrderAmount(meta.getMinOrderAmount() != null ? meta.getMinOrderAmount() : BigDecimal.ZERO);
+                v.setApplicableScope(meta.getApplicableScope() != null ? meta.getApplicableScope() : "ALL");
+                v.setApplicablePlanIds(meta.getApplicablePlanIds() != null ? meta.getApplicablePlanIds() : java.util.Collections.emptyList());
+                v.setDescription(meta.getDescription());
+            } else {
+                v.setMinOrderAmount(BigDecimal.ZERO);
+                v.setApplicableScope("ALL");
+                v.setApplicablePlanIds(java.util.Collections.emptyList());
+            }
+            if (v.getDescription() == null || v.getDescription().isBlank()) {
+                String maxText = (v.getMaxDiscountAmount() != null && v.getMaxDiscountAmount().compareTo(BigDecimal.ZERO) > 0)
+                        ? " (tối đa " + formatCurrency(v.getMaxDiscountAmount()) + ")"
+                        : "";
+                v.setDescription("Giảm ngay " + (v.getDiscountPercent() != null ? v.getDiscountPercent() : 0) + "%" + maxText + " khi nâng cấp gói dịch vụ");
+            }
+            result.add(v);
         }
-        return subscriptionPlanRepository.findByIsActiveTrueOrderByPriceAsc();
+        return result;
+    }
+
+    private String inferDefaultVoucherRole(String code) {
+        if (code == null) return "ALL";
+        String upper = code.trim().toUpperCase();
+        if (upper.startsWith("PROHR") || upper.startsWith("HRBOOST") || upper.startsWith("RECRUITER")) {
+            return "RECRUITER";
+        }
+        if (upper.startsWith("CANDIDATE") || upper.startsWith("FPTTALENT")) {
+            return "CANDIDATE";
+        }
+        return "ALL";
     }
 
     @Override

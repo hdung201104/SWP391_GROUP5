@@ -99,6 +99,14 @@ public class PaymentController {
         return ResponseEntity.ok(ApiResponse.ok("Danh sách gói dịch vụ", plans));
     }
 
+    @GetMapping("/vouchers")
+    public ResponseEntity<ApiResponse<List<com.hiremate.entity.Voucher>>> getActiveVouchers(
+            @RequestParam(required = false) String role
+    ) {
+        List<com.hiremate.entity.Voucher> vouchers = paymentService.getActiveVouchers(role);
+        return ResponseEntity.ok(ApiResponse.ok("Danh sách voucher ưu đãi khả dụng", vouchers));
+    }
+
     @PostMapping("/payos-webhook")
     public ResponseEntity<java.util.Map<String, Object>> handlePayOSWebhook(
             @RequestBody java.util.Map<String, Object> webhookData

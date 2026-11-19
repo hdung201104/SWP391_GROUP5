@@ -178,6 +178,36 @@ const getCandidateEnrichedFeatures = (planName, monthlyPrice, quotaLimit, descri
   const price = Number(monthlyPrice) || 0;
   const quota = Number(quotaLimit) || 0;
 
+  // Ưu tiên hiển thị quyền lợi tùy chỉnh do Admin cấu hình trực tiếp trong gói mới / gói đã chỉnh sửa
+  if (description && typeof description === 'string') {
+    const hasPermsTag = description.includes('[PERMS:');
+    const cleanDesc = description.replace(/\[PERMS:[^\]]+\]/g, '').trim();
+    const customList = cleanDesc
+      .split(';')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0 && !s.includes('[DELETED]'));
+
+    if (customList.length >= 2 || (hasPermsTag && customList.length >= 1)) {
+      const features = customList.map((text, i) => ({
+        text,
+        highlight: i < 3,
+      }));
+      // Đảm bảo hạn ngạch PV luôn nổi bật nếu chưa nằm trong danh sách
+      const hasQuotaMention = features.some((f) => /phiên|lượt|hạn ngạch|quota/i.test(f.text));
+      if (!hasQuotaMention && quota > 0) {
+        features.unshift({
+          text: quota >= 999 ? 'KHÔNG GIỚI HẠN phiên phỏng vấn AI Voice / ngày' : `${quota} Phiên phỏng vấn AI Voice / ngày`,
+          highlight: true,
+        });
+      }
+      return {
+        tagline: customList[0] || `Gói luyện tập phỏng vấn AI & tối ưu CV dành riêng cho Ứng viên (${planName}).`,
+        features,
+        missingFeatures: [],
+      };
+    }
+  }
+
   // Cấp độ 0: FREE CANDIDATE (Giá = 0 hoặc có chữ free)
   if (price === 0 || name.includes('free')) {
     return {
@@ -387,19 +417,32 @@ export default function CandidatePricingPage({ user, onNavigate }) {
 
   const fetchMyPendingOrders = fetchMyOrders;
 
-  // Fetch real plans & active subscription from Supabase (chạy lại khi user thay đổi hoặc đăng nhập)
-  useEffect(() => {
+  const fetchCandidatePlans = () => {
     paymentApi.getPlans('CANDIDATE')
       .then(res => {
-        const plans = res?.data?.data !== undefined 
-          ? res.data.data 
+        const plans = res?.data?.data !== undefined
+          ? res.data.data
           : (res?.data !== undefined ? res.data : (Array.isArray(res) ? res : []));
-        setDbPlans(plans);
+        if (Array.isArray(plans)) {
+          setDbPlans(plans);
+        }
       })
       .catch(err => console.warn('Could not load DB plans, using UI defaults', err));
+  };
 
+  // Fetch real plans & active subscription from Supabase (chạy lại khi user thay đổi, khi Admin tạo gói mới, hoặc khi quay lại tab)
+  useEffect(() => {
+    fetchCandidatePlans();
     fetchMySubscription();
     fetchMyPendingOrders();
+
+    const handleSync = () => fetchCandidatePlans();
+    window.addEventListener('hiremate_plans_updated', handleSync);
+    window.addEventListener('focus', handleSync);
+    return () => {
+      window.removeEventListener('hiremate_plans_updated', handleSync);
+      window.removeEventListener('focus', handleSync);
+    };
   }, [user]);
 
   const handleCopy = (text, label) => {
@@ -773,44 +816,53 @@ export default function CandidatePricingPage({ user, onNavigate }) {
     return basePrice;
   };
 
-  // Đồng bộ động các gói và giá từ CSDL Supabase (khi Admin chỉnh sửa giá / tạo gói mới)
+  // Đồng bộ động các gói và giá từ CSDL Supabase (lọc gói hợp lệ & sắp xếp tăng dần theo giá)
   const plansToDisplay = React.useMemo(() => {
-    const rawList = (!dbPlans || dbPlans.length === 0) ? CANDIDATE_SUBSCRIPTION_PLANS : dbPlans;
+    const activeDbPlans = Array.isArray(dbPlans)
+      ? dbPlans.filter((p) => p && p.isActive !== false && (!p.description || !p.description.includes('[DELETED]')))
+      : [];
+    const rawList = activeDbPlans.length === 0 ? CANDIDATE_SUBSCRIPTION_PLANS : activeDbPlans;
 
-    return rawList.map((db, idx) => {
-      const dbMonthly = Number(db.price !== undefined ? db.price : db.monthlyPrice) || 0;
-      const is7Days = db.durationDays === 7 || (db.planName && db.planName.toLowerCase().includes('plus')) || (db.name && db.name.toLowerCase().includes('plus'));
-      const dbYearlyTotal = is7Days ? dbMonthly : Math.round(dbMonthly * 12 * 0.7); // 30% discount on yearly, gói tuần giữ nguyên
-      const dbMonthlyEquivalent = is7Days ? dbMonthly : Math.round(dbMonthly * 0.7);
-      const dbName = db.planName || db.name || `Gói Dịch Vụ #${idx + 1}`;
-      const quota = db.quotaLimit !== undefined ? db.quotaLimit : (dbMonthly === 0 ? 3 : dbMonthly < 100000 ? 10 : dbMonthly < 200000 ? 30 : 999);
-      const planId = db.planId ? `PLAN_${db.planId}` : (db.id || `PLAN_${idx}`);
+    return rawList
+      .map((db, idx) => {
+        const dbMonthly = Number(db.price !== undefined ? db.price : db.monthlyPrice) || 0;
+        const durationDays = Number(db.durationDays) || (dbMonthly === 0 ? 365 : 30);
+        const is7Days = durationDays === 7;
+        const dbYearlyTotal = is7Days ? dbMonthly : Math.round(dbMonthly * 12 * 0.7);
+        const dbMonthlyEquivalent = is7Days ? dbMonthly : Math.round(dbMonthly * 0.7);
+        const dbName = db.planName || db.name || `Gói Dịch Vụ #${idx + 1}`;
+        const quota = db.quotaLimit !== undefined ? db.quotaLimit : (dbMonthly === 0 ? 2 : dbMonthly < 100000 ? 10 : dbMonthly < 200000 ? 30 : 999);
+        const planId = db.planId ? `PLAN_${db.planId}` : (db.id || `PLAN_${idx}`);
 
-      // Sinh toàn bộ quyền lợi chi tiết và hạn quyền phân quyền rõ ràng bằng hàm getCandidateEnrichedFeatures
-      const enriched = getCandidateEnrichedFeatures(dbName, dbMonthly, quota, db.description);
+        const enriched = getCandidateEnrichedFeatures(dbName, dbMonthly, quota, db.description);
 
-      const isFree = dbMonthly === 0;
-      const isAceOrVip = dbName.toLowerCase().includes('ace') || dbName.toLowerCase().includes('vip') || dbMonthly >= 200000;
-      const isPro = dbName.toLowerCase().includes('pro');
+        const isFree = dbMonthly === 0;
+        const isAceOrVip = dbName.toLowerCase().includes('ace') || dbName.toLowerCase().includes('vip') || dbMonthly >= 200000;
+        const isPro = dbName.toLowerCase().includes('pro');
 
-      return {
-        id: db.id || planId,
-        dbPlanId: db.planId || null,
-        name: dbName,
-        tagline: enriched.tagline,
-        monthlyPrice: dbMonthly,
-        yearlyPrice: dbMonthlyEquivalent, // giá quy đổi mỗi tháng
-        yearlyTotal: dbYearlyTotal, // tổng tiền cả năm
-        badgeText: isFree ? 'MIỄN PHÍ VĨNH VIỄN' : isAceOrVip ? 'GÓI ĐẶC QUYỀN 👑' : isPro ? 'KHUYÊN DÙNG 🔥' : 'TIẾT KIỆM ⭐',
-        badgeColor: isFree ? 'bg-slate-100 text-slate-600 border-slate-200' : isAceOrVip ? 'bg-purple-100 text-purple-800 border-purple-300' : isPro ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-blue-100 text-blue-800 border-blue-300',
-        buttonText: isFree ? 'Gói Mặc Định' : isAceOrVip ? 'Nâng Cấp Gói VIP' : isPro ? 'Nâng Cấp Pro AI' : 'Nâng Cấp Ngay',
-        isPopular: isPro || (dbMonthly >= 100000 && dbMonthly < 200000),
-        quotaLimit: quota,
-        durationDays: is7Days ? 7 : (db.durationDays || 30),
-        features: enriched.features,
-        missingFeatures: enriched.missingFeatures,
-      };
-    });
+        return {
+          id: db.id || planId,
+          dbPlanId: db.planId || null,
+          name: dbName,
+          tagline: enriched.tagline,
+          monthlyPrice: dbMonthly,
+          yearlyPrice: dbMonthlyEquivalent,
+          yearlyTotal: dbYearlyTotal,
+          badgeText: isFree ? 'MIỄN PHÍ VĨNH VIỄN' : isAceOrVip ? 'GÓI ĐẶC QUYỀN 👑' : isPro ? 'KHUYÊN DÙNG 🔥' : 'TIẾT KIỆM ⭐',
+          badgeColor: isFree ? 'bg-slate-100 text-slate-600 border-slate-200' : isAceOrVip ? 'bg-purple-100 text-purple-800 border-purple-300' : isPro ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-blue-100 text-blue-800 border-blue-300',
+          buttonText: isFree ? 'Gói Mặc Định' : isAceOrVip ? 'Nâng Cấp Gói VIP' : isPro ? 'Nâng Cấp Pro AI' : 'Nâng Cấp Ngay',
+          isPopular: isPro || (dbMonthly >= 100000 && dbMonthly < 200000),
+          quotaLimit: quota,
+          durationDays,
+          features: enriched.features,
+          missingFeatures: enriched.missingFeatures,
+        };
+      })
+      .sort((a, b) => {
+        if (a.monthlyPrice !== b.monthlyPrice) return a.monthlyPrice - b.monthlyPrice;
+        if (a.durationDays !== b.durationDays) return a.durationDays - b.durationDays;
+        return (Number(a.dbPlanId) || 999999) - (Number(b.dbPlanId) || 999999);
+      });
   }, [dbPlans]);
 
   const isThisPlanActive = (plan) => {
@@ -844,11 +896,10 @@ export default function CandidatePricingPage({ user, onNavigate }) {
   const hasActivePaidPlan = Boolean(
     (activeSubscriptionInfo &&
       activeSubscriptionInfo.active &&
-      (
-        (activeSubscriptionInfo.planId && Number(activeSubscriptionInfo.planId) > 1) ||
-        (activeSubscriptionInfo.planName && !activeSubscriptionInfo.planName.toLowerCase().includes('free') && !activeSubscriptionInfo.planName.toLowerCase().includes('starter'))
-      )
-    ) || (activePlan && activePlan !== 'CANDIDATE_FREE' && activePlan !== 'PLAN_1' && activePlan !== 'BASIC')
+      activeSubscriptionInfo.planName &&
+      !activeSubscriptionInfo.planName.toLowerCase().includes('free') &&
+      !activeSubscriptionInfo.planName.toLowerCase().includes('miễn phí')
+    ) || (activePlan && activePlan !== 'CANDIDATE_FREE' && activePlan !== 'PLAN_5' && activePlan !== 'PLAN_1' && activePlan !== 'BASIC')
   );
 
   const currentTier = hasActivePaidPlan ? getCandidatePlanTier(activeSubscriptionInfo?.planName || activePlan) : 0;
@@ -1029,26 +1080,44 @@ export default function CandidatePricingPage({ user, onNavigate }) {
           </p>
         </div>
 
-        {/* PRICING CARDS GRID: 4 CỘT HIỂN THỊ ĐẦY ĐỦ CẢ 4 GÓI TỪ SUPABASE */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
-          {plansToDisplay.map((plan) => {
-            const planTier = getCandidatePlanTier(plan.name || plan.id, plan.monthlyPrice);
-            const isSelected = hasActivePaidPlan ? isThisPlanActive(plan) : (plan.monthlyPrice === 0 && (plan.id === 'CANDIDATE_FREE' || plan.dbPlanId === 1));
-            const isLowerTier = hasActivePaidPlan && !isSelected && planTier < currentTier;
+        {/* PRICING CARDS GRID: BỐ CỤC ĐỘNG TỰ CĂN GIỮA CÂN ĐỐI THEO SỐ LƯỢNG GÓI (1, 2, 3, 4, 5+ GÓI) */}
+        {(() => {
+          const planCount = plansToDisplay.length;
+          const isFlexCentered = planCount >= 5;
+          const containerClass =
+            planCount === 1
+              ? 'grid grid-cols-1 max-w-md mx-auto gap-6 items-stretch'
+              : planCount === 2
+              ? 'grid grid-cols-1 md:grid-cols-2 max-w-4xl mx-auto gap-6 items-stretch'
+              : planCount === 3
+              ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto gap-6 items-stretch'
+              : planCount === 4
+              ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 items-stretch'
+              : 'flex flex-wrap justify-center gap-6 items-stretch';
+          const cardWidthClass = isFlexCentered
+            ? 'w-full md:w-[calc(50%-0.75rem)] lg:w-[calc(33.333%-1rem)]'
+            : '';
 
-            return (
-              <div
-                key={plan.id}
-                className={`relative rounded-[32px] bg-white p-8 flex flex-col justify-between transition-all duration-300 border ${
-                  isSelected
-                    ? 'border-emerald-500 shadow-lg ring-2 ring-emerald-500/20'
-                    : isLowerTier
-                    ? 'border-slate-200/60 bg-slate-50/40 opacity-75'
-                    : plan.isPopular
-                    ? 'border-[#5b46e0] shadow-[0_20px_50px_rgba(91,70,224,0.18)] ring-2 ring-[#5b46e0]/20 scale-102'
-                    : 'border-slate-200/80 shadow-sm hover:shadow-xl hover:border-indigo-200'
-                }`}
-              >
+          return (
+            <div className={containerClass}>
+              {plansToDisplay.map((plan) => {
+                const planTier = getCandidatePlanTier(plan.name || plan.id, plan.monthlyPrice);
+                const isSelected = hasActivePaidPlan ? isThisPlanActive(plan) : (plan.monthlyPrice === 0);
+                const isLowerTier = hasActivePaidPlan && !isSelected && planTier < currentTier;
+
+                return (
+                  <div
+                    key={plan.id}
+                    className={`${cardWidthClass} relative rounded-[32px] bg-white p-7 sm:p-8 flex flex-col justify-between transition-all duration-300 border ${
+                      isSelected
+                        ? 'border-emerald-500 shadow-lg ring-2 ring-emerald-500/20'
+                        : isLowerTier
+                        ? 'border-slate-200/60 bg-slate-50/40 opacity-75'
+                        : plan.isPopular
+                        ? 'border-[#5b46e0] shadow-[0_20px_50px_rgba(91,70,224,0.18)] ring-2 ring-[#5b46e0]/20'
+                        : 'border-slate-200/80 shadow-sm hover:shadow-xl hover:border-indigo-200'
+                    }`}
+                  >
                 {/* Popular or Status Badge */}
                 <div className="flex items-center justify-between gap-2 mb-4">
                   <span className={`px-3 py-1 rounded-full text-xs font-bold border ${plan.badgeColor}`}>
@@ -1119,10 +1188,10 @@ export default function CandidatePricingPage({ user, onNavigate }) {
                             {formatVND(plan.monthlyPrice).replace(' VNĐ', '')}
                           </span>
                           <span className="text-xs font-bold text-[#32247b]">VNĐ</span>
-                          <span className="text-xs text-slate-400 font-medium">/ 30 ngày</span>
+                          <span className="text-xs text-slate-400 font-medium">/ {plan.durationDays || 30} ngày</span>
                         </div>
                         <span className="text-[11px] text-slate-500 font-medium block">
-                          Thanh toán linh hoạt từng chu kỳ 30 ngày
+                          Thanh toán linh hoạt từng chu kỳ {plan.durationDays || 30} ngày
                         </span>
                       </div>
                     )}
@@ -1179,7 +1248,9 @@ export default function CandidatePricingPage({ user, onNavigate }) {
               </div>
             );
           })}
-        </div>
+            </div>
+          );
+        })()}
 
         {/* ADD-ON PACKAGES SECTION FOR CANDIDATES */}
         <div className="bg-white rounded-[32px] p-6 sm:p-8 border border-purple-100 shadow-sm space-y-6">
@@ -1683,6 +1754,7 @@ export default function CandidatePricingPage({ user, onNavigate }) {
                 <VoucherSelector
                   userRole="CANDIDATE"
                   currentPlanId={selectedPlanForPurchase?.id || selectedAddonForPurchase?.id}
+                  currentDbPlanId={selectedPlanForPurchase?.dbPlanId || null}
                   currentPlanName={selectedPlanForPurchase?.name || selectedAddonForPurchase?.name}
                   basePrice={
                     selectedPlanForPurchase

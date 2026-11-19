@@ -1,18 +1,21 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { getVouchersForCheckout, getStoredVouchers } from '../../utils/voucherStorage';
+import paymentApi from '../../api/paymentApi';
+import {
+  getVouchersForCheckout,
+  getStoredVouchers,
+  normalizeServerVoucher,
+  syncServerVouchersToStorage,
+} from '../../utils/voucherStorage';
 
 /**
  * VoucherSelector.jsx - Enterprise High-End Coupon & Voucher Selection Component
- * Redesigned with spacious, luxury e-commerce digital ticket aesthetics (Shopee/Grab/Stripe style)
- * Features:
- * - Ultra-modern search & apply bar with 1-click popular suggestion chips
- * - VIP Perforated Digital Ticket card for applied voucher state
- * - Spacious, non-cramped voucher discovery drawer with search & filter tabs
- * - Automatic eligibility calculation & real-time VND savings preview
+ * Đồng bộ trực tiếp danh sách voucher thời gian thực từ CSDL Supabase (/api/v1/payment/vouchers)
+ * và xác thực mã nhập tay qua /api/v1/payment/validate-voucher.
  */
 export default function VoucherSelector({
   userRole = 'CANDIDATE',
   currentPlanId,
+  currentDbPlanId = null,
   currentPlanName = '',
   basePrice = 0,
   appliedVoucher = null,
@@ -22,29 +25,58 @@ export default function VoucherSelector({
   const [showVoucherList, setShowVoucherList] = useState(false);
   const [manualCode, setManualCode] = useState('');
   const [manualError, setManualError] = useState('');
+  const [isValidatingManual, setIsValidatingManual] = useState(false);
   const [availableVouchers, setAvailableVouchers] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilterTab, setActiveFilterTab] = useState('ALL'); // 'ALL' | 'ELIGIBLE' | 'BIG_DISCOUNT'
   const [copiedCode, setCopiedCode] = useState('');
+
+  const effectivePlanId = currentDbPlanId != null ? currentDbPlanId : currentPlanId;
 
   const formatVND = (amount) => {
     if (!amount || amount === 0) return '0 VNĐ';
     return Math.round(amount).toLocaleString('vi-VN') + ' VNĐ';
   };
 
-  const loadVouchers = () => {
-    const list = getVouchersForCheckout(userRole, currentPlanId, currentPlanName, basePrice);
+  const loadVouchers = (serverNormalized = null) => {
+    const list = getVouchersForCheckout(userRole, effectivePlanId, currentPlanName, basePrice, serverNormalized);
     setAvailableVouchers(list);
   };
 
   useEffect(() => {
+    let cancelled = false;
+    // 1. Hiển thị tức thì từ cache local trước
     loadVouchers();
+
+    // 2. Đồng bộ trực tiếp danh sách voucher MỚI NHẤT từ CSDL Supabase
+    paymentApi.getVouchers()
+      .then((res) => {
+        if (cancelled) return;
+        const raw = res?.data?.data !== undefined ? res.data.data : (res?.data !== undefined ? res.data : res);
+        if (Array.isArray(raw)) {
+          const normalized = raw.map(normalizeServerVoucher).filter(Boolean);
+          if (normalized.length > 0) {
+            syncServerVouchersToStorage(raw);
+            loadVouchers(normalized);
+          } else {
+            // DB không có voucher nào đang mở -> hiển thị rỗng chuẩn xác
+            setAvailableVouchers([]);
+          }
+        }
+      })
+      .catch((err) => {
+        console.warn('Không thể đồng bộ voucher trực tuyến, dùng bộ nhớ đệm cục bộ:', err?.message || err);
+      });
+
     const handleUpdate = () => loadVouchers();
     window.addEventListener('hiremate_vouchers_updated', handleUpdate);
-    return () => window.removeEventListener('hiremate_vouchers_updated', handleUpdate);
-  }, [userRole, currentPlanId, currentPlanName, basePrice]);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('hiremate_vouchers_updated', handleUpdate);
+    };
+  }, [userRole, effectivePlanId, currentPlanName, basePrice]);
 
-  const handleApplySingleVoucher = (voucher) => {
+  const handleApplySingleVoucher = async (voucher) => {
     if (!voucher.isPlanEligible) {
       alert(`Voucher "${voucher.code}" không áp dụng cho gói "${currentPlanName}".\nLý do: ${voucher.ineligibilityReason}`);
       return;
@@ -67,14 +99,60 @@ export default function VoucherSelector({
     setShowVoucherList(false);
   };
 
-  const handleManualApply = () => {
+  const handleManualApply = async () => {
     const clean = manualCode.trim().toUpperCase();
     if (!clean) {
       setManualError('Vui lòng nhập mã voucher!');
       return;
     }
 
-    const all = getStoredVouchers();
+    const numericPlanId = effectivePlanId != null
+      ? Number(String(effectivePlanId).replace(/^(plan_|pkg-)/i, ''))
+      : null;
+
+    // 1. Xác thực trực tiếp trên Backend Supabase trước để mọi mã Admin vừa tạo hoạt động tức thì!
+    setIsValidatingManual(true);
+    setManualError('');
+    try {
+      const res = await paymentApi.validateVoucher(clean, basePrice, {
+        userRole: (userRole || 'CANDIDATE').toUpperCase(),
+        planId: !isNaN(numericPlanId) && numericPlanId > 0 ? numericPlanId : null,
+        planName: currentPlanName || null,
+      });
+      const data = res?.data?.data !== undefined ? res.data.data : (res?.data !== undefined ? res.data : res);
+      if (data && typeof data.valid === 'boolean') {
+        if (data.valid) {
+          const existingLocal = availableVouchers.find((v) => v.code.toUpperCase() === clean);
+          const appliedObj = existingLocal || {
+            id: data.voucherId || clean,
+            voucherId: data.voucherId || null,
+            code: data.code || clean,
+            discountPercent: data.discountPercent || 0,
+            maxDiscountAmount: data.maxDiscountAmount || 0,
+            description: data.message || `Giảm ${data.discountPercent || 0}% cho đơn hàng nâng cấp`,
+            isActive: true,
+            status: 'ACTIVE',
+          };
+          const discountAmount = Number(data.discountAmount) || 0;
+          if (onApplyVoucher) {
+            onApplyVoucher(appliedObj, discountAmount);
+          }
+          setManualError('');
+          setShowVoucherList(false);
+        } else {
+          setManualError(data.message || `Mã voucher "${clean}" không hợp lệ hoặc không áp dụng cho gói này.`);
+        }
+        setIsValidatingManual(false);
+        return;
+      }
+    } catch (apiErr) {
+      console.warn('Validate voucher online gặp sự cố mạng, thử kiểm tra cục bộ:', apiErr?.message || apiErr);
+    } finally {
+      setIsValidatingManual(false);
+    }
+
+    // 2. Fallback kiểm tra cục bộ khi mất kết nối mạng
+    const all = availableVouchers.length > 0 ? availableVouchers : getStoredVouchers();
     const matched = all.find((v) => v.code.toUpperCase() === clean);
 
     if (!matched) {
@@ -87,7 +165,6 @@ export default function VoucherSelector({
       return;
     }
 
-    // Kiểm tra vai trò
     const vRole = (matched.targetRole || 'ALL').toUpperCase();
     const myRole = (userRole || 'CANDIDATE').toUpperCase();
     if (vRole !== 'ALL' && vRole !== myRole) {
@@ -96,15 +173,15 @@ export default function VoucherSelector({
       return;
     }
 
-    // Kiểm tra phạm vi gói
     if (matched.applicableScope === 'SPECIFIC') {
-      const planIdStr = currentPlanId ? String(currentPlanId).toLowerCase() : '';
-      const planNameStr = (currentPlanName || '').toLowerCase();
-      const allowedIds = (matched.applicablePlanIds || []).map((id) => String(id).toLowerCase());
-      const allowedNames = (matched.applicablePlans || []).map((name) => String(name).toLowerCase());
+      const planIdStr = effectivePlanId != null ? String(effectivePlanId).trim().toLowerCase() : '';
+      const numIdStr = planIdStr.replace(/^(plan_|pkg-)/i, '');
+      const planNameStr = (currentPlanName || '').trim().toLowerCase();
+      const allowedIds = (matched.applicablePlanIds || []).map((id) => String(id).trim().toLowerCase().replace(/^(plan_|pkg-)/i, ''));
+      const allowedNames = (matched.applicablePlans || []).map((name) => String(name).trim().toLowerCase());
 
-      const idMatched = planIdStr && allowedIds.some((id) => id === planIdStr || planIdStr.includes(id) || id.includes(planIdStr));
-      const nameMatched = planNameStr && allowedNames.some((name) => name.includes(planNameStr) || planNameStr.includes(name));
+      const idMatched = Boolean((numIdStr && allowedIds.includes(numIdStr)) || (planIdStr && allowedIds.includes(planIdStr)));
+      const nameMatched = Boolean(planNameStr && allowedNames.some((name) => name === planNameStr || name.startsWith(planNameStr + ' (')));
 
       if (!idMatched && !nameMatched) {
         setManualError(`Mã "${clean}" chỉ áp dụng cho: ${(matched.applicablePlans || []).join(', ')}`);
@@ -112,13 +189,11 @@ export default function VoucherSelector({
       }
     }
 
-    // Kiểm tra đơn hàng tối thiểu
     if (matched.minOrderAmount && basePrice < matched.minOrderAmount) {
       setManualError(`Mã "${clean}" yêu cầu đơn hàng tối thiểu từ ${formatVND(matched.minOrderAmount)}.`);
       return;
     }
 
-    // Áp dụng thành công
     const discountVal = matched.discountPercent || 0;
     let discountAmount = 0;
     if (basePrice > 0) {
@@ -307,10 +382,13 @@ export default function VoucherSelector({
             <button
               type="button"
               onClick={handleManualApply}
-              className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-[#5b48bd] to-[#4338ca] hover:from-[#4a39a7] hover:to-[#3730a3] text-white text-xs sm:text-sm font-bold cursor-pointer transition-all flex items-center gap-1.5 shadow-md shadow-purple-200 hover:scale-[1.02] active:scale-[0.98] shrink-0"
+              disabled={isValidatingManual}
+              className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-[#5b48bd] to-[#4338ca] hover:from-[#4a39a7] hover:to-[#3730a3] text-white text-xs sm:text-sm font-bold cursor-pointer transition-all flex items-center gap-1.5 shadow-md shadow-purple-200 hover:scale-[1.02] active:scale-[0.98] shrink-0 disabled:opacity-60"
             >
-              <span className="material-symbols-outlined text-base">redeem</span>
-              <span>Áp Dụng</span>
+              <span className={`material-symbols-outlined text-base ${isValidatingManual ? 'animate-spin' : ''}`}>
+                {isValidatingManual ? 'progress_activity' : 'redeem'}
+              </span>
+              <span>{isValidatingManual ? 'Đang kiểm tra...' : 'Áp Dụng'}</span>
             </button>
           </div>
 

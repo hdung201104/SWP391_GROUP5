@@ -1234,6 +1234,14 @@ public class AdminServiceImpl implements AdminService {
         String cleanCode = voucher.getCode() != null ? voucher.getCode().trim().toUpperCase() : "VOUCHER";
         voucher.setCode(cleanCode);
 
+        // Tránh lỗi unique constraint khó hiểu nếu tạo mới trùng mã voucher đã tồn tại
+        if (voucher.getVoucherId() == null) {
+            var existingOpt = voucherRepository.findByCode(cleanCode);
+            if (existingOpt.isPresent()) {
+                throw new BadRequestException("Mã voucher '" + cleanCode + "' đã tồn tại trên hệ thống! Vui lòng đặt tên mã khác.");
+            }
+        }
+
         // Lưu quy tắc mở rộng VoucherRuleMeta vào SystemSettingsService bền vững
         if (systemSettingsService != null) {
             AdminSettingsDTO settings = systemSettingsService.getSettings();

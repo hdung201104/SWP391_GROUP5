@@ -19,7 +19,11 @@ export const paymentApi = {
 
   // Get active subscription plans
   getPlans: (role) =>
-    axiosClient.get('/payment/plans', { params: { role } }),
+    axiosClient.get('/payment/plans', { params: role ? { role } : {} }),
+
+  // Get active vouchers from Supabase database (filtered optionally by role)
+  getVouchers: (role) =>
+    axiosClient.get('/payment/vouchers', { params: role ? { role } : {} }),
 
   // Get current active subscription of user
   getMySubscription: () =>

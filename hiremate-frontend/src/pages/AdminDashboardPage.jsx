@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { adminApi, skillApi, companyApi } from '../api';
 import { getApiBaseUrl } from '../api/axiosClient';
-import { getStoredVouchers, addStoredVoucher, toggleStoredVoucher } from '../utils/voucherStorage';
+import { getStoredVouchers, addStoredVoucher, toggleStoredVoucher, saveStoredVouchers, removeStoredVoucher } from '../utils/voucherStorage';
 import { exportAdminCompaniesToExcel, exportAdminUsersToExcel, exportJobsToExcel, exportAdminOrdersToExcel } from '../utils/excelExportUtils';
 import AnimatedNumber from '../components/dashboard/AnimatedNumber';
 import DynamicPerformanceWaveChart from '../components/dashboard/DynamicPerformanceWaveChart';
@@ -2113,25 +2113,49 @@ export default function AdminDashboardPage({ user, onLogout }) {
       if (vouchersRes.status === 'fulfilled') {
         const vData = vouchersRes.value?.data || vouchersRes.value || [];
         const vList = Array.isArray(vData) ? vData : [];
-        setVouchers(vList.map((v) => ({
-          id: v.voucherId,
-          code: v.code,
-          discount: v.discountPercent ? `Giảm ${v.discountPercent}%` : `Giảm ${(Number(v.maxDiscountAmount) || 0).toLocaleString('vi-VN')} đ`,
-          discountPercent: v.discountPercent,
-          maxDiscountAmount: v.maxDiscountAmount,
-          minOrderAmount: v.minOrderAmount || 0,
-          description: v.description || (v.maxDiscountAmount ? `Giảm tối đa ${(Number(v.maxDiscountAmount) || 0).toLocaleString('vi-VN')} đ` : 'Ưu đãi thành viên HireMate'),
-          targetRole: v.targetRole || 'ALL',
-          applicableScope: v.applicableScope || 'ALL',
-          applicablePlanIds: v.applicablePlanIds || [],
-          status: v.isActive ? 'ACTIVE' : 'EXPIRED',
-          isActive: v.isActive,
-          usage: `${v.usedCount || 0}/${v.usageLimit || 100} lượt`,
-          usageLimit: v.usageLimit || 100,
-          usedCount: v.usedCount || 0,
-          percent: v.usageLimit > 0 ? Math.round(((v.usedCount || 0) / v.usageLimit) * 100) : 0,
-          badgeBg: v.isActive ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-200',
-        })));
+        const loadedPlans = (plansRes.status === 'fulfilled' && Array.isArray(plansRes.value?.data))
+          ? plansRes.value.data
+          : [];
+        const mappedVouchers = vList.map((v) => {
+          const scope = (v.applicableScope || 'ALL').toUpperCase();
+          const planIds = Array.isArray(v.applicablePlanIds) ? v.applicablePlanIds : [];
+          const resolvedPlanNames = scope === 'SPECIFIC' && planIds.length > 0
+            ? planIds
+                .map((pid) => loadedPlans.find((pl) => Number(pl.planId) === Number(pid))?.planName)
+                .filter(Boolean)
+            : [];
+          const validToStr = v.validTo ? String(v.validTo).slice(0, 10) : '2026-12-31';
+          const isExpired = validToStr ? new Date(validToStr + 'T23:59:59').getTime() < Date.now() : false;
+          const activeFlag = v.isActive !== false && !isExpired;
+
+          return {
+            id: v.voucherId,
+            voucherId: v.voucherId,
+            code: v.code,
+            discount: v.discountPercent ? `Giảm ${v.discountPercent}%` : `Giảm ${(Number(v.maxDiscountAmount) || 0).toLocaleString('vi-VN')} đ`,
+            discountPercent: v.discountPercent,
+            maxDiscountAmount: v.maxDiscountAmount,
+            minOrderAmount: v.minOrderAmount || 0,
+            description: v.description || (v.maxDiscountAmount ? `Giảm tối đa ${(Number(v.maxDiscountAmount) || 0).toLocaleString('vi-VN')} đ` : 'Ưu đãi thành viên HireMate'),
+            targetRole: (v.targetRole || 'ALL').toUpperCase(),
+            applicableScope: scope,
+            applicablePlanIds: planIds,
+            applicablePlans: resolvedPlanNames.length > 0 ? resolvedPlanNames : (scope === 'SPECIFIC' ? ['Các gói chỉ định'] : ['Tất cả các gói nâng cấp']),
+            validTo: validToStr,
+            status: isExpired ? 'EXPIRED' : (activeFlag ? 'ACTIVE' : 'INACTIVE'),
+            isActive: activeFlag,
+            usage: `${v.usedCount || 0}/${v.usageLimit || 100} lượt`,
+            usageLimit: v.usageLimit || 100,
+            usedCount: v.usedCount || 0,
+            percent: v.usageLimit > 0 ? Math.round(((v.usedCount || 0) / v.usageLimit) * 100) : 0,
+            badgeBg: activeFlag ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-200',
+          };
+        });
+        setVouchers(mappedVouchers);
+        // Đồng bộ kho voucher chuẩn từ Supabase sang localStorage & trang Thanh toán
+        if (mappedVouchers.length > 0) {
+          saveStoredVouchers(mappedVouchers);
+        }
       }
 
       if (jobsRes.status === 'fulfilled') {
@@ -2800,7 +2824,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
       await adminApi.createPlan({
         planName: cleanName,
         targetRole: isCand ? 'CANDIDATE' : 'RECRUITER',
-        planType: newPackageForm.planType || 'COMBO',
+        planType: newPackageForm.planType || (isCand ? 'INTERVIEW_PRACTICE' : 'COMBO'),
         price: numericPrice,
         durationDays: duration,
         quotaLimit: quota,
@@ -2808,8 +2832,12 @@ export default function AdminDashboardPage({ user, onLogout }) {
         isActive: true,
       });
       await fetchRealData();
+      window.dispatchEvent(new CustomEvent('hiremate_plans_updated'));
     } catch (err) {
-      console.warn('Lỗi lưu gói lên backend, đã lưu cục bộ:', err);
+      console.error('Lỗi lưu gói lên backend:', err);
+      const errMsg = err?.response?.data?.message || err?.message || 'Không thể lưu gói dịch vụ lên máy chủ!';
+      triggerToast(`⚠️ ${errMsg}`, 'error');
+      await fetchRealData();
     }
   };
 
@@ -2869,8 +2897,11 @@ export default function AdminDashboardPage({ user, onLogout }) {
         });
       }
       await fetchRealData();
+      window.dispatchEvent(new CustomEvent('hiremate_plans_updated'));
     } catch (err) {
-      console.warn('Lỗi lưu gói lên backend, đã lưu cục bộ:', err);
+      console.error('Lỗi lưu gói lên backend:', err);
+      triggerToast(`⚠️ ${err?.response?.data?.message || err?.message || 'Không thể cập nhật gói dịch vụ!'}`, 'error');
+      await fetchRealData();
     }
   };
 
@@ -2979,9 +3010,15 @@ export default function AdminDashboardPage({ user, onLogout }) {
       return;
     }
 
-    const validToDate = newVoucherForm.validTo 
-      ? new Date(newVoucherForm.validTo + 'T23:59:59').toISOString() 
-      : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    // Định dạng chuẩn LocalDateTime (YYYY-MM-DDTHH:mm:ss - không kèm hậu tố 'Z' gây lỗi 400 ở Jackson)
+    const pad2 = (n) => String(n).padStart(2, '0');
+    const nowDt = new Date();
+    const validFromLocal = `${nowDt.getFullYear()}-${pad2(nowDt.getMonth() + 1)}-${pad2(nowDt.getDate())}T${pad2(nowDt.getHours())}:${pad2(nowDt.getMinutes())}:${pad2(nowDt.getSeconds())}`;
+    const defaultExpDt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const validToDateStr = newVoucherForm.validTo
+      ? newVoucherForm.validTo.slice(0, 10)
+      : `${defaultExpDt.getFullYear()}-${pad2(defaultExpDt.getMonth() + 1)}-${pad2(defaultExpDt.getDate())}`;
+    const validToDate = `${validToDateStr}T23:59:59`;
 
     let selectedPlanNames = [];
     if (newVoucherForm.applicableScope === 'ALL') {
@@ -3025,61 +3062,62 @@ export default function AdminDashboardPage({ user, onLogout }) {
       description: finalDescription,
       usageLimit: usage,
       usedCount: 0,
-      validFrom: new Date().toISOString(),
+      validFrom: validFromLocal,
       validTo: validToDate,
       isActive: newVoucherForm.isActive !== false,
     };
 
-    const newVoucherItem = {
-      id: Date.now(),
-      code: cleanCode,
-      discount: `Giảm ${discountVal}%`,
-      discountPercent: discountVal,
-      maxDiscountAmount: maxVal,
-      minOrderAmount: Number(newVoucherForm.minOrderAmount) || 0,
-      description: finalDescription,
-      targetRole: newVoucherForm.targetRole || 'ALL',
-      applicableScope: newVoucherForm.applicableScope || 'ALL',
-      applicablePlanIds: numericPlanIds,
-      applicablePlans: selectedPlanNames,
-      status: newVoucherForm.isActive !== false ? 'ACTIVE' : 'INACTIVE',
-      isActive: newVoucherForm.isActive !== false,
-      usage: `0/${usage} lượt`,
-      usageLimit: usage,
-      usedCount: 0,
-      validTo: newVoucherForm.validTo || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
-      percent: 0,
-      badgeBg: newVoucherForm.isActive !== false ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-300',
-    };
-
     try {
-      addStoredVoucher(newVoucherItem);
-      setVouchers(getStoredVouchers());
-    } catch (e) {
-      setVouchers((prev) => [newVoucherItem, ...prev]);
-    }
+      const createdRes = await adminApi.createVoucher(payload);
+      const created = createdRes?.data?.data || createdRes?.data || createdRes;
+      const newVoucherItem = {
+        id: created?.voucherId || Date.now(),
+        voucherId: created?.voucherId || null,
+        code: cleanCode,
+        discount: `Giảm ${discountVal}%`,
+        discountPercent: discountVal,
+        maxDiscountAmount: maxVal,
+        minOrderAmount: Number(newVoucherForm.minOrderAmount) || 0,
+        description: finalDescription,
+        targetRole: newVoucherForm.targetRole || 'ALL',
+        applicableScope: newVoucherForm.applicableScope || 'ALL',
+        applicablePlanIds: numericPlanIds,
+        applicablePlans: selectedPlanNames,
+        status: newVoucherForm.isActive !== false ? 'ACTIVE' : 'INACTIVE',
+        isActive: newVoucherForm.isActive !== false,
+        usage: `0/${usage} lượt`,
+        usageLimit: usage,
+        usedCount: 0,
+        validTo: validToDateStr,
+        percent: 0,
+        badgeBg: newVoucherForm.isActive !== false ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-300',
+      };
 
-    setShowCreateVoucherModal(false);
-    setNewVoucherForm({ 
-      code: '', 
-      discountPercent: 20, 
-      maxDiscountAmount: 100000, 
-      minOrderAmount: 0, 
-      usageLimit: 100, 
-      validTo: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), 
-      targetRole: 'ALL', 
-      applicableScope: 'ALL',
-      applicablePlanIds: [],
-      description: '', 
-      isActive: true 
-    });
-    triggerToast(`Đã tạo và kích hoạt voucher ${cleanCode} thành công!`);
+      try {
+        addStoredVoucher(newVoucherItem);
+      } catch (e) {}
+      setVouchers((prev) => [newVoucherItem, ...prev.filter((x) => String(x.code || '').toUpperCase() !== cleanCode)]);
 
-    try {
-      await adminApi.createVoucher(payload);
+      setShowCreateVoucherModal(false);
+      setNewVoucherForm({
+        code: '',
+        discountPercent: 20,
+        maxDiscountAmount: 100000,
+        minOrderAmount: 0,
+        usageLimit: 100,
+        validTo: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+        targetRole: 'ALL',
+        applicableScope: 'ALL',
+        applicablePlanIds: [],
+        description: '',
+        isActive: true,
+      });
+      triggerToast(`Đã tạo và kích hoạt voucher ${cleanCode} thành công trên Supabase!`);
       await fetchRealData();
     } catch (err) {
-      console.warn('Lỗi gửi voucher lên Supabase (đã lưu bộ nhớ cục bộ):', err);
+      console.error('Lỗi tạo voucher trên Supabase:', err);
+      const errMsg = err?.response?.data?.message || err?.message || 'Không thể lưu voucher lên cơ sở dữ liệu!';
+      triggerToast(`⚠️ ${errMsg}`, 'error');
     }
   };
 
@@ -3091,6 +3129,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
       toggleStoredVoucher(id);
       setVouchers(getStoredVouchers());
       triggerToast('Cập nhật trạng thái voucher thành công (Lưu Supabase)');
+      await fetchRealData();
     } catch (err) {
       console.warn('Lỗi khi toggle voucher API, cập nhật cục bộ:', err);
       toggleStoredVoucher(id);
@@ -3104,10 +3143,13 @@ export default function AdminDashboardPage({ user, onLogout }) {
       if (typeof id === 'number' || !isNaN(Number(id))) {
         await adminApi.deleteVoucher(Number(id));
       }
+      removeStoredVoucher(id);
       setVouchers((prev) => prev.filter((v) => v.id !== id));
       triggerToast('Đã xóa voucher khỏi cơ sở dữ liệu thành công!');
+      await fetchRealData();
     } catch (err) {
       console.warn('Lỗi khi xóa voucher API, cập nhật cục bộ:', err);
+      removeStoredVoucher(id);
       setVouchers((prev) => prev.filter((v) => v.id !== id));
       triggerToast('Đã xóa voucher khỏi bộ nhớ', 'info');
     }
@@ -6056,19 +6098,53 @@ export default function AdminDashboardPage({ user, onLogout }) {
               </div>
               <button
                 onClick={() => {
-                  setNewPackageForm({
+                  const defaultToCandidate = packageFilter === 'CANDIDATE';
+                  setNewPackageForm(defaultToCandidate ? {
+                    planName: '',
+                    targetRole: 'CANDIDATE',
+                    planType: 'INTERVIEW_PRACTICE',
+                    price: 99000,
+                    durationDays: 30,
+                    quotaLimit: 10,
+                    description: '',
+                    features: [
+                      'Luyện phỏng vấn AI Voice Mock Studio theo hạn ngạch',
+                      'Chấm điểm & tối ưu hóa CV chuẩn ATS',
+                      'Mở khóa đáp án mẫu STAR & Lộ trình cải thiện',
+                      'Ngân hàng câu hỏi động theo JD thực tế',
+                    ],
+                    permissions: {
+                      maxQuestions: 5,
+                      maxDurationMinutes: 10,
+                      allowedPersonas: ['HR_MANAGER', 'TECH_LEAD'],
+                      allowedVoices: ['vi-native', 'eleven-alice'],
+                      coachHints: 3,
+                      unlockFullStar: true,
+                      unlockRoadmap: true,
+                      atsCvAnalysis: true,
+                    },
+                  } : {
                     planName: '',
                     targetRole: 'RECRUITER',
                     planType: 'COMBO',
                     price: 499000,
                     durationDays: 30,
                     quotaLimit: 10,
+                    description: '',
                     features: [
                       'Đăng tin tuyển dụng theo hạn ngạch',
                       'Thuật toán AI Matching 70/30 tự động',
                       'Lọc ứng viên Top 5% xuất sắc nhất',
                       'Mở khóa xem CV & thông tin liên hệ đầy đủ',
                     ],
+                    permissions: {
+                      jobPostingQuota: 10,
+                      aiMatching: true,
+                      unlockDirectContact: true,
+                      featuredJobBadge: false,
+                      exportReport: true,
+                      autoEmail: false,
+                    },
                   });
                   setShowCreatePackageModal(true);
                 }}
@@ -10456,6 +10532,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
                       setNewPackageForm((prev) => ({
                         ...prev,
                         targetRole: 'RECRUITER',
+                        planType: 'COMBO',
                         quotaLimit: 10,
                         features: [
                           'Đăng tin tuyển dụng theo hạn ngạch',
@@ -10492,6 +10569,7 @@ export default function AdminDashboardPage({ user, onLogout }) {
                       setNewPackageForm((prev) => ({
                         ...prev,
                         targetRole: 'CANDIDATE',
+                        planType: 'INTERVIEW_PRACTICE',
                         quotaLimit: 5,
                         features: [
                           'Luyện phỏng vấn AI Voice Mock Studio theo hạn ngạch',
@@ -10815,6 +10893,45 @@ export default function AdminDashboardPage({ user, onLogout }) {
             </div>
 
             <div className="space-y-4 text-xs">
+              {/* Target Role Switcher in Edit Modal */}
+              <div>
+                <label className="font-bold text-slate-700 block mb-1.5">Đối tượng áp dụng</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setEditPackageForm((prev) => ({
+                      ...prev,
+                      targetRole: 'RECRUITER',
+                      planType: prev.planType === 'INTERVIEW_PRACTICE' ? 'COMBO' : (prev.planType || 'COMBO'),
+                    }))}
+                    className={`p-2.5 rounded-2xl border flex items-center gap-2 font-bold cursor-pointer transition-all ${
+                      editPackageForm.targetRole !== 'CANDIDATE'
+                        ? 'border-[#5b48bd] bg-purple-50 text-[#5b48bd] ring-1 ring-purple-400'
+                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-base">business_center</span>
+                    <span>Nhà tuyển dụng (B2B)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditPackageForm((prev) => ({
+                      ...prev,
+                      targetRole: 'CANDIDATE',
+                      planType: prev.planType === 'JOB_POSTING' ? 'INTERVIEW_PRACTICE' : (prev.planType || 'INTERVIEW_PRACTICE'),
+                    }))}
+                    className={`p-2.5 rounded-2xl border flex items-center gap-2 font-bold cursor-pointer transition-all ${
+                      editPackageForm.targetRole === 'CANDIDATE'
+                        ? 'border-amber-500 bg-amber-50 text-amber-800 ring-1 ring-amber-400'
+                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-base">psychology</span>
+                    <span>Ứng viên (B2C)</span>
+                  </button>
+                </div>
+              </div>
+
               {/* 1-Click Quick Tier Presets in Edit Modal */}
               <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80">
                 <div className="text-[11px] font-bold text-slate-700 mb-1.5 flex items-center justify-between">

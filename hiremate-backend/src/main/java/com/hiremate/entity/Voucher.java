@@ -39,9 +39,11 @@ public class Voucher {
 
     @Column(name = "valid_from")
     @Builder.Default
+    @com.fasterxml.jackson.databind.annotation.JsonDeserialize(using = com.hiremate.util.FlexibleLocalDateTimeDeserializer.class)
     private LocalDateTime validFrom = LocalDateTime.now();
 
     @Column(name = "valid_to", nullable = false)
+    @com.fasterxml.jackson.databind.annotation.JsonDeserialize(using = com.hiremate.util.FlexibleLocalDateTimeDeserializer.class)
     private LocalDateTime validTo;
 
     @Column(name = "is_active")
