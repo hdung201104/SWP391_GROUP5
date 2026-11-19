@@ -863,6 +863,11 @@ export default function AiInterviewReportPage({
         if (blob && blob.size > 200) {
           const url = URL.createObjectURL(blob);
           const audio = new Audio(url);
+          try {
+            audio.preservesPitch = true;
+            audio.defaultPlaybackRate = 1.15;
+            audio.playbackRate = 1.15;
+          } catch (e) {}
           modelAudioRef.current = audio;
           audio.onended = () => {
             try { URL.revokeObjectURL(url); } catch (e) {}

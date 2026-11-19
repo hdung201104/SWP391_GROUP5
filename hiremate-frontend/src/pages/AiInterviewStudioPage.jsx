@@ -2113,6 +2113,12 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
       persistentAudioRef.current = audio;
       audio.muted = false;
       audio.src = blobUrl;
+      const previewRate = voiceParam === 'male' ? 1.05 : 1.16;
+      try {
+        audio.preservesPitch = true;
+        audio.defaultPlaybackRate = previewRate;
+        audio.playbackRate = previewRate;
+      } catch (e) {}
       currentAudioRef.current = audio;
 
       audio.onended = () => {
@@ -2909,6 +2915,13 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
       audio.onended = null;
       audio.onerror = null;
       audio.src = blobUrl;
+      const activePresetNow = selectedVoicePresetRef.current || selectedVoicePreset;
+      const speakRate = activePresetNow === 'eleven-george' ? 1.05 : 1.16;
+      try {
+        audio.preservesPitch = true;
+        audio.defaultPlaybackRate = speakRate;
+        audio.playbackRate = speakRate;
+      } catch (e) {}
       currentAudioRef.current = audio;
 
       audio.onplay = () => {
