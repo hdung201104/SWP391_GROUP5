@@ -442,10 +442,10 @@ export const enrichFeedbackAndModelAnswer = (
   let enrichedModel = (rawModel || '').trim();
   // Tách dòng [Chiến lược]: riêng do Gemini AI sinh ra cho đúng câu hỏi này (nếu có)
   let aiStrategyGuide = '';
-  const stratMatch = enrichedModel.match(/^\[Chiến lược\]\s*:\s*([^\n\r]+)/i);
+  const stratMatch = enrichedModel.match(/^\*{0,2}\[Chiến lược\]\*{0,2}\s*:\s*([^\n\r]+)/i);
   if (stratMatch) {
-    aiStrategyGuide = stratMatch[1].trim();
-    enrichedModel = enrichedModel.replace(/^\[Chiến lược\]\s*:\s*[^\n\r]+[\r\n]*/i, '').trim();
+    aiStrategyGuide = stratMatch[1].replace(/^\*+|\*+$/g, '').trim();
+    enrichedModel = enrichedModel.replace(/^\*{0,2}\[Chiến lược\]\*{0,2}\s*:\s*[^\n\r]+[\r\n]*/i, '').trim();
   }
 
   const isModelDefective =
@@ -481,7 +481,29 @@ export const enrichFeedbackAndModelAnswer = (
 
   const strategyGuide = aiStrategyGuide || `Nêu rõ bối cảnh thực tế -> Xác định trách nhiệm cá nhân -> Lựa chọn công cụ chuyên môn (${taxonomy.keywords.slice(0, 3).join(', ')}) -> Khẳng định hiệu quả bằng số liệu định lượng (${taxonomy.metricsTerm}).`;
 
-  return { qType, critique: enrichedCritique, modelAnswer: enrichedModel, strategyGuide };
+  // Trích xuất từ khóa trọng tâm RIÊNG cho từng câu hỏi từ nội dung câu hỏi + câu mẫu AI (không lặp cứng 3 từ giống nhau)
+  const combinedForKw = `${cleanQ} ${aiStrategyGuide} ${enrichedModel}`.toLowerCase();
+  const matchedTaxKws = (taxonomy?.keywords || []).filter((kw) => {
+    const tokens = kw.replace(/\(.*?\)/g, ' ').split(/[\/,]/).map((t) => t.trim().toLowerCase()).filter((t) => t.length >= 2);
+    return tokens.some((t) => combinedForKw.includes(t));
+  });
+  const extraTechPool = [
+    'Spring Boot', 'Spring Batch', 'Hibernate', 'JPA', 'HikariCP', 'Redis', 'Kafka', 'RabbitMQ',
+    'PostgreSQL', 'MySQL', 'Composite Index', 'Partitioning', 'B-Tree', 'Transaction ACID',
+    'Docker', 'Kubernetes', 'Microservices', 'RESTful API', 'JWT', 'OAuth2', 'CI/CD',
+    'React', 'TypeScript', 'Next.js', 'Redux', 'Web Vitals', 'SQL', 'ETL', 'Python',
+    'Selenium', 'Playwright', 'Postman', 'JMeter', 'Regression Test', 'BPMN', 'User Story', 'SEO', 'CRM', 'KPI', 'STAR'
+  ];
+  const dynamicKws = [...matchedTaxKws];
+  for (const term of extraTechPool) {
+    if (dynamicKws.length >= 4) break;
+    if (combinedForKw.includes(term.toLowerCase()) && !dynamicKws.some((k) => k.toLowerCase().includes(term.toLowerCase()))) {
+      dynamicKws.push(term);
+    }
+  }
+  const questionKeywords = dynamicKws.length > 0 ? dynamicKws.slice(0, 4) : (taxonomy?.keywords || []).slice(0, 3);
+
+  return { qType, critique: enrichedCritique, modelAnswer: enrichedModel, strategyGuide, questionKeywords };
 };
 
 /**
@@ -1545,8 +1567,7 @@ export default function AiInterviewReportPage({
         {/* ===================================================================== */}
         {/* TAB 1: MA TRẬN 4 TRỤ CỘT NĂNG LỰC & ĐỘ PHỦ TỪ KHÓA CHUYÊN NGÀNH       */}
         {/* ===================================================================== */}
-        {activeTab === 'overview' && (
-          <div className="space-y-6 animate-fadeIn">
+        <div className={activeTab === 'overview' ? 'space-y-6 animate-fadeIn' : 'hidden print:block space-y-6'}>
             
             {/* 4 Thẻ Trụ Cột Năng Lực Tuyển Dụng (2x2 Grid) */}
             <div className="bg-white rounded-3xl border border-slate-200/90 p-6 sm:p-7 shadow-xs space-y-6">
@@ -1949,14 +1970,12 @@ export default function AiInterviewReportPage({
               </div>
             </div>
 
-          </div>
-        )}
+        </div>
 
         {/* ===================================================================== */}
         {/* TAB 2: KHUÔN MẶT, BIỂU CẢM & NGỮ ĐIỆU GIỌNG NÓI (AI BIOMETRICS)        */}
         {/* ===================================================================== */}
-        {activeTab === 'biometrics' && (
-          <div className="space-y-6 animate-fadeIn font-sans">
+        <div className={activeTab === 'biometrics' ? 'space-y-6 animate-fadeIn font-sans' : 'hidden print:block space-y-6 mt-6 font-sans'}>
             
             {/* Header Tab 2 */}
             <div className="bg-white rounded-3xl border border-slate-200/90 p-6 sm:p-7 shadow-xs space-y-2">
@@ -2337,14 +2356,17 @@ export default function AiInterviewReportPage({
             </div>
             )}
 
-          </div>
-        )}
+        </div>
 
         {/* ===================================================================== */}
         {/* TAB 3: GIẢI PHẪU CHI TIẾT TỪNG CÂU HỎI & LỘ TRÌNH ÔN TẬP              */}
         {/* ===================================================================== */}
-        {activeTab === 'questions' && (
-          <div className="space-y-6 animate-fadeIn">
+        <div className={activeTab === 'questions' ? 'space-y-6 animate-fadeIn' : 'hidden print:block space-y-6 mt-6'}>
+            <div className="hidden print:block border-b-2 border-[#32247b] pb-2 mb-4">
+              <h3 className="text-base font-extrabold text-[#32247b]">
+                PHẦN III: GIẢI PHẪU CHI TIẾT TỪNG CÂU HỎI, NHẬN XÉT GIÁM KHẢO AI &amp; ĐÁP ÁN MẪU STAR ({totalQ} câu)
+              </h3>
+            </div>
             
             {/* Header Bộ Lọc Câu Hỏi */}
             <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 print:hidden">
@@ -2407,7 +2429,7 @@ export default function AiInterviewReportPage({
                 const rawModel = item.modelAnswer || item.aiSuggestedAnswer || '';
                 const targetPos = cleanTopic;
 
-                const { qType, critique, modelAnswer, strategyGuide } = enrichFeedbackAndModelAnswer(
+                const { qType, critique, modelAnswer, strategyGuide, questionKeywords } = enrichFeedbackAndModelAnswer(
                   qText,
                   ansText,
                   rawCritique,
@@ -2713,7 +2735,7 @@ export default function AiInterviewReportPage({
                         {/* Badges Từ khóa của riêng câu hỏi này */}
                         <div className="pt-2 border-t border-purple-100 flex flex-wrap items-center gap-1.5 text-[11px]">
                           <span className="text-slate-500 font-semibold">Từ khóa trọng tâm:</span>
-                          {taxonomy.keywords.slice(0, 3).map((kw, kIdx) => (
+                          {(questionKeywords || taxonomy.keywords.slice(0, 3)).map((kw, kIdx) => (
                             <span key={kIdx} className="px-2 py-0.5 rounded-md bg-purple-100 text-[#32247b] font-medium text-[10px]">
                               #{kw}
                             </span>
@@ -2932,8 +2954,7 @@ export default function AiInterviewReportPage({
             </div>
             )}
 
-          </div>
-        )}
+        </div>
 
         {/* Footer Actions */}
         <div className="bg-white rounded-3xl border border-slate-200 p-6 flex flex-col sm:flex-row items-center justify-between gap-4 print:hidden">

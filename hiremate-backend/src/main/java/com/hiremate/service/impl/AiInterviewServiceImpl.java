@@ -490,7 +490,8 @@ public class AiInterviewServiceImpl implements AiInterviewService {
 
         InterviewSession saved = sessionRepository.save(session);
         CANDIDATE_HISTORY_CACHE.remove(user.getUserId());
-        return mapToSummary(saved, new ArrayList<>(), null);
+        Long safeJobId = job != null ? job.getJobId() : null;
+        return mapToSummary(saved, new ArrayList<>(), null, null, null, null, null, null, user, safeJobId);
     }
 
     @Override
@@ -660,15 +661,17 @@ public class AiInterviewServiceImpl implements AiInterviewService {
         InterviewSession session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new IllegalArgumentException("Session not found: " + sessionId));
 
-        // Kiểm tra quyền truy cập
-        if (!session.getCandidate().getCandidateId().equals(user.getUserId())) {
+        // Kiểm tra quyền truy cập (dùng helper an toàn không kích hoạt lazy proxy)
+        Long ownerCandidateId = extractCandidateIdSafely(session, null);
+        if (ownerCandidateId == null || !ownerCandidateId.equals(user.getUserId())) {
             throw new SecurityException("Unauthorized access to this interview session.");
         }
+        Long safeJobId = extractJobIdSafely(session);
 
         // Nếu phiên phỏng vấn đã hoàn tất trước đó, trả về ngay kết quả đã lưu mà không gọi lại Gemini AI
         if (session.getCompletedAt() != null) {
             List<InterviewDetail> existingDetails = detailRepository.findBySession_SessionIdOrderByQuestionNumberAsc(sessionId);
-            return mapToSummary(session, existingDetails, null);
+            return mapToSummary(session, existingDetails, null, null, null, null, null, null, user, safeJobId);
         }
 
         // Lấy tất cả chi tiết câu hỏi của phiên này (đã sắp xếp theo questionNumber)
@@ -744,12 +747,10 @@ public class AiInterviewServiceImpl implements AiInterviewService {
             }
         }
 
-        // Nếu bất kỳ câu nào đang chứa câu mẫu dự phòng cũ (do timeout tạm thời), tự động chấm lại song song bằng Gemini AI
+        // Nếu bất kỳ câu nào đang chứa câu mẫu/nhận xét dự phòng (do timeout hoặc 429 tạm thời), tự động chấm lại bằng Gemini AI (có 1 lần retry)
         List<InterviewDetail> needsUpgrade = new ArrayList<>();
         for (InterviewDetail d : details) {
-            String sug = d.getAiSuggestedAnswer();
-            if (d.getCandidateAnswerText() != null && !d.getCandidateAnswerText().isBlank()
-                    && (sug == null || sug.isBlank() || sug.contains("Trong dự án trước đây khi xây dựng hệ thống cho vị trí"))) {
+            if (d.getCandidateAnswerText() != null && !d.getCandidateAnswerText().isBlank() && isFallbackDetail(d)) {
                 needsUpgrade.add(d);
             }
         }
@@ -760,26 +761,43 @@ public class AiInterviewServiceImpl implements AiInterviewService {
                 final String qText = d.getQuestionText();
                 final String aText = d.getCandidateAnswerText();
                 upgradeFutures.add(java.util.concurrent.CompletableFuture.supplyAsync(() -> {
-                    try {
-                        return geminiAiService.evaluateInterviewAnswer(qText, aText, sessionTargetPos);
-                    } catch (Exception ex) {
-                        log.warn(">> [AiInterviewService] Re-evaluate detail failed: {}", ex.getMessage());
-                        return null;
+                    for (int attempt = 0; attempt < 2; attempt++) {
+                        try {
+                            com.hiremate.dto.ai.AiInterviewEvaluation ev = geminiAiService.evaluateInterviewAnswer(qText, aText, sessionTargetPos);
+                            if (ev != null && !isFallbackSuggestedAnswer(ev.getSuggestedAnswer())) {
+                                return ev;
+                            }
+                            if (attempt == 0) {
+                                Thread.sleep(900);
+                            }
+                        } catch (Exception ex) {
+                            log.warn(">> [AiInterviewService] Re-evaluate detail attempt {} failed: {}", attempt + 1, ex.getMessage());
+                        }
                     }
+                    return null;
                 }));
             }
             for (int i = 0; i < needsUpgrade.size(); i++) {
                 try {
-                    com.hiremate.dto.ai.AiInterviewEvaluation eval = upgradeFutures.get(i).get(20, java.util.concurrent.TimeUnit.SECONDS);
+                    com.hiremate.dto.ai.AiInterviewEvaluation eval = upgradeFutures.get(i).get(30, java.util.concurrent.TimeUnit.SECONDS);
                     InterviewDetail d = needsUpgrade.get(i);
-                    if (eval != null && eval.getSuggestedAnswer() != null && !eval.getSuggestedAnswer().isBlank()
-                            && !eval.getSuggestedAnswer().contains("Trong dự án trước đây khi xây dựng hệ thống cho vị trí")) {
+                    if (eval != null && !isFallbackSuggestedAnswer(eval.getSuggestedAnswer())) {
+                        String upgradedFeedback = eval.getFeedback();
+                        // Giữ lại phần [Phong thái & Telemetry] đã ghi nhận lúc nộp câu trả lời (nếu có)
+                        if (d.getAiFeedback() != null) {
+                            int telIdx = d.getAiFeedback().indexOf("[Phong thái &");
+                            if (telIdx >= 0 && upgradedFeedback != null && !upgradedFeedback.contains("[Phong thái &")) {
+                                upgradedFeedback = upgradedFeedback + "\n\n" + d.getAiFeedback().substring(telIdx);
+                            }
+                        }
                         d.setAiEvaluationScore(eval.getScore() != null ? eval.getScore() : d.getAiEvaluationScore());
-                        d.setAiFeedback(eval.getFeedback());
+                        d.setAiFeedback(upgradedFeedback);
                         d.setAiSuggestedAnswer(eval.getSuggestedAnswer());
                         detailRepository.save(d);
                     }
-                } catch (Exception ignored) {}
+                } catch (Exception ex) {
+                    log.warn(">> [AiInterviewService] Re-evaluate future wait failed: {}", ex.getMessage());
+                }
             }
         }
 
@@ -880,36 +898,44 @@ public class AiInterviewServiceImpl implements AiInterviewService {
         // Gửi thông báo kết quả phỏng vấn AI cho ứng viên và tính retry progress (chỉ khi phiên có ít nhất 1 câu trả lời)
         Float improvementDelta = null;
         if (!details.isEmpty()) {
-            notificationService.createNotification(
-                    user.getUserId(),
-                    com.hiremate.enums.NotificationType.INTERVIEW_RESULT,
-                    "Kết quả phỏng vấn AI đã sẵn sàng!",
-                    String.format("Phiên phỏng vấn vị trí %s của bạn đã hoàn thành với điểm số: %.1f/100.",
-                            saved.getTargetPosition(), saved.getOverallScore()),
-                    saved.getSessionId(),
-                    "interview_sessions"
-            );
+            try {
+                notificationService.createNotification(
+                        user.getUserId(),
+                        com.hiremate.enums.NotificationType.INTERVIEW_RESULT,
+                        "Kết quả phỏng vấn AI đã sẵn sàng!",
+                        String.format("Phiên phỏng vấn vị trí %s của bạn đã hoàn thành với điểm số: %.1f/100.",
+                                saved.getTargetPosition(), saved.getOverallScore()),
+                        saved.getSessionId(),
+                        "interview_sessions"
+                );
+            } catch (Exception e) {
+                log.warn(">> [AiInterviewService] Không thể gửi thông báo kết quả phỏng vấn cho session {}: {}", saved.getSessionId(), e.getMessage());
+            }
 
             // Tính improvement_delta nếu là phiên retry (PRACTICE_RETRY)
-            if (saved.getSessionType() == InterviewSessionType.PRACTICE_RETRY && saved.getParentSessionId() != null) {
-                Optional<InterviewSession> parentOpt = sessionRepository.findById(saved.getParentSessionId());
-                if (parentOpt.isPresent()) {
-                    float scoreBefore = parentOpt.get().getOverallScore() != null
-                            ? parentOpt.get().getOverallScore() : 0f;
-                    float scoreAfter = saved.getOverallScore();
-                    // improvement_delta = score_after - score_before (per spec)
-                    improvementDelta = scoreAfter - scoreBefore;
+            try {
+                if (saved.getSessionType() == InterviewSessionType.PRACTICE_RETRY && saved.getParentSessionId() != null) {
+                    Optional<InterviewSession> parentOpt = sessionRepository.findById(saved.getParentSessionId());
+                    if (parentOpt.isPresent()) {
+                        float scoreBefore = parentOpt.get().getOverallScore() != null
+                                ? parentOpt.get().getOverallScore() : 0f;
+                        float scoreAfter = saved.getOverallScore();
+                        // improvement_delta = score_after - score_before (per spec)
+                        improvementDelta = scoreAfter - scoreBefore;
 
-                    PracticeProgressLog logEntry = PracticeProgressLog.builder()
-                            .candidateId(user.getUserId())
-                            .originalSessionId(parentOpt.get().getSessionId())
-                            .retrySessionId(saved.getSessionId())
-                            .scoreBefore(scoreBefore)
-                            .scoreAfter(scoreAfter)
-                            .improvementDelta(improvementDelta)
-                            .build();
-                    progressLogRepository.save(logEntry);
+                        PracticeProgressLog logEntry = PracticeProgressLog.builder()
+                                .candidateId(user.getUserId())
+                                .originalSessionId(parentOpt.get().getSessionId())
+                                .retrySessionId(saved.getSessionId())
+                                .scoreBefore(scoreBefore)
+                                .scoreAfter(scoreAfter)
+                                .improvementDelta(improvementDelta)
+                                .build();
+                        progressLogRepository.save(logEntry);
+                    }
                 }
+            } catch (Exception e) {
+                log.warn(">> [AiInterviewService] Không thể lưu PracticeProgressLog cho session {}: {}", saved.getSessionId(), e.getMessage());
             }
 
             // Cập nhật bộ nhớ dài hạn EMA (Exponential Moving Average) dựa trên 16 bảng CSDL sẵn có
@@ -920,7 +946,18 @@ public class AiInterviewServiceImpl implements AiInterviewService {
         agentMemoryManager.evictMemory(sessionId);
         CANDIDATE_HISTORY_CACHE.remove(user.getUserId());
 
-        return mapToSummary(saved, details, improvementDelta, summary, telemetry);
+        return mapToSummary(
+                saved,
+                details,
+                improvementDelta,
+                summary,
+                telemetry,
+                sessionPlanName,
+                sessionMaxQuestions,
+                sessionMaxDurationSeconds,
+                user,
+                safeJobId
+        );
     }
 
     @Override
@@ -947,7 +984,7 @@ public class AiInterviewServiceImpl implements AiInterviewService {
             }
         }
 
-        return mapToSummary(session, details, delta);
+        return mapToSummary(session, details, delta, null, null, null, null, null, user, extractJobIdSafely(session));
     }
 
     @Override
@@ -1055,7 +1092,7 @@ public class AiInterviewServiceImpl implements AiInterviewService {
             InterviewSession s,
             List<InterviewDetail> details,
             Float delta) {
-        return mapToSummary(s, details, delta, null, null, null, null, null);
+        return mapToSummary(s, details, delta, null, null, null, null, null, null, null);
     }
 
     private InterviewSummaryResponse mapToSummary(
@@ -1063,7 +1100,7 @@ public class AiInterviewServiceImpl implements AiInterviewService {
             List<InterviewDetail> details,
             Float delta,
             com.hiremate.dto.ai.AiSessionSummary summary) {
-        return mapToSummary(s, details, delta, summary, null, null, null, null);
+        return mapToSummary(s, details, delta, summary, null, null, null, null, null, null);
     }
 
     private InterviewSummaryResponse mapToSummary(
@@ -1072,7 +1109,7 @@ public class AiInterviewServiceImpl implements AiInterviewService {
             Float delta,
             com.hiremate.dto.ai.AiSessionSummary summary,
             Map<String, Object> telemetry) {
-        return mapToSummary(s, details, delta, summary, telemetry, null, null, null);
+        return mapToSummary(s, details, delta, summary, telemetry, null, null, null, null, null);
     }
 
     private InterviewSummaryResponse mapToSummary(
@@ -1084,21 +1121,39 @@ public class AiInterviewServiceImpl implements AiInterviewService {
             String precomputedPlanName,
             Integer precomputedMaxQ,
             Integer precomputedMaxDur) {
+        return mapToSummary(s, details, delta, summary, telemetry, precomputedPlanName, precomputedMaxQ, precomputedMaxDur, null, null);
+    }
+
+    private InterviewSummaryResponse mapToSummary(
+            InterviewSession s,
+            List<InterviewDetail> details,
+            Float delta,
+            com.hiremate.dto.ai.AiSessionSummary summary,
+            Map<String, Object> telemetry,
+            String precomputedPlanName,
+            Integer precomputedMaxQ,
+            Integer precomputedMaxDur,
+            User fallbackUser,
+            Long precomputedJobId) {
 
         List<InterviewDetailResponse> detailResponses = new ArrayList<>();
         for (InterviewDetail d : details) {
             detailResponses.add(mapToDetailResponse(d));
         }
 
+        Long safeCandidateId = extractCandidateIdSafely(s, fallbackUser);
+        User safeUser = extractCandidateUserSafely(s, fallbackUser);
+        Long safeJobId = precomputedJobId != null ? precomputedJobId : extractJobIdSafely(s);
+
         String candName = "Ứng viên";
         String candEmail = "";
-        if (s.getCandidate() != null) {
-            if (s.getCandidate().getUser() != null) {
-                candName = s.getCandidate().getUser().getFullName() != null ? s.getCandidate().getUser().getFullName() : "Ứng viên #" + s.getCandidate().getCandidateId();
-                candEmail = s.getCandidate().getUser().getEmail() != null ? s.getCandidate().getUser().getEmail() : "";
-            } else {
-                candName = "Ứng viên #" + s.getCandidate().getCandidateId();
-            }
+        if (safeUser != null) {
+            candName = safeUser.getFullName() != null
+                    ? safeUser.getFullName()
+                    : (safeCandidateId != null ? "Ứng viên #" + safeCandidateId : "Ứng viên");
+            candEmail = safeUser.getEmail() != null ? safeUser.getEmail() : "";
+        } else if (safeCandidateId != null) {
+            candName = "Ứng viên #" + safeCandidateId;
         }
         int qCount = detailResponses != null ? detailResponses.size() : 0;
 
@@ -1267,12 +1322,16 @@ public class AiInterviewServiceImpl implements AiInterviewService {
             maxDur = precomputedMaxDur;
         }
 
-        if (planName == null && s.getCandidate() != null && s.getCandidate().getUser() != null) {
-            com.hiremate.entity.SubscriptionPlan p = resolveActiveOrFreePlan(s.getCandidate().getUser());
-            if (p != null) {
-                planName = p.getPlanName() != null ? p.getPlanName() : "Free Candidate";
-                if (maxQ == null) maxQ = calculateMaxQuestions(p);
-                if (maxDur == null) maxDur = calculateMaxDurationSeconds(p);
+        if (planName == null && safeUser != null) {
+            try {
+                com.hiremate.entity.SubscriptionPlan p = resolveActiveOrFreePlan(safeUser);
+                if (p != null) {
+                    planName = p.getPlanName() != null ? p.getPlanName() : "Free Candidate";
+                    if (maxQ == null) maxQ = calculateMaxQuestions(p);
+                    if (maxDur == null) maxDur = calculateMaxDurationSeconds(p);
+                }
+            } catch (Exception e) {
+                log.warn(">> [AiInterviewService] Không thể tra cứu gói dịch vụ trong mapToSummary: {}", e.getMessage());
             }
         }
         if (planName == null) planName = "Free Candidate";
@@ -1281,13 +1340,13 @@ public class AiInterviewServiceImpl implements AiInterviewService {
 
         return InterviewSummaryResponse.builder()
                 .sessionId(s.getSessionId())
-                // Truy xuất qua Candidate subclass (Shared PK: candidateId = userId)
-                .candidateId(s.getCandidate() != null ? s.getCandidate().getCandidateId() : null)
+                // Truy xuất qua Candidate subclass (Shared PK: candidateId = userId) - an toàn với open-in-view: false
+                .candidateId(safeCandidateId)
                 .candidateName(candName)
                 .candidateEmail(candEmail)
                 .questionCount(qCount)
-                // Job nullable (phiên tự do không gắn job)
-                .jobId(s.getJob() != null ? s.getJob().getJobId() : null)
+                // Job nullable (phiên tự do không gắn job) - an toàn với open-in-view: false
+                .jobId(safeJobId)
                 .targetPosition(s.getTargetPosition())
                 .sessionType(s.getSessionType())
                 .overallScore(overall)
@@ -1309,6 +1368,74 @@ public class AiInterviewServiceImpl implements AiInterviewService {
                 .startedAt(s.getStartedAt())
                 .completedAt(s.getCompletedAt())
                 .build();
+    }
+
+    // ===== LAZY-SAFE HIBERNATE & FALLBACK DETECTION HELPERS =====
+
+    private boolean isFallbackSuggestedAnswer(String sug) {
+        if (sug == null || sug.isBlank()) return true;
+        return sug.contains("Trong dự án trước đây khi xây dựng hệ thống cho vị trí")
+                || sug.contains("Khi đối mặt với thử thách cốt lõi này")
+                || (!sug.contains("[S]") && !sug.contains("[A]") && sug.length() < 80);
+    }
+
+    private boolean isFallbackDetail(InterviewDetail d) {
+        if (d == null) return false;
+        if (isFallbackSuggestedAnswer(d.getAiSuggestedAnswer())) return true;
+        String fb = d.getAiFeedback();
+        if (fb == null || fb.isBlank()) return true;
+        return fb.contains("LỖI CHÍ MẠNG: Hoàn toàn thiếu thuật ngữ") && !fb.contains("Điểm đã làm được");
+    }
+
+    private Long extractCandidateIdSafely(InterviewSession s, User fallbackUser) {
+        if (s != null) {
+            try {
+                Candidate cand = s.getCandidate();
+                if (cand != null) {
+                    if (cand instanceof org.hibernate.proxy.HibernateProxy proxy) {
+                        Object id = proxy.getHibernateLazyInitializer().getIdentifier();
+                        if (id instanceof Long l) return l;
+                        if (id instanceof Number n) return n.longValue();
+                    }
+                    if (org.hibernate.Hibernate.isInitialized(cand)) {
+                        return cand.getCandidateId();
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+        return fallbackUser != null ? fallbackUser.getUserId() : null;
+    }
+
+    private User extractCandidateUserSafely(InterviewSession s, User fallbackUser) {
+        if (s != null) {
+            try {
+                Candidate cand = s.getCandidate();
+                if (cand != null && org.hibernate.Hibernate.isInitialized(cand)) {
+                    User u = cand.getUser();
+                    if (u != null && org.hibernate.Hibernate.isInitialized(u)) {
+                        return u;
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+        return fallbackUser;
+    }
+
+    private Long extractJobIdSafely(InterviewSession s) {
+        if (s == null) return null;
+        try {
+            com.hiremate.entity.Job job = s.getJob();
+            if (job == null) return null;
+            if (job instanceof org.hibernate.proxy.HibernateProxy proxy) {
+                Object id = proxy.getHibernateLazyInitializer().getIdentifier();
+                if (id instanceof Long l) return l;
+                if (id instanceof Number n) return n.longValue();
+            }
+            if (org.hibernate.Hibernate.isInitialized(job)) {
+                return job.getJobId();
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 
     /**
@@ -1366,9 +1493,11 @@ public class AiInterviewServiceImpl implements AiInterviewService {
         int nextNumber = previousDetails.size() + 1;
 
         String targetPosition = session.getTargetPosition();
-        if (session.getJob() != null && session.getJob().getTitle() != null) {
-            targetPosition += " [Vị trí JD: " + session.getJob().getTitle() + "]";
-        }
+        try {
+            if (session.getJob() != null && org.hibernate.Hibernate.isInitialized(session.getJob()) && session.getJob().getTitle() != null) {
+                targetPosition += " [Vị trí JD: " + session.getJob().getTitle() + "]";
+            }
+        } catch (Exception ignored) {}
         if (memory.getIdentifiedWeaknesses() != null && !memory.getIdentifiedWeaknesses().isEmpty()) {
             targetPosition += " [Lịch sử điểm yếu các phiên trước: " + String.join("; ", memory.getIdentifiedWeaknesses()) + "]";
         }

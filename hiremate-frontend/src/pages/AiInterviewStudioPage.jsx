@@ -3081,13 +3081,23 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
                   'Cần đào sâu hơn vào số liệu định lượng (%, thời gian, KPIs) theo mô hình STAR.',
                   'Bổ sung thêm các thuật ngữ kỹ thuật chuyên môn và phân tích trade-offs trong thiết kế.',
                 ],
-                improvementPlan: item.recommendedTasks
-                  ? (typeof item.recommendedTasks === 'string' ? JSON.parse(item.recommendedTasks || '[]') : item.recommendedTasks)
-                  : [
+                improvementPlan: (() => {
+                  const defaultPlan = [
                     'Luyện tập trả lời theo đúng 4 bước STAR: Bối cảnh, Nhiệm vụ, Hành động, Kết quả.',
                     'Đào sâu vào các kịch bản sự cố thực tế và các giải pháp tối ưu hệ thống.',
                     'Ôn tập thêm các thuật ngữ kỹ thuật cốt lõi trước khi phỏng vấn chính thức.',
-                  ],
+                  ];
+                  if (!item.recommendedTasks) return defaultPlan;
+                  if (Array.isArray(item.recommendedTasks)) return item.recommendedTasks;
+                  if (typeof item.recommendedTasks === 'string') {
+                    try {
+                      const parsed = JSON.parse(item.recommendedTasks);
+                      if (Array.isArray(parsed)) return parsed;
+                      if (Array.isArray(parsed?.tasks)) return parsed.tasks;
+                    } catch (e) {}
+                  }
+                  return defaultPlan;
+                })(),
                 telemetryReport: mappedTelemetry,
                 questions: (item.details || []).map((d) => {
                   const ans = d.candidateAnswerText || '';
@@ -3920,11 +3930,26 @@ export default function AiInterviewStudioPage({ user, onNavigate }) {
       if (!isIncomplete && activeSid) {
         try {
           const compRes = await interviewApi.completeSession(activeSid, telemetryPayload);
-          if (compRes?.data) {
-            backendResult = compRes.data;
+          const compData = compRes?.data?.data || compRes?.data || (compRes?.sessionId ? compRes : null);
+          if (compData) {
+            backendResult = compData;
           }
         } catch (err) {
-          console.warn('Backend completeSession failed, building evaluation summary:', err);
+          console.warn('Backend completeSession failed, retrying getSessionResult:', err);
+        }
+
+        // Lưới an toàn: nếu completeSession lỗi mạng/500 sau khi DB đã lưu, gọi lại getSessionResult để lấy đúng đánh giá Gemini từ Supabase
+        if (!backendResult?.details || backendResult.details.length === 0) {
+          try {
+            await new Promise((resolve) => setTimeout(resolve, 600));
+            const fallbackRes = await interviewApi.getSessionResult(activeSid);
+            const fallbackData = fallbackRes?.data?.data || fallbackRes?.data || (fallbackRes?.sessionId ? fallbackRes : null);
+            if (fallbackData?.details && fallbackData.details.length > 0) {
+              backendResult = fallbackData;
+            }
+          } catch (retryErr) {
+            console.warn('Fallback getSessionResult failed:', retryErr);
+          }
         }
       }
     } finally {

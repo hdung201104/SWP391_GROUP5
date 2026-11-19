@@ -322,7 +322,7 @@ public class GeminiAiServiceImpl implements GeminiAiService {
                         "   • Điểm đã làm được: Nhận xét cụ thể ý ứng viên vừa nói trong câu trả lời trên (nếu trả lời quá ngắn/lạc đề thì nói rõ chưa có ý chuyên môn nào).\n" +
                         "   • Lỗ hổng & điểm chưa đạt: Chỉ đích danh những kiến thức, bước kỹ thuật, công cụ hoặc số liệu còn thiếu đối với ĐÚNG câu hỏi này.\n" +
                         "   • Cách nâng cấp câu trả lời: Hướng dẫn cụ thể ứng viên cần bổ sung nội dung gì để trả lời thuyết phục hơn cho câu hỏi này.\n" +
-                        "3. \"strategy\": Đúng 1 - 2 câu ngắn gọn chỉ ra chiến lược ghi điểm RIÊNG cho câu hỏi này (nêu đích danh chủ đề/kỹ thuật của câu hỏi, không viết chung chung).\n" +
+                        "3. \"strategy\": Đúng 1 - 2 câu ngắn gọn HƯỚNG DẪN TRỰC TIẾP CHO ỨNG VIÊN chiến lược trả lời ghi điểm RIÊNG cho câu hỏi này (viết dưới góc độ tư vấn cho ứng viên cần nhấn mạnh kiến thức/kỹ thuật/số liệu nào, tuyệt đối không viết ghi chú cho giám khảo, không viết chung chung).\n" +
                         "4. \"suggestedAnswer\": BẮT BUỘC đóng vai ứng viên xuất sắc trả lời TRỰC TIẾP bằng ngôi 'Tôi' vào ĐÚNG câu hỏi trên, có tên công nghệ/nghiệp vụ, ví dụ và con số hợp lý gắn liền với câu hỏi, đúng định dạng 4 dòng:\n" +
                         "[S] Bối cảnh: ...\n" +
                         "[T] Nhiệm vụ: ...\n" +
@@ -2270,7 +2270,7 @@ public class GeminiAiServiceImpl implements GeminiAiService {
                         .uri(URI.create(endpoint))
                         .header("Content-Type", "application/json")
                         .header("X-goog-api-key", apiKey)
-                        .timeout(Duration.ofSeconds(14))
+                        .timeout(Duration.ofSeconds(18))
                         .POST(HttpRequest.BodyPublishers.ofString(requestBodyJson))
                         .build();
 
